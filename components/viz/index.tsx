@@ -58,23 +58,28 @@ export default function Viz({
   const { playing, currentTime, duration, play, stop: sharedStop, audioRef } = useSharedAudio();
 
   useEffect(() => {
-    listLibrary().then((lib) => {
-      const local = loadLocalTranscription();
-      const localFile = local && local.notes.length > 0 ? [{
-        name: local.name,
-        url: local.audioDataUrl || "",
-        id: "__local__",
-        notes: local.notes,
-        midi_base64: local.midi_base64,
-      } as LibFile] : [];
-      const allFiles = [...localFile, ...lib];
-      setFiles(allFiles);
+    const local = loadLocalTranscription();
+    const localFile = local && local.notes.length > 0 ? [{
+      name: local.name,
+      url: local.audioDataUrl || "",
+      id: "__local__",
+      notes: local.notes,
+      midi_base64: local.midi_base64,
+    } as LibFile] : [];
 
+    listLibrary().then((lib) => {
+      setFiles([...localFile, ...lib]);
       if (!selectedIdProp && localFile.length > 0 && lib.length === 0) {
         setSelectedIdLocal("__local__");
         onTrackSelected?.("__local__");
       }
-    }).catch(() => {});
+    }).catch(() => {
+      setFiles(localFile);
+      if (!selectedIdProp && localFile.length > 0) {
+        setSelectedIdLocal("__local__");
+        onTrackSelected?.("__local__");
+      }
+    });
   }, []);
 
   useEffect(() => {

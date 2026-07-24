@@ -200,7 +200,6 @@ export default function Transform({
           }
         }
         saveLocalTranscription(fileName, res.notes, res.midi_base64, originalBlobRef.current ?? undefined, analysisResult);
-        setSaved(true);
       }
     } catch (err) {
       setState("error");
@@ -638,7 +637,7 @@ export default function Transform({
                     Save to library
                   </button>
                 )}
-              {saved && (
+              {saved && signedIn && (
                 <span className="chip" style={{ cursor: "default" }}>
                   {wasLibraryFile ? "✓ In library" : "✓ Saved"}
                 </span>
