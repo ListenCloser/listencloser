@@ -213,35 +213,40 @@ export default function Viz({
   const isMidiSource = playbackSource === "midi" || playbackSource === "sheet-music";
   const vizTimeForMidi = isMidiSource ? midiTime : currentTime;
 
+  const tracksWithNotes = files.filter((f) => (f.notes?.length ?? 0) > 0);
+  const showTrackPicker = tracksWithNotes.length > 1;
+
   return (
     <div className="card">
       <h3 className="card-title"><span className="glyph">◈</span> Visualize</h3>
 
-      <div className="section-label">Select a transcribed track</div>
-      {files.filter((f) => (f.notes?.length ?? 0) > 0).length === 0 ? (
+      {tracksWithNotes.length === 0 ? (
         <div className="empty">
           No transcribed tracks in your library — transcribe one first.
         </div>
-      ) : (
-        <select
-          className="sel"
-          value={selectedId}
-          onChange={(e) => {
-            handleStop();
-            setSelectedIdLocal(e.target.value);
-            onTrackSelected?.(e.target.value);
-            setMode("piano-roll");
-          }}
-          style={{ width: "100%", marginBottom: "var(--s-3)" }}
-        >
-          <option value="">-- Pick a track --</option>
-          {files.filter((f) => (f.notes?.length ?? 0) > 0).map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-      )}
+      ) : showTrackPicker ? (
+        <>
+          <div className="section-label">Select a transcribed track</div>
+          <select
+            className="sel"
+            value={selectedId}
+            onChange={(e) => {
+              handleStop();
+              setSelectedIdLocal(e.target.value);
+              onTrackSelected?.(e.target.value);
+              setMode("piano-roll");
+            }}
+            style={{ width: "100%", marginBottom: "var(--s-3)" }}
+          >
+            <option value="">-- Pick a track --</option>
+            {tracksWithNotes.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </>
+      ) : null}
 
       {selected && (
         <>

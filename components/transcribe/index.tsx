@@ -424,8 +424,8 @@ export default function Transform({
             className={`chip${mode === m.id ? "" : " ghost"}`}
             onClick={() => {
               if (mode !== m.id && !isBusy) {
-                reset();
                 setMode(m.id);
+                setShowLibPicker(false);
               }
             }}
             disabled={isBusy && mode !== m.id}
@@ -478,7 +478,7 @@ export default function Transform({
                 <p className="muted" style={{ margin: "0 0 var(--s-3)" }}>
                   Using: <strong>{localTranscription.name}</strong>
                 </p>
-                <button className="btn btn-primary" onClick={() => {
+                <button className="btn" onClick={() => {
                   const localFile: LibFile = {
                     name: localTranscription.name,
                     url: localTranscription.audioDataUrl || "",
@@ -640,10 +640,10 @@ export default function Transform({
                 )}
               {saved && (
                 <span className="chip" style={{ cursor: "default" }}>
-                  {wasLibraryFile ? "✓ In library" : signedIn ? "✓ Saved" : "✓ Cached locally"}
+                  {wasLibraryFile ? "✓ In library" : "✓ Saved"}
                 </span>
               )}
-              {result?.midi_base64 && (
+              {result?.midi_base64 && mode === "transcribe" && (
                 <button className="btn" onClick={() => {
                   const bytes = Uint8Array.from(atob(result.midi_base64!), (c) => c.charCodeAt(0));
                   const blob = new Blob([bytes], { type: "audio/midi" });
