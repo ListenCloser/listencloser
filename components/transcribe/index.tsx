@@ -18,6 +18,7 @@ import { saveLocalTranscription, loadLocalTranscription, clearLocalTranscription
 import { useAuth } from "@/components/AuthProvider";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
+import Visualizer from "@/components/Visualizer";
 
 type Mode = "transcribe" | "midi-to-score";
 type State = "idle" | "enhancing" | "transcribing" | "converting" | "synthing" | "populated" | "error";
@@ -661,6 +662,23 @@ export default function Transform({
                   Download MIDI
                 </button>
               )}
+              {result?.midi_base64 && mode === "midi-to-score" && !musicXml && (
+                <button className="btn btn-primary" onClick={async () => {
+                  setState("converting");
+                  setStatus("Converting to sheet music…");
+                  try {
+                    const converted = await convertMusicFormat(result.midi_base64!, "midi", "musicxml");
+                    setMusicXml(atob(converted.data_base64));
+                    setStatus("Sheet music ready");
+                    setState("populated");
+                  } catch (err) {
+                    setStatus("⚠️ " + (err instanceof Error ? err.message : "conversion failed"));
+                    setState("populated");
+                  }
+                }}>
+                  Convert to Sheet Music
+                </button>
+              )}
               {musicXml && (
                 <button className="btn" onClick={downloadMusicXml}>
                   Export MusicXML
@@ -726,6 +744,8 @@ export default function Transform({
                 onEnded={() => { setWavPlaying(false); setPlayhead(0); }}
                 style={{ display: "none" }}
               />
+
+              {wavUrl && <Visualizer audioRef={audioRef} />}
 
               <div className="section-label">Piano roll</div>
               <div className="card">

@@ -198,14 +198,14 @@ export default function Viz({
     setPlaybackSource("midi");
   }, [selectedId]);
 
-  // Load MusicXML for sheet-music viz mode or sheet-music playback source
+  // Load MusicXML for sheet-music viz mode
   useEffect(() => {
-    if ((mode === "sheet-music" || playbackSource === "sheet-music") && selected?.midi_base64 && !musicXml) {
+    if (mode === "sheet-music" && selected?.midi_base64 && !musicXml) {
       convertMusicFormat(selected.midi_base64, "midi", "musicxml")
         .then((converted) => setMusicXml(atob(converted.data_base64)))
         .catch(() => setMusicXml(""));
     }
-  }, [mode, playbackSource, selected, musicXml]);
+  }, [mode, selected, musicXml]);
 
   // Calculate MIDI duration
   useEffect(() => {
@@ -305,7 +305,7 @@ export default function Viz({
               {formatTime(vizTime)} / {formatTime(totalDuration || 0)}
             </span>
           </div>
-          {playbackSource === "original" && selected.url && <Visualizer audioRef={audioRef} />}
+          <Visualizer audioRef={audioRef} />
 
           <div className="section-label">Visualization</div>
           <div style={{ display: "flex", gap: "var(--s-1)", marginBottom: "var(--s-3)", flexWrap: "wrap" }}>
@@ -340,7 +340,7 @@ export default function Viz({
             <>
               {musicXml ? (
                 <SheetMusic musicXml={musicXml} />
-              ) : selected.midi_base64 ? (
+              ) : selected.midi_base64 && musicXml !== "" ? (
                 <div style={{ textAlign: "center", padding: "var(--s-4)", color: "var(--muted)", fontSize: "var(--fs-sm)" }}>
                   Loading sheet music…
                 </div>
