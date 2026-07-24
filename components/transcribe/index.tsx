@@ -10,22 +10,22 @@ import {
   saveTranscription,
   blobToBase64,
   convertMusicFormat,
+  synthAudio,
   type TranscribeResult,
   type LibFile,
 } from "@/lib/music";
-import { saveLocalTranscription } from "@/lib/browser-store";
-import { synthMidi, type SynthHandle } from "@/lib/midi-synth";
+import { saveLocalTranscription, loadLocalTranscription, clearLocalTranscription } from "@/lib/browser-store";
 import { useAuth } from "@/components/AuthProvider";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
+import Visualizer from "@/components/Visualizer";
 
-type Mode = "transcribe" | "midi-to-score" | "audio-to-score";
-type State = "idle" | "enhancing" | "transcribing" | "converting" | "populated" | "error";
+type Mode = "transcribe" | "midi-to-score";
+type State = "idle" | "enhancing" | "transcribing" | "converting" | "synthing" | "populated" | "error";
 
 const MODES: { id: Mode; label: string; hint: string }[] = [
-  { id: "transcribe", label: "Transcribe", hint: "Audio → MIDI + notes" },
-  { id: "midi-to-score", label: "MIDI → Score", hint: "MIDI file → sheet music" },
-  { id: "audio-to-score", label: "Audio → Score", hint: "Audio → MIDI → sheet music" },
+  { id: "transcribe", label: "Audio → MIDI", hint: "Transcribe audio to MIDI" },
+  { id: "midi-to-score", label: "MIDI → Sheet Music", hint: "Convert MIDI to sheet music" },
 ];
 
 function audioFmtFromBlob(blob: Blob): string {
@@ -52,6 +52,8 @@ export default function Transform({
   onClearLibraryFile,
   onTranscriptionSaved,
   onBusyChange,
+  onNewTranscription,
+  analysis,
   initialResult,
   initialAudioName,
 }: {
@@ -63,6 +65,8 @@ export default function Transform({
   onClearLibraryFile?: () => void;
   onTranscriptionSaved?: () => void;
   onBusyChange?: (busy: boolean) => void;
+  onNewTranscription?: () => void;
+  analysis?: TranscribeResult["analysis"] | null;
   initialResult?: TranscribeResult | null;
   initialAudioName?: string;
 }) {
@@ -85,8 +89,8 @@ export default function Transform({
   const [wasLibraryFile, setWasLibraryFile] = useState(false);
   const [libraryFileId, setLibraryFileId] = useState<string | null>(null);
   const originalBlobRef = useRef<Blob | null>(null);
-  const synthRef = useRef<SynthHandle | null>(null);
-  const [midiPlaying, setMidiPlaying] = useState(false);
+  const [wavUrl, setWavUrl] = useState("");
+  const [wavPlaying, setWavPlaying] = useState(false);
   const [musicXml, setMusicXml] = useState("");
 
   useEffect(() => {
@@ -101,29 +105,32 @@ export default function Transform({
   }, []);
 
   useEffect(() => {
-    return () => { synthRef.current?.stop(); };
+    return () => {
+      if (wavUrl) URL.revokeObjectURL(wavUrl);
+    };
   }, []);
 
   useEffect(() => {
-    onBusyChange?.(state === "enhancing" || state === "transcribing");
+    onBusyChange?.(state === "enhancing" || state === "transcribing" || state === "converting" || state === "synthing");
   }, [state, onBusyChange]);
 
   useEffect(() => {
     if (libraryFileToLoad) {
+      setMode("transcribe");
       onSelectLibraryFile(libraryFileToLoad);
       onClearLibraryFile?.();
     }
   }, [libraryFileToLoad]);
 
   async function processBlob(blob: Blob, fileName: string, fmtOverride?: string, sourceLibId?: string | null) {
+    clearLocalTranscription();
+    onNewTranscription?.();
     setResult(null);
     setShowLibPicker(false);
     setPlayhead(0);
     setWasLibraryFile(false);
     setMusicXml("");
     originalBlobRef.current = blob;
-
-    const toScore = mode === "audio-to-score";
 
     try {
       const b64 = await blobToBase64(blob);
@@ -146,19 +153,22 @@ export default function Transform({
       setAnalyzeBase64(transcribeBase64);
       onTranscribed?.(res, fileName);
 
-      if (toScore && res.midi_base64) {
-        setState("converting");
-        setStatus("Converting to sheet music…");
+      if (res.midi_base64) {
+        setState("synthing");
+        setStatus("Synthesizing audio…");
         try {
-          const converted = await convertMusicFormat(res.midi_base64, "midi", "musicxml");
-          setMusicXml(atob(converted.data_base64));
+          const synth = await synthAudio(res.midi_base64);
+          const bytes = Uint8Array.from(atob(synth.wav_base64), (c) => c.charCodeAt(0));
+          const blob = new Blob([bytes], { type: "audio/wav" });
+          if (wavUrl) URL.revokeObjectURL(wavUrl);
+          setWavUrl(URL.createObjectURL(blob));
         } catch {
-          setStatus("⚠️ Could not convert to sheet music");
+          // synth failed, will fall back to MIDI display only
         }
       }
 
       setState("populated");
-      setStatus(toScore ? "Sheet music ready" : `${res.num_notes} notes extracted`);
+      setStatus(`${res.num_notes} notes extracted`);
 
       if (signedIn && res.notes.length > 0) {
         try {
@@ -198,7 +208,6 @@ export default function Transform({
           }
         }
         saveLocalTranscription(fileName, res.notes, res.midi_base64, originalBlobRef.current ?? undefined, analysisResult);
-        setSaved(true);
       }
     } catch (err) {
       setState("error");
@@ -207,6 +216,8 @@ export default function Transform({
   }
 
   async function handleMidiFile(file: File) {
+    clearLocalTranscription();
+    onNewTranscription?.();
     setAudioName(file.name);
     setResult(null);
     setShowLibPicker(false);
@@ -218,6 +229,11 @@ export default function Transform({
       const b64 = await blobToBase64(file);
       const converted = await convertMusicFormat(b64, "midi", "musicxml");
       setMusicXml(atob(converted.data_base64));
+      setResult({
+        notes: [],
+        num_notes: 0,
+        midi_base64: b64,
+      });
       setState("populated");
       setStatus("Sheet music ready");
     } catch (err) {
@@ -273,9 +289,9 @@ export default function Transform({
   }
 
   function reset() {
-    synthRef.current?.stop();
-    synthRef.current = null;
-    setMidiPlaying(false);
+    if (wavUrl) URL.revokeObjectURL(wavUrl);
+    setWavUrl("");
+    setWavPlaying(false);
     setState("idle");
     setResult(null);
     setAudioName("");
@@ -320,30 +336,57 @@ export default function Transform({
     setWasLibraryFile(true);
     setLibraryFileId(file.id);
     setMusicXml("");
+    setPlayhead(0);
+    audioRef.current?.pause();
+    setWavPlaying(false);
 
+    if (mode === "midi-to-score") {
+      const midiB64 = file.midi_base64;
+      if (!midiB64) {
+        setState("error");
+        setStatus("⚠️ No MIDI data available for this track");
+        return;
+      }
+      if (file.musicxml) {
+        setMusicXml(file.musicxml);
+        setResult({
+          notes: file.notes ?? [],
+          num_notes: file.notes?.length ?? 0,
+          midi_base64: midiB64,
+        });
+        setState("populated");
+        setStatus("Sheet music ready");
+        return;
+      }
+      setState("converting");
+      setStatus("Converting to sheet music…");
+      try {
+        const converted = await convertMusicFormat(midiB64, "midi", "musicxml");
+        setMusicXml(atob(converted.data_base64));
+        setResult({
+          notes: file.notes ?? [],
+          num_notes: file.notes?.length ?? 0,
+          midi_base64: midiB64,
+        });
+        setState("populated");
+        setStatus("Sheet music ready");
+      } catch {
+        setState("error");
+        setStatus("⚠️ Could not convert to sheet music");
+      }
+      return;
+    }
+
+    // Audio → MIDI mode
     if (file.notes && file.notes.length > 0) {
       setResult({
         notes: file.notes,
         num_notes: file.notes.length,
+        midi_base64: file.midi_base64,
         wav_url: file.url,
       });
       setState("populated");
       setStatus(`${file.notes.length} notes loaded from library`);
-      setPlayhead(0);
-
-      if (mode === "midi-to-score" && file.midi_base64) {
-        setState("converting");
-        setStatus("Converting to sheet music…");
-        try {
-          const converted = await convertMusicFormat(file.midi_base64, "midi", "musicxml");
-          setMusicXml(atob(converted.data_base64));
-          setState("populated");
-          setStatus("Sheet music ready");
-        } catch {
-          setStatus("⚠️ Could not convert to sheet music");
-          setState("populated");
-        }
-      }
       return;
     }
 
@@ -354,17 +397,6 @@ export default function Transform({
       setResult(res);
       setAnalyzeBase64(res.wav_base64 ?? "");
       onTranscribed?.(res, file.name);
-
-      if (mode === "audio-to-score" && res.midi_base64) {
-        setState("converting");
-        setStatus("Converting to sheet music…");
-        try {
-          const converted = await convertMusicFormat(res.midi_base64, "midi", "musicxml");
-          setMusicXml(atob(converted.data_base64));
-        } catch {
-          setStatus("⚠️ Could not convert to sheet music");
-        }
-      }
 
       setState("populated");
       setStatus(`${res.num_notes} notes extracted`);
@@ -396,7 +428,9 @@ export default function Transform({
   }
 
   const canUseLibrary = signedIn && libFiles.length > 0;
-  const acceptTypes = mode === "midi-to-score" ? ".mid,.midi,.musicxml" : "audio/*";
+  const localTranscription = !signedIn ? loadLocalTranscription() : null;
+  const midiTranscriptions = libFiles.filter((f) => f.midi_base64);
+  const isBusy = state === "enhancing" || state === "transcribing" || state === "converting" || state === "synthing";
 
   return (
     <div className="card">
@@ -408,8 +442,13 @@ export default function Transform({
           <button
             key={m.id}
             className={`chip${mode === m.id ? "" : " ghost"}`}
-            onClick={() => { if (state === "idle") setMode(m.id); }}
-            disabled={state !== "idle"}
+            onClick={() => {
+              if (mode !== m.id && !isBusy) {
+                setMode(m.id);
+                setShowLibPicker(false);
+              }
+            }}
+            disabled={isBusy && mode !== m.id}
             title={m.hint}
           >
             {m.label}
@@ -421,48 +460,91 @@ export default function Transform({
         <>
           <div className="section-label">
             {mode === "transcribe" && "Choose an audio source"}
-            {mode === "midi-to-score" && "Choose a MIDI file"}
-            {mode === "audio-to-score" && "Choose an audio source"}
+            {mode === "midi-to-score" && "MIDI → Sheet Music"}
           </div>
-          <div className="source-grid">
-            <div className="source-card" onClick={() => inputRef.current?.click()}>
-              <span className="sc-icon">⬆</span>
-              <span className="sc-label">Upload file</span>
-              <span className="sc-hint">
-                {mode === "midi-to-score" ? "MIDI files" : "WAV · MP3 · M4A"}
-              </span>
-              <input
-                ref={inputRef}
-                type="file"
-                accept={acceptTypes}
-                onChange={onUploadNew}
-                style={{ display: "none" }}
-              />
-            </div>
-            {mode !== "midi-to-score" && (
+
+          {mode === "transcribe" && (
+            <div className="source-grid">
+              <div className="source-card" onClick={() => inputRef.current?.click()}>
+                <span className="sc-icon">⬆</span>
+                <span className="sc-label">Upload file</span>
+                <span className="sc-hint">WAV · MP3 · M4A</span>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept="audio/*"
+                  onChange={onUploadNew}
+                  style={{ display: "none" }}
+                />
+              </div>
               <div className="source-card" onClick={recording ? stopRecording : startRecording}>
                 <span className="sc-icon">{recording ? "■" : "●"}</span>
                 <span className="sc-label">{recording ? "Stop" : "Record"}</span>
                 <span className="sc-hint">Use your mic</span>
               </div>
-            )}
-            <div
-              className={`source-card${canUseLibrary ? "" : " disabled"}`}
-              onClick={() => canUseLibrary && setShowLibPicker(true)}
-            >
-              <span className="sc-icon">▤</span>
-              <span className="sc-label">From library</span>
-              <span className="sc-hint">
-                {!signedIn ? "Sign in" : libFiles.length === 0 ? "No saved tracks" : "Pick a track"}
-              </span>
+              {signedIn && canUseLibrary && (
+                <div className="source-card" onClick={() => setShowLibPicker(true)}>
+                  <span className="sc-icon">▤</span>
+                  <span className="sc-label">From library</span>
+                  <span className="sc-hint">{libFiles.length === 0 ? "No saved tracks" : "Pick a track"}</span>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
-          {!signedIn && (
+          {mode === "midi-to-score" && !signedIn && (
+            localTranscription?.midi_base64 ? (
+              <div style={{ textAlign: "center", padding: "var(--s-4)" }}>
+                <p className="muted" style={{ margin: "0 0 var(--s-3)" }}>
+                  Using: <strong>{localTranscription.name}</strong>
+                </p>
+                <button className="btn btn-primary" onClick={() => {
+                  const localFile: LibFile = {
+                    name: localTranscription.name,
+                    url: localTranscription.audioDataUrl || "",
+                    id: "__local__",
+                    notes: localTranscription.notes,
+                    midi_base64: localTranscription.midi_base64,
+                  };
+                  onSelectLibraryFile(localFile);
+                }}>
+                  Convert to Sheet Music
+                </button>
+              </div>
+            ) : (
+              <p className="muted" style={{ fontSize: "var(--fs-sm)", textAlign: "center", padding: "var(--s-4)" }}>
+                Transcribe an audio song first — then come back for sheet music.
+              </p>
+            )
+          )}
+
+          {mode === "midi-to-score" && signedIn && (
+            <div className="source-grid">
+              <div className="source-card" onClick={() => inputRef.current?.click()}>
+                <span className="sc-icon">⬆</span>
+                <span className="sc-label">Upload MIDI</span>
+                <span className="sc-hint">.mid files</span>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept=".mid,.midi"
+                  onChange={onUploadNew}
+                  style={{ display: "none" }}
+                />
+              </div>
+              {canUseLibrary && (
+                <div className="source-card" onClick={() => setShowLibPicker(true)}>
+                  <span className="sc-icon">▤</span>
+                  <span className="sc-label">From library</span>
+                  <span className="sc-hint">{midiTranscriptions.length === 0 ? "No transcriptions" : "Pick a track"}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!signedIn && mode === "transcribe" && (
             <p className="muted" style={{ fontSize: "var(--fs-sm)", textAlign: "center" }}>
-              {mode === "transcribe" && "Transcribe freely — sign in to save results to your library."}
-              {mode === "midi-to-score" && "Convert MIDI to sheet music — sign in to save results."}
-              {mode === "audio-to-score" && "Convert audio to sheet music — sign in to save results."}
+              Transcribe freely — sign in to save results to your library.
             </p>
           )}
         </>
@@ -470,53 +552,94 @@ export default function Transform({
 
       {showLibPicker && (
         <>
-          <div className="section-label">Pick a saved track</div>
-          {libFiles.map((f) => (
-              <div key={f.id} className="track" style={{ cursor: "pointer" }} onClick={() => onSelectLibraryFile(f)}>
-                <div className="track-head">
-                  <div className="track-name">{f.name}</div>
-                  <div className="track-actions">
-                    <span className={f.notes && f.notes.length > 0 ? "chip" : "btn btn-primary"} style={f.notes && f.notes.length > 0 ? {} : { fontSize: "var(--fs-xs)", padding: "2px 8px" }}>{f.notes && f.notes.length > 0 ? "View" : "Transcribe"}</span>
-                  </div>
+          <div className="section-label">
+            {mode === "midi-to-score" ? "Pick a transcription with MIDI" : "Pick a saved track"}
+          </div>
+          {(!signedIn && localTranscription) ? (
+            <div
+              key="__local__"
+              className="track"
+              style={{ cursor: "pointer" }}
+              onClick={() => {
+                const localFile: LibFile = {
+                  name: localTranscription.name,
+                  url: localTranscription.audioDataUrl || "",
+                  id: "__local__",
+                  notes: localTranscription.notes,
+                  midi_base64: localTranscription.midi_base64,
+                };
+                onSelectLibraryFile(localFile);
+              }}
+            >
+              <div className="track-head">
+                <div className="track-name">{localTranscription.name}</div>
+                <div className="track-actions">
+                  <span className="chip" style={{ fontSize: "var(--fs-xs)" }}>
+                    {mode === "midi-to-score" ? "Convert" : "View"}
+                  </span>
                 </div>
               </div>
-            ))}
+            </div>
+          ) : (
+            <>
+              {(mode === "midi-to-score" ? midiTranscriptions : libFiles).map((f) => (
+                <div key={f.id} className="track" style={{ cursor: "pointer" }} onClick={() => onSelectLibraryFile(f)}>
+                  <div className="track-head">
+                    <div className="track-name">{f.name}</div>
+                    <div className="track-actions">
+                      <span className="chip" style={{ fontSize: "var(--fs-xs)" }}>
+                        {mode === "midi-to-score" ? "Convert" : (f.notes && f.notes.length > 0 ? "View" : "Transcribe")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {(mode === "midi-to-score" && midiTranscriptions.length === 0) && (
+                <p className="muted" style={{ fontSize: "var(--fs-sm)", textAlign: "center", padding: "var(--s-4)" }}>
+                  No transcriptions with MIDI data yet. Transcribe an audio track first.
+                </p>
+              )}
+            </>
+          )}
           <div className="toolbar">
             <button className="btn btn-ghost" onClick={() => setShowLibPicker(false)}>Back</button>
           </div>
         </>
       )}
 
-      {(state === "enhancing" || state === "transcribing" || state === "converting" || state === "populated") && (
+      {isBusy && (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", margin: "var(--s-3) 0" }}>
             <span className="chip-q major" style={{ borderRadius: "var(--r-md)" }}>{audioName || "audio"}</span>
             <span className="status" style={{ fontSize: "var(--fs-sm)" }}>{status}</span>
           </div>
-          <div style={{ display: "flex", gap: "var(--s-3)", marginBottom: "var(--s-2)" }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: "var(--fs-xs)", color: state === "enhancing" ? "var(--text)" : "var(--muted)" }}>1. Clean</span>
-                <span style={{ fontSize: "var(--fs-xs)", color: state === "enhancing" ? "var(--accent)" : state === "transcribing" || state === "populated" ? "var(--success)" : "var(--muted)" }}>
-                  {state === "enhancing" ? "…" : "✓"}
-                </span>
+          {(() => {
+            const done = (s: State) => s === "populated";
+            const steps: { label: string; active: boolean; done: boolean }[] = [
+              { label: "Clean", active: state === "enhancing", done: done(state) || state === "transcribing" || state === "converting" || state === "synthing" },
+              { label: mode === "midi-to-score" ? "Convert" : "Transcribe", active: state === "transcribing" || state === "converting", done: done(state) || state === "synthing" },
+            ];
+            if (mode === "transcribe") steps.push({ label: "Synthesize", active: state === "synthing", done: done(state) });
+            return (
+              <div style={{ display: "flex", gap: "var(--s-2)", marginBottom: "var(--s-2)" }}>
+                {steps.map((step, i) => (
+                  <div key={i} style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: "var(--fs-xs)", color: step.active ? "var(--text)" : "var(--muted)" }}>
+                        {i + 1}. {step.label}
+                      </span>
+                      <span style={{ fontSize: "var(--fs-xs)", color: step.active ? "var(--accent)" : step.done ? "var(--success)" : "var(--muted)" }}>
+                        {step.active ? "…" : step.done ? "✓" : ""}
+                      </span>
+                    </div>
+                    <div style={{ height: 4, background: "var(--panel-3)", borderRadius: "var(--r-full)" }}>
+                      <div className={step.active ? "pulse" : ""} style={{ height: "100%", width: step.done ? "100%" : step.active ? "60%" : "0%", background: step.done ? "var(--success)" : "var(--accent)", borderRadius: "var(--r-full)", transition: "width 0.3s" }} />
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ height: 4, background: "var(--panel-3)", borderRadius: "var(--r-full)" }}>
-                <div className="pulse" style={{ height: "100%", width: state === "enhancing" ? "60%" : "100%", background: state === "enhancing" ? "var(--accent)" : "var(--success)", borderRadius: "var(--r-full)", transition: "width 0.3s" }} />
-              </div>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: "var(--fs-xs)", color: state === "transcribing" ? "var(--text)" : "var(--muted)" }}>2. Transcribe</span>
-                <span style={{ fontSize: "var(--fs-xs)", color: state === "transcribing" ? "var(--accent)" : "var(--muted)" }}>
-                  {state === "transcribing" ? "…" : ""}
-                </span>
-              </div>
-              <div style={{ height: 4, background: "var(--panel-3)", borderRadius: "var(--r-full)" }}>
-                <div className={state === "transcribing" ? "pulse" : ""} style={{ height: "100%", width: state === "transcribing" ? "60%" : "0%", background: "var(--accent)", borderRadius: "var(--r-full)", transition: "width 0.3s" }} />
-              </div>
-            </div>
-          </div>
+            );
+          })()}
         </>
       )}
 
@@ -526,7 +649,7 @@ export default function Transform({
               <div>
                 <h3 style={{ margin: 0, fontSize: "var(--fs-base)" }}>{audioName}</h3>
                 <p className="muted" style={{ margin: "var(--s-1) 0 0" }}>
-                  {result ? `${result.num_notes} notes` : "Sheet music"}
+                  {musicXml ? "Sheet music" : `${result.num_notes} notes`}
                 </p>
               </div>
               <div style={{ display: "flex", gap: "var(--s-2)" }}>
@@ -535,10 +658,49 @@ export default function Transform({
                     Save to library
                   </button>
                 )}
-              {saved && (
-                <span className="chip" style={{ cursor: "default" }}>{wasLibraryFile ? "✓ In library" : "✓ Saved"}</span>
+              {saved && signedIn && (
+                <span className="chip" style={{ cursor: "default" }}>
+                  {wasLibraryFile ? "✓ In library" : "✓ Saved"}
+                </span>
               )}
-              {musicXml && (
+              {result?.midi_base64 && mode === "transcribe" && (
+                <button className="btn" onClick={() => {
+                  const bytes = Uint8Array.from(atob(result.midi_base64!), (c) => c.charCodeAt(0));
+                  const blob = new Blob([bytes], { type: "audio/midi" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = (audioName || "midi").replace(/\.[^.]+$/, "") + ".mid";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}>
+                  Download MIDI
+                </button>
+              )}
+              {result?.midi_base64 && mode === "midi-to-score" && !musicXml && (
+                <button className="btn btn-primary" onClick={async () => {
+                  setState("converting");
+                  setStatus("Converting to sheet music…");
+                  try {
+                    const converted = await convertMusicFormat(result.midi_base64!, "midi", "musicxml");
+                    const xml = atob(converted.data_base64);
+                    setMusicXml(xml);
+                    if (signedIn && libraryFileId) {
+                      try {
+                        await saveTranscription(libraryFileId, result.notes, result.midi_base64, undefined, xml);
+                      } catch { /* ok if save fails */ }
+                    }
+                    setStatus("Sheet music ready");
+                    setState("populated");
+                  } catch (err) {
+                    setStatus("⚠️ " + (err instanceof Error ? err.message : "conversion failed"));
+                    setState("populated");
+                  }
+                }}>
+                  Convert to Sheet Music
+                </button>
+              )}
+              {musicXml && mode === "midi-to-score" && (
                 <button className="btn" onClick={downloadMusicXml}>
                   Export MusicXML
                 </button>
@@ -555,67 +717,65 @@ export default function Transform({
                       onGoToAnalyze();
                     }}
                   >
-                    Analyze
+                    {analysis ? "View Analysis" : "Analyze"}
                   </button>
               )}
               <button className="btn btn-ghost" onClick={reset}>✕ Clear</button>
             </div>
           </div>
 
-          <div className="section-label">Playback</div>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", marginBottom: "var(--s-2)" }}>
-            <button className="icon-btn" onClick={() => {
-              if (synthRef.current) {
-                if (synthRef.current.isPaused) {
-                  synthRef.current.resume();
-                  setMidiPlaying(true);
-                } else {
-                  synthRef.current.pause();
-                  setMidiPlaying(false);
-                }
-              } else if (result.notes.length > 0) {
-                synthRef.current = synthMidi(result.notes, (t) => setPlayhead(t));
-                setMidiPlaying(true);
-              }
-            }}>
-              {midiPlaying ? "⏸" : "▶"}
-            </button>
-            <span className="muted" style={{ fontFamily: "monospace", fontSize: "var(--fs-xs)" }}>
-              {Math.floor(playhead)}s — MIDI
-            </span>
-          </div>
-
-          {musicXml && (
+          {musicXml && mode === "midi-to-score" && (
             <>
               <div className="section-label">Sheet music</div>
               <SheetMusic musicXml={musicXml} />
             </>
           )}
 
-          {result && (
+          {mode === "transcribe" && result && result.notes.length > 0 && (
             <>
               <div className="section-label">Playback</div>
-              {result.wav_url && (
-                <audio
-                  ref={audioRef}
-                  controls
-                  src={result.wav_url}
-                  style={{ width: "100%", marginBottom: "var(--s-2)" }}
-                  onTimeUpdate={(e) => setPlayhead(e.currentTarget.currentTime)}
-                  onPlay={() => setPlayhead(audioRef.current?.currentTime ?? 0)}
-                />
+              {wavUrl ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", marginBottom: "var(--s-2)" }}>
+                  <button className="icon-btn" onClick={() => {
+                    const a = audioRef.current;
+                    if (!a) return;
+                    if (a.paused) {
+                      a.play().catch(() => {});
+                      setWavPlaying(true);
+                    } else {
+                      a.pause();
+                      setWavPlaying(false);
+                    }
+                  }}>
+                    {wavPlaying ? "⏸" : "▶"}
+                  </button>
+                  <span className="muted" style={{ fontFamily: "monospace", fontSize: "var(--fs-xs)" }}>
+                    {Math.floor(playhead)}s — Audio
+                  </span>
+                </div>
+              ) : (
+                <p className="muted" style={{ fontSize: "var(--fs-sm)" }}>Audio synthesis unavailable</p>
               )}
+              <audio
+                ref={audioRef}
+                src={wavUrl}
+                onTimeUpdate={(e) => setPlayhead(e.currentTarget.currentTime)}
+                onPlay={() => setWavPlaying(true)}
+                onPause={() => setWavPlaying(false)}
+                onEnded={() => { setWavPlaying(false); setPlayhead(0); }}
+                style={{ display: "none" }}
+              />
+
+              {wavUrl && <Visualizer audioRef={audioRef} />}
 
               <div className="section-label">Piano roll</div>
-              {result.notes.length > 0 && (
-                <div className="card">
-                  <PianoRoll
-                    notes={result.notes}
-                    playheadTime={playhead}
-                    bpm={result.analysis?.tempo?.bpm ?? 120}
-                  />
-                </div>
-              )}
+              <div className="card">
+                <PianoRoll
+                  notes={result.notes}
+                  playheadTime={playhead}
+                  bpm={result.analysis?.tempo?.bpm ?? 120}
+                />
+              </div>
             </>
           )}
         </>

@@ -209,7 +209,7 @@ html,body {
   background:var(--grad-accent-2); color:#080515;
   border-color:transparent; font-weight:600;
 }
-.btn-primary:hover:not(:disabled){ filter:brightness(1.15); }
+.btn-primary:hover:not(:disabled){ filter:brightness(1.15); border-color:transparent; }
 .btn-ghost { background:transparent; border-color:transparent; color:var(--muted); }
 .btn-ghost:hover:not(:disabled){ color:var(--text); background:var(--panel-2); }
 
@@ -272,6 +272,13 @@ html,body {
 .score-audio { margin-top:8px; }
 .score-audio .abcjs-inline-midi { background:var(--panel-2); border-radius:10px; padding:8px; }
 .score-audio .abcjs-inline-midi .abcjs-btn { color:var(--muted); font-size:13px; }
+
+/* ── Sheet music (OSMD) ── */
+.sheet-music-container { background:#ffffff; color:#1a1a1a; }
+.sheet-music-container svg { max-width:100%; height:auto; }
+.sheet-music-container .osmd { background:#ffffff; }
+.sheet-music-container .vexflow { background:#ffffff; }
+.dark .sheet-music-container { box-shadow:inset 0 0 0 1px var(--border-strong); }
 /* ── Piano roll (SVG component) ── */
 .piano-roll-container { width:100%; }
 .piano-roll-scroll { overflow-x:auto; }

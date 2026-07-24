@@ -81,8 +81,12 @@ type PersistedResult = {
   wav_url?: string;
 };
 
-export function saveLastResult(result: TranscribeResult): void {
+export function saveLastResult(result: TranscribeResult | null): void {
   try {
+    if (!result) {
+      sessionStorage.removeItem(RESULT_KEY);
+      return;
+    }
     const slim: PersistedResult = {
       notes: result.notes,
       num_notes: result.num_notes,
@@ -103,8 +107,14 @@ export function loadLastResult(): PersistedResult | null {
 
 // ── Analysis persistence ────────────────────────────────────────────────
 
-export function saveAnalysis(analysis: TranscribeResult["analysis"]): void {
-  try { sessionStorage.setItem(ANALYSIS_KEY, JSON.stringify(analysis)); } catch {}
+export function saveAnalysis(analysis: TranscribeResult["analysis"] | null): void {
+  try {
+    if (!analysis) {
+      sessionStorage.removeItem(ANALYSIS_KEY);
+      return;
+    }
+    sessionStorage.setItem(ANALYSIS_KEY, JSON.stringify(analysis));
+  } catch {}
 }
 
 export function loadAnalysis(): TranscribeResult["analysis"] | null {

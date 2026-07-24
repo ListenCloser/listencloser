@@ -7,7 +7,7 @@ export async function GET(request: Request) {
 
   if (code) {
     return NextResponse.redirect(
-      `${origin}/auth/confirm?code=${encodeURIComponent(code)}${next !== "/" ? `&next=${encodeURIComponent(next)}` : ""}`,
+      `${origin}/auth/confirm?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`,
     );
   }
 

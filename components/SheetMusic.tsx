@@ -65,13 +65,14 @@ export default function SheetMusic({ musicXml, className }: Props) {
   return (
     <div
       ref={containerRef}
-      className={className}
+      className={`sheet-music-container ${className ?? ""}`}
       style={{
         overflow: "auto",
         maxHeight: 500,
-        background: "var(--panel)",
+        background: "#f8f8f8",
         borderRadius: "var(--r-md)",
-        padding: "var(--s-3)",
+        padding: "var(--s-4)",
+        border: "1px solid var(--border-strong)",
       }}
     />
   );

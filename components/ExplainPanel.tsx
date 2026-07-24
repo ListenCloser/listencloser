@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { loadModel, isModelLoaded, explainMusic } from "@/lib/ai";
+import { loadModel, isModelLoaded, checkWebAssembly, explainMusic } from "@/lib/ai";
 import type { TranscribeResult } from "@/lib/music";
 
 type Message = { role: "user" | "assistant"; text: string };
@@ -22,6 +22,7 @@ export default function ExplainPanel({ analysis }: Props) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,13 +36,34 @@ export default function ExplainPanel({ analysis }: Props) {
       setModelStatus("ready");
       return true;
     }
+
+    const wasmCheck = checkWebAssembly();
+    if (!wasmCheck.supported) {
+      setModelStatus("error");
+      setErrorMsg(
+        wasmCheck.error
+          ? `${wasmCheck.error} The AI chat requires WebAssembly to run the language model.`
+          : "Your browser does not support WebAssembly, which is required for AI chat. Please try a modern browser like Chrome, Firefox, Safari, or Edge."
+      );
+      return false;
+    }
+
     setModelStatus("loading");
+    setErrorMsg("");
     try {
       await loadModel();
       setModelStatus("ready");
       return true;
-    } catch {
+    } catch (err) {
       setModelStatus("error");
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      if (msg.includes("WebAssembly") || msg.includes("wasm")) {
+        setErrorMsg(`Failed to initialize the AI model: ${msg}. Please ensure your browser supports WebAssembly and try again.`);
+      } else if (msg.includes("fetch") || msg.includes("network") || msg.includes("load")) {
+        setErrorMsg(`Failed to download the AI model. Please check your internet connection and try again. The model is approximately 300MB.`);
+      } else {
+        setErrorMsg(`Failed to load AI model: ${msg}. Please try refreshing the page.`);
+      }
       return false;
     }
   }
@@ -56,10 +78,6 @@ export default function ExplainPanel({ analysis }: Props) {
 
     const ready = await ensureModel();
     if (!ready) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: "Could not load the AI model. Please try again later." },
-      ]);
       setLoading(false);
       return;
     }
@@ -70,7 +88,7 @@ export default function ExplainPanel({ analysis }: Props) {
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: "Something went wrong generating the explanation." },
+        { role: "assistant", text: "Something went wrong generating the explanation. Please try again." },
       ]);
     } finally {
       setLoading(false);
@@ -88,13 +106,26 @@ export default function ExplainPanel({ analysis }: Props) {
 
       {modelStatus === "loading" && (
         <div className="card" style={{ marginBottom: "var(--s-3)", fontSize: "var(--fs-sm)", color: "var(--muted)" }}>
-          Loading AI model in your browser (one-time ~300MB download)…
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)" }}>
+            <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+            Loading AI model in your browser (one-time ~300MB download)…
+          </div>
         </div>
       )}
 
       {modelStatus === "error" && (
-        <div className="card" style={{ marginBottom: "var(--s-3)", fontSize: "var(--fs-sm)", color: "var(--danger)" }}>
-          Failed to load AI model. Your browser may not support WebAssembly.
+        <div className="card" style={{ marginBottom: "var(--s-3)", fontSize: "var(--fs-sm)", borderColor: "var(--danger-soft)", background: "rgba(239,68,68,0.06)" }}>
+          <p style={{ color: "var(--danger)", margin: 0, fontWeight: 500 }}>AI chat unavailable</p>
+          <p style={{ color: "var(--muted)", margin: "var(--s-1) 0 0", fontSize: "var(--fs-xs)" }}>
+            {errorMsg}
+          </p>
+          <button
+            className="btn btn-ghost"
+            style={{ marginTop: "var(--s-2)", fontSize: "var(--fs-xs)" }}
+            onClick={() => { setModelStatus("idle"); setErrorMsg(""); }}
+          >
+            Try again
+          </button>
         </div>
       )}
 
@@ -143,19 +174,21 @@ export default function ExplainPanel({ analysis }: Props) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: "flex", gap: "var(--s-2)" }}>
-        <input
-          className="input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about harmony, cadences, form…"
-          disabled={loading}
-          style={{ flex: 1 }}
-        />
-        <button className="btn" type="submit" disabled={loading || !input.trim()}>
-          Ask
-        </button>
-      </form>
+      {modelStatus !== "error" && (
+        <form onSubmit={handleSubmit} style={{ display: "flex", gap: "var(--s-2)" }}>
+          <input
+            className="input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about harmony, cadences, form…"
+            disabled={loading}
+            style={{ flex: 1 }}
+          />
+          <button className="btn" type="submit" disabled={loading || !input.trim()}>
+            Ask
+          </button>
+        </form>
+      )}
     </div>
   );
 }

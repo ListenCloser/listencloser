@@ -42,7 +42,6 @@ export function SharedAudioProvider({ children }: { children: ReactNode }) {
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
-      audio.removeAttribute("src");
     }
     setPlaying(null);
     setPaused(false);
