@@ -17,7 +17,7 @@ import {
   saveAudioName, loadAudioName,
 } from "@/lib/browser-store";
 import { SharedAudioProvider, useSharedAudio } from "@/lib/audio-context";
-import { getAuthCallbackUrl } from "@/lib/site";
+
 
 const TABS = [
   { id: "library", label: "Library" },
@@ -197,10 +197,12 @@ export default function Studio({
 
   async function signIn() {
     if (!supabase) return;
+    const callbackUrl = `${window.location.origin}/auth/callback`;
     const currentPath = window.location.pathname + window.location.search;
+    const redirectTo = currentPath && currentPath !== "/" ? `${callbackUrl}?next=${encodeURIComponent(currentPath)}` : callbackUrl;
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: getAuthCallbackUrl(currentPath) },
+      options: { redirectTo },
     });
   }
 

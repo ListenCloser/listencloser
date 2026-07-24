@@ -478,7 +478,7 @@ export default function Transform({
                 <p className="muted" style={{ margin: "0 0 var(--s-3)" }}>
                   Using: <strong>{localTranscription.name}</strong>
                 </p>
-                <button className="btn" onClick={() => {
+                <button className="btn btn-primary" onClick={() => {
                   const localFile: LibFile = {
                     name: localTranscription.name,
                     url: localTranscription.audioDataUrl || "",

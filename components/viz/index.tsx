@@ -53,6 +53,7 @@ export default function Viz({
   const [midiWavUrl, setMidiWavUrl] = useState<string | null>(null);
   const [sheetWavUrl, setSheetWavUrl] = useState<string | null>(null);
   const [synthLoading, setSynthLoading] = useState(false);
+  const [useFallbackTimer, setUseFallbackTimer] = useState(false);
 
   const { playing, currentTime, duration, play, stop: sharedStop, audioRef } = useSharedAudio();
 
@@ -100,6 +101,7 @@ export default function Viz({
     if (!selected) return;
     sharedStop();
     stopMidi();
+    setUseFallbackTimer(false);
 
     if (source === "original") {
       if (selected.url) play(selectedId, selected.url);
@@ -125,6 +127,7 @@ export default function Viz({
         else setSheetWavUrl(url);
         play(selectedId, url);
       } catch {
+        setUseFallbackTimer(true);
         const maxEnd = Math.max(...(selected.notes ?? []).map((n) => n.end));
         setMidiDuration(maxEnd);
         midiStartRef.current = performance.now();
@@ -207,11 +210,10 @@ export default function Viz({
     }
   }, [selected]);
 
-  const vizTime = currentTime;
+  const vizTime = useFallbackTimer ? midiTime : currentTime;
   const totalDuration = duration || midiDuration;
   const currentPct = totalDuration > 0 ? (vizTime / totalDuration) * 100 : 0;
   const isMidiSource = playbackSource === "midi" || playbackSource === "sheet-music";
-  const vizTimeForMidi = isMidiSource ? midiTime : currentTime;
 
   const tracksWithNotes = files.filter((f) => (f.notes?.length ?? 0) > 0);
   const showTrackPicker = tracksWithNotes.length > 1;
@@ -295,7 +297,7 @@ export default function Viz({
               <div className="pb-fill" style={{ width: `${currentPct}%` }} />
             </div>
             <span className="muted" style={{ fontFamily: "monospace", fontSize: "var(--fs-xs)" }}>
-              {formatTime(isMidiSource ? midiTime : currentTime)} / {formatTime(totalDuration || 0)}
+              {formatTime(vizTime)} / {formatTime(totalDuration || 0)}
             </span>
           </div>
           {playbackSource === "original" && selected.url && <Visualizer audioRef={audioRef} />}
@@ -314,7 +316,7 @@ export default function Viz({
           </div>
 
           {mode === "piano-roll" && hasNotes && (
-            <PianoRoll notes={selected.notes!} playheadTime={vizTimeForMidi} bpm={120} />
+            <PianoRoll notes={selected.notes!} playheadTime={vizTime} bpm={120} />
           )}
 
           {mode === "spectrogram" && selected.url && (
