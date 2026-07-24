@@ -7,6 +7,7 @@ import Library from "./library";
 import Transform from "./transcribe";
 import Analysis from "./analyze";
 import Viz from "./viz";
+import MusicChat from "./MusicChat";
 import ExplainPanel from "./ExplainPanel";
 import { analyzeAudio, notesToMidiBase64, saveTranscription, listLibrary, listTranscriptions, type TranscribeResult, type LibFile, type Transcription } from "@/lib/music";
 import {
@@ -24,6 +25,7 @@ const TABS = [
   { id: "transcribe", label: "Transform" },
   { id: "viz", label: "Visualize" },
   { id: "analyze", label: "Analyze" },
+  { id: "chat", label: "Chat" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -288,6 +290,10 @@ export default function Studio({
             onTrackSelected={(id) => { setVizTrackId(null); setVizSelectedId(id); }}
             onStopRef={vizStopRef}
           />
+        )}
+
+        {tab === "chat" && (
+          <MusicChat />
         )}
 
         <div style={{ display: tab === "analyze" ? "block" : "none" }}>

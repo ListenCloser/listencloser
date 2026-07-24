@@ -522,3 +522,95 @@ html,body {
 .empty { text-align:center; color:var(--muted); font-size:var(--fs-sm); padding:var(--s-5) var(--s-4); border:1px dashed var(--border); border-radius:var(--r-md); }
 .drop-zone.disabled { opacity:0.4; cursor:not-allowed; }
 .drop-zone.disabled:hover { border-color:var(--border); background:transparent; }
+
+/* ── Assistant-UI / Chat styles ── */
+.aui-thread {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.aui-root {
+  height: 100%;
+}
+.aui-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s-3) 0;
+  gap: var(--s-3);
+}
+.aui-message {
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  max-width: 85%;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.aui-message-user {
+  background: var(--accent);
+  color: var(--bg);
+  margin-left: auto;
+  border-bottom-right-radius: var(--s-1);
+}
+.aui-message-assistant {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: var(--s-1);
+}
+.aui-composer {
+  display: flex;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.aui-composer textarea {
+  flex: 1;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-3);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  resize: none;
+  min-height: 40px;
+  max-height: 120px;
+  outline: none;
+  transition: border-color var(--dur) var(--ease);
+}
+.aui-composer textarea:focus {
+  border-color: var(--accent);
+}
+.aui-composer-send {
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--r-md);
+  padding: var(--s-2) var(--s-4);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: opacity var(--dur) var(--ease);
+}
+.aui-composer-send:hover {
+  opacity: 0.9;
+}
+.aui-composer-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.aui-tool-invocation {
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--s-2) var(--s-3);
+  margin: var(--s-2) 0;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.aui-tool-invocation-title {
+  font-weight: var(--fw-medium);
+  color: var(--accent);
+  margin-bottom: var(--s-1);
+}
