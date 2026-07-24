@@ -302,6 +302,13 @@ export async function synthAudio(
   }) as Promise<{ wav_base64: string }>;
 }
 
+export async function synthMusicXml(
+  musicXmlBase64: string,
+): Promise<{ wav_base64: string }> {
+  const converted = await convertMusicFormat(musicXmlBase64, "musicxml", "midi");
+  return synthAudio(converted.data_base64);
+}
+
 export async function convertMusicFormat(
   dataBase64: string,
   source: "midi" | "musicxml",

@@ -275,6 +275,7 @@ export default function Studio({
               saveLastResult(null);
               saveAudioName("");
             }}
+            analysis={analysis}
             initialResult={lastResult}
             initialAudioName={audioName}
           />

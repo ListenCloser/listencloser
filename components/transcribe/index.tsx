@@ -53,6 +53,7 @@ export default function Transform({
   onTranscriptionSaved,
   onBusyChange,
   onNewTranscription,
+  analysis,
   initialResult,
   initialAudioName,
 }: {
@@ -65,6 +66,7 @@ export default function Transform({
   onTranscriptionSaved?: () => void;
   onBusyChange?: (busy: boolean) => void;
   onNewTranscription?: () => void;
+  analysis?: TranscribeResult["analysis"] | null;
   initialResult?: TranscribeResult | null;
   initialAudioName?: string;
 }) {
@@ -680,7 +682,7 @@ export default function Transform({
                   Convert to Sheet Music
                 </button>
               )}
-              {musicXml && (
+              {musicXml && mode === "midi-to-score" && (
                 <button className="btn" onClick={downloadMusicXml}>
                   Export MusicXML
                 </button>
@@ -697,14 +699,14 @@ export default function Transform({
                       onGoToAnalyze();
                     }}
                   >
-                    Analyze
+                    {analysis ? "View Analysis" : "Analyze"}
                   </button>
               )}
               <button className="btn btn-ghost" onClick={reset}>✕ Clear</button>
             </div>
           </div>
 
-          {musicXml && (
+          {musicXml && mode === "midi-to-score" && (
             <>
               <div className="section-label">Sheet music</div>
               <SheetMusic musicXml={musicXml} />

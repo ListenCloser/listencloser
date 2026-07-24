@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { listLibrary, synthAudio, convertMusicFormat, type LibFile } from "@/lib/music";
+import { listLibrary, synthAudio, synthMusicXml, convertMusicFormat, type LibFile } from "@/lib/music";
 import { loadLocalTranscription } from "@/lib/browser-store";
 import PianoRoll from "@/components/PianoRoll";
 import Spectrogram from "@/components/Spectrogram";
@@ -121,12 +121,20 @@ export default function Viz({
         return;
       }
 
-      if (!selected.midi_base64) return;
-
       setSynthLoading(true);
       try {
-        const synth = await synthAudio(selected.midi_base64);
-        const bytes = Uint8Array.from(atob(synth.wav_base64), (c) => c.charCodeAt(0));
+        let wav_base64: string;
+        if (source === "sheet-music" && musicXml) {
+          const converted = await synthMusicXml(btoa(musicXml));
+          wav_base64 = converted.wav_base64;
+        } else if (selected.midi_base64) {
+          const synth = await synthAudio(selected.midi_base64);
+          wav_base64 = synth.wav_base64;
+        } else {
+          setSynthLoading(false);
+          return;
+        }
+        const bytes = Uint8Array.from(atob(wav_base64), (c) => c.charCodeAt(0));
         const blob = new Blob([bytes], { type: "audio/wav" });
         const url = URL.createObjectURL(blob);
         if (source === "midi") setMidiWavUrl(url);
@@ -147,7 +155,7 @@ export default function Viz({
         setSynthLoading(false);
       }
     }
-  }, [selected, selectedId, midiWavUrl, sheetWavUrl, play, sharedStop, stopMidi]);
+  }, [selected, selectedId, midiWavUrl, sheetWavUrl, musicXml, play, sharedStop, stopMidi]);
 
   const handleStop = useCallback(() => {
     stopMidi();
@@ -199,16 +207,16 @@ export default function Viz({
     setPlaybackSource("midi");
   }, [selectedId]);
 
-  // Load MusicXML for sheet-music viz mode
+  // Load MusicXML for sheet-music viz mode or playback source
   useEffect(() => {
-    if (mode === "sheet-music" && selected?.midi_base64 && !musicXml) {
+    if ((mode === "sheet-music" || playbackSource === "sheet-music") && selected?.midi_base64 && !musicXml) {
       setSheetMusicLoading(true);
       convertMusicFormat(selected.midi_base64, "midi", "musicxml")
         .then((converted) => setMusicXml(atob(converted.data_base64)))
         .catch(() => setMusicXml(""))
         .finally(() => setSheetMusicLoading(false));
     }
-  }, [mode, selected, musicXml]);
+  }, [mode, playbackSource, selected, musicXml]);
 
   // Calculate MIDI duration
   useEffect(() => {
