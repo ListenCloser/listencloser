@@ -14,7 +14,7 @@ import {
   type TranscribeResult,
   type LibFile,
 } from "@/lib/music";
-import { saveLocalTranscription, loadLocalTranscription, clearLocalTranscription, saveLastResult, saveAnalysis, saveAudioName } from "@/lib/browser-store";
+import { saveLocalTranscription, loadLocalTranscription, clearLocalTranscription } from "@/lib/browser-store";
 import { useAuth } from "@/components/AuthProvider";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
@@ -52,6 +52,7 @@ export default function Transform({
   onClearLibraryFile,
   onTranscriptionSaved,
   onBusyChange,
+  onNewTranscription,
   initialResult,
   initialAudioName,
 }: {

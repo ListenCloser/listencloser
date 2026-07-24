@@ -53,6 +53,7 @@ export default function Viz({
   const [midiWavUrl, setMidiWavUrl] = useState<string | null>(null);
   const [sheetWavUrl, setSheetWavUrl] = useState<string | null>(null);
   const [synthLoading, setSynthLoading] = useState(false);
+  const [sheetMusicLoading, setSheetMusicLoading] = useState(false);
   const [useFallbackTimer, setUseFallbackTimer] = useState(false);
 
   const { playing, currentTime, duration, play, stop: sharedStop, audioRef } = useSharedAudio();
@@ -201,9 +202,11 @@ export default function Viz({
   // Load MusicXML for sheet-music viz mode
   useEffect(() => {
     if (mode === "sheet-music" && selected?.midi_base64 && !musicXml) {
+      setSheetMusicLoading(true);
       convertMusicFormat(selected.midi_base64, "midi", "musicxml")
         .then((converted) => setMusicXml(atob(converted.data_base64)))
-        .catch(() => setMusicXml(""));
+        .catch(() => setMusicXml(""))
+        .finally(() => setSheetMusicLoading(false));
     }
   }, [mode, selected, musicXml]);
 
@@ -218,7 +221,6 @@ export default function Viz({
   const vizTime = useFallbackTimer ? midiTime : currentTime;
   const totalDuration = duration || midiDuration;
   const currentPct = totalDuration > 0 ? (vizTime / totalDuration) * 100 : 0;
-  const isMidiSource = playbackSource === "midi" || playbackSource === "sheet-music";
 
   const tracksWithNotes = files.filter((f) => (f.notes?.length ?? 0) > 0);
   const showTrackPicker = tracksWithNotes.length > 1;
@@ -340,13 +342,17 @@ export default function Viz({
             <>
               {musicXml ? (
                 <SheetMusic musicXml={musicXml} />
-              ) : selected.midi_base64 && musicXml !== "" ? (
+              ) : sheetMusicLoading ? (
                 <div style={{ textAlign: "center", padding: "var(--s-4)", color: "var(--muted)", fontSize: "var(--fs-sm)" }}>
                   Loading sheet music…
                 </div>
-              ) : (
+              ) : selected?.midi_base64 ? (
                 <div style={{ textAlign: "center", padding: "var(--s-4)", color: "var(--muted)", fontSize: "var(--fs-sm)" }}>
                   No MIDI data available for sheet music.
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "var(--s-4)", color: "var(--muted)", fontSize: "var(--fs-sm)" }}>
+                  Select a track with MIDI data.
                 </div>
               )}
             </>

@@ -272,7 +272,7 @@ export default function Studio({
               setAnalysis(null);
               setAnalysisError("");
               saveAnalysis(null);
-              saveLastResult(null as any);
+              saveLastResult(null);
               saveAudioName("");
             }}
             initialResult={lastResult}
