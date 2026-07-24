@@ -268,6 +268,13 @@ export default function Studio({
             onClearLibraryFile={() => setPendingLibFile(null)}
             onTranscriptionSaved={refreshTranscriptions}
             onBusyChange={setIsTranscribing}
+            onNewTranscription={() => {
+              setAnalysis(null);
+              setAnalysisError("");
+              saveAnalysis(null);
+              saveLastResult(null as any);
+              saveAudioName("");
+            }}
             initialResult={lastResult}
             initialAudioName={audioName}
           />

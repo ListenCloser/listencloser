@@ -14,7 +14,7 @@ import {
   type TranscribeResult,
   type LibFile,
 } from "@/lib/music";
-import { saveLocalTranscription, loadLocalTranscription } from "@/lib/browser-store";
+import { saveLocalTranscription, loadLocalTranscription, clearLocalTranscription, saveLastResult, saveAnalysis, saveAudioName } from "@/lib/browser-store";
 import { useAuth } from "@/components/AuthProvider";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
@@ -62,6 +62,7 @@ export default function Transform({
   onClearLibraryFile?: () => void;
   onTranscriptionSaved?: () => void;
   onBusyChange?: (busy: boolean) => void;
+  onNewTranscription?: () => void;
   initialResult?: TranscribeResult | null;
   initialAudioName?: string;
 }) {
@@ -117,6 +118,8 @@ export default function Transform({
   }, [libraryFileToLoad]);
 
   async function processBlob(blob: Blob, fileName: string, fmtOverride?: string, sourceLibId?: string | null) {
+    clearLocalTranscription();
+    onNewTranscription?.();
     setResult(null);
     setShowLibPicker(false);
     setPlayhead(0);
@@ -208,6 +211,8 @@ export default function Transform({
   }
 
   async function handleMidiFile(file: File) {
+    clearLocalTranscription();
+    onNewTranscription?.();
     setAudioName(file.name);
     setResult(null);
     setShowLibPicker(false);
