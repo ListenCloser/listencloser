@@ -347,6 +347,17 @@ export default function Transform({
         setStatus("⚠️ No MIDI data available for this track");
         return;
       }
+      if (file.musicxml) {
+        setMusicXml(file.musicxml);
+        setResult({
+          notes: file.notes ?? [],
+          num_notes: file.notes?.length ?? 0,
+          midi_base64: midiB64,
+        });
+        setState("populated");
+        setStatus("Sheet music ready");
+        return;
+      }
       setState("converting");
       setStatus("Converting to sheet music…");
       try {
@@ -672,7 +683,13 @@ export default function Transform({
                   setStatus("Converting to sheet music…");
                   try {
                     const converted = await convertMusicFormat(result.midi_base64!, "midi", "musicxml");
-                    setMusicXml(atob(converted.data_base64));
+                    const xml = atob(converted.data_base64);
+                    setMusicXml(xml);
+                    if (signedIn && libraryFileId) {
+                      try {
+                        await saveTranscription(libraryFileId, result.notes, result.midi_base64, undefined, xml);
+                      } catch { /* ok if save fails */ }
+                    }
                     setStatus("Sheet music ready");
                     setState("populated");
                   } catch (err) {

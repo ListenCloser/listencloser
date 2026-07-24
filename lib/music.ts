@@ -50,6 +50,7 @@ export type LibFile = {
   created_at?: string;
   notes?: { pitch: number; start: number; end: number; velocity: number }[];
   midi_base64?: string;
+  musicxml?: string;
   analysis?: TranscribeResult["analysis"];
 };
 
@@ -113,6 +114,7 @@ export async function listLibrary(): Promise<LibFile[]> {
         let notes;
         let midi_base64;
         let analysis;
+        let musicxml;
         if (notesNames.has(`${baseName}.json`)) {
           try {
             const raw = await downloadText(TRANSCRIPTIONS_BUCKET, `${uid}/${baseName}.json`);
@@ -124,6 +126,7 @@ export async function listLibrary(): Promise<LibFile[]> {
                 notes = parsed.notes;
                 midi_base64 = parsed.midi_base64;
                 analysis = parsed.analysis;
+                musicxml = parsed.musicxml;
               }
             }
           } catch {
@@ -138,6 +141,7 @@ export async function listLibrary(): Promise<LibFile[]> {
           created_at: f.created_at,
           notes,
           midi_base64,
+          musicxml,
           analysis,
         };
       }),
@@ -150,6 +154,7 @@ export async function saveTranscription(
   notes: { pitch: number; start: number; end: number; velocity: number }[],
   midi_base64?: string,
   analysis?: TranscribeResult["analysis"],
+  musicxml?: string,
 ): Promise<void> {
   if (!supabase) return;
   const uid = await userId();
@@ -159,6 +164,7 @@ export async function saveTranscription(
   const payload: Record<string, unknown> = { notes };
   if (midi_base64) payload.midi_base64 = midi_base64;
   if (analysis) payload.analysis = analysis;
+  if (musicxml) payload.musicxml = musicxml;
   await uploadFile(TRANSCRIPTIONS_BUCKET, path, JSON.stringify(payload), "application/json", true);
 }
 

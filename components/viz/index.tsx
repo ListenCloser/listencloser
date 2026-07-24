@@ -210,11 +210,16 @@ export default function Viz({
   // Load MusicXML for sheet-music viz mode or playback source
   useEffect(() => {
     if ((mode === "sheet-music" || playbackSource === "sheet-music") && selected?.midi_base64 && !musicXml) {
-      setSheetMusicLoading(true);
-      convertMusicFormat(selected.midi_base64, "midi", "musicxml")
-        .then((converted) => setMusicXml(atob(converted.data_base64)))
-        .catch(() => setMusicXml(""))
-        .finally(() => setSheetMusicLoading(false));
+      // Use MusicXML from library track if available, otherwise convert
+      if (selected.musicxml) {
+        setMusicXml(selected.musicxml);
+      } else {
+        setSheetMusicLoading(true);
+        convertMusicFormat(selected.midi_base64, "midi", "musicxml")
+          .then((converted) => setMusicXml(atob(converted.data_base64)))
+          .catch(() => setMusicXml(""))
+          .finally(() => setSheetMusicLoading(false));
+      }
     }
   }, [mode, playbackSource, selected, musicXml]);
 
@@ -285,7 +290,7 @@ export default function Viz({
                 MIDI
               </button>
             )}
-            {hasNotes && musicXml && (
+            {hasNotes && (musicXml || selected?.musicxml) && (
               <button
                 className={`chip${playbackSource === "sheet-music" ? "" : " ghost"}`}
                 onClick={() => { handleStop(); setPlaybackSource("sheet-music"); }}
@@ -319,7 +324,7 @@ export default function Viz({
 
           <div className="section-label">Visualization</div>
           <div style={{ display: "flex", gap: "var(--s-1)", marginBottom: "var(--s-3)", flexWrap: "wrap" }}>
-            {VIZ_MODES.filter((m) => (hasNotes || m.id === "spectrogram") && (m.id !== "sheet-music" || musicXml)).map((m) => (
+            {VIZ_MODES.filter((m) => (hasNotes || m.id === "spectrogram") && (m.id !== "sheet-music" || musicXml || selected?.musicxml)).map((m) => (
               <button
                 key={m.id}
                 className={`chip${mode === m.id ? "" : " ghost"}`}
