@@ -293,7 +293,16 @@ export default function Studio({
         )}
 
         {tab === "chat" && (
-          <MusicChat />
+          <MusicChat
+            onTranscribed={(result, name) => {
+              onTranscribed(result, name);
+              goToTab("transcribe");
+            }}
+            onAnalyzed={(midi, name) => {
+              if (midi) handleAnalyze(midi, name);
+              goToTab("analyze");
+            }}
+          />
         )}
 
         <div style={{ display: tab === "analyze" ? "block" : "none" }}>

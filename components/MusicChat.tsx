@@ -1,11 +1,32 @@
 "use client";
 
-import { AssistantRuntimeProvider, Suggestions } from "@assistant-ui/react";
+import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { Thread } from "@/components/assistant-ui/thread";
+import type { TranscribeResult, LibFile } from "@/lib/music";
 
-export default function MusicChat() {
+type MusicChatProps = {
+  onTranscribed?: (result: TranscribeResult, name: string) => void;
+  onAnalyzed?: (midiBase64?: string, name?: string) => void;
+  onGoToTab?: (tab: string) => void;
+};
+
+export default function MusicChat({ onTranscribed, onAnalyzed, onGoToTab }: MusicChatProps) {
   const runtime = useChatRuntime();
+
+  const handleToolResult = (toolName: string, result: any) => {
+    if (toolName === "transcribe_audio" && result?.midi_base64 && onTranscribed) {
+      const resultObj: TranscribeResult = {
+        notes: result.notes ?? [],
+        num_notes: result.num_notes ?? 0,
+        midi_base64: result.midi_base64,
+      };
+      onTranscribed(resultObj, result.name || "chat-upload");
+    }
+    if (toolName === "analyze_midi" && result && onAnalyzed) {
+      onAnalyzed(result.midi_base64, result.name);
+    }
+  };
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
@@ -17,7 +38,7 @@ export default function MusicChat() {
           Ask anything about your music — transcribe, analyze, convert, or clean audio.
         </p>
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-          <Thread />
+          <Thread onToolResult={handleToolResult} />
         </div>
       </div>
     </AssistantRuntimeProvider>

@@ -1,19 +1,46 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { ComposerPrimitive, useThread } from "@assistant-ui/react";
 
-export function Thread() {
+type ThreadProps = {
+  onToolResult?: (toolName: string, result: any) => void;
+};
+
+export function Thread({ onToolResult }: ThreadProps) {
   const thread = useThread();
   const endRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<{ file: File; base64: string } | null>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [thread.messages]);
 
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    const bytes = await file.arrayBuffer();
+    const base64 = btoa(
+      Array.from(new Uint8Array(bytes))
+        .map((b) => String.fromCharCode(b))
+        .join("")
+    );
+    setPendingFile({ file, base64 });
+  }, []);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ flex: 1, overflowY: "auto", padding: "var(--s-3)" }}>
+        {thread.messages.length === 0 && (
+          <div style={{ textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-sm)", padding: "var(--s-5)" }}>
+            <p style={{ marginBottom: "var(--s-2)" }}>Ask me about your music!</p>
+            <p style={{ fontSize: "var(--fs-xs)" }}>
+              Try: "Transcribe this audio", "What key is this in?", "Clean up this recording"
+            </p>
+          </div>
+        )}
         {thread.messages.map((msg) => (
           <div
             key={msg.id}
@@ -46,7 +73,7 @@ export function Thread() {
               }}
             >
               {msg.content.map((part, i) => {
-                if (part.type === "text") return <span key={i}>{part.text}</span>;
+                if (part.type === "text") return <span key={i}>{(part as any).text}</span>;
                 if (part.type === "tool-call") {
                   return (
                     <div
@@ -62,7 +89,7 @@ export function Thread() {
                       }}
                     >
                       <span style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>
-                        {part.toolName}
+                        {(part as any).toolName}
                       </span>
                       <span style={{ marginLeft: "var(--s-2)" }}>Running...</span>
                     </div>
@@ -75,6 +102,14 @@ export function Thread() {
         ))}
         <div ref={endRef} />
       </div>
+
+      {pendingFile && (
+        <div style={{ padding: "var(--s-2) var(--s-3)", background: "var(--panel-3)", borderTop: "1px solid var(--border)", fontSize: "var(--fs-xs)", color: "var(--muted)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>📎 {pendingFile.file.name}</span>
+          <button onClick={() => setPendingFile(null)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}>✕</button>
+        </div>
+      )}
+
       <ComposerPrimitive.Root
         style={{
           display: "flex",
@@ -83,6 +118,28 @@ export function Thread() {
           borderTop: "1px solid var(--border)",
         }}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*,.mid,.midi,.musicxml"
+          onChange={handleFileSelect}
+          style={{ display: "none" }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            background: "var(--panel-2)",
+            color: "var(--muted)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--r-md)",
+            padding: "var(--s-2)",
+            cursor: "pointer",
+            fontSize: "var(--fs-sm)",
+          }}
+          title="Attach audio file"
+        >
+          📎
+        </button>
         <ComposerPrimitive.Input
           style={{
             flex: 1,
