@@ -265,27 +265,25 @@ export default function Library({
                     </button>
                     {onTranscribe && (
                       <button
-                        className={f.notes && f.notes.length > 0 ? "icon-btn" : "btn btn-primary"}
-                        style={f.notes && f.notes.length > 0 ? {} : { fontSize: "var(--fs-xs)", padding: "2px 8px" }}
+                        className="icon-btn"
                         onClick={() => onTranscribe(f)}
-                        disabled={(!f.notes || f.notes.length === 0) && (isTranscribing || isAnalyzing)}
+                        disabled={isTranscribing || isAnalyzing}
                       >
-                        {f.notes && f.notes.length > 0 ? "Transcription" : "Transcribe"}
+                        {f.notes && f.notes.length > 0 ? "View Transcription" : "Transcribe"}
                       </button>
                     )}
-                    {onVisualize && (
+                    {onVisualize && f.notes && f.notes.length > 0 && (
                       <button className="icon-btn" onClick={() => onVisualize(f)}>
                         Visualize
                       </button>
                     )}
                     {onAnalyze && f.notes && f.notes.length > 0 && (
                       <button
-                        className={f.analysis ? "icon-btn" : "btn btn-primary"}
-                        style={f.analysis ? {} : { fontSize: "var(--fs-xs)", padding: "2px 8px" }}
+                        className="icon-btn"
                         onClick={() => onAnalyze(f)}
-                        disabled={!f.analysis && (isTranscribing || isAnalyzing)}
+                        disabled={isTranscribing || isAnalyzing}
                       >
-                        {f.analysis ? "Analysis" : "Analyze"}
+                        {f.analysis ? "View Analysis" : "Analyze"}
                       </button>
                     )}
                     <button className="icon-btn ghost danger" onClick={() => onDelete(f.id, f.name)} disabled={busy}>

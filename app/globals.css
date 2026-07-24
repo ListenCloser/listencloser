@@ -209,7 +209,7 @@ html,body {
   background:var(--grad-accent-2); color:#080515;
   border-color:transparent; font-weight:600;
 }
-.btn-primary:hover:not(:disabled){ filter:brightness(1.15); }
+.btn-primary:hover:not(:disabled){ filter:brightness(1.15); border-color:transparent; }
 .btn-ghost { background:transparent; border-color:transparent; color:var(--muted); }
 .btn-ghost:hover:not(:disabled){ color:var(--text); background:var(--panel-2); }
 

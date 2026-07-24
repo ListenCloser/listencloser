@@ -116,6 +116,7 @@ export default function Transform({
 
   useEffect(() => {
     if (libraryFileToLoad) {
+      setMode("transcribe");
       onSelectLibraryFile(libraryFileToLoad);
       onClearLibraryFile?.();
     }

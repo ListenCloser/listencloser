@@ -285,7 +285,7 @@ export default function Viz({
                 MIDI
               </button>
             )}
-            {hasNotes && selected.midi_base64 && (
+            {hasNotes && musicXml && (
               <button
                 className={`chip${playbackSource === "sheet-music" ? "" : " ghost"}`}
                 onClick={() => { handleStop(); setPlaybackSource("sheet-music"); }}
@@ -319,7 +319,7 @@ export default function Viz({
 
           <div className="section-label">Visualization</div>
           <div style={{ display: "flex", gap: "var(--s-1)", marginBottom: "var(--s-3)", flexWrap: "wrap" }}>
-            {VIZ_MODES.filter((m) => hasNotes || m.id === "spectrogram").map((m) => (
+            {VIZ_MODES.filter((m) => (hasNotes || m.id === "spectrogram") && (m.id !== "sheet-music" || musicXml)).map((m) => (
               <button
                 key={m.id}
                 className={`chip${mode === m.id ? "" : " ghost"}`}
