@@ -11,8 +11,6 @@ Pipeline:
 """
 
 import logging
-import os
-import tempfile
 import time as _time
 from collections import Counter
 from typing import TypedDict
@@ -78,12 +76,6 @@ class VoiceLeadingResult(TypedDict):
     motion_summary: str
 
 
-class PhraseResult(TypedDict):
-    start: float
-    end: float
-    kind: str
-
-
 class AnalysisResult(TypedDict):
     key: KeyResult
     tempo: TempoResult
@@ -93,7 +85,6 @@ class AnalysisResult(TypedDict):
     cadences: list[CadenceResult]
     modulations: list[ModulationResult]
     voice_leading: VoiceLeadingResult | None
-    phrases: list[PhraseResult]
 
 
 # ── Constants ───────────────────────────────────────────────────────────────
@@ -328,52 +319,6 @@ def _m21_voice_leading(score) -> VoiceLeadingResult | None:
     )
 
 
-def _m21_phrases(score) -> list[PhraseResult]:
-    phrases: list[PhraseResult] = []
-    for part in score.parts:
-        for slur in part.getElementsByClass("Slur"):
-            try:
-                start_note = slur.getFirst()
-                end_note = slur.getLast()
-                if start_note and end_note:
-                    start = float(start_note.getOffsetInHierarchy(score))
-                    end = float(end_note.getOffsetInHierarchy(score))
-                    if hasattr(end_note, "quarterLength"):
-                        end += float(end_note.quarterLength)
-                    if end > start:
-                        phrases.append(
-                            PhraseResult(
-                                start=round(start, 3),
-                                end=round(end, 3),
-                                kind="slur",
-                            )
-                        )
-            except Exception:
-                continue
-    if not phrases:
-        for part in score.parts:
-            measures = part.getElementsByClass("Measure")
-            if len(measures) >= 4:
-                for i in range(0, len(measures), 4):
-                    group = measures[i : i + 4]
-                    if len(group) >= 2:
-                        start = float(group[0].getOffsetInHierarchy(score))
-                        last = group[-1]
-                        end = float(last.getOffsetInHierarchy(score))
-                        if hasattr(last, "quarterLength"):
-                            end += float(last.quarterLength)
-                        if end > start:
-                            phrases.append(
-                                PhraseResult(
-                                    start=round(start, 3),
-                                    end=round(end, 3),
-                                    kind="measure_group",
-                                )
-                            )
-                break
-    return phrases
-
-
 # ── Chord detection from MIDI frames ────────────────────────────────────────
 
 
@@ -534,7 +479,6 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         "cadences": [],
         "modulations": [],
         "voice_leading": None,
-        "phrases": [],
     }
 
     try:
@@ -564,7 +508,6 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         result["roman_numerals"] = _m21_roman_numerals(score, detected_key)
         result["cadences"] = _m21_cadences(score, detected_key)
         result["voice_leading"] = _m21_voice_leading(score)
-        result["phrases"] = _m21_phrases(score)
         result["modulations"] = _detect_modulations(score)
 
     _, frames = _midi_frames(midi_path)
@@ -573,28 +516,3 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
     total_ms = round((_time.perf_counter() - t0) * 1000)
     logger.info("analyze_total", extra={"step": "total", "step_ms": total_ms})
     return result
-
-
-def analyze_from_notes(notes: list[dict]) -> AnalysisResult:
-    import contextlib
-
-    pm = pretty_midi.PrettyMIDI()
-    inst = pretty_midi.Instrument(program=0, is_drum=False, name="Piano")
-    for n in notes:
-        inst.notes.append(
-            pretty_midi.Note(
-                velocity=n.get("velocity", 100),
-                pitch=n["pitch"],
-                start=n["start"],
-                end=n["end"],
-            )
-        )
-    pm.instruments.append(inst)
-    with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
-        midi_path = f.name
-        pm.write(midi_path)
-    try:
-        return analyze_midi(midi_path)
-    finally:
-        with contextlib.suppress(OSError):
-            os.unlink(midi_path)

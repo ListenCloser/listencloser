@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { TranscribeResult } from "@/lib/music";
-import { SHARP_NOTE_NAMES, computeChroma, isBlackKey } from "@/lib/notes";
+import { SHARP_NOTE_NAMES, computeChroma } from "@/lib/notes";
 
 type Note = TranscribeResult["notes"][number];
 
