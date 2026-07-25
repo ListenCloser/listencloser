@@ -3,7 +3,6 @@ import contextvars
 import json
 import logging
 import os
-import re
 import tempfile
 import threading
 import time
@@ -66,7 +65,6 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 security = HTTPBearer(auto_error=False)
 
 MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", "26214400"))  # 25 MB
-_MIDI_KEY_RE = re.compile(r"^midi/[\w.\-]+/[\w.\-]+$")
 
 
 def _now() -> str:
@@ -138,11 +136,17 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         user = sb.auth.get_user(token)
         return user
-    except Exception:
+    except Exception as exc:
+        err_str = str(exc).lower()
+        if "network" in err_str or "timeout" in err_str or "connect" in err_str:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Auth service temporarily unavailable",
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
-        ) from None
+        ) from exc
 
 
 def verify_token_optional(
@@ -165,6 +169,27 @@ def verify_token_optional(
 app = FastAPI(title="hello-ai backend", version="0.3.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+try:
+    from fastapi.middleware.cors import CORSMiddleware
+
+    _cors_raw = os.environ.get("CORS_ORIGINS", "")
+    _cors_origins = (
+        [o.strip() for o in _cors_raw.split(",") if o.strip()]
+        if _cors_raw
+        else [
+            "https://hello-ai-wheat.vercel.app",
+            "http://localhost:3000",
+        ]
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+except ImportError:
+    pass
 
 
 @app.middleware("http")

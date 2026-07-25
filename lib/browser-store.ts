@@ -16,6 +16,7 @@ export type LocalTranscription = {
 };
 
 let cached: LocalTranscription | null = null;
+let lastObjectUrl: string | null = null;
 
 export function saveLocalTranscription(
   name: string,
@@ -24,12 +25,18 @@ export function saveLocalTranscription(
   audioBlob?: Blob,
   analysis?: TranscribeResult["analysis"],
 ): void {
+  if (lastObjectUrl) {
+    URL.revokeObjectURL(lastObjectUrl);
+    lastObjectUrl = null;
+  }
+
   const entry: LocalTranscription = { name, notes, midi_base64: midiBase64, analysis };
 
   if (audioBlob) {
     const url = URL.createObjectURL(audioBlob);
     entry.audioDataUrl = url;
     entry.audioBlob = audioBlob;
+    lastObjectUrl = url;
   }
 
   cached = entry;
@@ -37,7 +44,9 @@ export function saveLocalTranscription(
   try {
     const serialized = { name, notes, midi_base64: midiBase64, analysis };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
-  } catch {}
+  } catch (e) {
+    console.warn("localStorage save failed:", e);
+  }
 }
 
 export function loadLocalTranscription(): LocalTranscription | null {
@@ -56,13 +65,15 @@ export function loadLocalTranscription(): LocalTranscription | null {
 }
 
 export function clearLocalTranscription(): void {
+  if (lastObjectUrl) {
+    URL.revokeObjectURL(lastObjectUrl);
+    lastObjectUrl = null;
+  }
   cached = null;
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch {}
 }
-
-// ── Tab persistence ──────────────────────────────────────────────────────
 
 export function saveTab(tab: string): void {
   try { sessionStorage.setItem(TAB_KEY, tab); } catch {}
@@ -71,8 +82,6 @@ export function saveTab(tab: string): void {
 export function loadTab(): string | null {
   try { return sessionStorage.getItem(TAB_KEY); } catch { return null; }
 }
-
-// ── Last result persistence (survives refresh within session) ────────────
 
 type PersistedResult = {
   notes: TranscribeResult["notes"];
@@ -105,8 +114,6 @@ export function loadLastResult(): PersistedResult | null {
   } catch { return null; }
 }
 
-// ── Analysis persistence ────────────────────────────────────────────────
-
 export function saveAnalysis(analysis: TranscribeResult["analysis"] | null): void {
   try {
     if (!analysis) {
@@ -124,8 +131,6 @@ export function loadAnalysis(): TranscribeResult["analysis"] | null {
     return JSON.parse(raw);
   } catch { return null; }
 }
-
-// ── Audio name persistence ──────────────────────────────────────────────
 
 export function saveAudioName(name: string): void {
   try { sessionStorage.setItem(AUDIO_NAME_KEY, name); } catch {}

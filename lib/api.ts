@@ -1,7 +1,26 @@
 import { supabase } from "./supabase";
 
+let cachedToken: string | null = null;
+let tokenExpiry = 0;
+
+export function clearTokenCache(): void {
+  cachedToken = null;
+  tokenExpiry = 0;
+}
+
+async function getToken(): Promise<string | null> {
+  if (!supabase) return null;
+  const now = Date.now();
+  if (cachedToken && now < tokenExpiry) return cachedToken;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? null;
+  cachedToken = token;
+  tokenExpiry = now + 60_000;
+  return token;
+}
+
 export async function apiFetch<T = unknown>(url: string, options?: RequestInit): Promise<T> {
-  const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : null;
+  const token = await getToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -11,6 +30,7 @@ export async function apiFetch<T = unknown>(url: string, options?: RequestInit):
 
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
+    if (res.status === 401) cachedToken = null;
     const body = await res.json().catch(() => ({}));
     const error = typeof body === "object" && body !== null && "error" in body
       ? (body as { error?: unknown }).error

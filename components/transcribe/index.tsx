@@ -11,6 +11,8 @@ import {
   blobToBase64,
   convertMusicFormat,
   synthAudio,
+  audioFmtFromBlob,
+  audioFmtFromName,
   type TranscribeResult,
   type LibFile,
 } from "@/lib/music";
@@ -27,21 +29,6 @@ const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "transcribe", label: "Audio → MIDI", hint: "Transcribe audio to MIDI" },
   { id: "midi-to-score", label: "MIDI → Sheet Music", hint: "Convert MIDI to sheet music" },
 ];
-
-function audioFmtFromBlob(blob: Blob): string {
-  const type = blob.type.toLowerCase();
-  if (type.includes("ogg")) return "ogg";
-  if (type.includes("mp4") || type.includes("m4a")) return "mp4";
-  if (type.includes("flac")) return "flac";
-  if (type.includes("mp3") || type.includes("mpeg")) return "mp3";
-  return "wav";
-}
-
-function audioFmtFromName(name: string): string {
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  if (["ogg", "mp4", "m4a", "flac", "mp3", "wav", "webm"].includes(ext)) return ext === "m4a" ? "mp4" : ext;
-  return "wav";
-}
 
 export default function Transform({
   signedIn,
@@ -123,6 +110,7 @@ export default function Transform({
   }, [libraryFileToLoad]);
 
   async function processBlob(blob: Blob, fileName: string, fmtOverride?: string, sourceLibId?: string | null) {
+    if (state === "enhancing" || state === "transcribing" || state === "converting" || state === "synthing") return;
     clearLocalTranscription();
     onNewTranscription?.();
     setResult(null);
@@ -307,7 +295,7 @@ export default function Transform({
   }
 
   async function saveToLibrary() {
-    if (!result) return;
+    if (!result || saved) return;
     if (wasLibraryFile) {
       setSaved(true);
       setStatus("✓ Already in library");

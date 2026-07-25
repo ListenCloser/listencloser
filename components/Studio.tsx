@@ -3,13 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { clearTokenCache } from "@/lib/api";
 import Library from "./library";
 import Transform from "./transcribe";
 import Analysis from "./analyze";
 import Viz from "./viz";
 import MusicChat from "./MusicChat";
-import ExplainPanel from "./ExplainPanel";
-import { analyzeAudio, notesToMidiBase64, saveTranscription, listLibrary, listTranscriptions, type TranscribeResult, type LibFile, type Transcription } from "@/lib/music";
+import { analyzeAudio, notesToMidiBase64, saveTranscription, listLibrary, listTranscriptions, formatTime, type TranscribeResult, type LibFile, type Transcription } from "@/lib/music";
 import {
   loadLocalTranscription, saveLocalTranscription, type LocalTranscription,
   saveTab, loadTab,
@@ -120,13 +120,14 @@ export default function Studio({
   }
 
   async function handleAnalyze(midiBase64?: string, name?: string, libraryFileId?: string) {
+    if (isAnalyzing) return;
     if (name) setAudioName(name);
     if (!midiBase64) {
       setAnalysisError("Transcribe a track first, then analyze it");
       goToTab("analyze");
       return;
     }
-    if (analysis && audioName === name) {
+    if (analysis && name && audioName === name) {
       goToTab("analyze");
       return;
     }
@@ -152,12 +153,12 @@ export default function Studio({
           saveLocalTranscription(local.name, local.notes, local.midi_base64, local.audioBlob, result);
         }
       }
+      goToTab("analyze");
     } catch (err) {
       setAnalysisError(err instanceof Error ? err.message : "analysis failed");
     } finally {
       setAnalyzeStatus("");
       setIsAnalyzing(false);
-      goToTab("analyze");
     }
   }
 
@@ -208,8 +209,9 @@ export default function Studio({
     });
   }
 
-  function signOut() {
-    supabase?.auth.signOut();
+  async function signOut() {
+    clearTokenCache();
+    await supabase?.auth.signOut();
     window.location.reload();
   }
 
@@ -309,50 +311,55 @@ export default function Studio({
           <div className="card">
             <h3 className="card-title"><span className="glyph">◈</span> Analyze</h3>
 
-            {!analysis && !analyzeStatus && signedIn && (
-              <div className="section-label">Select a transcribed track</div>
-            )}
-
             {!analysis && !analyzeStatus && signedIn && analyzeLibFiles.filter(f => f.notes?.length).length === 0 && (
-              <p className="muted" style={{ textAlign: "center", margin: "var(--s-4) 0" }}>
-                No transcribed tracks in your library — transcribe one first.
-              </p>
+              <>
+                <div className="section-label">Select a transcribed track</div>
+                <p className="muted" style={{ textAlign: "center", margin: "var(--s-4) 0" }}>
+                  No transcribed tracks in your library — transcribe one first.
+                </p>
+              </>
             )}
 
             {!analysis && !analyzeStatus && signedIn && analyzeLibFiles.filter(f => f.notes?.length).length > 0 && (
-              <div style={{ display: "flex", gap: "var(--s-2)", marginBottom: "var(--s-4)" }}>
-                <select
-                  className="sel"
-                  value=""
-                  onChange={(e) => {
-                    const file = analyzeLibFiles.find(f => f.id === e.target.value);
-                    if (file) handleAnalyzeLibrary(file);
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  <option value="">-- Pick a track --</option>
-                  {analyzeLibFiles.filter(f => f.notes?.length).map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}{f.analysis ? " ✓" : ""}</option>
-                  ))}
-                </select>
+              <>
+                <div className="section-label">Select a transcribed track</div>
+                <div style={{ display: "flex", gap: "var(--s-2)", marginBottom: "var(--s-4)" }}>
+                  <select
+                    className="sel"
+                    value=""
+                    onChange={(e) => {
+                      const file = analyzeLibFiles.find(f => f.id === e.target.value);
+                      if (file) handleAnalyzeLibrary(file);
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    <option value="">-- Pick a track --</option>
+                    {analyzeLibFiles.filter(f => f.notes?.length).map((f) => (
+                      <option key={f.id} value={f.id}>{f.name}{f.analysis ? " ✓" : ""}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {!analysis && !analyzeStatus && !signedIn && analyzeLibFiles.filter(f => f.notes?.length).length > 0 && (
+              <div style={{ textAlign: "center", padding: "var(--s-4)" }}>
+                <p className="muted" style={{ margin: "0 0 var(--s-3)" }}>
+                  Using: <strong>{analyzeLibFiles.find(f => f.notes?.length)?.name}</strong>
+                </p>
+                <button className="btn btn-primary" onClick={() => {
+                  const first = analyzeLibFiles.find(f => f.notes?.length);
+                  if (first) handleAnalyzeLibrary(first);
+                }}>
+                  Analyze
+                </button>
               </div>
             )}
 
-            {!analysis && !analyzeStatus && !signedIn && (
-              analyzeLibFiles.filter(f => f.notes?.length).length > 0 ? (
-                <div style={{ textAlign: "center", padding: "var(--s-4)" }}>
-                  <p className="muted" style={{ margin: "0 0 var(--s-3)" }}>
-                    Using: <strong>{analyzeLibFiles[0].name}</strong>
-                  </p>
-                  <button className="btn btn-primary" onClick={() => handleAnalyzeLibrary(analyzeLibFiles[0])}>
-                    Analyze
-                  </button>
-                </div>
-              ) : (
-                <p className="muted" style={{ textAlign: "center", margin: "var(--s-4) 0" }}>
-                  Transcribe an audio song first — then come back to analyze.
-                </p>
-              )
+            {!analysis && !analyzeStatus && !signedIn && analyzeLibFiles.filter(f => f.notes?.length).length === 0 && (
+              <p className="muted" style={{ textAlign: "center", margin: "var(--s-4) 0" }}>
+                Transcribe an audio song first — then come back to analyze.
+              </p>
             )}
 
             {analyzeStatus && (

@@ -31,9 +31,6 @@ async function backendPost(path: string, body: Record<string, unknown>) {
   return res.json();
 }
 
-// ---------------------------------------------------------------------------
-// Tool: transcribe_audio
-// ---------------------------------------------------------------------------
 export const transcribeAudioTool = tool({
   description:
     "Transcribe an audio file to MIDI notes. Use when the user wants to convert audio to notes, sheet music, or MIDI.",
@@ -61,9 +58,6 @@ export const transcribeAudioTool = tool({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Tool: analyze_midi
-// ---------------------------------------------------------------------------
 export const analyzeMidiTool = tool({
   description:
     "Analyze a MIDI file for music theory: key, tempo, time signature, chords, Roman numerals, cadences, modulations, and voice leading.",
@@ -75,9 +69,6 @@ export const analyzeMidiTool = tool({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Tool: enhance_audio
-// ---------------------------------------------------------------------------
 export const enhanceAudioTool = tool({
   description:
     "Clean and denoise an audio recording. Removes background noise, clips, and normalizes volume.",
@@ -102,9 +93,6 @@ export const enhanceAudioTool = tool({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Tool: convert_format
-// ---------------------------------------------------------------------------
 export const convertFormatTool = tool({
   description:
     "Convert between MIDI and MusicXML formats. Use when the user wants sheet music from MIDI or vice versa.",
@@ -130,10 +118,6 @@ export const convertFormatTool = tool({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Registry — export all tools as a single map.
-// To add a new tool: import it above and add it here. That's it.
-// ---------------------------------------------------------------------------
 export const musicTools = {
   transcribe_audio: transcribeAudioTool,
   analyze_midi: analyzeMidiTool,

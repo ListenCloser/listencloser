@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "abcjs/abcjs-audio.css";
 import { Geist } from "next/font/google";
 import MSWInit from "@/components/MSWInit";
 import AuthProvider from "@/components/AuthProvider";
