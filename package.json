@@ -24,6 +24,7 @@
     "@huggingface/transformers": "^4.2.0",
     "@sentry/nextjs": "^10.66.0",
     "@supabase/supabase-js": "^2.45.0",
+    "@testing-library/dom": "^10.4.1",
     "abcjs": "^6.6.4",
     "ai": "^7.0.37",
     "next": "15.5.20",
