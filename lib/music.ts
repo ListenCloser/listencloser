@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-import { uploadFile, getPublicUrl, listFiles, downloadText, deleteFile, type FileMeta } from "./storage";
 import { apiFetch } from "./api";
 
 async function userId(): Promise<string | null> {
@@ -9,10 +8,12 @@ async function userId(): Promise<string | null> {
 }
 
 export async function blobToBase64(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
   let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);
 }
@@ -83,18 +84,21 @@ export async function uploadToLibrary(name: string, blob: Blob): Promise<{ url: 
     : ext === "mid" || ext === "midi"
       ? "audio/midi"
       : `audio/${ext}`;
-  await uploadFile(LIBRARY_BUCKET, path, blob, contentType, true);
+  await apiFetch("/api/music/library", {
+    method: "POST",
+    body: JSON.stringify({ name: path, data_base64: await blobToBase64(blob), fmt: ext }),
+  });
+  const { getPublicUrl } = await import("./storage");
   return { url: getPublicUrl(LIBRARY_BUCKET, path), id: path };
 }
 
 export async function listLibrary(): Promise<LibFile[]> {
   const uid = await userId();
   if (!uid) return [];
+  const { listFiles, getPublicUrl, downloadText } = await import("./storage");
   const prefix = await userPrefix();
   const files = await listFiles(LIBRARY_BUCKET, prefix);
 
-  // List existing transcription JSONs once so we only download the ones that
-  // actually exist — avoids a 400/404 per library file with no saved notes.
   let notesNames = new Set<string>();
   try {
     const noteFiles = await listFiles(TRANSCRIPTIONS_BUCKET, uid);
@@ -106,10 +110,9 @@ export async function listLibrary(): Promise<LibFile[]> {
   const items = await Promise.all(
     files
       .filter((f) => !f.name.endsWith("/"))
-      .map(async (f: FileMeta) => {
+      .map(async (f) => {
         const path = `${prefix}/${f.name}`;
         const displayName = f.name.replace(/^\d+-/, "").replace(/_/g, " ");
-        // Strip extension to get the base name (e.g., "hello" from "hello.wav")
         const baseName = f.name.replace(/\.[^.]+$/, "");
         let notes;
         let midi_base64;
@@ -159,6 +162,7 @@ export async function saveTranscription(
   if (!supabase) return;
   const uid = await userId();
   if (!uid) return;
+  const { uploadFile } = await import("./storage");
   const baseName = (id.split("/").pop() ?? id).replace(/\.[^.]+$/, "");
   const path = `${uid}/${baseName}.json`;
   const payload: Record<string, unknown> = { notes };
@@ -170,25 +174,26 @@ export async function saveTranscription(
 
 export async function deleteFromLibrary(id: string): Promise<void> {
   if (!supabase) throw new Error("Supabase not configured");
+  const { deleteFile } = await import("./storage");
   await deleteFile(LIBRARY_BUCKET, id);
-  // also delete companion transcription file if present
   const uid = await userId();
   if (uid) {
     const baseName = (id.split("/").pop() ?? id).replace(/\.[^.]+$/, "");
     try {
       await deleteFile(TRANSCRIPTIONS_BUCKET, `${uid}/${baseName}.json`);
-    } catch { /* ok if none */ }
+    } catch {}
   }
 }
 
 export async function listTranscriptions(): Promise<Transcription[]> {
   const uid = await userId();
   if (!uid) return [];
+  const { listFiles, getPublicUrl } = await import("./storage");
   const prefix = uid;
   const files = await listFiles(TRANSCRIPTIONS_BUCKET, prefix);
   return files
     .filter((f) => !f.name.endsWith("/"))
-    .map((f: FileMeta) => {
+    .map((f) => {
       const path = `${prefix}/${f.name}`;
       return {
         id: path,
@@ -247,10 +252,14 @@ export function notesToMidiBase64(notes: NoteInput[]): string {
   const pending: { tick: number; pitch: number; velocity: number; off: boolean }[] = [];
 
   for (const n of sorted) {
-    const onTick = Math.round(n.start * TPQ);
-    const offTick = Math.round(n.end * TPQ);
-    pending.push({ tick: onTick, pitch: n.pitch, velocity: n.velocity, off: false });
-    pending.push({ tick: offTick, pitch: n.pitch, velocity: 0, off: true });
+    const clampedStart = Math.max(0, n.start);
+    const clampedEnd = Math.max(clampedStart, n.end);
+    const clampedPitch = Math.min(127, Math.max(0, n.pitch));
+    const clampedVel = Math.min(127, Math.max(0, n.velocity));
+    const onTick = Math.round(clampedStart * TPQ);
+    const offTick = Math.round(clampedEnd * TPQ);
+    pending.push({ tick: onTick, pitch: clampedPitch, velocity: clampedVel, off: false });
+    pending.push({ tick: offTick, pitch: clampedPitch, velocity: 0, off: true });
   }
 
   pending.sort((a, b) => a.tick - b.tick || (a.off ? 0 : 1) - (b.off ? 0 : 1));
@@ -259,7 +268,7 @@ export function notesToMidiBase64(notes: NoteInput[]): string {
     const delta = ev.tick - lastTick;
     lastTick = ev.tick;
     events.push(...encodeVarLen(delta));
-    events.push(ev.off ? 0x80 : 0x90, ev.pitch & 0x7F, ev.velocity & 0x7F);
+    events.push(ev.off ? 0x80 : 0x90, ev.pitch, ev.velocity);
   }
 
   events.push(0, 0xFF, 0x2F, 0x00);
@@ -324,4 +333,25 @@ export async function convertMusicFormat(
     method: "POST",
     body: JSON.stringify({ source, data_base64: dataBase64, target }),
   }) as Promise<{ data_base64: string; format: string }>;
+}
+
+export function formatTime(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+export function audioFmtFromBlob(blob: Blob): string {
+  const type = blob.type.toLowerCase();
+  if (type.includes("ogg")) return "ogg";
+  if (type.includes("mp4") || type.includes("m4a")) return "mp4";
+  if (type.includes("flac")) return "flac";
+  if (type.includes("mp3") || type.includes("mpeg")) return "mp3";
+  return "wav";
+}
+
+export function audioFmtFromName(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (["ogg", "mp4", "m4a", "flac", "mp3", "wav", "webm"].includes(ext)) return ext === "m4a" ? "mp4" : ext;
+  return "wav";
 }

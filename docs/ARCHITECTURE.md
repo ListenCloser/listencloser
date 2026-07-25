@@ -124,7 +124,7 @@ Review automation: **CodeRabbit** + **Semgrep** on PRs. The agent uses the
 | Concern | Path |
 |---|---|
 | Page shell | `app/page.tsx`, `app/HomeClient.tsx`, `components/Studio.tsx` |
-| Transcribe | `components/transcribe/`, `components/Score.tsx`, `components/PianoRoll.tsx`, `lib/abc.ts` |
+| Transcribe | `components/transcribe/`, `components/SheetMusic.tsx`, `components/PianoRoll.tsx` |
 | Analyze | `components/analyze/` |
 | Library | `components/library/`, `lib/storage.ts` |
 | Backend proxy | `lib/backend.ts`, `app/api/**/route.ts` |

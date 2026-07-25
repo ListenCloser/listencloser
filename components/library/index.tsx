@@ -6,6 +6,7 @@ import {
   uploadToLibrary,
   listLibrary,
   deleteFromLibrary,
+  formatTime,
   type LibFile,
   type Transcription,
 } from "@/lib/music";
@@ -78,6 +79,7 @@ export default function Library({
   }, []);
 
   async function uploadFile(file: File) {
+    if (busy) return;
     setBusy(true);
     setStatus("Uploading…");
     try {
@@ -165,12 +167,6 @@ export default function Library({
     setRecordTimer(0);
   }
 
-  function formatTime(sec: number): string {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  }
-
   const nowPlaying = files.find((f) => f.id === playing);
 
   return (
@@ -230,9 +226,10 @@ export default function Library({
             style={{ height: 4, marginBottom: 4 }}
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
+              if (rect.width === 0) return;
               const pct = (e.clientX - rect.left) / rect.width;
               const a = audioRef.current;
-              if (a && duration > 0) a.currentTime = pct * duration;
+              if (a && duration > 0 && pct >= 0 && pct <= 1) a.currentTime = pct * duration;
             }}
           >
             <div className="pb-fill" style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }} />

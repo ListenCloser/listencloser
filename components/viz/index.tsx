@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { listLibrary, synthAudio, synthMusicXml, convertMusicFormat, type LibFile } from "@/lib/music";
+import { listLibrary, synthAudio, synthMusicXml, convertMusicFormat, formatTime, type LibFile } from "@/lib/music";
 import { loadLocalTranscription } from "@/lib/browser-store";
 import PianoRoll from "@/components/PianoRoll";
 import Spectrogram from "@/components/Spectrogram";
@@ -21,12 +21,6 @@ const VIZ_MODES: { id: VizMode; label: string }[] = [
   { id: "tonnetz", label: "Tonnetz" },
   { id: "sheet-music", label: "Sheet Music" },
 ];
-
-function formatTime(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 export default function Viz({
   initialTrackId,
@@ -142,7 +136,8 @@ export default function Viz({
         play(selectedId, url);
       } catch {
         setUseFallbackTimer(true);
-        const maxEnd = Math.max(...(selected.notes ?? []).map((n) => n.end));
+        const notes = selected.notes ?? [];
+        const maxEnd = notes.length > 0 ? Math.max(...notes.map((n) => n.end)) : 0;
         setMidiDuration(maxEnd);
         midiStartRef.current = performance.now();
         midiOffsetRef.current = 0;
@@ -172,7 +167,7 @@ export default function Viz({
 
   const handleSeek = useCallback((pct: number) => {
     const a = audioRef.current;
-    if (a && duration > 0) a.currentTime = pct * duration;
+    if (a && duration > 0 && pct >= 0 && pct <= 1) a.currentTime = pct * duration;
   }, [audioRef, duration]);
 
   useEffect(() => {

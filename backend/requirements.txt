@@ -10,7 +10,7 @@ pretty_midi==0.2.10
 soundfile==0.12.1
 pyfluidsynth==1.4.0
 pytest==9.1.1
-pytest-asyncio==1.4.0
+pytest-asyncio>=0.23.0
 ruff==0.5.7
 librosa>=0.10.0
 music21>=10.0.0
