@@ -28,7 +28,7 @@ test.describe("Supported user paths", () => {
 
     await expect(page.locator(".nav")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Transcribe/ }),
+      page.getByRole("button", { name: /Upload|Record/ }),
     ).toBeVisible();
   });
 
