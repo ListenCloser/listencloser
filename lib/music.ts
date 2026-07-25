@@ -1,22 +1,25 @@
+/**
+ * Music API client and library management.
+ *
+ * This module is the primary interface for:
+ * 1. Backend API calls (transcribe, enhance, analyze, synth, convert)
+ * 2. Supabase library CRUD (upload, list, save, delete)
+ * 3. Shared types used across the frontend
+ *
+ * MIDI encoding lives in lib/midi.ts.
+ * Format utilities live in lib/format.ts.
+ */
+
 import { supabase } from "./supabase";
 import { apiFetch } from "./api";
 
-async function userId(): Promise<string | null> {
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user?.id ?? null;
-}
+// ── Re-exports ──────────────────────────────────────────────────────────────
+// Centralize imports so consumers only need to import from "lib/music".
 
-export async function blobToBase64(blob: Blob): Promise<string> {
-  const buffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
+export { notesToMidiBase64, type NoteInput } from "./midi";
+export { blobToBase64, formatTime, audioFmtFromBlob, audioFmtFromName } from "./format";
+
+// ── Types ───────────────────────────────────────────────────────────────────
 
 export type TranscribeResult = {
   notes: { pitch: number; start: number; end: number; velocity: number }[];
@@ -63,13 +66,23 @@ export type Transcription = {
   created_at?: string;
 };
 
+// ── Internal helpers ────────────────────────────────────────────────────────
+
 const LIBRARY_BUCKET = "library";
 const TRANSCRIPTIONS_BUCKET = "transcriptions";
+
+async function userId(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id ?? null;
+}
 
 async function userPrefix(): Promise<string> {
   const uid = await userId();
   return `library/${uid ?? "dev"}`;
 }
+
+// ── Library CRUD ────────────────────────────────────────────────────────────
 
 export async function uploadToLibrary(name: string, blob: Blob): Promise<{ url: string; id: string }> {
   if (!supabase) throw new Error("Supabase not configured");
@@ -84,11 +97,8 @@ export async function uploadToLibrary(name: string, blob: Blob): Promise<{ url: 
     : ext === "mid" || ext === "midi"
       ? "audio/midi"
       : `audio/${ext}`;
-  await apiFetch("/api/music/library", {
-    method: "POST",
-    body: JSON.stringify({ name: path, data_base64: await blobToBase64(blob), fmt: ext }),
-  });
-  const { getPublicUrl } = await import("./storage");
+  const { uploadFile, getPublicUrl } = await import("./storage");
+  await uploadFile(LIBRARY_BUCKET, path, blob, contentType, true);
   return { url: getPublicUrl(LIBRARY_BUCKET, path), id: path };
 }
 
@@ -99,6 +109,7 @@ export async function listLibrary(): Promise<LibFile[]> {
   const prefix = await userPrefix();
   const files = await listFiles(LIBRARY_BUCKET, prefix);
 
+  // Batch-check which transcriptions exist to avoid N+1 downloads
   let notesNames = new Set<string>();
   try {
     const noteFiles = await listFiles(TRANSCRIPTIONS_BUCKET, uid);
@@ -205,6 +216,8 @@ export async function listTranscriptions(): Promise<Transcription[]> {
     });
 }
 
+// ── Backend API calls ───────────────────────────────────────────────────────
+
 export async function transcribeAudio(
   dataBase64?: string,
   fmt = "wav",
@@ -238,76 +251,6 @@ export async function analyzeAudio(
   }) as Promise<TranscribeResult["analysis"]>;
 }
 
-type NoteInput = { pitch: number; start: number; end: number; velocity: number };
-
-export function notesToMidiBase64(notes: NoteInput[]): string {
-  const TPQ = 480;
-  const tempoMicros = 500000;
-  const events: number[] = [];
-
-  events.push(0, 0xFF, 0x51, 0x03, (tempoMicros >> 16) & 0xFF, (tempoMicros >> 8) & 0xFF, tempoMicros & 0xFF);
-
-  const sorted = [...notes].sort((a, b) => a.start - b.start || a.end - b.end);
-  let lastTick = 0;
-  const pending: { tick: number; pitch: number; velocity: number; off: boolean }[] = [];
-
-  for (const n of sorted) {
-    const clampedStart = Math.max(0, n.start);
-    const clampedEnd = Math.max(clampedStart, n.end);
-    const clampedPitch = Math.min(127, Math.max(0, n.pitch));
-    const clampedVel = Math.min(127, Math.max(0, n.velocity));
-    const onTick = Math.round(clampedStart * TPQ);
-    const offTick = Math.round(clampedEnd * TPQ);
-    pending.push({ tick: onTick, pitch: clampedPitch, velocity: clampedVel, off: false });
-    pending.push({ tick: offTick, pitch: clampedPitch, velocity: 0, off: true });
-  }
-
-  pending.sort((a, b) => a.tick - b.tick || (a.off ? 0 : 1) - (b.off ? 0 : 1));
-
-  for (const ev of pending) {
-    const delta = ev.tick - lastTick;
-    lastTick = ev.tick;
-    events.push(...encodeVarLen(delta));
-    events.push(ev.off ? 0x80 : 0x90, ev.pitch, ev.velocity);
-  }
-
-  events.push(0, 0xFF, 0x2F, 0x00);
-
-  const trackChunk = events.length + 8;
-  const totalLen = 14 + trackChunk;
-  const buf = new Uint8Array(totalLen);
-  let p = 0;
-
-  buf[p++] = 0x4D; buf[p++] = 0x54; buf[p++] = 0x68; buf[p++] = 0x64;
-  buf[p++] = 0; buf[p++] = 0; buf[p++] = 0; buf[p++] = 6;
-  buf[p++] = 0; buf[p++] = 0;
-  buf[p++] = 0; buf[p++] = 1;
-  buf[p++] = (TPQ >> 8) & 0xFF; buf[p++] = TPQ & 0xFF;
-
-  buf[p++] = 0x4D; buf[p++] = 0x54; buf[p++] = 0x72; buf[p++] = 0x6B;
-  buf[p++] = (events.length >> 24) & 0xFF;
-  buf[p++] = (events.length >> 16) & 0xFF;
-  buf[p++] = (events.length >> 8) & 0xFF;
-  buf[p++] = events.length & 0xFF;
-  for (const b of events) buf[p++] = b;
-
-  let binary = "";
-  for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
-  return btoa(binary);
-}
-
-function encodeVarLen(val: number): number[] {
-  const result: number[] = [];
-  result.push(val & 0x7F);
-  val >>= 7;
-  while (val > 0) {
-    result.push((val & 0x7F) | 0x80);
-    val >>= 7;
-  }
-  result.reverse();
-  return result;
-}
-
 export async function synthAudio(
   midiBase64: string,
 ): Promise<{ wav_base64: string }> {
@@ -333,25 +276,4 @@ export async function convertMusicFormat(
     method: "POST",
     body: JSON.stringify({ source, data_base64: dataBase64, target }),
   }) as Promise<{ data_base64: string; format: string }>;
-}
-
-export function formatTime(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-export function audioFmtFromBlob(blob: Blob): string {
-  const type = blob.type.toLowerCase();
-  if (type.includes("ogg")) return "ogg";
-  if (type.includes("mp4") || type.includes("m4a")) return "mp4";
-  if (type.includes("flac")) return "flac";
-  if (type.includes("mp3") || type.includes("mpeg")) return "mp3";
-  return "wav";
-}
-
-export function audioFmtFromName(name: string): string {
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  if (["ogg", "mp4", "m4a", "flac", "mp3", "wav", "webm"].includes(ext)) return ext === "m4a" ? "mp4" : ext;
-  return "wav";
 }

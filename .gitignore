@@ -52,3 +52,4 @@ scripts/vm-ssh-key
 data/
 .env*
 !.env.example
+docs/FILE_AUDIT.md

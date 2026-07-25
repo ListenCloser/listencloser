@@ -3,6 +3,22 @@
  * To add a new tool: create a file in this directory, export `toolDefinition`.
  * The chat route auto-imports everything here.
  */
+/**
+ * AI Chat tool registry.
+ *
+ * Architecture: Each tool is a self-contained definition that maps a
+ * user intent (e.g., "transcribe this audio") to a backend API call.
+ * Tools are consumed by app/api/chat/route.ts and executed server-side.
+ *
+ * To add a new tool:
+ * 1. Define the tool with `tool()` from "ai"
+ * 2. Add it to the musicTools export
+ * 3. The chat route auto-discovers it
+ *
+ * Note: These tools call the FastAPI backend directly (not through
+ * the Next.js proxy) because they run server-side.
+ */
+
 import { tool } from "ai";
 import { z } from "zod";
 

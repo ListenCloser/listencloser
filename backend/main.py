@@ -1,3 +1,30 @@
+"""
+FastAPI backend for Music AI Studio.
+
+Architecture:
+    Browser → Next.js API routes → This server (FastAPI on Oracle VM)
+
+This server handles:
+    - Audio transcription (basic-pitch ML model)
+    - MIDI synthesis (FluidSynth + numpy fallback)
+    - Audio enhancement (ffmpeg denoise/declip/normalize)
+    - Music theory analysis (music21 + pretty_midi)
+    - Format conversion (MIDI ↔ MusicXML)
+    - Library management (Supabase storage via service role)
+
+Security:
+    - All endpoints use Supabase JWT verification (verify_token)
+    - Public endpoints use verify_token_optional
+    - Upload size limited to MAX_UPLOAD_BYTES (25 MB)
+    - Storage paths validated to prevent traversal
+    - Rate limiting via slowapi (60/min default)
+
+Observability:
+    - Structured JSON logging with request IDs
+    - Sentry integration for error tracking
+    - Request duration tracking
+"""
+
 import base64
 import contextvars
 import json

@@ -1,4 +1,20 @@
-"""MIDI harmonic analysis pipeline.
+"""
+MIDI harmonic analysis pipeline.
+
+All analysis runs on symbolic data (MIDI). Audio files are *never*
+analysed directly — the transcribe endpoint converts audio → MIDI first,
+then this module analyses the MIDI.
+
+Pipeline stages:
+    1. music21 → key estimation, Roman numerals, cadences, voice leading
+    2. pretty_midi → tempo, time signature metadata
+    3. Pitch-class histogram → chord detection + smoothing
+    4. Windowed pitch classes → modulation detection
+
+Output format matches the frontend's TranscribeResult["analysis"] type.
+Any changes to the AnalysisResult TypedDict must be mirrored in
+lib/music.ts TranscribeResult.
+"""
 
 All analysis runs on symbolic data (MIDI). Audio files are *never*
 analysed directly — the transcribe endpoint converts audio → MIDI first,

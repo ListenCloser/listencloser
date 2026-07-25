@@ -1,3 +1,28 @@
+/**
+ * Main application shell — the orchestrator.
+ *
+ * Architecture: Studio manages ALL cross-tab state and coordinates
+ * between Library, Transform, Visualize, Analyze, and Chat tabs.
+ *
+ * State ownership:
+ * - Tab navigation (current tab, URL sync)
+ * - Transcription results (lastResult, audioName)
+ * - Analysis state (analysis, analysisError, analyzeStatus)
+ * - Library state (analyzeLibFiles, transcriptions, refreshKey)
+ * - Visualization state (vizTrackId, vizSelectedId)
+ * - Auth state (signedIn passed as prop)
+ *
+ * The Analyze tab UI is inlined here (not in components/analyze/)
+ * because it needs access to cross-tab state that would otherwise
+ * require prop drilling through 3+ levels.
+ *
+ * When adding a new tab:
+ * 1. Add to TABS array
+ * 2. Add tab-specific state here
+ * 3. Add tab render in the workbench section
+ * 4. Wire up callbacks (onTranscribed, onAnalyze, etc.)
+ */
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";

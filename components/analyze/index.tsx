@@ -1,7 +1,7 @@
 "use client";
 
 import type { TranscribeResult } from "@/lib/music";
-import { computeNoteStats } from "@/lib/analyze";
+import { computeNoteStats } from "@/lib/note-stats";
 import { FLAT_NOTE_NAMES, SHARP_NOTE_NAMES } from "@/lib/notes";
 
 type Props = {
