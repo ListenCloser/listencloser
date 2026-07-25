@@ -517,6 +517,7 @@ def _detect_modulations(score) -> list[ModulationResult]:
 def analyze_midi(midi_path: str) -> AnalysisResult:
     t0 = _time.perf_counter()
     from music21 import converter
+
     try:
         score = converter.parse(midi_path, quantizePost=False)
     except Exception:
@@ -576,6 +577,7 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
 
 def analyze_from_notes(notes: list[dict]) -> AnalysisResult:
     import contextlib
+
     pm = pretty_midi.PrettyMIDI()
     inst = pretty_midi.Instrument(program=0, is_drum=False, name="Piano")
     for n in notes:
