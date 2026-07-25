@@ -406,8 +406,14 @@ def _chords_from_frames(frames: list[tuple[float, np.ndarray]]) -> list[ChordRes
     for t, vec in frames:
         if vec.sum() < _MIN_CHORD_FRAME_SUM:
             if current_label:
-                chords.append(ChordResult(root=current_root, quality=current_quality,
-                                          start=round(current_start, 3), end=round(t, 3)))
+                chords.append(
+                    ChordResult(
+                        root=current_root,
+                        quality=current_quality,
+                        start=round(current_start, 3),
+                        end=round(t, 3),
+                    )
+                )
                 current_label = ""
             continue
         frame = vec / vec.max() if vec.max() > 0 else vec
@@ -419,15 +425,27 @@ def _chords_from_frames(frames: list[tuple[float, np.ndarray]]) -> list[ChordRes
         root, quality = best_label.split(":")
         if best_label != current_label:
             if current_label and t - current_start > _MIN_CHORD_DURATION:
-                chords.append(ChordResult(root=current_root, quality=current_quality,
-                                          start=round(current_start, 3), end=round(t, 3)))
+                chords.append(
+                    ChordResult(
+                        root=current_root,
+                        quality=current_quality,
+                        start=round(current_start, 3),
+                        end=round(t, 3),
+                    )
+                )
             current_label = best_label
             current_start = t
             current_root = root
             current_quality = quality
     if current_label:
-        chords.append(ChordResult(root=current_root, quality=current_quality,
-                                  start=round(current_start, 3), end=round(frames[-1][0], 3)))
+        chords.append(
+            ChordResult(
+                root=current_root,
+                quality=current_quality,
+                start=round(current_start, 3),
+                end=round(frames[-1][0], 3),
+            )
+        )
     return chords
 
 
@@ -518,7 +536,10 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
     try:
         _, tempos = pm.get_tempo_changes()
         if len(tempos) > 0:
-            result["tempo"] = TempoResult(bpm=round(float(np.median(tempos)), 1), confidence=0.9)
+            result["tempo"] = TempoResult(
+                bpm=round(float(np.median(tempos)), 1),
+                confidence=0.9,
+            )
     except Exception:
         pass
 
@@ -526,7 +547,9 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         _, ts_nums, ts_denoms = pm.get_time_signatures()
         if len(ts_nums) > 0:
             result["time_signature"] = TimeSigResult(
-                numerator=int(ts_nums[0]), denominator=int(ts_denoms[0]), confidence=0.9
+                numerator=int(ts_nums[0]),
+                denominator=int(ts_denoms[0]),
+                confidence=0.9,
             )
     except Exception:
         pass
