@@ -69,6 +69,7 @@ export type LibFile = {
   notes?: { pitch: number; start: number; end: number; velocity: number }[];
   midi_base64?: string;
   musicxml?: string;
+  synth_wav_base64?: string;
   analysis?: TranscribeResult["analysis"];
 };
 

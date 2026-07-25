@@ -81,6 +81,7 @@ export async function listLibrary(): Promise<LibFile[]> {
         let midi_base64;
         let analysis;
         let musicxml;
+        let synth_wav_base64;
         if (notesNames.has(`${baseName}.json`)) {
           try {
             const raw = await downloadText(TRANSCRIPTIONS_BUCKET, `${uid}/${baseName}.json`);
@@ -93,6 +94,7 @@ export async function listLibrary(): Promise<LibFile[]> {
                 midi_base64 = parsed.midi_base64;
                 analysis = parsed.analysis;
                 musicxml = parsed.musicxml;
+                synth_wav_base64 = parsed.synth_wav_base64;
               }
             }
           } catch {
@@ -108,6 +110,7 @@ export async function listLibrary(): Promise<LibFile[]> {
           notes,
           midi_base64,
           musicxml,
+          synth_wav_base64,
           analysis,
         };
       }),
@@ -121,6 +124,7 @@ export async function saveTranscription(
   midi_base64?: string,
   analysis?: TranscribeResult["analysis"],
   musicxml?: string,
+  synth_wav_base64?: string,
 ): Promise<void> {
   if (!supabase) return;
   const uid = await userId();
@@ -132,6 +136,7 @@ export async function saveTranscription(
   if (midi_base64) payload.midi_base64 = midi_base64;
   if (analysis) payload.analysis = analysis;
   if (musicxml) payload.musicxml = musicxml;
+  if (synth_wav_base64) payload.synth_wav_base64 = synth_wav_base64;
   await uploadFile(TRANSCRIPTIONS_BUCKET, path, JSON.stringify(payload), "application/json", true);
 }
 

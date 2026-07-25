@@ -102,6 +102,7 @@ export default function Transform({
   const [wasLibraryFile, setWasLibraryFile] = useState(false);
   const [libraryFileId, setLibraryFileId] = useState<string | null>(null);
   const originalBlobRef = useRef<Blob | null>(null);
+  const synthWavRef = useRef<string | null>(null);
   const [wavUrl, setWavUrl] = useState("");
   const [wavPlaying, setWavPlaying] = useState(false);
   const [musicXml, setMusicXml] = useState("");
@@ -172,6 +173,7 @@ export default function Transform({
         setStatus("Synthesizing audio…");
         try {
           const synth = await synthAudio(res.midi_base64);
+          synthWavRef.current = synth.wav_base64;
           const bytes = Uint8Array.from(atob(synth.wav_base64), (c) => c.charCodeAt(0));
           const blob = new Blob([bytes], { type: "audio/wav" });
           if (wavUrl) URL.revokeObjectURL(wavUrl);
@@ -205,7 +207,7 @@ export default function Transform({
             }
           }
 
-          await saveTranscription(savedId, res.notes, res.midi_base64, analysisResult);
+          await saveTranscription(savedId, res.notes, res.midi_base64, analysisResult, undefined, synthWavRef.current ?? undefined);
           setSaved(true);
           onTranscriptionSaved?.();
         } catch (e) {
