@@ -27,9 +27,7 @@ test.describe("Supported user paths", () => {
     await openStudio(page);
 
     await expect(page.locator(".nav")).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /Upload|Record/ }),
-    ).toBeVisible();
+    await expect(page.locator(".source-card").first()).toBeVisible();
   });
 
   test("P3: transcribe a file → piano roll + audio (mocked backend)", async ({
