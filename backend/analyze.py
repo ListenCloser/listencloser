@@ -239,7 +239,10 @@ def _m21_cadences(score, detected_key) -> list[CadenceResult]:
         pair = [chord_seq[i][1], chord_seq[i + 1][1]]
         for cad_type, pattern in patterns:
             if pair == pattern:
-                cadences.append(CadenceResult(type=cad_type, chords=pair, position=round(chord_seq[i][0], 3)))
+                cadences.append(CadenceResult(
+                    type=cad_type, chords=pair,
+                    position=round(chord_seq[i][0], 3),
+                ))
                 break
     return cadences
 
@@ -258,20 +261,30 @@ def _m21_voice_leading(score) -> VoiceLeadingResult | None:
             try:
                 for vlq in voiceLeading.iterateAllVoiceLeadingQuartets(parts[i], parts[j]):
                     motion = vlq.motionType()
-                    if "Parallel" in str(motion): parallel += 1
-                    elif "Contrary" in str(motion): contrary += 1
-                    elif "Oblique" in str(motion): oblique += 1
-                    elif "Similar" in str(motion): similar += 1
+                    if "Parallel" in str(motion):
+                        parallel += 1
+                    elif "Contrary" in str(motion):
+                        contrary += 1
+                    elif "Oblique" in str(motion):
+                        oblique += 1
+                    elif "Similar" in str(motion):
+                        similar += 1
                     total += 1
-                    if total > 2000: break
+                    if total > 2000:
+                        break
             except Exception:
                 continue
-            if total > 2000: break
-        if total > 2000: break
+            if total > 2000:
+                break
+        if total > 2000:
+            break
     if total == 0:
         return None
     p, c, o, s = (round(n / total, 3) for n in [parallel, contrary, oblique, similar])
-    dominant = max(("parallel", p), ("contrary", c), ("oblique", o), ("similar", s), key=lambda x: x[1])
+    dominant = max(
+        ("parallel", p), ("contrary", c), ("oblique", o), ("similar", s),
+        key=lambda x: x[1],
+    )
     return VoiceLeadingResult(
         parallel=p, contrary=c, oblique=o, similar=s,
         motion_summary=f"{dominant[0]} motion dominates ({dominant[1] * 100:.0f}%)",
@@ -291,7 +304,10 @@ def _m21_phrases(score) -> list[PhraseResult]:
                     if hasattr(end_note, "quarterLength"):
                         end += float(end_note.quarterLength)
                     if end > start:
-                        phrases.append(PhraseResult(start=round(start, 3), end=round(end, 3), kind="slur"))
+                        phrases.append(PhraseResult(
+                            start=round(start, 3), end=round(end, 3),
+                            kind="slur",
+                        ))
             except Exception:
                 continue
     if not phrases:
@@ -307,7 +323,10 @@ def _m21_phrases(score) -> list[PhraseResult]:
                         if hasattr(last, "quarterLength"):
                             end += float(last.quarterLength)
                         if end > start:
-                            phrases.append(PhraseResult(start=round(start, 3), end=round(end, 3), kind="measure_group"))
+                            phrases.append(PhraseResult(
+                                start=round(start, 3), end=round(end, 3),
+                                kind="measure_group",
+                            ))
                 break
     return phrases
 
@@ -359,7 +378,10 @@ def _chords_from_frames(frames: list[tuple[float, np.ndarray]]) -> list[ChordRes
             if current_label and t - current_start > _MIN_CHORD_DURATION:
                 chords.append(ChordResult(root=current_root, quality=current_quality,
                                           start=round(current_start, 3), end=round(t, 3)))
-            current_label, current_start, current_root, current_quality = best_label, t, root, quality
+            current_label = best_label
+            current_start = t
+            current_root = root
+            current_quality = quality
     if current_label:
         chords.append(ChordResult(root=current_root, quality=current_quality,
                                   start=round(current_start, 3), end=round(frames[-1][0], 3)))
