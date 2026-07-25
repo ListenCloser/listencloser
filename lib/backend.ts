@@ -1,3 +1,13 @@
+/**
+ * Generic reverse-proxy to the FastAPI backend.
+ *
+ * Architecture: The browser never talks to the Oracle VM directly.
+ * All backend calls go through Next.js API routes which use this
+ * function to proxy requests. This keeps the VM URL/key off the client.
+ *
+ * Request flow: Browser → Next.js API route → proxyToBackend() → FastAPI
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 
 function getBackendUrl(): string {

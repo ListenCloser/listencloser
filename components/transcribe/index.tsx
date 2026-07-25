@@ -1,3 +1,29 @@
+/**
+ * Transform tab — the audio processing pipeline.
+ *
+ * Architecture: This component orchestrates the full audio processing flow:
+ *   Upload/Record → Enhance → Transcribe → Synthesize → Display
+ *
+ * State machine:
+ *   idle → enhancing → transcribing → synthing → populated
+ *   idle → converting → populated (MIDI→score mode)
+ *   any → error
+ *
+ * Modes:
+ * - "transcribe": Audio → MIDI → notes + sheet music
+ * - "midi-to-score": MIDI → MusicXML sheet music
+ *
+ * Key functions:
+ * - processBlob(): Main pipeline — enhance, transcribe, synth, auto-save
+ * - handleMidiFile(): MIDI→MusicXML conversion
+ * - onSelectLibraryFile(): Load from library (with or without re-transcription)
+ *
+ * When modifying this component, be aware:
+ * - The state machine must remain acyclic (no loops back to earlier states)
+ * - Audio cleanup (URL.revokeObjectURL) must happen on every re-transcription
+ * - Auto-save only fires when signedIn and notes.length > 0
+ */
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";

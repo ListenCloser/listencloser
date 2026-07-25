@@ -1,3 +1,16 @@
+/**
+ * AI Chat endpoint — streaming music assistant.
+ *
+ * Architecture: Uses Vercel AI SDK + OpenRouter for LLM access.
+ * The model is configurable via CHAT_MODEL env var (default: Gemma 4 26B free).
+ *
+ * Tools are defined in lib/tools/index.ts and call the FastAPI backend
+ * directly (not through the proxy) since this is a server-side route.
+ *
+ * Request: { messages: Array<{role, parts}> }
+ * Response: SSE stream of UI message events
+ */
+
 import {
   streamText,
   toUIMessageStream,

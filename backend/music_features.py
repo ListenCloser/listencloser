@@ -1,14 +1,18 @@
-"""Server-side music features: audio transcription + MIDI synthesis.
+"""
+Server-side music features: audio transcription + MIDI synthesis.
 
-- transcribe_audio: arbitrary audio (wav/mp3/ogg/flac) -> MIDI (basic-pitch,
-  Apache-2.0). Also returns a synthesized WAV rendering of that MIDI (so the
-  user gets a corresponding audio<->text pair) and the raw note events.
-- midi_to_wav: render a MIDI file to a WAV using FluidSynth + a bundled piano
-  SoundFont for a natural instrument timbre. Falls back to a self-contained
-  numpy piano synth if FluidSynth / the SoundFont is unavailable.
+Modules:
+    - transcribe_audio: arbitrary audio → MIDI (basic-pitch ML model)
+    - midi_to_wav: render MIDI to WAV (FluidSynth with SoundFont, numpy fallback)
+    - enhance_audio: denoise/declip/normalize via ffmpeg
+    - convert_format: MIDI ↔ MusicXML via music21
 
-Runs on CPU (Oracle always-free ARM VM). Suitable for short clips (seconds to a
-couple minutes).
+Fallback strategy:
+    FluidSynth (natural timbre) → numpy additive synth (portable fallback)
+    Both produce 16-bit PCM WAV at 22050 Hz.
+
+Runs on CPU (Oracle always-free ARM VM). Suitable for short clips
+(seconds to a couple minutes).
 """
 
 import io

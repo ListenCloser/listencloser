@@ -1,3 +1,18 @@
+/**
+ * Authenticated fetch wrapper with token caching.
+ *
+ * Architecture: All frontend API calls go through this function. It
+ * attaches the Supabase JWT token and handles 401 by invalidating the
+ * cache. The token is cached for 60 seconds to avoid redundant
+ * getSession() calls on every request.
+ *
+ * Token lifecycle:
+ * 1. First call: fetches from supabase.auth.getSession()
+ * 2. Subsequent calls (< 60s): returns cached token
+ * 3. On 401: clears cache, next call re-fetches
+ * 4. On sign-out: call clearTokenCache() explicitly
+ */
+
 import { supabase } from "./supabase";
 
 let cachedToken: string | null = null;

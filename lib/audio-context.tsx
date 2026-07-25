@@ -1,3 +1,14 @@
+/**
+ * Shared audio playback context.
+ *
+ * Architecture: A single <audio> element is shared across all components
+ * (Library, Transform, Visualize). Only one track can play at a time.
+ * Components use useSharedAudio() to get play/pause/stop controls.
+ *
+ * This avoids the browser limit of ~5 concurrent AudioContext instances
+ * and ensures clean transitions between tracks.
+ */
+
 "use client";
 
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react";
