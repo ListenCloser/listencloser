@@ -47,6 +47,7 @@ export default function Library({
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState<LibFile[]>([]);
+  const [loading, setLoading] = useState(true);
   const [recording, setRecording] = useState(false);
   const [recordTimer, setRecordTimer] = useState(0);
 
@@ -60,11 +61,14 @@ export default function Library({
   const cleanupRef = useRef<(() => void) | null>(null);
 
   async function refresh() {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) { setLoading(false); return; }
+    setLoading(true);
     try {
       setFiles(await listLibrary());
     } catch (e) {
       setStatus("⚠️ " + (e instanceof Error ? e.message : "list failed"));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -248,7 +252,18 @@ export default function Library({
       {signedIn ? (
         <>
           <div className="section-label">Tracks</div>
-          {files.length === 0 ? (
+          {loading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)" }}>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="track" style={{ opacity: 0.5 }}>
+                  <div className="track-head">
+                    <div className="track-name"><div className="skel line" style={{ width: "60%" }} /></div>
+                    <div className="track-actions"><div className="skel" style={{ width: 60, height: 28, borderRadius: "var(--r-full)" }} /></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : files.length === 0 ? (
             <div className="empty">No tracks yet. Transcribe audio and save it here.</div>
           ) : (
             files.map((f) => (
