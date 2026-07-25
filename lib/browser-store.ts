@@ -5,6 +5,7 @@ const TAB_KEY = "studio:tab";
 const RESULT_KEY = "studio:lastResult";
 const ANALYSIS_KEY = "studio:analysis";
 const AUDIO_NAME_KEY = "studio:audioName";
+const SELECTED_TRACK_KEY = "studio:selectedTrack";
 
 export type LocalTranscription = {
   name: string;
@@ -138,4 +139,20 @@ export function saveAudioName(name: string): void {
 
 export function loadAudioName(): string {
   try { return sessionStorage.getItem(AUDIO_NAME_KEY) ?? ""; } catch { return ""; }
+}
+
+// ── Selected track persistence ──────────────────────────────────────────────
+
+export function saveSelectedTrack(trackId: string | null): void {
+  try {
+    if (!trackId) {
+      sessionStorage.removeItem(SELECTED_TRACK_KEY);
+      return;
+    }
+    sessionStorage.setItem(SELECTED_TRACK_KEY, trackId);
+  } catch {}
+}
+
+export function loadSelectedTrack(): string | null {
+  try { return sessionStorage.getItem(SELECTED_TRACK_KEY); } catch { return null; }
 }

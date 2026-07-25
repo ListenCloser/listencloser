@@ -50,6 +50,8 @@ import {
   loadAnalysis,
   saveAudioName,
   loadAudioName,
+  saveSelectedTrack,
+  loadSelectedTrack,
 } from "@/lib/browser-store";
 
 const TABS = [
@@ -100,12 +102,18 @@ export function useStudioState({
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Viz state ────────────────────────────────────────────────────────────
-  const [vizTrackId, setVizTrackId] = useState<string | null>(null);
-  const [vizSelectedId, setVizSelectedId] = useState<string>("");
+  const [vizTrackId, setVizTrackId] = useState<string | null>(() => loadSelectedTrack());
+  const [vizSelectedId, setVizSelectedId] = useState<string>(() => loadSelectedTrack() ?? "");
   const vizStopRef = useRef<(() => void) | null>(null);
 
   // ── Effects ──────────────────────────────────────────────────────────────
   useEffect(() => { saveTab(tab); }, [tab]);
+
+  useEffect(() => {
+    const trackId = vizTrackId ?? vizSelectedId;
+    if (trackId) saveSelectedTrack(trackId);
+    else saveSelectedTrack(null);
+  }, [vizTrackId, vizSelectedId]);
 
   useEffect(() => {
     if (tab !== "viz" && vizStopRef.current) {
