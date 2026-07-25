@@ -6,10 +6,10 @@
  * with TranscribeResult["analysis"]. Any change to the analysis schema
  * requires updating both sides.
  *
- * WHERE USED:
- * - TranscribeResult: transcribe/index.tsx, Studio.tsx, viz/index.tsx, MusicChat.tsx
- * - LibFile: library/index.tsx, Studio.tsx, viz/index.tsx
- * - Transcription: library/index.tsx, Studio.tsx
+ * ARCHITECTURE: LibFile is the canonical source of track state. Every
+ * downstream feature (Transform, Visualize, Analysis, Chat) reads from
+ * LibFile's track_state field instead of independently determining
+ * what processing has occurred.
  */
 
 export type TranscribeResult = {
@@ -36,6 +36,29 @@ export type TranscribeResult = {
     };
   };
 };
+
+/**
+ * Persistent processing state for a track.
+ * Derived from what data exists on the LibFile — not stored separately.
+ * This is the source of truth for what processing has been completed.
+ */
+export type TrackState = {
+  uploaded: boolean;
+  transcribed: boolean;
+  sheetMusic: boolean;
+  analysis: boolean;
+  hasMidi: boolean;
+};
+
+export function deriveTrackState(file: LibFile): TrackState {
+  return {
+    uploaded: true,
+    transcribed: Boolean(file.notes && file.notes.length > 0),
+    sheetMusic: Boolean(file.musicxml),
+    analysis: Boolean(file.analysis),
+    hasMidi: Boolean(file.midi_base64),
+  };
+}
 
 export type LibFile = {
   name: string;

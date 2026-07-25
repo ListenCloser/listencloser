@@ -14,7 +14,8 @@
  */
 
 // Types
-export type { TranscribeResult, LibFile, Transcription } from "./types";
+export type { TranscribeResult, LibFile, Transcription, TrackState } from "./types";
+export { deriveTrackState } from "./types";
 
 // API calls
 export { transcribeAudio, enhanceAudio, analyzeAudio, synthAudio, synthMusicXml, convertMusicFormat } from "./music-api";
