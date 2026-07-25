@@ -432,6 +432,40 @@ def convert(req: ConvertRequest, request: Request, _auth=Depends(verify_token_op
     }
 
 
+class SynthRequest(BaseModel):
+    midi_base64: str
+
+
+@app.post("/music/synth")
+@limiter.limit("30/minute")
+def synth(req: SynthRequest, request: Request, _auth=Depends(verify_token_optional)):
+    """Convert MIDI to WAV audio using FluidSynth (or numpy fallback)."""
+    try:
+        midi_bytes = base64.b64decode(req.midi_base64, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid midi base64") from None
+    if len(midi_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"payload too large (max {MAX_UPLOAD_BYTES} bytes)",
+        )
+
+    from music_features import midi_to_wav
+
+    t0 = time.perf_counter()
+    try:
+        wav = midi_to_wav(midi_bytes)
+    except Exception as e:
+        logger.exception("synth_failed")
+        raise HTTPException(status_code=500, detail="MIDI synthesis failed") from e
+    elapsed = round((time.perf_counter() - t0) * 1000)
+    logger.info("synth_done", extra={"step": "midi_to_wav", "step_ms": elapsed})
+
+    return {
+        "wav_base64": base64.b64encode(wav).decode("ascii"),
+    }
+
+
 @app.delete("/music/library/transcription/{record_id:path}")
 @limiter.limit("30/minute")
 def delete_transcription(record_id: str, request: Request, auth=Depends(verify_token)):
