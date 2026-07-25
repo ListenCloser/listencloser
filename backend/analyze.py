@@ -355,7 +355,7 @@ def _m21_phrases(score) -> list[PhraseResult]:
             measures = part.getElementsByClass("Measure")
             if len(measures) >= 4:
                 for i in range(0, len(measures), 4):
-                    group = measures[i:i + 4]
+                    group = measures[i : i + 4]
                     if len(group) >= 2:
                         start = float(group[0].getOffsetInHierarchy(score))
                         last = group[-1]
@@ -501,10 +501,13 @@ def _detect_modulations(score) -> list[ModulationResult]:
     modulations: list[ModulationResult] = []
     for i in range(1, len(key_history)):
         if key_history[i - 1][1] != key_history[i][1]:
-            modulations.append(ModulationResult(
-                from_key=key_history[i - 1][1], to_key=key_history[i][1],
-                position=round(key_history[i][0], 3),
-            ))
+            modulations.append(
+                ModulationResult(
+                    from_key=key_history[i - 1][1],
+                    to_key=key_history[i][1],
+                    position=round(key_history[i][0], 3),
+                )
+            )
     return modulations
 
 
