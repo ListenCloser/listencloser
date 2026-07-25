@@ -267,10 +267,13 @@ def _m21_cadences(score, detected_key) -> list[CadenceResult]:
         pair = [chord_seq[i][1], chord_seq[i + 1][1]]
         for cad_type, pattern in patterns:
             if pair == pattern:
-                cadences.append(CadenceResult(
-                    type=cad_type, chords=pair,
-                    position=round(chord_seq[i][0], 3),
-                ))
+                cadences.append(
+                    CadenceResult(
+                        type=cad_type,
+                        chords=pair,
+                        position=round(chord_seq[i][0], 3),
+                    )
+                )
                 break
     return cadences
 
