@@ -1,59 +1,26 @@
 /**
- * Main application shell — the orchestrator.
+ * Main application shell — renders the UI layout.
  *
- * Architecture: Studio manages ALL cross-tab state and coordinates
- * between Library, Transform, Visualize, Analyze, and Chat tabs.
- *
- * State ownership:
- * - Tab navigation (current tab, URL sync)
- * - Transcription results (lastResult, audioName)
- * - Analysis state (analysis, analysisError, analyzeStatus)
- * - Library state (analyzeLibFiles, transcriptions, refreshKey)
- * - Visualization state (vizTrackId, vizSelectedId)
- * - Auth state (signedIn passed as prop)
+ * WHY: This component is now a pure rendering layer. All state management
+ * lives in hooks/useStudioState.ts. This separation means:
+ * - Studio.tsx is easy to understand (just layout + routing)
+ * - State is testable independently of the UI
+ * - Adding a new tab only requires adding to TABS and rendering
  *
  * The Analyze tab UI is inlined here (not in components/analyze/)
- * because it needs access to cross-tab state that would otherwise
- * require prop drilling through 3+ levels.
- *
- * When adding a new tab:
- * 1. Add to TABS array
- * 2. Add tab-specific state here
- * 3. Add tab render in the workbench section
- * 4. Wire up callbacks (onTranscribed, onAnalyze, etc.)
+ * because it needs cross-tab state that would require 3+ levels of
+ * prop drilling to reach a separate component.
  */
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { clearTokenCache } from "@/lib/api";
+import { useStudioState, TABS } from "@/hooks/useStudioState";
 import Library from "./library";
 import Transform from "./transcribe";
 import Analysis from "./analyze";
 import Viz from "./viz";
 import MusicChat from "./MusicChat";
-import { analyzeAudio, notesToMidiBase64, saveTranscription, listLibrary, listTranscriptions, formatTime, type TranscribeResult, type LibFile, type Transcription } from "@/lib/music";
-import {
-  loadLocalTranscription, saveLocalTranscription, type LocalTranscription,
-  saveTab, loadTab,
-  saveLastResult, loadLastResult,
-  saveAnalysis, loadAnalysis,
-  saveAudioName, loadAudioName,
-} from "@/lib/browser-store";
-import { SharedAudioProvider, useSharedAudio } from "@/lib/audio-context";
-
-
-const TABS = [
-  { id: "library", label: "Library" },
-  { id: "transcribe", label: "Transform" },
-  { id: "viz", label: "Visualize" },
-  { id: "analyze", label: "Analyze" },
-  { id: "chat", label: "Chat" },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
+import { SharedAudioProvider } from "@/lib/audio-context";
 
 export default function Studio({
   initialTab = "transcribe",
@@ -62,179 +29,7 @@ export default function Studio({
   initialTab?: string;
   signedIn?: boolean;
 }) {
-  const router = useRouter();
-
-  const savedTab = loadTab();
-  const safeInitial = savedTab && TABS.some((t) => t.id === savedTab)
-    ? savedTab
-    : TABS.some((t) => t.id === initialTab) ? initialTab : "transcribe";
-  const [tab, setTab] = useState<TabId>(safeInitial as TabId);
-
-  const [lastResult, setLastResult] = useState<TranscribeResult | null>(() => {
-    const r = loadLastResult();
-    return r as TranscribeResult | null;
-  });
-  const [audioName, setAudioName] = useState(loadAudioName);
-  const [analysis, setAnalysis] = useState<TranscribeResult["analysis"] | null>(loadAnalysis);
-  const [analysisError, setAnalysisError] = useState("");
-  const [analyzeStatus, setAnalyzeStatus] = useState("");
-  const [analyzeLibFiles, setAnalyzeLibFiles] = useState<LibFile[]>([]);
-  const [pendingLibFile, setPendingLibFile] = useState<LibFile | null>(null);
-  const [transcriptions, setTranscriptions] = useState<Transcription[]>([]);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [vizTrackId, setVizTrackId] = useState<string | null>(null);
-  const [vizSelectedId, setVizSelectedId] = useState<string>("");
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const vizStopRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => { saveTab(tab); }, [tab]);
-
-  useEffect(() => {
-    if (tab !== "viz" && vizStopRef.current) {
-      vizStopRef.current();
-      vizStopRef.current = null;
-    }
-  }, [tab]);
-
-  useEffect(() => {
-    if (signedIn) {
-      listLibrary().then(setAnalyzeLibFiles).catch((e) => console.warn("Failed to load library:", e));
-    }
-  }, [signedIn]);
-
-  useEffect(() => {
-    if (tab === "analyze") {
-      listLibrary().then((lib) => {
-        const local = loadLocalTranscription();
-        const localFile = local && local.notes.length > 0 ? [{
-          name: local.name,
-          url: local.audioDataUrl || "",
-          id: "__local__",
-          notes: local.notes,
-          midi_base64: local.midi_base64,
-          analysis: local.analysis,
-        } as LibFile] : [];
-        setAnalyzeLibFiles([...localFile, ...lib]);
-      }).catch((e) => console.warn("Failed to load library for analyze:", e));
-    }
-    if (tab === "library" && signedIn) {
-      listTranscriptions().then(setTranscriptions).catch(() => setTranscriptions([]));
-    }
-  }, [tab, signedIn]);
-
-  function refreshTranscriptions() {
-    if (signedIn) {
-      listTranscriptions().then(setTranscriptions).catch(() => setTranscriptions([]));
-      setRefreshKey((k) => k + 1);
-    }
-  }
-
-  function onTranscribed(result: TranscribeResult, name: string) {
-    setLastResult(result);
-    setAudioName(name);
-    setAnalysis(result.analysis ?? null);
-    setAnalysisError("");
-    saveLastResult(result);
-    saveAudioName(name);
-    if (result.analysis) saveAnalysis(result.analysis);
-  }
-
-  async function handleAnalyze(midiBase64?: string, name?: string, libraryFileId?: string) {
-    if (isAnalyzing) return;
-    if (name) setAudioName(name);
-    if (!midiBase64) {
-      setAnalysisError("Transcribe a track first, then analyze it");
-      goToTab("analyze");
-      return;
-    }
-    if (analysis && name && audioName === name) {
-      goToTab("analyze");
-      return;
-    }
-    setAnalyzeStatus("Analyzing…");
-    setAnalysisError("");
-    setIsAnalyzing(true);
-    try {
-      const result = await analyzeAudio(midiBase64);
-      setAnalysis(result);
-      saveAnalysis(result);
-
-      if (libraryFileId && signedIn) {
-        try {
-          const libFile = analyzeLibFiles.find(f => f.id === libraryFileId);
-          await saveTranscription(libraryFileId, libFile?.notes ?? lastResult?.notes ?? [], midiBase64, result);
-          refreshTranscriptions();
-        } catch {
-          console.error("save analysis failed");
-        }
-      } else if (!signedIn) {
-        const local = loadLocalTranscription();
-        if (local) {
-          saveLocalTranscription(local.name, local.notes, local.midi_base64, local.audioBlob, result);
-        }
-      }
-      goToTab("analyze");
-    } catch (err) {
-      setAnalysisError(err instanceof Error ? err.message : "analysis failed");
-    } finally {
-      setAnalyzeStatus("");
-      setIsAnalyzing(false);
-    }
-  }
-
-  function goToTab(id: TabId) {
-    setTab(id);
-    router.replace(`/?tab=${id}`, { scroll: false });
-  }
-
-  async function handleAnalyzeLibrary(item: LibFile) {
-    setAudioName(item.name);
-    saveAudioName(item.name);
-    if (item.analysis) {
-      setAnalysis(item.analysis);
-      saveAnalysis(item.analysis);
-      goToTab("analyze");
-      return;
-    }
-    let midi = item.midi_base64;
-    if (!midi && item.notes && item.notes.length > 0) {
-      midi = notesToMidiBase64(item.notes);
-    }
-    await handleAnalyze(midi, item.name, item.id);
-  }
-
-  function handleLibraryTranscribe(file: LibFile) {
-    setPendingLibFile(file);
-    goToTab("transcribe");
-  }
-
-  function handleLibraryAnalyze(file: LibFile) {
-    goToTab("analyze");
-    handleAnalyzeLibrary(file);
-  }
-
-  function handleLibraryVisualize(file: LibFile) {
-    setVizTrackId(file.id);
-    goToTab("viz");
-  }
-
-  async function signIn() {
-    if (!supabase) return;
-    const callbackUrl = `${window.location.origin}/auth/callback`;
-    const currentPath = window.location.pathname + window.location.search;
-    const redirectTo = currentPath && currentPath !== "/" ? `${callbackUrl}?next=${encodeURIComponent(currentPath)}` : callbackUrl;
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo },
-    });
-  }
-
-  async function signOut() {
-    clearTokenCache();
-    await supabase?.auth.signOut();
-    window.location.reload();
-  }
+  const state = useStudioState({ initialTab, signedIn });
 
   return (
     <SharedAudioProvider>
@@ -248,8 +43,8 @@ export default function Studio({
           {TABS.map((t) => (
             <button
               key={t.id}
-              className={`nav-item${tab === t.id ? " active" : ""}`}
-              onClick={() => goToTab(t.id)}
+              className={`nav-item${state.tab === t.id ? " active" : ""}`}
+              onClick={() => state.goToTab(t.id)}
             >
               {t.label}
             </button>
@@ -257,11 +52,11 @@ export default function Studio({
         </nav>
         <div className="account">
           {signedIn ? (
-            <button className="btn btn-ghost" onClick={signOut}>
+            <button className="btn btn-ghost" onClick={state.signOut}>
               Sign out
             </button>
           ) : (
-            <button className="btn btn-ghost" id="signInBtn" onClick={signIn}>
+            <button className="btn btn-ghost" id="signInBtn" onClick={state.signIn}>
               Sign in
             </button>
           )}
@@ -269,70 +64,67 @@ export default function Studio({
       </header>
 
       <div className="workbench">
-        {tab === "library" && (
+        {state.tab === "library" && (
           <Library
             signedIn={signedIn}
-            onSignIn={signIn}
-            onTranscribe={handleLibraryTranscribe}
-            onAnalyze={handleLibraryAnalyze}
-            onVisualize={handleLibraryVisualize}
-            transcriptions={transcriptions}
-            refreshKey={refreshKey}
-            isTranscribing={isTranscribing}
-            isAnalyzing={isAnalyzing}
+            onSignIn={state.signIn}
+            onTranscribe={state.handleLibraryTranscribe}
+            onAnalyze={state.handleLibraryAnalyze}
+            onVisualize={state.handleLibraryVisualize}
+            transcriptions={state.transcriptions}
+            refreshKey={state.refreshKey}
+            isTranscribing={state.isTranscribing}
+            isAnalyzing={state.isAnalyzing}
           />
         )}
 
-        <div style={{ display: tab === "transcribe" ? "block" : "none" }}>
+        <div style={{ display: state.tab === "transcribe" ? "block" : "none" }}>
           <Transform
             signedIn={signedIn}
-            onTranscribed={onTranscribed}
-            onGoToAnalyze={() => goToTab("analyze")}
-            onAnalyze={handleAnalyze}
-            libraryFileToLoad={pendingLibFile}
-            onClearLibraryFile={() => setPendingLibFile(null)}
-            onTranscriptionSaved={refreshTranscriptions}
-            onBusyChange={setIsTranscribing}
+            onTranscribed={state.onTranscribed}
+            onGoToAnalyze={() => state.goToTab("analyze")}
+            onAnalyze={state.handleAnalyze}
+            libraryFileToLoad={state.pendingLibFile}
+            onClearLibraryFile={() => state.setPendingLibFile(null)}
+            onTranscriptionSaved={state.refreshTranscriptions}
+            onBusyChange={state.setIsTranscribing}
             onNewTranscription={() => {
-              setAnalysis(null);
-              setAnalysisError("");
-              saveAnalysis(null);
-              saveLastResult(null);
-              saveAudioName("");
+              state.setAnalysis(null);
+              state.setAnalysisError("");
             }}
-            analysis={analysis}
-            initialResult={lastResult}
-            initialAudioName={audioName}
+            analysis={state.analysis}
+            initialResult={state.lastResult}
+            initialAudioName={state.audioName}
           />
         </div>
 
-        {tab === "viz" && (
+        {state.tab === "viz" && (
           <Viz
-            initialTrackId={vizTrackId}
-            selectedId={vizSelectedId}
-            onTrackSelected={(id) => { setVizTrackId(null); setVizSelectedId(id); }}
-            onStopRef={vizStopRef}
+            initialTrackId={state.vizTrackId}
+            selectedId={state.vizSelectedId}
+            onTrackSelected={(id) => { state.setVizTrackId(null); state.setVizSelectedId(id); }}
+            onStopRef={state.vizStopRef}
           />
         )}
 
-        {tab === "chat" && (
+        {state.tab === "chat" && (
           <MusicChat
             onTranscribed={(result, name) => {
-              onTranscribed(result, name);
-              goToTab("transcribe");
+              state.onTranscribed(result, name);
+              state.goToTab("transcribe");
             }}
             onAnalyzed={(midi, name) => {
-              if (midi) handleAnalyze(midi, name);
-              goToTab("analyze");
+              if (midi) state.handleAnalyze(midi, name);
+              state.goToTab("analyze");
             }}
           />
         )}
 
-        <div style={{ display: tab === "analyze" ? "block" : "none" }}>
+        <div style={{ display: state.tab === "analyze" ? "block" : "none" }}>
           <div className="card">
             <h3 className="card-title"><span className="glyph">◈</span> Analyze</h3>
 
-            {!analysis && !analyzeStatus && signedIn && analyzeLibFiles.filter(f => f.notes?.length).length === 0 && (
+            {!state.analysis && !state.analyzeStatus && signedIn && state.analyzeLibFiles.filter(f => f.notes?.length).length === 0 && (
               <>
                 <div className="section-label">Select a transcribed track</div>
                 <p className="muted" style={{ textAlign: "center", margin: "var(--s-4) 0" }}>
@@ -341,7 +133,7 @@ export default function Studio({
               </>
             )}
 
-            {!analysis && !analyzeStatus && signedIn && analyzeLibFiles.filter(f => f.notes?.length).length > 0 && (
+            {!state.analysis && !state.analyzeStatus && signedIn && state.analyzeLibFiles.filter(f => f.notes?.length).length > 0 && (
               <>
                 <div className="section-label">Select a transcribed track</div>
                 <div style={{ display: "flex", gap: "var(--s-2)", marginBottom: "var(--s-4)" }}>
@@ -349,13 +141,13 @@ export default function Studio({
                     className="sel"
                     value=""
                     onChange={(e) => {
-                      const file = analyzeLibFiles.find(f => f.id === e.target.value);
-                      if (file) handleAnalyzeLibrary(file);
+                      const file = state.analyzeLibFiles.find(f => f.id === e.target.value);
+                      if (file) state.handleAnalyzeLibrary(file);
                     }}
                     style={{ flex: 1 }}
                   >
                     <option value="">-- Pick a track --</option>
-                    {analyzeLibFiles.filter(f => f.notes?.length).map((f) => (
+                    {state.analyzeLibFiles.filter(f => f.notes?.length).map((f) => (
                       <option key={f.id} value={f.id}>{f.name}{f.analysis ? " ✓" : ""}</option>
                     ))}
                   </select>
@@ -363,30 +155,30 @@ export default function Studio({
               </>
             )}
 
-            {!analysis && !analyzeStatus && !signedIn && analyzeLibFiles.filter(f => f.notes?.length).length > 0 && (
+            {!state.analysis && !state.analyzeStatus && !signedIn && state.analyzeLibFiles.filter(f => f.notes?.length).length > 0 && (
               <div style={{ textAlign: "center", padding: "var(--s-4)" }}>
                 <p className="muted" style={{ margin: "0 0 var(--s-3)" }}>
-                  Using: <strong>{analyzeLibFiles.find(f => f.notes?.length)?.name}</strong>
+                  Using: <strong>{state.analyzeLibFiles.find(f => f.notes?.length)?.name}</strong>
                 </p>
                 <button className="btn btn-primary" onClick={() => {
-                  const first = analyzeLibFiles.find(f => f.notes?.length);
-                  if (first) handleAnalyzeLibrary(first);
+                  const first = state.analyzeLibFiles.find(f => f.notes?.length);
+                  if (first) state.handleAnalyzeLibrary(first);
                 }}>
                   Analyze
                 </button>
               </div>
             )}
 
-            {!analysis && !analyzeStatus && !signedIn && analyzeLibFiles.filter(f => f.notes?.length).length === 0 && (
+            {!state.analysis && !state.analyzeStatus && !signedIn && state.analyzeLibFiles.filter(f => f.notes?.length).length === 0 && (
               <p className="muted" style={{ textAlign: "center", margin: "var(--s-4) 0" }}>
                 Transcribe an audio song first — then come back to analyze.
               </p>
             )}
 
-            {analyzeStatus && (
+            {state.analyzeStatus && (
               <div style={{ marginBottom: "var(--s-3)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", marginBottom: "var(--s-2)" }}>
-                  <span className="status" style={{ fontSize: "var(--fs-sm)" }}>{analyzeStatus}</span>
+                  <span className="status" style={{ fontSize: "var(--fs-sm)" }}>{state.analyzeStatus}</span>
                 </div>
                 <div style={{ height: 6, background: "var(--panel-3)", borderRadius: "var(--r-full)" }}>
                   <div className="pulse" style={{ height: "100%", width: "50%", background: "var(--accent)", borderRadius: "var(--r-full)" }} />
@@ -397,23 +189,23 @@ export default function Studio({
               </div>
             )}
 
-            {analysisError && !analysis && !analyzeStatus && (
+            {state.analysisError && !state.analysis && !state.analyzeStatus && (
               <div className="alert-danger" style={{ marginBottom: "var(--s-3)" }}>
-                <p className="status" style={{ color: "var(--danger)", margin: 0 }}>⚠️ {analysisError}</p>
+                <p className="status" style={{ color: "var(--danger)", margin: 0 }}>⚠️ {state.analysisError}</p>
               </div>
             )}
 
-            {analysis && (
+            {state.analysis && (
               <>
                 <Analysis
-                  analysis={analysis}
-                  notes={lastResult?.notes ?? []}
-                  audioName={audioName}
-                  numNotes={lastResult?.num_notes ?? 0}
+                  analysis={state.analysis}
+                  notes={state.lastResult?.notes ?? []}
+                  audioName={state.audioName}
+                  numNotes={state.lastResult?.num_notes ?? 0}
                 />
                 {signedIn && (
                   <div className="toolbar" style={{ marginTop: "var(--s-4)" }}>
-                    <button className="btn" onClick={() => { setAnalysis(null); setAnalysisError(""); listLibrary().then(setAnalyzeLibFiles).catch((e) => console.warn("Failed to reload library:", e)); }}>
+                    <button className="btn" onClick={() => { state.setAnalysis(null); state.setAnalysisError(""); state.refreshTranscriptions(); }}>
                       ← Analyze another track
                     </button>
                   </div>
