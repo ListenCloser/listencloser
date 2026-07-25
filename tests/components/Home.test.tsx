@@ -6,10 +6,6 @@ vi.mock('@/components/Studio', () => ({
   default: () => <div data-testid="studio-mock">Studio</div>,
 }))
 
-vi.mock('@/components/Auth', () => ({
-  default: () => <div data-testid="auth-mock">Auth</div>,
-}))
-
 vi.mock('@/components/AuthProvider', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useAuth: () => ({ user: { id: 'test' }, session: {}, loading: false, signOut: vi.fn() }),

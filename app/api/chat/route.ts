@@ -13,24 +13,16 @@ const openrouter = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-function convertMessages(messages: any[]) {
-  return messages.map((msg: any) => {
-    if (msg.role === "user" && msg.parts) {
+function convertMessages(messages: { role: "user" | "assistant" | "system"; parts?: { type: string; text?: string }[]; content?: string }[]) {
+  return messages.map((msg) => {
+    if (msg.parts) {
       const text = msg.parts
-        .filter((p: any) => p.type === "text")
-        .map((p: any) => p.text)
+        .filter((p) => p.type === "text" && p.text)
+        .map((p) => p.text!)
         .join("");
-      return { role: "user", content: text };
+      return { role: msg.role, content: text };
     }
-    if (msg.role === "assistant" && msg.parts) {
-      const text = msg.parts
-        .filter((p: any) => p.type === "text")
-        .map((p: any) => p.text)
-        .join("");
-      return { role: "assistant", content: text };
-    }
-    if (msg.content) return msg;
-    return { role: msg.role, content: "" };
+    return { role: msg.role, content: msg.content ?? "" };
   });
 }
 
@@ -64,30 +56,10 @@ Available operations:
 
   const uiStream = toUIMessageStream({ stream: result.fullStream });
 
-  const encoder = new TextEncoder();
-  const sseStream = new ReadableStream({
-    async start(controller) {
-      const reader = uiStream.getReader();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));
-        }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-      } catch (e) {
-        controller.error(e);
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(sseStream, {
+  return new Response(uiStream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      Connection: "keep-alive",
     },
   });
 }
