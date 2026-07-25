@@ -111,7 +111,7 @@ _QUALITY_MAP = {
 _KS_MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
 _KS_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
 
-_MODULATION_WINDOW = 8
+_MODULATION_WINDOW_COUNT = 8
 _MIN_NOTES_PER_WINDOW = 4
 _MIN_CHORD_FRAME_SUM = 0.1
 _MIN_CHORD_DURATION = 0.3
@@ -126,8 +126,11 @@ _CHORD_INTERVALS: dict[str, list[int]] = {
 
 _ALLOWED_ROOT_TRANSITIONS: set[tuple[int, int]] = set()
 for _i in range(12):
-    for _interval in [7, 5, 1, 11, 3, 4, 9, 8, 6]:
+    for _interval in [0, 7, 5, 1, 11, 3, 4, 9, 8, 6]:
         _ALLOWED_ROOT_TRANSITIONS.add((_i, (_i + _interval) % 12))
+
+
+_MINOR_QUALITIES = {"m", "dim", "m7", "m7b5", "m6"}
 
 
 def _build_chord_templates() -> dict[str, np.ndarray]:
@@ -138,7 +141,7 @@ def _build_chord_templates() -> dict[str, np.ndarray]:
             for iv in intervals:
                 mask[(root + iv) % 12] = 1.0
             mask[root % 12] = 1.5
-            third = (root + (3 if quality.startswith(("m", "dim", "m7", "m6")) else 4)) % 12
+            third = (root + (3 if quality in _MINOR_QUALITIES else 4)) % 12
             mask[third] = 1.3
             templates[f"{_NOTES[root]}:{quality}"] = mask
     return templates
@@ -171,13 +174,13 @@ def _key_from_pc_vector(pc: np.ndarray) -> KeyResult:
 # ── music21 analysis ────────────────────────────────────────────────────────
 
 
-def _m21_key(score) -> KeyResult:
+def _m21_key(score, key_obj) -> KeyResult:
     try:
-        key = score.analyze("key")
+        corr = key_obj.correlationCoefficient
         return KeyResult(
-            tonic=key.tonic.name if key.tonic else "C",
-            mode=key.mode or "major",
-            confidence=round(key.correlationCoefficient or 0.85, 3),
+            tonic=key_obj.tonic.name if key_obj.tonic else "C",
+            mode=key_obj.mode or "major",
+            confidence=round(corr if corr is not None else 0.85, 3),
         )
     except Exception:
         return KeyResult(tonic="C", mode="major", confidence=0.0)
@@ -198,7 +201,7 @@ def _m21_roman_numerals(score, detected_key) -> list[RomanNumeralResult]:
                     root_name = root_p.name if root_p else "?"
                     implied = str(rn.impliedQuality) if hasattr(rn, "impliedQuality") else "unknown"
                     quality = _QUALITY_MAP.get(implied, implied)
-                    start = float(ch.offset) if ch.offset is not None else 0.0
+                    start = float(ch.getOffsetInHierarchy(score))
                     dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
                     results.append(RomanNumeralResult(
                         figure=rn.figure, root=root_name, quality=quality,
@@ -231,7 +234,7 @@ def _m21_cadences(score, detected_key) -> list[CadenceResult]:
             for ch in measure.getElementsByClass("Chord"):
                 try:
                     rn = roman.romanNumeralFromChord(ch, detected_key)
-                    offset = float(ch.offset) if ch.offset is not None else 0.0
+                    offset = float(ch.getOffsetInHierarchy(score))
                     chord_seq.append((offset, rn.figure))
                 except Exception:
                     continue
@@ -299,8 +302,8 @@ def _m21_phrases(score) -> list[PhraseResult]:
                 start_note = slur.getFirst()
                 end_note = slur.getLast()
                 if start_note and end_note:
-                    start = float(start_note.offset) if start_note.offset is not None else 0.0
-                    end = float(end_note.offset) if end_note.offset is not None else 0.0
+                    start = float(start_note.getOffsetInHierarchy(score))
+                    end = float(end_note.getOffsetInHierarchy(score))
                     if hasattr(end_note, "quarterLength"):
                         end += float(end_note.quarterLength)
                     if end > start:
@@ -317,9 +320,9 @@ def _m21_phrases(score) -> list[PhraseResult]:
                 for i in range(0, len(measures), 4):
                     group = measures[i:i + 4]
                     if len(group) >= 2:
-                        start = float(group[0].offset) if group[0].offset is not None else 0.0
+                        start = float(group[0].getOffsetInHierarchy(score))
                         last = group[-1]
-                        end = float(last.offset) if last.offset is not None else 0.0
+                        end = float(last.getOffsetInHierarchy(score))
                         if hasattr(last, "quarterLength"):
                             end += float(last.quarterLength)
                         if end > start:
@@ -361,13 +364,13 @@ def _chords_from_frames(frames: list[tuple[float, np.ndarray]]) -> list[ChordRes
     current_label, current_start, current_root, current_quality = "", 0.0, "", ""
     templates = list(_CHORD_TEMPLATES.items())
     for t, vec in frames:
-        frame = vec / vec.max() if vec.max() > 0 else vec
-        if frame.sum() < _MIN_CHORD_FRAME_SUM:
+        if vec.sum() < _MIN_CHORD_FRAME_SUM:
             if current_label:
                 chords.append(ChordResult(root=current_root, quality=current_quality,
                                           start=round(current_start, 3), end=round(t, 3)))
                 current_label = ""
             continue
+        frame = vec / vec.max() if vec.max() > 0 else vec
         best_score, best_label = -1.0, "C:M"
         for label, tmpl in templates:
             score = float(np.dot(frame, tmpl))
@@ -419,13 +422,13 @@ def _detect_modulations(score) -> list[ModulationResult]:
             offset = float(note.offset) if note.offset is not None else 0.0
             if hasattr(note, "pitch") and note.pitch is not None:
                 all_notes.append((offset, note.pitch.midi))
-    if len(all_notes) < _MODULATION_WINDOW * 4:
+    if len(all_notes) < _MODULATION_WINDOW_COUNT * 4:
         return []
     all_notes.sort(key=lambda x: x[0])
     max_offset = all_notes[-1][0] if all_notes else 1.0
-    window_sec = max_offset / max(_MODULATION_WINDOW, 1)
+    window_sec = max_offset / max(_MODULATION_WINDOW_COUNT, 1)
     key_history: list[tuple[float, str]] = []
-    for w in range(_MODULATION_WINDOW):
+    for w in range(_MODULATION_WINDOW_COUNT):
         t_start = w * window_sec
         t_end = (w + 1) * window_sec
         pitches = [p for t, p in all_notes if t_start <= t < t_end]
@@ -485,8 +488,8 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         pass
 
     if score is not None:
-        result["key"] = _m21_key(score)
         detected_key = score.analyze("key")
+        result["key"] = _m21_key(score, detected_key)
         result["roman_numerals"] = _m21_roman_numerals(score, detected_key)
         result["cadences"] = _m21_cadences(score, detected_key)
         result["voice_leading"] = _m21_voice_leading(score)
@@ -506,10 +509,14 @@ def analyze_from_notes(notes: list[dict]) -> AnalysisResult:
     pm = pretty_midi.PrettyMIDI()
     inst = pretty_midi.Instrument(program=0, is_drum=False, name="Piano")
     for n in notes:
-        inst.notes.append(pretty_midi.Note(
-            velocity=n.get("velocity", 100), pitch=n["pitch"],
-            start=n["start"], end=n["end"],
-        ))
+        inst.notes.append(
+            pretty_midi.Note(
+                velocity=n.get("velocity", 100),
+                pitch=n["pitch"],
+                start=n["start"],
+                end=n["end"],
+            )
+        )
     pm.instruments.append(inst)
     with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
         midi_path = f.name
