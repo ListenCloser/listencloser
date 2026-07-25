@@ -15,17 +15,6 @@ Runs on CPU (Oracle always-free ARM VM). Suitable for short clips
 (seconds to a couple minutes).
 """
 
-- transcribe_audio: arbitrary audio (wav/mp3/ogg/flac) -> MIDI (basic-pitch,
-  Apache-2.0). Also returns a synthesized WAV rendering of that MIDI (so the
-  user gets a corresponding audio<->text pair) and the raw note events.
-- midi_to_wav: render a MIDI file to a WAV using FluidSynth + a bundled piano
-  SoundFont for a natural instrument timbre. Falls back to a self-contained
-  numpy piano synth if FluidSynth / the SoundFont is unavailable.
-
-Runs on CPU (Oracle always-free ARM VM). Suitable for short clips (seconds to a
-couple minutes).
-"""
-
 import io
 import logging
 import os

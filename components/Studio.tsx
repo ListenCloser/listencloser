@@ -99,7 +99,7 @@ export default function Studio({
 
   useEffect(() => {
     if (signedIn) {
-      listLibrary().catch(() => {});
+      listLibrary().then(setAnalyzeLibFiles).catch((e) => console.warn("Failed to load library:", e));
     }
   }, [signedIn]);
 
@@ -116,7 +116,7 @@ export default function Studio({
           analysis: local.analysis,
         } as LibFile] : [];
         setAnalyzeLibFiles([...localFile, ...lib]);
-      }).catch(() => {});
+      }).catch((e) => console.warn("Failed to load library for analyze:", e));
     }
     if (tab === "library" && signedIn) {
       listTranscriptions().then(setTranscriptions).catch(() => setTranscriptions([]));
@@ -413,7 +413,7 @@ export default function Studio({
                 />
                 {signedIn && (
                   <div className="toolbar" style={{ marginTop: "var(--s-4)" }}>
-                    <button className="btn" onClick={() => { setAnalysis(null); setAnalysisError(""); listLibrary().then(setAnalyzeLibFiles).catch(() => {}); }}>
+                    <button className="btn" onClick={() => { setAnalysis(null); setAnalysisError(""); listLibrary().then(setAnalyzeLibFiles).catch((e) => console.warn("Failed to reload library:", e)); }}>
                       ← Analyze another track
                     </button>
                   </div>
