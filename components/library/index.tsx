@@ -7,6 +7,7 @@ import {
   listLibrary,
   deleteFromLibrary,
   formatTime,
+  deriveTrackState,
   type LibFile,
   type Transcription,
 } from "@/lib/music";
@@ -41,9 +42,6 @@ export default function Library({
   isTranscribing?: boolean;
   isAnalyzing?: boolean;
 }) {
-  const transcribedIds = new Set(
-    (transcriptions ?? []).map((t) => (t.id.split("/").pop() ?? "").replace(/\.[^.]+$/, "")),
-  );
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState<LibFile[]>([]);
@@ -251,56 +249,63 @@ export default function Library({
           {files.length === 0 ? (
             <div className="empty">No tracks yet. Transcribe audio and save it here.</div>
           ) : (
-            files.map((f) => (
-              <div key={f.id} className="track">
-                <div className="track-head">
-                  <div className="track-name">{f.name}</div>
-                  <div className="track-meta">{f.size ? formatSize(f.size) : ""}</div>
-                  <div className="track-actions">
-                    <button className="icon-btn" onClick={() => togglePlay(f.id, f.url)}>
-                      {playing === f.id && !paused ? "⏸" : "▶"}
-                    </button>
-                    {onTranscribe && (
-                      <button
-                        className="icon-btn"
-                        onClick={() => onTranscribe(f)}
-                        disabled={isTranscribing || isAnalyzing}
-                      >
-                        {f.notes && f.notes.length > 0 ? "View Transcription" : "Transcribe"}
+            files.map((f) => {
+              const state = deriveTrackState(f);
+              return (
+                <div key={f.id} className="track">
+                  <div className="track-head">
+                    <div className="track-name">{f.name}</div>
+                    <div className="track-meta">{f.size ? formatSize(f.size) : ""}</div>
+                    <div className="track-actions">
+                      <button className="icon-btn" onClick={() => togglePlay(f.id, f.url)}>
+                        {playing === f.id && !paused ? "⏸" : "▶"}
                       </button>
-                    )}
-                    {onVisualize && f.notes && f.notes.length > 0 && (
-                      <button className="icon-btn" onClick={() => onVisualize(f)}>
-                        Visualize
+                      {onTranscribe && (
+                        <button
+                          className={`icon-btn ${!state.transcribed ? "" : "ghost"}`}
+                          onClick={() => onTranscribe(f)}
+                          disabled={isTranscribing || isAnalyzing}
+                        >
+                          {state.transcribed ? "View Transcription" : "Transcribe"}
+                        </button>
+                      )}
+                      {onVisualize && state.transcribed && (
+                        <button className="icon-btn ghost" onClick={() => onVisualize(f)}>
+                          Visualize
+                        </button>
+                      )}
+                      {onAnalyze && state.transcribed && (
+                        <button
+                          className={`icon-btn ${!state.analysis ? "" : "ghost"}`}
+                          onClick={() => onAnalyze(f)}
+                          disabled={isTranscribing || isAnalyzing}
+                        >
+                          {state.analysis ? "View Analysis" : "Analyze"}
+                        </button>
+                      )}
+                      <button className="icon-btn ghost danger" onClick={() => onDelete(f.id, f.name)} disabled={busy}>
+                        ✕
                       </button>
+                    </div>
+                  </div>
+                  <div className="track-artifacts">
+                    <span className="artifact done"><span className="dot" /> Audio</span>
+                    {state.transcribed && (
+                      <span className="artifact done"><span className="dot" /> Transcribed</span>
                     )}
-                    {onAnalyze && f.notes && f.notes.length > 0 && (
-                      <button
-                        className="icon-btn"
-                        onClick={() => onAnalyze(f)}
-                        disabled={isTranscribing || isAnalyzing}
-                      >
-                        {f.analysis ? "View Analysis" : "Analyze"}
-                      </button>
+                    {state.sheetMusic && (
+                      <span className="artifact done"><span className="dot" /> Sheet Music</span>
                     )}
-                    <button className="icon-btn ghost danger" onClick={() => onDelete(f.id, f.name)} disabled={busy}>
-                      ✕
-                    </button>
+                    {state.analysis && (
+                      <span className="artifact done"><span className="dot" /> Analyzed</span>
+                    )}
+                    {!state.transcribed && (
+                      <span className="artifact pending"><span className="dot" /> Not transcribed</span>
+                    )}
                   </div>
                 </div>
-                <div className="track-artifacts">
-                  <span className="artifact"><span className="dot" /> Original audio</span>
-                  {transcribedIds.has((f.id.split("/").pop() ?? "").replace(/\.[^.]+$/, "")) ? (
-                    <span className="artifact done"><span className="dot" /> MIDI — transcribed</span>
-                  ) : (
-                    <span className="artifact pending"><span className="dot" /> MIDI — transcribe to generate</span>
-                  )}
-                  {f.analysis && (
-                    <span className="artifact done"><span className="dot" /> Analyzed</span>
-                  )}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </>
       ) : (
