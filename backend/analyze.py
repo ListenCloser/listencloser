@@ -466,9 +466,15 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
     result: AnalysisResult = {
         "key": KeyResult(tonic="C", mode="major", confidence=0.0),
         "tempo": TempoResult(bpm=120.0, confidence=0.0),
-        "time_signature": TimeSigResult(numerator=4, denominator=4, confidence=0.0),
-        "chords": [], "roman_numerals": [], "cadences": [],
-        "modulations": [], "voice_leading": None, "phrases": [],
+        "time_signature": TimeSigResult(
+            numerator=4, denominator=4, confidence=0.0
+        ),
+        "chords": [],
+        "roman_numerals": [],
+        "cadences": [],
+        "modulations": [],
+        "voice_leading": None,
+        "phrases": [],
     }
 
     try:
