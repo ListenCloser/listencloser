@@ -7,6 +7,7 @@ import Library from "./library";
 import Transform from "./transcribe";
 import Analysis from "./analyze";
 import Viz from "./viz";
+import MusicChat from "./MusicChat";
 import ExplainPanel from "./ExplainPanel";
 import { analyzeAudio, notesToMidiBase64, saveTranscription, listLibrary, listTranscriptions, type TranscribeResult, type LibFile, type Transcription } from "@/lib/music";
 import {
@@ -24,6 +25,7 @@ const TABS = [
   { id: "transcribe", label: "Transform" },
   { id: "viz", label: "Visualize" },
   { id: "analyze", label: "Analyze" },
+  { id: "chat", label: "Chat" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -290,6 +292,19 @@ export default function Studio({
           />
         )}
 
+        {tab === "chat" && (
+          <MusicChat
+            onTranscribed={(result, name) => {
+              onTranscribed(result, name);
+              goToTab("transcribe");
+            }}
+            onAnalyzed={(midi, name) => {
+              if (midi) handleAnalyze(midi, name);
+              goToTab("analyze");
+            }}
+          />
+        )}
+
         <div style={{ display: tab === "analyze" ? "block" : "none" }}>
           <div className="card">
             <h3 className="card-title"><span className="glyph">◈</span> Analyze</h3>
@@ -368,7 +383,6 @@ export default function Studio({
                   audioName={audioName}
                   numNotes={lastResult?.num_notes ?? 0}
                 />
-                <ExplainPanel analysis={analysis} />
                 {signedIn && (
                   <div className="toolbar" style={{ marginTop: "var(--s-4)" }}>
                     <button className="btn" onClick={() => { setAnalysis(null); setAnalysisError(""); listLibrary().then(setAnalyzeLibFiles).catch(() => {}); }}>

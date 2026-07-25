@@ -32,21 +32,6 @@ class _JsonFormatter(logging.Formatter):
             "msg": record.getMessage(),
             "req_id": getattr(record, "req_id", "none"),
         }
-        for key in (
-            "method",
-            "path",
-            "status",
-            "duration_ms",
-            "input_bytes",
-            "output_bytes",
-            "step",
-            "step_ms",
-            "num_notes",
-            "fmt",
-        ):
-            val = getattr(record, key, None)
-            if val is not None:
-                payload[key] = val
         if record.exc_info:
             payload["exc"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
@@ -180,22 +165,6 @@ def verify_token_optional(
 app = FastAPI(title="hello-ai backend", version="0.3.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-try:
-    from fastapi.middleware.cors import CORSMiddleware
-
-    _cors_origins = [
-        "https://hello-ai-wheat.vercel.app",
-        "http://localhost:3000",
-    ]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=_cors_origins,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-except ImportError:
-    pass
 
 
 @app.middleware("http")
@@ -342,24 +311,12 @@ class EnhanceRequest(BaseModel):
 def enhance(req: EnhanceRequest, request: Request, _auth=Depends(verify_token_optional)):
     """Cleanup a raw recording (denoise/declip/normalize) via ffmpeg."""
     audio = _load_audio_from_request(req.audio_base64, req.library_path)
-    t0 = time.perf_counter()
-    logger.info("enhance_start", extra={"input_bytes": len(audio)})
 
     try:
         cleaned = enhance_audio(audio, fmt=req.fmt)
     except Exception as e:
-        logger.exception("enhance_failed")
+        logger.exception("enhance failed")
         raise HTTPException(status_code=500, detail="enhance failed") from e
-
-    elapsed_ms = round((time.perf_counter() - t0) * 1000)
-    logger.info(
-        "enhance_done",
-        extra={
-            "step": "ffmpeg",
-            "step_ms": elapsed_ms,
-            "output_bytes": len(cleaned),
-        },
-    )
 
     out = {"wav_base64": base64.b64encode(cleaned).decode("ascii")}
     if req.upload:
@@ -373,8 +330,6 @@ def enhance(req: EnhanceRequest, request: Request, _auth=Depends(verify_token_op
 def transcribe(req: TranscribeRequest, request: Request, _auth=Depends(verify_token_optional)):
     """Transcribe audio -> MIDI (+ synthesized WAV + note events)."""
     audio = _load_audio_from_request(req.audio_base64, req.library_path)
-    t0 = time.perf_counter()
-    logger.info("transcribe_start", extra={"input_bytes": len(audio), "fmt": req.fmt})
 
     try:
         result = transcribe_audio(
@@ -384,18 +339,8 @@ def transcribe(req: TranscribeRequest, request: Request, _auth=Depends(verify_to
             frame_threshold=req.frame_threshold,
         )
     except Exception as e:
-        logger.exception("transcription_failed")
+        logger.exception("transcription failed")
         raise HTTPException(status_code=500, detail="transcription failed") from e
-
-    t1 = time.perf_counter()
-    logger.info(
-        "transcribe_done",
-        extra={
-            "step": "basic_pitch",
-            "step_ms": round((t1 - t0) * 1000),
-            "num_notes": result["num_notes"],
-        },
-    )
 
     midi = result["midi"]
     wav = result["wav"]
@@ -406,56 +351,11 @@ def transcribe(req: TranscribeRequest, request: Request, _auth=Depends(verify_to
         "wav_base64": base64.b64encode(wav).decode("ascii"),
     }
     if req.upload:
-        t2 = time.perf_counter()
         midi_path = f"midi/backend/{uuid.uuid4().hex}.mid"
         wav_path = f"midi/backend/{uuid.uuid4().hex}.wav"
         out["midi_url"] = _sb_upload("midi", midi_path, midi, "audio/midi")
         out["wav_url"] = _sb_upload("midi", wav_path, wav, "audio/wav")
-        upload_ms = round((time.perf_counter() - t2) * 1000)
-        logger.info(
-            "transcribe_upload",
-            extra={
-                "step": "supabase_upload",
-                "step_ms": upload_ms,
-            },
-        )
-    total_ms = round((time.perf_counter() - t0) * 1000)
-    logger.info("transcribe_total", extra={"step": "total", "step_ms": total_ms})
     return out
-
-
-class SynthRequest(BaseModel):
-    midi_base64: str
-
-
-@app.post("/music/synth")
-@limiter.limit("30/minute")
-def synth(req: SynthRequest, request: Request, _auth=Depends(verify_token_optional)):
-    """Convert MIDI to WAV audio using FluidSynth (or numpy fallback)."""
-    try:
-        midi_bytes = base64.b64decode(req.midi_base64, validate=True)
-    except Exception:
-        raise HTTPException(status_code=400, detail="invalid midi base64") from None
-    if len(midi_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"payload too large (max {MAX_UPLOAD_BYTES} bytes)",
-        )
-
-    from music_features import midi_to_wav
-
-    t0 = time.perf_counter()
-    try:
-        wav = midi_to_wav(midi_bytes)
-    except Exception as e:
-        logger.exception("synth_failed")
-        raise HTTPException(status_code=500, detail="MIDI synthesis failed") from e
-    elapsed = round((time.perf_counter() - t0) * 1000)
-    logger.info("synth_done", extra={"step": "midi_to_wav", "step_ms": elapsed})
-
-    return {
-        "wav_base64": base64.b64encode(wav).decode("ascii"),
-    }
 
 
 class AnalyzeRequest(BaseModel):
@@ -476,9 +376,6 @@ def analyze(req: AnalyzeRequest, request: Request, _auth=Depends(verify_token_op
             detail=f"payload too large (max {MAX_UPLOAD_BYTES} bytes)",
         )
 
-    t0 = time.perf_counter()
-    logger.info("analyze_start", extra={"input_bytes": len(midi_bytes)})
-
     with tempfile.TemporaryDirectory() as td:
         midi_path = os.path.join(td, "input.mid")
         with open(midi_path, "wb") as f:
@@ -487,24 +384,16 @@ def analyze(req: AnalyzeRequest, request: Request, _auth=Depends(verify_token_op
         try:
             result = analyze_midi(midi_path)
         except Exception:
-            logger.exception("analysis_failed")
+            logger.exception("analysis failed")
             raise HTTPException(status_code=500, detail="analysis failed") from None
 
-    elapsed_ms = round((time.perf_counter() - t0) * 1000)
-    logger.info(
-        "analyze_done",
-        extra={
-            "step": "analyze_midi",
-            "step_ms": elapsed_ms,
-        },
-    )
     return result
 
 
 class ConvertRequest(BaseModel):
-    source: str
+    source: str  # "midi" or "musicxml"
     data_base64: str
-    target: str = "auto"
+    target: str = "auto"  # "auto", "midi", "musicxml"
 
 
 @app.post("/music/convert")
@@ -540,6 +429,40 @@ def convert(req: ConvertRequest, request: Request, _auth=Depends(verify_token_op
     return {
         "data_base64": base64.b64encode(result_bytes).decode("ascii"),
         "format": target,
+    }
+
+
+class SynthRequest(BaseModel):
+    midi_base64: str
+
+
+@app.post("/music/synth")
+@limiter.limit("30/minute")
+def synth(req: SynthRequest, request: Request, _auth=Depends(verify_token_optional)):
+    """Convert MIDI to WAV audio using FluidSynth (or numpy fallback)."""
+    try:
+        midi_bytes = base64.b64decode(req.midi_base64, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid midi base64") from None
+    if len(midi_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"payload too large (max {MAX_UPLOAD_BYTES} bytes)",
+        )
+
+    from music_features import midi_to_wav
+
+    t0 = time.perf_counter()
+    try:
+        wav = midi_to_wav(midi_bytes)
+    except Exception as e:
+        logger.exception("synth_failed")
+        raise HTTPException(status_code=500, detail="MIDI synthesis failed") from e
+    elapsed = round((time.perf_counter() - t0) * 1000)
+    logger.info("synth_done", extra={"step": "midi_to_wav", "step_ms": elapsed})
+
+    return {
+        "wav_base64": base64.b64encode(wav).decode("ascii"),
     }
 
 

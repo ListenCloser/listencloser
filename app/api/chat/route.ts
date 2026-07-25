@@ -1,0 +1,93 @@
+import {
+  streamText,
+  toUIMessageStream,
+  stepCountIs,
+} from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { musicTools } from "@/lib/tools";
+
+export const maxDuration = 60;
+
+const openrouter = createOpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+function convertMessages(messages: any[]) {
+  return messages.map((msg: any) => {
+    if (msg.role === "user" && msg.parts) {
+      const text = msg.parts
+        .filter((p: any) => p.type === "text")
+        .map((p: any) => p.text)
+        .join("");
+      return { role: "user", content: text };
+    }
+    if (msg.role === "assistant" && msg.parts) {
+      const text = msg.parts
+        .filter((p: any) => p.type === "text")
+        .map((p: any) => p.text)
+        .join("");
+      return { role: "assistant", content: text };
+    }
+    if (msg.content) return msg;
+    return { role: msg.role, content: "" };
+  });
+}
+
+export async function POST(req: Request) {
+  const { messages } = await req.json();
+
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return new Response(JSON.stringify({ error: "No messages provided" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const convertedMessages = convertMessages(messages);
+
+  const result = streamText({
+    model: openrouter.chat("google/gemma-4-26b-a4b-it:free"),
+    system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
+
+When a user asks you to do something, use the appropriate tool. If they mention a file but don't provide audio data, ask them to upload it using the attachment button. Always explain results in plain language after calling a tool.
+
+Available operations:
+- Transcribe audio to MIDI notes and sheet music
+- Analyze music theory (key, tempo, chords, cadences, Roman numerals, modulations, voice leading)
+- Clean and denoise audio recordings
+- Convert between MIDI and MusicXML formats`,
+    messages: convertedMessages,
+    tools: musicTools,
+    stopWhen: stepCountIs(5),
+  });
+
+  const uiStream = toUIMessageStream({ stream: result.fullStream });
+
+  const encoder = new TextEncoder();
+  const sseStream = new ReadableStream({
+    async start(controller) {
+      const reader = uiStream.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      } catch (e) {
+        controller.error(e);
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(sseStream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}

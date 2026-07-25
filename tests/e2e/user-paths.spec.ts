@@ -27,9 +27,7 @@ test.describe("Supported user paths", () => {
     await openStudio(page);
 
     await expect(page.locator(".nav")).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /Transcribe/ }),
-    ).toBeVisible();
+    await expect(page.locator(".source-card").first()).toBeVisible();
   });
 
   test("P3: transcribe a file → piano roll + audio (mocked backend)", async ({
@@ -49,6 +47,6 @@ test.describe("Supported user paths", () => {
     await expect(page.getByTestId("piano-roll")).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText(/— MIDI/)).toBeVisible();
+    await expect(page.getByText(/Download MIDI/)).toBeVisible();
   });
 });

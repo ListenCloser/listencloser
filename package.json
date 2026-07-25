@@ -19,16 +19,21 @@
     "precommit": "pre-commit run --all-files"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.20",
+    "@ai-sdk/react": "^4.0.40",
     "@huggingface/transformers": "^4.2.0",
     "@sentry/nextjs": "^10.66.0",
     "@supabase/supabase-js": "^2.45.0",
+    "@testing-library/dom": "^10.4.1",
     "abcjs": "^6.6.4",
+    "ai": "^7.0.37",
     "next": "15.5.20",
     "opensheetmusicdisplay": "^2.1.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "soundfont-player": "^0.12.0",
-    "wavesurfer.js": "^7.12.11"
+    "wavesurfer.js": "^7.12.11",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@argos-ci/playwright": "^7.3.6",

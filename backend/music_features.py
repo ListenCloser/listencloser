@@ -218,7 +218,19 @@ def enhance_audio(audio_bytes: bytes, fmt: str = "wav") -> bytes:
 # Format conversion (MIDI <-> MusicXML)
 # ---------------------------------------------------------------------------
 def convert_format(data: bytes, source: str, target: str) -> bytes:
-    """Convert between MIDI and MusicXML using music21."""
+    """Convert between MIDI and MusicXML using music21.
+
+    Args:
+        data: Raw file bytes (MIDI or MusicXML).
+        source: 'midi' or 'musicxml'.
+        target: 'midi' or 'musicxml'.
+
+    Returns:
+        Converted file bytes.
+
+    Raises:
+        ValueError: If source/target combination is unsupported.
+    """
     from music21 import converter
 
     if source == target:
