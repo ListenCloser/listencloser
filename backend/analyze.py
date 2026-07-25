@@ -101,10 +101,18 @@ class AnalysisResult(TypedDict):
 _NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 _QUALITY_MAP = {
-    "major": "M", "minor": "m", "diminished": "dim", "augmented": "aug",
-    "dominant seventh": "7", "major seventh": "maj7", "minor seventh": "min7",
-    "half-diminished": "m7b5", "diminished seventh": "dim7",
-    "suspended fourth": "sus4", "major sixth": "6", "minor sixth": "m6",
+    "major": "M",
+    "minor": "m",
+    "diminished": "dim",
+    "augmented": "aug",
+    "dominant seventh": "7",
+    "major seventh": "maj7",
+    "minor seventh": "min7",
+    "half-diminished": "m7b5",
+    "diminished seventh": "dim7",
+    "suspended fourth": "sus4",
+    "major sixth": "6",
+    "minor sixth": "m6",
     "dominant ninth": "9",
 }
 
@@ -118,10 +126,18 @@ _MIN_CHORD_DURATION = 0.3
 _MIDI_FRAME_WINDOW = 0.25
 
 _CHORD_INTERVALS: dict[str, list[int]] = {
-    "M": [0, 4, 7], "m": [0, 3, 7], "dim": [0, 3, 6], "aug": [0, 4, 8],
-    "7": [0, 4, 7, 10], "maj7": [0, 4, 7, 11], "min7": [0, 3, 7, 10],
-    "m7b5": [0, 3, 6, 10], "sus4": [0, 5, 7], "6": [0, 4, 7, 9],
-    "m6": [0, 3, 7, 9], "9": [0, 4, 7, 10, 2],
+    "M": [0, 4, 7],
+    "m": [0, 3, 7],
+    "dim": [0, 3, 6],
+    "aug": [0, 4, 8],
+    "7": [0, 4, 7, 10],
+    "maj7": [0, 4, 7, 11],
+    "min7": [0, 3, 7, 10],
+    "m7b5": [0, 3, 6, 10],
+    "sus4": [0, 5, 7],
+    "6": [0, 4, 7, 9],
+    "m6": [0, 3, 7, 9],
+    "9": [0, 4, 7, 10, 2],
 }
 
 _ALLOWED_ROOT_TRANSITIONS: set[tuple[int, int]] = set()
