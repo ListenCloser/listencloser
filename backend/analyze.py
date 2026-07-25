@@ -341,10 +341,13 @@ def _m21_phrases(score) -> list[PhraseResult]:
                     if hasattr(end_note, "quarterLength"):
                         end += float(end_note.quarterLength)
                     if end > start:
-                        phrases.append(PhraseResult(
-                            start=round(start, 3), end=round(end, 3),
-                            kind="slur",
-                        ))
+                        phrases.append(
+                            PhraseResult(
+                                start=round(start, 3),
+                                end=round(end, 3),
+                                kind="slur",
+                            )
+                        )
             except Exception:
                 continue
     if not phrases:
@@ -360,10 +363,13 @@ def _m21_phrases(score) -> list[PhraseResult]:
                         if hasattr(last, "quarterLength"):
                             end += float(last.quarterLength)
                         if end > start:
-                            phrases.append(PhraseResult(
-                                start=round(start, 3), end=round(end, 3),
-                                kind="measure_group",
-                            ))
+                            phrases.append(
+                                PhraseResult(
+                                    start=round(start, 3),
+                                    end=round(end, 3),
+                                    kind="measure_group",
+                                )
+                            )
                 break
     return phrases
 
