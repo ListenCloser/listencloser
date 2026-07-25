@@ -35,25 +35,35 @@ function ToolResultCard({ toolName, result }: { toolName: string; result: any })
     return (
       <div style={{ margin: "var(--s-2) 0", padding: "var(--s-2) var(--s-3)", background: "var(--panel-3)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)", fontSize: "var(--fs-xs)" }}>
         <div style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>✓ {result.notes_summary || `Transcribed ${result.num_notes} notes`}</div>
-        <div style={{ color: "var(--muted)", marginTop: 2 }}>Open Transform or Visualize tab to view.</div>
+        <div style={{ color: "var(--muted)", marginTop: 2 }}>Open Transform tab to view piano roll, or Visualize tab for analysis.</div>
       </div>
     );
   }
   if (toolName === "analyze_midi") {
     const key = result.key?.tonic && result.key?.mode ? `${result.key.tonic} ${result.key.mode}` : null;
     const bpm = result.tempo?.bpm ? Math.round(result.tempo.bpm) : null;
+    const timeSig = result.time_signature ? `${result.time_signature.numerator}/${result.time_signature.denominator}` : null;
     return (
       <div style={{ margin: "var(--s-2) 0", padding: "var(--s-2) var(--s-3)", background: "var(--panel-3)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)", fontSize: "var(--fs-xs)" }}>
         <div style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>✓ Analysis complete</div>
-        {key && <div style={{ color: "var(--muted)" }}>Key: {key}</div>}
-        {bpm && <div style={{ color: "var(--muted)" }}>Tempo: {bpm} BPM</div>}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s-1)", marginTop: "var(--s-1)" }}>
+          {key && <div><span style={{ color: "var(--muted)" }}>Key:</span> {key}</div>}
+          {bpm && <div><span style={{ color: "var(--muted)" }}>Tempo:</span> {bpm} BPM</div>}
+          {timeSig && <div><span style={{ color: "var(--muted)" }}>Time:</span> {timeSig}</div>}
+          {result.num_notes && <div><span style={{ color: "var(--muted)" }}>Notes:</span> {result.num_notes}</div>}
+        </div>
       </div>
     );
   }
   if (toolName === "enhance_audio") {
     return (
       <div style={{ margin: "var(--s-2) 0", padding: "var(--s-2) var(--s-3)", background: "var(--panel-3)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)", fontSize: "var(--fs-xs)" }}>
-        <div style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>✓ Audio enhanced</div>
+        <div style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>✓ Audio enhanced successfully</div>
+        {result.wav_base64 && (
+          <audio controls style={{ width: "100%", marginTop: "var(--s-1)", height: 32 }}>
+            <source src={`data:audio/wav;base64,${result.wav_base64}`} type="audio/wav" />
+          </audio>
+        )}
       </div>
     );
   }
@@ -89,8 +99,12 @@ export default function MusicChat({ onTranscribed, onAnalyzed }: MusicChatProps)
 
   const onSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    const text = pendingFile ? `[Attached: ${pendingFile.file.name}]\n${input}` : input;
-    if (!text.trim() && !pendingFile) return;
+    if (!input.trim() && !pendingFile) return;
+
+    const text = pendingFile
+      ? `[Audio file: ${pendingFile.file.name}, format: ${pendingFile.file.type || "wav"}]\n[Audio base64: ${pendingFile.base64}]\n\n${input || "Transcribe this audio"}`
+      : input;
+
     sendMessage({ text });
     setInput("");
     setPendingFile(null);

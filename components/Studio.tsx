@@ -383,7 +383,6 @@ export default function Studio({
                   audioName={audioName}
                   numNotes={lastResult?.num_notes ?? 0}
                 />
-                <ExplainPanel analysis={analysis} />
                 {signedIn && (
                   <div className="toolbar" style={{ marginTop: "var(--s-4)" }}>
                     <button className="btn" onClick={() => { setAnalysis(null); setAnalysisError(""); listLibrary().then(setAnalyzeLibFiles).catch(() => {}); }}>
