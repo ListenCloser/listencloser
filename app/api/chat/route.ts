@@ -1,7 +1,5 @@
 import {
   streamText,
-  createUIMessageStreamResponse,
-  toUIMessageStream,
   stepCountIs,
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -40,7 +38,28 @@ Available operations:
     stopWhen: stepCountIs(5),
   });
 
-  return createUIMessageStreamResponse({
-    stream: toUIMessageStream({ stream: result.stream }),
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of result.fullStream) {
+          const data = JSON.stringify(chunk);
+          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      } catch (e) {
+        controller.error(e);
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
   });
 }
