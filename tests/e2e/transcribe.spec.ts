@@ -25,6 +25,6 @@ test.describe("P3: transcribe an uploaded audio file", () => {
     const notes = page.getByTestId("piano-roll").locator("rect");
     expect(await notes.count()).toBeGreaterThan(0);
 
-    await expect(page.getByText(/— MIDI/)).toBeVisible();
+    await expect(page.getByText(/Download MIDI/)).toBeVisible();
   });
 });

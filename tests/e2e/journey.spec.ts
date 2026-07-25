@@ -92,7 +92,7 @@ test.describe("User journeys", () => {
     await expect(page.getByTestId("piano-roll")).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText(/— MIDI/)).toBeVisible();
+    await expect(page.getByText(/Download MIDI/)).toBeVisible();
   });
 
   test("Transcribe: Analyze button → analysis view", async ({ page }) => {
