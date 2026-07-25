@@ -57,7 +57,6 @@ export default function Studio({
   const [pendingLibFile, setPendingLibFile] = useState<LibFile | null>(null);
   const [transcriptions, setTranscriptions] = useState<Transcription[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [vizReady, setVizReady] = useState(false);
   const [vizTrackId, setVizTrackId] = useState<string | null>(null);
   const [vizSelectedId, setVizSelectedId] = useState<string>("");
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -93,9 +92,6 @@ export default function Studio({
         } as LibFile] : [];
         setAnalyzeLibFiles([...localFile, ...lib]);
       }).catch(() => {});
-    }
-    if (tab === "viz" && !vizReady) {
-      setVizReady(true);
     }
     if (tab === "library" && signedIn) {
       listTranscriptions().then(setTranscriptions).catch(() => setTranscriptions([]));
