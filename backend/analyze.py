@@ -16,16 +16,6 @@ Any changes to the AnalysisResult TypedDict must be mirrored in
 lib/music.ts TranscribeResult.
 """
 
-All analysis runs on symbolic data (MIDI). Audio files are *never*
-analysed directly — the transcribe endpoint converts audio → MIDI first,
-then this module analyses the MIDI.
-
-Pipeline:
-    MIDI  →  music21      (key, chords, Roman numerals, cadences, modulations, voice leading)
-          →  pretty_midi  (tempo, time-sig)
-          →  windowed PC analysis (modulation detection)
-"""
-
 import logging
 import time as _time
 from collections import Counter
