@@ -31,8 +31,8 @@
     "ai": "^7.0.37",
     "next": "15.5.20",
     "opensheetmusicdisplay": "^2.1.0",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
     "soundfont-player": "^0.12.0",
     "wavesurfer.js": "^7.12.11",
     "zod": "^4.4.3"
