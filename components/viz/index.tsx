@@ -268,6 +268,9 @@ export default function Viz({
       {selected && (
         <>
           <div className="section-label">Playback source</div>
+          <p className="muted" style={{ fontSize: "var(--fs-xs)", margin: "0 0 var(--s-2)" }}>
+            Viewing: {playbackSource === "original" ? "Original Audio" : playbackSource === "midi" ? "MIDI" : "Sheet Music"}
+          </p>
           <div style={{ display: "flex", gap: "var(--s-2)", marginBottom: "var(--s-3)", flexWrap: "wrap" }}>
             {selected.url && (
               <button
