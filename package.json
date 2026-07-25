@@ -27,7 +27,8 @@
     "opensheetmusicdisplay": "^2.1.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "wavesurfer.js": "^7.12.11"
+    "wavesurfer.js": "^7.12.11",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@argos-ci/playwright": "^7.3.6",
