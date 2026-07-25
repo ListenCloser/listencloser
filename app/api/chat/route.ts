@@ -2,7 +2,6 @@ import {
   streamText,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  convertToModelMessages,
   stepCountIs,
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -15,6 +14,27 @@ const openrouter = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+function convertMessages(messages: any[]) {
+  return messages.map((msg: any) => {
+    if (msg.role === "user" && msg.parts) {
+      const text = msg.parts
+        .filter((p: any) => p.type === "text")
+        .map((p: any) => p.text)
+        .join("");
+      return { role: "user", content: text };
+    }
+    if (msg.role === "assistant" && msg.parts) {
+      const text = msg.parts
+        .filter((p: any) => p.type === "text")
+        .map((p: any) => p.text)
+        .join("");
+      return { role: "assistant", content: text };
+    }
+    if (msg.content) return msg;
+    return { role: msg.role, content: "" };
+  });
+}
+
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
@@ -25,7 +45,7 @@ export async function POST(req: Request) {
     });
   }
 
-  const modelMessages = await convertToModelMessages(messages);
+  const convertedMessages = convertMessages(messages);
 
   const result = streamText({
     model: openrouter.chat("google/gemma-4-26b-a4b-it:free"),
@@ -38,7 +58,7 @@ Available operations:
 - Analyze music theory (key, tempo, chords, cadences, Roman numerals, modulations, voice leading)
 - Clean and denoise audio recordings
 - Convert between MIDI and MusicXML formats`,
-    messages: modelMessages,
+    messages: convertedMessages,
     tools: musicTools,
     stopWhen: stepCountIs(5),
   });
