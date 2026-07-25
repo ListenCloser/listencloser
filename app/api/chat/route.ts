@@ -1,5 +1,8 @@
 import {
   streamText,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  convertToModelMessages,
   stepCountIs,
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -22,6 +25,8 @@ export async function POST(req: Request) {
     });
   }
 
+  const modelMessages = await convertToModelMessages(messages);
+
   const result = streamText({
     model: openrouter.chat("google/gemma-4-26b-a4b-it:free"),
     system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
@@ -33,33 +38,18 @@ Available operations:
 - Analyze music theory (key, tempo, chords, cadences, Roman numerals, modulations, voice leading)
 - Clean and denoise audio recordings
 - Convert between MIDI and MusicXML formats`,
-    messages,
+    messages: modelMessages,
     tools: musicTools,
     stopWhen: stepCountIs(5),
   });
 
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of result.fullStream) {
-          const data = JSON.stringify(chunk);
-          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-        }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-      } catch (e) {
-        controller.error(e);
-      } finally {
-        controller.close();
+  const stream = createUIMessageStream({
+    execute: async ({ writer }) => {
+      for await (const chunk of result.fullStream) {
+        writer.write(chunk);
       }
     },
   });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+  return createUIMessageStreamResponse({ stream });
 }
