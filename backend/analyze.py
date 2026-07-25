@@ -313,11 +313,17 @@ def _m21_voice_leading(score) -> VoiceLeadingResult | None:
         return None
     p, c, o, s = (round(n / total, 3) for n in [parallel, contrary, oblique, similar])
     dominant = max(
-        ("parallel", p), ("contrary", c), ("oblique", o), ("similar", s),
+        ("parallel", p),
+        ("contrary", c),
+        ("oblique", o),
+        ("similar", s),
         key=lambda x: x[1],
     )
     return VoiceLeadingResult(
-        parallel=p, contrary=c, oblique=o, similar=s,
+        parallel=p,
+        contrary=c,
+        oblique=o,
+        similar=s,
         motion_summary=f"{dominant[0]} motion dominates ({dominant[1] * 100:.0f}%)",
     )
 
