@@ -174,10 +174,14 @@ try:
     from fastapi.middleware.cors import CORSMiddleware
 
     _cors_raw = os.environ.get("CORS_ORIGINS", "")
-    _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()] if _cors_raw else [
-        "https://hello-ai-wheat.vercel.app",
-        "http://localhost:3000",
-    ]
+    _cors_origins = (
+        [o.strip() for o in _cors_raw.split(",") if o.strip()]
+        if _cors_raw
+        else [
+            "https://hello-ai-wheat.vercel.app",
+            "http://localhost:3000",
+        ]
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins,
