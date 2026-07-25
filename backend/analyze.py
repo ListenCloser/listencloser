@@ -219,10 +219,15 @@ def _m21_roman_numerals(score, detected_key) -> list[RomanNumeralResult]:
                     quality = _QUALITY_MAP.get(implied, implied)
                     start = float(ch.getOffsetInHierarchy(score))
                     dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
-                    results.append(RomanNumeralResult(
-                        figure=rn.figure, root=root_name, quality=quality,
-                        start=round(start, 3), end=round(start + dur, 3),
-                    ))
+                    results.append(
+                        RomanNumeralResult(
+                            figure=rn.figure,
+                            root=root_name,
+                            quality=quality,
+                            start=round(start, 3),
+                            end=round(start + dur, 3),
+                        )
+                    )
                 except Exception:
                     continue
             if len(results) > 500:
@@ -239,10 +244,14 @@ def _m21_cadences(score, detected_key) -> list[CadenceResult]:
         return []
     cadences: list[CadenceResult] = []
     patterns = [
-        ("authentic", ["V", "I"]), ("plagal", ["IV", "I"]),
-        ("half", ["I", "V"]), ("deceptive", ["V", "vi"]),
-        ("authentic", ["V7", "I"]), ("authentic", ["V", "i"]),
-        ("half", ["i", "V"]), ("deceptive", ["V", "VI"]),
+        ("authentic", ["V", "I"]),
+        ("plagal", ["IV", "I"]),
+        ("half", ["I", "V"]),
+        ("deceptive", ["V", "vi"]),
+        ("authentic", ["V7", "I"]),
+        ("authentic", ["V", "i"]),
+        ("half", ["i", "V"]),
+        ("deceptive", ["V", "VI"]),
     ]
     chord_seq: list[tuple[float, str]] = []
     for part in score.parts:
