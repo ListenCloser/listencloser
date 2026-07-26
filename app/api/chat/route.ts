@@ -51,20 +51,21 @@ function convertMessages(messages: { role: "user" | "assistant" | "system"; part
 }
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  try {
+    const { messages } = await req.json();
 
-  if (!messages || !Array.isArray(messages) || messages.length === 0) {
-    return new Response(JSON.stringify({ error: "No messages provided" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: "No messages provided" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-  const convertedMessages = convertMessages(messages);
+    const convertedMessages = convertMessages(messages);
 
-  const result = streamText({
-    model: openrouter.chat(process.env.CHAT_MODEL ?? "google/gemma-4-26b-a4b-it:free"),
-    system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
+    const result = streamText({
+      model: openrouter.chat(process.env.CHAT_MODEL ?? "google/gemma-4-26b-a4b-it:free"),
+      system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
 
 When a user asks you to do something, use the appropriate tool. If they mention a file but don't provide audio data, ask them to upload it using the attachment button. Always explain results in plain language after calling a tool.
 
@@ -73,17 +74,24 @@ Available operations:
 - Analyze music theory (key, tempo, chords, cadences, Roman numerals, modulations, voice leading)
 - Clean and denoise audio recordings
 - Convert between MIDI and MusicXML formats`,
-    messages: convertedMessages,
-    tools: musicTools,
-    stopWhen: stepCountIs(5),
-  });
+      messages: convertedMessages,
+      tools: musicTools,
+      stopWhen: stepCountIs(5),
+    });
 
-  const uiStream = toUIMessageStream({ stream: result.fullStream });
+    const uiStream = toUIMessageStream({ stream: result.fullStream });
 
-  return new Response(uiStream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-    },
-  });
+    return new Response(uiStream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch (err) {
+    console.error("Chat error:", err);
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Chat failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
