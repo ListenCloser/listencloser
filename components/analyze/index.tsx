@@ -1,3 +1,14 @@
+/**
+ * Analysis display — redesigned for UX-016/017/018.
+ *
+ * UX-016: Answer key questions in plain language
+ * UX-017: Visual analysis (chord timeline, modulation markers)
+ * UX-018: Human-readable explanations instead of raw statistics
+ *
+ * Design principle: Lead with insights, follow with data.
+ * The user should understand their piece in 5 seconds.
+ */
+
 "use client";
 
 import type { TranscribeResult } from "@/lib/music";
@@ -9,6 +20,20 @@ type Props = {
   notes: TranscribeResult["notes"];
   audioName: string;
   numNotes: number;
+};
+
+const CADENCE_COLORS: Record<string, string> = {
+  authentic: "var(--accent)",
+  plagal: "#6ee7b7",
+  half: "#fbbf24",
+  deceptive: "#f87171",
+};
+
+const CADENCE_DESCRIPTIONS: Record<string, string> = {
+  authentic: "A strong resolution (V→I) that feels conclusive.",
+  plagal: "A gentle 'Amen' cadence (IV→I).",
+  half: "An open-ended pause that creates expectation.",
+  deceptive: "An unexpected turn that surprises the listener.",
 };
 
 function tonicToIndex(tonic: string): number {
@@ -34,12 +59,60 @@ function getDiatonicChords(tonic: string, mode: string) {
   });
 }
 
-const CADENCE_COLORS: Record<string, string> = {
-  authentic: "var(--accent)",
-  plagal: "#6ee7b7",
-  half: "#fbbf24",
-  deceptive: "#f87171",
-};
+function formatTime(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function generateInsights(analysis: NonNullable<TranscribeResult["analysis"]>, notes: TranscribeResult["notes"]): string[] {
+  const insights: string[] = [];
+
+  // Key insight
+  const keyName = `${analysis.key.tonic} ${analysis.key.mode}`;
+  const conf = Math.round(analysis.key.confidence * 100);
+  if (conf >= 80) {
+    insights.push(`Likely in ${keyName}.`);
+  } else if (conf >= 50) {
+    insights.push(`Probably in ${keyName}, though the key is somewhat ambiguous.`);
+  } else {
+    insights.push(`The key is uncertain — may be ${keyName} or a related mode.`);
+  }
+
+  // Tempo insight
+  if (analysis.tempo) {
+    const bpm = Math.round(analysis.tempo.bpm);
+    if (bpm < 80) insights.push(`Slow tempo at ${bpm} BPM — suggests a ballad or adagio feel.`);
+    else if (bpm < 120) insights.push(`Moderate tempo at ${bpm} BPM.`);
+    else if (bpm < 160) insights.push(`Upbeat tempo at ${bpm} BPM.`);
+    else insights.push(`Fast tempo at ${bpm} BPM — suggests energy and drive.`);
+  }
+
+  // Modulation insight
+  if (analysis.modulations && analysis.modulations.length > 0) {
+    const mods = analysis.modulations;
+    insights.push(`${mods.length} key change${mods.length > 1 ? "s" : ""} detected — the harmony shifts at ${mods.map(m => formatTime(m.position)).join(", ")}.`);
+  }
+
+  // Cadence insight
+  if (analysis.cadences && analysis.cadences.length > 0) {
+    const types = analysis.cadences.map(c => c.type);
+    const dominant = types.sort((a, b) => types.filter(v => v === b).length - types.filter(v => v === a).length)[0];
+    if (dominant) {
+      insights.push(`The piece relies heavily on ${dominant} cadences — ${CADENCE_DESCRIPTIONS[dominant] || ""}`);
+    }
+  }
+
+  // Note density insight
+  const noteStats = computeNoteStats(notes);
+  if (noteStats.density > 8) {
+    insights.push(`High note density (${noteStats.density}/s) — dense, virtuosic writing.`);
+  } else if (noteStats.density < 2) {
+    insights.push(`Low note density (${noteStats.density}/s) — sparse, lyrical writing.`);
+  }
+
+  return insights;
+}
 
 export default function Analysis({ analysis, notes, audioName, numNotes }: Props) {
   if (!analysis?.key) {
@@ -52,12 +125,7 @@ export default function Analysis({ analysis, notes, audioName, numNotes }: Props
 
   const chords = getDiatonicChords(analysis.key.tonic, analysis.key.mode);
   const noteStats = computeNoteStats(notes);
-
-  const chordLabels = chords.map((c) => c.label).join(", ");
-  const theoryText =
-    analysis.key.mode === "major"
-      ? `This piece is in ${analysis.key.tonic} major. Common chords: ${chordLabels}.`
-      : `This piece is in ${analysis.key.tonic} minor. Common chords: ${chordLabels}.`;
+  const insights = generateInsights(analysis, notes);
 
   const cKey = Math.round(analysis.key.confidence * 100);
   const cTempo = analysis.tempo ? Math.round(analysis.tempo.confidence * 100) : null;
@@ -68,7 +136,7 @@ export default function Analysis({ analysis, notes, audioName, numNotes }: Props
     .map((c) => {
       const q = c.quality;
       const label = q === "M" ? c.root : q === "m" ? `${c.root}m` : `${c.root}${q}`;
-      return { label, start: c.start, end: c.end };
+      return { label, start: c.start, end: c.end, quality: c.quality };
     });
 
   const romanNumerals = analysis.roman_numerals ?? [];
@@ -76,42 +144,112 @@ export default function Analysis({ analysis, notes, audioName, numNotes }: Props
   const modulations = analysis.modulations ?? [];
   const voiceLeading = analysis.voice_leading;
 
+  const totalDuration = notes.length > 0 ? Math.max(...notes.map(n => n.end)) : 0;
+
   return (
     <div>
-      <div className="section-label">Track: {audioName}</div>
+      {/* ── Summary insights (UX-018: human-readable) ── */}
+      <div className="section-label">Summary</div>
+      <div className="stat" style={{ marginBottom: "var(--s-3)" }}>
+        {insights.map((insight, i) => (
+          <p key={i} style={{ margin: "var(--s-1) 0", fontSize: "var(--fs-sm)", lineHeight: "var(--line-height-base)" }}>
+            {insight}
+          </p>
+        ))}
+      </div>
 
+      {/* ── Key metrics ── */}
       <div className="stat-grid">
         <div className="stat fade-in">
           <span className="s-label">Key</span>
           <span className="s-value">{analysis.key.tonic} {analysis.key.mode}</span>
           <div className="confidence-track"><div className="confidence-fill" style={{ width: `${cKey}%` }} /></div>
-          <span className="confidence-pct">{cKey}%</span>
+          <span className="confidence-pct">{cKey}% confidence</span>
         </div>
         <div className="stat fade-in" style={{ animationDelay: ".05s" }}>
           <span className="s-label">Tempo</span>
-          <span className="s-value">{analysis.tempo ? `${analysis.tempo.bpm} BPM` : "—"}</span>
+          <span className="s-value">{analysis.tempo ? `${Math.round(analysis.tempo.bpm)} BPM` : "—"}</span>
           {cTempo !== null && (
             <>
               <div className="confidence-track"><div className="confidence-fill" style={{ width: `${cTempo}%` }} /></div>
-              <span className="confidence-pct">{cTempo}%</span>
+              <span className="confidence-pct">{cTempo}% confidence</span>
             </>
           )}
         </div>
         <div className="stat fade-in" style={{ animationDelay: ".1s" }}>
-          <span className="s-label">Time signature</span>
+          <span className="s-label">Time</span>
           <span className="s-value">{analysis.time_signature ? `${analysis.time_signature.numerator}/${analysis.time_signature.denominator}` : "—"}</span>
           {cSig !== null && (
             <>
               <div className="confidence-track"><div className="confidence-fill" style={{ width: `${cSig}%` }} /></div>
-              <span className="confidence-pct">{cSig}%</span>
+              <span className="confidence-pct">{cSig}% confidence</span>
             </>
           )}
         </div>
       </div>
 
+      {/* ── Chord timeline (UX-017: visual analysis) ── */}
+      {progression.length > 0 && totalDuration > 0 && (
+        <>
+          <div className="section-label">Chord Timeline</div>
+          <div style={{ position: "relative", height: 40, background: "var(--panel-3)", borderRadius: "var(--r-sm)", overflow: "hidden", marginBottom: "var(--s-2)" }}>
+            {progression.map((c, i) => {
+              const left = (c.start / totalDuration) * 100;
+              const width = ((c.end - c.start) / totalDuration) * 100;
+              const isMinor = c.quality === "m";
+              return (
+                <div
+                  key={i}
+                  style={{
+                    position: "absolute",
+                    left: `${left}%`,
+                    width: `${Math.max(width, 0.5)}%`,
+                    height: "100%",
+                    background: isMinor ? "var(--accent-soft-2)" : "var(--accent-soft)",
+                    borderRight: "1px solid var(--panel)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "var(--fs-xs)",
+                    fontWeight: 500,
+                    color: isMinor ? "var(--accent-2)" : "var(--accent)",
+                    overflow: "hidden",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={`${c.label} (${formatTime(c.start)}–${formatTime(c.end)})`}
+                >
+                  {width > 3 && c.label}
+                </div>
+              );
+            })}
+            {/* Modulation markers */}
+            {modulations.map((m, i) => (
+              <div
+                key={`mod-${i}`}
+                style={{
+                  position: "absolute",
+                  left: `${(m.position / totalDuration) * 100}%`,
+                  top: 0,
+                  width: 2,
+                  height: "100%",
+                  background: "var(--danger)",
+                  opacity: 0.7,
+                }}
+                title={`Modulation: ${m.from_key} → ${m.to_key}`}
+              />
+            ))}
+          </div>
+          <p className="muted" style={{ fontSize: "var(--fs-xs)", margin: "0 0 var(--s-3)" }}>
+            {progression.length} chord segments · {formatTime(totalDuration)} duration
+            {modulations.length > 0 && ` · ${modulations.length} key change${modulations.length > 1 ? "s" : ""}`}
+          </p>
+        </>
+      )}
+
+      {/* ── Roman numeral analysis ── */}
       {romanNumerals.length > 0 && (
         <>
-          <div className="section-label">Roman numeral analysis</div>
+          <div className="section-label">Roman Numeral Analysis</div>
           <div className="chips" style={{ flexWrap: "wrap" }}>
             {romanNumerals.map((rn, i) => {
               const cadMatch = cadences.find((c) => Math.abs(c.position - rn.start) < 0.5);
@@ -141,50 +279,62 @@ export default function Analysis({ analysis, notes, audioName, numNotes }: Props
             })}
           </div>
           <p className="muted" style={{ fontSize: "var(--fs-xs)", margin: "var(--s-1) 0 0" }}>
-            {romanNumerals.length} chords analyzed · cadences highlighted with colored borders
+            {romanNumerals.length} chords · cadences highlighted with colored borders
           </p>
         </>
       )}
 
+      {/* ── Cadences ── */}
       {cadences.length > 0 && (
         <>
           <div className="section-label">Cadences</div>
-          <div className="chips">
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)" }}>
             {cadences.map((c, i) => (
-              <span
-                key={i}
-                className="chip"
-                style={{
-                  borderColor: CADENCE_COLORS[c.type] ?? "var(--border)",
-                  color: CADENCE_COLORS[c.type] ?? "var(--text)",
-                }}
-              >
-                {c.type} ({c.chords.join(" → ")})
-              </span>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--s-2)" }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: CADENCE_COLORS[c.type] ?? "var(--muted)",
+                  }}
+                />
+                <span style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: CADENCE_COLORS[c.type] ?? "var(--text)" }}>
+                  {c.type}
+                </span>
+                <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>
+                  {c.chords.join(" → ")} at {formatTime(c.position)}
+                </span>
+              </div>
             ))}
           </div>
         </>
       )}
 
+      {/* ── Modulations ── */}
       {modulations.length > 0 && (
         <>
-          <div className="section-label">Modulations</div>
-          <div className="chips">
+          <div className="section-label">Key Changes</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)" }}>
             {modulations.map((m, i) => (
-              <span key={i} className="chip">
-                {m.from_key} → {m.to_key}
-                <span className="muted" style={{ marginLeft: 4, fontSize: "var(--fs-xs)" }}>
-                  @ {m.position.toFixed(1)}s
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--s-2)" }}>
+                <span style={{ fontSize: "var(--fs-sm)" }}>
+                  {m.from_key} → {m.to_key}
                 </span>
-              </span>
+                <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>
+                  at {formatTime(m.position)}
+                </span>
+              </div>
             ))}
           </div>
         </>
       )}
 
+      {/* ── Voice leading ── */}
       {voiceLeading && (
         <>
-          <div className="section-label">Voice leading</div>
+          <div className="section-label">Voice Leading</div>
           <div className="stat-grid">
             {(["contrary", "parallel", "oblique", "similar"] as const).map((motion) => (
               <div key={motion} className="stat">
@@ -199,48 +349,32 @@ export default function Analysis({ analysis, notes, audioName, numNotes }: Props
         </>
       )}
 
-      <div className="section-label">Diatonic chords</div>
+      {/* ── Diatonic chords ── */}
+      <div className="section-label">Diatonic Chords in {analysis.key.tonic} {analysis.key.mode}</div>
       <div className="chips">
         {chords.map((c, i) => (
           <span key={i} className={`chip-q ${c.q}`}>{c.label}</span>
         ))}
       </div>
 
-      {progression.length > 0 && (
-        <>
-          <div className="section-label">Chord progression</div>
-          <div className="chips">
-            {progression.map((c, i) => (
-              <span key={i} className="chip">{c.label}</span>
-            ))}
-          </div>
-            <p className="muted" style={{ fontSize: "var(--fs-xs)", margin: "var(--s-1) 0 0" }}>
-              {progression.length} segments · {progression[0].start.toFixed(1)}s–{progression[progression.length - 1].end.toFixed(1)}s
-            </p>
-        </>
-      )}
-
-      <div className="section-label">Note statistics</div>
+      {/* ── Note statistics ── */}
+      <div className="section-label">Note Statistics</div>
       <div className="stat-grid">
         <div className="stat">
-          <span className="s-label">Pitch range</span>
+          <span className="s-label">Pitch Range</span>
           <span className="s-value">
             {SHARP_NOTE_NAMES[noteStats.pitchRange.low % 12]}–{SHARP_NOTE_NAMES[noteStats.pitchRange.high % 12]}
           </span>
           <span className="confidence-pct">{noteStats.pitchRange.span} semitones</span>
         </div>
         <div className="stat">
-          <span className="s-label">Note count</span>
+          <span className="s-label">Note Count</span>
           <span className="s-value">{notes.length}</span>
         </div>
         <div className="stat">
           <span className="s-label">Density</span>
           <span className="s-value">{noteStats.density}/s</span>
         </div>
-      </div>
-
-      <div className="card" style={{ marginTop: "var(--s-4)", borderColor: "var(--border-strong)", color: "var(--muted)", fontSize: "var(--fs-sm)", lineHeight: "var(--line-height-base)" }}>
-        {theoryText}
       </div>
     </div>
   );
