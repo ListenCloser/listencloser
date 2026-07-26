@@ -67,6 +67,7 @@ export const transcribeAudioTool = tool({
     });
     return {
       num_notes: result.num_notes,
+      notes: result.notes,
       notes_summary: `Transcribed ${result.num_notes} notes`,
       midi_base64: result.midi_base64,
       wav_url: result.wav_url,

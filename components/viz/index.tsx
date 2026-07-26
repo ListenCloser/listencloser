@@ -355,7 +355,7 @@ export default function Viz({
           </div>
 
           {mode === "piano-roll" && hasNotes && (
-            <PianoRoll notes={selected.notes!} playheadTime={vizTime} bpm={120} />
+            <PianoRoll notes={selected.notes!} playheadTime={vizTime} bpm={selected.analysis?.tempo?.bpm ?? 120} />
           )}
 
           {mode === "spectrogram" && selected.url && (

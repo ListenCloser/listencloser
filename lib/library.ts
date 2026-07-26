@@ -42,11 +42,12 @@ export async function uploadToLibrary(name: string, blob: Blob): Promise<{ url: 
   const safeName = name.replace(/[^a-z0-9.\-_\u00C0-\u024F ]/gi, "_");
   const prefix = await userPrefix();
   const path = `${prefix}/${Date.now()}-${safeName}`;
-  const contentType = ext === "musicxml" || ext === "xml"
-    ? "application/xml"
-    : ext === "mid" || ext === "midi"
-      ? "audio/midi"
-      : `audio/${ext}`;
+  const mimeMap: Record<string, string> = {
+    musicxml: "application/xml", xml: "application/xml",
+    mid: "audio/midi", midi: "audio/midi",
+    m4a: "audio/mp4", mp4: "audio/mp4",
+  };
+  const contentType = mimeMap[ext] ?? `audio/${ext}`;
   const { uploadFile, getPublicUrl } = await import("./storage");
   await uploadFile(LIBRARY_BUCKET, path, blob, contentType, true);
   return { url: getPublicUrl(LIBRARY_BUCKET, path), id: path };
