@@ -24,12 +24,14 @@ import { SharedAudioProvider } from "@/lib/audio-context";
 
 export default function Studio({
   initialTab = "transcribe",
+  initialTrack,
   signedIn = false,
 }: {
   initialTab?: string;
+  initialTrack?: string;
   signedIn?: boolean;
 }) {
-  const state = useStudioState({ initialTab, signedIn });
+  const state = useStudioState({ initialTab, initialTrack, signedIn });
 
   return (
     <SharedAudioProvider>
@@ -71,6 +73,7 @@ export default function Studio({
             onTranscribe={state.handleLibraryTranscribe}
             onAnalyze={state.handleLibraryAnalyze}
             onVisualize={state.handleLibraryVisualize}
+            onTrackDeleted={state.handleTrackDeleted}
             transcriptions={state.transcriptions}
             refreshKey={state.refreshKey}
             isTranscribing={state.isTranscribing}

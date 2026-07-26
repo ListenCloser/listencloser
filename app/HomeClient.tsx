@@ -13,6 +13,7 @@ function HomeInner() {
   const { user, loading } = useAuth();
   const params = useSearchParams();
   const tab = params.get("tab") || undefined;
+  const track = params.get("track") || undefined;
 
   if (loading) {
     return (
@@ -22,7 +23,7 @@ function HomeInner() {
     );
   }
 
-  return <Studio initialTab={tab} signedIn={BYPASS_AUTH || !!user} />;
+  return <Studio initialTab={tab} initialTrack={track} signedIn={BYPASS_AUTH || !!user} />;
 }
 
 export default function HomeClient() {
