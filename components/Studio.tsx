@@ -117,6 +117,7 @@ export default function Studio({
               if (midi) state.handleAnalyze(midi, name);
               state.goToTab("analyze");
             }}
+            onNavigate={(tab) => state.goToTab(tab as any)}
           />
         )}
 
