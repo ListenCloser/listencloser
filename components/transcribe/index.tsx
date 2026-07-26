@@ -414,12 +414,26 @@ export default function Transform({
       setAnalyzeBase64(res.wav_base64 ?? "");
       onTranscribed?.(res, file.name);
 
+      // Synthesize WAV for playback
+      if (res.midi_base64) {
+        try {
+          const synth = await synthAudio(res.midi_base64);
+          synthWavRef.current = synth.wav_base64;
+          const bytes = Uint8Array.from(atob(synth.wav_base64), (c) => c.charCodeAt(0));
+          const blob = new Blob([bytes], { type: "audio/wav" });
+          if (wavUrl) URL.revokeObjectURL(wavUrl);
+          setWavUrl(URL.createObjectURL(blob));
+        } catch {
+          // synth failed, playback unavailable
+        }
+      }
+
       setState("populated");
       setStatus(`${res.num_notes} notes extracted`);
 
       if (signedIn && res.notes.length > 0) {
         try {
-          await saveTranscription(file.id, res.notes, res.midi_base64);
+          await saveTranscription(file.id, res.notes, res.midi_base64, undefined, undefined, synthWavRef.current ?? undefined);
           setSaved(true);
           onTranscriptionSaved?.();
         } catch (e) {
@@ -703,7 +717,7 @@ export default function Transform({
                     setMusicXml(xml);
                     if (signedIn && libraryFileId) {
                       try {
-                        await saveTranscription(libraryFileId, result.notes, result.midi_base64, undefined, xml);
+                        await saveTranscription(libraryFileId, result.notes, result.midi_base64, undefined, xml, synthWavRef.current ?? undefined);
                       } catch { /* ok if save fails */ }
                     }
                     setStatus("Sheet music ready");

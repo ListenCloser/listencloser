@@ -29,11 +29,22 @@ const openrouter = createOpenAI({
 function convertMessages(messages: { role: "user" | "assistant" | "system"; parts?: { type: string; text?: string }[]; content?: string }[]) {
   return messages.map((msg) => {
     if (msg.parts) {
-      const text = msg.parts
+      const textParts = msg.parts
         .filter((p) => p.type === "text" && p.text)
-        .map((p) => p.text!)
-        .join("");
-      return { role: msg.role, content: text };
+        .map((p) => p.text!);
+      // Include tool results as context so the LLM remembers what happened
+      const toolParts = msg.parts
+        .filter((p) => p.type.startsWith("tool-"))
+        .map((p) => {
+          const toolName = p.type.replace("tool-", "");
+          const toolResult = (p as { output?: Record<string, unknown> }).output;
+          if (toolResult) {
+            return `[Tool result: ${toolName}] ${JSON.stringify(toolResult).slice(0, 500)}`;
+          }
+          return `[Tool: ${toolName}]`;
+        });
+      const allParts = [...textParts, ...toolParts];
+      return { role: msg.role, content: allParts.join("\n") || "(tool result)" };
     }
     return { role: msg.role, content: msg.content ?? "" };
   });
