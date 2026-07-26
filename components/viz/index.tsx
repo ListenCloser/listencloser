@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { listLibrary, synthAudio, synthMusicXml, convertMusicFormat, formatTime, type LibFile } from "@/lib/music";
-import { loadLocalTranscription } from "@/lib/browser-store";
+import { loadLocalTranscription, loadVizMode, saveVizMode } from "@/lib/browser-store";
 import PianoRoll from "@/components/PianoRoll";
 import Spectrogram from "@/components/Spectrogram";
 import ChromaHeatmap from "@/components/ChromaHeatmap";
@@ -36,7 +36,7 @@ export default function Viz({
   const [files, setFiles] = useState<LibFile[]>([]);
   const [selectedIdLocal, setSelectedIdLocal] = useState<string>("");
   const selectedId = selectedIdProp ?? selectedIdLocal;
-  const [mode, setMode] = useState<VizMode>("piano-roll");
+  const [mode, setMode] = useState<VizMode>(() => (loadVizMode() as VizMode) ?? "piano-roll");
   const [playbackSource, setPlaybackSource] = useState<PlaybackSource>("midi");
   const [midiTime, setMidiTime] = useState(0);
   const [musicXml, setMusicXml] = useState("");
@@ -83,6 +83,10 @@ export default function Viz({
       onTrackSelected?.(initialTrackId);
     }
   }, [initialTrackId, files, onTrackSelected]);
+
+  useEffect(() => {
+    saveVizMode(mode);
+  }, [mode]);
 
   const selected = files.find((f) => f.id === selectedId);
   const hasNotes = (selected?.notes?.length ?? 0) > 0;
