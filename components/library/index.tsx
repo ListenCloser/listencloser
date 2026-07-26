@@ -27,6 +27,7 @@ export default function Library({
   onTranscribe,
   onAnalyze,
   onVisualize,
+  onTrackDeleted,
   transcriptions,
   refreshKey,
   isTranscribing,
@@ -37,6 +38,7 @@ export default function Library({
   onTranscribe?: (file: LibFile) => void;
   onAnalyze?: (file: LibFile) => void;
   onVisualize?: (file: LibFile) => void;
+  onTrackDeleted?: (id: string) => void;
   transcriptions?: Transcription[];
   refreshKey?: number;
   isTranscribing?: boolean;
@@ -108,6 +110,7 @@ export default function Library({
       await deleteFromLibrary(id);
       setStatus(`Deleted ${name}`);
       if (playing === id) stopAudio();
+      onTrackDeleted?.(id);
       await refresh();
     } catch (err) {
       setStatus("⚠️ " + (err instanceof Error ? err.message : "delete failed"));

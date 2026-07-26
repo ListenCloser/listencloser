@@ -67,9 +67,11 @@ export { TABS };
 
 export function useStudioState({
   initialTab = "transcribe",
+  initialTrack,
   signedIn = false,
 }: {
   initialTab?: string;
+  initialTrack?: string;
   signedIn?: boolean;
 }) {
   const router = useRouter();
@@ -102,8 +104,8 @@ export function useStudioState({
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ── Viz state ────────────────────────────────────────────────────────────
-  const [vizTrackId, setVizTrackId] = useState<string | null>(() => loadSelectedTrack());
-  const [vizSelectedId, setVizSelectedId] = useState<string>(() => loadSelectedTrack() ?? "");
+  const [vizTrackId, setVizTrackId] = useState<string | null>(() => initialTrack ?? loadSelectedTrack());
+  const [vizSelectedId, setVizSelectedId] = useState<string>(() => initialTrack ?? loadSelectedTrack() ?? "");
   const vizStopRef = useRef<(() => void) | null>(null);
 
   // ── Effects ──────────────────────────────────────────────────────────────
@@ -245,6 +247,17 @@ export function useStudioState({
     goToTab("viz");
   }
 
+  function handleTrackDeleted(deletedId: string) {
+    if (vizTrackId === deletedId) setVizTrackId(null);
+    if (vizSelectedId === deletedId) setVizSelectedId("");
+    saveSelectedTrack(null);
+    // Clear analysis if the deleted track was the analyzed one
+    if (lastResult && audioName) {
+      setAnalysis(null);
+      setAnalysisError("");
+    }
+  }
+
   async function signIn() {
     if (!supabase) return;
     const callbackUrl = `${window.location.origin}/auth/callback`;
@@ -288,6 +301,7 @@ export function useStudioState({
     handleLibraryTranscribe,
     handleLibraryAnalyze,
     handleLibraryVisualize,
+    handleTrackDeleted,
     signIn,
     signOut,
     setIsTranscribing,
