@@ -96,6 +96,7 @@ export function useStudioState({
   const [analysisError, setAnalysisError] = useState("");
   const [analyzeStatus, setAnalyzeStatus] = useState("");
   const [analyzeLibFiles, setAnalyzeLibFiles] = useState<LibFile[]>([]);
+  const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // ── Library state ────────────────────────────────────────────────────────
@@ -132,6 +133,7 @@ export function useStudioState({
 
   useEffect(() => {
     if (tab === "analyze") {
+      setAnalyzeLoading(true);
       listLibrary().then((lib) => {
         const local = loadLocalTranscription();
         const localFile = local && local.notes.length > 0 ? [{
@@ -143,7 +145,8 @@ export function useStudioState({
           analysis: local.analysis,
         } as LibFile] : [];
         setAnalyzeLibFiles([...localFile, ...lib]);
-      }).catch((e) => console.warn("Failed to load library for analyze:", e));
+      }).catch((e) => console.warn("Failed to load library for analyze:", e))
+        .finally(() => setAnalyzeLoading(false));
     }
     if (tab === "library" && signedIn) {
       listTranscriptions().then(setTranscriptions).catch(() => setTranscriptions([]));
@@ -213,6 +216,8 @@ export function useStudioState({
     } finally {
       setAnalyzeStatus("");
       setIsAnalyzing(false);
+      // Refresh library files so deriveTrackState picks up the new analysis
+      listLibrary().then(setAnalyzeLibFiles).catch(() => {});
     }
   }
 
@@ -284,6 +289,7 @@ export function useStudioState({
     analysisError,
     analyzeStatus,
     analyzeLibFiles,
+    analyzeLoading,
     pendingLibFile,
     transcriptions,
     refreshKey,

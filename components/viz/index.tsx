@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { listLibrary, synthAudio, synthMusicXml, convertMusicFormat, formatTime, type LibFile } from "@/lib/music";
+import { listLibrary, synthAudio, synthMusicXml, convertMusicFormat, saveTranscription, formatTime, type LibFile } from "@/lib/music";
 import { loadLocalTranscription, loadVizMode, saveVizMode } from "@/lib/browser-store";
 import PianoRoll from "@/components/PianoRoll";
 import Spectrogram from "@/components/Spectrogram";
@@ -119,6 +119,16 @@ export default function Viz({
         return;
       }
 
+      // Check for cached synth WAV in library
+      if (source === "midi" && selected.synth_wav_base64) {
+        const bytes = Uint8Array.from(atob(selected.synth_wav_base64), (c) => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: "audio/wav" });
+        const url = URL.createObjectURL(blob);
+        setMidiWavUrl(url);
+        play(selectedId, url);
+        return;
+      }
+
       setSynthLoading(true);
       try {
         let wav_base64: string;
@@ -215,7 +225,14 @@ export default function Viz({
       } else {
         setSheetMusicLoading(true);
         convertMusicFormat(selected.midi_base64, "midi", "musicxml")
-          .then((converted) => setMusicXml(atob(converted.data_base64)))
+          .then((converted) => {
+            const xml = atob(converted.data_base64);
+            setMusicXml(xml);
+            // Persist musicxml back to library so it survives page refresh
+            if (selected.id && !selected.id.startsWith("__local__")) {
+              saveTranscription(selected.id, selected.notes ?? [], selected.midi_base64, selected.analysis, xml).catch(() => {});
+            }
+          })
           .catch(() => setMusicXml(""))
           .finally(() => setSheetMusicLoading(false));
       }
