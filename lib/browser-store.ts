@@ -6,6 +6,7 @@ const RESULT_KEY = "studio:lastResult";
 const ANALYSIS_KEY = "studio:analysis";
 const AUDIO_NAME_KEY = "studio:audioName";
 const SELECTED_TRACK_KEY = "studio:selectedTrack";
+const VIZ_MODE_KEY = "studio:vizMode";
 
 export type LocalTranscription = {
   name: string;
@@ -155,4 +156,14 @@ export function saveSelectedTrack(trackId: string | null): void {
 
 export function loadSelectedTrack(): string | null {
   try { return sessionStorage.getItem(SELECTED_TRACK_KEY); } catch { return null; }
+}
+
+// ── Visualization mode persistence ──────────────────────────────────────────
+
+export function saveVizMode(mode: string): void {
+  try { sessionStorage.setItem(VIZ_MODE_KEY, mode); } catch {}
+}
+
+export function loadVizMode(): string | null {
+  try { return sessionStorage.getItem(VIZ_MODE_KEY); } catch { return null; }
 }
