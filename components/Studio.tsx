@@ -128,7 +128,7 @@ export default function Studio({
           <div className="card">
             <h3 className="card-title"><span className="glyph">◈</span> Analyze</h3>
 
-            {!state.analysis && !state.analyzeStatus && signedIn && state.analyzeLibFiles.filter(f => f.notes?.length).length === 0 && (
+            {!state.analysis && !state.analyzeStatus && signedIn && !state.analyzeLoading && state.analyzeLibFiles.filter(f => f.notes?.length).length === 0 && (
               <>
                 <div className="section-label">Select a transcribed track</div>
                 <p className="muted" style={{ textAlign: "center", margin: "var(--s-4) 0" }}>
@@ -137,7 +137,17 @@ export default function Studio({
               </>
             )}
 
-            {!state.analysis && !state.analyzeStatus && signedIn && state.analyzeLibFiles.filter(f => f.notes?.length).length > 0 && (
+            {!state.analysis && !state.analyzeStatus && signedIn && state.analyzeLoading && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)" }}>
+                {[1, 2, 3].map((i) => (
+                  <div key={i} style={{ padding: "var(--s-3)", background: "var(--panel-2)", borderRadius: "var(--r-md)", opacity: 0.5 }}>
+                    <div className="skel line" style={{ width: "60%" }} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!state.analysis && !state.analyzeStatus && signedIn && !state.analyzeLoading && state.analyzeLibFiles.filter(f => f.notes?.length).length > 0 && (
               <>
                 <div className="section-label">Select a transcribed track</div>
                 <div style={{ display: "flex", gap: "var(--s-2)", marginBottom: "var(--s-4)" }}>
