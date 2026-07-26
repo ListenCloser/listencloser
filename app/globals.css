@@ -248,6 +248,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .chat-input:focus { border-color: var(--accent); }
 .chat-send-btn { background: var(--accent); color: var(--bg); border: none; border-radius: var(--r-md); padding: var(--s-2) var(--s-4); font-weight: var(--fw-medium); font-size: var(--fs-sm); cursor: pointer; }
 .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-nav-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; border-radius: var(--r-full); cursor: pointer; transition: all var(--dur) var(--ease); }
+.chat-nav-btn:hover { background: var(--accent); color: var(--bg); }
+.chat-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Track header ── */
 .track-header { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: var(--s-3); }
