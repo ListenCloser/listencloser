@@ -1,11 +1,19 @@
 /**
- * Music Chat — primary interface for the entire music workflow.
+ * Music Chat — fully self-contained workspace.
  *
- * UX-019: End-to-end chat flow — upload, transcribe, analyze, visualize
- * UX-020: Chat as primary interface with embedded components
+ * Everything the regular UI can do, the chat can do:
+ * - Browse library tracks
+ * - Upload new audio
+ * - Transcribe audio
+ * - Analyze music theory
+ * - Clean/denoise audio
+ * - Convert MIDI ↔ MusicXML
  *
- * Architecture: Tool results render as interactive components inline.
- * Users can do everything from chat without switching tabs.
+ * Tool results render as embedded interactive components:
+ * - Piano roll for transcriptions
+ * - Audio player for playback
+ * - Analysis summary cards
+ * - Library track listings
  */
 
 "use client";
@@ -21,8 +29,12 @@ type MusicChatProps = {
   onNavigate?: (tab: string) => void;
 };
 
+// ── Tool Result Renderers ──────────────────────────────────────────────────
+
 function ToolCallCard({ toolName }: { toolName: string }) {
   const labels: Record<string, string> = {
+    list_library: "📂 Browsing library…",
+    upload_audio: "⬆️ Uploading audio…",
     transcribe_audio: "🎵 Transcribing audio…",
     analyze_midi: "🎼 Analyzing music theory…",
     enhance_audio: "🔊 Enhancing audio…",
@@ -36,13 +48,34 @@ function ToolCallCard({ toolName }: { toolName: string }) {
   );
 }
 
-function TranscribeResultCard({
-  result,
-  onNavigate,
-}: {
-  result: Record<string, unknown>;
-  onNavigate?: (tab: string) => void;
-}) {
+function LibraryResultCard({ result }: { result: Record<string, unknown> }) {
+  const tracks = result.tracks as { name: string; hasNotes: boolean; hasMidi: boolean; hasAnalysis: boolean }[] | undefined;
+  const message = result.message as string;
+  if (!tracks || tracks.length === 0) {
+    return (
+      <div className="chat-tool-result">
+        <div className="chat-tool-success">📂 Library</div>
+        <p style={{ fontSize: "var(--fs-sm)", margin: "var(--s-1) 0" }}>{message}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="chat-tool-result">
+      <div className="chat-tool-success">📂 {tracks.length} track(s) in library</div>
+      <div style={{ marginTop: "var(--s-2)", display: "flex", flexDirection: "column", gap: "var(--s-1)" }}>
+        {tracks.map((t, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", fontSize: "var(--fs-xs)" }}>
+            <span style={{ fontWeight: 500 }}>{t.name}</span>
+            {t.hasNotes && <span className="track-badge">MIDI</span>}
+            {t.hasAnalysis && <span className="track-badge">Analyzed</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TranscribeResultCard({ result, onNavigate }: { result: Record<string, unknown>; onNavigate?: (tab: string) => void }) {
   const notes = (result.notes as TranscribeResult["notes"]) ?? [];
   const numNotes = (result.num_notes as number) ?? notes.length;
   const midiBase64 = result.midi_base64 as string | undefined;
@@ -57,63 +90,34 @@ function TranscribeResultCard({
       const bytes = Uint8Array.from(atob(synth.wav_base64), (c) => c.charCodeAt(0));
       const blob = new Blob([bytes], { type: "audio/wav" });
       setAudioUrl(URL.createObjectURL(blob));
-    } catch {
-      // synth failed
-    } finally {
-      setLoadingAudio(false);
-    }
+    } catch {} finally { setLoadingAudio(false); }
   }, [midiBase64, loadingAudio]);
 
   return (
     <div className="chat-tool-result">
       <div className="chat-tool-success">✓ Transcribed {numNotes} notes</div>
-
-      {notes.length > 0 && (
-        <div style={{ margin: "var(--s-2) 0" }}>
-          <PianoRoll notes={notes} />
-        </div>
-      )}
-
+      {notes.length > 0 && <div style={{ margin: "var(--s-2) 0" }}><PianoRoll notes={notes} /></div>}
       <div style={{ display: "flex", gap: "var(--s-2)", flexWrap: "wrap", marginTop: "var(--s-2)" }}>
         {midiBase64 && !audioUrl && (
           <button className="chat-nav-btn" onClick={handleSynth} disabled={loadingAudio}>
             {loadingAudio ? "Loading…" : "▶ Play MIDI"}
           </button>
         )}
-        {audioUrl && (
-          <audio controls src={audioUrl} style={{ height: 32, flex: 1 }} />
-        )}
-        {onNavigate && (
-          <button className="chat-nav-btn" onClick={() => onNavigate("transcribe")}>
-            Open in Transform
-          </button>
-        )}
-        {onNavigate && notes.length > 0 && (
-          <button className="chat-nav-btn" onClick={() => onNavigate("viz")}>
-            Visualize
-          </button>
-        )}
+        {audioUrl && <audio controls src={audioUrl} style={{ height: 32, flex: 1 }} />}
+        {onNavigate && <button className="chat-nav-btn" onClick={() => onNavigate("transcribe")}>Open in Transform</button>}
+        {onNavigate && notes.length > 0 && <button className="chat-nav-btn" onClick={() => onNavigate("viz")}>Visualize</button>}
       </div>
     </div>
   );
 }
 
-function AnalyzeResultCard({
-  result,
-  onNavigate,
-}: {
-  result: Record<string, unknown>;
-  onNavigate?: (tab: string) => void;
-}) {
+function AnalyzeResultCard({ result, onNavigate }: { result: Record<string, unknown>; onNavigate?: (tab: string) => void }) {
   const key = result.key && typeof result.key === "object" && "tonic" in result.key
-    ? `${(result.key as Record<string, string>).tonic} ${(result.key as Record<string, string>).mode}`
-    : null;
+    ? `${(result.key as Record<string, string>).tonic} ${(result.key as Record<string, string>).mode}` : null;
   const tempo = result.tempo && typeof result.tempo === "object" && "bpm" in result.tempo
-    ? `${Math.round((result.tempo as Record<string, number>).bpm)} BPM`
-    : null;
+    ? `${Math.round((result.tempo as Record<string, number>).bpm)} BPM` : null;
   const chords = result.chords;
   const hasChords = Array.isArray(chords) && chords.length > 0;
-
   return (
     <div className="chat-tool-result">
       <div className="chat-tool-success">✓ Analysis complete</div>
@@ -125,37 +129,29 @@ function AnalyzeResultCard({
         )}
         {result.num_notes != null && <div><span className="chat-muted">Notes:</span> {String(result.num_notes)}</div>}
       </div>
-      {hasChords && (
-        <div style={{ marginTop: "var(--s-2)", fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-          {chords.length} chords detected
-        </div>
-      )}
-      {onNavigate && (
-        <div style={{ marginTop: "var(--s-2)" }}>
-          <button className="chat-nav-btn" onClick={() => onNavigate("analyze")}>
-            View Full Analysis
-          </button>
-        </div>
-      )}
+      {hasChords && <div style={{ marginTop: "var(--s-2)", fontSize: "var(--fs-xs)", color: "var(--muted)" }}>{chords.length} chords detected</div>}
+      {onNavigate && <div style={{ marginTop: "var(--s-2)" }}><button className="chat-nav-btn" onClick={() => onNavigate("analyze")}>View Full Analysis</button></div>}
     </div>
   );
 }
 
 function EnhanceResultCard() {
+  return <div className="chat-tool-result"><div className="chat-tool-success">✓ Audio enhanced — noise removed, volume normalized</div></div>;
+}
+
+function ConvertResultCard({ result }: { result: Record<string, unknown> }) {
+  return <div className="chat-tool-result"><div className="chat-tool-success">✓ Converted to {String(result.format || "target format")}</div></div>;
+}
+
+function UploadResultCard({ result }: { result: Record<string, unknown> }) {
   return (
     <div className="chat-tool-result">
-      <div className="chat-tool-success">✓ Audio enhanced — noise removed, volume normalized</div>
+      <div className="chat-tool-success">✓ {String(result.message || "Uploaded")}</div>
     </div>
   );
 }
 
-function ConvertResultCard({ result }: { result: Record<string, unknown> }) {
-  return (
-    <div className="chat-tool-result">
-      <div className="chat-tool-success">✓ Converted to {String(result.format || "target format")}</div>
-    </div>
-  );
-}
+// ── Main Chat Component ────────────────────────────────────────────────────
 
 export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: MusicChatProps) {
   const { messages, sendMessage, status } = useChat();
@@ -179,18 +175,15 @@ export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: Mus
         const callId = toolPart.toolCallId ?? `${msg.id}-${part.type}`;
         if (processedToolCalls.current.has(callId)) continue;
         processedToolCalls.current.add(callId);
-
         const toolName = toolPart.type.replace("tool-", "");
         const output = toolPart.output;
-
         if (toolName === "transcribe_audio" && onTranscribed) {
-          const name = (output.file_name as string) || "audio";
           onTranscribed({
             notes: (output.notes as TranscribeResult["notes"]) ?? [],
             num_notes: (output.num_notes as number) ?? 0,
             midi_base64: output.midi_base64 as string,
             wav_url: output.wav_url as string,
-          }, name);
+          }, (output.file_name as string) || "audio");
         }
         if (toolName === "analyze_midi" && onAnalyzed) {
           onAnalyzed(output.midi_base64 as string, "analyzed");
@@ -210,11 +203,9 @@ export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: Mus
   const onSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() && !pendingFile) return;
-
     const text = pendingFile
       ? `[Audio file: ${pendingFile.file.name}, format: ${pendingFile.file.type || "wav"}]\n[Audio base64: ${pendingFile.base64}]\n\n${input || "Transcribe this audio"}`
       : input;
-
     sendMessage({ text });
     setInput("");
     setPendingFile(null);
@@ -228,7 +219,7 @@ export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: Mus
         <span className="glyph">◈</span> Chat
       </h3>
       <p className="muted" style={{ fontSize: "var(--fs-xs)", margin: "var(--s-1) 0 var(--s-3)" }}>
-        Upload audio, ask questions, get transcriptions and analysis — all in one place.
+        Your music workspace — upload, transcribe, analyze, visualize, all in one place.
       </p>
 
       <div className="chat-messages">
@@ -236,10 +227,11 @@ export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: Mus
           <div className="chat-empty">
             <p style={{ marginBottom: "var(--s-2)" }}>Ask me about your music!</p>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)", fontSize: "var(--fs-xs)" }}>
-              <span>Try: "Transcribe this audio" (attach a file)</span>
-              <span>Try: "What key is this in?"</span>
-              <span>Try: "Clean up this recording"</span>
-              <span>Try: "Convert this MIDI to sheet music"</span>
+              <span>📎 Upload audio and ask me to transcribe it</span>
+              <span>🎵 "What key is this in?"</span>
+              <span>🔊 "Clean up this recording"</span>
+              <span>🎼 "Analyze the chords"</span>
+              <span>📂 "Show me my library"</span>
             </div>
           </div>
         )}
@@ -253,18 +245,12 @@ export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: Mus
                   const state = (part as { state?: string }).state;
                   if (state === "result") {
                     const output = (part as { output?: Record<string, unknown> }).output ?? null;
-                    if (toolName === "transcribe_audio" && output) {
-                      return <TranscribeResultCard key={i} result={output} onNavigate={onNavigate} />;
-                    }
-                    if (toolName === "analyze_midi" && output) {
-                      return <AnalyzeResultCard key={i} result={output} onNavigate={onNavigate} />;
-                    }
-                    if (toolName === "enhance_audio") {
-                      return <EnhanceResultCard key={i} />;
-                    }
-                    if (toolName === "convert_format" && output) {
-                      return <ConvertResultCard key={i} result={output} />;
-                    }
+                    if (toolName === "transcribe_audio" && output) return <TranscribeResultCard key={i} result={output} onNavigate={onNavigate} />;
+                    if (toolName === "analyze_midi" && output) return <AnalyzeResultCard key={i} result={output} onNavigate={onNavigate} />;
+                    if (toolName === "enhance_audio") return <EnhanceResultCard key={i} />;
+                    if (toolName === "convert_format" && output) return <ConvertResultCard key={i} result={output} />;
+                    if (toolName === "list_library" && output) return <LibraryResultCard key={i} result={output} />;
+                    if (toolName === "upload_audio" && output) return <UploadResultCard key={i} result={output} />;
                     return null;
                   }
                   return <ToolCallCard key={i} toolName={toolName} />;
@@ -287,13 +273,7 @@ export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: Mus
       <form onSubmit={onSubmit} className="chat-form">
         <input ref={fileInputRef} type="file" accept="audio/*,.mid,.midi,.musicxml" onChange={handleFileSelect} style={{ display: "none" }} />
         <button type="button" onClick={() => fileInputRef.current?.click()} className="chat-attach-btn" title="Attach audio">📎</button>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your music..."
-          className="chat-input"
-          disabled={isBusy}
-        />
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your music..." className="chat-input" disabled={isBusy} />
         <button type="submit" disabled={isBusy || (!input.trim() && !pendingFile)} className="chat-send-btn">
           {isBusy ? "…" : "Send"}
         </button>
