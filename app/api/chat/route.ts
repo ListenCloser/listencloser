@@ -16,7 +16,7 @@ import {
   stepCountIs,
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import { musicTools } from "@/lib/tools";
+import { musicTools, setRequestAuthHeader } from "@/lib/tools";
 
 export const maxDuration = 60;
 
@@ -50,6 +50,10 @@ function convertMessages(messages: { role: "user" | "assistant" | "system"; part
 
 export async function POST(req: Request) {
   try {
+    // Pass auth header to tools so they can access the user's Supabase session
+    const authHeader = req.headers.get("authorization");
+    setRequestAuthHeader(authHeader ?? undefined);
+
     const { messages } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -71,15 +75,26 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: openrouter.chat(process.env.CHAT_MODEL ?? "google/gemma-4-26b-a4b-it:free"),
-      system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
+      system: `You are a music assistant for Music AI Studio. You are a fully self-contained workspace — the user can do everything through you.
 
-When a user asks you to do something, use the appropriate tool. If they mention a file but don't provide audio data, ask them to upload it using the attachment button. Always explain results in plain language after calling a tool.
+Available tools:
+- list_library: Browse the user's audio tracks and their processing status
+- upload_audio: Save a new audio file to the user's library
+- transcribe_audio: Convert audio to MIDI notes (returns notes, MIDI data)
+- analyze_midi: Analyze MIDI for key, tempo, chords, cadences, modulations, voice leading
+- enhance_audio: Clean and denoise audio recordings
+- convert_format: Convert between MIDI and MusicXML formats
 
-Available operations:
-- Transcribe audio to MIDI notes and sheet music
-- Analyze music theory (key, tempo, chords, cadences, Roman numerals, modulations, voice leading)
-- Clean and denoise audio recordings
-- Convert between MIDI and MusicXML formats`,
+When the user asks about their music:
+1. First use list_library to see what tracks they have
+2. Then use the appropriate tool based on their request
+3. Explain results in plain language
+
+When the user uploads audio:
+1. Use upload_audio to save it to their library
+2. Then transcribe or analyze as requested
+
+Always explain what each tool does and what the results mean.`,
       messages: convertedMessages,
       tools: musicTools,
       stopWhen: stepCountIs(5),
