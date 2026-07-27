@@ -217,13 +217,6 @@ export default function Studio({
                   audioName={state.audioName}
                   numNotes={state.lastResult?.num_notes ?? 0}
                 />
-                {signedIn && (
-                  <div className="toolbar" style={{ marginTop: "var(--s-4)" }}>
-                    <button className="btn" onClick={() => { state.setAnalysis(null); state.setAnalysisError(""); state.refreshTranscriptions(); }}>
-                      ← Analyze another track
-                    </button>
-                  </div>
-                )}
               </>
             )}
           </div>

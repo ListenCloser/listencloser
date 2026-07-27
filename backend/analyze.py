@@ -304,13 +304,7 @@ def _m21_voice_leading(score) -> VoiceLeadingResult | None:
 def _detect_modulations(score, tempo_bpm: float | None = None) -> list[ModulationResult]:
     """
     Detect key modulations via windowed pitch-class analysis.
-
-    WHY custom: music21 doesn't have a direct modulation detection function
-    that works on MIDI. This uses a simple windowed approach: divide the
-    piece into N windows, estimate the key of each, and detect changes.
-
-    This is a reasonable custom implementation — the algorithm is standard
-    in music information retrieval (MIR) literature.
+    Uses time in seconds (not quarter notes) for stable window sizes.
     """
     all_notes = []
     for part in score.parts:
@@ -321,13 +315,20 @@ def _detect_modulations(score, tempo_bpm: float | None = None) -> list[Modulatio
     if len(all_notes) < _MODULATION_WINDOW_COUNT * 4:
         return []
     all_notes.sort(key=lambda x: x[0])
-    max_offset = all_notes[-1][0] if all_notes else 1.0
-    window_size = max_offset / max(_MODULATION_WINDOW_COUNT, 1)
+
+    # Convert quarter-note positions to seconds using tempo
+    qpm = tempo_bpm if tempo_bpm else 120.0
+    max_offset_qn = all_notes[-1][0] if all_notes else 1.0
+    max_offset_sec = max_offset_qn * 60.0 / qpm
+    window_sec = max_offset_sec / max(_MODULATION_WINDOW_COUNT, 1)
+
     key_history: list[tuple[float, str]] = []
     for w in range(_MODULATION_WINDOW_COUNT):
-        t_start = w * window_size
-        t_end = (w + 1) * window_size
-        pitches = [p for t, p in all_notes if t_start <= t < t_end]
+        t_start_sec = w * window_sec
+        t_end_sec = (w + 1) * window_sec
+        t_start_qn = t_start_sec * qpm / 60.0
+        t_end_qn = t_end_sec * qpm / 60.0
+        pitches = [p for t, p in all_notes if t_start_qn <= t < t_end_qn]
         if len(pitches) < _MIN_NOTES_PER_WINDOW:
             continue
         pc_counts = Counter(p % 12 for p in pitches)
@@ -335,19 +336,16 @@ def _detect_modulations(score, tempo_bpm: float | None = None) -> list[Modulatio
         for pc, cnt in pc_counts.items():
             pc_dist[pc] = cnt
         kr = _key_from_pc_vector(pc_dist)
-        key_history.append((t_start, f"{kr['tonic']} {kr['mode']}"))
+        key_history.append((t_start_sec, f"{kr['tonic']} {kr['mode']}"))
+
     modulations: list[ModulationResult] = []
-    qpm = tempo_bpm if tempo_bpm else 120.0
     for i in range(1, len(key_history)):
         if key_history[i - 1][1] != key_history[i][1]:
-            position_sec = key_history[i][0] * 60.0 / qpm
-            modulations.append(
-                ModulationResult(
-                    from_key=key_history[i - 1][1],
-                    to_key=key_history[i][1],
-                    position=round(position_sec, 3),
-                )
-            )
+            modulations.append(ModulationResult(
+                from_key=key_history[i - 1][1],
+                to_key=key_history[i][1],
+                position=round(key_history[i][0], 3),
+            ))
     return modulations
 
 
