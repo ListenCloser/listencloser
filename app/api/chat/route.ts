@@ -61,10 +61,22 @@ export async function POST(req: Request) {
       });
     }
 
+    // Debug: check env vars
+    const apiKey = process.env.OPENAI_API_KEY;
+    const chatModel = process.env.CHAT_MODEL;
+    console.log("Chat request:", { hasApiKey: !!apiKey, chatModel, messageCount: messages.length });
+
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const convertedMessages = convertMessages(messages);
 
     const result = streamText({
-      model: openrouter.chat(process.env.CHAT_MODEL ?? "google/gemma-4-26b-a4b-it:free"),
+      model: openrouter.chat(chatModel ?? "google/gemma-4-26b-a4b-it:free"),
       system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
 
 When a user asks you to do something, use the appropriate tool. If they mention a file but don't provide audio data, ask them to upload it using the attachment button. Always explain results in plain language after calling a tool.
