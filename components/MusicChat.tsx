@@ -151,15 +151,37 @@ function UploadResultCard({ result }: { result: Record<string, unknown> }) {
   );
 }
 
+// ── Message persistence ────────────────────────────────────────────────────
+const MESSAGES_KEY = "chat:messages";
+function loadPersistedMessages() {
+  try { const raw = sessionStorage.getItem(MESSAGES_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+}
+function persistMessages(msgs: unknown[]) {
+  try { sessionStorage.setItem(MESSAGES_KEY, JSON.stringify(msgs.slice(-50))); } catch {}
+}
+
 // ── Main Chat Component ────────────────────────────────────────────────────
 
 export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: MusicChatProps) {
-  const { messages, sendMessage, status } = useChat();
+  const persistedRef = useRef(loadPersistedMessages());
+  const { messages, sendMessage, status, setMessages } = useChat();
   const endRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<{ file: File; base64: string } | null>(null);
   const processedToolCalls = useRef(new Set<string>());
+
+  // Restore messages on mount
+  useEffect(() => {
+    if (persistedRef.current.length > 0 && messages.length === 0) {
+      setMessages(persistedRef.current as any);
+    }
+  }, []);
+
+  // Persist messages on change
+  useEffect(() => {
+    if (messages.length > 0) persistMessages(messages);
+  }, [messages]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
