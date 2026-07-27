@@ -34,6 +34,13 @@ export type TranscribeResult = {
       similar: number;
       motion_summary: string;
     };
+    phrases?: { start: number; end: number; kind: string }[];
+    rhythm?: {
+      beat_count: number;
+      avg_note_duration: number;
+      syncopation_ratio: number;
+      rhythmic_density: number;
+    };
   };
 };
 

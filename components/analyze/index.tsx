@@ -105,6 +105,19 @@ function generateInsights(analysis: NonNullable<TranscribeResult["analysis"]>, n
 
   // Note density insight
   const noteStats = computeNoteStats(notes);
+
+  // Rhythm insight (ISSUE-010)
+  if (analysis.rhythm) {
+    const r = analysis.rhythm;
+    if (r.syncopation_ratio > 0.3) {
+      insights.push(`High syncopation (${Math.round(r.syncopation_ratio * 100)}%) — rhythmic and groove-oriented.`);
+    } else if (r.syncopation_ratio < 0.1) {
+      insights.push(`Straight rhythm (${Math.round(r.syncopation_ratio * 100)}% syncopation) — on-the-beat feel.`);
+    }
+    if (r.rhythmic_density > 8) {
+      insights.push(`Dense rhythm (${r.rhythmic_density} notes/sec) — busy, virtuosic writing.`);
+    }
+  }
   if (noteStats.density > 8) {
     insights.push(`High note density (${noteStats.density}/s) — dense, virtuosic writing.`);
   } else if (noteStats.density < 2) {
@@ -376,6 +389,27 @@ export default function Analysis({ analysis, notes, audioName, numNotes }: Props
           <span className="s-value">{noteStats.density}/s</span>
         </div>
       </div>
+
+      {/* ── Rhythm (ISSUE-010) ── */}
+      {analysis.rhythm && (
+        <>
+          <div className="section-label">Rhythm</div>
+          <div className="stat-grid">
+            <div className="stat">
+              <span className="s-label">Beats</span>
+              <span className="s-value">{analysis.rhythm.beat_count}</span>
+            </div>
+            <div className="stat">
+              <span className="s-label">Syncopation</span>
+              <span className="s-value">{Math.round(analysis.rhythm.syncopation_ratio * 100)}%</span>
+            </div>
+            <div className="stat">
+              <span className="s-label">Note Duration</span>
+              <span className="s-value">{analysis.rhythm.avg_note_duration.toFixed(2)}s</span>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

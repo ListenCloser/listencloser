@@ -93,6 +93,13 @@ class PhraseResult(TypedDict):
     kind: str
 
 
+class RhythmResult(TypedDict):
+    beat_count: int
+    avg_note_duration: float
+    syncopation_ratio: float
+    rhythmic_density: float
+
+
 class AnalysisResult(TypedDict):
     key: KeyResult
     tempo: TempoResult
@@ -103,6 +110,7 @@ class AnalysisResult(TypedDict):
     modulations: list[ModulationResult]
     voice_leading: VoiceLeadingResult | None
     phrases: list[PhraseResult]
+    rhythm: RhythmResult | None
 
 
 # ── Constants ───────────────────────────────────────────────────────────────
@@ -305,6 +313,66 @@ def _m21_voice_leading(score) -> VoiceLeadingResult | None:
     )
 
 
+# ── Rhythm analysis (ISSUE-010) ────────────────────────────────────────────
+
+
+def _midi_rhythm(midi_path: str) -> RhythmResult | None:
+    """Analyze rhythm using pretty_midi.
+
+    WHY custom: pretty_midi provides beat tracking and note-level timing
+    data. We compute:
+    - beat_count: estimated beats from tempo
+    - avg_note_duration: average note length in seconds
+    - syncopation_ratio: fraction of notes off the beat grid
+    - rhythmic_density: notes per second
+    """
+    try:
+        pm = pretty_midi.PrettyMIDI(midi_path)
+        duration = pm.get_end_time()
+        if duration <= 0:
+            return None
+
+        # Count total notes
+        total_notes = sum(len(inst.notes) for inst in pm.instruments if not inst.is_drum)
+        if total_notes == 0:
+            return None
+
+        # Estimate beats from tempo
+        tempos = pm.get_tempo_changes()[1]
+        bpm = float(np.median(tempos)) if len(tempos) > 0 else 120.0
+        beat_count = int(duration * bpm / 60.0)
+
+        # Average note duration
+        all_durations = []
+        for inst in pm.instruments:
+            if inst.is_drum:
+                continue
+            for note in inst.notes:
+                all_durations.append(note.end - note.start)
+        avg_duration = float(np.mean(all_durations)) if all_durations else 0.0
+
+        # Syncopation: fraction of notes that don't start on a beat
+        beat_duration = 60.0 / bpm
+        syncopated = 0
+        for inst in pm.instruments:
+            if inst.is_drum:
+                continue
+            for note in inst.notes:
+                beat_pos = (note.start % beat_duration) / beat_duration
+                if beat_pos > 0.1 and beat_pos < 0.9:
+                    syncopated += 1
+        syncopation_ratio = syncopated / total_notes if total_notes > 0 else 0.0
+
+        return RhythmResult(
+            beat_count=beat_count,
+            avg_note_duration=round(avg_duration, 3),
+            syncopation_ratio=round(syncopation_ratio, 3),
+            rhythmic_density=round(total_notes / duration, 2),
+        )
+    except Exception:
+        return None
+
+
 # ── Structural analysis: phrases (ISSUE-009) ────────────────────────────────
 
 
@@ -452,6 +520,7 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         "modulations": [],
         "voice_leading": None,
         "phrases": [],
+        "rhythm": None,
     }
 
     # Tempo from MIDI metadata
@@ -478,6 +547,9 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
 
         # Chords (music21)
         result["chords"] = _m21_chords(score)
+
+        # Rhythm analysis
+        result["rhythm"] = _midi_rhythm(midi_path)
 
         # Roman numerals (music21)
         detected_key = score.analyze("key")
