@@ -101,13 +101,14 @@ Available operations:
             if (done) break;
 
             // Convert stream chunks to UI message format
-            if (value.type === "text-delta") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta: value.textDelta })}\n\n`));
-            } else if (value.type === "tool-call") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-call", id: String(stepId++), toolName: value.toolName, args: value.args })}\n\n`));
-            } else if (value.type === "tool-result") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-result", id: String(stepId), toolName: value.toolName, result: value.result })}\n\n`));
-            } else if (value.type === "text-start") {
+            const chunk = value as { type: string; textDelta?: string; toolName?: string; args?: Record<string, unknown>; result?: unknown };
+            if (chunk.type === "text-delta") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta: chunk.textDelta })}\n\n`));
+            } else if (chunk.type === "tool-call") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-call", id: String(stepId++), toolName: chunk.toolName, args: chunk.args })}\n\n`));
+            } else if (chunk.type === "tool-result") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-result", id: String(stepId), toolName: chunk.toolName, result: chunk.result })}\n\n`));
+            } else if (chunk.type === "text-start") {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: String(stepId++) })}\n\n`));
             }
           }
