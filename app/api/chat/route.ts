@@ -85,13 +85,14 @@ Available operations:
       stopWhen: stepCountIs(5),
     });
 
-    // Manually format SSE stream to avoid toUIMessageStream compatibility issues
+    // Format raw stream as SSE events for useChat
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         try {
           const reader = result.fullStream.getReader();
           let stepId = 0;
+          let textContent = "";
 
           // Send start event
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "start" })}\n\n`));
@@ -100,16 +101,21 @@ Available operations:
             const { done, value } = await reader.read();
             if (done) break;
 
-            // Convert stream chunks to UI message format
-            const chunk = value as { type: string; text?: string; toolName?: string; args?: Record<string, unknown>; result?: unknown };
-            if (chunk.type === "text-delta") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta: chunk.text })}\n\n`));
+            const chunk = value as Record<string, unknown>;
+
+            if (chunk.type === "text-start") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: String(stepId) })}\n\n`));
+            } else if (chunk.type === "text-delta") {
+              const delta = String(chunk.text ?? "");
+              textContent += delta;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta })}\n\n`));
+            } else if (chunk.type === "text-end") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: String(stepId) })}\n\n`));
+              stepId++;
             } else if (chunk.type === "tool-call") {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-call", id: String(stepId++), toolName: chunk.toolName, args: chunk.args })}\n\n`));
             } else if (chunk.type === "tool-result") {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-result", id: String(stepId), toolName: chunk.toolName, result: chunk.result })}\n\n`));
-            } else if (chunk.type === "text-start") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: String(stepId++) })}\n\n`));
             }
           }
 
