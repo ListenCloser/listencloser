@@ -101,9 +101,9 @@ Available operations:
             if (done) break;
 
             // Convert stream chunks to UI message format
-            const chunk = value as { type: string; textDelta?: string; toolName?: string; args?: Record<string, unknown>; result?: unknown };
+            const chunk = value as { type: string; text?: string; toolName?: string; args?: Record<string, unknown>; result?: unknown };
             if (chunk.type === "text-delta") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta: chunk.textDelta })}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta: chunk.text })}\n\n`));
             } else if (chunk.type === "tool-call") {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-call", id: String(stepId++), toolName: chunk.toolName, args: chunk.args })}\n\n`));
             } else if (chunk.type === "tool-result") {
