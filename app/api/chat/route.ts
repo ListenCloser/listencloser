@@ -1,22 +1,21 @@
 /**
- * AI Chat endpoint — streaming music assistant.
+ * AI Chat endpoint — fully self-contained music workspace.
  *
- * Architecture: Uses Vercel AI SDK + OpenRouter for LLM access.
- * The model is configurable via CHAT_MODEL env var (default: Gemma 4 26B free).
+ * The chat can do everything the regular UI can do:
+ * - Browse library tracks
+ * - Upload new audio files
+ * - Transcribe audio to MIDI
+ * - Analyze music theory
+ * - Clean/denoise audio
+ * - Convert MIDI ↔ MusicXML
  *
- * Tools are defined in lib/tools/index.ts and call the FastAPI backend
- * directly (not through the proxy) since this is a server-side route.
- *
- * Request: { messages: Array<{role, parts}> }
- * Response: SSE stream of UI message events
+ * Tools are defined in lib/tools/index.ts and execute server-side
+ * with access to the user's auth token.
  */
 
-import {
-  streamText,
-  stepCountIs,
-} from "ai";
+import { streamText, stepCountIs } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import { musicTools } from "@/lib/tools";
+import { musicTools, setRequestAuthHeader } from "@/lib/tools";
 
 export const maxDuration = 60;
 
@@ -50,6 +49,9 @@ function convertMessages(messages: { role: "user" | "assistant" | "system"; part
 
 export async function POST(req: Request) {
   try {
+    const authHeader = req.headers.get("authorization");
+    setRequestAuthHeader(authHeader ?? undefined);
+
     const { messages } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -71,30 +73,38 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: openrouter.chat(process.env.CHAT_MODEL ?? "google/gemma-4-26b-a4b-it:free"),
-      system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
+      system: `You are a music assistant for Music AI Studio. You are a fully self-contained workspace — the user can do everything through you.
 
-When a user asks you to do something, use the appropriate tool. If they mention a file but don't provide audio data, ask them to upload it using the attachment button. Always explain results in plain language after calling a tool.
+Available tools:
+- list_library: Browse the user's audio tracks and their processing status
+- upload_audio: Save a new audio file to the user's library
+- transcribe_audio: Convert audio to MIDI notes (returns notes, MIDI data)
+- analyze_midi: Analyze MIDI for key, tempo, chords, cadences, modulations, voice leading
+- enhance_audio: Clean and denoise audio recordings
+- convert_format: Convert between MIDI and MusicXML formats
 
-Available operations:
-- Transcribe audio to MIDI notes and sheet music
-- Analyze music theory (key, tempo, chords, cadences, Roman numerals, modulations, voice leading)
-- Clean and denoise audio recordings
-- Convert between MIDI and MusicXML formats`,
+When the user asks about their music:
+1. First use list_library to see what tracks they have
+2. Then use the appropriate tool based on their request
+3. Explain results in plain language
+
+When the user uploads audio:
+1. Use upload_audio to save it to their library
+2. Then transcribe or analyze as requested
+
+Always explain what each tool does and what the results mean.`,
       messages: convertedMessages,
       tools: musicTools,
       stopWhen: stepCountIs(5),
     });
 
-    // Format raw stream as SSE events for useChat
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         try {
           const reader = result.fullStream.getReader();
           let stepId = 0;
-          let textContent = "";
 
-          // Send start event
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "start" })}\n\n`));
 
           while (true) {
@@ -107,7 +117,6 @@ Available operations:
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: String(stepId) })}\n\n`));
             } else if (chunk.type === "text-delta") {
               const delta = String(chunk.text ?? "");
-              textContent += delta;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta })}\n\n`));
             } else if (chunk.type === "text-end") {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: String(stepId) })}\n\n`));
@@ -119,7 +128,6 @@ Available operations:
             }
           }
 
-          // Send finish event
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish" })}\n\n`));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (err) {
@@ -132,10 +140,7 @@ Available operations:
     });
 
     return new Response(stream, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-      },
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });
   } catch (err) {
     console.error("Chat error:", err);

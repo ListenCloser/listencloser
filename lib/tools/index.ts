@@ -1,22 +1,16 @@
 /**
- * Tool Registry — each tool is a self-contained definition.
- * To add a new tool: create a file in this directory, export `toolDefinition`.
- * The chat route auto-imports everything here.
- */
-/**
- * AI Chat tool registry.
+ * Tool Registry — fully self-contained chat workspace.
  *
- * Architecture: Each tool is a self-contained definition that maps a
- * user intent (e.g., "transcribe this audio") to a backend API call.
- * Tools are consumed by app/api/chat/route.ts and executed server-side.
+ * Each tool maps a user intent to a backend operation. Tools run
+ * server-side with access to the user's auth token (via request headers).
  *
- * To add a new tool:
- * 1. Define the tool with `tool()` from "ai"
- * 2. Add it to the musicTools export
- * 3. The chat route auto-discovers it
- *
- * Note: These tools call the FastAPI backend directly (not through
- * the Next.js proxy) because they run server-side.
+ * Available operations:
+ * - list_library: Browse user's tracks
+ * - upload_audio: Upload audio to library
+ * - transcribe_audio: Convert audio to MIDI
+ * - analyze_midi: Music theory analysis
+ * - enhance_audio: Clean/denoise audio
+ * - convert_format: MIDI ↔ MusicXML
  */
 
 import { tool } from "ai";
@@ -28,10 +22,16 @@ function getBackendUrl(): string {
   return url;
 }
 
-async function backendPost(path: string, body: Record<string, unknown>) {
+async function backendPost(
+  path: string,
+  body: Record<string, unknown>,
+  authHeader?: string,
+) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (authHeader) headers["Authorization"] = authHeader;
   const res = await fetch(`${getBackendUrl()}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -40,24 +40,95 @@ async function backendPost(path: string, body: Record<string, unknown>) {
       typeof data === "object" && data !== null && "detail" in data
         ? (data as { detail?: unknown }).detail
         : undefined;
-    throw new Error(
-      typeof detail === "string" ? detail : `Backend error ${res.status}`
-    );
+    throw new Error(typeof detail === "string" ? detail : `Backend error ${res.status}`);
   }
   return res.json();
 }
 
+async function backendGet(path: string, authHeader?: string) {
+  const headers: Record<string, string> = {};
+  if (authHeader) headers["Authorization"] = authHeader;
+  const res = await fetch(`${getBackendUrl()}${path}`, { headers });
+  if (!res.ok) throw new Error(`Backend error ${res.status}`);
+  return res.json();
+}
+
+// Store auth header from the request for tool access
+let requestAuthHeader: string | undefined;
+
+export function setRequestAuthHeader(header: string | undefined) {
+  requestAuthHeader = header;
+}
+
+// ---------------------------------------------------------------------------
+// Tool: list_library — Browse user's tracks with metadata
+// ---------------------------------------------------------------------------
+export const listLibraryTool = tool({
+  description:
+    "List the user's audio library with track names, processing status, and available actions. Use this to help users navigate their music collection.",
+  inputSchema: z.object({}),
+  execute: async () => {
+    try {
+      const tracks = await backendGet("/music/library", requestAuthHeader);
+      if (!Array.isArray(tracks) || tracks.length === 0) {
+        return {
+          tracks: [],
+          message: "Your library is empty. Upload an audio file to get started!",
+        };
+      }
+      return {
+        tracks: tracks.map((t: Record<string, unknown>) => ({
+          name: t.name,
+          id: t.id,
+          hasNotes: Array.isArray(t.notes) && t.notes.length > 0,
+          hasMidi: Boolean(t.midi_base64),
+          hasAnalysis: Boolean(t.analysis),
+          hasSheetMusic: Boolean(t.musicxml),
+        })),
+        count: tracks.length,
+        message: `Found ${tracks.length} track(s) in your library.`,
+      };
+    } catch {
+      return { tracks: [], message: "Could not access library. Please sign in first." };
+    }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Tool: upload_audio — Upload audio file to library
+// ---------------------------------------------------------------------------
+export const uploadAudioTool = tool({
+  description:
+    "Upload an audio file to the user's library. Use when the user wants to save a new track.",
+  inputSchema: z.object({
+    audio_base64: z.string().describe("Base64-encoded audio data"),
+    filename: z.string().describe("Original filename with extension"),
+    format: z.enum(["wav", "mp3", "m4a", "ogg", "flac"]).default("wav"),
+  }),
+  execute: async ({ audio_base64, filename, format }) => {
+    const result = await backendPost(
+      "/music/library",
+      { name: filename, data_base64: audio_base64, fmt: format },
+      requestAuthHeader,
+    );
+    return {
+      success: true,
+      path: result.path,
+      url: result.url,
+      message: `Uploaded "${filename}" to your library.`,
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Tool: transcribe_audio
+// ---------------------------------------------------------------------------
 export const transcribeAudioTool = tool({
   description:
-    "Transcribe an audio file to MIDI notes. Use when the user wants to convert audio to notes, sheet music, or MIDI.",
+    "Transcribe an audio file to MIDI notes. Returns notes, MIDI data, and a summary.",
   inputSchema: z.object({
-    audio_base64: z
-      .string()
-      .describe("Base64-encoded audio data (WAV, MP3, M4A, OGG, FLAC)"),
-    format: z
-      .enum(["wav", "mp3", "m4a", "ogg", "flac"])
-      .default("wav")
-      .describe("Audio format"),
+    audio_base64: z.string().describe("Base64-encoded audio data"),
+    format: z.enum(["wav", "mp3", "m4a", "ogg", "flac"]).default("wav"),
   }),
   execute: async ({ audio_base64, format }) => {
     const result = await backendPost("/music/transcribe", {
@@ -75,33 +146,36 @@ export const transcribeAudioTool = tool({
   },
 });
 
+// ---------------------------------------------------------------------------
+// Tool: analyze_midi
+// ---------------------------------------------------------------------------
 export const analyzeMidiTool = tool({
   description:
-    "Analyze a MIDI file for music theory: key, tempo, time signature, chords, Roman numerals, cadences, modulations, and voice leading.",
+    "Analyze MIDI for music theory: key, tempo, chords, Roman numerals, cadences, modulations, voice leading.",
   inputSchema: z.object({
     midi_base64: z.string().describe("Base64-encoded MIDI file data"),
   }),
   execute: async ({ midi_base64 }) => {
-    return backendPost("/music/analyze", { midi_base64 });
+    return backendPost("/music/analyze", { midi_base64 }, requestAuthHeader);
   },
 });
 
+// ---------------------------------------------------------------------------
+// Tool: enhance_audio
+// ---------------------------------------------------------------------------
 export const enhanceAudioTool = tool({
   description:
     "Clean and denoise an audio recording. Removes background noise, clips, and normalizes volume.",
   inputSchema: z.object({
     audio_base64: z.string().describe("Base64-encoded audio data"),
-    format: z
-      .enum(["wav", "mp3", "m4a", "ogg", "flac"])
-      .default("wav")
-      .describe("Audio format"),
+    format: z.enum(["wav", "mp3", "m4a", "ogg", "flac"]).default("wav"),
   }),
   execute: async ({ audio_base64, format }) => {
     const result = await backendPost("/music/enhance", {
       audio_base64,
       fmt: format,
       upload: false,
-    });
+    }, requestAuthHeader);
     return {
       success: true,
       wav_base64: result.wav_base64,
@@ -110,23 +184,23 @@ export const enhanceAudioTool = tool({
   },
 });
 
+// ---------------------------------------------------------------------------
+// Tool: convert_format
+// ---------------------------------------------------------------------------
 export const convertFormatTool = tool({
   description:
-    "Convert between MIDI and MusicXML formats. Use when the user wants sheet music from MIDI or vice versa.",
+    "Convert between MIDI and MusicXML formats.",
   inputSchema: z.object({
     data_base64: z.string().describe("Base64-encoded file data"),
     source: z.enum(["midi", "musicxml"]).describe("Source format"),
-    target: z
-      .enum(["midi", "musicxml", "auto"])
-      .default("auto")
-      .describe("Target format"),
+    target: z.enum(["midi", "musicxml", "auto"]).default("auto"),
   }),
   execute: async ({ data_base64, source, target }) => {
     const result = await backendPost("/music/convert", {
       source,
       data_base64,
       target,
-    });
+    }, requestAuthHeader);
     return {
       data_base64: result.data_base64,
       format: result.format,
@@ -136,6 +210,8 @@ export const convertFormatTool = tool({
 });
 
 export const musicTools = {
+  list_library: listLibraryTool,
+  upload_audio: uploadAudioTool,
   transcribe_audio: transcribeAudioTool,
   analyze_midi: analyzeMidiTool,
   enhance_audio: enhanceAudioTool,

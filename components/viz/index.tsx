@@ -49,6 +49,7 @@ export default function Viz({
   const [synthLoading, setSynthLoading] = useState(false);
   const [sheetMusicLoading, setSheetMusicLoading] = useState(false);
   const [useFallbackTimer, setUseFallbackTimer] = useState(false);
+  const [vizLoading, setVizLoading] = useState(true);
 
   const { playing, currentTime, duration, play, stop: sharedStop, audioRef } = useSharedAudio();
 
@@ -64,12 +65,14 @@ export default function Viz({
 
     listLibrary().then((lib) => {
       setFiles([...localFile, ...lib]);
+      setVizLoading(false);
       if (!selectedIdProp && localFile.length > 0 && lib.length === 0) {
         setSelectedIdLocal("__local__");
         onTrackSelected?.("__local__");
       }
     }).catch(() => {
       setFiles(localFile);
+      setVizLoading(false);
       if (!selectedIdProp && localFile.length > 0) {
         setSelectedIdLocal("__local__");
         onTrackSelected?.("__local__");
@@ -258,7 +261,17 @@ export default function Viz({
     <div className="card">
       <h3 className="card-title"><span className="glyph">◈</span> Visualize</h3>
 
-      {tracksWithNotes.length === 0 ? (
+      {vizLoading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)" }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="track" style={{ opacity: 0.5 }}>
+              <div className="track-head">
+                <div className="track-name"><div className="skel line" style={{ width: "60%" }} /></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : tracksWithNotes.length === 0 ? (
         <div className="empty">
           No transcribed tracks in your library — transcribe one first.
         </div>
