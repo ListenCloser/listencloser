@@ -22,14 +22,13 @@ function getBackendUrl(): string {
   return url;
 }
 
-let requestAuthHeader: string | undefined;
-export function setRequestAuthHeader(header: string | undefined) {
-  requestAuthHeader = header;
-}
-
-async function backendPost(path: string, body: Record<string, unknown>) {
+async function backendPost(
+  path: string,
+  body: Record<string, unknown>,
+  authHeader?: string,
+) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (requestAuthHeader) headers["Authorization"] = requestAuthHeader;
+  if (authHeader) headers["Authorization"] = authHeader;
   const res = await fetch(`${getBackendUrl()}${path}`, {
     method: "POST",
     headers,
@@ -46,26 +45,36 @@ async function backendPost(path: string, body: Record<string, unknown>) {
   return res.json();
 }
 
-async function backendGet(path: string) {
+async function backendGet(path: string, authHeader?: string) {
   const headers: Record<string, string> = {};
-  if (requestAuthHeader) headers["Authorization"] = requestAuthHeader;
+  if (authHeader) headers["Authorization"] = authHeader;
   const res = await fetch(`${getBackendUrl()}${path}`, { headers });
   if (!res.ok) throw new Error(`Backend error ${res.status}`);
   return res.json();
 }
 
+// Store auth header from the request for tool access
+let requestAuthHeader: string | undefined;
+
+export function setRequestAuthHeader(header: string | undefined) {
+  requestAuthHeader = header;
+}
+
 // ---------------------------------------------------------------------------
-// Tool: list_library
+// Tool: list_library — Browse user's tracks with metadata
 // ---------------------------------------------------------------------------
 export const listLibraryTool = tool({
   description:
-    "List the user's audio library with track names, processing status, and available actions.",
+    "List the user's audio library with track names, processing status, and available actions. Use this to help users navigate their music collection.",
   inputSchema: z.object({}),
   execute: async () => {
     try {
-      const tracks = await backendGet("/music/library");
+      const tracks = await backendGet("/music/library", requestAuthHeader);
       if (!Array.isArray(tracks) || tracks.length === 0) {
-        return { tracks: [], message: "Your library is empty. Upload an audio file to get started!" };
+        return {
+          tracks: [],
+          message: "Your library is empty. Upload an audio file to get started!",
+        };
       }
       return {
         tracks: tracks.map((t: Record<string, unknown>) => ({
@@ -86,22 +95,28 @@ export const listLibraryTool = tool({
 });
 
 // ---------------------------------------------------------------------------
-// Tool: upload_audio
+// Tool: upload_audio — Upload audio file to library
 // ---------------------------------------------------------------------------
 export const uploadAudioTool = tool({
-  description: "Upload an audio file to the user's library.",
+  description:
+    "Upload an audio file to the user's library. Use when the user wants to save a new track.",
   inputSchema: z.object({
     audio_base64: z.string().describe("Base64-encoded audio data"),
     filename: z.string().describe("Original filename with extension"),
     format: z.enum(["wav", "mp3", "m4a", "ogg", "flac"]).default("wav"),
   }),
   execute: async ({ audio_base64, filename, format }) => {
-    const result = await backendPost("/music/library", {
-      name: filename,
-      data_base64: audio_base64,
-      fmt: format,
-    });
-    return { success: true, path: result.path, url: result.url, message: `Uploaded "${filename}" to your library.` };
+    const result = await backendPost(
+      "/music/library",
+      { name: filename, data_base64: audio_base64, fmt: format },
+      requestAuthHeader,
+    );
+    return {
+      success: true,
+      path: result.path,
+      url: result.url,
+      message: `Uploaded "${filename}" to your library.`,
+    };
   },
 });
 
@@ -109,7 +124,8 @@ export const uploadAudioTool = tool({
 // Tool: transcribe_audio
 // ---------------------------------------------------------------------------
 export const transcribeAudioTool = tool({
-  description: "Transcribe an audio file to MIDI notes. Returns notes, MIDI data, and a summary.",
+  description:
+    "Transcribe an audio file to MIDI notes. Returns notes, MIDI data, and a summary.",
   inputSchema: z.object({
     audio_base64: z.string().describe("Base64-encoded audio data"),
     format: z.enum(["wav", "mp3", "m4a", "ogg", "flac"]).default("wav"),
@@ -134,12 +150,13 @@ export const transcribeAudioTool = tool({
 // Tool: analyze_midi
 // ---------------------------------------------------------------------------
 export const analyzeMidiTool = tool({
-  description: "Analyze MIDI for music theory: key, tempo, chords, cadences, modulations, voice leading.",
+  description:
+    "Analyze MIDI for music theory: key, tempo, chords, Roman numerals, cadences, modulations, voice leading.",
   inputSchema: z.object({
     midi_base64: z.string().describe("Base64-encoded MIDI file data"),
   }),
   execute: async ({ midi_base64 }) => {
-    return backendPost("/music/analyze", { midi_base64 });
+    return backendPost("/music/analyze", { midi_base64 }, requestAuthHeader);
   },
 });
 
@@ -147,7 +164,8 @@ export const analyzeMidiTool = tool({
 // Tool: enhance_audio
 // ---------------------------------------------------------------------------
 export const enhanceAudioTool = tool({
-  description: "Clean and denoise an audio recording.",
+  description:
+    "Clean and denoise an audio recording. Removes background noise, clips, and normalizes volume.",
   inputSchema: z.object({
     audio_base64: z.string().describe("Base64-encoded audio data"),
     format: z.enum(["wav", "mp3", "m4a", "ogg", "flac"]).default("wav"),
@@ -157,8 +175,12 @@ export const enhanceAudioTool = tool({
       audio_base64,
       fmt: format,
       upload: false,
-    });
-    return { success: true, wav_base64: result.wav_base64, message: "Audio enhanced successfully" };
+    }, requestAuthHeader);
+    return {
+      success: true,
+      wav_base64: result.wav_base64,
+      message: "Audio enhanced successfully",
+    };
   },
 });
 
@@ -166,15 +188,24 @@ export const enhanceAudioTool = tool({
 // Tool: convert_format
 // ---------------------------------------------------------------------------
 export const convertFormatTool = tool({
-  description: "Convert between MIDI and MusicXML formats.",
+  description:
+    "Convert between MIDI and MusicXML formats.",
   inputSchema: z.object({
     data_base64: z.string().describe("Base64-encoded file data"),
     source: z.enum(["midi", "musicxml"]).describe("Source format"),
     target: z.enum(["midi", "musicxml", "auto"]).default("auto"),
   }),
   execute: async ({ data_base64, source, target }) => {
-    const result = await backendPost("/music/convert", { source, data_base64, target });
-    return { data_base64: result.data_base64, format: result.format, message: `Converted to ${result.format}` };
+    const result = await backendPost("/music/convert", {
+      source,
+      data_base64,
+      target,
+    }, requestAuthHeader);
+    return {
+      data_base64: result.data_base64,
+      format: result.format,
+      message: `Converted to ${result.format}`,
+    };
   },
 });
 

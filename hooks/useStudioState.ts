@@ -224,6 +224,19 @@ export function useStudioState({
   async function handleAnalyzeLibrary(item: LibFile) {
     setAudioName(item.name);
     saveAudioName(item.name);
+    // Set lastResult so analysis component has notes for display
+    if (item.notes && item.notes.length > 0) {
+      setLastResult({
+        notes: item.notes,
+        num_notes: item.notes.length,
+        midi_base64: item.midi_base64,
+      });
+      saveLastResult({
+        notes: item.notes,
+        num_notes: item.notes.length,
+        midi_base64: item.midi_base64,
+      });
+    }
     if (item.analysis) {
       setAnalysis(item.analysis);
       saveAnalysis(item.analysis);

@@ -1,20 +1,19 @@
 /**
- * AI Chat endpoint — streaming music assistant.
+ * AI Chat endpoint — fully self-contained music workspace.
  *
- * Architecture: Uses Vercel AI SDK + OpenRouter for LLM access.
- * The model is configurable via CHAT_MODEL env var (default: Gemma 4 26B free).
+ * The chat can do everything the regular UI can do:
+ * - Browse library tracks
+ * - Upload new audio files
+ * - Transcribe audio to MIDI
+ * - Analyze music theory
+ * - Clean/denoise audio
+ * - Convert MIDI ↔ MusicXML
  *
- * Tools are defined in lib/tools/index.ts and call the FastAPI backend
- * directly (not through the proxy) since this is a server-side route.
- *
- * Request: { messages: Array<{role, parts}> }
- * Response: SSE stream of UI message events
+ * Tools are defined in lib/tools/index.ts and execute server-side
+ * with access to the user's auth token.
  */
 
-import {
-  streamText,
-  stepCountIs,
-} from "ai";
+import { streamText, stepCountIs } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { musicTools, setRequestAuthHeader } from "@/lib/tools";
 
@@ -50,7 +49,6 @@ function convertMessages(messages: { role: "user" | "assistant" | "system"; part
 
 export async function POST(req: Request) {
   try {
-    // Pass auth header to tools so they can access the user's Supabase session
     const authHeader = req.headers.get("authorization");
     setRequestAuthHeader(authHeader ?? undefined);
 
@@ -100,13 +98,14 @@ Always explain what each tool does and what the results mean.`,
       stopWhen: stepCountIs(5),
     });
 
-    // Format raw stream as SSE events matching uiMessageChunkSchema
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         try {
           const reader = result.fullStream.getReader();
           let stepId = 0;
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "start" })}\n\n`));
 
           while (true) {
             const { done, value } = await reader.read();
@@ -123,20 +122,17 @@ Always explain what each tool does and what the results mean.`,
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: String(stepId) })}\n\n`));
               stepId++;
             } else if (chunk.type === "tool-call") {
-              const toolCallId = `tc-${stepId++}`;
-              // Emit tool-input-start, then tool-input-available with the args
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-input-start", toolCallId, toolName: chunk.toolName })}\n\n`));
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-input-available", toolCallId, toolName: chunk.toolName, input: chunk.args })}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-call", id: String(stepId++), toolName: chunk.toolName, args: chunk.args })}\n\n`));
             } else if (chunk.type === "tool-result") {
-              const toolCallId = `tc-${stepId}`;
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-output-available", toolCallId, output: chunk.result })}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-result", id: String(stepId), toolName: chunk.toolName, result: chunk.result })}\n\n`));
             }
           }
 
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish" })}\n\n`));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (err) {
           console.error("Stream error:", err);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", errorText: err instanceof Error ? err.message : "Stream failed" })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: err instanceof Error ? err.message : "Stream failed" })}\n\n`));
         } finally {
           controller.close();
         }
@@ -144,10 +140,7 @@ Always explain what each tool does and what the results mean.`,
     });
 
     return new Response(stream, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-      },
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });
   } catch (err) {
     console.error("Chat error:", err);
