@@ -13,7 +13,6 @@
 
 import {
   streamText,
-  toUIMessageStream,
   stepCountIs,
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -32,7 +31,6 @@ function convertMessages(messages: { role: "user" | "assistant" | "system"; part
       const textParts = msg.parts
         .filter((p) => p.type === "text" && p.text)
         .map((p) => p.text!);
-      // Include tool results as context so the LLM remembers what happened
       const toolParts = msg.parts
         .filter((p) => p.type.startsWith("tool-"))
         .map((p) => {
@@ -61,11 +59,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // Debug: check env vars
     const apiKey = process.env.OPENAI_API_KEY;
-    const chatModel = process.env.CHAT_MODEL;
-    console.log("Chat request:", { hasApiKey: !!apiKey, chatModel, messageCount: messages.length });
-
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), {
         status: 500,
@@ -76,7 +70,7 @@ export async function POST(req: Request) {
     const convertedMessages = convertMessages(messages);
 
     const result = streamText({
-      model: openrouter.chat(chatModel ?? "google/gemma-4-26b-a4b-it:free"),
+      model: openrouter.chat(process.env.CHAT_MODEL ?? "google/gemma-4-26b-a4b-it:free"),
       system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
 
 When a user asks you to do something, use the appropriate tool. If they mention a file but don't provide audio data, ask them to upload it using the attachment button. Always explain results in plain language after calling a tool.
@@ -91,9 +85,46 @@ Available operations:
       stopWhen: stepCountIs(5),
     });
 
-    const uiStream = toUIMessageStream({ stream: result.fullStream });
+    // Manually format SSE stream to avoid toUIMessageStream compatibility issues
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const reader = result.fullStream.getReader();
+          let stepId = 0;
 
-    return new Response(uiStream, {
+          // Send start event
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "start" })}\n\n`));
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            // Convert stream chunks to UI message format
+            if (value.type === "text-delta") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta: value.textDelta })}\n\n`));
+            } else if (value.type === "tool-call") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-call", id: String(stepId++), toolName: value.toolName, args: value.args })}\n\n`));
+            } else if (value.type === "tool-result") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-result", id: String(stepId), toolName: value.toolName, result: value.result })}\n\n`));
+            } else if (value.type === "text-start") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: String(stepId++) })}\n\n`));
+            }
+          }
+
+          // Send finish event
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish" })}\n\n`));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        } catch (err) {
+          console.error("Stream error:", err);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: err instanceof Error ? err.message : "Stream failed" })}\n\n`));
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
