@@ -13,7 +13,6 @@
 
 import {
   streamText,
-  toUIMessageStream,
   stepCountIs,
 } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -32,7 +31,6 @@ function convertMessages(messages: { role: "user" | "assistant" | "system"; part
       const textParts = msg.parts
         .filter((p) => p.type === "text" && p.text)
         .map((p) => p.text!);
-      // Include tool results as context so the LLM remembers what happened
       const toolParts = msg.parts
         .filter((p) => p.type.startsWith("tool-"))
         .map((p) => {
@@ -51,20 +49,29 @@ function convertMessages(messages: { role: "user" | "assistant" | "system"; part
 }
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  try {
+    const { messages } = await req.json();
 
-  if (!messages || !Array.isArray(messages) || messages.length === 0) {
-    return new Response(JSON.stringify({ error: "No messages provided" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: "No messages provided" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-  const convertedMessages = convertMessages(messages);
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-  const result = streamText({
-    model: openrouter.chat(process.env.CHAT_MODEL ?? "google/gemma-4-26b-a4b-it:free"),
-    system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
+    const convertedMessages = convertMessages(messages);
+
+    const result = streamText({
+      model: openrouter.chat(process.env.CHAT_MODEL ?? "google/gemma-4-26b-a4b-it:free"),
+      system: `You are a music assistant for Music AI Studio. You help users transcribe audio, analyze music theory, enhance audio quality, and convert between MIDI and MusicXML formats.
 
 When a user asks you to do something, use the appropriate tool. If they mention a file but don't provide audio data, ask them to upload it using the attachment button. Always explain results in plain language after calling a tool.
 
@@ -73,17 +80,68 @@ Available operations:
 - Analyze music theory (key, tempo, chords, cadences, Roman numerals, modulations, voice leading)
 - Clean and denoise audio recordings
 - Convert between MIDI and MusicXML formats`,
-    messages: convertedMessages,
-    tools: musicTools,
-    stopWhen: stepCountIs(5),
-  });
+      messages: convertedMessages,
+      tools: musicTools,
+      stopWhen: stepCountIs(5),
+    });
 
-  const uiStream = toUIMessageStream({ stream: result.fullStream });
+    // Format raw stream as SSE events for useChat
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const reader = result.fullStream.getReader();
+          let stepId = 0;
+          let textContent = "";
 
-  return new Response(uiStream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-    },
-  });
+          // Send start event
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "start" })}\n\n`));
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = value as Record<string, unknown>;
+
+            if (chunk.type === "text-start") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: String(stepId) })}\n\n`));
+            } else if (chunk.type === "text-delta") {
+              const delta = String(chunk.text ?? "");
+              textContent += delta;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta })}\n\n`));
+            } else if (chunk.type === "text-end") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: String(stepId) })}\n\n`));
+              stepId++;
+            } else if (chunk.type === "tool-call") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-call", id: String(stepId++), toolName: chunk.toolName, args: chunk.args })}\n\n`));
+            } else if (chunk.type === "tool-result") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-result", id: String(stepId), toolName: chunk.toolName, result: chunk.result })}\n\n`));
+            }
+          }
+
+          // Send finish event
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish" })}\n\n`));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        } catch (err) {
+          console.error("Stream error:", err);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: err instanceof Error ? err.message : "Stream failed" })}\n\n`));
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch (err) {
+    console.error("Chat error:", err);
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Chat failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
