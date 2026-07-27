@@ -11,6 +11,11 @@
  *
  * Tools are defined in lib/tools/index.ts and execute server-side
  * with access to the user's auth token.
+ *
+ * SSE format follows uiMessageChunkSchema from @ai-sdk/react:
+ * - text-start, text-delta, text-end (for text)
+ * - tool-input-start, tool-input-available (for tool calls)
+ * - tool-output-available (for tool results)
  */
 
 import { streamText, stepCountIs } from "ai";
@@ -40,8 +45,7 @@ function convertMessages(messages: { role: "user" | "assistant" | "system"; part
           }
           return `[Tool: ${toolName}]`;
         });
-      const allParts = [...textParts, ...toolParts];
-      return { role: msg.role, content: allParts.join("\n") || "(tool result)" };
+      return { role: msg.role, content: [...textParts, ...toolParts].join("\n") || "(tool result)" };
     }
     return { role: msg.role, content: msg.content ?? "" };
   });
@@ -49,55 +53,36 @@ function convertMessages(messages: { role: "user" | "assistant" | "system"; part
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    setRequestAuthHeader(authHeader ?? undefined);
+    setRequestAuthHeader(req.headers.get("authorization") ?? undefined);
 
     const { messages } = await req.json();
-
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return new Response(JSON.stringify({ error: "No messages provided" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (!messages?.length) {
+      return new Response(JSON.stringify({ error: "No messages" }), { status: 400, headers: { "Content-Type": "application/json" } });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (!process.env.OPENAI_API_KEY) {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), { status: 500, headers: { "Content-Type": "application/json" } });
     }
-
-    const convertedMessages = convertMessages(messages);
 
     const result = streamText({
       model: openrouter.chat(process.env.CHAT_MODEL ?? "google/gemma-4-26b-a4b-it:free"),
-      system: `You are a music assistant for Music AI Studio. You are a fully self-contained workspace — the user can do everything through you.
+      system: `You are a music assistant for Music AI Studio. You are a fully self-contained workspace.
 
 Available tools:
-- list_library: Browse the user's audio tracks and their processing status
-- upload_audio: Save a new audio file to the user's library
-- transcribe_audio: Convert audio to MIDI notes (returns notes, MIDI data)
+- list_library: Browse the user's audio tracks
+- upload_audio: Save audio to library
+- transcribe_audio: Convert audio to MIDI
 - analyze_midi: Analyze MIDI for key, tempo, chords, cadences, modulations, voice leading
-- enhance_audio: Clean and denoise audio recordings
-- convert_format: Convert between MIDI and MusicXML formats
+- enhance_audio: Clean and denoise audio
+- convert_format: Convert MIDI ↔ MusicXML
 
-When the user asks about their music:
-1. First use list_library to see what tracks they have
-2. Then use the appropriate tool based on their request
-3. Explain results in plain language
-
-When the user uploads audio:
-1. Use upload_audio to save it to their library
-2. Then transcribe or analyze as requested
-
-Always explain what each tool does and what the results mean.`,
-      messages: convertedMessages,
+When the user asks about their music, first use list_library to see what they have, then use the appropriate tool. Explain results in plain language.`,
+      messages: convertMessages(messages),
       tools: musicTools,
       stopWhen: stepCountIs(5),
     });
 
+    // Format stream as SSE matching uiMessageChunkSchema
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
@@ -105,48 +90,40 @@ Always explain what each tool does and what the results mean.`,
           const reader = result.fullStream.getReader();
           let stepId = 0;
 
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "start" })}\n\n`));
-
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
+            const c = value as Record<string, unknown>;
 
-            const chunk = value as Record<string, unknown>;
-
-            if (chunk.type === "text-start") {
+            if (c.type === "text-start") {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-start", id: String(stepId) })}\n\n`));
-            } else if (chunk.type === "text-delta") {
-              const delta = String(chunk.text ?? "");
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta })}\n\n`));
-            } else if (chunk.type === "text-end") {
+            } else if (c.type === "text-delta") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: String(stepId), delta: String(c.text ?? "") })}\n\n`));
+            } else if (c.type === "text-end") {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: String(stepId) })}\n\n`));
               stepId++;
-            } else if (chunk.type === "tool-call") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-call", id: String(stepId++), toolName: chunk.toolName, args: chunk.args })}\n\n`));
-            } else if (chunk.type === "tool-result") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-result", id: String(stepId), toolName: chunk.toolName, result: chunk.result })}\n\n`));
+            } else if (c.type === "tool-call") {
+              const tcId = `tc-${stepId++}`;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-input-start", toolCallId: tcId, toolName: c.toolName })}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-input-available", toolCallId: tcId, toolName: c.toolName, input: c.args })}\n\n`));
+            } else if (c.type === "tool-result") {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-output-available", toolCallId: `tc-${stepId}`, output: c.result })}\n\n`));
             }
           }
 
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish" })}\n\n`));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (err) {
           console.error("Stream error:", err);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: err instanceof Error ? err.message : "Stream failed" })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", errorText: err instanceof Error ? err.message : "Stream failed" })}\n\n`));
         } finally {
           controller.close();
         }
       },
     });
 
-    return new Response(stream, {
-      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
-    });
+    return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
   } catch (err) {
     console.error("Chat error:", err);
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Chat failed" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Chat failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 }
