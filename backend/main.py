@@ -156,6 +156,11 @@ def _sb():
 
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
     token = credentials.credentials
     sb = _sb()
     if not sb:
