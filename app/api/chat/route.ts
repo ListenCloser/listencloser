@@ -105,8 +105,6 @@ Always explain what each tool does and what the results mean.`,
           const reader = result.fullStream.getReader();
           let stepId = 0;
 
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "start" })}\n\n`));
-
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -122,13 +120,15 @@ Always explain what each tool does and what the results mean.`,
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-end", id: String(stepId) })}\n\n`));
               stepId++;
             } else if (chunk.type === "tool-call") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-call", id: String(stepId++), toolName: chunk.toolName, args: chunk.args })}\n\n`));
+              const toolCallId = `tc-${stepId++}`;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-input-start", toolCallId, toolName: chunk.toolName })}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-input-available", toolCallId, toolName: chunk.toolName, input: chunk.args })}\n\n`));
             } else if (chunk.type === "tool-result") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-result", id: String(stepId), toolName: chunk.toolName, result: chunk.result })}\n\n`));
+              const toolCallId = `tc-${stepId}`;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-output-available", toolCallId, output: chunk.result })}\n\n`));
             }
           }
 
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "finish" })}\n\n`));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (err) {
           console.error("Stream error:", err);
