@@ -74,3 +74,4 @@ npx playwright test       # E2E tests
 | Auth | Supabase Auth (PKCE flow) |
 | Monitoring | Sentry |
 | CI/CD | GitHub Actions, Vercel |
+
