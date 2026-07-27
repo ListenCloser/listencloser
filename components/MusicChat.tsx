@@ -157,13 +157,44 @@ function ConvertResultCard({ result }: { result: Record<string, unknown> }) {
   );
 }
 
+const MESSAGES_KEY = "chat:messages";
+
+function loadPersistedMessages() {
+  try {
+    const raw = sessionStorage.getItem(MESSAGES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    // Only restore text messages, not tool calls (they can't be replayed)
+    return parsed.filter((m: { role: string; parts?: { type: string }[] }) =>
+      m.role === "user" || (m.role === "assistant" && m.parts?.some((p) => p.type === "text"))
+    );
+  } catch { return []; }
+}
+
+function persistMessages(msgs: { id: string; role: string; parts?: unknown[] }[]) {
+  try { sessionStorage.setItem(MESSAGES_KEY, JSON.stringify(msgs.slice(-50))); } catch {}
+}
+
 export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: MusicChatProps) {
-  const { messages, sendMessage, status } = useChat();
+  const persistedRef = useRef(loadPersistedMessages());
+  const { messages, sendMessage, status, setMessages } = useChat();
   const endRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<{ file: File; base64: string } | null>(null);
   const processedToolCalls = useRef(new Set<string>());
+
+  // Restore persisted messages on mount
+  useEffect(() => {
+    if (persistedRef.current.length > 0 && messages.length === 0) {
+      setMessages(persistedRef.current as any);
+    }
+  }, []);
+
+  // Persist messages across tab switches
+  useEffect(() => {
+    if (messages.length > 0) persistMessages(messages);
+  }, [messages]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -173,14 +204,14 @@ export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: Mus
     for (const msg of messages) {
       if (msg.role !== "assistant") continue;
       for (const part of msg.parts ?? []) {
+        // UseChat renders tool parts as type "tool-*" with state
         if (!part.type.startsWith("tool-")) continue;
         const toolPart = part as { type: string; state?: string; output?: Record<string, unknown>; toolCallId?: string };
         if (toolPart.state !== "result" || !toolPart.output) continue;
         const callId = toolPart.toolCallId ?? `${msg.id}-${part.type}`;
         if (processedToolCalls.current.has(callId)) continue;
         processedToolCalls.current.add(callId);
-
-        const toolName = toolPart.type.replace("tool-", "");
+        const toolName = part.type.replace("tool-", "");
         const output = toolPart.output;
 
         if (toolName === "transcribe_audio" && onTranscribed) {
