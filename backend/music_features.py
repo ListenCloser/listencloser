@@ -248,6 +248,13 @@ def convert_format(data: bytes, source: str, target: str) -> bytes:
 
         score = converter.parse(in_path)
 
+        # Quantize to 16th note grid for cleaner notation
+        if target == "musicxml":
+            try:
+                score.quantize(inPlace=True)
+            except Exception:
+                pass  # quantization is best-effort
+
         out_ext = ".mid" if target == "midi" else ".xml"
         out_path = os.path.join(td, f"output{out_ext}")
         fmt = "midi" if target == "midi" else "musicxml"
