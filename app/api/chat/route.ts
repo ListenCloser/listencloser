@@ -107,7 +107,8 @@ When the user asks about their music, first use list_library to see what they ha
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-input-start", toolCallId: tcId, toolName: c.toolName })}\n\n`));
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-input-available", toolCallId: tcId, toolName: c.toolName, input: c.args })}\n\n`));
             } else if (c.type === "tool-result") {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-output-available", toolCallId: `tc-${stepId}`, output: c.result })}\n\n`));
+              // Use the same ID that was sent with tool-input-start (stepId was already incremented)
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool-output-available", toolCallId: `tc-${stepId - 1}`, output: c.result })}\n\n`));
             }
           }
 

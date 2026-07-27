@@ -258,6 +258,49 @@ def convert_format(data: bytes, source: str, target: str) -> bytes:
 
 
 # ---------------------------------------------------------------------------
+# MIDI post-processing (noise reduction)
+# ---------------------------------------------------------------------------
+_MIN_NOTE_DURATION = 0.05  # Remove notes shorter than 50ms
+
+
+def _clean_midi(midi_bytes: bytes) -> bytes:
+    """Post-process MIDI to remove noise and improve quality.
+
+    Pipeline:
+    1. Remove short spurious notes (< 50ms)
+    2. Remove duplicate/overlapping notes at same pitch
+    3. Normalize velocities to 0-127 range
+    """
+    import pretty_midi as pm
+    midi = pm.PrettyMIDI(io.BytesIO(midi_bytes))
+
+    for inst in midi.instruments:
+        if inst.is_drum:
+            continue
+        # 1. Remove short notes
+        inst.notes = [n for n in inst.notes if (n.end - n.start) >= _MIN_NOTE_DURATION]
+        # 2. Remove duplicate/overlapping notes
+        inst.notes.sort(key=lambda n: (n.pitch, n.start))
+        cleaned = []
+        for note in inst.notes:
+            if not cleaned or note.pitch != cleaned[-1].pitch or note.start >= cleaned[-1].end:
+                cleaned.append(note)
+            else:
+                cleaned[-1].end = max(cleaned[-1].end, note.end)
+        inst.notes = cleaned
+        # 3. Normalize velocities
+        if inst.notes:
+            max_vel = max(n.velocity for n in inst.notes)
+            if max_vel > 0:
+                for note in inst.notes:
+                    note.velocity = int(note.velocity * 127 / max_vel)
+
+    buf = io.BytesIO()
+    midi.write(buf)
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
 # Audio -> MIDI (basic-pitch)
 # ---------------------------------------------------------------------------
 def transcribe_audio(
@@ -288,6 +331,12 @@ def transcribe_audio(
         midi_data.write(midi_path)
         with open(midi_path, "rb") as f:
             midi_bytes = f.read()
+
+    # Post-process MIDI: remove noise, normalize velocities
+    try:
+        midi_bytes = _clean_midi(midi_bytes)
+    except Exception as e:
+        logger.warning(f"MIDI cleanup failed, using raw output: {e}")
 
     # note_events: a list of tuples (start_s, end_s, pitch, velocity, onsets).
     notes = []

@@ -737,7 +737,7 @@ export default function Transform({
               )}
               {onGoToAnalyze && onAnalyze && result && result.notes.length > 0 && mode === "transcribe" && (
                   <button
-                    className="btn btn-primary"
+                    className={`btn ${analysis ? "btn-ghost" : "btn-primary"}`}
                     onClick={async () => {
                       try {
                         await onAnalyze(result.midi_base64, audioName, libraryFileId ?? undefined);

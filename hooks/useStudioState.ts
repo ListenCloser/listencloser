@@ -162,6 +162,7 @@ export function useStudioState({
   function refreshTranscriptions() {
     if (signedIn) {
       listTranscriptions().then(setTranscriptions).catch(() => setTranscriptions([]));
+      listLibrary().then(setAnalyzeLibFiles).catch(() => {});
       setRefreshKey((k) => k + 1);
     }
   }
