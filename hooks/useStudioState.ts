@@ -77,10 +77,13 @@ export function useStudioState({
   const router = useRouter();
 
   // ── Tab state ────────────────────────────────────────────────────────────
+  // URL param takes precedence over saved tab
   const savedTab = loadTab();
-  const safeInitial = savedTab && TABS.some((t) => t.id === savedTab)
-    ? savedTab
-    : TABS.some((t) => t.id === initialTab) ? initialTab : "transcribe";
+  const safeInitial = TABS.some((t) => t.id === initialTab)
+    ? initialTab
+    : savedTab && TABS.some((t) => t.id === savedTab)
+      ? savedTab
+      : "transcribe";
   const [tab, setTab] = useState<TabId>(safeInitial as TabId);
 
   // ── Transcription state ──────────────────────────────────────────────────
