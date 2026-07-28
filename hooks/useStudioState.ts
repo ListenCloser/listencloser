@@ -267,13 +267,22 @@ export function useStudioState({
   }
 
   function handleTrackDeleted(deletedId: string) {
+    // Clear viz state if this track was selected
     if (vizTrackId === deletedId) setVizTrackId(null);
     if (vizSelectedId === deletedId) setVizSelectedId("");
     saveSelectedTrack(null);
-    // Clear analysis if the deleted track was the analyzed one
-    if (lastResult && audioName) {
-      setAnalysis(null);
-      setAnalysisError("");
+
+    // Clear analysis if this track was analyzed
+    // We check by name since we don't track the analyzed track ID
+    setAnalysis(null);
+    setAnalysisError("");
+    setLastResult(null);
+    saveLastResult(null);
+
+    // Refresh library to reflect deletion
+    if (signedIn) {
+      listLibrary().then(setAnalyzeLibFiles).catch(() => {});
+      refreshTranscriptions();
     }
   }
 
