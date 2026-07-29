@@ -174,8 +174,26 @@ function PropertiesTab() {
 
 function InsightsTab() {
   return (
-    <div style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", padding: "var(--s-4) 0", textAlign: "center" }}>
-      Insights for the current selection will appear here.
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-3)" }}>
+      <div className="section-label" style={{ margin: 0 }}>Analysis</div>
+      <div className="stat-grid">
+        <div className="stat">
+          <span className="s-label">Key</span>
+          <span className="s-value">C major</span>
+        </div>
+        <div className="stat">
+          <span className="s-label">Tempo</span>
+          <span className="s-value">120 BPM</span>
+        </div>
+        <div className="stat">
+          <span className="s-label">Time Signature</span>
+          <span className="s-value">4/4</span>
+        </div>
+        <div className="stat">
+          <span className="s-label">Chords</span>
+          <span className="s-value">I-IV-V-vi</span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { RepresentationKind } from "@/lib/stores/workspace";
 import { renderRepresentation } from "@/lib/representation-registry";
+import { useTransport } from "@/lib/stores/transport";
 
 type Note = { pitch: number; start: number; end: number; velocity: number };
 
@@ -49,6 +50,7 @@ export default function RepresentationLane({
   correctedNotes,
   onNotesChange,
 }: RepresentationLaneProps) {
+  const { transport } = useTransport();
   const glyph = KIND_GLYPHS[kind] ?? "▯";
 
   return (
@@ -170,7 +172,7 @@ export default function RepresentationLane({
               {children || renderRepresentation(kind, {
                 notes: (correctedNotes ?? []) as Note[] | undefined,
                 bpm: 120,
-                playheadTime: 0,
+                playheadTime: transport.position,
                 editable: editable ?? false,
                 onNotesChange: onNotesChange as ((notes: Note[]) => void) | undefined,
               })}
