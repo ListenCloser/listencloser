@@ -52,4 +52,5 @@ scripts/vm-ssh-key
 data/
 .env*
 !.env.example
+.test-run-*.json
 docs/FILE_AUDIT.md
