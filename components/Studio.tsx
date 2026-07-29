@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useState, useCallback } from "react";
+import { SharedAudioProvider } from "@/lib/audio-context";
 import Library from "./library";
 import Transform from "./transcribe";
 import Analysis from "./analyze";
@@ -31,233 +30,116 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export default function Studio({
-  initialTab = "transcribe",
   signedIn = false,
 }: {
-  initialTab?: string;
   signedIn?: boolean;
 }) {
-  const router = useRouter();
-
-  const savedTab = loadTab();
-  const safeInitial = savedTab && TABS.some((t) => t.id === savedTab)
-    ? savedTab
-    : TABS.some((t) => t.id === initialTab) ? initialTab : "transcribe";
-  const [tab, setTab] = useState<TabId>(safeInitial as TabId);
-
-  const [lastResult, setLastResult] = useState<TranscribeResult | null>(() => {
-    const r = loadLastResult();
-    return r as TranscribeResult | null;
-  });
-  const [audioName, setAudioName] = useState(loadAudioName);
-  const [analysis, setAnalysis] = useState<TranscribeResult["analysis"] | null>(loadAnalysis);
-  const [analysisError, setAnalysisError] = useState("");
-  const [analyzeStatus, setAnalyzeStatus] = useState("");
-  const [analyzeLibFiles, setAnalyzeLibFiles] = useState<LibFile[]>([]);
-  const [pendingLibFile, setPendingLibFile] = useState<LibFile | null>(null);
-  const [transcriptions, setTranscriptions] = useState<Transcription[]>([]);
+  const [selectedTrack, setSelectedTrack] = useState<LibFile | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [vizReady, setVizReady] = useState(false);
-  const [vizTrackId, setVizTrackId] = useState<string | null>(null);
-  const [vizSelectedId, setVizSelectedId] = useState<string>("");
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const vizStopRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => { saveTab(tab); }, [tab]);
+  const handleTrackSelect = useCallback((file: LibFile) => {
+    setSelectedTrack(file);
+  }, []);
 
-  useEffect(() => {
-    if (tab !== "viz" && vizStopRef.current) {
-      vizStopRef.current();
-      vizStopRef.current = null;
-    }
-  }, [tab]);
+  const handleTrackDeleted = useCallback((id: string) => {
+    setSelectedTrack((prev) => (prev?.id === id ? null : prev));
+    setRefreshKey((k) => k + 1);
+  }, []);
 
-  useEffect(() => {
-    if (signedIn) {
-      listLibrary().catch(() => {});
-    }
-  }, [signedIn]);
+  const handleTrackUpdated = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
-  useEffect(() => {
-    if (tab === "analyze") {
-      listLibrary().then((lib) => {
-        const local = loadLocalTranscription();
-        const localFile = local && local.notes.length > 0 ? [{
-          name: local.name,
-          url: local.audioDataUrl || "",
-          id: "__local__",
-          notes: local.notes,
-          midi_base64: local.midi_base64,
-          analysis: local.analysis,
-        } as LibFile] : [];
-        setAnalyzeLibFiles([...localFile, ...lib]);
-      }).catch(() => {});
-    }
-    if (tab === "viz" && !vizReady) {
-      setVizReady(true);
-    }
-    if (tab === "library" && signedIn) {
-      listTranscriptions().then(setTranscriptions).catch(() => setTranscriptions([]));
-    }
-  }, [tab, signedIn]);
+  const handleTranscribed = useCallback((result: TranscribeResult, name: string) => {
+    setSelectedTrack((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        notes: result.notes,
+        midi_base64: result.midi_base64,
+        analysis: result.analysis,
+      };
+    });
+  }, []);
 
-  function refreshTranscriptions() {
-    if (signedIn) {
-      listTranscriptions().then(setTranscriptions).catch(() => setTranscriptions([]));
-      setRefreshKey((k) => k + 1);
-    }
-  }
-
-  function onTranscribed(result: TranscribeResult, name: string) {
-    setLastResult(result);
-    setAudioName(name);
-    setAnalysis(result.analysis ?? null);
-    setAnalysisError("");
-    saveLastResult(result);
-    saveAudioName(name);
-    if (result.analysis) saveAnalysis(result.analysis);
-  }
-
-  async function handleAnalyze(midiBase64?: string, name?: string, libraryFileId?: string) {
-    if (name) setAudioName(name);
-    if (!midiBase64) {
-      setAnalysisError("Transcribe a track first, then analyze it");
-      goToTab("analyze");
-      return;
-    }
-    if (analysis && audioName === name) {
-      goToTab("analyze");
-      return;
-    }
-    setAnalyzeStatus("Analyzing…");
-    setAnalysisError("");
-    setIsAnalyzing(true);
-    try {
-      const result = await analyzeAudio(midiBase64);
-      setAnalysis(result);
-      saveAnalysis(result);
-
-      if (libraryFileId && signedIn) {
-        try {
-          const libFile = analyzeLibFiles.find(f => f.id === libraryFileId);
-          await saveTranscription(libraryFileId, libFile?.notes ?? lastResult?.notes ?? [], midiBase64, result);
-          refreshTranscriptions();
-        } catch {
-          console.error("save analysis failed");
-        }
-      } else if (!signedIn) {
-        const local = loadLocalTranscription();
-        if (local) {
-          saveLocalTranscription(local.name, local.notes, local.midi_base64, local.audioBlob, result);
-        }
-      }
-    } catch (err) {
-      setAnalysisError(err instanceof Error ? err.message : "analysis failed");
-    } finally {
-      setAnalyzeStatus("");
-      setIsAnalyzing(false);
-      goToTab("analyze");
-    }
-  }
-
-  function goToTab(id: TabId) {
-    setTab(id);
-    router.replace(`/?tab=${id}`, { scroll: false });
-  }
-
-  async function handleAnalyzeLibrary(item: LibFile) {
-    setAudioName(item.name);
-    saveAudioName(item.name);
-    if (item.analysis) {
-      setAnalysis(item.analysis);
-      saveAnalysis(item.analysis);
-      goToTab("analyze");
-      return;
-    }
-    let midi = item.midi_base64;
-    if (!midi && item.notes && item.notes.length > 0) {
-      midi = notesToMidiBase64(item.notes);
-    }
-    await handleAnalyze(midi, item.name, item.id);
-  }
-
-  function handleLibraryTranscribe(file: LibFile) {
-    setPendingLibFile(file);
-    goToTab("transcribe");
-  }
-
-  function handleLibraryAnalyze(file: LibFile) {
-    goToTab("analyze");
-    handleAnalyzeLibrary(file);
-  }
-
-  function handleLibraryVisualize(file: LibFile) {
-    setVizTrackId(file.id);
-    goToTab("viz");
-  }
+  const handleAnalyzed = useCallback((midiBase64?: string, name?: string) => {
+    if (!midiBase64) return;
+    analyzeAudio(midiBase64).then((result) => {
+      setSelectedTrack((prev) => {
+        if (!prev) return prev;
+        return { ...prev, analysis: result };
+      });
+    }).catch(() => {});
+  }, []);
 
   async function signIn() {
     if (!supabase) return;
     const callbackUrl = `${window.location.origin}/auth/callback`;
-    const currentPath = window.location.pathname + window.location.search;
-    const redirectTo = currentPath && currentPath !== "/" ? `${callbackUrl}?next=${encodeURIComponent(currentPath)}` : callbackUrl;
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo },
+      options: { redirectTo: callbackUrl },
     });
   }
 
-  function signOut() {
-    supabase?.auth.signOut();
+  async function signOut() {
+    clearTokenCache();
+    await supabase?.auth.signOut();
     window.location.reload();
   }
 
   return (
     <SharedAudioProvider>
-    <div className="page">
-      <header className="topbar" style={{ justifyContent: "space-between" }}>
-        <div className="brand">
-          <span className="brand-dot" />
-          Music Studio
-        </div>
-        <nav className="nav">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              className={`nav-item${tab === t.id ? " active" : ""}`}
-              onClick={() => goToTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-        <div className="account">
-          {signedIn ? (
-            <button className="btn btn-ghost" onClick={signOut}>
-              Sign out
-            </button>
-          ) : (
-            <button className="btn btn-ghost" id="signInBtn" onClick={signIn}>
-              Sign in
-            </button>
-          )}
-        </div>
-      </header>
-
-      <div className="workbench">
-        {tab === "library" && (
+      <div className="shell">
+        {/* Left Sidebar — Library */}
+        <aside className="shell-sidebar">
           <Library
             signedIn={signedIn}
-            onSignIn={signIn}
-            onTranscribe={handleLibraryTranscribe}
-            onAnalyze={handleLibraryAnalyze}
-            onVisualize={handleLibraryVisualize}
-            transcriptions={transcriptions}
+            onSignIn={signedIn ? signOut : signIn}
+            onTrackSelect={handleTrackSelect}
+            onTrackDeleted={handleTrackDeleted}
             refreshKey={refreshKey}
-            isTranscribing={isTranscribing}
-            isAnalyzing={isAnalyzing}
+            selectedTrackId={selectedTrack?.id}
           />
+        </aside>
+
+        {/* Main Content — Track Workspace */}
+        <main className="shell-main">
+          {selectedTrack ? (
+            <TrackWorkspace
+              file={selectedTrack}
+              signedIn={signedIn}
+              onTrackUpdated={handleTrackUpdated}
+              autoProcess={true}
+            />
+          ) : (
+            <div className="main-empty">
+              <div className="main-empty-icon">♪</div>
+              <div style={{ fontSize: "var(--fs-lg)", fontWeight: "var(--fw-semibold)" }}>Select a track</div>
+              <div style={{ fontSize: "var(--fs-sm)" }}>Choose a song from the library to start working</div>
+              {!signedIn && (
+                <button className="btn btn-primary" onClick={signIn}>
+                  Sign in to get started
+                </button>
+              )}
+            </div>
+          )}
+        </main>
+
+        {/* Right Panel — AI Chat */}
+        <ChatPanel
+          isOpen={chatOpen}
+          onToggle={() => setChatOpen(!chatOpen)}
+          selectedTrack={selectedTrack}
+          onTranscribed={handleTranscribed}
+          onAnalyzed={handleAnalyzed}
+        />
+
+        {/* FAB when chat is closed */}
+        {!chatOpen && (
+          <button className="chat-fab" onClick={() => setChatOpen(true)} title="Open AI Chat">
+            AI
+          </button>
         )}
 
         <div style={{ display: tab === "transcribe" ? "block" : "none" }}>
@@ -395,9 +277,6 @@ export default function Studio({
           </div>
         </div>
       </div>
-
-      <div className="toast" id="toast" />
-    </div>
     </SharedAudioProvider>
   );
 }

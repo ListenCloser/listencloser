@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import Studio from "@/components/Studio";
 
@@ -11,25 +10,23 @@ const BYPASS_AUTH =
 
 function HomeInner() {
   const { user, loading } = useAuth();
-  const params = useSearchParams();
-  const tab = params.get("tab") || undefined;
 
   if (loading) {
     return (
-      <div className="page" style={{ alignItems: "center", justifyContent: "center" }}>
+      <div className="shell" style={{ alignItems: "center", justifyContent: "center" }}>
         <div className="spinner" />
       </div>
     );
   }
 
-  return <Studio initialTab={tab} signedIn={BYPASS_AUTH || !!user} />;
+  return <Studio signedIn={BYPASS_AUTH || !!user} />;
 }
 
 export default function HomeClient() {
   return (
     <Suspense
       fallback={
-        <div className="page" style={{ alignItems: "center", justifyContent: "center" }}>
+        <div className="shell" style={{ alignItems: "center", justifyContent: "center" }}>
           <div className="spinner" />
         </div>
       }

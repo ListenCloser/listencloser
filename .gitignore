@@ -10,7 +10,6 @@ build
 # Env files — keep .env.example committed
 .env.local
 .env
-!.env.example
 
 # Python backend
 backend/.venv/
@@ -52,3 +51,5 @@ design/mockups/workbench-functional.html
 scripts/vm-ssh-key
 data/
 .env*
+!.env.example
+docs/FILE_AUDIT.md

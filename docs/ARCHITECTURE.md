@@ -51,7 +51,7 @@ and makes Vercel the only public web edge.
 
 ## 3. Frontend
 
-- Next.js 15 App Router, React 19, Tailwind v4, `abcjs` for score rendering.
+- Next.js 15 App Router, React 19, Tailwind v4, OpenSheetMusicDisplay for score rendering.
 - Entry: `app/page.tsx` → `app/HomeClient.tsx` → `Studio`.
 - `Studio` is a **tabbed shell** with three tabs: **Library**, **Transcribe**,
   **Analyze**. It is NOT a two-column grid and NOT a stepper. The old
@@ -124,7 +124,7 @@ Review automation: **CodeRabbit** + **Semgrep** on PRs. The agent uses the
 | Concern | Path |
 |---|---|
 | Page shell | `app/page.tsx`, `app/HomeClient.tsx`, `components/Studio.tsx` |
-| Transcribe | `components/transcribe/`, `components/Score.tsx`, `components/PianoRoll.tsx`, `lib/abc.ts` |
+| Transcribe | `components/transcribe/`, `components/SheetMusic.tsx`, `components/PianoRoll.tsx` |
 | Analyze | `components/analyze/` |
 | Library | `components/library/`, `lib/storage.ts` |
 | Backend proxy | `lib/backend.ts`, `app/api/**/route.ts` |

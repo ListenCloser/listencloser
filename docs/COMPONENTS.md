@@ -7,17 +7,23 @@ All reusable UI components used across the Music AI Studio. Components consume d
 ```
 components/                    — All React components
   Studio.tsx                  — Main page shell (tabbed shell)
-  Auth.tsx                    — Sign-in button / OAuth handler
   AuthProvider.tsx            — Supabase session management
-  Library/                    — Library UI suite
+  MusicChat.tsx               — AI chat with music tools
+  library/                    — Library UI suite
     index.tsx                 — Library control panel (upload, list, playback)
-    Visualizer.tsx            — Audio waveform visualizer
-  PianoRoll.tsx              — Interactive piano keyboard
-  Score.tsx                  — abcjs sheet music renderer + audio player
-  Transcribe/                — Transcription UI (drop zone, status, results)
+  PianoRoll.tsx               — SVG piano roll visualization
+  SheetMusic.tsx              — OpenSheetMusicDisplay renderer
+  Spectrogram.tsx             — WaveSurfer.js spectrogram
+  ChromaHeatmap.tsx            — Pitch class distribution chart
+  Tonnetz.tsx                 — Tonnetz visualization
+  Visualizer.tsx              — Canvas audio visualizer
+  MSWInit.tsx                 — Mock Service Worker init
+  transcribe/                 — Transcription UI (drop zone, status, results)
     index.tsx                 — Core audio → MIDI flow
-  analyze/                   — Analysis display widgets
+  analyze/                    — Analysis display widgets
     index.tsx                 — Key/tempo/time-signature display
+  viz/                        — Visualization hub
+    index.tsx                 — Multi-mode viz (piano roll, spectrogram, etc.)
 ```
 
 ## Token Usage
@@ -93,20 +99,17 @@ Primary audio processing interface handling upload, enhancement, transcription, 
 
 ---
 
-### 3. Score.tsx — Sheet Music Renderer
+### 3. SheetMusic.tsx — Sheet Music Renderer
 
-**Location**: `components/Score.tsx`
+**Location**: `components/SheetMusic.tsx`
 
-Renders abcjs sheet music with interactive playback controls and audio visualization.
+Renders MusicXML sheet music via OpenSheetMusicDisplay (OSMD) with SVG output.
 
 **Props**
 
 ```tsx
 {
-  notes: TranscribeResult["notes"];      // Note data from transcription
-  analysis?: TranscribeResult["analysis"];  // Optional analysis data
-  audioBase64?: string;  // Audio data for playback
-  onAnalysis?: (result) => void;  // Analysis completion callback
+  musicXml: string;  // MusicXML string to render
 }
 ```
 
@@ -194,9 +197,9 @@ Visual waveform display for audio playback with real-time updating.
 
 ---
 
-### 8. Auth.tsx & AuthProvider.tsx — Authentication
+### 8. AuthProvider.tsx — Authentication
 
-**Location**: `components/Auth.tsx`, `components/AuthProvider.tsx`
+**Location**: `components/AuthProvider.tsx`
 
 Supabase authentication using implicit OAuth flow (Google).
 
@@ -208,14 +211,17 @@ Supabase authentication using implicit OAuth flow (Google).
 
 ---
 
-### 9. Landing.tsx — Non-Auth Landing Page
+### 9. MusicChat.tsx — AI Chat
 
-**Location**: `components/Landing.tsx`
+**Location**: `components/MusicChat.tsx`
 
-Landing page shown when not signed in. Provides entry point to Studio without authentication.
+AI-powered chat interface with music tools (transcribe, analyze, enhance, convert). Uses Vercel AI SDK + OpenRouter.
 
-**Features**
+**Props**
 
-- Hero section with value proposition
-- Mobile-first single-column layout
-- "Open Studio" call to action
+```tsx
+{
+  onTranscribed?: (result: TranscribeResult, name: string) => void;
+  onAnalyzed?: (midiBase64?: string, name?: string) => void;
+}
+```

@@ -1,9 +1,35 @@
+"""
+FastAPI backend for Music AI Studio.
+
+Architecture:
+    Browser → Next.js API routes → This server (FastAPI on Oracle VM)
+
+This server handles:
+    - Audio transcription (basic-pitch ML model)
+    - MIDI synthesis (FluidSynth + numpy fallback)
+    - Audio enhancement (ffmpeg denoise/declip/normalize)
+    - Music theory analysis (music21 + pretty_midi)
+    - Format conversion (MIDI ↔ MusicXML)
+    - Library management (Supabase storage via service role)
+
+Security:
+    - All endpoints use Supabase JWT verification (verify_token)
+    - Public endpoints use verify_token_optional
+    - Upload size limited to MAX_UPLOAD_BYTES (25 MB)
+    - Storage paths validated to prevent traversal
+    - Rate limiting via slowapi (60/min default)
+
+Observability:
+    - Structured JSON logging with request IDs
+    - Sentry integration for error tracking
+    - Request duration tracking
+"""
+
 import base64
 import contextvars
 import json
 import logging
 import os
-import re
 import tempfile
 import time
 import uuid
@@ -61,7 +87,6 @@ except ImportError:
     logger.warning("sentry_sdk_not_installed")
 
 MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", "26214400"))  # 25 MB
-_MIDI_KEY_RE = re.compile(r"^midi/[\w.\-]+/[\w.\-]+$")
 
 
 def _sb():

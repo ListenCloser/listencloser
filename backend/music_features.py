@@ -1,16 +1,21 @@
-"""Server-side music features: audio transcription + MIDI synthesis.
+"""
+Server-side music features: audio transcription + MIDI synthesis.
 
-- transcribe_audio: arbitrary audio (wav/mp3/ogg/flac) -> MIDI (basic-pitch,
-  Apache-2.0). Also returns a synthesized WAV rendering of that MIDI (so the
-  user gets a corresponding audio<->text pair) and the raw note events.
-- midi_to_wav: render a MIDI file to a WAV using FluidSynth + a bundled piano
-  SoundFont for a natural instrument timbre. Falls back to a self-contained
-  numpy piano synth if FluidSynth / the SoundFont is unavailable.
+Modules:
+    - transcribe_audio: arbitrary audio → MIDI (basic-pitch ML model)
+    - midi_to_wav: render MIDI to WAV (FluidSynth with SoundFont, numpy fallback)
+    - enhance_audio: denoise/declip/normalize via ffmpeg
+    - convert_format: MIDI ↔ MusicXML via music21
 
-Runs on CPU (Oracle always-free ARM VM). Suitable for short clips (seconds to a
-couple minutes).
+Fallback strategy:
+    FluidSynth (natural timbre) → numpy additive synth (portable fallback)
+    Both produce 16-bit PCM WAV at 22050 Hz.
+
+Runs on CPU (Oracle always-free ARM VM). Suitable for short clips
+(seconds to a couple minutes).
 """
 
+import contextlib
 import io
 import logging
 import os
@@ -244,6 +249,11 @@ def convert_format(data: bytes, source: str, target: str) -> bytes:
 
         score = converter.parse(in_path)
 
+        # Quantize to 16th note grid for cleaner notation
+        if target == "musicxml":
+            with contextlib.suppress(Exception):
+                score.quantize(inPlace=True)
+
         out_ext = ".mid" if target == "midi" else ".xml"
         out_path = os.path.join(td, f"output{out_ext}")
         fmt = "midi" if target == "midi" else "musicxml"
@@ -251,6 +261,50 @@ def convert_format(data: bytes, source: str, target: str) -> bytes:
 
         with open(out_path, "rb") as f:
             return f.read()
+
+
+# ---------------------------------------------------------------------------
+# MIDI post-processing (noise reduction)
+# ---------------------------------------------------------------------------
+_MIN_NOTE_DURATION = 0.05  # Remove notes shorter than 50ms
+
+
+def _clean_midi(midi_bytes: bytes) -> bytes:
+    """Post-process MIDI to remove noise and improve quality.
+
+    Pipeline:
+    1. Remove short spurious notes (< 50ms)
+    2. Remove duplicate/overlapping notes at same pitch
+    3. Normalize velocities to 0-127 range
+    """
+    import pretty_midi as pm
+
+    midi = pm.PrettyMIDI(io.BytesIO(midi_bytes))
+
+    for inst in midi.instruments:
+        if inst.is_drum:
+            continue
+        # 1. Remove short notes
+        inst.notes = [n for n in inst.notes if (n.end - n.start) >= _MIN_NOTE_DURATION]
+        # 2. Remove duplicate/overlapping notes
+        inst.notes.sort(key=lambda n: (n.pitch, n.start))
+        cleaned = []
+        for note in inst.notes:
+            if not cleaned or note.pitch != cleaned[-1].pitch or note.start >= cleaned[-1].end:
+                cleaned.append(note)
+            else:
+                cleaned[-1].end = max(cleaned[-1].end, note.end)
+        inst.notes = cleaned
+        # 3. Normalize velocities
+        if inst.notes:
+            max_vel = max(n.velocity for n in inst.notes)
+            if max_vel > 0:
+                for note in inst.notes:
+                    note.velocity = int(note.velocity * 127 / max_vel)
+
+    buf = io.BytesIO()
+    midi.write(buf)
+    return buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +338,12 @@ def transcribe_audio(
         midi_data.write(midi_path)
         with open(midi_path, "rb") as f:
             midi_bytes = f.read()
+
+    # Post-process MIDI: remove noise, normalize velocities
+    try:
+        midi_bytes = _clean_midi(midi_bytes)
+    except Exception as e:
+        logger.warning(f"MIDI cleanup failed, using raw output: {e}")
 
     # note_events: a list of tuples (start_s, end_s, pitch, velocity, onsets).
     notes = []

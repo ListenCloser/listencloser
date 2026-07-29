@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { listLibrary, synthAudio, synthMusicXml, convertMusicFormat, type LibFile } from "@/lib/music";
-import { loadLocalTranscription } from "@/lib/browser-store";
+import { listLibrary, synthAudio, synthMusicXml, convertMusicFormat, saveTranscription, formatTime, type LibFile } from "@/lib/music";
+import { loadLocalTranscription, loadVizMode, saveVizMode } from "@/lib/browser-store";
 import PianoRoll from "@/components/PianoRoll";
 import Spectrogram from "@/components/Spectrogram";
 import ChromaHeatmap from "@/components/ChromaHeatmap";
@@ -22,12 +22,6 @@ const VIZ_MODES: { id: VizMode; label: string }[] = [
   { id: "sheet-music", label: "Sheet Music" },
 ];
 
-function formatTime(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
 export default function Viz({
   initialTrackId,
   selectedId: selectedIdProp,
@@ -42,7 +36,7 @@ export default function Viz({
   const [files, setFiles] = useState<LibFile[]>([]);
   const [selectedIdLocal, setSelectedIdLocal] = useState<string>("");
   const selectedId = selectedIdProp ?? selectedIdLocal;
-  const [mode, setMode] = useState<VizMode>("piano-roll");
+  const [mode, setMode] = useState<VizMode>(() => (loadVizMode() as VizMode) ?? "piano-roll");
   const [playbackSource, setPlaybackSource] = useState<PlaybackSource>("midi");
   const [midiTime, setMidiTime] = useState(0);
   const [musicXml, setMusicXml] = useState("");
@@ -55,6 +49,7 @@ export default function Viz({
   const [synthLoading, setSynthLoading] = useState(false);
   const [sheetMusicLoading, setSheetMusicLoading] = useState(false);
   const [useFallbackTimer, setUseFallbackTimer] = useState(false);
+  const [vizLoading, setVizLoading] = useState(true);
 
   const { playing, currentTime, duration, play, stop: sharedStop, audioRef } = useSharedAudio();
 
@@ -70,12 +65,14 @@ export default function Viz({
 
     listLibrary().then((lib) => {
       setFiles([...localFile, ...lib]);
+      setVizLoading(false);
       if (!selectedIdProp && localFile.length > 0 && lib.length === 0) {
         setSelectedIdLocal("__local__");
         onTrackSelected?.("__local__");
       }
     }).catch(() => {
       setFiles(localFile);
+      setVizLoading(false);
       if (!selectedIdProp && localFile.length > 0) {
         setSelectedIdLocal("__local__");
         onTrackSelected?.("__local__");
@@ -89,6 +86,10 @@ export default function Viz({
       onTrackSelected?.(initialTrackId);
     }
   }, [initialTrackId, files, onTrackSelected]);
+
+  useEffect(() => {
+    saveVizMode(mode);
+  }, [mode]);
 
   const selected = files.find((f) => f.id === selectedId);
   const hasNotes = (selected?.notes?.length ?? 0) > 0;
@@ -121,6 +122,16 @@ export default function Viz({
         return;
       }
 
+      // Check for cached synth WAV in library
+      if (source === "midi" && selected.synth_wav_base64) {
+        const bytes = Uint8Array.from(atob(selected.synth_wav_base64), (c) => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: "audio/wav" });
+        const url = URL.createObjectURL(blob);
+        setMidiWavUrl(url);
+        play(selectedId, url);
+        return;
+      }
+
       setSynthLoading(true);
       try {
         let wav_base64: string;
@@ -142,7 +153,8 @@ export default function Viz({
         play(selectedId, url);
       } catch {
         setUseFallbackTimer(true);
-        const maxEnd = Math.max(...(selected.notes ?? []).map((n) => n.end));
+        const notes = selected.notes ?? [];
+        const maxEnd = notes.length > 0 ? Math.max(...notes.map((n) => n.end)) : 0;
         setMidiDuration(maxEnd);
         midiStartRef.current = performance.now();
         midiOffsetRef.current = 0;
@@ -172,7 +184,7 @@ export default function Viz({
 
   const handleSeek = useCallback((pct: number) => {
     const a = audioRef.current;
-    if (a && duration > 0) a.currentTime = pct * duration;
+    if (a && duration > 0 && pct >= 0 && pct <= 1) a.currentTime = pct * duration;
   }, [audioRef, duration]);
 
   useEffect(() => {
@@ -216,7 +228,14 @@ export default function Viz({
       } else {
         setSheetMusicLoading(true);
         convertMusicFormat(selected.midi_base64, "midi", "musicxml")
-          .then((converted) => setMusicXml(atob(converted.data_base64)))
+          .then((converted) => {
+            const xml = atob(converted.data_base64);
+            setMusicXml(xml);
+            // Persist musicxml back to library so it survives page refresh
+            if (selected.id && !selected.id.startsWith("__local__")) {
+              saveTranscription(selected.id, selected.notes ?? [], selected.midi_base64, selected.analysis, xml).catch(() => {});
+            }
+          })
           .catch(() => setMusicXml(""))
           .finally(() => setSheetMusicLoading(false));
       }
@@ -242,7 +261,17 @@ export default function Viz({
     <div className="card">
       <h3 className="card-title"><span className="glyph">◈</span> Visualize</h3>
 
-      {tracksWithNotes.length === 0 ? (
+      {vizLoading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)" }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="track" style={{ opacity: 0.5 }}>
+              <div className="track-head">
+                <div className="track-name"><div className="skel line" style={{ width: "60%" }} /></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : tracksWithNotes.length === 0 ? (
         <div className="empty">
           No transcribed tracks in your library — transcribe one first.
         </div>
@@ -273,6 +302,9 @@ export default function Viz({
       {selected && (
         <>
           <div className="section-label">Playback source</div>
+          <p className="muted" style={{ fontSize: "var(--fs-xs)", margin: "0 0 var(--s-2)" }}>
+            Viewing: {playbackSource === "original" ? "Original Audio" : playbackSource === "midi" ? "MIDI" : "Sheet Music"}
+          </p>
           <div style={{ display: "flex", gap: "var(--s-2)", marginBottom: "var(--s-3)", flexWrap: "wrap" }}>
             {selected.url && (
               <button
@@ -336,7 +368,7 @@ export default function Viz({
           </div>
 
           {mode === "piano-roll" && hasNotes && (
-            <PianoRoll notes={selected.notes!} playheadTime={vizTime} bpm={120} />
+            <PianoRoll notes={selected.notes!} playheadTime={vizTime} bpm={selected.analysis?.tempo?.bpm ?? 120} />
           )}
 
           {mode === "spectrogram" && selected.url && (

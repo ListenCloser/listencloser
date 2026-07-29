@@ -1,3 +1,29 @@
+/**
+ * Transform tab — the audio processing pipeline.
+ *
+ * Architecture: This component orchestrates the full audio processing flow:
+ *   Upload/Record → Enhance → Transcribe → Synthesize → Display
+ *
+ * State machine:
+ *   idle → enhancing → transcribing → synthing → populated
+ *   idle → converting → populated (MIDI→score mode)
+ *   any → error
+ *
+ * Modes:
+ * - "transcribe": Audio → MIDI → notes + sheet music
+ * - "midi-to-score": MIDI → MusicXML sheet music
+ *
+ * Key functions:
+ * - processBlob(): Main pipeline — enhance, transcribe, synth, auto-save
+ * - handleMidiFile(): MIDI→MusicXML conversion
+ * - onSelectLibraryFile(): Load from library (with or without re-transcription)
+ *
+ * When modifying this component, be aware:
+ * - The state machine must remain acyclic (no loops back to earlier states)
+ * - Audio cleanup (URL.revokeObjectURL) must happen on every re-transcription
+ * - Auto-save only fires when signedIn and notes.length > 0
+ */
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -11,6 +37,8 @@ import {
   blobToBase64,
   convertMusicFormat,
   synthAudio,
+  audioFmtFromBlob,
+  audioFmtFromName,
   type TranscribeResult,
   type LibFile,
 } from "@/lib/music";
@@ -27,21 +55,6 @@ const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "transcribe", label: "Audio → MIDI", hint: "Transcribe audio to MIDI" },
   { id: "midi-to-score", label: "MIDI → Sheet Music", hint: "Convert MIDI to sheet music" },
 ];
-
-function audioFmtFromBlob(blob: Blob): string {
-  const type = blob.type.toLowerCase();
-  if (type.includes("ogg")) return "ogg";
-  if (type.includes("mp4") || type.includes("m4a")) return "mp4";
-  if (type.includes("flac")) return "flac";
-  if (type.includes("mp3") || type.includes("mpeg")) return "mp3";
-  return "wav";
-}
-
-function audioFmtFromName(name: string): string {
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  if (["ogg", "mp4", "m4a", "flac", "mp3", "wav", "webm"].includes(ext)) return ext === "m4a" ? "mp4" : ext;
-  return "wav";
-}
 
 export default function Transform({
   signedIn,
@@ -89,6 +102,7 @@ export default function Transform({
   const [wasLibraryFile, setWasLibraryFile] = useState(false);
   const [libraryFileId, setLibraryFileId] = useState<string | null>(null);
   const originalBlobRef = useRef<Blob | null>(null);
+  const synthWavRef = useRef<string | null>(null);
   const [wavUrl, setWavUrl] = useState("");
   const [wavPlaying, setWavPlaying] = useState(false);
   const [musicXml, setMusicXml] = useState("");
@@ -123,6 +137,7 @@ export default function Transform({
   }, [libraryFileToLoad]);
 
   async function processBlob(blob: Blob, fileName: string, fmtOverride?: string, sourceLibId?: string | null) {
+    if (state === "enhancing" || state === "transcribing" || state === "converting" || state === "synthing") return;
     clearLocalTranscription();
     onNewTranscription?.();
     setResult(null);
@@ -158,6 +173,7 @@ export default function Transform({
         setStatus("Synthesizing audio…");
         try {
           const synth = await synthAudio(res.midi_base64);
+          synthWavRef.current = synth.wav_base64;
           const bytes = Uint8Array.from(atob(synth.wav_base64), (c) => c.charCodeAt(0));
           const blob = new Blob([bytes], { type: "audio/wav" });
           if (wavUrl) URL.revokeObjectURL(wavUrl);
@@ -191,7 +207,7 @@ export default function Transform({
             }
           }
 
-          await saveTranscription(savedId, res.notes, res.midi_base64, analysisResult);
+          await saveTranscription(savedId, res.notes, res.midi_base64, analysisResult, undefined, synthWavRef.current ?? undefined);
           setSaved(true);
           onTranscriptionSaved?.();
         } catch (e) {
@@ -307,7 +323,7 @@ export default function Transform({
   }
 
   async function saveToLibrary() {
-    if (!result) return;
+    if (!result || saved) return;
     if (wasLibraryFile) {
       setSaved(true);
       setStatus("✓ Already in library");
@@ -398,12 +414,26 @@ export default function Transform({
       setAnalyzeBase64(res.wav_base64 ?? "");
       onTranscribed?.(res, file.name);
 
+      // Synthesize WAV for playback
+      if (res.midi_base64) {
+        try {
+          const synth = await synthAudio(res.midi_base64);
+          synthWavRef.current = synth.wav_base64;
+          const bytes = Uint8Array.from(atob(synth.wav_base64), (c) => c.charCodeAt(0));
+          const blob = new Blob([bytes], { type: "audio/wav" });
+          if (wavUrl) URL.revokeObjectURL(wavUrl);
+          setWavUrl(URL.createObjectURL(blob));
+        } catch {
+          // synth failed, playback unavailable
+        }
+      }
+
       setState("populated");
       setStatus(`${res.num_notes} notes extracted`);
 
       if (signedIn && res.notes.length > 0) {
         try {
-          await saveTranscription(file.id, res.notes, res.midi_base64);
+          await saveTranscription(file.id, res.notes, res.midi_base64, undefined, undefined, synthWavRef.current ?? undefined);
           setSaved(true);
           onTranscriptionSaved?.();
         } catch (e) {
@@ -687,7 +717,7 @@ export default function Transform({
                     setMusicXml(xml);
                     if (signedIn && libraryFileId) {
                       try {
-                        await saveTranscription(libraryFileId, result.notes, result.midi_base64, undefined, xml);
+                        await saveTranscription(libraryFileId, result.notes, result.midi_base64, undefined, xml, synthWavRef.current ?? undefined);
                       } catch { /* ok if save fails */ }
                     }
                     setStatus("Sheet music ready");
@@ -707,7 +737,7 @@ export default function Transform({
               )}
               {onGoToAnalyze && onAnalyze && result && result.notes.length > 0 && mode === "transcribe" && (
                   <button
-                    className="btn btn-primary"
+                    className={`btn ${analysis ? "btn-ghost" : "btn-primary"}`}
                     onClick={async () => {
                       try {
                         await onAnalyze(result.midi_base64, audioName, libraryFileId ?? undefined);
