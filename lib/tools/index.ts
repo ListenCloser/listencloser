@@ -46,7 +46,7 @@ export const transcribeAudioTool = tool({
       .default("wav")
       .describe("Audio format"),
   }),
-  execute: async ({ audio_base64, format }) => {
+  execute: async ({ audio_base64, format }: { audio_base64: string; format: string }) => {
     const result = await backendPost("/music/transcribe", {
       audio_base64,
       fmt: format,
@@ -70,7 +70,7 @@ export const analyzeMidiTool = tool({
   inputSchema: z.object({
     midi_base64: z.string().describe("Base64-encoded MIDI file data"),
   }),
-  execute: async ({ midi_base64 }) => {
+  execute: async ({ midi_base64 }: { midi_base64: string }) => {
     return backendPost("/music/analyze", { midi_base64 });
   },
 });
@@ -88,7 +88,7 @@ export const enhanceAudioTool = tool({
       .default("wav")
       .describe("Audio format"),
   }),
-  execute: async ({ audio_base64, format }) => {
+  execute: async ({ audio_base64, format }: { audio_base64: string; format: string }) => {
     const result = await backendPost("/music/enhance", {
       audio_base64,
       fmt: format,
@@ -116,7 +116,7 @@ export const convertFormatTool = tool({
       .default("auto")
       .describe("Target format"),
   }),
-  execute: async ({ data_base64, source, target }) => {
+  execute: async ({ data_base64, source, target }: { data_base64: string; source: string; target: string }) => {
     const result = await backendPost("/music/convert", {
       source,
       data_base64,
