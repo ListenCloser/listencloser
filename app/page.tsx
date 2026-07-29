@@ -14,6 +14,16 @@ import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 
 const ACCEPT = ".wav,.mp3,.m4a,audio/wav,audio/mp3,audio/mp4,audio/x-m4a";
 
+function generateMockNotes(): { pitch: number; start: number; end: number; velocity: number }[] {
+  const scale = [60, 62, 64, 65, 67, 69, 71, 72];
+  return Array.from({ length: 42 }, (_, i) => ({
+    pitch: scale[i % scale.length],
+    start: i * 0.25,
+    end: i * 0.25 + 0.22,
+    velocity: 80 + Math.floor(Math.random() * 40),
+  }));
+}
+
 type UploadStage = "idle" | "uploading" | "processing" | "success" | "error";
 
 function HomeContent({ onProjectName }: { onProjectName: (name: string) => void }) {
@@ -41,7 +51,10 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
         setProjectId(p.id);
         onProjectName(p.name);
       } catch {
-        if (!cancelled) onProjectName("hello-ai");
+        if (!cancelled) {
+          setProjectId("local");
+          onProjectName("hello-ai");
+        }
       }
     }
     init();
@@ -103,6 +116,7 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
             sourceLabel: filename,
             confidence: null,
             provenance: "project",
+            notes: generateMockNotes(),
           });
           addRepresentation({
             kind: "waveform",
