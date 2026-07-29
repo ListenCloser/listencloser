@@ -184,55 +184,225 @@ app/layout.tsx
 
 ### 3.1 FastAPI Server (`backend/main.py`)
 
+Runs on Oracle always-free ARM VM. FastAPI + uvicorn. The browser never talks to this directly — all requests come through Next.js API routes that call `proxyToBackend()`.
+
+#### Endpoints
+
 | Endpoint | Method | Auth | Rate Limit | Purpose |
 |----------|--------|------|------------|---------|
 | `/health` | GET | None | None | Health check |
 | `/health/live` | GET | None | None | Liveness probe |
 | `/health/ready` | GET | None | None | Readiness (checks Supabase) |
-| `/music/transcribe` | POST | Optional | 10/min | Audio → MIDI + notes |
-| `/music/enhance` | POST | Optional | 20/min | Denoise/declip/normalize |
-| `/music/analyze` | POST | Optional | 30/min | MIDI → music theory |
-| `/music/synth` | POST | Optional | 30/min | MIDI → WAV |
-| `/music/convert` | POST | Optional | 30/min | MIDI ↔ MusicXML |
-| `/music/library` | GET/POST | Required | 10/min | List/upload library |
-| `/music/library/{path}` | DELETE | Required | 30/min | Delete library file |
+| `/music/transcribe` | POST | Optional | 10/min | Audio → MIDI + notes + WAV |
+| `/music/enhance` | POST | Optional | 20/min | Denoise/declip/normalize via ffmpeg |
+| `/music/analyze` | POST | Optional | 30/min | MIDI → key, tempo, chords, cadences, etc. |
+| `/music/synth` | POST | Optional | 30/min | MIDI → WAV (FluidSynth or numpy) |
+| `/music/convert` | POST | Optional | 30/min | MIDI ↔ MusicXML via music21 |
+| `/music/library` | GET/POST | Required | 10/min | List/upload library files |
+| `/music/library/{path}` | DELETE | Required | 30/min | Delete library file (owner check) |
 
-**Auth:** `verify_token()` validates Supabase JWT via service-role key. `verify_token_optional()` returns `None` instead of 401 when no token (allows anonymous processing).
+#### Auth System
 
-**Rate limiting:** slowapi with `get_remote_address`. Default 60/min.
+Two auth dependencies:
 
-**Upload limit:** 25 MB decoded (`MAX_UPLOAD_BYTES = 26214400`).
+- **`verify_token()`** — extracts Bearer token, validates via `sb.auth.get_user(token)` using service-role key. Returns user object or raises 401. On network/timeout errors, returns 503 (handles Supabase outages gracefully).
+- **`verify_token_optional()`** — same but returns `None` instead of 401 when no token. Used on processing endpoints so anonymous users can still transcribe/analyze.
 
-### 3.2 Audio Processing (`backend/music_features.py`)
+Write endpoints (library upload, delete) require auth. Processing endpoints (transcribe, analyze, synth, enhance, convert) use optional auth.
 
-| Function | Input → Output | Tech |
-|----------|---------------|------|
-| `transcribe_audio()` | Audio bytes → MIDI + WAV + notes | basic-pitch ML model |
-| `midi_to_wav()` | MIDI bytes → WAV bytes | FluidSynth (primary) / numpy (fallback) |
-| `enhance_audio()` | Audio bytes → cleaned WAV | ffmpeg: `afftdn` + `adeclip` + `loudnorm` |
-| `convert_format()` | Data bytes → converted bytes | music21 (MIDI ↔ MusicXML) |
-| `_clean_midi()` | MIDI bytes → cleaned MIDI | Removes <50ms notes, deduplicates, normalizes velocity |
+#### Supabase Client
 
-**MIDI Synthesis Fallback:**
-- Primary: FluidSynth + `FluidR3_GM.sf2` SoundFont
-- Fallback: numpy additive synthesis (4 harmonics, ADSR envelope)
-- Both: 16-bit PCM WAV at 22050 Hz
+Lazy-initialized singleton `_sb()` using `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. Thread-safe via `threading.Lock`. The service-role key bypasses RLS, which is how backend writes work despite RLS policies saying "authenticated only."
 
-### 3.3 Music Analysis (`backend/analyze.py`)
+#### Middleware
 
-Entry point: `analyze_midi(midi_path)` → `AnalysisResult` TypedDict
+- **Observability:** assigns `x-request-id` (from header or generates hex16), logs `method/path/status/duration_ms` as structured JSON.
+- **CORS:** origins from `CORS_ORIGINS` env (comma-separated), defaults to `https://hello-ai-wheat.vercel.app` + `http://localhost:3000`.
+- **Rate limiting:** slowapi with `get_remote_address`. Default 60/min, per-endpoint overrides.
+- **Upload limit:** 25 MB decoded (`MAX_UPLOAD_BYTES = 26214400`). Checked on base64-decoded bytes, not the string.
 
-| Component | Library | Notes |
-|-----------|---------|-------|
-| Key estimation | music21 `score.analyze("key")` | tonic, mode, confidence |
-| Tempo | pretty_midi | Median of all tempo changes |
-| Time signature | pretty_midi | First signature found |
-| Chords | music21 `Chord` objects | Root + quality mapping |
-| Roman numerals | music21 `roman.romanNumeralFromChord()` | Capped at 500 |
-| Cadences | Custom pattern matching | 8 patterns: authentic, plagal, half, deceptive |
-| Voice leading | music21 `voiceLeading` | Capped at 2000 quartets |
-| Modulations | Custom windowed pitch-class analysis | 8 windows, Krumhansl-Schmuckler profiles |
-| Rhythm | pretty_midi + custom | beat_count, syncopation_ratio, rhythmic_density |
+### 3.2 Audio Transcription Pipeline (`backend/music_features.py`)
+
+#### `transcribe_audio(audio_bytes, fmt, onset_threshold=0.5, frame_threshold=0.3)`
+
+This is the core pipeline that turns raw audio into MIDI + notes + WAV:
+
+```
+1. Write audio to temp file (input.wav)
+   │
+2. basic-pitch.inference.predict(in_path, onset_threshold, frame_threshold)
+   │  Returns: (_, midi_data, note_events)
+   │  - midi_data: pretty_midi.PrettyMIDI object (written to input.mid)
+   │  - note_events: list of (start_s, end_s, pitch, velocity, onsets) tuples
+   │
+3. _clean_midi(midi_bytes)  ← post-processing
+   │  a. Remove notes shorter than 50ms (spurious detections)
+   │  b. Remove duplicate/overlapping notes at same pitch
+   │     (sort by pitch then start, merge overlapping)
+   │  c. Normalize velocities to 0-127 range
+   │  Skips drums (inst.is_drum)
+   │
+4. Extract note list from note_events
+   │  notes = [{pitch, start, end, velocity}, ...]
+   │
+5. midi_to_wav(midi_bytes)  ← synthesize audio
+   │  (see section 3.3)
+   │
+6. Return: { midi, wav, notes, num_notes }
+```
+
+**basic-pitch** is Spotify's ML model for audio-to-MIDI transcription. It runs on CPU (TensorFlow). The `onset_threshold` (default 0.5) controls note onset sensitivity — lower = more notes detected. The `frame_threshold` (default 0.3) controls frame-level activation — lower = more notes but more noise.
+
+#### `midi_to_wav(midi_bytes, sr=22050)`
+
+Two-tier synthesis with automatic fallback:
+
+**Primary: FluidSynth** (`_midi_to_wav_fluidsynth`)
+1. Check if SoundFont exists at `SOUNDFONT_PATH` (default `/app/soundfonts/FluidR3_GM.sf2`)
+2. Import `fluidsynth` (pyfluidsynth). If unavailable, return None.
+3. Create `fluidsynth.Synth(samplerate=22050)`
+4. Load SoundFont, select bank 0, program 0 (Acoustic Grand Piano)
+5. Apply light reverb (`room=0.25, damp=0.4, width=0.6, level=0.12`) and chorus (2 voices, depth=0.04)
+6. Render MIDI → WAV via `fs.midi2audio()`
+7. Peak-normalize to 0.95 (FluidSynth output is typically quiet)
+8. Return 16-bit PCM WAV
+
+**Fallback: numpy additive synth** (`_midi_to_wav_numpy`)
+- Self-contained polyphonic piano synth. No external dependencies beyond numpy + pretty_midi.
+- For each note: compute frequency from MIDI pitch (`440 * 2^((pitch-69)/12)`)
+- Generate 4 harmonics: `(1, 1.0), (2, 0.3), (3, 0.12), (4, 0.06)` — simulates piano timbre
+- Apply ADSR envelope: attack=10ms, release=150ms
+- Mix all notes into output buffer, clip to [-1, 1], convert to int16 PCM
+- Both produce: **16-bit PCM WAV at 22050 Hz**
+
+#### `enhance_audio(audio_bytes, fmt)`
+
+Pre-processing step that runs before transcription (transparent to user):
+
+```
+1. Write audio to temp file
+   │
+2. Pre-convert non-standard formats to WAV
+   │  basic-pitch only reads: wav, flac, ogg, mp3, m4a, aac
+   │  ffmpeg: -y -i input -ac 1 -ar 22050 input_conv.wav
+   │
+3. Run cleanup pipeline:
+   │  ffmpeg -af "afftdn=nr=12:nf=-30,adeclip,loudnorm=I=-16:TP=-1.5:LRA=11"
+   │         -ar 22050 -ac 1 output.wav
+   │
+   │  afftdn: FFT denoiser (nr=12dB noise reduction, nf=-30dB noise floor)
+   │  adeclip: declipper (fixes clipping distortion)
+   │  loudnorm: EBU R128 loudness normalization (I=-16 LUFS, TP=-1.5 dBTP)
+   │
+4. Output: mono, 22050 Hz WAV
+5. Falls back to raw input if ffmpeg fails (no-op safe)
+```
+
+#### `convert_format(data, source, target)`
+
+MIDI ↔ MusicXML conversion via music21:
+
+```
+1. Write data to temp file (input.mid or input.xml)
+2. score = music21.converter.parse(in_path)
+3. If target == "musicxml": score.quantize(inPlace=True)
+   (quantizes to 16th-note grid for cleaner notation)
+4. score.write(fmt, fp=out_path)
+5. Return converted bytes
+```
+
+**Gotcha:** `source == target` returns data unchanged (short-circuit).
+
+### 3.3 Music Analysis Pipeline (`backend/analyze.py`)
+
+#### `analyze_midi(midi_path)` → `AnalysisResult`
+
+Single entry point. Parses MIDI once with music21, extracts everything. Uses pretty_midi only for tempo/time-signature metadata.
+
+```
+1. Parse MIDI:
+   │  score = music21.converter.parse(midi_path, quantizePost=False)
+   │  pm = pretty_midi.PrettyMIDI(midi_path)
+   │
+2. Tempo (pretty_midi):
+   │  tempos = pm.get_tempo_changes()[1]
+   │  result.tempo = median(tempos), confidence=0.9
+   │  (median is more robust than mean for variable-tempo pieces)
+   │
+3. Time signature (pretty_midi):
+   │  _, ts_nums, ts_denoms = pm.get_time_signatures()
+   │  result.time_signature = first signature found, confidence=0.9
+   │
+4. Key estimation (_m21_key):
+   │  key = score.analyze("key")
+   │  Returns: tonic, mode, correlationCoefficient
+   │
+5. Chords (_m21_chords):
+   │  For each Chord in score.flatten():
+   │    root = chord.root().name
+   │    quality = chord.impliedQuality → mapped via _QUALITY_MAP
+   │    start/end = offset/duration in quarter notes
+   │
+6. Roman numerals (_m21_roman_numerals):
+   │  For each Chord in each Measure:
+   │    rn = roman.romanNumeralFromChord(chord, detected_key)
+   │    Capped at 500 results
+   │
+7. Cadences (_m21_cadences):
+   │  Build chord sequence from score
+   │  Match consecutive pairs against 8 patterns:
+   │    authentic: V→I, V7→I, V→i
+   │    plagal: IV→I
+   │    half: I→V, i→V
+   │    deceptive: V→vi, V→VI
+   │
+8. Voice leading (_m21_voice_leading):
+   │  For pairs of parts (up to 4):
+   │    iterateAllVoiceLeadingQuartets → motionType()
+   │    Count: parallel, contrary, oblique, similar
+   │    Capped at 2000 quartets
+   │
+9. Rhythm (_midi_rhythm):
+   │  Using pretty_midi:
+   │  - beat_count: duration * bpm / 60
+   │  - avg_note_duration: mean of all note lengths
+   │  - syncopation_ratio: fraction of notes NOT on beat grid
+   │    (beat_pos > 0.1 && beat_pos < 0.9 means off-beat)
+   │  - rhythmic_density: total_notes / duration
+   │
+10. Modulations (_detect_modulations) ← CUSTOM:
+    │  (see detailed breakdown below)
+```
+
+#### Modulation Detection — Custom Implementation
+
+No out-of-the-box library handles this. The approach:
+
+```
+1. Collect all notes with (offset, pitch) from all parts
+2. Convert quarter-note positions to seconds using tempo
+3. Divide into 8 equal time windows
+4. For each window:
+   a. Collect pitches in that time range
+   b. Compute 12-dim pitch-class distribution (Counter mod 12)
+   c. Estimate key using Krumhansl-Schmuckler profiles:
+      - Roll the distribution 12 times (once per tonic)
+      - Correlate with _KS_MAJOR and _KS_MINOR profiles
+      - Best correlation = estimated key
+   d. Record: (window_start_sec, "Tonic mode")
+5. Compare consecutive windows
+6. Where key changes → modulation detected
+```
+
+The Krumhansl-Schmuckler profiles are empirically derived weight vectors:
+```
+_KS_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
+_KS_MINOR = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
+```
+
+Each index corresponds to a pitch class (C, C#, D, ..., B). Higher values = more important in that key. The correlation between the window's pitch distribution and each profile determines the best-fit key.
+
+**Minimum notes:** Requires ≥32 notes total (`_MODULATION_WINDOW_COUNT * 4`). Fewer notes → empty modulations list.
 
 ---
 
@@ -494,6 +664,41 @@ cd backend && docker compose up -d  # FastAPI + FluidSynth + ffmpeg
 docker compose -f docker-compose.observability.yml up -d
 # Loki (3100) + Promtail + Grafana (3001)
 ```
+
+### 9.5 Open-Source Dependencies — What Does What
+
+#### Backend (Python) — The Heavy Hitters
+
+| Library | What It Does | Used For | Gotcha |
+|---------|-------------|----------|--------|
+| **basic-pitch** (Spotify) | ML model: audio → MIDI note events | Transcription | CPU-only (TensorFlow). Runs on ARM. ~2-5s for short clips. |
+| **music21** | Symbolic music analysis library | Key, chords, Roman numerals, cadences, voice leading, MusicXML parse/write | HEAVY. First import takes ~2s. `score.analyze("key")` is expensive. |
+| **pretty_midi** | MIDI file manipulation | Tempo/time-sig extraction, rhythm analysis, MIDI cleaning | Lightweight. Used alongside music21 (music21 handles harmony, pretty_midi handles metadata). |
+| **FluidSynth** (pyfluidsynth) | MIDI → WAV synthesis via SoundFont | Natural piano timbre rendering | Requires `fluidsynth` binary + SoundFont file on disk. Falls back to numpy if missing. |
+| **numpy** | Numerical computing | Additive synth fallback, pitch-class vectors, normalization | Also used by music21/pretty_midi internally. |
+| **soundfile** (libsndfile) | Audio file I/O | WAV read/write for normalization | Requires `libsndfile1` system package. |
+| **ffmpeg** | Audio processing | Denoise, declip, normalize, format conversion | External binary. 120s timeout. |
+
+**Import chain:** `basic-pitch` pulls in `tensorflow` (~800MB). `music21` pulls in `matplotlib`, `numpy`, `chaos` (~200MB). Total backend image: ~2GB.
+
+**Why two MIDI libraries?** music21 is brilliant for harmonic analysis (chords, Roman numerals, key detection) but slow for metadata extraction. pretty_midi is fast for tempo/time-sig/note-level operations but can't do harmonic analysis. They complement each other.
+
+**Why custom modulation detection?** music21's `score.analyze("key")` works on the full Score object. For modulation detection, we need key estimation on time windows (sub-sections of the piece). There's no OOTB function for this. The Krumhansl-Schmuckler approach is a standard musicology technique — correlate pitch-class distribution against empirical profiles.
+
+#### Frontend (TypeScript/JavaScript)
+
+| Library | What It Does | Used For | Bundle Impact |
+|---------|-------------|----------|---------------|
+| **opensheetmusicdisplay** (OSMD) | MusicXML → SVG rendering | Sheet music display | ~500KB gzipped (dynamically imported) |
+| **wavesurfer.js** | Audio waveform + spectrogram | Waveform visualization, spectrogram plugin | ~100KB gzipped |
+| **@ai-sdk/react** | React hooks for AI chat | `useChat()` for SSE streaming | ~15KB |
+| **@ai-sdk/openai** | OpenAI-compatible API client | Chat with OpenRouter | ~10KB |
+| **@supabase/supabase-js** | Supabase client SDK | Auth, Storage, Realtime | ~60KB |
+| **@sentry/nextjs** | Error monitoring | Sentry integration | ~30KB |
+| **zod** | Schema validation | Tool input validation in chat | ~15KB |
+| **tailwindcss** | CSS framework | Utility-first styling | 0KB (purged at build) |
+
+**Dynamic imports:** OSMD and WaveSurfer are dynamically imported (`next/dynamic` or `import()`) to avoid loading ~600KB on initial page load. They only load when the user navigates to a visualization.
 
 ---
 
