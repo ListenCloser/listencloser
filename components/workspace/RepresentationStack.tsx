@@ -100,6 +100,7 @@ export default function RepresentationStack({
           onRemove={() => removeRepresentation(rep.kind)}
           editable={mode === "correct" && rep.kind === "piano_roll"}
           correctedNotes={rep.kind === "piano_roll" ? correctedNotes : undefined}
+          workspaceNotes={rep.notes?.length ? rep.notes : undefined}
           onNotesChange={rep.kind === "piano_roll" ? onCorrectedNotesChange : undefined}
         />
       ))}

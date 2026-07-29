@@ -21,6 +21,7 @@ type RepresentationLaneProps = {
   footerControls?: ReactNode;
   editable?: boolean;
   correctedNotes?: Note[] | null;
+  workspaceNotes?: Note[] | null;
   onNotesChange?: ((notes: Note[]) => void) | undefined;
 };
 
@@ -48,6 +49,7 @@ export default function RepresentationLane({
   footerControls,
   editable,
   correctedNotes,
+  workspaceNotes,
   onNotesChange,
 }: RepresentationLaneProps) {
   const { transport } = useTransport();
@@ -170,7 +172,7 @@ export default function RepresentationLane({
             }}
             >
               {children || renderRepresentation(kind, {
-                notes: (correctedNotes ?? []) as Note[] | undefined,
+                notes: (correctedNotes ?? workspaceNotes ?? []) as Note[] | undefined,
                 bpm: 120,
                 playheadTime: transport.position,
                 editable: editable ?? false,

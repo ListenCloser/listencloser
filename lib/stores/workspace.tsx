@@ -13,6 +13,8 @@ export type RepresentationKind =
   | "structure"
   | "annotations";
 
+type Note = { pitch: number; start: number; end: number; velocity: number };
+
 type RepresentationEntry = {
   kind: RepresentationKind;
   label: string;
@@ -20,6 +22,7 @@ type RepresentationEntry = {
   sourceLabel: string;
   confidence: number | null;
   provenance: string;
+  notes?: Note[];
 };
 
 type WorkspaceState = {
