@@ -1,0 +1,93 @@
+{
+  "properties": {
+    "time_start_seconds": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Time Start Seconds"
+    },
+    "time_end_seconds": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Time End Seconds"
+    },
+    "beat_start": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Beat Start"
+    },
+    "beat_end": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Beat End"
+    },
+    "measure_start": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Measure Start"
+    },
+    "measure_end": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Measure End"
+    },
+    "note_indices": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Note Indices",
+      "type": "array"
+    },
+    "entity_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "title": "Entity Ids",
+      "type": "array"
+    }
+  },
+  "title": "Selection",
+  "type": "object"
+}

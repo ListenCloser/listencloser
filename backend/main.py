@@ -5,19 +5,18 @@ import logging
 import os
 import re
 import tempfile
-import threading
 import time
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from analyze import analyze_midi
+from auth_utils import limiter, verify_token, verify_token_optional
+from domain.api import router as domain_router
 from music_features import _sanitize_fmt, convert_format, enhance_audio, transcribe_audio
 
 _request_id_ctx = contextvars.ContextVar("request_id", default="none")
@@ -61,12 +60,14 @@ try:
 except ImportError:
     logger.warning("sentry_sdk_not_installed")
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
-
-security = HTTPBearer(auto_error=False)
-
 MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", "26214400"))  # 25 MB
 _MIDI_KEY_RE = re.compile(r"^midi/[\w.\-]+/[\w.\-]+$")
+
+
+def _sb():
+    import auth_utils
+
+    return auth_utils.get_supabase_client()
 
 
 def _now() -> str:
@@ -109,63 +110,10 @@ def _split_storage_path(path: str) -> tuple[str, str]:
     raise HTTPException(status_code=400, detail="path must start with library/ or midi/")
 
 
-_sb_client = None
-_sb_lock = threading.Lock()
-
-
-def _sb():
-    global _sb_client
-    if _sb_client is not None:
-        return _sb_client
-    with _sb_lock:
-        if _sb_client is not None:
-            return _sb_client
-        from supabase import create_client
-
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
-            return None
-        _sb_client = create_client(url, key)
-        return _sb_client
-
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    sb = _sb()
-    if not sb:
-        raise HTTPException(status_code=500, detail="Auth not configured")
-    try:
-        user = sb.auth.get_user(token)
-        return user
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-        ) from None
-
-
-def verify_token_optional(
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-):
-    """Like verify_token but allows anonymous access. Returns the user when a
-    valid bearer token is supplied, otherwise None. Used by read-only/public
-    endpoints (e.g. /music/analyze) so unauthenticated users can still use them."""
-    if not credentials:
-        return None
-    sb = _sb()
-    if not sb:
-        return None
-    try:
-        return sb.auth.get_user(credentials.credentials)
-    except Exception:
-        return None
-
-
 app = FastAPI(title="hello-ai backend", version="0.3.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
+app.include_router(domain_router)
 
 @app.middleware("http")
 async def observability_middleware(request: Request, call_next):

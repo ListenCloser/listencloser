@@ -12,6 +12,35 @@ function getBackendUrl(): string {
  * Generic reverse-proxy to the Oracle FastAPI backend.
  * Forwards the request body/method to `BACKEND_URL + path` and returns JSON.
  */
+export async function proxyToBackendFormData(req: NextRequest, path: string) {
+  try {
+    const authHeader = req.headers.get("authorization");
+    const headers: Record<string, string> = {};
+    if (authHeader) headers["Authorization"] = authHeader;
+
+    const formData = await req.formData();
+    const res = await fetch(`${getBackendUrl()}${path}`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = typeof data === "object" && data !== null && "detail" in data
+        ? (data as { detail?: unknown }).detail
+        : undefined;
+      return NextResponse.json(
+        { error: typeof detail === "string" ? detail : "backend error" },
+        { status: res.status }
+      );
+    }
+    return NextResponse.json(data);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "unknown error";
+    return NextResponse.json({ error: msg }, { status: 502 });
+  }
+}
+
 export async function proxyToBackend(req: NextRequest, path: string) {
   try {
     const authHeader = req.headers.get("authorization");

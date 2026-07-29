@@ -98,6 +98,8 @@ Browser ──▶ Vercel (/api/music/*) ──▶ Oracle VM
 
 **Key Rule:** The browser never talks to the Oracle backend directly. All backend calls go through `app/api/*` → `lib/backend.ts` (`proxyToBackend`), keeping the VM URL/key off the client.
 
+The app is transitioning to a **workspace architecture** at `/workspace` with a unified transport, shared selection, and domain model entities (Projects, Works, Artifacts, Versions, Entities, Insights, Alignments). See `docs/ORCHESTRATION.md` for the architectural roadmap and `docs/adr/ADR-007.md` for the migration plan from the reference `LibFile` model.
+
 ## Running Tests
 
 ### Component Tests (Vitest)
