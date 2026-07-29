@@ -55,7 +55,7 @@ function ModeSelector() {
   );
 }
 
-function WorkspaceContent({ signedIn = false }: { signedIn?: boolean }) {
+function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolean; projectName?: string }) {
   const { workspace, toggleInspector } = useWorkspace();
   const [jobs, setJobs] = useState<Job[]>([]);
 
@@ -107,7 +107,7 @@ function WorkspaceContent({ signedIn = false }: { signedIn?: boolean }) {
       >
         <div className="brand" style={{ fontSize: "var(--fs-sm)", flexShrink: 0 }}>
           <span className="brand-dot" />
-          hello-ai
+          {projectName || "hello-ai"}
         </div>
 
         <ModeSelector />
@@ -146,9 +146,11 @@ function WorkspaceContent({ signedIn = false }: { signedIn?: boolean }) {
 
 export default function WorkspaceShell({
   signedIn = false,
+  projectName,
   children,
 }: {
   signedIn?: boolean;
+  projectName?: string;
   children?: ReactNode;
 }) {
   return (
@@ -157,7 +159,7 @@ export default function WorkspaceShell({
         <TimelineProvider>
           <WorkspaceProvider>
             {children}
-            <WorkspaceContent signedIn={signedIn} />
+            <WorkspaceContent signedIn={signedIn} projectName={projectName} />
           </WorkspaceProvider>
         </TimelineProvider>
       </SelectionProvider>
