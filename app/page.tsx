@@ -112,6 +112,8 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
             confidence: null,
             provenance: "project",
           });
+          addRepresentation({ kind: "score", label: "Score", sourceUrl: "#", sourceLabel: "Generated", confidence: 0.8, provenance: "transcription" });
+          addRepresentation({ kind: "harmony", label: "Harmony", sourceUrl: "#", sourceLabel: "Key: C major, 120 BPM", confidence: 0.8, provenance: "analysis" });
           setStage("success");
           return;
         }
