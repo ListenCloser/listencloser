@@ -4,15 +4,14 @@ Comprehensive unit tests for the hello-ai JobWorker.
 All supabase calls are mocked.  No real database is required.
 """
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from unittest.mock import ANY, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
 
 from domain.job_worker import JobWorker, _capability_key
-from domain.models import Capability, Job, JobLifecycle, JobStage
-
+from domain.models import Job
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -29,7 +28,7 @@ def make_job_row(**overrides):
 
     All keys that the worker reads are present with sensible defaults.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     base: dict = {
         "id": str(uuid4()),
         "workflow_id": str(uuid4()),
@@ -107,7 +106,9 @@ class TestClaimJob:
         assert claimed is False
 
     def test_claim_returns_false_when_data_is_none(self, worker, mock_supabase):
-        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=None)
+        chain = mock_supabase.table.return_value.update.return_value.eq.return_value
+        chain = chain.eq.return_value
+        chain.execute.return_value = MagicMock(data=None)
 
         claimed = worker._claim_job(str(uuid4()))
 
@@ -139,7 +140,9 @@ class TestOrphanRecovery:
         assert count == 0
 
     def test_supabase_error_during_recovery(self, worker, mock_supabase):
-        mock_supabase.table.return_value.update.return_value.lt.return_value.in_.return_value.execute.side_effect = Exception("timeout")
+        chain = mock_supabase.table.return_value.update.return_value.lt.return_value
+        chain = chain.in_.return_value
+        chain.execute.side_effect = Exception("timeout")
 
         count = worker._recover_orphans()
 
@@ -380,7 +383,8 @@ class TestJobCancellation:
         assert result is False
 
     def test_check_cancelled_safe_on_db_error(self, worker, mock_supabase):
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.side_effect = Exception("timeout")
+        chain = mock_supabase.table.return_value.select.return_value.eq.return_value
+        chain.execute.side_effect = Exception("timeout")
 
         result = worker._check_cancelled(str(uuid4()))
 
@@ -429,7 +433,9 @@ class TestCacheIdempotency:
 
     def test_cache_check_error_returns_false(self, worker, mock_supabase):
         job_row = make_job_row(cache_key="err-key")
-        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.side_effect = Exception("boom")
+        chain = mock_supabase.table.return_value.select.return_value.eq.return_value
+        chain = chain.eq.return_value
+        chain.execute.side_effect = Exception("boom")
 
         hit = worker._check_cache_hit(job_row)
 
@@ -469,7 +475,9 @@ class TestProgressUpdates:
         assert update_args["progress"] == 1.0
 
     def test_progress_db_error_does_not_raise(self, worker, mock_supabase):
-        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.side_effect = Exception("DB down")
+        chain = mock_supabase.table.return_value.update.return_value.eq.return_value
+        chain = chain.eq.return_value
+        chain.execute.side_effect = Exception("DB down")
 
         worker.update_progress(str(uuid4()), 0.3, "still here")
 
@@ -592,7 +600,8 @@ def _configure_sel_eq_eq(mock, data):
 
 def _configure_sel_eq_order_limit(mock, data):
     """``client.table().select().eq().order().limit().execute()``"""
-    chain = mock.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value
+    root = mock.table.return_value.select.return_value.eq.return_value
+    chain = root.order.return_value.limit.return_value
     chain.execute.return_value = make_result(data)
 
 

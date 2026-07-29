@@ -1,16 +1,13 @@
 import os
 import threading
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 from supabase import Client, create_client
 
 from domain.models import (
     Alignment,
-    AlignmentKind,
     Artifact,
-    ArtifactKind,
     Cadence,
     Capability,
     ChordEntity,
@@ -23,11 +20,9 @@ from domain.models import (
     NoteEntity,
     Project,
     Span,
-    TimelineUnit,
     Version,
     Work,
     Workflow,
-    WorkflowKind,
 )
 
 __all__ = [
@@ -43,11 +38,11 @@ __all__ = [
     "JobRepo",
 ]
 
-_sb_client: Optional[Client] = None
+_sb_client: Client | None = None
 _sb_lock = threading.Lock()
 
 
-def get_supabase() -> Optional[Client]:
+def get_supabase() -> Client | None:
     global _sb_client
     if _sb_client is not None:
         return _sb_client
@@ -62,7 +57,7 @@ def get_supabase() -> Optional[Client]:
         return _sb_client
 
 
-def _parse_dt(value) -> Optional[datetime]:
+def _parse_dt(value) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -107,7 +102,7 @@ class ProjectRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Project.model_validate(_first(result.data))
 
-    def get(self, project_id: UUID, owner_id: str) -> Optional[Project]:
+    def get(self, project_id: UUID, owner_id: str) -> Project | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -171,7 +166,7 @@ class WorkRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Work.model_validate(_first(result.data))
 
-    def get(self, work_id: UUID, owner_id: str) -> Optional[Work]:
+    def get(self, work_id: UUID, owner_id: str) -> Work | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -247,7 +242,7 @@ class ArtifactRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Artifact.model_validate(_first(result.data))
 
-    def get(self, artifact_id: UUID, owner_id: str) -> Optional[Artifact]:
+    def get(self, artifact_id: UUID, owner_id: str) -> Artifact | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -320,7 +315,7 @@ class VersionRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Version.model_validate(_first(result.data))
 
-    def get(self, version_id: UUID, owner_id: str) -> Optional[Version]:
+    def get(self, version_id: UUID, owner_id: str) -> Version | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -343,7 +338,7 @@ class VersionRepo(_Repo):
         )
         return [Version.model_validate(r) for r in result.data]
 
-    def get_latest(self, artifact_id: UUID, owner_id: str) -> Optional[Version]:
+    def get_latest(self, artifact_id: UUID, owner_id: str) -> Version | None:
         self._verify_artifact_owner(artifact_id, owner_id)
         result = (
             self.client.table(self.table)
@@ -400,7 +395,7 @@ class EntityRepo(_Repo):
         result = self.client.table(self.table).insert(row).execute()
         return self._row_to_entity(_first(result.data))
 
-    def get(self, entity_id: UUID, owner_id: str) -> Optional[Entity]:
+    def get(self, entity_id: UUID, owner_id: str) -> Entity | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -566,7 +561,7 @@ class InsightRepo(_Repo):
         result = self.client.table(self.table).insert(row).execute()
         return Insight.model_validate(_first(result.data))
 
-    def get(self, insight_id: UUID, owner_id: str) -> Optional[Insight]:
+    def get(self, insight_id: UUID, owner_id: str) -> Insight | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -651,7 +646,7 @@ class AlignmentRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Alignment.model_validate(_first(result.data))
 
-    def get(self, alignment_id: UUID, owner_id: str) -> Optional[Alignment]:
+    def get(self, alignment_id: UUID, owner_id: str) -> Alignment | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -736,7 +731,7 @@ class WorkflowRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Workflow.model_validate(_first(result.data))
 
-    def get(self, workflow_id: UUID, owner_id: str) -> Optional[Workflow]:
+    def get(self, workflow_id: UUID, owner_id: str) -> Workflow | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -798,7 +793,7 @@ class JobRepo(_Repo):
         result = self.client.table(self.table).insert(row).execute()
         return self._row_to_job(_first(result.data))
 
-    def get(self, job_id: UUID, owner_id: str) -> Optional[Job]:
+    def get(self, job_id: UUID, owner_id: str) -> Job | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -842,7 +837,7 @@ class JobRepo(_Repo):
         )
         return self._row_to_job(_first(result.data))
 
-    def claim(self, job_id: UUID, worker_id: str) -> Optional[Job]:
+    def claim(self, job_id: UUID, worker_id: str) -> Job | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -859,7 +854,7 @@ class JobRepo(_Repo):
                 {
                     "stage": JobStage.claimed.value,
                     "worker_id": worker_id,
-                    "lease_expires_at": datetime.now(timezone.utc).isoformat(),
+                    "lease_expires_at": datetime.now(UTC).isoformat(),
                 }
             )
             .eq("id", str(job_id))

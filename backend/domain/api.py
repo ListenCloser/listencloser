@@ -5,17 +5,14 @@ import mimetypes
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from auth_utils import limiter, verify_token
-
 from domain.models import (
     Artifact,
     ArtifactKind,
     Capability,
-    Entity,
-    Insight,
     Job,
     Project,
     Version,
@@ -30,8 +27,8 @@ from domain.repositories import (
     JobRepo,
     ProjectRepo,
     VersionRepo,
-    WorkRepo,
     WorkflowRepo,
+    WorkRepo,
     get_supabase,
 )
 
@@ -127,9 +124,9 @@ async def create_project(
     try:
         return repo.create(project)
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -167,9 +164,9 @@ async def create_work(
     try:
         return repo.create(work, owner_id)
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -241,9 +238,9 @@ async def upload_artifact(
         return {"artifact": artifact, "version": version}
 
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -289,9 +286,9 @@ async def create_understand_workflow(
         return {"workflow": workflow, "job": job}
 
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -319,9 +316,9 @@ async def get_job(
             output_version_ids=[str(v) for v in job.output_version_ids],
         )
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -367,9 +364,9 @@ async def create_analyze_workflow(
         return {"workflow": workflow, "job": job}
 
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -389,9 +386,9 @@ async def list_entities(
         repo = EntityRepo(sb)
         return repo.list_by_version(version_id, owner_id)
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -411,9 +408,9 @@ async def list_insights(
         repo = InsightRepo(sb)
         return repo.list_by_version(version_id, owner_id)
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -466,9 +463,9 @@ async def create_correct_workflow(
         return {"workflow": workflow, "job": job}
 
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -519,9 +516,9 @@ async def create_compare_workflow(
         return {"workflow": workflow, "job": job}
 
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -570,6 +567,6 @@ async def create_create_workflow(
         return {"workflow": workflow, "job": job}
 
     except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e

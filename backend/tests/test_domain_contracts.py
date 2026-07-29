@@ -1,8 +1,8 @@
-import json
 from datetime import datetime
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from domain.models import (
     Alignment,
@@ -61,7 +61,7 @@ class TestProject:
 
     def test_immutable(self):
         p = Project(owner_id="u1", name="Test")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             p.name = "Changed"
 
     def test_serialize_deserialize(self):
@@ -84,7 +84,7 @@ class TestWork:
         assert w.title == "Etude No.1"
 
     def test_immutable(self, work: Work):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             work.title = "Changed"
 
     def test_serialize(self, work: Work):
@@ -105,7 +105,7 @@ class TestArtifact:
             assert a.kind == kind
 
     def test_immutable(self, artifact: Artifact):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             artifact.kind = ArtifactKind.stems
 
 
@@ -130,7 +130,7 @@ class TestVersion:
         assert v2.lineage == [v1.id]
 
     def test_immutable(self, version: Version):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             version.storage_key = "changed"
 
     def test_serialize(self, version: Version):
@@ -185,7 +185,7 @@ class TestEntity:
         assert s.end_measure == 1
 
     def test_immutable(self, entity: Entity):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             entity.kind = EntityKind.cadence
 
 
@@ -204,13 +204,13 @@ class TestInsight:
         assert i.claim == "C major"
 
     def test_confidence_bounds(self, version: Version):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             Insight(version_id=version.id, kind="x", claim="x", confidence=1.5)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             Insight(version_id=version.id, kind="x", claim="x", confidence=-0.1)
 
     def test_immutable(self, insight: Insight):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             insight.confidence = 0.5
 
     def test_serialize(self, insight: Insight):
@@ -232,7 +232,7 @@ class TestAlignment:
         assert a.kind == AlignmentKind.timeline
 
     def test_confidence_bounds(self, version: Version):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             Alignment(
                 version_id=version.id,
                 target_version_id=version.id,
@@ -243,7 +243,7 @@ class TestAlignment:
             )
 
     def test_immutable(self, alignment: Alignment):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             alignment.confidence = 0.3
 
 
@@ -271,14 +271,13 @@ class TestJob:
         assert j.lifecycle.progress == 0.5
 
     def test_progress_bounds(self):
-        cap = Capability(name="transcribe", version="1.0")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             JobLifecycle(progress=1.5)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             JobLifecycle(progress=-0.1)
 
     def test_immutable(self, job: Job):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             job.lifecycle = JobLifecycle(current=JobStage.failed)
 
     def test_cache_key(self):
@@ -311,7 +310,7 @@ class TestSelection:
 
     def test_immutable(self):
         s = Selection(time_start_seconds=1.0)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             s.time_start_seconds = 2.0
 
 
