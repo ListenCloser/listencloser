@@ -1,60 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
-
-type MockWork = {
-  id: string;
-  title: string;
-  composer: string | null;
-};
-
-type MockProject = {
-  id: string;
-  name: string;
-  works: MockWork[];
-};
-
-const MOCK_PROJECTS: MockProject[] = [
-  {
-    id: "proj-1",
-    name: "Chopin Preludes",
-    works: [
-      { id: "w1", title: "Prelude Op. 28 No. 4", composer: "Chopin" },
-      { id: "w2", title: "Prelude Op. 28 No. 7", composer: "Chopin" },
-    ],
-  },
-  {
-    id: "proj-2",
-    name: "My Compositions",
-    works: [
-      { id: "w3", title: "Untitled Sketch #1", composer: null },
-      { id: "w4", title: "Untitled Sketch #2", composer: null },
-    ],
-  },
-  {
-    id: "proj-3",
-    name: "Bach Studies",
-    works: [
-      { id: "w5", title: "Fugue in C minor", composer: "J.S. Bach" },
-    ],
-  },
-];
+import { listProjects } from "@/lib/api-client";
+import type { Project } from "@/lib/domain.types";
 
 export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean }) {
   const { workspace, toggleLibrary } = useWorkspace();
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(["proj-1"]));
-  const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-  const toggleProject = (id: string) => {
-    setExpandedProjects((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    listProjects()
+      .then(setProjects)
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
+      .finally(() => setLoading(false));
+  }, []);
 
   async function signIn() {
     if (!supabase) return;
@@ -100,19 +66,15 @@ export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean 
           ▸
         </button>
 
-        {MOCK_PROJECTS.slice(0, 4).map((p) => (
+        {projects.slice(0, 4).map((p) => (
           <button
             key={p.id}
             className="icon-btn ghost"
             style={{
               padding: "6px",
               fontSize: 12,
-              background: selectedWorkId && MOCK_PROJECTS.find((proj) =>
-                proj.works.some((w) => w.id === selectedWorkId)
-              )?.id === p.id ? "var(--accent-soft)" : undefined,
-              color: selectedWorkId && MOCK_PROJECTS.find((proj) =>
-                proj.works.some((w) => w.id === selectedWorkId)
-              )?.id === p.id ? "var(--accent)" : "var(--muted)",
+              background: selectedProjectId === p.id ? "var(--accent-soft)" : undefined,
+              color: selectedProjectId === p.id ? "var(--accent)" : "var(--muted)",
             }}
             title={p.name}
           >
@@ -180,10 +142,27 @@ export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean 
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: "var(--s-2)" }}>
-        {MOCK_PROJECTS.map((project) => (
-          <div key={project.id} style={{ marginBottom: "var(--s-1)" }}>
+        {loading && (
+          <div style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", textAlign: "center", padding: "var(--s-4)" }}>
+            Loading projects…
+          </div>
+        )}
+        {error && (
+          <div style={{ color: "var(--danger)", fontSize: "var(--fs-xs)", textAlign: "center", padding: "var(--s-4)" }}>
+            {error}
+          </div>
+        )}
+        {!loading && !error && projects.length === 0 && (
+          <div style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", textAlign: "center", padding: "var(--s-4)" }}>
+            No projects yet
+          </div>
+        )}
+        {projects.map((project) => {
+          const isSelected = selectedProjectId === project.id;
+          return (
             <button
-              onClick={() => toggleProject(project.id)}
+              key={project.id}
+              onClick={() => setSelectedProjectId(isSelected ? null : project.id)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -192,8 +171,8 @@ export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean 
                 padding: "var(--s-2) var(--s-2)",
                 border: "none",
                 borderRadius: "var(--r-sm)",
-                background: "transparent",
-                color: "var(--text)",
+                background: isSelected ? "var(--accent-soft)" : "transparent",
+                color: isSelected ? "var(--accent)" : "var(--text)",
                 fontSize: "var(--fs-sm)",
                 fontWeight: "var(--fw-medium)",
                 cursor: "pointer",
@@ -202,10 +181,10 @@ export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean 
                 transition: "background var(--dur) var(--ease)",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "var(--state-hover)";
+                if (!isSelected) (e.currentTarget as HTMLElement).style.background = "var(--state-hover)";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "transparent";
+                if (!isSelected) (e.currentTarget as HTMLElement).style.background = "transparent";
               }}
             >
               <span
@@ -222,77 +201,14 @@ export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean 
                   flexShrink: 0,
                 }}
               >
-                {expandedProjects.has(project.id) ? "▾" : "▸"}
+                {isSelected ? "●" : "○"}
               </span>
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {project.name}
               </span>
-              <span
-                style={{
-                  fontSize: "var(--fs-xs)",
-                  color: "var(--muted)",
-                  flexShrink: 0,
-                }}
-              >
-                {project.works.length}
-              </span>
             </button>
-
-            {expandedProjects.has(project.id) && (
-              <div style={{ paddingLeft: "var(--s-5)" }}>
-                {project.works.map((work) => (
-                  <button
-                    key={work.id}
-                    onClick={() =>
-                      setSelectedWorkId(
-                        selectedWorkId === work.id ? null : work.id
-                      )
-                    }
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                      width: "100%",
-                      padding: "var(--s-2) var(--s-2)",
-                      border: "none",
-                      borderRadius: "var(--r-sm)",
-                      background:
-                        selectedWorkId === work.id
-                          ? "var(--accent-soft)"
-                          : "transparent",
-                      color:
-                        selectedWorkId === work.id
-                          ? "var(--accent)"
-                          : "var(--muted)",
-                      fontSize: "var(--fs-xs)",
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      textAlign: "left",
-                      transition: "all var(--dur) var(--ease)",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (selectedWorkId !== work.id) {
-                        (e.currentTarget as HTMLElement).style.color = "var(--text)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (selectedWorkId !== work.id) {
-                        (e.currentTarget as HTMLElement).style.color = "var(--muted)";
-                      }
-                    }}
-                  >
-                    <span>{work.title}</span>
-                    {work.composer && (
-                      <span style={{ fontSize: 10, opacity: 0.6 }}>
-                        {work.composer}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
         <div style={{ marginTop: "var(--s-4)" }}>
           <div className="section-label">Versions</div>

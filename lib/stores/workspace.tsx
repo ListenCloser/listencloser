@@ -1,6 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+
+const STORAGE_KEY = "hello-ai-workspace";
 
 export type WorkspaceMode = "explore" | "compare" | "correct" | "create" | "history";
 
@@ -32,6 +34,9 @@ type WorkspaceState = {
   representations: RepresentationEntry[];
   expandedRepresentation: RepresentationKind | null;
   focusRepresentation: RepresentationKind | null;
+  versionIds: string[];
+  currentVersionId: string | null;
+  midiVersionId: string | null;
 };
 
 type WorkspaceContextValue = {
@@ -44,6 +49,11 @@ type WorkspaceContextValue = {
   expandRepresentation: (kind: RepresentationKind | null) => void;
   focusRepresentation: (kind: RepresentationKind | null) => void;
   reorderRepresentations: (fromIndex: number, toIndex: number) => void;
+  addVersionId: (id: string, label?: string) => void;
+  versions: { id: string; label: string }[];
+  currentVersionId: string | null;
+  midiVersionId: string | null;
+  setMidiVersionId: (id: string) => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -55,14 +65,28 @@ export function useWorkspace(): WorkspaceContextValue {
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [workspace, setWorkspace] = useState<WorkspaceState>({
-    mode: "explore",
-    libraryCollapsed: false,
-    inspectorCollapsed: false,
-    representations: [],
-    expandedRepresentation: null,
-    focusRepresentation: null,
+  const [workspace, setWorkspace] = useState<WorkspaceState>(() => {
+    if (typeof window === "undefined") return {
+      mode: "explore", libraryCollapsed: false, inspectorCollapsed: false,
+      representations: [], expandedRepresentation: null, focusRepresentation: null,
+      versionIds: [], currentVersionId: null, midiVersionId: null,
+    };
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return { ...JSON.parse(saved), representations: [], midiVersionId: null };
+    } catch { /* ignore */ }
+    return {
+      mode: "explore", libraryCollapsed: false, inspectorCollapsed: false,
+      representations: [], expandedRepresentation: null, focusRepresentation: null,
+      versionIds: [], currentVersionId: null, midiVersionId: null,
+    };
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
+    } catch { /* ignore */ }
+  }, [workspace]);
 
   const setMode = useCallback((mode: WorkspaceMode) => {
     setWorkspace((prev) => ({ ...prev, mode }));
@@ -136,6 +160,26 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const [versionLabels, setVersionLabels] = useState<Map<string, string>>(new Map());
+
+  const addVersionId = useCallback((id: string, label?: string) => {
+    setWorkspace((prev) => {
+      if (prev.versionIds.includes(id)) return prev;
+      return {
+        ...prev,
+        versionIds: [...prev.versionIds, id],
+        currentVersionId: prev.currentVersionId ?? id,
+      };
+    });
+    if (label) setVersionLabels((prev) => new Map(prev).set(id, label));
+  }, []);
+
+  const versions = workspace.versionIds.map((id) => ({ id, label: versionLabels.get(id) ?? id }));
+
+  const setMidiVersionId = useCallback((id: string) => {
+    setWorkspace((prev) => ({ ...prev, midiVersionId: id }));
+  }, []);
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -148,6 +192,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         expandRepresentation,
         focusRepresentation,
         reorderRepresentations,
+        addVersionId,
+        versions,
+        currentVersionId: workspace.currentVersionId,
+        midiVersionId: workspace.midiVersionId,
+        setMidiVersionId,
       }}
     >
       {children}

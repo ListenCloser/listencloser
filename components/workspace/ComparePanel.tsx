@@ -22,6 +22,7 @@ type ComparePanelProps = {
   onSelectVersionA: () => void;
   onSelectVersionB: () => void;
   diffNotes: DiffNote[] | null;
+  onCompare?: (versionIdA: string, versionIdB: string) => void;
 };
 
 function extractNotes(entities: Entity[]): Note[] {
@@ -80,6 +81,7 @@ export default function ComparePanel({
   onSelectVersionA,
   onSelectVersionB,
   diffNotes: externalDiffNotes,
+  onCompare,
 }: ComparePanelProps) {
   const [playheadTime, setPlayheadTime] = useState(0);
   const [bpm] = useState(120);
@@ -244,6 +246,16 @@ export default function ComparePanel({
           </button>
         </div>
       </div>
+
+      {versionA && versionB && onCompare && (
+        <button
+          className="btn btn-primary"
+          onClick={() => onCompare(versionA.id, versionB.id)}
+          style={{ padding: "4px 12px", fontSize: "var(--fs-xs)" }}
+        >
+          Compare
+        </button>
+      )}
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
         <DualPianoRoll

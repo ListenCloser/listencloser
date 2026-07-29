@@ -5,12 +5,15 @@ import { TransportProvider } from "@/lib/stores/transport";
 import { SelectionProvider } from "@/lib/stores/selection";
 import { TimelineProvider } from "@/lib/stores/timeline";
 import { WorkspaceProvider, useWorkspace, type WorkspaceMode } from "@/lib/stores/workspace";
+import { useAuth } from "@/components/AuthProvider";
+import { startCompareWorkflow, startCorrectWorkflow, getEntities } from "@/lib/api-client";
 import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
 import InspectorPanel from "./InspectorPanel";
+import ComparePanel from "./ComparePanel";
 import ProcessingBanner from "./ProcessingBanner";
-import type { Job } from "@/lib/domain.types";
+import type { Job, Entity } from "@/lib/domain.types";
 
 const MODES: { id: WorkspaceMode; label: string }[] = [
   { id: "explore", label: "Explore" },
@@ -55,9 +58,31 @@ function ModeSelector() {
   );
 }
 
-function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolean; projectName?: string }) {
+function WorkspaceContent({ projectName }: { projectName?: string }) {
   const { workspace, toggleInspector } = useWorkspace();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [correctedNotes, setCorrectedNotes] = useState<ReturnType<typeof JSON.parse> | null>(null);
+  const [compareVersionA, setCompareVersionA] = useState<{ id: string; label: string; entities: Entity[] } | null>(null);
+  const [compareVersionB, setCompareVersionB] = useState<{ id: string; label: string; entities: Entity[] } | null>(null);
+  const [diffNotes, setDiffNotes] = useState<unknown[] | null>(null);
+
+  const handleCompare = useCallback(async (vidA: string, vidB: string) => {
+    const { job } = await startCompareWorkflow(vidA, vidB, "default");
+    setJobs((prev) => [...prev, job]);
+    const [entitiesA, entitiesB] = await Promise.all([getEntities(vidA), getEntities(vidB)]);
+    setCompareVersionA({ id: vidA, label: vidA, entities: entitiesA });
+    setCompareVersionB({ id: vidB, label: vidB, entities: entitiesB });
+    setDiffNotes(null);
+  }, []);
+
+  const handleSaveCorrection = useCallback(async () => {
+    if (!workspace.currentVersionId || !correctedNotes) return;
+    const { job } = await startCorrectWorkflow(
+      workspace.currentVersionId, "default", correctedNotes
+    );
+    setJobs((prev) => [...prev, job]);
+  }, [workspace.currentVersionId, correctedNotes]);
 
   const handleCancel = useCallback((jobId: string) => {
     setJobs((prev) => prev.filter((j) => j.id !== jobId));
@@ -114,6 +139,21 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
 
         <div style={{ flex: 1 }} />
 
+        <div style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", display: "flex", alignItems: "center", gap: "var(--s-2)" }}>
+          {user ? (
+            <>
+              <span style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>{user.email}</span>
+              <button className="btn" style={{ fontSize: "var(--fs-xs)", padding: "2px 8px" }} onClick={() => { /* sign out handled by parent */ }}>
+                Sign out
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary" style={{ fontSize: "var(--fs-xs)", padding: "4px 12px" }}>
+              Sign in
+            </button>
+          )}
+        </div>
+
         {workspace.inspectorCollapsed && (
           <button
             className="icon-btn ghost"
@@ -127,10 +167,41 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
 
       <TransportBar />
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <LibraryPanel signedIn={signedIn} />
+      {workspace.mode === "correct" && correctedNotes && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "var(--s-3)",
+          padding: "var(--s-2) var(--s-4)", background: "var(--panel-2)",
+          borderBottom: "1px solid var(--border)", fontSize: "var(--fs-xs)",
+        }}>
+          <span style={{ color: "var(--accent-2)", fontWeight: "var(--fw-medium)" }}>
+            Correction mode active — {Array.isArray(correctedNotes) ? correctedNotes.length : 0} notes modified
+          </span>
+          <div style={{ flex: 1 }} />
+          <button className="btn btn-primary" onClick={handleSaveCorrection} style={{ padding: "4px 16px" }}>
+            Save Correction
+          </button>
+        </div>
+      )}
 
-        <RepresentationStack />
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        <LibraryPanel signedIn={!!user} />
+
+        {workspace.mode === "compare" ? (
+          <ComparePanel
+            versionA={compareVersionA}
+            versionB={compareVersionB}
+            onSelectVersionA={() => {}}
+            onSelectVersionB={() => {}}
+            diffNotes={diffNotes as any}
+            onCompare={handleCompare}
+          />
+        ) : (
+          <RepresentationStack
+            mode={workspace.mode}
+            correctedNotes={correctedNotes as any}
+            onCorrectedNotesChange={workspace.mode === "correct" ? setCorrectedNotes : undefined}
+          />
+        )}
 
         <InspectorPanel />
       </div>
@@ -145,11 +216,9 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
 }
 
 export default function WorkspaceShell({
-  signedIn = false,
   projectName,
   children,
 }: {
-  signedIn?: boolean;
   projectName?: string;
   children?: ReactNode;
 }) {
@@ -159,7 +228,7 @@ export default function WorkspaceShell({
         <TimelineProvider>
           <WorkspaceProvider>
             {children}
-            <WorkspaceContent signedIn={signedIn} projectName={projectName} />
+            <WorkspaceContent projectName={projectName} />
           </WorkspaceProvider>
         </TimelineProvider>
       </SelectionProvider>

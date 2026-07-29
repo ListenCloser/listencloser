@@ -2,6 +2,7 @@
 
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
+import { useWorkspace } from "@/lib/stores/workspace";
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -12,6 +13,7 @@ function formatTime(s: number): string {
 export default function TransportBar() {
   const { transport, play, pause, stop, toggle, toggleLoop } = useTransport();
   const { timeline, totalDuration } = useTimeline();
+  const { midiVersionId } = useWorkspace();
   const { isPlaying, position, loopEnabled, loopStart, loopEnd, activeSource } = transport;
 
   return (
@@ -49,6 +51,20 @@ export default function TransportBar() {
       <div className="transport-spacer" />
 
       {activeSource && <span className="transport-source">{activeSource.label}</span>}
+
+      {midiVersionId && (
+        <div className="transport-group">
+          <a
+            href={`/api/v1/versions/${midiVersionId}/download`}
+            download="transcription.mid"
+            className="transport-btn"
+            title="Download MIDI"
+            style={{ textDecoration: "none" }}
+          >
+            ⬇
+          </a>
+        </div>
+      )}
 
       <div className="transport-bpm">{timeline.bpm} BPM</div>
 

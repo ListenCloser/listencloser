@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useSelection } from "@/lib/stores/selection";
+import MusicChat from "@/components/MusicChat";
 
 const TABS = [
   { id: "selection", label: "Selection" },
@@ -165,9 +166,22 @@ function SelectionTab() {
 }
 
 function PropertiesTab() {
+  const { workspace, setMode } = useWorkspace();
+
   return (
-    <div style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", padding: "var(--s-4) 0", textAlign: "center" }}>
-      Select an artifact or version to view its properties.
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-3)" }}>
+      <div style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", padding: "var(--s-1) 0", textAlign: "center" }}>
+        Select an artifact or version to view its properties.
+      </div>
+      {workspace.versionIds.length >= 2 && (
+        <button
+          className="btn btn-primary"
+          onClick={() => setMode("compare")}
+          style={{ width: "100%" }}
+        >
+          Compare Versions
+        </button>
+      )}
     </div>
   );
 }
@@ -199,11 +213,5 @@ function InsightsTab() {
 }
 
 function AITab() {
-  return (
-    <div style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", padding: "var(--s-4) 0", textAlign: "center" }}>
-      AI chat contextual to your selection.
-      <br />
-      Coming soon.
-    </div>
-  );
+  return <MusicChat />;
 }

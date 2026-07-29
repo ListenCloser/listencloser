@@ -37,7 +37,7 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { addRepresentation } = useWorkspace();
+  const { addRepresentation, addVersionId, setMidiVersionId } = useWorkspace();
   const { setActiveSource } = useTransport();
   const { setBpm } = useTimeline();
 
@@ -76,6 +76,10 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
             notes = []; useRealPipeline = false;
           }
 
+          if (transcribeResult.midi_version_id) {
+            setMidiVersionId(transcribeResult.midi_version_id);
+          }
+
           let bpmDetected = 120;
           let keyLabel = "C major";
           try {
@@ -101,6 +105,7 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
           addRepresentation({ kind: "harmony", label: "Harmony", sourceUrl: "#", sourceLabel: `Key: ${keyLabel}, ${bpmDetected} BPM`, confidence: 0.8, provenance: "analysis" });
 
           setStage("success");
+          addVersionId(vid, name);
           return;
         } catch {
           useRealPipeline = false;
