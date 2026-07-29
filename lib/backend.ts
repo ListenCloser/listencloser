@@ -18,15 +18,30 @@ function getBackendUrl(): string {
   return url;
 }
 
+function getBackendKey(): string {
+  return process.env.BACKEND_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+}
+
+/**
+ * Forward request to backend, adding service auth if no client auth present.
+ */
+function addAuthHeaders(req: NextRequest, base: Record<string, string>): Record<string, string> {
+  const auth = req.headers.get("authorization");
+  if (auth) { base["Authorization"] = auth; }
+  else {
+    const key = getBackendKey();
+    if (key) base["Authorization"] = `Bearer ${key}`;
+  }
+  return base;
+}
+
 /**
  * Generic reverse-proxy to the Oracle FastAPI backend.
  * Forwards the request body/method to `BACKEND_URL + path` and returns JSON.
  */
 export async function proxyToBackendFormData(req: NextRequest, path: string) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const headers: Record<string, string> = {};
-    if (authHeader) headers["Authorization"] = authHeader;
+    const headers = addAuthHeaders(req, {});
 
     const formData = await req.formData();
     const res = await fetch(`${getBackendUrl()}${path}`, {
@@ -53,9 +68,7 @@ export async function proxyToBackendFormData(req: NextRequest, path: string) {
 
 export async function proxyToBackend(req: NextRequest, path: string) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (authHeader) headers["Authorization"] = authHeader;
+    const headers = addAuthHeaders(req, { "Content-Type": "application/json" });
 
     const init: RequestInit = {
       method: req.method,

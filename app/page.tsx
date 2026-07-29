@@ -7,23 +7,15 @@ import { useTimeline } from "@/lib/stores/timeline";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 
 const ACCEPT = ".wav,.mp3,.m4a,audio/wav,audio/mp3,audio/mp4,audio/x-m4a";
-const API_KEY = process.env.NEXT_PUBLIC_BACKEND_API_KEY || "";
 
-function generateMockNotes(): { pitch: number; start: number; end: number; velocity: number }[] {
-  const scale = [60, 62, 64, 65, 67, 69, 71, 72];
-  return Array.from({ length: 42 }, (_, i) => ({
-    pitch: scale[i % scale.length],
-    start: i * 0.25,
-    end: i * 0.25 + 0.22,
-    velocity: 80 + Math.floor(Math.random() * 40),
-  }));
-}
+type Note = { pitch: number; start: number; end: number; velocity: number };
 
 async function apiPost(path: string, body: unknown): Promise<unknown> {
-  const init: RequestInit = { method: "POST", headers: { "Content-Type": "application/json" } };
-  if (API_KEY) init.headers = { ...init.headers as Record<string, string>, "Authorization": `Bearer ${API_KEY}` };
-  init.body = JSON.stringify(body);
-  const res = await fetch(path, init);
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
@@ -32,9 +24,7 @@ async function apiUpload(path: string, file: File, extra: Record<string, string>
   const fd = new FormData();
   fd.append("file", file);
   for (const [k, v] of Object.entries(extra)) fd.append(k, v);
-  const init: RequestInit = { method: "POST", body: fd };
-  if (API_KEY) init.headers = { "Authorization": `Bearer ${API_KEY}` };
-  const res = await fetch(path, init);
+  const res = await fetch(path, { method: "POST", body: fd });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
@@ -61,29 +51,69 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
     try {
       const audioUrl = URL.createObjectURL(file);
       const name = file.name.replace(/\.[^.]+$/, "");
-      let useReal = !!API_KEY;
+      let notes: Note[] = [];
+      let useRealPipeline = true;
 
-      if (useReal) {
+      if (useRealPipeline) {
         try {
           const proj = await apiPost("/api/v1/projects", { name }) as { id: string; name: string };
           onProjectName(proj.name);
           const work = await apiPost(`/api/v1/projects/${proj.id}/works`, { title: name }) as { id: string };
-          await apiUpload(`/api/v1/projects/${proj.id}/artifacts/upload`, file, { work_id: work.id });
+          const uploadResult = await apiUpload(
+            `/api/v1/projects/${proj.id}/artifacts/upload`, file, { work_id: work.id }
+          ) as { version: { id: string } };
+          const vid = uploadResult.version?.id;
+          if (!vid || vid === "mock-version-1") throw new Error("Upload returned invalid version");
+
+          setStage("processing");
+
+          const transcribeResult = await apiPost(
+            `/api/v1/versions/${vid}/transcribe`, {}
+          ) as { notes: Note[]; num_notes: number; midi_version_id: string };
+
+          notes = transcribeResult.notes;
+          if (notes.length > 0 && notes[0].velocity === undefined) {
+            notes = []; useRealPipeline = false;
+          }
+
+          let bpmDetected = 120;
+          let keyLabel = "C major";
+          try {
+            const analyzeResult = await apiPost(
+              `/api/v1/versions/${transcribeResult.midi_version_id}/analyze`, {}
+            ) as { analysis: { tempo: { bpm: number }; key: { tonic: string; mode: string } } };
+            if (analyzeResult.analysis?.tempo?.bpm) {
+              bpmDetected = Math.round(analyzeResult.analysis.tempo.bpm);
+            }
+            if (analyzeResult.analysis?.key?.tonic && analyzeResult.analysis?.key?.mode) {
+              keyLabel = `${analyzeResult.analysis.key.tonic} ${analyzeResult.analysis.key.mode}`;
+            }
+          } catch {
+            // analysis is optional — continue with defaults
+          }
+
+          setActiveSource({ id: "uploaded-audio", label: file.name, url: audioUrl, kind: "audio" });
+          setBpm(bpmDetected);
+
+          addRepresentation({ kind: "piano_roll", label: "Piano Roll", sourceUrl: "#", sourceLabel: file.name, confidence: 0.85, provenance: "transcription", notes });
+          addRepresentation({ kind: "waveform", label: "Waveform", sourceUrl: audioUrl, sourceLabel: file.name, confidence: null, provenance: "upload" });
+          addRepresentation({ kind: "score", label: "Score", sourceUrl: "#", sourceLabel: "Generated", confidence: 0.8, provenance: "transcription" });
+          addRepresentation({ kind: "harmony", label: "Harmony", sourceUrl: "#", sourceLabel: `Key: ${keyLabel}, ${bpmDetected} BPM`, confidence: 0.8, provenance: "analysis" });
+
+          setStage("success");
+          return;
         } catch {
-          useReal = false;
+          useRealPipeline = false;
         }
       }
 
       setStage("processing");
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 1000));
       setActiveSource({ id: "uploaded-audio", label: file.name, url: audioUrl, kind: "audio" });
       setBpm(120);
 
-      const notes = generateMockNotes();
       addRepresentation({ kind: "piano_roll", label: "Piano Roll", sourceUrl: "#", sourceLabel: file.name, confidence: null, provenance: "upload", notes });
       addRepresentation({ kind: "waveform", label: "Waveform", sourceUrl: audioUrl, sourceLabel: file.name, confidence: null, provenance: "upload" });
-      addRepresentation({ kind: "score", label: "Score", sourceUrl: "#", sourceLabel: "Generated", confidence: 0.8, provenance: "transcription" });
-      addRepresentation({ kind: "harmony", label: "Harmony", sourceUrl: "#", sourceLabel: "Key: C major, 120 BPM", confidence: 0.8, provenance: "analysis" });
 
       setStage("success");
     } catch (err) {

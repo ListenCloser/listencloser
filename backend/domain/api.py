@@ -1,7 +1,10 @@
 """
 FastAPI router — domain model API endpoints for the understand workflow slice.
 """
+import logging
 import mimetypes
+import os
+import tempfile
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -15,9 +18,12 @@ from domain.models import (
     ArtifactKind,
     Capability,
     Entity,
+    EntityKind,
     Insight,
     Job,
+    NoteEntity,
     Project,
+    Span,
     Version,
     Work,
     Workflow,
@@ -34,6 +40,8 @@ from domain.repositories import (
     WorkflowRepo,
     get_supabase,
 )
+
+logger = logging.getLogger("domain.api")
 
 router = APIRouter(prefix="/api/v1")
 
@@ -410,6 +418,305 @@ async def list_insights(
     try:
         repo = InsightRepo(sb)
         return repo.list_by_version(version_id, owner_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# POST /versions/{version_id}/transcribe
+# ---------------------------------------------------------------------------
+
+
+@router.post("/versions/{version_id}/transcribe")
+@limiter.limit("10/minute")
+async def transcribe_version(
+    version_id: UUID,
+    request: Request,
+    auth=Depends(verify_token),
+):
+    sb = _sb()
+    owner_id = _owner_id(auth)
+
+    try:
+        ver_repo = VersionRepo(sb)
+        version = ver_repo.get(version_id, owner_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Version not found")
+
+        audio_bytes = sb.storage.from_(version.storage_bucket).download(
+            version.storage_key
+        )
+        if not audio_bytes:
+            raise HTTPException(status_code=500, detail="Failed to download audio from storage")
+
+        fmt = version.storage_key.rsplit(".", 1)[-1] if "." in version.storage_key else "wav"
+
+        from music_features import transcribe_audio, enhance_audio
+
+        try:
+            enhanced = enhance_audio(audio_bytes, fmt=fmt)
+            audio_bytes = enhanced
+        except Exception as exc:
+            logger.warning("enhance_audio failed, using raw bytes: %s", exc)
+
+        result = transcribe_audio(audio_bytes, fmt="wav")
+
+        artifact_resp = (
+            sb.table("artifacts")
+            .select("work_id")
+            .eq("id", str(version.artifact_id))
+            .execute()
+        )
+        if not artifact_resp.data:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        work_id = UUID(artifact_resp.data[0]["work_id"])
+
+        midi_key = f"transcriptions/{version_id}/transcribed.mid"
+        sb.storage.from_(version.storage_bucket).upload(
+            midi_key, result["midi"], {"content-type": "audio/midi"}
+        )
+
+        art_repo = ArtifactRepo(sb)
+        midi_artifact = art_repo.create(
+            Artifact(
+                work_id=work_id,
+                kind=ArtifactKind.midi_performance,
+                mime_type="audio/midi",
+            ),
+            owner_id,
+        )
+        midi_version = ver_repo.create(
+            Version(
+                artifact_id=midi_artifact.id,
+                parent_version_id=version.id,
+                lineage=[version.id],
+                storage_key=midi_key,
+                storage_bucket=version.storage_bucket,
+                byte_size=len(result["midi"]),
+                created_by=owner_id,
+                label=f"Transcribed MIDI ({version.label or 'untitled'})",
+            ),
+            owner_id,
+        )
+
+        entity_repo = EntityRepo(sb)
+        entity_ids: list[str] = []
+        for note in result["notes"]:
+            entity = entity_repo.create(
+                Entity(
+                    version_id=midi_version.id,
+                    kind=EntityKind.note,
+                    span=Span(
+                        start_seconds=note["start"],
+                        end_seconds=note["end"],
+                    ),
+                    note=NoteEntity(
+                        pitch=note["pitch"],
+                        start_seconds=note["start"],
+                        end_seconds=note["end"],
+                        velocity=note["velocity"],
+                    ),
+                ),
+                owner_id,
+            )
+            entity_ids.append(str(entity.id))
+
+        return {
+            "notes": result["notes"],
+            "num_notes": result["num_notes"],
+            "midi_version_id": str(midi_version.id),
+            "entity_ids": entity_ids,
+        }
+
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# POST /versions/{version_id}/analyze
+# ---------------------------------------------------------------------------
+
+
+@router.post("/versions/{version_id}/analyze")
+@limiter.limit("10/minute")
+async def analyze_version(
+    version_id: UUID,
+    request: Request,
+    auth=Depends(verify_token),
+):
+    sb = _sb()
+    owner_id = _owner_id(auth)
+
+    try:
+        ver_repo = VersionRepo(sb)
+        version = ver_repo.get(version_id, owner_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Version not found")
+
+        midi_bytes = sb.storage.from_(version.storage_bucket).download(
+            version.storage_key
+        )
+        if not midi_bytes:
+            raise HTTPException(status_code=500, detail="Failed to download MIDI from storage")
+
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            f.write(midi_bytes)
+            midi_path = f.name
+
+        from analyze import analyze_midi
+
+        try:
+            analysis = analyze_midi(midi_path)
+        finally:
+            os.unlink(midi_path)
+
+        insight_repo = InsightRepo(sb)
+        insight_ids: list[str] = []
+
+        key_data = analysis.get("key", {}) or {}
+        if key_data:
+            tonic = key_data.get("tonic", "?")
+            mode = key_data.get("mode", "?")
+            key_conf = float(key_data.get("confidence", 0.0))
+            kid = insight_repo.create(
+                Insight(
+                    version_id=version_id,
+                    kind="key",
+                    claim=f"Key: {tonic} {mode}",
+                    evidence={"tonic": tonic, "mode": mode},
+                    confidence=key_conf,
+                    provenance={
+                        "capability": "analyze",
+                        "capability_version": "1.0",
+                    },
+                    created_by=owner_id,
+                ),
+                owner_id,
+            )
+            insight_ids.append(str(kid))
+
+        tempo_data = analysis.get("tempo", {}) or {}
+        if tempo_data:
+            bpm = float(tempo_data.get("bpm", 0))
+            tempo_conf = float(tempo_data.get("confidence", 0.0))
+            tid = insight_repo.create(
+                Insight(
+                    version_id=version_id,
+                    kind="tempo",
+                    claim=f"Tempo: {bpm} BPM",
+                    evidence={"bpm": bpm},
+                    confidence=tempo_conf,
+                    provenance={
+                        "capability": "analyze",
+                        "capability_version": "1.0",
+                    },
+                    created_by=owner_id,
+                ),
+                owner_id,
+            )
+            insight_ids.append(str(tid))
+
+        ts_data = analysis.get("time_signature", {}) or {}
+        if ts_data:
+            num = int(ts_data.get("numerator", 4))
+            den = int(ts_data.get("denominator", 4))
+            ts_conf = float(ts_data.get("confidence", 0.0))
+            tsid = insight_repo.create(
+                Insight(
+                    version_id=version_id,
+                    kind="time_signature",
+                    claim=f"Time Signature: {num}/{den}",
+                    evidence={"numerator": num, "denominator": den},
+                    confidence=ts_conf,
+                    provenance={
+                        "capability": "analyze",
+                        "capability_version": "1.0",
+                    },
+                    created_by=owner_id,
+                ),
+                owner_id,
+            )
+            insight_ids.append(str(tsid))
+
+        chords = analysis.get("chords", []) or []
+        for ch in chords:
+            root = ch.get("root", "?")
+            quality = ch.get("quality", "?")
+            start = float(ch.get("start", 0))
+            end = float(ch.get("end", 0))
+            cid = insight_repo.create(
+                Insight(
+                    version_id=version_id,
+                    kind="chord",
+                    claim=f"{root}:{quality}",
+                    evidence=ch,
+                    span=Span(start_seconds=start, end_seconds=end),
+                    confidence=0.85,
+                    provenance={
+                        "capability": "analyze",
+                        "capability_version": "1.0",
+                    },
+                    created_by=owner_id,
+                ),
+                owner_id,
+            )
+            insight_ids.append(str(cid))
+
+        rns = analysis.get("roman_numerals", []) or []
+        for rn in rns:
+            figure = rn.get("figure", "?")
+            start = float(rn.get("start", 0))
+            end = float(rn.get("end", 0))
+            rid = insight_repo.create(
+                Insight(
+                    version_id=version_id,
+                    kind="roman_numeral",
+                    claim=figure,
+                    evidence=rn,
+                    span=Span(start_seconds=start, end_seconds=end),
+                    confidence=0.8,
+                    provenance={
+                        "capability": "analyze",
+                        "capability_version": "1.0",
+                    },
+                    created_by=owner_id,
+                ),
+                owner_id,
+            )
+            insight_ids.append(str(rid))
+
+        cadences = analysis.get("cadences", []) or []
+        for cad in cadences:
+            cad_type = cad.get("type", "?")
+            chords_str = " -> ".join(cad.get("chords", []))
+            position = float(cad.get("position", 0))
+            caid = insight_repo.create(
+                Insight(
+                    version_id=version_id,
+                    kind="cadence",
+                    claim=f"{cad_type}: {chords_str}",
+                    evidence=cad,
+                    span=Span(start_seconds=position),
+                    confidence=0.8,
+                    provenance={
+                        "capability": "analyze",
+                        "capability_version": "1.0",
+                    },
+                    created_by=owner_id,
+                ),
+                owner_id,
+            )
+            insight_ids.append(str(caid))
+
+        return {
+            "analysis": analysis,
+            "insight_ids": insight_ids,
+        }
+
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
