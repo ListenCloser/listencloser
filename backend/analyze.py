@@ -394,11 +394,13 @@ def _m21_phrases(score) -> list[PhraseResult]:
                         # Simple heuristic: short chords (< 0.5 beats) are likely grace notes
                         if dur < 0.25:
                             continue
-                        phrases.append(PhraseResult(
-                            start=round(offset, 3),
-                            end=round(offset + dur, 3),
-                            kind="chord",
-                        ))
+                        phrases.append(
+                            PhraseResult(
+                                start=round(offset, 3),
+                                end=round(offset + dur, 3),
+                                kind="chord",
+                            )
+                        )
                     except Exception:
                         continue
         return phrases[:200]  # Limit to prevent huge outputs
@@ -449,11 +451,13 @@ def _detect_modulations(score, tempo_bpm: float | None = None) -> list[Modulatio
     modulations: list[ModulationResult] = []
     for i in range(1, len(key_history)):
         if key_history[i - 1][1] != key_history[i][1]:
-            modulations.append(ModulationResult(
-                from_key=key_history[i - 1][1],
-                to_key=key_history[i][1],
-                position=round(key_history[i][0], 3),
-            ))
+            modulations.append(
+                ModulationResult(
+                    from_key=key_history[i - 1][1],
+                    to_key=key_history[i][1],
+                    position=round(key_history[i][0], 3),
+                )
+            )
     return modulations
 
 

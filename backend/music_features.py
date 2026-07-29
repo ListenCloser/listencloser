@@ -278,6 +278,7 @@ def _clean_midi(midi_bytes: bytes) -> bytes:
     3. Normalize velocities to 0-127 range
     """
     import pretty_midi as pm
+
     midi = pm.PrettyMIDI(io.BytesIO(midi_bytes))
 
     for inst in midi.instruments:
