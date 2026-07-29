@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "AlignmentKind": {
+      "enum": [
+        "timeline",
+        "version",
+        "performance"
+      ],
+      "title": "AlignmentKind",
+      "type": "string"
+    },
+    "TimelineUnit": {
+      "enum": [
+        "seconds",
+        "samples",
+        "beats",
+        "measures",
+        "ticks",
+        "score_position"
+      ],
+      "title": "TimelineUnit",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "version_id": {
+      "format": "uuid",
+      "title": "Version Id",
+      "type": "string"
+    },
+    "target_version_id": {
+      "format": "uuid",
+      "title": "Target Version Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/AlignmentKind"
+    },
+    "source_unit": {
+      "$ref": "#/$defs/TimelineUnit"
+    },
+    "target_unit": {
+      "$ref": "#/$defs/TimelineUnit"
+    },
+    "mapping_data": {
+      "additionalProperties": true,
+      "title": "Mapping Data",
+      "type": "object"
+    },
+    "confidence": {
+      "default": 1.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "produced_by_job_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Produced By Job Id"
+    }
+  },
+  "required": [
+    "version_id",
+    "target_version_id",
+    "kind",
+    "source_unit",
+    "target_unit"
+  ],
+  "title": "Alignment",
+  "type": "object"
+}

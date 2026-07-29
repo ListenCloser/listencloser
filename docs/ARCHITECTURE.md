@@ -136,6 +136,31 @@ Review automation: **CodeRabbit** + **Semgrep** on PRs. The agent uses the
 
 ## 10. Known gaps (documented honestly)
 
+### Domain / data model gaps (bundle SOT)
+
+- **No durable project/work/artifact model** — CLOSED (Phase 2). Domain tables and
+  contracts exist; migration from `LibFile` is in progress per ADR-007.
+- **No immutable version graph** — CLOSED (Phase 2). `versions` table with
+  lineage tracking; originals are never overwritten.
+- **No capability registry in code** — CLOSED (Phase 4). Capability contracts
+  with typed inputs/outputs; no direct library imports in domain logic.
+- **No processing job system** — CLOSED (Phase 2). Async job queue with status
+  polling; processing is no longer synchronous in the request path.
+- **No universal alignment representation** — CLOSED (Phase 2). Alignment
+  entities map entities to timeline positions for synchronized transport.
+
+### Frontend / workspace gaps (bundle SOT)
+
+- **Representations are not fully synchronized** — IN PROGRESS (Phase 3).
+  Shared transport and selection exist; cross-representation sync is being
+  wired per vertical slice.
+- **Transcription correction is limited** — CLOSED (Phase 5). Piano roll
+  editing with versioned correction workflow.
+- **Compare and create workflows are not implemented** — CLOSED (Phases 6-7).
+  Version diff view and structural composition tools.
+
+### Infrastructure gaps
+
 - **Single VM = SPOF.** No redundancy; one host down = backend down.
 - **Prod runs uvicorn `--reload`** — a dev flag. Should be `--workers 2`.
 - **No metrics / tracing / alerting yet** — only logs + Sentry.
@@ -143,4 +168,11 @@ Review automation: **CodeRabbit** + **Semgrep** on PRs. The agent uses the
   of bugs) are NOT caught by the E2E suite. See `docs/TESTING.md`.
 - **`next lint` is deprecated** (removed in Next 16) but still used.
 
-Target architecture and the phased plan to close these gaps: `docs/REDESIGN.md`.
+Infrastructure roadmap: `docs/REDESIGN.md`.
+
+## 11. New domain architecture
+
+The domain model, capability contracts, workspace shell, and phased migration
+plan are defined in `docs/ORCHESTRATION.md`. This is the SOT for the target
+architecture, superseding the reference implementation patterns described
+in section 2. See also `docs/adr/ADR-001.md` through `docs/adr/ADR-007.md`.

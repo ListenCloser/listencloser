@@ -1,0 +1,49 @@
+{
+  "$defs": {
+    "ArtifactKind": {
+      "enum": [
+        "audio_original",
+        "audio_enhanced",
+        "midi_performance",
+        "midi_corrected",
+        "musicxml_score",
+        "rendered_score",
+        "stems",
+        "analysis_report"
+      ],
+      "title": "ArtifactKind",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "work_id": {
+      "format": "uuid",
+      "title": "Work Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ArtifactKind"
+    },
+    "mime_type": {
+      "default": "application/octet-stream",
+      "title": "Mime Type",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "work_id",
+    "kind"
+  ],
+  "title": "Artifact",
+  "type": "object"
+}

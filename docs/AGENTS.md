@@ -11,19 +11,27 @@ analyze key/tempo/chords, and manage a library of transcriptions.
 | Concern | Location |
 |---------|----------|
 | Page shell | `components/Studio.tsx` (tabbed shell) |
+| Workspace shell | `components/workspace/WorkspaceShell.tsx` |
+| Transport | `components/workspace/Transport.tsx` |
+| Timeline | `components/workspace/Timeline.tsx` |
+| Inspector | `components/workspace/Inspector.tsx` |
 | Transcribe | `components/transcribe/index.tsx`, `components/PianoRoll.tsx` |
 | Library | `components/library/index.tsx`, `components/Visualizer.tsx` |
 | Analyze | `components/analyze/index.tsx` |
+| Domain contracts (Python) | `backend/domain/models.py` |
+| Domain types (TypeScript) | `lib/domain.types.ts` |
 | Backend | `backend/main.py` (FastAPI) |
 
 ## Before acting
 
 1. Read `docs/PRODUCT_VISION.md` — understand the north star.
 2. Read `docs/ROADMAP.md` — understand current phase.
-3. Read `docs/ARCHITECTURE.md` — understand the stack and file layout.
-4. Check `docs/CHANGELOG.md` — know what changed recently.
-5. Run `npm run dev` to verify the app starts.
-6. Run `npx playwright test` to verify all tests pass.
+3. Read `docs/ORCHESTRATION.md` — understand the architectural roadmap and
+   domain model migration status.
+4. Read `docs/ARCHITECTURE.md` — understand the stack and file layout.
+5. Check `docs/CHANGELOG.md` — know what changed recently.
+6. Run `npm run dev` to verify the app starts.
+7. Run `npx playwright test` to verify all tests pass.
 
 ## How to propose changes
 

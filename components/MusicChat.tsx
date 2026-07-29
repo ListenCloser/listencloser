@@ -1,279 +1,149 @@
-/**
- * Music Chat — fully self-contained workspace.
- *
- * Everything the regular UI can do, the chat can do:
- * - Browse library tracks
- * - Upload new audio
- * - Transcribe audio
- * - Analyze music theory
- * - Clean/denoise audio
- * - Convert MIDI ↔ MusicXML
- *
- * Tool results render as embedded interactive components:
- * - Piano roll for transcriptions
- * - Audio player for playback
- * - Analysis summary cards
- * - Library track listings
- */
-
 "use client";
 
 import { useChat } from "@ai-sdk/react";
 import { useRef, useEffect, useState, useCallback } from "react";
-import { blobToBase64, synthAudio, type TranscribeResult } from "@/lib/music";
-import PianoRoll from "@/components/PianoRoll";
+import type { TranscribeResult } from "@/lib/music";
 
 type MusicChatProps = {
   onTranscribed?: (result: TranscribeResult, name: string) => void;
   onAnalyzed?: (midiBase64?: string, name?: string) => void;
-  onNavigate?: (tab: string) => void;
 };
-
-// ── Tool Result Renderers ──────────────────────────────────────────────────
 
 function ToolCallCard({ toolName }: { toolName: string }) {
   const labels: Record<string, string> = {
-    list_library: "📂 Browsing library…",
-    upload_audio: "⬆️ Uploading audio…",
     transcribe_audio: "🎵 Transcribing audio…",
     analyze_midi: "🎼 Analyzing music theory…",
     enhance_audio: "🔊 Enhancing audio…",
     convert_format: "🔄 Converting format…",
   };
   return (
-    <div className="chat-tool-card">
-      <span className="chat-spinner" />
+    <div style={{
+      background: "var(--panel-3)", border: "1px solid var(--border)",
+      borderRadius: "var(--r-sm)", padding: "var(--s-2) var(--s-3)",
+      margin: "var(--s-2) 0", fontSize: "var(--fs-xs)", color: "var(--muted)",
+      display: "flex", alignItems: "center", gap: "var(--s-2)",
+    }}>
+      <span style={{ display: "inline-block", width: 12, height: 12, border: "2px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
       {labels[toolName] || `Running ${toolName}…`}
     </div>
   );
 }
 
-function LibraryResultCard({ result }: { result: Record<string, unknown> }) {
-  const tracks = result.tracks as { name: string; hasNotes: boolean; hasMidi: boolean; hasAnalysis: boolean }[] | undefined;
-  const message = result.message as string;
-  if (!tracks || tracks.length === 0) {
+function ToolResultCard({ toolName, result }: { toolName: string; result: any }) {
+  if (!result) return null;
+  if (toolName === "transcribe_audio") {
     return (
-      <div className="chat-tool-result">
-        <div className="chat-tool-success">📂 Library</div>
-        <p style={{ fontSize: "var(--fs-sm)", margin: "var(--s-1) 0" }}>{message}</p>
+      <div style={{ margin: "var(--s-2) 0", padding: "var(--s-2) var(--s-3)", background: "var(--panel-3)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)", fontSize: "var(--fs-xs)" }}>
+        <div style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>✓ {result.notes_summary || `Transcribed ${result.num_notes} notes`}</div>
+        <div style={{ color: "var(--muted)", marginTop: 2 }}>Open Transform tab to view piano roll, or Visualize tab for analysis.</div>
       </div>
     );
   }
-  return (
-    <div className="chat-tool-result">
-      <div className="chat-tool-success">📂 {tracks.length} track(s) in library</div>
-      <div style={{ marginTop: "var(--s-2)", display: "flex", flexDirection: "column", gap: "var(--s-1)" }}>
-        {tracks.map((t, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", fontSize: "var(--fs-xs)" }}>
-            <span style={{ fontWeight: 500 }}>{t.name}</span>
-            {t.hasNotes && <span className="track-badge">MIDI</span>}
-            {t.hasAnalysis && <span className="track-badge">Analyzed</span>}
-          </div>
-        ))}
+  if (toolName === "analyze_midi") {
+    const key = result.key?.tonic && result.key?.mode ? `${result.key.tonic} ${result.key.mode}` : null;
+    const bpm = result.tempo?.bpm ? Math.round(result.tempo.bpm) : null;
+    const timeSig = result.time_signature ? `${result.time_signature.numerator}/${result.time_signature.denominator}` : null;
+    return (
+      <div style={{ margin: "var(--s-2) 0", padding: "var(--s-2) var(--s-3)", background: "var(--panel-3)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)", fontSize: "var(--fs-xs)" }}>
+        <div style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>✓ Analysis complete</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s-1)", marginTop: "var(--s-1)" }}>
+          {key && <div><span style={{ color: "var(--muted)" }}>Key:</span> {key}</div>}
+          {bpm && <div><span style={{ color: "var(--muted)" }}>Tempo:</span> {bpm} BPM</div>}
+          {timeSig && <div><span style={{ color: "var(--muted)" }}>Time:</span> {timeSig}</div>}
+          {result.num_notes && <div><span style={{ color: "var(--muted)" }}>Notes:</span> {result.num_notes}</div>}
+        </div>
       </div>
-    </div>
-  );
-}
-
-function TranscribeResultCard({ result, onNavigate }: { result: Record<string, unknown>; onNavigate?: (tab: string) => void }) {
-  const notes = (result.notes as TranscribeResult["notes"]) ?? [];
-  const numNotes = (result.num_notes as number) ?? notes.length;
-  const midiBase64 = result.midi_base64 as string | undefined;
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [loadingAudio, setLoadingAudio] = useState(false);
-
-  const handleSynth = useCallback(async () => {
-    if (!midiBase64 || loadingAudio) return;
-    setLoadingAudio(true);
-    try {
-      const synth = await synthAudio(midiBase64);
-      const bytes = Uint8Array.from(atob(synth.wav_base64), (c) => c.charCodeAt(0));
-      const blob = new Blob([bytes], { type: "audio/wav" });
-      setAudioUrl(URL.createObjectURL(blob));
-    } catch {} finally { setLoadingAudio(false); }
-  }, [midiBase64, loadingAudio]);
-
-  return (
-    <div className="chat-tool-result">
-      <div className="chat-tool-success">✓ Transcribed {numNotes} notes</div>
-      {notes.length > 0 && <div style={{ margin: "var(--s-2) 0" }}><PianoRoll notes={notes} /></div>}
-      <div style={{ display: "flex", gap: "var(--s-2)", flexWrap: "wrap", marginTop: "var(--s-2)" }}>
-        {midiBase64 && !audioUrl && (
-          <button className="chat-nav-btn" onClick={handleSynth} disabled={loadingAudio}>
-            {loadingAudio ? "Loading…" : "▶ Play MIDI"}
-          </button>
+    );
+  }
+  if (toolName === "enhance_audio") {
+    return (
+      <div style={{ margin: "var(--s-2) 0", padding: "var(--s-2) var(--s-3)", background: "var(--panel-3)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)", fontSize: "var(--fs-xs)" }}>
+        <div style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>✓ Audio enhanced successfully</div>
+        {result.wav_base64 && (
+          <audio controls style={{ width: "100%", marginTop: "var(--s-1)", height: 32 }}>
+            <source src={`data:audio/wav;base64,${result.wav_base64}`} type="audio/wav" />
+          </audio>
         )}
-        {audioUrl && <audio controls src={audioUrl} style={{ height: 32, flex: 1 }} />}
-        {onNavigate && <button className="chat-nav-btn" onClick={() => onNavigate("transcribe")}>Open in Transform</button>}
-        {onNavigate && notes.length > 0 && <button className="chat-nav-btn" onClick={() => onNavigate("viz")}>Visualize</button>}
       </div>
-    </div>
-  );
-}
-
-function AnalyzeResultCard({ result, onNavigate }: { result: Record<string, unknown>; onNavigate?: (tab: string) => void }) {
-  const key = result.key && typeof result.key === "object" && "tonic" in result.key
-    ? `${(result.key as Record<string, string>).tonic} ${(result.key as Record<string, string>).mode}` : null;
-  const tempo = result.tempo && typeof result.tempo === "object" && "bpm" in result.tempo
-    ? `${Math.round((result.tempo as Record<string, number>).bpm)} BPM` : null;
-  const chords = result.chords;
-  const hasChords = Array.isArray(chords) && chords.length > 0;
-  return (
-    <div className="chat-tool-result">
-      <div className="chat-tool-success">✓ Analysis complete</div>
-      <div className="chat-tool-grid">
-        {key && <div><span className="chat-muted">Key:</span> {key}</div>}
-        {tempo && <div><span className="chat-muted">Tempo:</span> {tempo}</div>}
-        {result.time_signature != null && typeof result.time_signature === "object" && (
-          <div><span className="chat-muted">Time:</span> {(result.time_signature as Record<string, number>).numerator}/{(result.time_signature as Record<string, number>).denominator}</div>
-        )}
-        {result.num_notes != null && <div><span className="chat-muted">Notes:</span> {String(result.num_notes)}</div>}
+    );
+  }
+  if (toolName === "convert_format") {
+    return (
+      <div style={{ margin: "var(--s-2) 0", padding: "var(--s-2) var(--s-3)", background: "var(--panel-3)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)", fontSize: "var(--fs-xs)" }}>
+        <div style={{ color: "var(--accent)", fontWeight: "var(--fw-medium)" }}>✓ {result.message || `Converted to ${result.format}`}</div>
       </div>
-      {hasChords && <div style={{ marginTop: "var(--s-2)", fontSize: "var(--fs-xs)", color: "var(--muted)" }}>{chords.length} chords detected</div>}
-      {onNavigate && <div style={{ marginTop: "var(--s-2)" }}><button className="chat-nav-btn" onClick={() => onNavigate("analyze")}>View Full Analysis</button></div>}
-    </div>
-  );
+    );
+  }
+  return null;
 }
 
-function EnhanceResultCard() {
-  return <div className="chat-tool-result"><div className="chat-tool-success">✓ Audio enhanced — noise removed, volume normalized</div></div>;
-}
-
-function ConvertResultCard({ result }: { result: Record<string, unknown> }) {
-  return <div className="chat-tool-result"><div className="chat-tool-success">✓ Converted to {String(result.format || "target format")}</div></div>;
-}
-
-function UploadResultCard({ result }: { result: Record<string, unknown> }) {
-  return (
-    <div className="chat-tool-result">
-      <div className="chat-tool-success">✓ {String(result.message || "Uploaded")}</div>
-    </div>
-  );
-}
-
-// ── Message persistence ────────────────────────────────────────────────────
-const MESSAGES_KEY = "chat:messages";
-function loadPersistedMessages() {
-  try { const raw = sessionStorage.getItem(MESSAGES_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
-}
-function persistMessages(msgs: unknown[]) {
-  try { sessionStorage.setItem(MESSAGES_KEY, JSON.stringify(msgs.slice(-50))); } catch {}
-}
-
-// ── Main Chat Component ────────────────────────────────────────────────────
-
-export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: MusicChatProps) {
-  const persistedRef = useRef(loadPersistedMessages());
-  const { messages, sendMessage, status, setMessages } = useChat();
+export default function MusicChat({ onTranscribed, onAnalyzed }: MusicChatProps) {
+  const { messages, sendMessage, status } = useChat();
   const endRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<{ file: File; base64: string } | null>(null);
-  const processedToolCalls = useRef(new Set<string>());
-
-  // Restore messages on mount
-  useEffect(() => {
-    if (persistedRef.current.length > 0 && messages.length === 0) {
-      setMessages(persistedRef.current as any);
-    }
-  }, []);
-
-  // Persist messages on change
-  useEffect(() => {
-    if (messages.length > 0) persistMessages(messages);
-  }, [messages]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    for (const msg of messages) {
-      if (msg.role !== "assistant") continue;
-      for (const part of msg.parts ?? []) {
-        if (!part.type.startsWith("tool-")) continue;
-        const toolPart = part as { type: string; state?: string; output?: Record<string, unknown>; toolCallId?: string };
-        if (toolPart.state !== "result" || !toolPart.output) continue;
-        const callId = toolPart.toolCallId ?? `${msg.id}-${part.type}`;
-        if (processedToolCalls.current.has(callId)) continue;
-        processedToolCalls.current.add(callId);
-        const toolName = toolPart.type.replace("tool-", "");
-        const output = toolPart.output;
-        if (toolName === "transcribe_audio" && onTranscribed) {
-          onTranscribed({
-            notes: (output.notes as TranscribeResult["notes"]) ?? [],
-            num_notes: (output.num_notes as number) ?? 0,
-            midi_base64: output.midi_base64 as string,
-            wav_url: output.wav_url as string,
-          }, (output.file_name as string) || "audio");
-        }
-        if (toolName === "analyze_midi" && onAnalyzed) {
-          onAnalyzed(output.midi_base64 as string, "analyzed");
-        }
-      }
-    }
-  }, [messages, onTranscribed, onAnalyzed]);
-
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
-    const base64 = await blobToBase64(file);
+    const bytes = await file.arrayBuffer();
+    const base64 = btoa(Array.from(new Uint8Array(bytes)).map((b) => String.fromCharCode(b)).join(""));
     setPendingFile({ file, base64 });
   }, []);
 
   const onSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() && !pendingFile) return;
+
     const text = pendingFile
       ? `[Audio file: ${pendingFile.file.name}, format: ${pendingFile.file.type || "wav"}]\n[Audio base64: ${pendingFile.base64}]\n\n${input || "Transcribe this audio"}`
       : input;
+
     sendMessage({ text });
     setInput("");
     setPendingFile(null);
   }, [input, pendingFile, sendMessage]);
 
-  const isBusy = status === "submitted" || status === "streaming";
-
   return (
-    <div className="card chat-container">
+    <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <h3 className="card-title" style={{ marginBottom: 0 }}>
         <span className="glyph">◈</span> Chat
       </h3>
       <p className="muted" style={{ fontSize: "var(--fs-xs)", margin: "var(--s-1) 0 var(--s-3)" }}>
-        Your music workspace — upload, transcribe, analyze, visualize, all in one place.
+        Ask anything about your music — transcribe, analyze, convert, or clean audio.
       </p>
 
-      <div className="chat-messages">
+      <div style={{ flex: 1, overflowY: "auto", padding: "var(--s-3)" }}>
         {messages.length === 0 && (
-          <div className="chat-empty">
+          <div style={{ textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-sm)", padding: "var(--s-5)" }}>
             <p style={{ marginBottom: "var(--s-2)" }}>Ask me about your music!</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)", fontSize: "var(--fs-xs)" }}>
-              <span>📎 Upload audio and ask me to transcribe it</span>
-              <span>🎵 "What key is this in?"</span>
-              <span>🔊 "Clean up this recording"</span>
-              <span>🎼 "Analyze the chords"</span>
-              <span>📂 "Show me my library"</span>
-            </div>
+            <p style={{ fontSize: "var(--fs-xs)" }}>
+              Try: "Transcribe this audio", "What key is this in?", "Clean up this recording"
+            </p>
           </div>
         )}
         {messages.map((msg) => (
-          <div key={msg.id} className={`chat-msg ${msg.role === "user" ? "chat-msg-user" : "chat-msg-assistant"}`}>
-            <div className={`chat-bubble ${msg.role === "user" ? "chat-bubble-user" : "chat-bubble-assistant"}`}>
+          <div key={msg.id} style={{ marginBottom: "var(--s-3)", display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
+            <div style={{
+              maxWidth: "80%", padding: "var(--s-2) var(--s-3)", borderRadius: "var(--r-md)",
+              fontSize: "var(--fs-sm)", lineHeight: 1.5,
+              ...(msg.role === "user"
+                ? { background: "var(--accent)", color: "var(--bg)", borderBottomRightRadius: "var(--s-1)" }
+                : { background: "var(--panel-2)", color: "var(--text)", border: "1px solid var(--border)", borderBottomLeftRadius: "var(--s-1)" }),
+            }}>
               {msg.parts?.map((part, i) => {
-                if (part.type === "text") return <span key={i} className="chat-text">{part.text}</span>;
+                if (part.type === "text") return <span key={i} style={{ whiteSpace: "pre-wrap" }}>{part.text}</span>;
                 if (part.type.startsWith("tool-")) {
                   const toolName = part.type.replace("tool-", "");
-                  const state = (part as { state?: string }).state;
+                  const state = (part as any).state;
                   if (state === "result") {
-                    const output = (part as { output?: Record<string, unknown> }).output ?? null;
-                    if (toolName === "transcribe_audio" && output) return <TranscribeResultCard key={i} result={output} onNavigate={onNavigate} />;
-                    if (toolName === "analyze_midi" && output) return <AnalyzeResultCard key={i} result={output} onNavigate={onNavigate} />;
-                    if (toolName === "enhance_audio") return <EnhanceResultCard key={i} />;
-                    if (toolName === "convert_format" && output) return <ConvertResultCard key={i} result={output} />;
-                    if (toolName === "list_library" && output) return <LibraryResultCard key={i} result={output} />;
-                    if (toolName === "upload_audio" && output) return <UploadResultCard key={i} result={output} />;
-                    return null;
+                    return <ToolResultCard key={i} toolName={toolName} result={(part as any).output} />;
                   }
                   return <ToolCallCard key={i} toolName={toolName} />;
                 }
@@ -286,18 +156,18 @@ export default function MusicChat({ onTranscribed, onAnalyzed, onNavigate }: Mus
       </div>
 
       {pendingFile && (
-        <div className="chat-attachment">
+        <div style={{ padding: "var(--s-2) var(--s-3)", background: "var(--panel-3)", borderTop: "1px solid var(--border)", fontSize: "var(--fs-xs)", color: "var(--muted)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>📎 {pendingFile.file.name}</span>
-          <button onClick={() => setPendingFile(null)} className="chat-attachment-remove">✕</button>
+          <button onClick={() => setPendingFile(null)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}>✕</button>
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="chat-form">
+      <form onSubmit={onSubmit} style={{ display: "flex", gap: "var(--s-2)", padding: "var(--s-3)", borderTop: "1px solid var(--border)" }}>
         <input ref={fileInputRef} type="file" accept="audio/*,.mid,.midi,.musicxml" onChange={handleFileSelect} style={{ display: "none" }} />
-        <button type="button" onClick={() => fileInputRef.current?.click()} className="chat-attach-btn" title="Attach audio">📎</button>
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your music..." className="chat-input" disabled={isBusy} />
-        <button type="submit" disabled={isBusy || (!input.trim() && !pendingFile)} className="chat-send-btn">
-          {isBusy ? "…" : "Send"}
+        <button type="button" onClick={() => fileInputRef.current?.click()} style={{ background: "var(--panel-2)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--r-md)", padding: "var(--s-2)", cursor: "pointer", fontSize: "var(--fs-sm)" }} title="Attach audio">📎</button>
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your music..." style={{ flex: 1, background: "var(--panel-2)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: "var(--r-md)", padding: "var(--s-2) var(--s-3)", fontFamily: "inherit", fontSize: "var(--fs-sm)", outline: "none" }} />
+        <button type="submit" disabled={status === "submitted" || (!input.trim() && !pendingFile)} style={{ background: "var(--accent)", color: "var(--bg)", border: "none", borderRadius: "var(--r-md)", padding: "var(--s-2) var(--s-4)", fontWeight: "var(--fw-medium)", fontSize: "var(--fs-sm)", cursor: "pointer", opacity: (status === "submitted" || (!input.trim() && !pendingFile)) ? 0.4 : 1 }}>
+          {status === "submitted" ? "…" : "Send"}
         </button>
       </form>
     </div>

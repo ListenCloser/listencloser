@@ -2,6 +2,7 @@ import base64
 
 import pytest
 
+import auth_utils
 import main
 from main import MAX_UPLOAD_BYTES, _now, _sanitize_fmt, _split_storage_path
 
@@ -38,7 +39,7 @@ class _FakeAuth:
 
 @pytest.fixture(autouse=True)
 def _stub_supabase(monkeypatch):
-    monkeypatch.setattr(main, "_sb", lambda: _FakeSB())
+    monkeypatch.setattr(auth_utils, "get_supabase_client", lambda: _FakeSB())
 
 
 def _auth():
