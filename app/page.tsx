@@ -101,7 +101,7 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
 
           addRepresentation({ kind: "piano_roll", label: "Piano Roll", sourceUrl: "#", sourceLabel: file.name, confidence: 0.85, provenance: "transcription", notes });
           addRepresentation({ kind: "waveform", label: "Waveform", sourceUrl: audioUrl, sourceLabel: file.name, confidence: null, provenance: "upload" });
-          addRepresentation({ kind: "score", label: "Score", sourceUrl: "#", sourceLabel: "Generated", confidence: 0.8, provenance: "transcription" });
+          addRepresentation({ kind: "score", label: "Score", sourceUrl: "/api/v1/versions/" + transcribeResult.midi_version_id + "/musicxml", sourceLabel: "Generated", confidence: 0.8, provenance: "transcription" });
           addRepresentation({ kind: "harmony", label: "Harmony", sourceUrl: "#", sourceLabel: `Key: ${keyLabel}, ${bpmDetected} BPM`, confidence: 0.8, provenance: "analysis" });
 
           setStage("success");

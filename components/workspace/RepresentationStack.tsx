@@ -92,6 +92,7 @@ export default function RepresentationStack({
           kind={rep.kind}
           label={KIND_LABELS[rep.kind] ?? rep.label}
           sourceLabel={rep.sourceLabel}
+          sourceUrl={rep.sourceUrl}
           confidence={rep.confidence}
           isExpanded={rep.kind === expandedRepresentation}
           isFocused={rep.kind === focusedKind}

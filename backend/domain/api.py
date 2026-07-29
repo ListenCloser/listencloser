@@ -880,3 +880,53 @@ async def create_create_workflow(
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+class MusicXmlResponse(BaseModel):
+    musicxml: str
+    version_id: str
+
+@router.get("/versions/{version_id}/musicxml")
+@limiter.limit("30/minute")
+async def get_musicxml(version_id: UUID, request: Request, auth=Depends(verify_token)):
+    sb = _sb()
+    owner_id = _owner_id(auth)
+    try:
+        ver_repo = VersionRepo(sb)
+        version = ver_repo.get(version_id, owner_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Version not found")
+        midi_bytes = sb.storage.from_(version.storage_bucket).download(version.storage_key)
+        if not midi_bytes:
+            raise HTTPException(status_code=404, detail="MIDI data not found")
+        from music_features import convert_format
+        result = convert_format(midi_bytes, "midi", "musicxml")
+        musicxml = result.decode("utf-8", errors="replace") if isinstance(result, bytes) else str(result)
+        return MusicXmlResponse(musicxml=musicxml, version_id=str(version_id))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+from fastapi.responses import Response as FastAPIResponse
+
+@router.get("/versions/{version_id}/download")
+@limiter.limit("30/minute")
+async def download_version(version_id: UUID, request: Request, auth=Depends(verify_token)):
+    sb = _sb()
+    owner_id = _owner_id(auth)
+    try:
+        ver_repo = VersionRepo(sb)
+        version = ver_repo.get(version_id, owner_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Version not found")
+        data = sb.storage.from_(version.storage_bucket).download(version.storage_key)
+        if not data:
+            raise HTTPException(status_code=404, detail="Data not found")
+        ext = version.storage_key.rsplit(".", 1)[-1] if "." in version.storage_key else "bin"
+        mime_map = {"mid": "audio/midi", "midi": "audio/midi", "m4a": "audio/mp4", "wav": "audio/wav", "mp3": "audio/mpeg"}
+        return FastAPIResponse(content=data, media_type=mime_map.get(ext, "application/octet-stream"),
+            headers={"Content-Disposition": f'attachment; filename="transcription.{ext}"'})
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e

@@ -11,6 +11,7 @@ type RepresentationLaneProps = {
   kind: RepresentationKind;
   label: string;
   sourceLabel: string;
+  sourceUrl: string;
   confidence: number | null;
   isExpanded: boolean;
   isFocused: boolean;
@@ -39,6 +40,7 @@ export default function RepresentationLane({
   kind,
   label,
   sourceLabel,
+  sourceUrl,
   confidence,
   isExpanded,
   isFocused,
@@ -177,6 +179,8 @@ export default function RepresentationLane({
                 playheadTime: transport.position,
                 editable: editable ?? false,
                 onNotesChange: onNotesChange as ((notes: Note[]) => void) | undefined,
+                sourceUrl,
+                sourceLabel,
               })}
             </div>
 

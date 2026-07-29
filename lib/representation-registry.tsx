@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import type { RepresentationKind } from "@/lib/stores/workspace";
 import PianoRoll from "@/components/PianoRoll";
@@ -13,6 +13,8 @@ export type RepresentationProps = {
   notes?: { pitch: number; start: number; end: number; velocity: number }[];
   musicxml?: string;
   audioUrl?: string;
+  sourceUrl?: string;
+  sourceLabel?: string;
   analysis?: unknown;
   bpm?: number;
   playheadTime?: number;
@@ -21,6 +23,21 @@ export type RepresentationProps = {
 };
 
 type Note = NonNullable<RepresentationProps["notes"]>[number];
+
+function ScoreWrapper({ sourceUrl }: { sourceUrl?: string }) {
+  const [musicxml, setMusicxml] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sourceUrl || !sourceUrl.startsWith("/api/")) { setMusicxml(""); return; }
+    let c = false;
+    fetch(sourceUrl).then(r => r.json()).then(d => { if (!c) setMusicxml(d.musicxml || ""); }).catch(() => { if (!c) setMusicxml(""); });
+    return () => { c = true; };
+  }, [sourceUrl]);
+
+  if (musicxml === null) return <div className="representation-body"><div className="muted">Loading score...</div></div>;
+  if (!musicxml) return <div className="representation-body"><div className="muted">Score not available</div></div>;
+  return <SheetMusic musicXml={musicxml} />;
+}
 
 function WaveformWrapper({ audioUrl }: { audioUrl?: string }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -94,13 +111,9 @@ const renderers: Record<RepresentationKind, (props: RepresentationProps) => Reac
     </div>
   ),
   waveform: ({ audioUrl }) => <WaveformWrapper audioUrl={audioUrl} />,
-  score: ({ musicxml }) => (
-    <div className="representation-body">
-      <SheetMusic musicXml={musicxml ?? ""} />
-    </div>
-  ),
+  score: ({ sourceUrl }) => <ScoreWrapper sourceUrl={sourceUrl} />,
   spectrogram: ({ audioUrl }) => <SpectrogramWrapper audioUrl={audioUrl} />,
-  harmony: () => <Placeholder label="Harmony analysis coming soon" />,
+  harmony: ({ sourceLabel }) => <Placeholder label={sourceLabel || "Harmony analysis coming soon"} />,
   structure: () => <Placeholder label="Structure view coming soon" />,
   annotations: () => <Placeholder label="Annotations coming soon" />,
 };
