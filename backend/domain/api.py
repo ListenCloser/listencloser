@@ -221,7 +221,7 @@ async def upload_artifact(
 
         ext = Path(filename).suffix.lstrip(".") or "bin"
         storage_key = f"{project_id}/{artifact.id}/{uuid4().hex}.{ext}"
-        bucket = "artifact_data"
+        bucket = "artifacts"
 
         sb.storage.from_(bucket).upload(
             storage_key, raw, {"content-type": mime_type}
