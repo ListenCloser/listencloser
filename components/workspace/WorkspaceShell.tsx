@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import { TransportProvider } from "@/lib/stores/transport";
 import { SelectionProvider } from "@/lib/stores/selection";
 import { TimelineProvider } from "@/lib/stores/timeline";
@@ -146,14 +146,17 @@ function WorkspaceContent({ signedIn = false }: { signedIn?: boolean }) {
 
 export default function WorkspaceShell({
   signedIn = false,
+  children,
 }: {
   signedIn?: boolean;
+  children?: ReactNode;
 }) {
   return (
     <TransportProvider>
       <SelectionProvider>
         <TimelineProvider>
           <WorkspaceProvider>
+            {children}
             <WorkspaceContent signedIn={signedIn} />
           </WorkspaceProvider>
         </TimelineProvider>
