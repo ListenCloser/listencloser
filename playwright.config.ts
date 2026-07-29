@@ -3,7 +3,7 @@ import { createArgosReporterOptions } from "@argos-ci/playwright/reporter";
 
 export default defineConfig({
   testDir: "./tests",
-  testIgnore: ["**/components/**", "**/lib/**", "**/domain-contract.test.ts"],
+  testIgnore: ["**/components/**, **/lib/**", "**/lib/**", "**/domain-contract.test.ts"],
   timeout: 30_000,
   reporter: (() => {
     const list: any[] = [process.env.CI ? ["dot"] : ["list"]];
