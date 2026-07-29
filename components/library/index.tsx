@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   uploadToLibrary,
   listLibrary,
   deleteFromLibrary,
-  formatTime,
   deriveTrackState,
   type LibFile,
-  type Transcription,
 } from "@/lib/music";
-import Visualizer from "@/components/Visualizer";
 import { useSharedAudio } from "@/lib/audio-context";
 
 function formatSize(bytes?: number): string {
@@ -21,28 +18,39 @@ function formatSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatDuration(sec?: number): string {
+  if (!sec) return "";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function timeAgo(dateStr?: string): string {
+  if (!dateStr) return "";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
 export default function Library({
   signedIn,
   onSignIn,
-  onTranscribe,
-  onAnalyze,
-  onVisualize,
+  onTrackSelect,
   onTrackDeleted,
-  transcriptions,
   refreshKey,
-  isTranscribing,
-  isAnalyzing,
+  selectedTrackId,
 }: {
   signedIn?: boolean;
   onSignIn?: () => void;
-  onTranscribe?: (file: LibFile) => void;
-  onAnalyze?: (file: LibFile) => void;
-  onVisualize?: (file: LibFile) => void;
+  onTrackSelect?: (file: LibFile) => void;
   onTrackDeleted?: (id: string) => void;
-  transcriptions?: Transcription[];
   refreshKey?: number;
-  isTranscribing?: boolean;
-  isAnalyzing?: boolean;
+  selectedTrackId?: string;
 }) {
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -51,14 +59,13 @@ export default function Library({
   const [recording, setRecording] = useState(false);
   const [recordTimer, setRecordTimer] = useState(0);
 
-  const { audioRef, playing, paused, currentTime, duration, stop: stopAudio, toggle: togglePlay, pause, resume } = useSharedAudio();
+  const { playing, paused, toggle: togglePlay, stop: stopAudio } = useSharedAudio();
 
   const dropRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const cleanupRef = useRef<(() => void) | null>(null);
 
   async function refresh() {
     if (!isSupabaseConfigured) { setLoading(false); return; }
@@ -66,7 +73,7 @@ export default function Library({
     try {
       setFiles(await listLibrary());
     } catch (e) {
-      setStatus("⚠️ " + (e instanceof Error ? e.message : "list failed"));
+      setStatus("Failed to load library");
     } finally {
       setLoading(false);
     }
@@ -85,13 +92,13 @@ export default function Library({
   async function uploadFile(file: File) {
     if (busy) return;
     setBusy(true);
-    setStatus("Uploading…");
+    setStatus("Uploading...");
     try {
       await uploadToLibrary(file.name, file);
-      setStatus(`Saved ✓ ${file.name}`);
+      setStatus(`Uploaded ${file.name}`);
       await refresh();
     } catch (err) {
-      setStatus("⚠️ " + (err instanceof Error ? err.message : "upload failed"));
+      setStatus("Upload failed");
     } finally {
       setBusy(false);
     }
@@ -104,7 +111,8 @@ export default function Library({
     e.target.value = "";
   }
 
-  async function onDelete(id: string, name: string) {
+  async function onDelete(id: string, name: string, e: React.MouseEvent) {
+    e.stopPropagation();
     setBusy(true);
     try {
       await deleteFromLibrary(id);
@@ -113,7 +121,7 @@ export default function Library({
       onTrackDeleted?.(id);
       await refresh();
     } catch (err) {
-      setStatus("⚠️ " + (err instanceof Error ? err.message : "delete failed"));
+      setStatus("Delete failed");
     } finally {
       setBusy(false);
     }
@@ -146,7 +154,6 @@ export default function Library({
       rec.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-        stopAudio();
         const name = `recording-${Date.now()}.webm`;
         await uploadFile(new File([blob], name));
       };
@@ -154,12 +161,12 @@ export default function Library({
       mediaRef.current = rec;
       setRecording(true);
       setRecordTimer(0);
-      setStatus("Recording…");
+      setStatus("Recording...");
       recordTimerRef.current = setInterval(() => {
         setRecordTimer((t) => t + 1);
       }, 1000);
     } catch (err) {
-      setStatus("⚠️ " + (err instanceof Error ? err.message : "Mic access denied"));
+      setStatus("Microphone access denied");
     }
   }
 
@@ -172,166 +179,124 @@ export default function Library({
     setRecordTimer(0);
   }
 
-  const nowPlaying = files.find((f) => f.id === playing);
-
   return (
-    <div className="card">
-      <h3 className="card-title"><span className="glyph">▤</span> Library</h3>
-
-      <div
-        ref={dropRef}
-        className={`drop-zone${!signedIn ? " disabled" : ""}`}
-        onDragOver={signedIn ? handleDragOver : undefined}
-        onDragLeave={signedIn ? handleDragLeave : undefined}
-        onDrop={signedIn ? handleDrop : undefined}
-        onClick={() => signedIn && !recording && inputRef.current?.click()}
-        style={{ opacity: recording ? 0.4 : 1, pointerEvents: recording ? "none" : "auto" }}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept="audio/*,.musicxml,.mid,.midi"
-          onChange={onUpload}
-          disabled={busy || !signedIn}
-          style={{ display: "none" }}
-        />
-        <span className="drop-icon">+</span>
-        <span className="muted">{signedIn ? "Drop audio or MusicXML to save to your library" : "Sign in to save audio to your library"}</span>
-        <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>WAV · MP3 · M4A · MusicXML · MIDI</span>
+    <>
+      <div className="sidebar-header">
+        <div className="brand">
+          <span className="brand-dot" />
+          Library
+        </div>
+        {signedIn ? (
+          <button className="btn btn-ghost btn-sm" onClick={onSignIn}>Sign out</button>
+        ) : (
+          <button className="btn btn-ghost btn-sm" id="signInBtn" onClick={onSignIn}>Sign in</button>
+        )}
       </div>
 
-      <div className="toolbar">
-        <button className="icon-btn" onClick={recording ? stopRecording : startRecording} disabled={busy || !signedIn}>
-          {recording ? "■ Stop" : "● Record"}
-        </button>
-      </div>
-
-      {recording && (
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", marginTop: "var(--s-2)" }}>
-          <span className="record-dot" />
-          <span className="muted" style={{ fontFamily: "monospace" }}>
-            {formatTime(recordTimer)}
+      <div className="sidebar-content">
+        <div
+          ref={dropRef}
+          className={`upload-zone${!signedIn ? " disabled" : ""}`}
+          onDragOver={signedIn ? handleDragOver : undefined}
+          onDragLeave={signedIn ? handleDragLeave : undefined}
+          onDrop={signedIn ? handleDrop : undefined}
+          onClick={() => signedIn && !recording && inputRef.current?.click()}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept="audio/*,.musicxml,.mid,.midi"
+            onChange={onUpload}
+            disabled={busy || !signedIn}
+            style={{ display: "none" }}
+          />
+          <span className="upload-icon">+</span>
+          <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>
+            {signedIn ? "Drop audio or click to upload" : "Sign in to upload"}
           </span>
         </div>
-      )}
 
-      {playing && nowPlaying && (
-        <div className="card" style={{ marginTop: "var(--s-3)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--s-1)" }}>
-            <span style={{ fontWeight: 500, fontSize: "var(--fs-sm)" }}>{nowPlaying.name}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)" }}>
-              <span className="muted" style={{ fontFamily: "monospace", fontSize: "var(--fs-xs)" }}>
-                {formatTime(currentTime)} / {formatTime(duration || 0)}
-              </span>
-              <button className="icon-btn ghost" onClick={stopAudio} title="Close" style={{ fontSize: "var(--fs-xs)", padding: 0, lineHeight: 1 }}>✕</button>
-            </div>
-          </div>
-          <div
-            className="pb-track"
-            style={{ height: 4, marginBottom: 4 }}
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              if (rect.width === 0) return;
-              const pct = (e.clientX - rect.left) / rect.width;
-              const a = audioRef.current;
-              if (a && duration > 0 && pct >= 0 && pct <= 1) a.currentTime = pct * duration;
-            }}
+        <div style={{ display: "flex", gap: "var(--s-2)", marginBottom: "var(--s-3)" }}>
+          <button
+            className="btn btn-sm"
+            style={{ flex: 1 }}
+            onClick={recording ? stopRecording : startRecording}
+            disabled={busy || !signedIn}
           >
-            <div className="pb-fill" style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }} />
-          </div>
-          <Visualizer audioRef={audioRef} />
-          <div className="toolbar" style={{ justifyContent: "center" }}>
-            <button className="icon-btn" onClick={() => paused ? resume() : pause()}>
-              {paused ? "▶" : "⏸"}
-            </button>
-          </div>
+            {recording ? (
+              <><span className="record-dot" /> Stop ({Math.floor(recordTimer / 60)}:{(recordTimer % 60).toString().padStart(2, "0")})</>
+            ) : (
+              "Record"
+            )}
+          </button>
         </div>
-      )}
 
-      <span className="status">{status}</span>
+        {status && <div className="status" style={{ marginBottom: "var(--s-2)" }}>{status}</div>}
 
-      {signedIn ? (
-        <>
-          <div className="section-label">Tracks</div>
-          {loading ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)" }}>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="track" style={{ opacity: 0.5 }}>
-                  <div className="track-head">
-                    <div className="track-name"><div className="skel line" style={{ width: "60%" }} /></div>
-                    <div className="track-actions"><div className="skel" style={{ width: 60, height: 28, borderRadius: "var(--r-full)" }} /></div>
-                  </div>
+        {!signedIn ? (
+          <div className="empty-state" style={{ marginTop: "var(--s-4)" }}>
+            Sign in to manage your music library
+          </div>
+        ) : loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)" }}>
+            {[1, 2, 3].map((i) => (
+              <div key={i} style={{ padding: "var(--s-3)", borderRadius: "var(--r-md)" }}>
+                <div className="skel line" style={{ width: "60%", marginBottom: "var(--s-2)" }} />
+                <div className="skel line" style={{ width: "40%" }} />
+              </div>
+            ))}
+          </div>
+        ) : files.length === 0 ? (
+          <div className="empty-state">No tracks yet</div>
+        ) : (
+          files.map((f) => {
+            const state = deriveTrackState(f);
+            const isSelected = selectedTrackId === f.id;
+            const isCurrentlyPlaying = playing === f.id;
+            return (
+              <div
+                key={f.id}
+                className={`lib-item${isSelected ? " selected" : ""}`}
+                onClick={() => onTrackSelect?.(f)}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)" }}>
+                  <div className="lib-item-name" style={{ flex: 1 }}>{f.name}</div>
+                  <button
+                    className="icon-btn"
+                    onClick={(e) => { e.stopPropagation(); togglePlay(f.id, f.url); }}
+                    title={isCurrentlyPlaying && !paused ? "Pause" : "Play"}
+                    style={{ width: 24, height: 24, fontSize: 10 }}
+                  >
+                    {isCurrentlyPlaying && !paused ? "⏸" : "▶"}
+                  </button>
+                  <button
+                    className="icon-btn danger"
+                    onClick={(e) => onDelete(f.id, f.name, e)}
+                    disabled={busy}
+                    title="Delete"
+                    style={{ width: 24, height: 24, fontSize: 10 }}
+                  >
+                    ×
+                  </button>
                 </div>
-              ))}
-            </div>
-          ) : files.length === 0 ? (
-            <div className="empty">No tracks yet. Transcribe audio and save it here.</div>
-          ) : (
-            files.map((f) => {
-              const state = deriveTrackState(f);
-              return (
-                <div key={f.id} className="track">
-                  <div className="track-head">
-                    <div className="track-name">{f.name}</div>
-                    <div className="track-meta">{f.size ? formatSize(f.size) : ""}</div>
-                    <div className="track-actions">
-                      <button className="icon-btn" onClick={() => togglePlay(f.id, f.url)}>
-                        {playing === f.id && !paused ? "⏸" : "▶"}
-                      </button>
-                      {onTranscribe && (
-                        <button
-                          className={`icon-btn ${!state.transcribed ? "" : "ghost"}`}
-                          onClick={() => onTranscribe(f)}
-                          disabled={isTranscribing || isAnalyzing}
-                        >
-                          {state.transcribed ? "View Transcription" : "Transcribe"}
-                        </button>
-                      )}
-                      {onVisualize && state.transcribed && (
-                        <button className="icon-btn ghost" onClick={() => onVisualize(f)}>
-                          Visualize
-                        </button>
-                      )}
-                      {onAnalyze && state.transcribed && (
-                        <button
-                          className={`icon-btn ${!state.analysis ? "" : "ghost"}`}
-                          onClick={() => onAnalyze(f)}
-                          disabled={isTranscribing || isAnalyzing}
-                        >
-                          {state.analysis ? "View Analysis" : "Analyze"}
-                        </button>
-                      )}
-                      <button className="icon-btn ghost danger" onClick={() => onDelete(f.id, f.name)} disabled={busy}>
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                  <div className="track-artifacts">
-                    <span className="artifact done"><span className="dot" /> Audio</span>
-                    {state.transcribed && (
-                      <span className="artifact done"><span className="dot" /> Transcribed</span>
-                    )}
-                    {state.sheetMusic && (
-                      <span className="artifact done"><span className="dot" /> Sheet Music</span>
-                    )}
-                    {state.analysis && (
-                      <span className="artifact done"><span className="dot" /> Analyzed</span>
-                    )}
-                    {!state.transcribed && (
-                      <span className="artifact pending"><span className="dot" /> Not transcribed</span>
-                    )}
-                  </div>
+                <div className="lib-item-meta">
+                  {f.size && <span>{formatSize(f.size)}</span>}
+                  {f.created_at && <span>{timeAgo(f.created_at)}</span>}
+                  {f.analysis?.tempo && <span>{Math.round(f.analysis.tempo.bpm)} BPM</span>}
+                  {f.analysis?.key && <span>{f.analysis.key.tonic} {f.analysis.key.mode}</span>}
                 </div>
-              );
-            })
-          )}
-        </>
-      ) : (
-        <div className="empty" style={{ marginTop: "var(--s-4)" }}>
-          Sign in to view and manage your tracks.
-        </div>
-      )}
-
-    </div>
+                <div className="lib-item-badges">
+                  <span className="badge done"><span className="badge-dot" /> Audio</span>
+                  {state.transcribed && <span className="badge done"><span className="badge-dot" /> MIDI</span>}
+                  {state.sheetMusic && <span className="badge done"><span className="badge-dot" /> Score</span>}
+                  {state.analysis && <span className="badge done"><span className="badge-dot" /> Analysis</span>}
+                  {!state.transcribed && <span className="badge"><span className="badge-dot" /> Not processed</span>}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </>
   );
 }

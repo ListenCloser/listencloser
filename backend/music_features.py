@@ -15,6 +15,7 @@ Runs on CPU (Oracle always-free ARM VM). Suitable for short clips
 (seconds to a couple minutes).
 """
 
+import contextlib
 import io
 import logging
 import os
@@ -250,10 +251,8 @@ def convert_format(data: bytes, source: str, target: str) -> bytes:
 
         # Quantize to 16th note grid for cleaner notation
         if target == "musicxml":
-            try:
+            with contextlib.suppress(Exception):
                 score.quantize(inPlace=True)
-            except Exception:
-                pass  # quantization is best-effort
 
         out_ext = ".mid" if target == "midi" else ".xml"
         out_path = os.path.join(td, f"output{out_ext}")
@@ -279,6 +278,7 @@ def _clean_midi(midi_bytes: bytes) -> bytes:
     3. Normalize velocities to 0-127 range
     """
     import pretty_midi as pm
+
     midi = pm.PrettyMIDI(io.BytesIO(midi_bytes))
 
     for inst in midi.instruments:
