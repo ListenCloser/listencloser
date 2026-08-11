@@ -404,7 +404,10 @@ def _midi_melody(midi_path: str) -> MelodyResult | None:
             if line and abs(note.start - line[-1].start) < 0.03:
                 continue
             line.append(note)
-        intervals = [abs(current.pitch - previous.pitch) for previous, current in zip(line, line[1:])]
+        intervals = [
+            abs(current.pitch - previous.pitch)
+            for previous, current in zip(line, line[1:], strict=False)
+        ]
         nonzero = [interval for interval in intervals if interval > 0]
         low, high = min(note.pitch for note in line), max(note.pitch for note in line)
         return MelodyResult(
@@ -412,8 +415,12 @@ def _midi_melody(midi_path: str) -> MelodyResult | None:
             high_pitch=high,
             range_semitones=high - low,
             unique_pitch_classes=len({note.pitch % 12 for note in line}),
-            stepwise_ratio=round(sum(interval <= 2 for interval in nonzero) / len(nonzero), 3) if nonzero else 0.0,
-            leap_ratio=round(sum(interval >= 5 for interval in nonzero) / len(nonzero), 3) if nonzero else 0.0,
+            stepwise_ratio=round(sum(interval <= 2 for interval in nonzero) / len(nonzero), 3)
+            if nonzero
+            else 0.0,
+            leap_ratio=round(sum(interval >= 5 for interval in nonzero) / len(nonzero), 3)
+            if nonzero
+            else 0.0,
         )
     except Exception:
         return None

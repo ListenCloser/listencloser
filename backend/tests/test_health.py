@@ -47,7 +47,7 @@ def test_queue_health_reports_worker_and_active_jobs(client, monkeypatch):
         ]
     )
     supabase = MagicMock()
-    supabase.table.side_effect = lambda name: (jobs if name == "jobs" else workers)
+    supabase.table.side_effect = lambda name: jobs if name == "jobs" else workers
     monkeypatch.setattr(main, "get_supabase_client", lambda: supabase)
 
     response = client.get("/health/queue")
