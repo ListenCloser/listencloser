@@ -19,7 +19,8 @@ test("a persisted work reopens with transcription, score, analysis, and shortcut
 
   await page.getByRole("tab", { name: "Insights" }).click();
   await expect(page.getByText("A minor")).toBeVisible();
-  await expect(page.getByText("112 BPM")).toBeVisible();
+  const inspector = page.getByRole("tablist", { name: "Inspector views" }).locator("..").locator("..");
+  await expect(inspector.getByText("112 BPM")).toBeVisible();
 
   await page.getByRole("tab", { name: "Shortcuts" }).click();
   await page.getByLabel("Work command").fill("summarize");
