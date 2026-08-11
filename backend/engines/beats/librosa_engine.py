@@ -24,21 +24,11 @@ class LibrosaBeatEngine(BeatTrackingEngine):
         import music_features as mf
 
         bpm, beats = mf.estimate_beat_grid(wav_bytes)
-        downbeats: list[float] = []
-        beat_positions: list[int] = []
-        if beats:
-            inter_beat = [beats[i + 1] - beats[i] for i in range(len(beats) - 1)]
-            if inter_beat:
-                avg_interval = sum(inter_beat) / len(inter_beat)
-                bar_length = avg_interval * 4
-                beat_positions = list(range(len(beats)))
-                downbeats = [beats[i] for i in range(0, len(beats), 4)] if bar_length > 0 else []
-
         return BeatTrackingResult(
             bpm=float(bpm),
             beats=beats,
-            downbeats=downbeats,
-            beat_positions=beat_positions,
+            downbeats=None,
+            beat_positions=list(range(len(beats))) if beats else [],
             provenance=self.provenance,
         )
 

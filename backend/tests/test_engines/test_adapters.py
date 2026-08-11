@@ -69,9 +69,7 @@ class TestAllInOneAdapter:
     def test_disabled_by_default(self):
         engine = AllInOneEngine()
         result = engine.analyze(b"fake-wav")
-        assert result is not None
-        assert not result.enabled
-        assert result.beats == []
+        assert result is None  # disabled returns None, not a zero-filled result
 
     def test_provenance_includes_model(self):
         engine = AllInOneEngine()

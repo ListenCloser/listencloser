@@ -23,10 +23,17 @@ from engines.structure.allin1_engine import AllInOneEngine
 from engines.transcription.basic_pitch import BasicPitchEngine
 
 
-def get_transcription_engine(name: str | None = None) -> TranscriptionEngine:
+def get_transcription_engine(
+    name: str | None = None,
+    onset_threshold: float = 0.5,
+    frame_threshold: float = 0.3,
+) -> TranscriptionEngine:
     name = name or os.environ.get("TRANSCRIPTION_ENGINE", "basic_pitch")
     if name == "basic_pitch":
-        return BasicPitchEngine()
+        return BasicPitchEngine(
+            onset_threshold=onset_threshold,
+            frame_threshold=frame_threshold,
+        )
     raise ValueError(f"Unknown transcription engine: {name}")
 
 
