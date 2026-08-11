@@ -81,9 +81,9 @@ const renderers: Record<RepresentationKind, (props: RepresentationProps) => Reac
     </div>
   ),
   waveform: ({ audioUrl }) => <WaveformWrapper audioUrl={audioUrl} />,
-  score: ({ musicxml }) => (
+  score: ({ musicxml, bpm, playheadTime }) => (
     <div className="representation-body">
-      <SheetMusic musicXml={musicxml ?? ""} />
+      <SheetMusic musicXml={musicxml ?? ""} bpm={bpm} playheadTime={playheadTime} />
     </div>
   ),
   spectrogram: ({ audioUrl }) => <SpectrogramWrapper audioUrl={audioUrl} />,

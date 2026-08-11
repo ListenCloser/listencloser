@@ -16,7 +16,6 @@ import { pitchToName } from "@/lib/notes";
 type Note = { pitch: number; start: number; end: number; velocity: number };
 
 const PPQ = 16;
-const ROW_H = 24;
 const LABEL_W = 40;
 const TOP_PAD = 16;
 
@@ -49,7 +48,8 @@ export default function PianoRoll({
     rows.push({ pitch: p, label, notes: n });
   }
 
-  const h = rows.length * ROW_H + TOP_PAD;
+  const rowH = Math.max(12, Math.min(22, 520 / Math.max(rows.length, 1)));
+  const h = rows.length * rowH + TOP_PAD;
   const W = LABEL_W + totalPx;
   const playheadX = LABEL_W + (playheadTime / 60) * bpm * PPQ;
 
@@ -87,9 +87,9 @@ export default function PianoRoll({
             <rect
               key={`stripe-${row.pitch}`}
               x={LABEL_W}
-              y={ri * ROW_H + TOP_PAD}
+              y={ri * rowH + TOP_PAD}
               width={totalPx}
-              height={ROW_H}
+              height={rowH}
               fill={ri % 2 === 0 ? "var(--panel-2)" : "transparent"}
             />
           ))}
@@ -113,14 +113,14 @@ export default function PianoRoll({
 
           {/* Note rows */}
           {rows.map((row, ri) => {
-            const y = ri * ROW_H + TOP_PAD;
+            const y = ri * rowH + TOP_PAD;
             return (
               <g key={row.pitch}>
                 <text
                   x={4}
-                  y={y + 16}
+                  y={y + Math.min(rowH - 3, 13)}
                   fill="var(--muted)"
-                  fontSize={11}
+                  fontSize={Math.min(11, Math.max(8, rowH - 4))}
                   fontFamily="var(--font-mono)"
                 >
                   {row.label}
@@ -137,7 +137,7 @@ export default function PianoRoll({
                       x={x}
                       y={y + 2}
                       width={w}
-                      height={ROW_H - 4}
+                      height={Math.max(rowH - 3, 6)}
                       rx={3}
                       fill="var(--accent)"
                       opacity={active ? 1 : velOpacity}

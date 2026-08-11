@@ -434,7 +434,7 @@ def handle_understand(job: Job, client) -> list[str]:
     score_job = job.model_copy(
         update={
             "capability": Capability(name="score", version="1.0"),
-            "input_version_ids": [midi_version_id],
+            "input_version_ids": [midi_version_id, job.input_version_ids[0]],
         }
     )
     score_ids = handle_score(score_job, _ProgressClient(client, 0.85, 0.15))
@@ -774,7 +774,7 @@ def handle_analyze(job: Job, client) -> list[str]:
 
 
 def handle_score(job: Job, client) -> list[str]:
-    """Convert a MIDI performance into MusicXML sheet music."""
+    """Create beat-aligned notation MIDI and MusicXML from a performance MIDI."""
     if not job.input_version_ids:
         raise ValueError("score requires a MIDI input version")
 
@@ -783,8 +783,40 @@ def handle_score(job: Job, client) -> list[str]:
     work_id = _resolve_work_id(client, input_version.id)
     _update_progress(client, job.id, 0.2, "downloading MIDI")
     midi_bytes = download_version_bytes(input_version, client)
+    beat_times: list[float] = []
+    tempo = 0.0
+    if len(job.input_version_ids) > 1:
+        try:
+            _update_progress(client, job.id, 0.35, "aligning notation to the recording")
+            audio_bytes = download_version_bytes(
+                _lookup_version(client, job.input_version_ids[1]), client
+            )
+            wav_bytes = music_features.decode_audio_to_wav(
+                audio_bytes, fmt=job.parameters.get("fmt", "wav")
+            )
+            tempo, beat_times = music_features.estimate_beat_grid(wav_bytes)
+        except Exception:
+            logger.exception("score_beat_tracking_failed")
+    notation_midi, notation_report = music_features.notation_midi_from_performance(
+        midi_bytes, beat_times
+    )
     _update_progress(client, job.id, 0.5, "creating notation")
-    musicxml = music_features.convert_format(midi_bytes, "midi", "musicxml")
+    notation_key = _job_storage_key(job, "notation.mid")
+    _upload_bytes(client, _STORAGE_BUCKET, notation_key, notation_midi, "audio/midi")
+    notation_version_id = _create_output_version(
+        client,
+        work_id,
+        ArtifactKind.midi_corrected,
+        notation_key,
+        len(notation_midi),
+        input_version.id,
+        job,
+        owner_id,
+        mime_type="audio/midi",
+        label="Beat-aligned notation MIDI",
+        metadata={"notation": notation_report, "estimated_tempo_bpm": tempo},
+    )
+    musicxml = music_features.convert_format(notation_midi, "midi", "musicxml", notation_ready=True)
     storage_key = _job_storage_key(job, "score.musicxml")
     _upload_bytes(
         client,
@@ -799,18 +831,20 @@ def handle_score(job: Job, client) -> list[str]:
         ArtifactKind.musicxml_score,
         storage_key,
         len(musicxml),
-        input_version.id,
+        notation_version_id,
         job,
         owner_id,
         mime_type="application/vnd.recordare.musicxml+xml",
         label="Quantized notation draft",
         metadata={
             "representation": "notation_draft",
+            "notation_midi_version_id": str(notation_version_id),
+            "notation": notation_report,
             "quality_notice": "Derived from automatic transcription; review by ear before sharing.",
         },
     )
     _update_progress(client, job.id, 1.0, "score complete")
-    return [str(version_id)]
+    return [str(notation_version_id), str(version_id)]
 
 
 def handle_enhance(job: Job, client) -> list[str]:
