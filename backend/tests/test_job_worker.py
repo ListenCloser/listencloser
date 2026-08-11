@@ -393,6 +393,55 @@ class TestJobCancellation:
 
         assert result is False
 
+    def test_cancelled_handler_result_cannot_overwrite_terminal_state(self, worker):
+        job_row = make_job_row()
+        handler = MagicMock(return_value=[str(uuid4())])
+        worker.register("transcribe", "1.0", handler)
+
+        with _mock_execute_env(worker) as mocked:
+            mocked["_check_cancelled"].side_effect = [False, True]
+            worker._execute_job(job_row)
+
+        handler.assert_called_once()
+        mocked["_mark_succeeded"].assert_not_called()
+
+    def test_cancelled_handler_failure_is_not_requeued(self, worker):
+        job_row = make_job_row()
+        handler = MagicMock(side_effect=Exception("stopped"))
+        worker.register("transcribe", "1.0", handler)
+
+        with _mock_execute_env(worker) as mocked:
+            mocked["_check_cancelled"].side_effect = [False, True]
+            worker._execute_job(job_row)
+
+        mocked["_requeue_job"].assert_not_called()
+        mocked["_mark_failed"].assert_not_called()
+
+    def test_state_change_before_running_prevents_handler_execution(self, worker):
+        job_row = make_job_row()
+        handler = MagicMock(return_value=[])
+        worker.register("transcribe", "1.0", handler)
+
+        with _mock_execute_env(worker) as mocked:
+            mocked["_mark_running"].return_value = False
+            worker._execute_job(job_row)
+
+        handler.assert_not_called()
+        mocked["_mark_succeeded"].assert_not_called()
+
+
+class TestWorkerHeartbeat:
+    def test_heartbeat_publishes_liveness_and_capabilities(self, worker, mock_supabase):
+        worker.register("understand", "1.0", MagicMock())
+
+        worker._heartbeat_worker()
+
+        mock_supabase.table.assert_called_with("worker_heartbeats")
+        row = mock_supabase.table.return_value.upsert.call_args[0][0]
+        assert row["worker_id"] == worker._worker_id
+        assert row["status"] == "running"
+        assert row["capabilities"] == ["understand:1.0"]
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 7. Idempotency via cache_key
@@ -409,7 +458,8 @@ class TestCacheIdempotency:
             worker._execute_job(job_row)
 
         handler.assert_not_called()
-        mocked["_claim_job"].assert_not_called()
+        mocked["_claim_job"].assert_called_once_with(job_row["id"])
+        mocked["_mark_running"].assert_not_called()
 
     def test_cache_hit_detects_existing_succeeded(self, worker, mock_supabase):
         job_row = make_job_row(cache_key="dup-key")

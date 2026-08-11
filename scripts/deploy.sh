@@ -11,6 +11,7 @@ REPO_URL="https://github.com/gr-rr/hello-ai.git"
 COMPOSE="${DOCKER_COMPOSE_FILE:-backend/docker-compose.yml}"
 BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
 HEALTH_URL="${BACKEND_URL}/health/ready"
+QUEUE_HEALTH_URL="${BACKEND_URL}/health/queue"
 MAX_WAIT="${HEALTH_TIMEOUT:-120}"
 
 # --- ensure repo exists and is usable ---
@@ -107,6 +108,21 @@ until curl -fsS "$HEALTH_URL" >/dev/null 2>&1; do
     echo "[deploy] health check failed after ${MAX_WAIT}s; rolling back to ${PREV_HEAD}" >&2
     echo "[deploy] container logs:" >&2
     docker compose -f "$COMPOSE" logs --tail=30 backend 2>&1 >&2 || true
+    git checkout -q "$PREV_HEAD"
+    docker compose -f "$COMPOSE" up -d --build backend worker
+    exit 1
+  fi
+  sleep 2
+done
+
+echo "[deploy] waiting for a live worker at ${QUEUE_HEALTH_URL}"
+elapsed=0
+until curl -fsS "$QUEUE_HEALTH_URL" 2>/dev/null | grep -q '"status":"ready"'; do
+  elapsed=$((elapsed + 2))
+  if [ "$elapsed" -ge "$MAX_WAIT" ]; then
+    echo "[deploy] worker health check failed after ${MAX_WAIT}s; rolling back to ${PREV_HEAD}" >&2
+    echo "[deploy] container logs:" >&2
+    docker compose -f "$COMPOSE" logs --tail=30 backend worker 2>&1 >&2 || true
     git checkout -q "$PREV_HEAD"
     docker compose -f "$COMPOSE" up -d --build backend worker
     exit 1

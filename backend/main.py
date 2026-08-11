@@ -6,6 +6,7 @@ import logging
 import os
 import time
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI, Request
 from slowapi import _rate_limit_exceeded_handler
@@ -113,3 +114,60 @@ def health_ready():
         "status": "ready" if configured else "degraded",
         "supabase": configured,
     }
+
+
+@app.get("/health/queue")
+def health_queue():
+    client = get_supabase_client()
+    if not client:
+        return {
+            "status": "degraded",
+            "reason": "supabase not configured",
+            "workers": 0,
+            "queued": 0,
+            "running": 0,
+            "stale_leases": 0,
+        }
+
+    try:
+        now = datetime.now(UTC)
+        active_jobs = (
+            client.table("jobs")
+            .select("stage,lease_expires_at")
+            .in_("stage", ["queued", "claimed", "running"])
+            .execute()
+        )
+        heartbeats = (
+            client.table("worker_heartbeats")
+            .select("status,heartbeat_at")
+            .gte("heartbeat_at", (now - timedelta(seconds=45)).isoformat())
+            .execute()
+        )
+        rows = active_jobs.data or []
+        workers = [row for row in (heartbeats.data or []) if row.get("status") == "running"]
+        queued = sum(row.get("stage") == "queued" for row in rows)
+        running = sum(row.get("stage") in {"claimed", "running"} for row in rows)
+        stale_leases = sum(
+            row.get("stage") in {"claimed", "running"}
+            and row.get("lease_expires_at")
+            and datetime.fromisoformat(str(row["lease_expires_at"]).replace("Z", "+00:00")) < now
+            for row in rows
+        )
+        healthy = bool(workers) and stale_leases == 0
+        return {
+            "status": "ready" if healthy else "degraded",
+            "workers": len(workers),
+            "queued": queued,
+            "running": running,
+            "stale_leases": stale_leases,
+        }
+    except Exception:
+        logger.exception("queue_health_failed")
+        return {
+            "status": "degraded",
+            "reason": "queue health unavailable",
+            "workers": 0,
+            "queued": 0,
+            "running": 0,
+            "stale_leases": 0,
+        }

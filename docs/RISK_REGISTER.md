@@ -12,7 +12,7 @@ Generated from bundle `05_EXECUTION/05_RISK_REGISTER.md` — adapted to reposito
 | R06 | UI improvisation | Incoherent product | High | Medium | Design SOT as guardrail, UX agent review per change | Design/UX agent | Mitigated |
 | R07 | Endless dual architecture | Permanent complexity | Medium | High | Removal condition for every compatibility adapter, migration phases | Domain/Data agent | Future |
 | R08 | OSS abandonment/license issue | Blocked deployment | Low | High | Capability evaluations, fallback adapters, no hard coupling | Research agent | Future |
-| R09 | Request-bound ML | Timeouts and data loss | High (current) | Medium | Durable job system (Phase 2), async workers, idempotent retry | Backend agent | Active |
+| R09 | Request-bound ML | Timeouts and data loss | Low | Medium | Durable jobs, separate workers, leases, cancel/retry, and worker health | Backend agent | Mitigated |
 | R10 | Analysis hallucination | User distrust | Medium | Medium | Structured evidence and provenance on every insight | Backend agent | Future |
 | R11 | Current `LibFile` model migration | Data corruption during migration | High | Critical | Dual-read/write strategy, backfill validation, rollback SQL | Domain/Data agent | Future |
 | R12 | Host proxy 1MB body limit | Large uploads fail with 413 | High (current) | Medium | In-repo Caddy config or browser signed upload to Supabase | Backend agent | Active |
@@ -20,8 +20,10 @@ Generated from bundle `05_EXECUTION/05_RISK_REGISTER.md` — adapted to reposito
 ## Current active risks
 
 ### R09 — Request-bound ML
-**Status:** The current backend runs Basic Pitch, music21 analysis, and FluidSynth synthesis synchronously in the request path. A slow transcription ties up a worker.  
-**Plan:** Phase 2 introduces Postgres-backed durable jobs with the lifecycle `queued → claimed → running → succeeded/failed/cancelled`.
+**Status:** The request path only persists and queues work. A separate worker
+claims jobs with renewable leases, records liveness, and prevents cancellation
+from being overwritten by completion or retry. Remaining risk is capacity and
+blocking model calls, not request loss.
 
 ### R12 — Host proxy body limit
 **Status:** The Oracle VM's host-level reverse proxy enforces ~1MB body limit. Large audio uploads fail with HTTP 413.  

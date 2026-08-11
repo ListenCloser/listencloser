@@ -121,14 +121,21 @@ def _resolve_work_id(client, version_id: UUID) -> UUID:
 
 
 def _update_progress(client, job_id: UUID, progress: float, message: str = "") -> None:
-    """Update progress and status message on the jobs table."""
+    """Update a running job or stop at the next cooperative boundary."""
     clamped = max(0.0, min(1.0, float(progress)))
     try:
-        client.table("jobs").update({"progress": clamped, "status_message": message}).eq(
-            "id", str(job_id)
-        ).execute()
+        result = (
+            client.table("jobs")
+            .update({"progress": clamped, "status_message": message})
+            .eq("id", str(job_id))
+            .eq("stage", "running")
+            .execute()
+        )
+        if result.data == []:
+            raise RuntimeError("job is no longer running")
     except Exception:
         logger.exception("update_progress_failed", extra={"job_id": str(job_id)})
+        raise
 
 
 def _upload_bytes(
@@ -139,6 +146,11 @@ def _upload_bytes(
     content_type: str = "application/octet-stream",
 ) -> None:
     client.storage.from_(bucket).upload(key, data, {"content-type": content_type})
+
+
+def _job_storage_key(job: Job, filename: str) -> str:
+    """Keep automatic retry attempts immutable and collision-free."""
+    return f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/{filename}"
 
 
 def _create_output_version(
@@ -430,7 +442,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
     output_ids: list[str] = []
 
     _update_progress(client, job.id, 0.6, "storing MIDI output")
-    midi_key = f"jobs/{job.id}/transcribed.mid"
+    midi_key = _job_storage_key(job, "transcribed.mid")
     _upload_bytes(client, _STORAGE_BUCKET, midi_key, result["midi"], "audio/midi")
     midi_version_id = _create_output_version(
         client,
@@ -469,7 +481,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
     EntityRepo(client).create_many(note_entities, owner_id)
 
     _update_progress(client, job.id, 0.8, "storing rendered audio")
-    wav_key = f"jobs/{job.id}/transcribed.wav"
+    wav_key = _job_storage_key(job, "transcribed.wav")
     _upload_bytes(client, _STORAGE_BUCKET, wav_key, result["wav"], "audio/wav")
     audio_version_id = _create_output_version(
         client,
@@ -670,7 +682,7 @@ def handle_score(job: Job, client) -> list[str]:
     midi_bytes = download_version_bytes(input_version, client)
     _update_progress(client, job.id, 0.5, "creating notation")
     musicxml = music_features.convert_format(midi_bytes, "midi", "musicxml")
-    storage_key = f"jobs/{job.id}/score.musicxml"
+    storage_key = _job_storage_key(job, "score.musicxml")
     _upload_bytes(
         client,
         _STORAGE_BUCKET,
@@ -714,7 +726,7 @@ def handle_enhance(job: Job, client) -> list[str]:
     enhanced = music_features.enhance_audio(audio_bytes, fmt=fmt)
 
     _update_progress(client, job.id, 0.7, "storing enhanced audio")
-    storage_key = f"jobs/{job.id}/enhanced.wav"
+    storage_key = _job_storage_key(job, "enhanced.wav")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, enhanced, "audio/wav")
 
     enhanced_version_id = _create_output_version(
@@ -753,7 +765,7 @@ def handle_synthesize(job: Job, client) -> list[str]:
     wav_bytes = music_features.midi_to_wav(midi_bytes, sr=sr)
 
     _update_progress(client, job.id, 0.7, "storing synthesised audio")
-    storage_key = f"jobs/{job.id}/synthesised.wav"
+    storage_key = _job_storage_key(job, "synthesised.wav")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, wav_bytes, "audio/wav")
 
     audio_version_id = _create_output_version(
@@ -828,7 +840,7 @@ def handle_correct(job: Job, client) -> list[str]:
     corrected_bytes = buf.getvalue()
 
     _update_progress(client, job.id, 0.8, "storing corrected MIDI")
-    storage_key = f"jobs/{job.id}/corrected.mid"
+    storage_key = _job_storage_key(job, "corrected.mid")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, corrected_bytes, "audio/midi")
 
     output_version_id = _create_output_version(
@@ -1045,7 +1057,7 @@ def handle_transform(job: Job, client) -> list[str]:
     transformed_bytes = buf.getvalue()
 
     _update_progress(client, job.id, 0.8, "storing transformed MIDI")
-    storage_key = f"jobs/{job.id}/transformed.mid"
+    storage_key = _job_storage_key(job, "transformed.mid")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, transformed_bytes, "audio/midi")
 
     output_version_id = _create_output_version(
@@ -1111,7 +1123,7 @@ def handle_generate_continuation(job: Job, client) -> list[str]:
     continued_bytes = buf.getvalue()
 
     _update_progress(client, job.id, 0.8, "storing continued MIDI")
-    storage_key = f"jobs/{job.id}/continued.mid"
+    storage_key = _job_storage_key(job, "continued.mid")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, continued_bytes, "audio/midi")
 
     output_version_id = _create_output_version(

@@ -14,7 +14,7 @@ that were not backed by durable capabilities.
 | Product promise | Implementation | Verification |
 |---|---|---|
 | Private audio import | authenticated multipart upload, size/type checks, owner-prefixed private object | API/RLS tests + E2E request |
-| Durable processing | Postgres-backed job claimed by a separate worker | worker lease/retry tests |
+| Durable processing | Postgres-backed job claimed by a live separate worker | lease/cancel/retry/heartbeat tests + queue health |
 | Audio to MIDI | Basic Pitch capability | adapter tests + real deployed smoke |
 | Piano roll | persisted note entities | component + E2E |
 | Playback comparison | signed original and rendered WAV versions | store tests + E2E source selector |

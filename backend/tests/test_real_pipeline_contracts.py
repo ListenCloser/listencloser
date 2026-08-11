@@ -2,6 +2,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
 
+import pytest
+
 import domain.capabilities as capabilities
 from domain.api import _signed_url
 from domain.capabilities import _ProgressClient, register_all_capabilities
@@ -46,6 +48,34 @@ def test_child_progress_is_mapped_into_parent_interval():
     )
 
     table.update.assert_called_once_with({"progress": 0.75, "status_message": "analyzing"})
+
+
+def test_progress_boundary_stops_a_job_that_is_no_longer_running():
+    client = MagicMock()
+    chain = client.table.return_value.update.return_value.eq.return_value.eq
+    chain.return_value.execute.return_value = SimpleNamespace(data=[])
+
+    with pytest.raises(RuntimeError, match="job is no longer running"):
+        capabilities._update_progress(client, uuid4(), 0.5, "analyzing")
+
+    chain.assert_called_once_with("stage", "running")
+
+
+def test_retry_attempts_get_distinct_storage_keys():
+    base = Job(
+        workflow_id=uuid4(),
+        capability=Capability(name="understand", version="1.0"),
+    )
+    retried = base.model_copy(
+        update={"lifecycle": base.lifecycle.model_copy(update={"retry_count": 2})}
+    )
+
+    assert capabilities._job_storage_key(base, "score.musicxml").endswith(
+        "/attempt-0/score.musicxml"
+    )
+    assert capabilities._job_storage_key(retried, "score.musicxml").endswith(
+        "/attempt-2/score.musicxml"
+    )
 
 
 def test_understand_runs_all_stages_without_browser_orchestration(monkeypatch):

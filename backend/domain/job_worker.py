@@ -115,6 +115,7 @@ class JobWorker:
         max_workers: int = 4,
     ) -> None:
         self._worker_id = str(uuid4())
+        self._started_at = datetime.now(UTC)
         self._lease_duration = lease_duration_sec
         self._heartbeat_interval = heartbeat_interval_sec
         self._poll_interval = poll_interval_sec
@@ -126,6 +127,25 @@ class JobWorker:
 
         self._client: Any = None
         self._client_lock = threading.Lock()
+
+    def _heartbeat_worker(self, status: str = "running") -> None:
+        """Publish aggregate worker liveness without exposing job data."""
+        try:
+            self.client.table("worker_heartbeats").upsert(
+                {
+                    "worker_id": self._worker_id,
+                    "status": status,
+                    "capabilities": sorted(self._capabilities),
+                    "started_at": self._started_at.isoformat(),
+                    "heartbeat_at": datetime.now(UTC).isoformat(),
+                },
+                on_conflict="worker_id",
+            ).execute()
+        except Exception:
+            logger.exception(
+                "worker_heartbeat_failed",
+                extra={"worker_id": self._worker_id, "status": status},
+            )
 
     # ------------------------------------------------------------------
     # Supabase client (lazy, threadsafe)
@@ -228,19 +248,25 @@ class JobWorker:
         )
         return bool(result.data) if result.data is not None else False
 
-    def _mark_running(self, job_id: str) -> None:
+    def _mark_running(self, job_id: str) -> bool:
         """Transition a claimed job into ``running`` state."""
         now = datetime.now(UTC).isoformat()
-        self.client.table("jobs").update({"stage": "running", "started_at": now}).eq(
-            "id", job_id
-        ).eq("worker_id", self._worker_id).execute()
+        result = (
+            self.client.table("jobs")
+            .update({"stage": "running", "started_at": now})
+            .eq("id", job_id)
+            .eq("worker_id", self._worker_id)
+            .eq("stage", "claimed")
+            .execute()
+        )
+        return bool(result.data) if result.data is not None else False
 
     def _renew_lease(self, job_id: str) -> None:
         """Extend the lease on a running job (heartbeat)."""
         expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
         self.client.table("jobs").update({"lease_expires_at": expires}).eq("id", job_id).eq(
             "worker_id", self._worker_id
-        ).execute()
+        ).eq("stage", "running").execute()
 
     def _mark_succeeded(self, job_id: str, output_version_ids: list[str]) -> None:
         """Mark a job as successfully completed."""
@@ -254,7 +280,7 @@ class JobWorker:
                 "completed_at": now,
                 "lease_expires_at": None,
             }
-        ).eq("id", job_id).eq("worker_id", self._worker_id).execute()
+        ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "running").execute()
 
     def _requeue_job(
         self,
@@ -275,7 +301,7 @@ class JobWorker:
                 "progress": 0.0,
                 "status_message": f"retry {retry_count}",
             }
-        ).eq("id", job_id).execute()
+        ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "running").execute()
 
     def _mark_failed(self, job_id: str, error_message: str, error_details: dict) -> None:
         """Mark a job as permanently failed (retries exhausted)."""
@@ -288,7 +314,7 @@ class JobWorker:
                 "completed_at": now,
                 "lease_expires_at": None,
             }
-        ).eq("id", job_id).eq("worker_id", self._worker_id).execute()
+        ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "running").execute()
 
     # ------------------------------------------------------------------
     # Cancellation check
@@ -341,7 +367,7 @@ class JobWorker:
         try:
             self.client.table("jobs").update({"progress": clamped, "status_message": message}).eq(
                 "id", job_id
-            ).eq("worker_id", self._worker_id).execute()
+            ).eq("worker_id", self._worker_id).eq("stage", "running").execute()
         except Exception:
             logger.exception("update_progress_failed", extra={"job_id": job_id})
 
@@ -413,7 +439,17 @@ class JobWorker:
         """Claim, validate, and run a single job inside the current thread."""
         job_id: str = str(job_row["id"])
 
-        # --- Idempotency check ---
+        # --- Atomic claim ---
+        if not self._claim_job(job_id):
+            logger.debug("claim_lost", extra={"job_id": job_id})
+            return
+
+        # --- Defensive cancellation check ---
+        if self._check_cancelled(job_id):
+            logger.info("job_cancelled_after_claim", extra={"job_id": job_id})
+            return
+
+        # --- Idempotency check (only after this worker owns the lease) ---
         if self._check_cache_hit(job_row):
             logger.info(
                 "cache_hit_skip",
@@ -431,21 +467,16 @@ class JobWorker:
                     "completed_at": now,
                     "lease_expires_at": None,
                 }
-            ).eq("id", job_id).execute()
-            return
-
-        # --- Atomic claim ---
-        if not self._claim_job(job_id):
-            logger.debug("claim_lost", extra={"job_id": job_id})
-            return
-
-        # --- Defensive cancellation check ---
-        if self._check_cancelled(job_id):
-            logger.info("job_cancelled_after_claim", extra={"job_id": job_id})
+            ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "claimed").execute()
             return
 
         # --- Transition to running ---
-        self._mark_running(job_id)
+        if not self._mark_running(job_id):
+            logger.info(
+                "job_state_changed_before_run",
+                extra={"job_id": job_id},
+            )
+            return
 
         # --- Resolve handler ---
         cap_name = job_row.get("capability_name", "")
@@ -498,6 +529,12 @@ class JobWorker:
                 output_vals = list(output_vals) if output_vals else []
 
             output_version_ids = [str(oid) for oid in output_vals]
+            if self._check_cancelled(job_id):
+                logger.info(
+                    "job_cancelled_before_completion",
+                    extra={"job_id": job_id},
+                )
+                return
             self._mark_succeeded(job_id, output_version_ids)
             logger.info("job_succeeded", extra={"job_id": job_id})
 
@@ -513,7 +550,12 @@ class JobWorker:
             retry_count = int(job_row.get("retry_count", 0)) + 1
             max_retries = int(job_row.get("max_retries", 3))
 
-            if retry_count <= max_retries:
+            if self._check_cancelled(job_id):
+                logger.info(
+                    "job_cancelled_after_handler_error",
+                    extra={"job_id": job_id},
+                )
+            elif retry_count <= max_retries:
                 delay = 2**retry_count
                 logger.info(
                     "job_retry",
@@ -552,6 +594,7 @@ class JobWorker:
         """
         self._recover_orphans()
         self._running = True
+        self._heartbeat_worker()
         logger.info(
             "worker_started",
             extra={
@@ -562,6 +605,7 @@ class JobWorker:
         )
 
         executor = ThreadPoolExecutor(max_workers=self._max_workers)
+        last_heartbeat = time.monotonic()
         try:
             while self._running:
                 if self._stop_event.is_set():
@@ -572,13 +616,20 @@ class JobWorker:
                 if job_row is not None:
                     executor.submit(self._execute_job, job_row)
 
+                if time.monotonic() - last_heartbeat >= 10.0:
+                    self._heartbeat_worker()
+                    last_heartbeat = time.monotonic()
+
                 self._stop_event.wait(self._poll_interval)
 
             logger.info("worker_draining", extra={"worker_id": self._worker_id})
+            self._heartbeat_worker("draining")
             executor.shutdown(wait=True)
+            self._heartbeat_worker("stopped")
             logger.info("worker_stopped", extra={"worker_id": self._worker_id})
         except Exception:
             logger.exception("worker_crashed", extra={"worker_id": self._worker_id})
+            self._heartbeat_worker("stopped")
             executor.shutdown(wait=False)
             raise
 

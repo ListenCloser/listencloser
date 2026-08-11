@@ -1,7 +1,7 @@
 import os
 import threading
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from supabase import Client, create_client
 
@@ -712,6 +712,72 @@ class JobRepo(_Repo):
             .execute()
         )
         return [self._row_to_job(r) for r in result.data]
+
+    def cancel(self, job_id: UUID, owner_id: str) -> Job:
+        job = self.get(job_id, owner_id)
+        if not job:
+            raise ValueError("job not found")
+        if job.lifecycle.current == JobStage.cancelled:
+            return job
+        if job.lifecycle.current not in {
+            JobStage.queued,
+            JobStage.claimed,
+            JobStage.running,
+        }:
+            raise RuntimeError(f"cannot cancel a {job.lifecycle.current.value} job")
+        now = datetime.now(UTC).isoformat()
+        result = (
+            self.client.table(self.table)
+            .update(
+                {
+                    "stage": JobStage.cancelled.value,
+                    "status_message": "cancelled by user",
+                    "completed_at": now,
+                    "lease_expires_at": None,
+                }
+            )
+            .eq("id", str(job_id))
+            .in_(
+                "stage",
+                [
+                    JobStage.queued.value,
+                    JobStage.claimed.value,
+                    JobStage.running.value,
+                ],
+            )
+            .execute()
+        )
+        if not result.data:
+            raise RuntimeError("job changed state before cancellation")
+        return self._row_to_job(result.data[0])
+
+    def retry(self, job_id: UUID, owner_id: str) -> Job:
+        job = self.get(job_id, owner_id)
+        if not job:
+            raise ValueError("job not found")
+        if job.lifecycle.current not in {
+            JobStage.failed,
+            JobStage.cancelled,
+        }:
+            raise RuntimeError(f"cannot retry a {job.lifecycle.current.value} job")
+        retry_id = uuid5(NAMESPACE_URL, f"hello-ai:retry:{job.id}")
+        existing_retry = self.get(retry_id, owner_id)
+        if existing_retry:
+            return existing_retry
+        retry_job = Job(
+            id=retry_id,
+            workflow_id=job.workflow_id,
+            capability=job.capability,
+            input_version_ids=job.input_version_ids,
+            parameters=job.parameters,
+            cache_key=job.cache_key,
+            provenance={
+                **job.provenance,
+                "retry_of_job_id": str(job.id),
+            },
+            created_by=job.created_by,
+        )
+        return self.create(retry_job, owner_id)
 
     def update_stage(self, job_id: UUID, stage: JobStage, *, owner_id: str, **kwargs) -> Job:
         j = self.client.table(self.table).select("workflow_id").eq("id", str(job_id)).execute()

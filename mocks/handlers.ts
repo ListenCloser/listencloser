@@ -66,6 +66,22 @@ export const handlers = [
     });
   }),
 
+  http.post("/api/v1/jobs/:jobId/cancel", async ({ params }) => {
+    return HttpResponse.json({
+      id: String(params.jobId), workflow_id: "mock-workflow-1", capability: "understand",
+      stage: "cancelled", progress: 0.5, message: "cancelled by user", error: null,
+      input_version_ids: ["mock-version-1"], output_version_ids: [],
+    });
+  }),
+
+  http.post("/api/v1/jobs/:jobId/retry", async ({ params }) => {
+    return HttpResponse.json({
+      id: String(params.jobId), workflow_id: "mock-workflow-1", capability: "understand",
+      stage: "queued", progress: 0, message: "queued for manual retry", error: null,
+      input_version_ids: ["mock-version-1"], output_version_ids: [],
+    });
+  }),
+
   http.get("/api/v1/versions/:versionId", async ({ params }) => {
     const id = String(params.versionId);
     const kind = id.includes("midi") ? "midi_performance" : id.includes("score") ? "musicxml_score" : "audio_rendered";

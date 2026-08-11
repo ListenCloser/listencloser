@@ -11,9 +11,17 @@ const nextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG || "",
-  project: process.env.SENTRY_PROJECT || "",
-  silent: !process.env.CI,
-  widenClientFileUpload: true,
-});
+const sentryBuildConfigured = Boolean(
+  process.env.SENTRY_AUTH_TOKEN &&
+  process.env.SENTRY_ORG &&
+  process.env.SENTRY_PROJECT,
+);
+
+export default sentryBuildConfigured
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      silent: !process.env.CI,
+      widenClientFileUpload: true,
+    })
+  : nextConfig;

@@ -48,6 +48,8 @@ job and the composite `understand:1.0` capability runs three ordered stages:
 
 Progress from the child capabilities is mapped into a single job from 0 to 1.
 The browser only polls status and reloads the persisted work graph after success.
+Users may cancel active jobs and manually retry failed or cancelled jobs. Worker
+heartbeats make queue availability observable without exposing user data.
 
 ## Domain model
 

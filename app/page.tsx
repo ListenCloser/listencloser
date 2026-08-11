@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 import {
+  cancelJob,
   createProject,
   getEntities,
   getInsights,
@@ -11,6 +12,7 @@ import {
   getWorkBundle,
   listProjects,
   listWorks,
+  retryJob,
   startUnderstandWorkflow,
   uploadArtifact,
 } from "@/lib/api-client";
@@ -29,6 +31,15 @@ type UploadStage = "idle" | "uploading" | "processing" | "success" | "error";
 const pause = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
+class JobTerminalError extends Error {
+  constructor(
+    message: string,
+    readonly stage: "failed" | "cancelled",
+  ) {
+    super(message);
+  }
+}
+
 async function waitForJob(
   jobId: string,
   onUpdate: (job: JobStatus) => void,
@@ -38,7 +49,10 @@ async function waitForJob(
     onUpdate(job);
     if (job.stage === "succeeded") return job;
     if (job.stage === "failed" || job.stage === "cancelled") {
-      throw new Error(job.error || job.message || `${job.capability} failed`);
+      throw new JobTerminalError(
+        job.error || job.message || `${job.capability} ${job.stage}`,
+        job.stage,
+      );
     }
     await pause(2000);
   }
@@ -65,43 +79,58 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const loadSequenceRef = useRef(0);
 
   const loadWork = useCallback(async (workId: string) => {
+    const sequence = ++loadSequenceRef.current;
     setLoadingWork(true);
     setError(null);
     try {
       let bundle = await getWorkBundle(workId);
-      const activeJob = bundle.jobs.find((job) =>
-        ["queued", "claimed", "running"].includes(job.lifecycle.current),
-      );
+      if (sequence !== loadSequenceRef.current) return;
+      let latestJob = bundle.jobs[0];
+      const activeJob = latestJob &&
+        ["queued", "claimed", "running"].includes(latestJob.lifecycle.current)
+        ? latestJob
+        : undefined;
       if (activeJob) {
+        setActiveJobId(activeJob.id);
         setFilename(bundle.work.title);
         setStage("processing");
         setProgress(Math.round(activeJob.lifecycle.progress * 100));
         setMessage(activeJob.lifecycle.message || "Understanding music");
-        await waitForJob(activeJob.id, (current) => {
-          setMessage(current.message || "Understanding music");
-          setProgress(Math.round(current.progress * 100));
-        });
+        try {
+          await waitForJob(activeJob.id, (current) => {
+            if (sequence !== loadSequenceRef.current) return;
+            setMessage(current.message || "Understanding music");
+            setProgress(Math.round(current.progress * 100));
+          });
+        } catch (cause) {
+          // Terminal jobs can still have useful partial artifacts. Re-fetch the
+          // bundle and render those before presenting retry controls.
+          if (!(cause instanceof JobTerminalError)) throw cause;
+        }
         bundle = await getWorkBundle(workId);
+        if (sequence !== loadSequenceRef.current) return;
+        latestJob = bundle.jobs[0];
+        setActiveJobId(null);
       }
-      const failedJob = bundle.jobs.find(
-        (job) => job.lifecycle.current === "failed",
-      );
-      const hasTranscription = bundle.artifacts.some((item) =>
-        ["midi_performance", "midi_corrected"].includes(item.artifact.kind),
-      );
-      if (failedJob && !hasTranscription) {
-        throw new Error(
-          failedJob.error || failedJob.lifecycle.message || "Understanding audio failed",
-        );
+      const terminalJob = latestJob &&
+        ["failed", "cancelled"].includes(latestJob.lifecycle.current)
+        ? latestJob
+        : undefined;
+      const latestByKind = new Map<string, (typeof bundle.artifacts)[number]>();
+      for (const item of bundle.artifacts) {
+        if (
+          item.latest_version &&
+          item.signed_url &&
+          !latestByKind.has(item.artifact.kind)
+        ) {
+          latestByKind.set(item.artifact.kind, item);
+        }
       }
-      const latestByKind = new Map(
-        bundle.artifacts
-          .filter((item) => item.latest_version && item.signed_url)
-          .map((item) => [item.artifact.kind, item]),
-      );
       const original = latestByKind.get("audio_original");
       const rendered = latestByKind.get("audio_rendered");
       const midi = latestByKind.get("midi_performance") ?? latestByKind.get("midi_corrected");
@@ -144,6 +173,7 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
           getEntities(midi.latest_version.id),
           getInsights(midi.latest_version.id),
         ]);
+        if (sequence !== loadSequenceRef.current) return;
         const notes = entities.flatMap((entity) => entity.note ? [{
           pitch: entity.note.pitch,
           start: entity.note.start_seconds,
@@ -174,6 +204,8 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
       if (score?.signed_url) {
         const response = await fetch(score.signed_url);
         if (!response.ok) throw new Error("Could not load the persisted MusicXML score");
+        const musicxml = await response.text();
+        if (sequence !== loadSequenceRef.current) return;
         representations.push({
           kind: "score",
           label: "Score",
@@ -181,19 +213,31 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
           sourceLabel: "Generated from MIDI",
           confidence: null,
           provenance: "music21 notation",
-          musicxml: await response.text(),
+          musicxml,
           versionId: score.latest_version?.id,
         });
       }
 
       replaceSources(sources, rendered?.latest_version?.id ?? original?.latest_version?.id);
       replaceRepresentations(representations);
-      setStage("success");
+      if (terminalJob) {
+        setActiveJobId(terminalJob.id);
+        setError(
+          terminalJob.error ||
+            terminalJob.lifecycle.message ||
+            `Understanding audio ${terminalJob.lifecycle.current}`,
+        );
+        setStage("error");
+      } else {
+        setActiveJobId(null);
+        setStage("success");
+      }
     } catch (cause) {
+      if (sequence !== loadSequenceRef.current) return;
       setError(cause instanceof Error ? cause.message : "Could not load this work");
       setStage("error");
     } finally {
-      setLoadingWork(false);
+      if (sequence === loadSequenceRef.current) setLoadingWork(false);
     }
   }, [replaceRepresentations, replaceSources, setBpm, setInsights, setLoadingWork, setTimeSignature]);
 
@@ -245,6 +289,7 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
       const { artifact, version } = await uploadArtifact(projectId, file);
       setStage("processing");
       const { job } = await startUnderstandWorkflow(version.id, projectId);
+      setActiveJobId(job.id);
       await waitForJob(job.id, (current) => {
         setMessage(current.message || "Understanding music");
         setProgress(5 + Math.round(current.progress * 90));
@@ -252,6 +297,7 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
       const works = await listWorks(projectId);
       setWorks(works);
       setProgress(100);
+      setActiveJobId(null);
       setActiveWorkId(artifact.work_id);
       if (workspace.activeWorkId === artifact.work_id) {
         await loadWork(artifact.work_id);
@@ -261,6 +307,38 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
       setStage("error");
     }
   }, [loadWork, projectId, setActiveWorkId, setWorks, workspace.activeWorkId]);
+
+  const cancelActiveJob = useCallback(async () => {
+    if (!activeJobId) return;
+    setMessage("Cancelling after the current processing step");
+    try {
+      await cancelJob(activeJobId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not cancel the job");
+      setStage("error");
+    }
+  }, [activeJobId]);
+
+  const retryActiveJob = useCallback(async () => {
+    if (!activeJobId || !workspace.activeWorkId) return;
+    setStage("processing");
+    setError(null);
+    setProgress(0);
+    try {
+      const retried = await retryJob(activeJobId);
+      setActiveJobId(retried.id);
+      await waitForJob(retried.id, (current) => {
+        setMessage(current.message || "Retrying music understanding");
+        setProgress(Math.round(current.progress * 100));
+      });
+      const workId = workspace.activeWorkId;
+      setActiveJobId(null);
+      await loadWork(workId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Retry failed");
+      setStage("error");
+    }
+  }, [activeJobId, loadWork, workspace.activeWorkId]);
 
   async function signIn() {
     await supabase?.auth.signInWithOAuth({
@@ -324,14 +402,26 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
                 <progress value={progress} max={100} style={{ width: "100%" }} />
                 <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>{stage === "uploading" ? "Uploading" : message} · {progress}%</span>
                 <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>You can close this page; processing will continue on the server.</span>
+                {stage === "processing" && activeJobId && (
+                  <button className="btn" onClick={() => void cancelActiveJob()}>
+                    Cancel processing
+                  </button>
+                )}
               </div>
             )}
             {stage === "error" && (
               <div style={{ background: "var(--danger-soft)", border: "1px solid var(--danger)", borderRadius: "var(--r-lg)", padding: "var(--s-5)", display: "grid", gap: "var(--s-3)", color: "var(--danger)" }}>
                 <strong>Operation failed</strong><span>{error}</span>
-                <button className="btn" onClick={() => { setStage("idle"); setError(null); setProgress(0); }}>
-                  {workspace.representations.length ? "Dismiss" : "Try another file"}
-                </button>
+                <div style={{ display: "flex", gap: "var(--s-2)" }}>
+                  {activeJobId && (
+                    <button className="btn btn-primary" onClick={() => void retryActiveJob()}>
+                      Retry processing
+                    </button>
+                  )}
+                  <button className="btn" onClick={() => { setStage("idle"); setError(null); setProgress(0); }}>
+                    {workspace.representations.length ? "Dismiss" : "Try another file"}
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -88,6 +88,18 @@ export async function getJob(jobId: string): Promise<JobStatus> {
   return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}`);
 }
 
+export async function cancelJob(jobId: string): Promise<JobStatus> {
+  return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function retryJob(jobId: string): Promise<JobStatus> {
+  return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}/retry`, {
+    method: "POST",
+  });
+}
+
 export async function getVersionResource(versionId: string): Promise<VersionResource> {
   return apiFetch<VersionResource>(`/api/v1/versions/${versionId}`);
 }

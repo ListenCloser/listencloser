@@ -11,10 +11,11 @@ MusicXML → harmonic analysis. Its acceptance criterion is simple: every result
 shown in the UI must come from a persisted artifact or insight, and failures must
 remain visible.
 
-Still needed to complete this slice operationally:
+Release hardening now includes worker liveness, aggregate queue health,
+cancel/retry controls, and a deployed smoke-test command. Remaining work:
 
-- deployed worker health, queue metrics, and stuck-job alerts;
-- a real-backend smoke test with a small licensed fixture;
+- run the real-backend smoke test after the heartbeat migration is deployed;
+- production stuck-job alerting from queue-health metrics;
 - better source-format validation and transcription-quality diagnostics;
 - score correction and export from a new immutable version.
 

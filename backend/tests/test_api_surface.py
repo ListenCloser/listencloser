@@ -16,6 +16,8 @@ def test_domain_surface_contains_the_complete_understand_loop():
         ("/api/v1/projects/{project_id}/artifacts/upload", "POST"),
         ("/api/v1/workflows/understand", "POST"),
         ("/api/v1/jobs/{job_id}", "GET"),
+        ("/api/v1/jobs/{job_id}/cancel", "POST"),
+        ("/api/v1/jobs/{job_id}/retry", "POST"),
         ("/api/v1/works/{work_id}", "GET"),
         ("/api/v1/versions/{version_id}/entities", "GET"),
         ("/api/v1/versions/{version_id}/insights", "GET"),
@@ -36,3 +38,10 @@ def test_domain_mutations_require_authentication(client):
         ).status_code
         == 401
     )
+
+
+def test_job_controls_require_authentication(client):
+    job_id = "00000000-0000-0000-0000-000000000001"
+
+    assert client.post(f"/api/v1/jobs/{job_id}/cancel").status_code == 401
+    assert client.post(f"/api/v1/jobs/{job_id}/retry").status_code == 401

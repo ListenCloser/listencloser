@@ -146,6 +146,20 @@ def _require_version_in_project(
     return version
 
 
+def _job_state(job: Job) -> JobStateResponse:
+    return JobStateResponse(
+        id=str(job.id),
+        workflow_id=str(job.workflow_id),
+        capability=job.capability.name,
+        stage=job.lifecycle.current.value,
+        progress=job.lifecycle.progress,
+        message=job.lifecycle.message,
+        error=job.error,
+        input_version_ids=[str(version_id) for version_id in job.input_version_ids],
+        output_version_ids=[str(version_id) for version_id in job.output_version_ids],
+    )
+
+
 # ---------------------------------------------------------------------------
 # POST /projects
 # ---------------------------------------------------------------------------
@@ -427,21 +441,45 @@ async def get_job(
         job = repo.get(job_id, owner_id)
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
-        return JobStateResponse(
-            id=str(job.id),
-            workflow_id=str(job.workflow_id),
-            capability=job.capability.name,
-            stage=job.lifecycle.current.value,
-            progress=job.lifecycle.progress,
-            message=job.lifecycle.message,
-            error=job.error,
-            input_version_ids=[str(v) for v in job.input_version_ids],
-            output_version_ids=[str(v) for v in job.output_version_ids],
-        )
+        return _job_state(job)
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/jobs/{job_id}/cancel")
+@limiter.limit("20/minute")
+async def cancel_job(
+    job_id: UUID,
+    request: Request,
+    auth=Depends(verify_token),
+):
+    try:
+        return _job_state(JobRepo(_sb()).cancel(job_id, _owner_id(auth)))
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@router.post("/jobs/{job_id}/retry")
+@limiter.limit("10/minute")
+async def retry_job(
+    job_id: UUID,
+    request: Request,
+    auth=Depends(verify_token),
+):
+    try:
+        return _job_state(JobRepo(_sb()).retry(job_id, _owner_id(auth)))
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 # ---------------------------------------------------------------------------
