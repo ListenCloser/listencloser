@@ -15,6 +15,8 @@ def test_domain_surface_contains_the_complete_understand_loop():
         ("/api/v1/projects/{project_id}/works", "GET"),
         ("/api/v1/projects/{project_id}/artifacts/upload", "POST"),
         ("/api/v1/workflows/understand", "POST"),
+        ("/api/v1/workflows/variation", "POST"),
+        ("/api/v1/workflows/compare", "POST"),
         ("/api/v1/jobs/{job_id}", "GET"),
         ("/api/v1/jobs/{job_id}/cancel", "POST"),
         ("/api/v1/jobs/{job_id}/retry", "POST"),
@@ -45,3 +47,12 @@ def test_job_controls_require_authentication(client):
 
     assert client.post(f"/api/v1/jobs/{job_id}/cancel").status_code == 401
     assert client.post(f"/api/v1/jobs/{job_id}/retry").status_code == 401
+
+
+def test_studio_workflows_require_authentication(client):
+    body = {
+        "version_id": "00000000-0000-0000-0000-000000000001",
+        "project_id": "00000000-0000-0000-0000-000000000002",
+    }
+    assert client.post("/api/v1/workflows/variation", json={**body, "transpose_semitones": 2}).status_code == 401
+    assert client.post("/api/v1/workflows/compare", json={**body, "version_id_a": body["version_id"], "version_id_b": body["project_id"]}).status_code == 401
