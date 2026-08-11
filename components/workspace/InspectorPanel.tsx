@@ -6,9 +6,8 @@ import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 
 const TABS = [
-  { id: "insights", label: "Insights" },
-  { id: "studio", label: "Studio" },
-  { id: "commands", label: "Shortcuts" },
+  { id: "insights", label: "Analysis" },
+  { id: "studio", label: "Versions" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -100,7 +99,6 @@ export default function InspectorPanel() {
       <div style={{ flex: 1, overflow: "auto", padding: "var(--s-3)" }}>
         {activeTab === "insights" && <InsightsTab />}
         {activeTab === "studio" && <StudioTab />}
-        {activeTab === "commands" && <CommandTab />}
       </div>
     </div>
   );
@@ -109,11 +107,11 @@ export default function InspectorPanel() {
 function StudioTab() {
   const { workspace, requestComparison, requestVariation } = useWorkspace();
   const { transport, play, setActiveSource } = useTransport();
-  const [semitones, setSemitones] = useState(0);
+  const [semitones, setSemitones] = useState(2);
   const [compareA, setCompareA] = useState("");
   const [compareB, setCompareB] = useState("");
   const takes = workspace.takes;
-  const sourceTake = takes[0];
+  const sourceTake = takes.find((take) => take.label === "Transcription") ?? takes[0];
   const operation = workspace.studioOperation;
   const variationLabel = useMemo(
     () => semitones === 0 ? "Duplicate take" : `Transpose ${semitones > 0 ? "+" : ""}${semitones} semitones`,
@@ -121,14 +119,14 @@ function StudioTab() {
   );
 
   if (!sourceTake) {
-    return <p className="insight-intro">Create a transcription first. The Studio works from persisted MIDI takes, never from a temporary browser file.</p>;
+    return <p className="insight-intro">Create a transcription first. Versions work from saved MIDI takes, never from a temporary browser file.</p>;
   }
 
   return (
     <div style={{ display: "grid", gap: "var(--s-4)" }}>
       <div>
-        <div className="section-label" style={{ margin: 0 }}>Composition studio</div>
-        <p className="insight-intro">Every operation creates an immutable take with its own playback, score, and analysis. This first tool is intentionally transparent: it changes pitch, not rhythm or melody.</p>
+        <div className="section-label" style={{ margin: 0 }}>Versions & variations</div>
+        <p className="insight-intro">Every operation creates a saved take with its own playback, score, and analysis. This first variation is intentionally transparent: it changes pitch, not rhythm or melody.</p>
       </div>
       <section className="insight-group" aria-labelledby="variation-title">
         <h3 id="variation-title">Make a variation</h3>
@@ -158,7 +156,7 @@ function StudioTab() {
         </div>
       </section>
       <section className="insight-group" aria-labelledby="takes-title">
-        <h3 id="takes-title">Saved takes</h3>
+        <h3 id="takes-title">Saved versions</h3>
         <div style={{ display: "grid", gap: "var(--s-2)" }}>
           {takes.map((take) => {
             const source = transport.sources.find((item) => item.label === `${take.label} playback`);
@@ -286,111 +284,6 @@ function InsightsTab() {
           ))}
         </section>
       )}
-    </div>
-  );
-}
-
-type CommandMessage = { role: "user" | "system"; text: string };
-
-function CommandTab() {
-  const {
-    workspace,
-    expandRepresentation,
-    focusRepresentation,
-    requestImport,
-  } = useWorkspace();
-  const { transport, play, setActiveSource } = useTransport();
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<CommandMessage[]>([
-    {
-      role: "system",
-      text: "Commands operate on the active persisted work. Type help to see what is available.",
-    },
-  ]);
-
-  function runCommand(raw: string) {
-    const command = raw.trim().toLowerCase();
-    if (!command) return;
-    let response = "Unknown command. Type help for the supported operations.";
-
-    if (command === "help") {
-      response = "Available: summarize, play original, play transcription, show score, show piano roll, import.";
-    } else if (command === "summarize" || command === "summary") {
-      response = workspace.insights.length
-        ? workspace.insights
-            .filter((item) => ["key", "tempo", "time_signature"].includes(item.kind))
-            .map((item) => item.claim)
-            .join(" · ") || `${workspace.insights.length} detailed insights are available.`
-        : "No persisted analysis is available for the active work.";
-    } else if (command === "import" || command === "import audio") {
-      requestImport();
-      response = "Opening the audio importer.";
-    } else if (command === "show score" || command === "score") {
-      const exists = workspace.representations.some((item) => item.kind === "score");
-      if (exists) {
-        expandRepresentation("score");
-        focusRepresentation("score");
-        response = "Focused the persisted MusicXML score.";
-      } else response = "This work does not have a score artifact yet.";
-    } else if (command === "show piano roll" || command === "piano roll") {
-      const exists = workspace.representations.some((item) => item.kind === "piano_roll");
-      if (exists) {
-        expandRepresentation("piano_roll");
-        focusRepresentation("piano_roll");
-        response = "Focused the note-level transcription.";
-      } else response = "This work does not have a MIDI transcription yet.";
-    } else if (command === "play original" || command === "play transcription") {
-      const target = command.endsWith("original") ? "Original audio" : "Transcription playback";
-      const source = transport.sources.find((item) => item.label === target);
-      if (source) {
-        setActiveSource(source);
-        window.setTimeout(play, 0);
-        response = `Playing ${target.toLowerCase()}.`;
-      } else response = `${target} is not available for this work.`;
-    } else if (["compare", "correct", "generate", "continue"].some((word) => command.includes(word))) {
-      response = "That capability is not production-ready yet. It is intentionally not exposed as a working action.";
-    }
-
-    setMessages((current) => [
-      ...current,
-      { role: "user", text: raw.trim() },
-      { role: "system", text: response },
-    ]);
-    setInput("");
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-3)", minHeight: "100%" }}>
-      <div className="section-label" style={{ margin: 0 }}>Work shortcuts</div>
-      <p className="insight-intro">Deterministic controls for the active work—not an AI chat.</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)", flex: 1 }}>
-        {messages.map((message, index) => (
-          <div
-            key={`${message.role}-${index}`}
-            style={{
-              alignSelf: message.role === "user" ? "flex-end" : "stretch",
-              padding: "var(--s-2) var(--s-3)",
-              borderRadius: "var(--r-md)",
-              background: message.role === "user" ? "var(--accent-soft)" : "var(--panel-2)",
-              color: message.role === "user" ? "var(--accent)" : "var(--muted)",
-              fontSize: "var(--fs-xs)",
-              lineHeight: 1.5,
-            }}
-          >
-            {message.text}
-          </div>
-        ))}
-      </div>
-      <form onSubmit={(event) => { event.preventDefault(); runCommand(input); }} style={{ display: "flex", gap: "var(--s-2)" }}>
-        <input
-          className="input"
-          aria-label="Work command"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder="summarize"
-        />
-        <button className="btn btn-primary" type="submit">Run</button>
-      </form>
     </div>
   );
 }
