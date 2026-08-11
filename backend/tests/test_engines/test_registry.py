@@ -1,0 +1,83 @@
+"""Tests for engine registry selection."""
+
+from __future__ import annotations
+
+import pytest
+
+from engines.beats.librosa_engine import LibrosaBeatEngine
+from engines.notation.music21_engine import Music21NotationEngine
+from engines.registry import (
+    get_beat_engine,
+    get_notation_engine,
+    get_structure_engine,
+    get_transcription_engine,
+)
+from engines.structure.allin1_engine import AllInOneEngine
+from engines.transcription.basic_pitch import BasicPitchEngine
+
+
+class TestRegistryDefaults:
+    def test_default_transcription_is_basic_pitch(self):
+        engine = get_transcription_engine()
+        assert isinstance(engine, BasicPitchEngine)
+
+    def test_default_beat_is_librosa(self):
+        engine = get_beat_engine()
+        assert isinstance(engine, LibrosaBeatEngine)
+
+    def test_default_structure_is_allin1(self):
+        engine = get_structure_engine()
+        assert isinstance(engine, AllInOneEngine)
+
+    def test_default_notation_is_music21(self):
+        engine = get_notation_engine()
+        assert isinstance(engine, Music21NotationEngine)
+
+
+class TestRegistryExplicitSelection:
+    def test_select_basic_pitch_explicitly(self):
+        engine = get_transcription_engine("basic_pitch")
+        assert isinstance(engine, BasicPitchEngine)
+
+    def test_select_librosa_explicitly(self):
+        engine = get_beat_engine("librosa")
+        assert isinstance(engine, LibrosaBeatEngine)
+
+    def test_unknown_engine_raises(self):
+        with pytest.raises(ValueError, match="Unknown transcription engine"):
+            get_transcription_engine("nonexistent")
+        with pytest.raises(ValueError, match="Unknown beat engine"):
+            get_beat_engine("made_up")
+
+    def test_env_var_selection(self, monkeypatch):
+        monkeypatch.setenv("TRANSCRIPTION_ENGINE", "basic_pitch")
+        engine = get_transcription_engine()
+        assert isinstance(engine, BasicPitchEngine)
+
+
+class TestProvenance:
+    def test_basic_pitch_provenance(self):
+        engine = BasicPitchEngine(onset_threshold=0.5, frame_threshold=0.3)
+        p = engine.provenance
+        assert p.engine == "basic_pitch"
+        assert p.parameters["onset_threshold"] == 0.5
+        assert p.parameters["frame_threshold"] == 0.3
+
+    def test_librosa_provenance(self):
+        engine = LibrosaBeatEngine()
+        p = engine.provenance
+        assert p.engine == "librosa"
+        # library_version may be "unknown" if librosa not installed locally
+
+    def test_music21_provenance(self):
+        engine = Music21NotationEngine()
+        p = engine.provenance
+        assert p.engine == "music21"
+
+    def test_provenance_to_dict(self):
+        engine = BasicPitchEngine()
+        d = engine.provenance.to_dict()
+        assert isinstance(d, dict)
+        assert "engine" in d
+        assert "library_version" in d
+        assert "parameters" in d
