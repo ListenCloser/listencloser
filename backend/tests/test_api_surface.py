@@ -54,5 +54,16 @@ def test_studio_workflows_require_authentication(client):
         "version_id": "00000000-0000-0000-0000-000000000001",
         "project_id": "00000000-0000-0000-0000-000000000002",
     }
-    assert client.post("/api/v1/workflows/variation", json={**body, "transpose_semitones": 2}).status_code == 401
-    assert client.post("/api/v1/workflows/compare", json={**body, "version_id_a": body["version_id"], "version_id_b": body["project_id"]}).status_code == 401
+    assert (
+        client.post(
+            "/api/v1/workflows/variation", json={**body, "transpose_semitones": 2}
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            "/api/v1/workflows/compare",
+            json={**body, "version_id_a": body["version_id"], "version_id_b": body["project_id"]},
+        ).status_code
+        == 401
+    )
