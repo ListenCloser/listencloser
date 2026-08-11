@@ -46,7 +46,7 @@ export default function RepresentationLane({
   audioUrl,
   hideHeader = false,
 }: RepresentationLaneProps) {
-  const { transport } = useTransport();
+  const { transport, seek } = useTransport();
   const glyph = KIND_GLYPHS[kind] ?? "▯";
 
   return (
@@ -145,6 +145,7 @@ export default function RepresentationLane({
                 musicxml,
                 audioUrl,
                 playheadTime: transport.position,
+                onSeek: seek,
               })}
             </div>
 

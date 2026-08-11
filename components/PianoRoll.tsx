@@ -24,10 +24,12 @@ export default function PianoRoll({
   notes,
   bpm = 120,
   playheadTime = 0,
+  onSeek,
 }: {
   notes: Note[];
   bpm?: number;
   playheadTime?: number;
+  onSeek?: (seconds: number) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   if (!notes.length) return <p className="muted">No notes to display.</p>;
@@ -68,6 +70,14 @@ export default function PianoRoll({
           width={W}
           height={h}
           style={{ display: "block" }}
+          onClick={(event) => {
+            if (!onSeek) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = (event.clientX - rect.left) + scrollRef.current!.scrollLeft;
+            onSeek(Math.max(0, (x - LABEL_W) / (PPQ * bpm) * 60));
+          }}
+          role={onSeek ? "button" : undefined}
+          aria-label={onSeek ? "Seek playback from piano roll" : undefined}
         >
           {/* Left label gutter */}
           <rect x={0} y={0} width={LABEL_W} height={h} fill="var(--panel-2)" />
