@@ -327,7 +327,9 @@ def estimate_beat_grid(wav_bytes: bytes) -> tuple[float, list[float]]:
     audio, sr = sf.read(io.BytesIO(wav_bytes), always_2d=False)
     if getattr(audio, "ndim", 1) > 1:
         audio = np.mean(audio, axis=1)
-    tempo, frames = librosa.beat.beat_track(y=np.asarray(audio, dtype=np.float32), sr=sr, trim=False)
+    tempo, frames = librosa.beat.beat_track(
+        y=np.asarray(audio, dtype=np.float32), sr=sr, trim=False
+    )
     beats = librosa.frames_to_time(frames, sr=sr).tolist()
     return float(np.asarray(tempo).reshape(-1)[0]), [float(value) for value in beats]
 
@@ -354,7 +356,8 @@ def notation_midi_from_performance(
         "timing_mode": "audio_beats" if len(beat_times) >= 2 else "preserved_no_grid",
     }
     if len(beat_times) < 2:
-        out = io.BytesIO(); midi.write(out)
+        out = io.BytesIO()
+        midi.write(out)
         return out.getvalue(), report
 
     intervals = np.diff(np.asarray(beat_times, dtype=float))
@@ -368,8 +371,10 @@ def notation_midi_from_performance(
 
     def nearest(value: float) -> float:
         index = int(np.searchsorted(grid, value))
-        candidates = grid[max(0, index - 1):min(len(grid), index + 1)]
-        return min(candidates, key=lambda candidate: abs(candidate - value)) if candidates else value
+        candidates = grid[max(0, index - 1) : min(len(grid), index + 1)]
+        return (
+            min(candidates, key=lambda candidate: abs(candidate - value)) if candidates else value
+        )
 
     for instrument in midi.instruments:
         if instrument.is_drum:
@@ -383,7 +388,8 @@ def notation_midi_from_performance(
                 report["quantized_notes"] = int(report["quantized_notes"]) + 1
             note.start, note.end = start, end
         instrument.notes.sort(key=lambda note: (note.start, note.pitch, note.end))
-    out = io.BytesIO(); midi.write(out)
+    out = io.BytesIO()
+    midi.write(out)
     return out.getvalue(), report
 
 

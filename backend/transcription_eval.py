@@ -50,13 +50,17 @@ def compare_events(
     pairs: list[tuple[NoteEvent, NoteEvent]] = []
     for candidate in sorted(predicted, key=lambda note: (note.start, note.pitch, note.end)):
         options = [
-            index for index in unmatched
+            index
+            for index in unmatched
             if reference[index].pitch == candidate.pitch
             and abs(reference[index].start - candidate.start) <= onset_tolerance_s
         ]
         if not options:
             continue
-        best = min(options, key=lambda index: (abs(reference[index].start - candidate.start), reference[index].end))
+        best = min(
+            options,
+            key=lambda index: (abs(reference[index].start - candidate.start), reference[index].end),
+        )
         unmatched.remove(best)
         pairs.append((reference[best], candidate))
 
@@ -65,13 +69,25 @@ def compare_events(
     recall = matched / len(reference) if reference else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     onset_errors = [abs(actual.start - found.start) * 1000 for actual, found in pairs]
-    duration_errors = [abs((actual.end - actual.start) - (found.end - found.start)) * 1000 for actual, found in pairs]
+    duration_errors = [
+        abs((actual.end - actual.start) - (found.end - found.start)) * 1000
+        for actual, found in pairs
+    ]
     return NoteMetrics(
-        reference_notes=len(reference), predicted_notes=len(predicted), matched_notes=matched,
-        extra_notes=len(predicted) - matched, missing_notes=len(reference) - matched,
-        precision=round(precision, 4), recall=round(recall, 4), f1=round(f1, 4),
-        mean_onset_error_ms=round(sum(onset_errors) / len(onset_errors), 2) if onset_errors else None,
-        mean_duration_error_ms=round(sum(duration_errors) / len(duration_errors), 2) if duration_errors else None,
+        reference_notes=len(reference),
+        predicted_notes=len(predicted),
+        matched_notes=matched,
+        extra_notes=len(predicted) - matched,
+        missing_notes=len(reference) - matched,
+        precision=round(precision, 4),
+        recall=round(recall, 4),
+        f1=round(f1, 4),
+        mean_onset_error_ms=round(sum(onset_errors) / len(onset_errors), 2)
+        if onset_errors
+        else None,
+        mean_duration_error_ms=round(sum(duration_errors) / len(duration_errors), 2)
+        if duration_errors
+        else None,
     )
 
 
@@ -81,7 +97,9 @@ def read_midi_events(path: Path) -> list[NoteEvent]:
     midi = pretty_midi.PrettyMIDI(str(path))
     return [
         NoteEvent(pitch=note.pitch, start=round(note.start, 6), end=round(note.end, 6))
-        for instrument in midi.instruments if not instrument.is_drum for note in instrument.notes
+        for instrument in midi.instruments
+        if not instrument.is_drum
+        for note in instrument.notes
     ]
 
 

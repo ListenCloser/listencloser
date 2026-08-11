@@ -788,18 +788,32 @@ def handle_score(job: Job, client) -> list[str]:
     if len(job.input_version_ids) > 1:
         try:
             _update_progress(client, job.id, 0.35, "aligning notation to the recording")
-            audio_bytes = download_version_bytes(_lookup_version(client, job.input_version_ids[1]), client)
-            wav_bytes = music_features.decode_audio_to_wav(audio_bytes, fmt=job.parameters.get("fmt", "wav"))
+            audio_bytes = download_version_bytes(
+                _lookup_version(client, job.input_version_ids[1]), client
+            )
+            wav_bytes = music_features.decode_audio_to_wav(
+                audio_bytes, fmt=job.parameters.get("fmt", "wav")
+            )
             tempo, beat_times = music_features.estimate_beat_grid(wav_bytes)
         except Exception:
             logger.exception("score_beat_tracking_failed")
-    notation_midi, notation_report = music_features.notation_midi_from_performance(midi_bytes, beat_times)
+    notation_midi, notation_report = music_features.notation_midi_from_performance(
+        midi_bytes, beat_times
+    )
     _update_progress(client, job.id, 0.5, "creating notation")
     notation_key = _job_storage_key(job, "notation.mid")
     _upload_bytes(client, _STORAGE_BUCKET, notation_key, notation_midi, "audio/midi")
     notation_version_id = _create_output_version(
-        client, work_id, ArtifactKind.midi_corrected, notation_key, len(notation_midi),
-        input_version.id, job, owner_id, mime_type="audio/midi", label="Beat-aligned notation MIDI",
+        client,
+        work_id,
+        ArtifactKind.midi_corrected,
+        notation_key,
+        len(notation_midi),
+        input_version.id,
+        job,
+        owner_id,
+        mime_type="audio/midi",
+        label="Beat-aligned notation MIDI",
         metadata={"notation": notation_report, "estimated_tempo_bpm": tempo},
     )
     musicxml = music_features.convert_format(notation_midi, "midi", "musicxml", notation_ready=True)
