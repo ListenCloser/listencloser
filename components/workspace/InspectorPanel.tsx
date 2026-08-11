@@ -173,27 +173,40 @@ function PropertiesTab() {
 }
 
 function InsightsTab() {
+  const { workspace } = useWorkspace();
+  const summary = workspace.insights.filter((item) =>
+    ["key", "tempo", "time_signature"].includes(item.kind),
+  );
+  const details = workspace.insights.filter((item) =>
+    !["key", "tempo", "time_signature"].includes(item.kind),
+  );
+
+  if (workspace.insights.length === 0) {
+    return (
+      <div style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", padding: "var(--s-4) 0", textAlign: "center" }}>
+        Analysis results will appear here after transcription.
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-3)" }}>
       <div className="section-label" style={{ margin: 0 }}>Analysis</div>
       <div className="stat-grid">
-        <div className="stat">
-          <span className="s-label">Key</span>
-          <span className="s-value">C major</span>
-        </div>
-        <div className="stat">
-          <span className="s-label">Tempo</span>
-          <span className="s-value">120 BPM</span>
-        </div>
-        <div className="stat">
-          <span className="s-label">Time Signature</span>
-          <span className="s-value">4/4</span>
-        </div>
-        <div className="stat">
-          <span className="s-label">Chords</span>
-          <span className="s-value">I-IV-V-vi</span>
-        </div>
+        {summary.map((item) => (
+          <div className="stat" key={item.id}>
+            <span className="s-label">{item.kind.replaceAll("_", " ")}</span>
+            <span className="s-value">{item.claim.replace(/^[^:]+:\s*/, "")}</span>
+            <span className="s-label">{Math.round(item.confidence * 100)}% confidence</span>
+          </div>
+        ))}
       </div>
+      {details.slice(0, 30).map((item) => (
+        <div className="stat" key={item.id}>
+          <span className="s-label">{item.kind.replaceAll("_", " ")}</span>
+          <span className="s-value" style={{ fontSize: "var(--fs-xs)" }}>{item.claim}</span>
+        </div>
+      ))}
     </div>
   );
 }

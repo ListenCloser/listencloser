@@ -21,3 +21,22 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: music-ai-worker
+    restart: unless-stopped
+    command: ["python", "worker.py"]
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SOUNDFONT_PATH: /app/soundfonts/FluidR3_GM.sf2
+      SENTRY_DSN_BACKEND: ${SENTRY_DSN_BACKEND:-}
+      SENTRY_ENV: ${SENTRY_ENV:-production}
+    volumes:
+      - ./soundfonts:/app/soundfonts:ro
+    depends_on:
+      backend:
+        condition: service_healthy

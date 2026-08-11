@@ -94,9 +94,10 @@ cd "$REPO_DIR"
 echo "[deploy] stopping old containers"
 docker compose -f "$COMPOSE" down --remove-orphans 2>/dev/null || true
 docker rm -f music-ai-backend 2>/dev/null || true
+docker rm -f music-ai-worker 2>/dev/null || true
 
 echo "[deploy] rebuilding backend"
-docker compose -f "$COMPOSE" up -d --build backend
+docker compose -f "$COMPOSE" up -d --build backend worker
 
 echo "[deploy] waiting for ${HEALTH_URL} (max ${MAX_WAIT}s)"
 elapsed=0
@@ -107,7 +108,7 @@ until curl -fsS "$HEALTH_URL" >/dev/null 2>&1; do
     echo "[deploy] container logs:" >&2
     docker compose -f "$COMPOSE" logs --tail=30 backend 2>&1 >&2 || true
     git checkout -q "$PREV_HEAD"
-    docker compose -f "$COMPOSE" up -d --build backend
+    docker compose -f "$COMPOSE" up -d --build backend worker
     exit 1
   fi
   sleep 2

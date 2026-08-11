@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { TransportProvider } from "@/lib/stores/transport";
 import { SelectionProvider } from "@/lib/stores/selection";
 import { TimelineProvider } from "@/lib/stores/timeline";
@@ -9,8 +9,6 @@ import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
 import InspectorPanel from "./InspectorPanel";
-import ProcessingBanner from "./ProcessingBanner";
-import type { Job } from "@/lib/domain.types";
 
 const MODES: { id: WorkspaceMode; label: string }[] = [
   { id: "explore", label: "Explore" },
@@ -57,30 +55,6 @@ function ModeSelector() {
 
 function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolean; projectName?: string }) {
   const { workspace, toggleInspector } = useWorkspace();
-  const [jobs, setJobs] = useState<Job[]>([]);
-
-  const handleCancel = useCallback((jobId: string) => {
-    setJobs((prev) => prev.filter((j) => j.id !== jobId));
-  }, []);
-
-  const handleRetry = useCallback((jobId: string) => {
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === jobId
-          ? {
-              ...j,
-              lifecycle: {
-                ...j.lifecycle,
-                current: "queued" as const,
-                progress: 0,
-                message: "Retrying…",
-                error: null as string | null,
-              },
-            }
-          : j,
-      ),
-    );
-  }, []);
 
   return (
     <div
@@ -128,18 +102,13 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
       <TransportBar />
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <LibraryPanel signedIn={signedIn} />
+        <LibraryPanel signedIn={signedIn} projectName={projectName} />
 
         <RepresentationStack />
 
         <InspectorPanel />
       </div>
 
-      <ProcessingBanner
-        jobs={jobs}
-        onCancel={handleCancel}
-        onRetry={handleRetry}
-      />
     </div>
   );
 }

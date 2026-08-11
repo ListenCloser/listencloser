@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import type { Insight } from "@/lib/domain.types";
 
 export type WorkspaceMode = "explore" | "compare" | "correct" | "create" | "history";
 
@@ -15,7 +16,7 @@ export type RepresentationKind =
 
 type Note = { pitch: number; start: number; end: number; velocity: number };
 
-type RepresentationEntry = {
+export type RepresentationEntry = {
   kind: RepresentationKind;
   label: string;
   sourceUrl: string;
@@ -23,6 +24,9 @@ type RepresentationEntry = {
   confidence: number | null;
   provenance: string;
   notes?: Note[];
+  musicxml?: string;
+  audioUrl?: string;
+  versionId?: string;
 };
 
 type WorkspaceState = {
@@ -30,6 +34,7 @@ type WorkspaceState = {
   libraryCollapsed: boolean;
   inspectorCollapsed: boolean;
   representations: RepresentationEntry[];
+  insights: Insight[];
   expandedRepresentation: RepresentationKind | null;
   focusRepresentation: RepresentationKind | null;
 };
@@ -40,6 +45,7 @@ type WorkspaceContextValue = {
   toggleLibrary: () => void;
   toggleInspector: () => void;
   addRepresentation: (rep: RepresentationEntry) => void;
+  setInsights: (insights: Insight[]) => void;
   removeRepresentation: (kind: RepresentationKind) => void;
   expandRepresentation: (kind: RepresentationKind | null) => void;
   focusRepresentation: (kind: RepresentationKind | null) => void;
@@ -60,6 +66,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     libraryCollapsed: false,
     inspectorCollapsed: false,
     representations: [],
+    insights: [],
     expandedRepresentation: null,
     focusRepresentation: null,
   });
@@ -91,6 +98,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         expandedRepresentation: prev.expandedRepresentation ?? rep.kind,
       };
     });
+  }, []);
+
+  const setInsights = useCallback((insights: Insight[]) => {
+    setWorkspace((prev) => ({ ...prev, insights }));
   }, []);
 
   const removeRepresentation = useCallback((kind: RepresentationKind) => {
@@ -144,6 +155,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         toggleLibrary,
         toggleInspector,
         addRepresentation,
+        setInsights,
         removeRepresentation,
         expandRepresentation,
         focusRepresentation,

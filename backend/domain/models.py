@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, Generic, Literal, Optional, TypeVar
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -40,6 +40,7 @@ class Work(BaseModel):
 class ArtifactKind(str, Enum):
     audio_original = "audio_original"
     audio_enhanced = "audio_enhanced"
+    audio_rendered = "audio_rendered"
     midi_performance = "midi_performance"
     midi_corrected = "midi_corrected"
     musicxml_score = "musicxml_score"

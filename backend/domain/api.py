@@ -2,20 +2,18 @@
 FastAPI router — domain model API endpoints for the understand workflow slice.
 """
 import mimetypes
+import os
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from auth_utils import limiter, verify_token
-
 from domain.models import (
     Artifact,
     ArtifactKind,
     Capability,
-    Entity,
-    Insight,
     Job,
     Project,
     Version,
@@ -30,12 +28,14 @@ from domain.repositories import (
     JobRepo,
     ProjectRepo,
     VersionRepo,
-    WorkRepo,
     WorkflowRepo,
+    WorkRepo,
     get_supabase,
 )
 
 router = APIRouter(prefix="/api/v1")
+
+_ALLOWED_AUDIO_EXTENSIONS = {"wav", "mp3", "m4a", "flac", "ogg", "aac"}
 
 # ---------------------------------------------------------------------------
 # Request / response models
@@ -84,9 +84,14 @@ class CreateWorkflowBody(BaseModel):
 
 
 class JobStateResponse(BaseModel):
+    id: str
+    workflow_id: str
+    capability: str
     stage: str
     progress: float
+    message: str
     error: str | None = None
+    input_version_ids: list[str]
     output_version_ids: list[str]
 
 
@@ -104,6 +109,20 @@ def _sb():
     if not sb:
         raise HTTPException(status_code=500, detail="Supabase not configured")
     return sb
+
+
+def _signed_url(storage_response) -> str:
+    """Normalize the response shape across supabase-py releases."""
+    data = getattr(storage_response, "data", storage_response) or {}
+    if isinstance(data, dict):
+        value = (
+            data.get("signedURL")
+            or data.get("signedUrl")
+            or data.get("signed_url")
+        )
+        if value:
+            return str(value)
+    raise ValueError("Storage provider did not return a signed URL")
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +214,14 @@ async def upload_artifact(
         if not proj:
             raise HTTPException(status_code=404, detail="Project not found")
 
+        filename = file.filename or "untitled"
+        ext = Path(filename).suffix.lstrip(".").lower()
+        if ext not in _ALLOWED_AUDIO_EXTENSIONS:
+            raise HTTPException(
+                status_code=415,
+                detail="Unsupported audio format",
+            )
+
         work_repo = WorkRepo(sb)
 
         if work_id:
@@ -202,13 +229,24 @@ async def upload_artifact(
             work = work_repo.get(w_id, owner_id)
             if not work:
                 raise HTTPException(status_code=404, detail="Work not found")
+            if work.project_id != project_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Work does not belong to this project",
+                )
         else:
-            title = Path(file.filename or "untitled").stem
+            title = Path(filename).stem
             work = Work(project_id=project_id, title=title)
             work = work_repo.create(work, owner_id)
 
-        raw = await file.read()
-        filename = file.filename or "untitled"
+        max_upload_bytes = int(
+            os.environ.get("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024))
+        )
+        raw = await file.read(max_upload_bytes + 1)
+        if len(raw) > max_upload_bytes:
+            raise HTTPException(
+                status_code=413, detail="File exceeds upload size limit"
+            )
         mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
 
         artifact = Artifact(
@@ -219,9 +257,8 @@ async def upload_artifact(
         art_repo = ArtifactRepo(sb)
         artifact = art_repo.create(artifact, owner_id)
 
-        ext = Path(filename).suffix.lstrip(".") or "bin"
-        storage_key = f"{project_id}/{artifact.id}/{uuid4().hex}.{ext}"
-        bucket = "artifact_data"
+        storage_key = f"{owner_id}/{project_id}/{artifact.id}/{uuid4().hex}.{ext}"
+        bucket = "artifacts"
 
         sb.storage.from_(bucket).upload(
             storage_key, raw, {"content-type": mime_type}
@@ -281,6 +318,9 @@ async def create_understand_workflow(
             workflow_id=workflow.id,
             capability=Capability(name="transcribe", version="1.0"),
             input_version_ids=[version_id],
+            parameters={
+                "fmt": Path(version.label).suffix.lstrip(".").lower() or "wav"
+            },
             created_by=owner_id,
         )
         job_repo = JobRepo(sb)
@@ -313,9 +353,14 @@ async def get_job(
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
         return JobStateResponse(
+            id=str(job.id),
+            workflow_id=str(job.workflow_id),
+            capability=job.capability.name,
             stage=job.lifecycle.current.value,
             progress=job.lifecycle.progress,
+            message=job.lifecycle.message,
             error=job.error,
+            input_version_ids=[str(v) for v in job.input_version_ids],
             output_version_ids=[str(v) for v in job.output_version_ids],
         )
     except PermissionError as e:
@@ -366,6 +411,40 @@ async def create_analyze_workflow(
 
         return {"workflow": workflow, "job": job}
 
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# GET /versions/{version_id}
+# ---------------------------------------------------------------------------
+
+
+@router.get("/versions/{version_id}")
+async def get_version_resource(
+    version_id: UUID,
+    auth=Depends(verify_token),
+):
+    sb = _sb()
+    owner_id = _owner_id(auth)
+
+    try:
+        version = VersionRepo(sb).get(version_id, owner_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Version not found")
+        artifact = ArtifactRepo(sb).get(version.artifact_id, owner_id)
+        if not artifact:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        response = sb.storage.from_(version.storage_bucket).create_signed_url(
+            version.storage_key, 3600
+        )
+        return {
+            "version": version,
+            "artifact": artifact,
+            "signed_url": _signed_url(response),
+        }
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:

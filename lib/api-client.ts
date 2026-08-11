@@ -9,6 +9,8 @@ import type {
   Job,
   Entity,
   Insight,
+  JobStatus,
+  VersionResource,
 } from "./domain.types";
 
 export async function createProject(name: string, description?: string): Promise<Project> {
@@ -73,8 +75,12 @@ export async function startUnderstandWorkflow(
   });
 }
 
-export async function getJob(jobId: string): Promise<Job> {
-  return apiFetch<Job>(`/api/v1/jobs/${jobId}`);
+export async function getJob(jobId: string): Promise<JobStatus> {
+  return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}`);
+}
+
+export async function getVersionResource(versionId: string): Promise<VersionResource> {
+  return apiFetch<VersionResource>(`/api/v1/versions/${versionId}`);
 }
 
 export async function startAnalyzeWorkflow(

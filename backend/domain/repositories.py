@@ -8,9 +8,7 @@ from supabase import Client, create_client
 
 from domain.models import (
     Alignment,
-    AlignmentKind,
     Artifact,
-    ArtifactKind,
     Cadence,
     Capability,
     ChordEntity,
@@ -23,11 +21,9 @@ from domain.models import (
     NoteEntity,
     Project,
     Span,
-    TimelineUnit,
     Version,
     Work,
     Workflow,
-    WorkflowKind,
 )
 
 __all__ = [
@@ -399,6 +395,26 @@ class EntityRepo(_Repo):
         row = self._entity_to_row(entity)
         result = self.client.table(self.table).insert(row).execute()
         return self._row_to_entity(_first(result.data))
+
+    def create_many(
+        self, entities: list[Entity], owner_id: str
+    ) -> list[Entity]:
+        if not entities:
+            return []
+        version_id = entities[0].version_id
+        if any(entity.version_id != version_id for entity in entities):
+            raise ValueError("bulk entities must belong to one version")
+        self._verify_version_owner(version_id, owner_id)
+        rows = [self._entity_to_row(entity) for entity in entities]
+        created: list[Entity] = []
+        for start in range(0, len(rows), 500):
+            result = (
+                self.client.table(self.table)
+                .insert(rows[start : start + 500])
+                .execute()
+            )
+            created.extend(self._row_to_entity(row) for row in result.data)
+        return created
 
     def get(self, entity_id: UUID, owner_id: str) -> Optional[Entity]:
         result = (

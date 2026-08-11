@@ -322,8 +322,12 @@ def transcribe_audio(
     Expects clean WAV (callers run enhance_audio first)."""
     from basic_pitch.inference import predict
 
+    safe_fmt = fmt.lower().lstrip(".")
+    if safe_fmt not in {"wav", "mp3", "m4a", "flac", "ogg", "aac"}:
+        safe_fmt = "wav"
+
     with tempfile.TemporaryDirectory() as td:
-        in_path = os.path.join(td, "input.wav")
+        in_path = os.path.join(td, f"input.{safe_fmt}")
         with open(in_path, "wb") as f:
             f.write(audio_bytes)
         # basic-pitch writes <input_stem>.mid + note events to out_dir.

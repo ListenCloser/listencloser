@@ -16,13 +16,18 @@ export default defineConfig({
     return list;
   })(),
   webServer: {
-    command: "npm run dev",
+    command: "npm run dev -- --hostname 127.0.0.1",
     url: process.env.BASE_URL || "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 120_000,
     env: {
       ...process.env,
       NEXT_PUBLIC_MOCK_ENABLED: "true",
+      NEXT_PUBLIC_SUPABASE_URL:
+        process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        "https://cijhpddqvvzyzfzmkdnn.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY:
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "e2e-anon-key",
     },
   },
   use: {

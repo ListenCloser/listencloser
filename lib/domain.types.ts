@@ -20,6 +20,7 @@ export interface Work {
 export type ArtifactKind =
   | "audio_original"
   | "audio_enhanced"
+  | "audio_rendered"
   | "midi_performance"
   | "midi_corrected"
   | "musicxml_score"
@@ -208,4 +209,22 @@ export interface Job {
   provenance: Record<string, unknown>
   created_at: string
   created_by: string | null
+}
+
+export interface JobStatus {
+  id: string
+  workflow_id: string
+  capability: string
+  stage: JobStage
+  progress: number
+  message: string
+  error: string | null
+  input_version_ids: string[]
+  output_version_ids: string[]
+}
+
+export interface VersionResource {
+  version: Version
+  artifact: Artifact
+  signed_url: string
 }

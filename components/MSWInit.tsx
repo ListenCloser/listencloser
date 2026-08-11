@@ -6,9 +6,7 @@ export default function MSWInit() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const isMockEnv =
-      process.env.NODE_ENV === "development" ||
-      process.env.NEXT_PUBLIC_MOCK_ENABLED === "true";
+    const isMockEnv = process.env.NEXT_PUBLIC_MOCK_ENABLED === "true";
     if (!isMockEnv) {
       setReady(true);
       return;

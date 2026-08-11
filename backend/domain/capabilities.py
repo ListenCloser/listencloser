@@ -132,6 +132,8 @@ def _create_output_version(
     job: Job,
     owner_id: str,
     mime_type: str = "application/octet-stream",
+    label: str = "",
+    metadata: dict | None = None,
 ) -> UUID:
     """Create an Artifact + Version row and return the version id."""
     artifact_repo = ArtifactRepo(client)
@@ -151,6 +153,8 @@ def _create_output_version(
             byte_size=byte_size,
             produced_by_job_id=job.id,
             created_by=owner_id,
+            label=label,
+            metadata=metadata or {},
         ),
         owner_id,
     )
@@ -343,7 +347,7 @@ def download_version_bytes(version: Version, client) -> bytes:
 
 def handle_transcribe(job: Job, client) -> list[str]:
     """Transcribe audio → MIDI.  Produces ``midi_performance`` and
-    ``audio_enhanced`` (synthesised WAV) output versions."""
+    ``audio_rendered`` (synthesised WAV) output versions."""
     if not job.input_version_ids:
         raise ValueError("transcribe requires at least one input version")
 
@@ -383,8 +387,31 @@ def handle_transcribe(job: Job, client) -> list[str]:
         job,
         owner_id,
         mime_type="audio/midi",
+        label="Transcription MIDI",
+        metadata={"note_count": len(result.get("notes", []))},
     )
     output_ids.append(str(midi_version_id))
+
+    _update_progress(client, job.id, 0.7, "storing note entities")
+    note_entities: list[Entity] = []
+    for item in result.get("notes", []):
+        start = float(item["start"])
+        end = float(item["end"])
+        note_entities.append(
+            Entity(
+                version_id=midi_version_id,
+                kind=EntityKind.note,
+                span=Span(start_seconds=start, end_seconds=end),
+                note=NoteEntity(
+                    pitch=int(item["pitch"]),
+                    start_seconds=start,
+                    end_seconds=end,
+                    velocity=int(item.get("velocity", 64)),
+                ),
+                label=f"MIDI {int(item['pitch'])}",
+            )
+        )
+    EntityRepo(client).create_many(note_entities, owner_id)
 
     _update_progress(client, job.id, 0.8, "storing rendered audio")
     wav_key = f"jobs/{job.id}/transcribed.wav"
@@ -392,13 +419,14 @@ def handle_transcribe(job: Job, client) -> list[str]:
     audio_version_id = _create_output_version(
         client,
         work_id,
-        ArtifactKind.audio_enhanced,
+        ArtifactKind.audio_rendered,
         wav_key,
         len(result["wav"]),
         input_version.id,
         job,
         owner_id,
         mime_type="audio/wav",
+        label="Transcription playback",
     )
     output_ids.append(str(audio_version_id))
 
@@ -572,7 +600,45 @@ def handle_analyze(job: Job, client) -> list[str]:
     _update_progress(
         client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)"
     )
-    return insight_ids
+    # Insights are queried by input version. Job outputs only contain artifact
+    # version IDs, so do not mix insight IDs into that contract.
+    return []
+
+
+def handle_score(job: Job, client) -> list[str]:
+    """Convert a MIDI performance into MusicXML sheet music."""
+    if not job.input_version_ids:
+        raise ValueError("score requires a MIDI input version")
+
+    owner_id = _resolve_owner_id(client, job.workflow_id)
+    input_version = _lookup_version(client, job.input_version_ids[0])
+    work_id = _resolve_work_id(client, input_version.id)
+    _update_progress(client, job.id, 0.2, "downloading MIDI")
+    midi_bytes = download_version_bytes(input_version, client)
+    _update_progress(client, job.id, 0.5, "creating notation")
+    musicxml = music_features.convert_format(midi_bytes, "midi", "musicxml")
+    storage_key = f"jobs/{job.id}/score.musicxml"
+    _upload_bytes(
+        client,
+        _STORAGE_BUCKET,
+        storage_key,
+        musicxml,
+        "application/vnd.recordare.musicxml+xml",
+    )
+    version_id = _create_output_version(
+        client,
+        work_id,
+        ArtifactKind.musicxml_score,
+        storage_key,
+        len(musicxml),
+        input_version.id,
+        job,
+        owner_id,
+        mime_type="application/vnd.recordare.musicxml+xml",
+        label="Generated score",
+    )
+    _update_progress(client, job.id, 1.0, "score complete")
+    return [str(version_id)]
 
 
 def handle_enhance(job: Job, client) -> list[str]:
@@ -1111,6 +1177,7 @@ def register_all_capabilities(worker) -> None:
     """Register every capability handler with *worker*."""
     worker.register("transcribe", "1.0", handle_transcribe)
     worker.register("analyze", "1.0", handle_analyze)
+    worker.register("score", "1.0", handle_score)
     worker.register("enhance", "1.0", handle_enhance)
     worker.register("synthesize", "1.0", handle_synthesize)
     worker.register("correct", "1.0", handle_correct)

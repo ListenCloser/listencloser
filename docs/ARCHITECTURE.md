@@ -1,178 +1,82 @@
 # Architecture
 
-How Music AI Studio is put together: the frontend, the backend, the proxy path,
-and the delivery/CI loop. This describes the ACTUAL system today, including its
-known gaps — not an aspirational design (that lives in `docs/REDESIGN.md`).
+This document describes the runtime that is actually shipped.
 
-## 1. Product
+## Product path
 
-**Music AI Studio** does three things:
+The first supported vertical slice is:
 
-- **Transcribe** — audio → MIDI via `basic-pitch`.
-- **Analyze** — key / tempo / chords via `librosa`.
+1. An authenticated user uploads audio.
+2. The Vercel route proxies the upload to FastAPI.
+3. FastAPI stores an immutable original artifact and queues a transcription job.
+4. A separate worker claims the job from Postgres and runs Basic Pitch.
+5. The worker persists MIDI, note entities, and a rendered WAV.
+6. The browser queues analysis and score jobs for the resulting MIDI.
+7. The worker persists music-theory insights and MusicXML.
+8. The browser renders the real piano roll, waveform, score, and insights.
 
-## 2. System at a glance
+No musical result is synthesized in the frontend. Empty, partial, and failed
+states are shown as such.
 
-```
-┌───────────────────────────────────────────────────────────────────────┐
-│  Browser (Next.js 15 / React 19 / Tailwind v4, hosted on Vercel)       │
-│    app/page.tsx → app/HomeClient.tsx → <Studio>                        │
-│    Studio is a TAB shell: Library | Transcribe | Analyze              │
-│                                                                        │
-│    Talks to:                                                           │
-│      (a) Supabase  — directly from the browser (anon key) for storage │
-│      (b) /api/*    — Next.js route handlers that proxy to the backend │
-└───────────────┬───────────────────────────┬──────────────────────────┘
-                │ (a) anon key              │ (b) server-side fetch
-                ▼                            ▼
-        ┌───────────────┐          ┌─────────────────────────────────────┐
-        │  Supabase     │          │  Oracle Cloud VM (single host)       │
-        │  storage +    │          │  gricci-testing.duckdns.org          │
-        │  DB + auth    │          │    host reverse proxy (Caddy/nginx)  │
-        │               │          │    ~1MB body limit ── HTTP 413 on    │
-        │  buckets:     │          │    large uploads to /api/music/*     │
-        │   library     │          │      │                              │
-        │   midi        │          │      ▼                              │
-        │   transcriptions         │    uvicorn (FastAPI :8000)          │
-        │   soundfonts  │          │      basic-pitch / librosa                                        │
-        │  RLS: owner   │          │    Uses Supabase SERVICE-ROLE key    │
-        └───────────────┘          └─────────────────────────────────────┘
+## Runtime topology
+
+```mermaid
+flowchart TD
+    Browser["Browser workspace"] --> Vercel["Next.js API routes"]
+    Vercel --> API["FastAPI service"]
+    API --> Supabase["Supabase Postgres + private storage"]
+    Worker["Durable job worker"] --> Supabase
+    Worker --> Engines["Basic Pitch · music21 · FluidSynth"]
+    Engines --> Worker
 ```
 
-**Key rule: the browser never talks to the VM directly.** Every backend call goes
-`app/api/**/route.ts` → `lib/backend.ts` (`proxyToBackend`) → `MUSIC_BACKEND_URL`
-(default `https://gricci-testing.duckdns.org`) → a host-level reverse proxy
-(Caddy/nginx) → uvicorn. This keeps the VM URL and service-role key off the client
-and makes Vercel the only public web edge.
+The browser never talks directly to the Oracle VM. `app/api/v1/**` proxies
+authenticated requests through `lib/backend.ts`. Browser access to signed
+Supabase object URLs is limited to individual output files.
 
-> The reverse proxy currently enforces a **~1MB request body limit**. This is why
-> large audio uploads to `/api/music/analyze` come back as **HTTP 413**. There is
-> no proxy config in the repo — it lives on the VM. See `docs/REDESIGN.md`.
+## Domain and persistence
 
-## 3. Frontend
+- `Project` contains `Work` records.
+- A `Work` owns typed `Artifact` records.
+- Each immutable `Version` points at one private storage object and records
+  lineage and the producing job.
+- Note-level facts are `Entity` records. Interpretive claims are `Insight`
+  records with confidence and provenance.
+- `Workflow` groups intent; `Job` is a durable, retryable capability execution.
 
-- Next.js 15 App Router, React 19, Tailwind v4, OpenSheetMusicDisplay for score rendering.
-- Entry: `app/page.tsx` → `app/HomeClient.tsx` → `Studio`.
-- `Studio` is a **tabbed shell** with three tabs: **Library**, **Transcribe**,
-  **Analyze**. It is NOT a two-column grid and NOT a stepper. The old
-  `.stepper` / `.app-grid` CSS is dead and should not be reintroduced.
-- Storage access from the browser uses the Supabase **anon** key via `lib/storage.ts`.
-- Dev mocks: MSW (`mocks/handlers.ts`) fakes `/api/*` so the frontend can run with
-  no backend. See `docs/TESTING.md`.
+The storage bucket is `artifacts`. Object keys begin with the authenticated
+owner ID so the migration's RLS policies can enforce ownership.
 
-## 4. Backend
+## Services
 
-- FastAPI (Python) served by **uvicorn** on a **single Oracle VM**.
-- Run via `docker-compose.yml` service `backend`:
-  `uvicorn backend.main:app --port 8000 --reload`.
-- Uses the Supabase **service-role** key for server-side storage/DB access.
-- `backend/main.py` has structured JSON logging + an `x-request-id` middleware
-  (echoed on every response so a user-facing error maps to an exact log line).
+`backend/docker-compose.yml` runs two containers from the same image:
 
-### Deploy
+- `backend`: FastAPI/uvicorn, responsible for auth, validation, persistence,
+  workflow creation, status, and result URLs.
+- `worker`: `backend/worker.py`, responsible for claiming and executing queued
+  music capabilities. It handles shutdown signals and recovers expired leases.
 
-`scripts/deploy.sh` (run on the VM):
+The deploy script starts and rolls back both services together. Backend health
+gates deployment; queue health/metrics remain an operations gap.
 
-1. `git pull`
-2. `docker compose up --build backend`
-3. polls `GET /health/ready`
-4. **auto-rolls back** to the previous commit if the backend is not healthy in time.
+## Frontend
 
-There is also a `deploy-backend.yml` GitHub Actions workflow that runs on push to
-`main` for `backend/**` changes. See `docs/OPS.md` for the runbook.
+The canonical route is `/`. It is an authenticated, representation-oriented
+workspace with shared transport and timeline state. The current library panel
+only identifies the active project; persistent browsing is intentionally not
+represented as complete.
 
-## 5. Storage / DB / auth (Supabase)
+MSW is enabled only when `NEXT_PUBLIC_MOCK_ENABLED=true`. Production and normal
+local development otherwise use the real API.
 
-- Buckets: `library`, `midi`, `transcriptions`, `soundfonts`.
-- RLS is **owner-scoped**.
-- Browser: anon key (`lib/storage.ts`). Backend: service-role key.
-- Migrations live in `supabase/migrations/`.
+## Current limitations
 
-## 6. Error tracking (Sentry)
-
-- **Frontend** — `@sentry/nextjs`: `instrumentation.ts`, `sentry.server.config.ts`,
-  `sentry.edge.config.ts`, `app/global-error.tsx`. DSN from `NEXT_PUBLIC_SENTRY_DSN`.
-- **Backend** — `sentry-sdk`, env-gated on `SENTRY_DSN_BACKEND` (falls back to
-  `SENTRY_DSN`). Silent if the DSN is empty.
-
-## 7. Observability
-
-- Structured JSON logs to stdout + `x-request-id` middleware in `backend/main.py`.
-- Opt-in Loki / Promtail / Grafana stack via `docker-compose.observability.yml`.
-- Runbook: `docs/OPS.md`.
-
-## 8. CI / delivery
-
-GitHub Actions in `.github/workflows/`:
-
-| Workflow | What it does | Blocks merge? |
-|---|---|---|
-| `build.yml` | `npm run build` + Vitest | ✅ |
-| `ci.yml` | lint + typecheck + ruff + backend pytest | ✅ |
-| `e2e.yml` | Playwright vs MSW mocks | ✅ |
-| `argos.yml` | visual diff | ❌ (informational) |
-| `codeql.yml` | SAST (js + python) | ✅ |
-| `gitleaks.yml` | secret scan | ✅ |
-| `dependency-review.yml` | dependency CVE review | ✅ |
-| `deploy-backend.yml` | deploy on push to `main` for `backend/**` | n/a (push) |
-
-Review automation: **CodeRabbit** + **Semgrep** on PRs. The agent uses the
-**Sentry MCP** to self-diagnose failures.
-
-## 9. Where things live
-
-| Concern | Path |
-|---|---|
-| Page shell | `app/page.tsx`, `app/HomeClient.tsx`, `components/Studio.tsx` |
-| Transcribe | `components/transcribe/`, `components/SheetMusic.tsx`, `components/PianoRoll.tsx` |
-| Analyze | `components/analyze/` |
-| Library | `components/library/`, `lib/storage.ts` |
-| Backend proxy | `lib/backend.ts`, `app/api/**/route.ts` |
-| Supabase client | `lib/supabase.ts` (browser, anon) |
-| Backend (VM) | `backend/` (FastAPI) |
-| Dev mocks | `mocks/handlers.ts`, `components/MSWInit.tsx` |
-| E2E / visual | `tests/e2e/`, `tests/visual/` |
-| Ops | `docker-compose.yml`, `docker-compose.observability.yml`, `scripts/deploy.sh` |
-
-## 10. Known gaps (documented honestly)
-
-### Domain / data model gaps (bundle SOT)
-
-- **No durable project/work/artifact model** — CLOSED (Phase 2). Domain tables and
-  contracts exist; migration from `LibFile` is in progress per ADR-007.
-- **No immutable version graph** — CLOSED (Phase 2). `versions` table with
-  lineage tracking; originals are never overwritten.
-- **No capability registry in code** — CLOSED (Phase 4). Capability contracts
-  with typed inputs/outputs; no direct library imports in domain logic.
-- **No processing job system** — CLOSED (Phase 2). Async job queue with status
-  polling; processing is no longer synchronous in the request path.
-- **No universal alignment representation** — CLOSED (Phase 2). Alignment
-  entities map entities to timeline positions for synchronized transport.
-
-### Frontend / workspace gaps (bundle SOT)
-
-- **Representations are not fully synchronized** — IN PROGRESS (Phase 3).
-  Shared transport and selection exist; cross-representation sync is being
-  wired per vertical slice.
-- **Transcription correction is limited** — CLOSED (Phase 5). Piano roll
-  editing with versioned correction workflow.
-- **Compare and create workflows are not implemented** — CLOSED (Phases 6-7).
-  Version diff view and structural composition tools.
-
-### Infrastructure gaps
-
-- **Single VM = SPOF.** No redundancy; one host down = backend down.
-- **Prod runs uvicorn `--reload`** — a dev flag. Should be `--workers 2`.
-- **No metrics / tracing / alerting yet** — only logs + Sentry.
-- **E2E runs against MSW mocks**, so real-API regressions (the 413 / 422 class
-  of bugs) are NOT caught by the E2E suite. See `docs/TESTING.md`.
-- **`next lint` is deprecated** (removed in Next 16) but still used.
-
-Infrastructure roadmap: `docs/REDESIGN.md`.
-
-## 11. New domain architecture
-
-The domain model, capability contracts, workspace shell, and phased migration
-plan are defined in `docs/ORCHESTRATION.md`. This is the SOT for the target
-architecture, superseding the reference implementation patterns described
-in section 2. See also `docs/adr/ADR-001.md` through `docs/adr/ADR-007.md`.
+- Transcription quality depends on source isolation and Basic Pitch; it is not
+  genre-independent in quality even though the artifact model is genre-neutral.
+- MusicXML is mechanically derived from MIDI and may need quantization/editing.
+- Analysis currently covers key, tempo, time signature, chords, Roman numerals,
+  and cadences; structure, motifs, timbre, and comparative analysis are next.
+- Correction, comparison, and generation handlers exist as early capability
+  scaffolding but are not yet presented as production-complete user journeys.
+- E2E uses deterministic API mocks. A deployed real-service smoke test is still
+  needed to catch infrastructure and model-runtime failures.
