@@ -33,6 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           supabase link --project-ref cijhpddqvvzyzfzmkdnn
+          supabase migration repair --status reverted 20260717184208 --linked --password "$SUPABASE_DB_PASSWORD" || true
           supabase db push --linked --password "$SUPABASE_DB_PASSWORD" --include-all
           if ! command -v psql >/dev/null 2>&1; then
             sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
