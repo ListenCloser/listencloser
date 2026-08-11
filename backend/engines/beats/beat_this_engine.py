@@ -1,7 +1,7 @@
 """Beat This! beat/downbeat tracking engine (experimental).
 
 Installed optionally behind the BeatTrackingEngine interface.
-When unavailable, the registry falls back to librosa.
+When unavailable, falls back to librosa at the registry level.
 """
 
 from __future__ import annotations
@@ -27,27 +27,25 @@ class BeatThisEngine(BeatTrackingEngine):
         )
 
     def analyze(self, wav_bytes: bytes, **kwargs: Any) -> BeatTrackingResult:
+        import beat_this  # type: ignore[import-untyped]
+
+        tmp_path: str | None = None
         try:
-            import beat_this  # type: ignore[import-untyped]
-        except ImportError:
-            raise RuntimeError("beat_this is not installed")
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                f.write(wav_bytes)
+                f.flush()
+                tmp_path = f.name
+            result = beat_this.run(tmp_path)
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            f.write(wav_bytes)
-            f.flush()
-            result = beat_this.run(f.name)
-        os.unlink(f.name)
-
-        bpm = float(result.get("bpm", 0))
-        beats = [float(b) for b in result.get("beats", [])]
-        downbeats = [float(d) for d in result.get("downbeats", [])]
-        bp = result.get("beat_positions")
-        beat_positions = [int(p) for p in bp] if bp else list(range(len(beats)))
+        downbeats_raw = result.get("downbeats", [])
         return BeatTrackingResult(
-            bpm=bpm,
-            beats=beats,
-            downbeats=downbeats if downbeats else None,
-            beat_positions=beat_positions,
+            bpm=float(result.get("bpm", 0)),
+            beats=[float(b) for b in result.get("beats", [])],
+            downbeats=[float(d) for d in downbeats_raw] if downbeats_raw else None,
+            beat_positions=None,
             provenance=self.provenance,
         )
 

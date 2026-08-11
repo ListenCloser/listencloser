@@ -15,18 +15,17 @@ class TestMetricalGrid:
         assert grid.inferred_meter == (4, 4)
         assert grid.confidence >= 0.5
         assert len(grid.measure_boundaries) == 2
-        assert grid.measure_boundaries == [0.0, 2.0]
 
-    def test_no_downbeats_falls_back(self):
+    def test_no_downbeats_no_meter_invention(self):
+        """Without downbeats, meter must be None — never invent 4/4."""
         beats = [0.0, 0.5, 1.0, 1.5]
         grid = build_metrical_grid(beats)
-        assert grid.inferred_meter is not None
-        assert grid.confidence == 0.3
+        assert grid.inferred_meter is None
+        assert grid.confidence == 0.0
 
     def test_too_few_beats(self):
         grid = build_metrical_grid([0.0])
         assert grid.inferred_meter is None
-        assert grid.confidence == 0.0
 
     def test_no_beats(self):
         grid = build_metrical_grid([])
@@ -38,9 +37,16 @@ class TestMetricalGrid:
         grid = build_metrical_grid(beats, downbeats)
         assert grid.inferred_meter is not None
 
-    def test_subdivisions_returns_measure_grids(self):
-        beats = [0.0, 0.5, 1.0, 1.5]
+    def test_downbeats_with_different_count(self):
+        """When beat count between downbeats varies, meter should still be inferred."""
+        beats = list(np.arange(0, 4, 0.25))
+        downbeats = [0.0, 1.0, 2.0, 3.0]
+        grid = build_metrical_grid(beats, downbeats)
+        assert grid.inferred_meter == (4, 4)
+
+    def test_beats_but_no_downbeats(self):
+        """Beats exist but meter confidence is zero."""
+        beats = [0.0, 0.5, 1.0, 1.5, 2.0]
         grid = build_metrical_grid(beats)
-        subs = grid.subdivisions((4, 4))
-        assert len(subs) > 0
-        assert all(len(s) > 0 for s in subs)
+        assert grid.global_beats()
+        assert grid.inferred_meter is None

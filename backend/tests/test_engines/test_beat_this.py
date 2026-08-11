@@ -27,5 +27,5 @@ class TestBeatThisRegistry:
 
         engine = get_beat_engine("beat_this")
         assert isinstance(engine, BeatThisEngine)
-        with pytest.raises(RuntimeError):
+        with pytest.raises((RuntimeError, ImportError)):
             engine.analyze(b"test")
