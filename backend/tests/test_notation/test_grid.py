@@ -13,7 +13,7 @@ class TestMetricalGrid:
         downbeats = [0.0, 2.0]
         grid = build_metrical_grid(beats, downbeats)
         assert grid.inferred_meter == (4, 4)
-        assert grid.confidence >= 0.5
+        assert grid.heuristic_confidence >= 0.5
         assert len(grid.measure_boundaries) == 2
 
     def test_no_downbeats_no_meter_invention(self):
@@ -21,7 +21,7 @@ class TestMetricalGrid:
         beats = [0.0, 0.5, 1.0, 1.5]
         grid = build_metrical_grid(beats)
         assert grid.inferred_meter is None
-        assert grid.confidence == 0.0
+        assert grid.heuristic_confidence == 0.0
 
     def test_too_few_beats(self):
         grid = build_metrical_grid([0.0])

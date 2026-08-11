@@ -44,6 +44,7 @@ def get_beat_engine(name: str | None = None) -> BeatTrackingEngine:
     if name == "beat_this":
         try:
             from engines.beats.beat_this_engine import BeatThisEngine
+
             return BeatThisEngine()
         except ImportError:
             raise RuntimeError(

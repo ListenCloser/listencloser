@@ -20,7 +20,7 @@ class MetricalGrid:
     beat_positions: list[int] | None
     measure_boundaries: list[float]
     inferred_meter: tuple[int, int] | None
-    confidence: float
+    heuristic_confidence: float
     provenance: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -33,7 +33,7 @@ class MetricalGrid:
                 if self.inferred_meter
                 else None
             ),
-            "confidence": round(self.confidence, 3),
+            "heuristic_confidence": round(self.heuristic_confidence, 3),
             "provenance": self.provenance,
         }
 
@@ -53,17 +53,17 @@ def build_metrical_grid(
             beat_positions=beat_positions,
             measure_boundaries=[],
             inferred_meter=None,
-            confidence=0.0,
+            heuristic_confidence=0.0,
         )
 
     if downbeats and len(downbeats) >= 2:
         boundaries = list(downbeats)
         meter = _infer_meter(beats, downbeats)
-        confidence = 0.8 if len(boundaries) >= 3 else 0.5
+        heuristic_confidence = 0.8 if len(boundaries) >= 3 else 0.5
     else:
         boundaries = []
         meter = None
-        confidence = 0.0
+        heuristic_confidence = 0.0
 
     return MetricalGrid(
         beats=beats,
@@ -71,7 +71,7 @@ def build_metrical_grid(
         beat_positions=beat_positions,
         measure_boundaries=boundaries,
         inferred_meter=meter,
-        confidence=confidence,
+        heuristic_confidence=heuristic_confidence,
     )
 
 
@@ -88,7 +88,6 @@ def _infer_meter(beats: list[float], downbeats: list[float]) -> tuple[int, int] 
     from collections import Counter
 
     bpb = Counter(counts).most_common(1)[0][0]
-    # Only return meter when beat count supports common simple/compound
     if bpb == 2:
         return (2, 4)
     if bpb == 3:
@@ -96,7 +95,9 @@ def _infer_meter(beats: list[float], downbeats: list[float]) -> tuple[int, int] 
     if bpb == 4:
         return (4, 4)
     if bpb == 6:
-        # Ambiguous: could be 6/4 or 6/8. Default 6/8 (compound duple).
+        # Ambiguous: could be compound duple (6/8) or 6/4.
+        # Mark 6/8 as heuristic — beat trackers may report
+        # subdivision pulses rather than tactus beats.
         return (6, 8)
     return None
 
@@ -111,7 +112,6 @@ def measure_boundary_end(i: int, boundaries: list[float], beats: list[float]) ->
         return boundaries[i + 1]
     if not boundaries:
         return beats[-1] + _median_interval(beats)
-    last = boundaries[-1]
-    span = sorted({b2 - b1 for b1, b2 in zip(boundaries, boundaries[1:], strict=False)})
-    typical = span[len(span) // 2] if span else _median_interval(beats)
-    return last + typical
+    spans = [b2 - b1 for b1, b2 in zip(boundaries, boundaries[1:], strict=False)]
+    typical = float(np.median(spans)) if spans else _median_interval(beats)
+    return boundaries[-1] + typical

@@ -1,7 +1,7 @@
 """Beat This! beat/downbeat tracking engine (experimental).
 
 Installed optionally behind the BeatTrackingEngine interface.
-When unavailable, falls back to librosa at the registry level.
+Fails explicitly when beat_this is not installed; does not silently fall back.
 """
 
 from __future__ import annotations
