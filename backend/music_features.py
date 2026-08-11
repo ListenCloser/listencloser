@@ -219,6 +219,35 @@ def enhance_audio(audio_bytes: bytes, fmt: str = "wav") -> bytes:
             return f.read()
 
 
+def decode_audio_to_wav(audio_bytes: bytes, fmt: str = "wav") -> bytes:
+    """Decode a supported upload into a validated mono PCM WAV."""
+    suffix = _sanitize_fmt(fmt)
+    with tempfile.TemporaryDirectory() as td:
+        input_path = os.path.join(td, f"input{suffix}")
+        output_path = os.path.join(td, "decoded.wav")
+        with open(input_path, "wb") as file_handle:
+            file_handle.write(audio_bytes)
+        try:
+            result = subprocess.run(
+                [
+                    "ffmpeg", "-v", "error", "-y", "-i", input_path,
+                    "-ac", "1", "-ar", "22050", "-c:a", "pcm_s16le", output_path,
+                ],
+                capture_output=True,
+                timeout=_FFMPEG_TIMEOUT,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ValueError("Audio decoding failed") from error
+        if result.returncode != 0 or not os.path.exists(output_path):
+            detail = result.stderr.decode(errors="replace")[-300:]
+            raise ValueError(f"Audio decoding failed: {detail or 'invalid audio file'}")
+        with open(output_path, "rb") as file_handle:
+            decoded = file_handle.read()
+        if not decoded.startswith(b"RIFF") or len(decoded) < 44:
+            raise ValueError("Audio decoding produced an invalid WAV")
+        return decoded
+
+
 # ---------------------------------------------------------------------------
 # Format conversion (MIDI <-> MusicXML)
 # ---------------------------------------------------------------------------
@@ -333,7 +362,7 @@ def transcribe_audio(
         # basic-pitch writes <input_stem>.mid + note events to out_dir.
         out_dir = os.path.join(td, "out")
         os.makedirs(out_dir, exist_ok=True)
-        _, midi_data, note_events = predict(
+        _, midi_data, _note_events = predict(
             in_path,
             onset_threshold=onset_threshold,
             frame_threshold=frame_threshold,
@@ -349,21 +378,16 @@ def transcribe_audio(
     except Exception as e:
         logger.warning(f"MIDI cleanup failed, using raw output: {e}")
 
-    # note_events: a list of tuples (start_s, end_s, pitch, velocity, onsets).
-    notes = []
-    try:
-        for ev in note_events or []:
-            start, end, pitch, velocity, _ = ev
-            notes.append(
-                {
-                    "pitch": int(pitch),
-                    "start": float(start),
-                    "end": float(end),
-                    "velocity": int(velocity),
-                }
-            )
-    except Exception as e:
-        logger.warning(f"note event serialization skipped: {e}")
+    # Persist the notes in the final cleaned MIDI so every representation agrees.
+    import pretty_midi
+
+    cleaned_midi = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
+    notes = [
+        {"pitch": note.pitch, "start": note.start, "end": note.end, "velocity": note.velocity}
+        for instrument in cleaned_midi.instruments
+        for note in instrument.notes
+        if not instrument.is_drum
+    ]
 
     wav_bytes = midi_to_wav(midi_bytes)
     return {

@@ -57,4 +57,5 @@ def test_queue_health_reports_worker_and_active_jobs(client, monkeypatch):
         "queued": 1,
         "running": 1,
         "stale_leases": 0,
+        "heartbeat_source": "database",
     }

@@ -1,6 +1,7 @@
 """Production entrypoint for the durable music-processing worker."""
 
 import logging
+import os
 import signal
 
 from domain.capabilities import register_all_capabilities
@@ -12,7 +13,7 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
-    worker = JobWorker()
+    worker = JobWorker(max_workers=int(os.environ.get("WORKER_CONCURRENCY", "1")))
     register_all_capabilities(worker)
 
     def stop(_signum, _frame) -> None:

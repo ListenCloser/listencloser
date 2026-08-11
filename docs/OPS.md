@@ -80,6 +80,10 @@ check is `/api/health/queue`.
 Worker heartbeats require `20260811_worker_heartbeats.sql`. A heartbeat older
 than 45 seconds is not counted as live.
 
+Backend deploys apply pending migrations before touching the VM. Configure the
+GitHub Actions secret `SUPABASE_DB_URL` with the pooler/session-mode Postgres
+connection string from Supabase Database settings. Failed migrations block deployment.
+
 ## Deployed understanding smoke test
 
 This command creates a persisted work in the supplied project and verifies the

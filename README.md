@@ -5,9 +5,11 @@ music, and evidence-backed musical analysis. Processing runs asynchronously on a
 durable worker; the browser displays stored results rather than fabricated demo
 data.
 
-## Live Demo
+## Deployment
 
-[hello-ai.vercel.app](https://hello-ai.vercel.app)
+The canonical Vercel production domain must point at this repository's v2
+project before it is advertised. Verify `/api/health/queue` returns `ready` and
+run the deployed smoke test in `docs/OPS.md` after every release.
 
 ## Features
 

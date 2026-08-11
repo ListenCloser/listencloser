@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 import threading
 import time
 from collections.abc import Callable
@@ -127,18 +128,30 @@ class JobWorker:
 
         self._client: Any = None
         self._client_lock = threading.Lock()
+        self._in_flight: set[str] = set()
+        self._in_flight_lock = threading.Lock()
 
     def _heartbeat_worker(self, status: str = "running") -> None:
         """Publish aggregate worker liveness without exposing job data."""
+        heartbeat = {
+            "worker_id": self._worker_id,
+            "status": status,
+            "capabilities": sorted(self._capabilities),
+            "started_at": self._started_at.isoformat(),
+            "heartbeat_at": datetime.now(UTC).isoformat(),
+        }
+        health_path = Path(os.environ.get("WORKER_HEALTH_FILE", "/tmp/hello-ai-worker.json"))
+        try:
+            health_path.parent.mkdir(parents=True, exist_ok=True)
+            temporary_path = health_path.with_suffix(".tmp")
+            temporary_path.write_text(json.dumps(heartbeat), encoding="utf-8")
+            temporary_path.replace(health_path)
+        except OSError:
+            logger.exception("worker_health_file_failed", extra={"path": str(health_path)})
+
         try:
             self.client.table("worker_heartbeats").upsert(
-                {
-                    "worker_id": self._worker_id,
-                    "status": status,
-                    "capabilities": sorted(self._capabilities),
-                    "started_at": self._started_at.isoformat(),
-                    "heartbeat_at": datetime.now(UTC).isoformat(),
-                },
+                heartbeat,
                 on_conflict="worker_id",
             ).execute()
         except Exception:
@@ -435,12 +448,12 @@ class JobWorker:
     # Single-job execution (runs in a thread-pool worker)
     # ------------------------------------------------------------------
 
-    def _execute_job(self, job_row: dict) -> None:
+    def _execute_job(self, job_row: dict, *, already_claimed: bool = False) -> None:
         """Claim, validate, and run a single job inside the current thread."""
         job_id: str = str(job_row["id"])
 
         # --- Atomic claim ---
-        if not self._claim_job(job_id):
+        if not already_claimed and not self._claim_job(job_id):
             logger.debug("claim_lost", extra={"job_id": job_id})
             return
 
@@ -612,9 +625,23 @@ class JobWorker:
                     self._running = False
                     break
 
-                job_row = self._poll_jobs()
+                with self._in_flight_lock:
+                    has_capacity = len(self._in_flight) < self._max_workers
+                job_row = self._poll_jobs() if has_capacity else None
                 if job_row is not None:
-                    executor.submit(self._execute_job, job_row)
+                    job_id = str(job_row["id"])
+                    if self._claim_job(job_id):
+                        with self._in_flight_lock:
+                            self._in_flight.add(job_id)
+                        future = executor.submit(
+                            self._execute_job, job_row, already_claimed=True
+                        )
+
+                        def release_slot(_future, completed_job_id=job_id) -> None:
+                            with self._in_flight_lock:
+                                self._in_flight.discard(completed_job_id)
+
+                        future.add_done_callback(release_slot)
 
                 if time.monotonic() - last_heartbeat >= 10.0:
                     self._heartbeat_worker()

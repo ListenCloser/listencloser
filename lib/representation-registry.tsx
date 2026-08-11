@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef } from "react";
 import type { ReactNode } from "react";
 import type { RepresentationKind } from "@/lib/stores/workspace";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
 import Visualizer from "@/components/Visualizer";
 import Spectrogram from "@/components/Spectrogram";
+import { useTransport } from "@/lib/stores/transport";
 
 export type RepresentationProps = {
   notes?: { pitch: number; start: number; end: number; velocity: number }[];
@@ -20,7 +20,7 @@ export type RepresentationProps = {
 type Note = NonNullable<RepresentationProps["notes"]>[number];
 
 function WaveformWrapper({ audioUrl }: { audioUrl?: string }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { audioRef } = useTransport();
 
   if (!audioUrl) {
     return (
@@ -32,8 +32,10 @@ function WaveformWrapper({ audioUrl }: { audioUrl?: string }) {
 
   return (
     <div className="representation-body">
-      <audio ref={audioRef} src={audioUrl} controls style={{ width: "100%", marginBottom: "var(--s-2)" }} />
       <Visualizer audioRef={audioRef} />
+      <p className="muted" style={{ fontSize: "var(--fs-xs)", margin: "var(--s-2) 0 0" }}>
+        Playback and source comparison are controlled from the transport above.
+      </p>
     </div>
   );
 }

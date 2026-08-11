@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import WorkspaceShell from "@/components/workspace/WorkspaceShell";
+import WorkspaceShell, { type ServiceStatus } from "@/components/workspace/WorkspaceShell";
 import {
   cancelJob,
   createProject,
@@ -26,6 +26,8 @@ import {
 } from "@/lib/stores/workspace";
 
 const ACCEPT = ".wav,.mp3,.m4a,.flac,.ogg,.aac,audio/*";
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = new Set(["wav", "mp3", "m4a", "flac", "ogg", "aac"]);
 type UploadStage = "idle" | "uploading" | "processing" | "success" | "error";
 
 const pause = (milliseconds: number) =>
@@ -59,7 +61,7 @@ async function waitForJob(
   throw new Error("Processing timed out. The job may still be running.");
 }
 
-function HomeContent({ onProjectName }: { onProjectName: (name: string) => void }) {
+function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProjectName: (name: string) => void; serviceStatus: ServiceStatus; refreshService: () => void }) {
   const { user, loading } = useAuth();
   const {
     replaceRepresentations,
@@ -80,6 +82,7 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [processingWorkId, setProcessingWorkId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadSequenceRef = useRef(0);
 
@@ -228,6 +231,9 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
             `Understanding audio ${terminalJob.lifecycle.current}`,
         );
         setStage("error");
+      } else if (representations.length === 0) {
+        setError("This work has no playable artifacts yet. Import the source audio again.");
+        setStage("error");
       } else {
         setActiveJobId(null);
         setStage("success");
@@ -280,13 +286,35 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
   }, [workspace.importRequestId]);
 
   const handleFile = useCallback(async (file: File) => {
-    if (!projectId) return;
+    if (!projectId) {
+      setError("Your project is still loading. Please try again in a moment.");
+      setStage("error");
+      return;
+    }
+    if (serviceStatus !== "ready") {
+      setError("The processing service is offline. Your file was not uploaded.");
+      setStage("error");
+      return;
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!ALLOWED_EXTENSIONS.has(extension)) {
+      setError("Choose a WAV, MP3, M4A, FLAC, OGG, or AAC audio file.");
+      setStage("error");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError("Audio files must be 4 MB or smaller.");
+      setStage("error");
+      return;
+    }
     setFilename(file.name);
     setStage("uploading");
     setProgress(2);
     setError(null);
     try {
       const { artifact, version } = await uploadArtifact(projectId, file);
+      setProcessingWorkId(artifact.work_id);
+      setWorks(await listWorks(projectId));
       setStage("processing");
       const { job } = await startUnderstandWorkflow(version.id, projectId);
       setActiveJobId(job.id);
@@ -299,14 +327,12 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
       setProgress(100);
       setActiveJobId(null);
       setActiveWorkId(artifact.work_id);
-      if (workspace.activeWorkId === artifact.work_id) {
-        await loadWork(artifact.work_id);
-      }
+      setProcessingWorkId(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Import failed");
       setStage("error");
     }
-  }, [loadWork, projectId, setActiveWorkId, setWorks, workspace.activeWorkId]);
+  }, [projectId, serviceStatus, setActiveWorkId, setWorks]);
 
   const cancelActiveJob = useCallback(async () => {
     if (!activeJobId) return;
@@ -320,7 +346,8 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
   }, [activeJobId]);
 
   const retryActiveJob = useCallback(async () => {
-    if (!activeJobId || !workspace.activeWorkId) return;
+    const workId = processingWorkId ?? workspace.activeWorkId;
+    if (!activeJobId || !workId) return;
     setStage("processing");
     setError(null);
     setProgress(0);
@@ -331,14 +358,15 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
         setMessage(current.message || "Retrying music understanding");
         setProgress(Math.round(current.progress * 100));
       });
-      const workId = workspace.activeWorkId;
       setActiveJobId(null);
-      await loadWork(workId);
+      if (workspace.activeWorkId === workId) await loadWork(workId);
+      else setActiveWorkId(workId);
+      setProcessingWorkId(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Retry failed");
       setStage("error");
     }
-  }, [activeJobId, loadWork, workspace.activeWorkId]);
+  }, [activeJobId, loadWork, processingWorkId, setActiveWorkId, workspace.activeWorkId]);
 
   async function signIn() {
     await supabase?.auth.signInWithOAuth({
@@ -376,7 +404,7 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
                 <button className="btn btn-primary" onClick={signIn}>Sign in with Google</button>
               </div>
             )}
-            {!loading && user && projectId && stage === "idle" && !workspace.isLoadingWork && (
+            {!loading && user && projectId && serviceStatus === "ready" && stage === "idle" && !workspace.isLoadingWork && (
               <div
                 className={`drop-zone${dragOver ? " drag-over" : ""}`}
                 onClick={() => fileInputRef.current?.click()}
@@ -391,6 +419,17 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
               >
                 <strong>Drop an audio file to understand it</strong>
                 <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>WAV · MP3 · M4A · FLAC · OGG · AAC</span>
+              </div>
+            )}
+            {!loading && user && serviceStatus === "checking" && stage === "idle" && (
+              <div className="drop-zone"><strong>Checking the processing service…</strong><span>Imports will be enabled when it is ready.</span></div>
+            )}
+            {!loading && user && serviceStatus === "unavailable" && stage === "idle" && (
+              <div className="service-unavailable" role="alert">
+                <span className="service-kicker">Service interruption</span>
+                <strong>Audio processing is temporarily offline</strong>
+                <span>Your existing work is safe. Retry the connection before importing a new file.</span>
+                <button type="button" className="btn btn-primary" onClick={refreshService}>Check again</button>
               </div>
             )}
             {workspace.isLoadingWork && stage !== "processing" && (
@@ -434,9 +473,37 @@ function HomeContent({ onProjectName }: { onProjectName: (name: string) => void 
 export default function Home() {
   const { user } = useAuth();
   const [projectName, setProjectName] = useState("");
+  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>("checking");
+  const healthSequence = useRef(0);
+
+  const refreshService = useCallback(() => {
+    const sequence = ++healthSequence.current;
+    setServiceStatus("checking");
+    void fetch("/api/health/queue", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("service unavailable");
+        const body = await response.json();
+        if (body.status !== "ready") throw new Error("service unavailable");
+        if (sequence === healthSequence.current) setServiceStatus("ready");
+      })
+      .catch(() => {
+        if (sequence === healthSequence.current) setServiceStatus("unavailable");
+      });
+  }, []);
+
+  useEffect(() => {
+    refreshService();
+    const timer = window.setInterval(refreshService, 30_000);
+    const onControllerChange = () => refreshService();
+    navigator.serviceWorker?.addEventListener("controllerchange", onControllerChange);
+    return () => {
+      window.clearInterval(timer);
+      navigator.serviceWorker?.removeEventListener("controllerchange", onControllerChange);
+    };
+  }, [refreshService]);
   return (
-    <WorkspaceShell signedIn={Boolean(user)} projectName={projectName}>
-      <HomeContent onProjectName={setProjectName} />
+    <WorkspaceShell signedIn={Boolean(user)} projectName={projectName} serviceStatus={serviceStatus}>
+      <HomeContent onProjectName={setProjectName} serviceStatus={serviceStatus} refreshService={refreshService} />
     </WorkspaceShell>
   );
 }

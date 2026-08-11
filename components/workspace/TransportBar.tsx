@@ -10,29 +10,35 @@ function formatTime(s: number): string {
 }
 
 export default function TransportBar() {
-  const { transport, setActiveSource, stop, toggle, toggleLoop } = useTransport();
+  const { transport, seek, setActiveSource, setLoop, stop, toggle, toggleLoop } = useTransport();
   const { timeline, totalDuration } = useTimeline();
   const { isPlaying, position, loopEnabled, loopStart, loopEnd, activeSource, sources } = transport;
+  const hasSource = Boolean(activeSource);
 
   return (
     <div className="transport-bar">
       <div className="transport-group">
-        <button className="transport-btn" onClick={toggle} title={isPlaying ? "Pause" : "Play"}>
+        <button type="button" className="transport-btn" onClick={toggle} title={hasSource ? (isPlaying ? "Pause" : "Play") : "Import audio to enable playback"} disabled={!hasSource}>
           {isPlaying ? "⏸" : "▶"}
         </button>
-        <button className="transport-btn transport-btn-sm" onClick={stop} title="Stop">
+        <button type="button" className="transport-btn transport-btn-sm" onClick={stop} title="Stop" disabled={!hasSource}>
           ⏹
         </button>
       </div>
 
       <span className="transport-time">{formatTime(position)}</span>
       <span className="transport-time-muted">/ {formatTime(totalDuration)}</span>
+      <input className="transport-seek" type="range" aria-label="Playback position" min={0} max={Math.max(totalDuration, 0.01)} step={0.01} value={Math.min(position, Math.max(totalDuration, 0.01))} onChange={(event) => seek(Number(event.target.value))} disabled={!hasSource || totalDuration <= 0} />
 
       <div className="transport-group">
         <button
           className={`transport-btn ${loopEnabled ? "transport-btn-active" : ""}`}
-          onClick={toggleLoop}
+          onClick={() => {
+            if (!loopEnabled && (loopStart === null || loopEnd === null) && totalDuration > 0) setLoop(0, totalDuration);
+            toggleLoop();
+          }}
           title="Toggle loop"
+          disabled={!hasSource}
         >
           ↺
         </button>

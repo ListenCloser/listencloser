@@ -2,12 +2,9 @@
 
 import { useState } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
-import { useSelection } from "@/lib/stores/selection";
 import { useTransport } from "@/lib/stores/transport";
 
 const TABS = [
-  { id: "selection", label: "Selection" },
-  { id: "properties", label: "Properties" },
   { id: "insights", label: "Insights" },
   { id: "commands", label: "Commands" },
 ] as const;
@@ -16,7 +13,7 @@ type TabId = (typeof TABS)[number]["id"];
 
 export default function InspectorPanel() {
   const { workspace, toggleInspector } = useWorkspace();
-  const [activeTab, setActiveTab] = useState<TabId>("selection");
+  const [activeTab, setActiveTab] = useState<TabId>("insights");
 
   if (workspace.inspectorCollapsed) {
     return (
@@ -40,7 +37,7 @@ export default function InspectorPanel() {
   }
 
   return (
-    <div
+    <div className="studio-inspector"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -96,79 +93,9 @@ export default function InspectorPanel() {
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: "var(--s-3)" }}>
-        {activeTab === "selection" && <SelectionTab />}
-        {activeTab === "properties" && <PropertiesTab />}
         {activeTab === "insights" && <InsightsTab />}
         {activeTab === "commands" && <CommandTab />}
       </div>
-    </div>
-  );
-}
-
-function SelectionTab() {
-  const { selection, clearSelection, hasSelection } = useSelection();
-
-  if (!hasSelection()) {
-    return (
-      <div style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", padding: "var(--s-4) 0", textAlign: "center" }}>
-        No selection active.
-        <br />
-        Click and drag in a representation to select.
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-3)" }}>
-      <div className="section-label" style={{ margin: 0 }}>Active Selection</div>
-
-      {selection.timeStart !== null && (
-        <div className="stat">
-          <div className="s-label">Time</div>
-          <div className="s-value" style={{ fontSize: "var(--fs-sm)" }}>
-            {selection.timeStart.toFixed(2)}s – {selection.timeEnd?.toFixed(2) ?? "—"}s
-          </div>
-        </div>
-      )}
-
-      {selection.beatStart !== null && (
-        <div className="stat">
-          <div className="s-label">Beats</div>
-          <div className="s-value" style={{ fontSize: "var(--fs-sm)" }}>
-            {selection.beatStart} – {selection.beatEnd ?? "—"}
-          </div>
-        </div>
-      )}
-
-      {selection.measureStart !== null && (
-        <div className="stat">
-          <div className="s-label">Measures</div>
-          <div className="s-value" style={{ fontSize: "var(--fs-sm)" }}>
-            {selection.measureStart} – {selection.measureEnd ?? "—"}
-          </div>
-        </div>
-      )}
-
-      {selection.noteIndices.length > 0 && (
-        <div className="stat">
-          <div className="s-label">Notes</div>
-          <div className="s-value" style={{ fontSize: "var(--fs-sm)" }}>
-            {selection.noteIndices.length} selected
-          </div>
-        </div>
-      )}
-
-      <button className="btn" onClick={clearSelection} style={{ marginTop: "var(--s-2)" }}>
-        Clear Selection
-      </button>
-    </div>
-  );
-}
-
-function PropertiesTab() {
-  return (
-    <div style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", padding: "var(--s-4) 0", textAlign: "center" }}>
-      Select an artifact or version to view its properties.
     </div>
   );
 }

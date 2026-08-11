@@ -13,7 +13,7 @@ const KIND_LABELS: Record<string, string> = {
   annotations: "Annotations",
 };
 
-export default function RepresentationStack() {
+export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const {
     workspace,
     expandRepresentation,
@@ -43,19 +43,20 @@ export default function RepresentationStack() {
           margin: "var(--s-2)",
         }}
       >
-        <span style={{ fontSize: 32, lineHeight: 1 }}>🎵</span>
+        <span className="empty-state-mark" aria-hidden="true">AI</span>
         <div>
           <div style={{ fontWeight: "var(--fw-medium)", color: "var(--text)", marginBottom: "var(--s-1)" }}>
-            No representations yet
+            {signedIn ? "Start with an audio recording" : "Your music analysis workspace"}
           </div>
-          <div>Import audio to see representations</div>
+          <div>{signedIn ? "Transcribe it to a piano roll and score, then inspect musical structure." : "Sign in to import audio, generate notation, and explore evidence-backed analysis."}</div>
         </div>
         <button
           className="btn btn-primary"
           style={{ marginTop: "var(--s-2)" }}
           onClick={requestImport}
+          disabled={!signedIn || !canImport}
         >
-          Import Audio
+          {!signedIn ? "Sign in to begin" : canImport ? "Import audio" : "Processing service offline"}
         </button>
       </div>
     );

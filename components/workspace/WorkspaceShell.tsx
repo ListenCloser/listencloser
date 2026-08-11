@@ -10,11 +10,13 @@ import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
 import InspectorPanel from "./InspectorPanel";
 
-function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolean; projectName?: string }) {
+export type ServiceStatus = "checking" | "ready" | "unavailable";
+
+function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { signedIn?: boolean; projectName?: string; serviceStatus: ServiceStatus }) {
   const { workspace, toggleInspector } = useWorkspace();
 
   return (
-    <div
+    <div className="studio-shell"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -25,7 +27,7 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
         overflow: "hidden",
       }}
     >
-      <div
+      <div className="studio-header"
         style={{
           display: "flex",
           alignItems: "center",
@@ -47,6 +49,10 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
           </span>
         )}
 
+        <span className="badge" style={{ color: serviceStatus === "ready" ? "var(--success)" : serviceStatus === "unavailable" ? "var(--danger)" : "var(--muted)", background: serviceStatus === "ready" ? "var(--success-soft)" : serviceStatus === "unavailable" ? "var(--danger-soft)" : "var(--panel-3)" }}>
+          {serviceStatus === "ready" ? "Service online" : serviceStatus === "unavailable" ? "Service offline" : "Checking service"}
+        </span>
+
         <div style={{ flex: 1 }} />
 
         {workspace.inspectorCollapsed && (
@@ -62,10 +68,10 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
 
       <TransportBar />
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <LibraryPanel signedIn={signedIn} />
+      <div className="studio-workspace" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        <LibraryPanel signedIn={signedIn} canImport={serviceStatus === "ready"} />
 
-        <RepresentationStack />
+        <RepresentationStack signedIn={signedIn} canImport={serviceStatus === "ready"} />
 
         <InspectorPanel />
       </div>
@@ -77,22 +83,24 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
 export default function WorkspaceShell({
   signedIn = false,
   projectName,
+  serviceStatus = "checking",
   children,
 }: {
   signedIn?: boolean;
   projectName?: string;
+  serviceStatus?: ServiceStatus;
   children?: ReactNode;
 }) {
   return (
-    <TransportProvider>
-      <SelectionProvider>
-        <TimelineProvider>
+    <TimelineProvider>
+      <TransportProvider>
+        <SelectionProvider>
           <WorkspaceProvider>
             {children}
-            <WorkspaceContent signedIn={signedIn} projectName={projectName} />
+            <WorkspaceContent signedIn={signedIn} projectName={projectName} serviceStatus={serviceStatus} />
           </WorkspaceProvider>
-        </TimelineProvider>
-      </SelectionProvider>
-    </TransportProvider>
+        </SelectionProvider>
+      </TransportProvider>
+    </TimelineProvider>
   );
 }

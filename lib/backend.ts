@@ -23,6 +23,7 @@ function getBackendUrl(): string {
  * Forwards the request body/method to `BACKEND_URL + path` and returns JSON.
  */
 export async function proxyToBackendFormData(req: NextRequest, path: string) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
   try {
     const authHeader = req.headers.get("authorization");
     const headers: Record<string, string> = {};
@@ -33,6 +34,7 @@ export async function proxyToBackendFormData(req: NextRequest, path: string) {
       method: "POST",
       headers,
       body: formData,
+      signal: AbortSignal.timeout(60_000),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -46,12 +48,13 @@ export async function proxyToBackendFormData(req: NextRequest, path: string) {
     }
     return NextResponse.json(data);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    console.error("backend_form_proxy_failed", { requestId, path, error: err });
+    return NextResponse.json({ error: "Processing service unavailable", request_id: requestId }, { status: 502 });
   }
 }
 
 export async function proxyToBackend(req: NextRequest, path: string) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
   try {
     const authHeader = req.headers.get("authorization");
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -60,6 +63,7 @@ export async function proxyToBackend(req: NextRequest, path: string) {
     const init: RequestInit = {
       method: req.method,
       headers,
+      signal: AbortSignal.timeout(20_000),
     };
     if (req.method !== "GET" && req.method !== "HEAD") {
       const body = await req.text();
@@ -78,7 +82,7 @@ export async function proxyToBackend(req: NextRequest, path: string) {
     }
     return NextResponse.json(data);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    console.error("backend_proxy_failed", { requestId, path, error: err });
+    return NextResponse.json({ error: "Processing service unavailable", request_id: requestId }, { status: 502 });
   }
 }

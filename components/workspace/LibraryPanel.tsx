@@ -3,7 +3,7 @@
 import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 
-export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean }) {
+export default function LibraryPanel({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const {
     workspace,
     requestImport,
@@ -26,14 +26,14 @@ export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean 
 
   if (workspace.libraryCollapsed) {
     return (
-      <aside style={{ width: 44, flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--panel)", padding: "var(--s-2) 0", textAlign: "center" }}>
+      <aside className="studio-library studio-library-collapsed" style={{ width: 44, flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--panel)", padding: "var(--s-2) 0", textAlign: "center" }}>
         <button className="icon-btn ghost" onClick={toggleLibrary} title="Expand library">▸</button>
       </aside>
     );
   }
 
   return (
-    <aside style={{ width: 260, flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--panel)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <aside className="studio-library" style={{ width: 260, flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--panel)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "var(--s-3)", borderBottom: "1px solid var(--border)" }}>
         <div>
           <div className="section-label" style={{ margin: 0 }}>Project</div>
@@ -44,8 +44,8 @@ export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean 
 
       {signedIn && (
         <div style={{ padding: "var(--s-3)", borderBottom: "1px solid var(--border)" }}>
-          <button className="btn btn-primary" style={{ width: "100%" }} onClick={requestImport}>
-            Import audio
+          <button type="button" className="btn btn-primary" style={{ width: "100%" }} onClick={requestImport} disabled={!canImport}>
+            {canImport ? "Import audio" : "Import unavailable"}
           </button>
         </div>
       )}
@@ -58,7 +58,7 @@ export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean 
         ) : workspace.works.map((work) => {
           const selected = workspace.activeWorkId === work.id;
           return (
-            <button
+            <button type="button"
               key={work.id}
               onClick={() => setActiveWorkId(work.id)}
               disabled={workspace.isLoadingWork && selected}
@@ -90,7 +90,7 @@ export default function LibraryPanel({ signedIn = false }: { signedIn?: boolean 
       </div>
 
       <div style={{ padding: "var(--s-3)", borderTop: "1px solid var(--border)" }}>
-        <button className="btn" style={{ width: "100%" }} onClick={signedIn ? signOut : signIn}>
+        <button type="button" className="btn" style={{ width: "100%" }} onClick={signedIn ? signOut : signIn}>
           {signedIn ? "Sign out" : "Sign in with Google"}
         </button>
       </div>

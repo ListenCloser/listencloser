@@ -15,6 +15,10 @@ const wavBase64 = sampleWavBase64;
 export const handlers = [
   // ── Domain API v1 ──────────────────────────────────────────
 
+  http.get("/api/health/live", () => HttpResponse.json({ status: "alive" })),
+  http.get("/api/health/ready", () => HttpResponse.json({ status: "ready", supabase: true })),
+  http.get("/api/health/queue", () => HttpResponse.json({ status: "ready", workers: 1, queued: 0, running: 0, stale_leases: 0 })),
+
   http.post("/api/v1/projects", async () => {
     await delay(150);
     return HttpResponse.json({
