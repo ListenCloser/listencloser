@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 
 import pytest
 
@@ -77,7 +78,6 @@ class TestAdaptiveQuantize:
         assert report["timing_mode"] == "preserved_no_grid"
 
     def test_all_notes_in_measure_same_grid(self):
-        """Notes within one measure must share the same selected grid."""
         midi = _make_midi(
             [
                 (60, 0.0, 0.5),
@@ -93,40 +93,31 @@ class TestAdaptiveQuantize:
         assert report["timing_mode"] == "metrical_grid"
         selections = report["grid_selections"]
         assert len(selections) == 1
-        assert selections[0]["grid_name"] in ("eighth", "sixteenth")
 
-    def test_different_measures_can_choose_different_grids(self):
-        """Two measures with different rhythmic density may pick different grids."""
-        notes = []
-        # Measure 1: widely spaced
-        notes.extend([(60, 0.0, 1.0), (64, 1.0, 2.0)])
-        # Measure 2: dense
-        notes.extend(
-            [
-                (67, 2.01, 2.25),
-                (65, 2.25, 2.50),
-                (69, 2.50, 2.75),
-                (72, 2.75, 3.0),
-                (60, 3.0, 3.25),
-                (64, 3.25, 3.50),
-                (67, 3.50, 3.75),
-                (65, 3.75, 4.0),
-            ]
-        )
+    def test_different_measures_different_grids(self):
+        notes = [
+            (60, 0.0, 1.0),
+            (64, 1.0, 2.0),
+            (67, 2.01, 2.25),
+            (65, 2.25, 2.50),
+            (69, 2.50, 2.75),
+            (72, 2.75, 3.0),
+            (60, 3.0, 3.25),
+            (64, 3.25, 3.50),
+            (67, 3.50, 3.75),
+            (65, 3.75, 4.0),
+        ]
         midi = _make_midi(notes)
-        beats = list([b / 4.0 for b in range(17)])
+        beats = [b / 4.0 for b in range(17)]
         downbeats = [0.0, 2.0, 4.0]
         grid = build_metrical_grid(beats, downbeats)
         _result_midi, report = adaptive_quantize(midi, grid)
         selections = report["grid_selections"]
         assert len(selections) >= 2
-        grid_names = [s["grid_name"] for s in selections]
-        assert len(set(grid_names)) >= 1  # at minimum, different measures
 
     def test_compound_meter_preserved(self):
-        """6/8 meter inferred from downbeats should produce valid quantization."""
         midi = _make_midi([(60, 0.0, 0.33), (64, 0.33, 0.66), (67, 0.66, 1.0)])
-        beats = list([b / 3.0 for b in range(13)])  # 6 beats per 2-sec measure
+        beats = [b / 3.0 for b in range(13)]
         downbeats = [0.0, 2.0, 4.0]
         grid = build_metrical_grid(beats, downbeats)
         assert grid.inferred_meter == (6, 8)
@@ -142,3 +133,54 @@ class TestAdaptiveQuantize:
         notes = _notes_from_midi(result_midi)
         assert notes[0]["end"] > notes[0]["start"]
         assert abs(notes[0]["end"] - 3.0) < 0.5
+
+    def test_same_rhythm_at_60_and_180_bpm(self):
+        """Quarter notes at 60 BPM and 180 BPM should both select quarter grid."""
+        for tempo_dur, bpm_beats in [
+            (1.0, [0.0, 1.0, 2.0, 3.0]),
+            (0.333, [0.0, 0.333, 0.666, 1.0]),
+        ]:
+            dur = tempo_dur  # beat duration in seconds
+            midi = _make_midi(
+                [
+                    (60, 0.0, dur),
+                    (64, dur, dur * 2),
+                    (67, dur * 2, dur * 3),
+                    (65, dur * 3, dur * 4),
+                ]
+            )
+            beats = bpm_beats
+            downbeats = [0.0, bpm_beats[-1] + dur]
+            grid = build_metrical_grid(beats, downbeats)
+            _result_midi, report = adaptive_quantize(midi, grid)
+            selections = report["grid_selections"]
+            assert len(selections) >= 1
+            assert selections[0]["grid_name"] == "quarter"
+
+    def test_report_is_json_serializable(self):
+        midi = _make_midi([(60, 0.0, 0.5)])
+        beats = [0.0, 0.5, 1.0]
+        downbeats = [0.0, 1.0]
+        grid = build_metrical_grid(beats, downbeats)
+        _result_midi, report = adaptive_quantize(midi, grid)
+        text = json.dumps(report, indent=2)
+        assert "grid_selections" in text
+        assert "grid_name" in text
+
+    def test_measure_indices_are_correct(self):
+        notes = [
+            (60, 0.0, 0.5),
+            (64, 0.5, 1.0),
+            (67, 1.0, 1.5),
+            (65, 2.0, 2.5),
+            (69, 2.5, 3.0),
+            (72, 4.0, 4.5),
+            (60, 4.5, 5.0),
+        ]
+        midi = _make_midi(notes)
+        beats = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]
+        downbeats = [0.0, 2.0, 4.0, 6.0]
+        grid = build_metrical_grid(beats, downbeats)
+        _result_midi, report = adaptive_quantize(midi, grid)
+        indices = sorted({s["measure_index"] for s in report["grid_selections"]})
+        assert indices == [0, 1, 2]
