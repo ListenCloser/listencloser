@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
 
-test("a persisted work reopens with transcription, score, analysis, and versions", async ({
+test("a persisted work reopens with concurrent views and readable analysis", async ({
   page,
 }) => {
   await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
@@ -17,13 +17,12 @@ test("a persisted work reopens with transcription, score, analysis, and versions
   await expect(page.getByText("42 detected notes")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Generated from MIDI")).toBeVisible({ timeout: 20_000 });
 
-  await page.getByRole("tab", { name: "Analysis" }).click();
+  await expect(page.getByRole("heading", { name: "Audio timeline" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Piano roll" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Score" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What this transcription suggests" })).toBeVisible();
   await expect(page.getByText("A minor")).toBeVisible();
-  const inspector = page.getByRole("tablist", { name: "Inspector views" }).locator("..").locator("..");
-  await expect(inspector.getByText("112 BPM")).toBeVisible();
-
-  await page.getByRole("tab", { name: "Versions" }).click();
-  await expect(page.getByText("Versions & variations")).toBeVisible();
+  await expect(page.getByText("112 BPM")).toBeVisible();
 });
 
 test("import starts one durable understand job and reloads the persisted work", async ({

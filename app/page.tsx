@@ -31,7 +31,7 @@ const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["wav", "mp3", "m4a", "flac", "ogg", "aac"]);
 type UploadStage = "idle" | "uploading" | "processing" | "disconnected" | "success" | "error";
 
-function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProjectName: (name: string) => void; serviceStatus: ServiceStatus; refreshService: () => void }) {
+function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: string) => void; serviceStatus: ServiceStatus }) {
   const { user, loading } = useAuth();
   const {
     replaceRepresentations,
@@ -52,7 +52,6 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [processingWorkId, setProcessingWorkId] = useState<string | null>(null);
   const [pendingSourceVersionId, setPendingSourceVersionId] = useState<string | null>(null);
@@ -501,15 +500,7 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
     }
   }, [loadWork, pendingSourceVersionId, processingWorkId, projectId, workspace.activeWorkId]);
 
-  async function signIn() {
-    await supabase?.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-  }
-
   const showOverlay =
-    workspace.representations.length === 0 ||
     stage === "processing" ||
     stage === "uploading" ||
     stage === "disconnected" ||
@@ -532,45 +523,6 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
       {showOverlay && (
         <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, pointerEvents: "none" }}>
           <div style={{ pointerEvents: "auto", maxWidth: 480, width: "100%", padding: "var(--s-4)" }}>
-            {!loading && !user && (
-              <div className="drop-zone">
-                <strong>Sign in to start a music session</strong>
-                <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>Your source files and generated artifacts remain private.</span>
-                <button className="btn btn-primary" onClick={signIn}>Sign in with Google</button>
-              </div>
-            )}
-            {!loading && user && projectId && serviceStatus === "ready" && stage === "idle" && !workspace.isLoadingWork && (
-              <button
-                type="button"
-                className={`drop-zone${dragOver ? " drag-over" : ""}`}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setDragOver(false);
-                  const file = event.dataTransfer.files[0];
-                  if (file) void handleFile(file);
-                }}
-              >
-                <strong>Drop an audio file to understand it</strong>
-                <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>WAV · MP3 · M4A · FLAC · OGG · AAC · up to 4 MB</span>
-              </button>
-            )}
-            {!loading && user && serviceStatus === "checking" && stage === "idle" && (
-              <div className="drop-zone"><strong>Checking the processing service…</strong><span>Imports will be enabled when it is ready.</span></div>
-            )}
-            {!loading && user && serviceStatus === "unavailable" && stage === "idle" && (
-              <div className="service-unavailable" role="alert">
-                <span className="service-kicker">Service interruption</span>
-                <strong>Audio processing is temporarily offline</strong>
-                <span>Your existing work is safe. Retry the connection before importing a new file.</span>
-                <button type="button" className="btn btn-primary" onClick={refreshService}>Check again</button>
-              </div>
-            )}
-            {workspace.isLoadingWork && stage !== "processing" && (
-              <div className="drop-zone"><strong>Loading persisted work…</strong></div>
-            )}
             {(stage === "uploading" || stage === "processing") && (
               <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: "var(--s-5)", display: "grid", gap: "var(--s-3)" }}>
                 <span style={{ color: "var(--muted)", fontSize: "var(--fs-sm)" }}>{filename}</span>
@@ -658,9 +610,34 @@ export default function Home() {
       navigator.serviceWorker?.removeEventListener("controllerchange", onControllerChange);
     };
   }, [refreshService]);
+  if (!user) return <SignedOutLanding serviceStatus={serviceStatus} />;
+
   return (
     <WorkspaceShell signedIn={Boolean(user)} projectName={projectName} serviceStatus={serviceStatus}>
-      <HomeContent onProjectName={setProjectName} serviceStatus={serviceStatus} refreshService={refreshService} />
+      <HomeContent onProjectName={setProjectName} serviceStatus={serviceStatus} />
     </WorkspaceShell>
+  );
+}
+
+function SignedOutLanding({ serviceStatus }: { serviceStatus: ServiceStatus }) {
+  async function signIn() {
+    await supabase?.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+  }
+
+  return (
+    <main className="welcome-page">
+      <header className="welcome-header"><span className="brand"><span className="brand-dot" />hello-ai</span><span>{serviceStatus === "ready" ? "Processing is ready" : "Music workspace"}</span></header>
+      <section className="welcome-hero">
+        <p className="piece-eyebrow">A place to listen closely</p>
+        <h1>See what your music is doing.</h1>
+        <p>Bring in a recording, compare the original with its transcription, and inspect a piano roll, notation draft, and musical analysis in one place.</p>
+        <button className="btn btn-primary" onClick={signIn}>Sign in with Google</button>
+        <small>Your recordings and derived artifacts stay private to your account.</small>
+      </section>
+      <section className="welcome-steps" aria-label="How hello-ai works"><div><b>01</b><span>Import audio</span></div><div><b>02</b><span>Listen & compare</span></div><div><b>03</b><span>Inspect the music</span></div></section>
+    </main>
   );
 }
