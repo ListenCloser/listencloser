@@ -71,16 +71,19 @@ and clickable annotations that seek the shared transport. It should link only
 stable educational concepts (for example, a cadence or Roman-numeral explainer)
 and never turn a low-confidence classifier result into a lesson stated as fact.
 
-## OSS candidates to spike, not blindly ship
+## OSS components being integrated
 
 - [Basic Pitch](https://github.com/spotify/basic-pitch) remains the lightweight
   baseline for general polyphonic transcription.
-- [beat_this](https://github.com/CPJKU/beat_this) provides beat/downbeat
-  inference suitable for the notation-grid experiment.
 - [All-In-One Music Structure Analyzer](https://github.com/mir-aidj/all-in-one)
-  produces tempo, beats, downbeats and labeled functional segments from audio.
+  is the selected audio-structure engine. It produces tempo, beats, downbeats
+  and labelled functional segments from audio; its optional worker adapter
+  persists those results as timeline evidence. See
+  [ALLIN1_DEPLOYMENT.md](ALLIN1_DEPLOYMENT.md) for the free Oracle worker
+  install boundary.
 - [music21](https://github.com/cuthbertLab/music21) remains the symbolic theory
   and notation layer, but it is not itself an audio transcription-quality model.
 
-Each candidate needs a license review, CPU/RAM benchmark on the Oracle free VM,
-and evaluation-corpus result before becoming a production dependency.
+The deployment must still use a compatible CPU runtime on the Oracle free VM;
+the core import/transcription path intentionally remains independent from that
+optional runtime.
