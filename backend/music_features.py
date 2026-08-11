@@ -319,27 +319,51 @@ def convert_format(data: bytes, source: str, target: str) -> bytes:
 # ---------------------------------------------------------------------------
 # MIDI post-processing (noise reduction)
 # ---------------------------------------------------------------------------
-_MIN_NOTE_DURATION = 0.05  # Remove notes shorter than 50ms
+_MIN_NOTE_DURATION = 0.075
+_MIN_PIANO_PITCH = 21
+_MAX_PIANO_PITCH = 108
+_LOW_VELOCITY = 18
+_LOW_VELOCITY_SHORT_DURATION = 0.16
 
 
-def _clean_midi(midi_bytes: bytes) -> bytes:
-    """Post-process MIDI to remove noise and improve quality.
+def _clean_midi(midi_bytes: bytes) -> tuple[bytes, dict[str, int | str]]:
+    """Apply conservative *performance* cleanup and report every decision.
 
-    Pipeline:
-    1. Remove short spurious notes (< 50ms)
-    2. Remove duplicate/overlapping notes at same pitch
-    3. Normalize velocities to 0-127 range
+    This deliberately does not quantize timing. Basic Pitch's output is a
+    performance hypothesis; snapping it before beat/downbeat alignment can
+    make a correct expressive onset wrong. A later notation-only pipeline will
+    consume this artifact and apply an explicit beat-aligned grid.
     """
     import pretty_midi as pm
 
     midi = pm.PrettyMIDI(io.BytesIO(midi_bytes))
 
+    report: dict[str, int | str] = {
+        "profile": "performance_conservative_v1",
+        "input_notes": 0,
+        "kept_notes": 0,
+        "removed_short": 0,
+        "removed_low_velocity": 0,
+        "removed_out_of_range": 0,
+        "merged_overlaps": 0,
+    }
     for inst in midi.instruments:
         if inst.is_drum:
             continue
-        # 1. Remove short notes
-        inst.notes = [n for n in inst.notes if (n.end - n.start) >= _MIN_NOTE_DURATION]
-        # 2. Remove duplicate/overlapping notes
+        report["input_notes"] = int(report["input_notes"]) + len(inst.notes)
+        filtered = []
+        for note in inst.notes:
+            duration = note.end - note.start
+            if note.pitch < _MIN_PIANO_PITCH or note.pitch > _MAX_PIANO_PITCH:
+                report["removed_out_of_range"] = int(report["removed_out_of_range"]) + 1
+            elif duration < _MIN_NOTE_DURATION:
+                report["removed_short"] = int(report["removed_short"]) + 1
+            elif note.velocity < _LOW_VELOCITY and duration < _LOW_VELOCITY_SHORT_DURATION:
+                report["removed_low_velocity"] = int(report["removed_low_velocity"]) + 1
+            else:
+                filtered.append(note)
+        # Merge same-pitch overlaps; preserve the earliest onset and longest end.
+        inst.notes = filtered
         inst.notes.sort(key=lambda n: (n.pitch, n.start))
         cleaned = []
         for note in inst.notes:
@@ -347,17 +371,14 @@ def _clean_midi(midi_bytes: bytes) -> bytes:
                 cleaned.append(note)
             else:
                 cleaned[-1].end = max(cleaned[-1].end, note.end)
+                cleaned[-1].velocity = max(cleaned[-1].velocity, note.velocity)
+                report["merged_overlaps"] = int(report["merged_overlaps"]) + 1
         inst.notes = cleaned
-        # 3. Normalize velocities
-        if inst.notes:
-            max_vel = max(n.velocity for n in inst.notes)
-            if max_vel > 0:
-                for note in inst.notes:
-                    note.velocity = int(note.velocity * 127 / max_vel)
+        report["kept_notes"] = int(report["kept_notes"]) + len(inst.notes)
 
     buf = io.BytesIO()
     midi.write(buf)
-    return buf.getvalue()
+    return buf.getvalue(), report
 
 
 # ---------------------------------------------------------------------------
@@ -398,9 +419,10 @@ def transcribe_audio(
 
     # Post-process MIDI: remove noise, normalize velocities
     try:
-        midi_bytes = _clean_midi(midi_bytes)
+        midi_bytes, cleanup_report = _clean_midi(midi_bytes)
     except Exception as e:
         logger.warning(f"MIDI cleanup failed, using raw output: {e}")
+        cleanup_report = {"profile": "raw_basic_pitch_fallback", "input_notes": 0, "kept_notes": 0}
 
     # Persist the notes in the final cleaned MIDI so every representation agrees.
     import pretty_midi
@@ -419,4 +441,5 @@ def transcribe_audio(
         "wav": wav_bytes,
         "notes": notes,
         "num_notes": len(notes),
+        "cleanup_report": cleanup_report,
     }
