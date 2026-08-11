@@ -24,10 +24,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`font-sans ${geist.variable}`}>
       <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
-        <MSWInit />
+        <MSWInit>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </MSWInit>
       </body>
     </html>
   );

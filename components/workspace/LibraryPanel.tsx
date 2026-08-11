@@ -13,14 +13,6 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   } = useWorkspace();
   const { clearActiveSource } = useTransport();
 
-  async function signIn() {
-    if (!supabase) return;
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-  }
-
   async function signOut() {
     await supabase?.auth.signOut();
     window.location.reload();
@@ -97,9 +89,15 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
       </div>
 
       <div style={{ padding: "var(--s-3)", borderTop: "1px solid var(--border)" }}>
-        <button type="button" className="btn" style={{ width: "100%" }} onClick={signedIn ? signOut : signIn}>
-          {signedIn ? "Sign out" : "Sign in with Google"}
-        </button>
+        {signedIn ? (
+          <button type="button" className="btn" style={{ width: "100%" }} onClick={signOut}>
+            Sign out
+          </button>
+        ) : (
+          <p style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", lineHeight: 1.5, margin: 0 }}>
+            Sign in to create a private music workspace.
+          </p>
+        )}
       </div>
     </aside>
   );

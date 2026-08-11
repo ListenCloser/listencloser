@@ -21,7 +21,7 @@ test("a persisted work reopens with transcription, score, analysis, and commands
   await expect(page.getByText("A minor")).toBeVisible();
   await expect(page.getByText("112 BPM")).toBeVisible();
 
-  await page.getByRole("button", { name: "Commands" }).click();
+  await page.getByRole("button", { name: "Shortcuts" }).click();
   await page.getByLabel("Work command").fill("summarize");
   await page.getByRole("button", { name: "Run" }).click();
   await expect(page.getByText(/Key: A minor/)).toBeVisible();
