@@ -33,9 +33,6 @@ function WaveformWrapper({ audioUrl }: { audioUrl?: string }) {
   return (
     <div className="representation-body">
       <Visualizer audioRef={audioRef} />
-      <p className="muted" style={{ fontSize: "var(--fs-xs)", margin: "var(--s-2) 0 0" }}>
-        Playback and source comparison are controlled from the transport above.
-      </p>
     </div>
   );
 }

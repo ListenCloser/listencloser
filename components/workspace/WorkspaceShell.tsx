@@ -8,12 +8,11 @@ import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
-import InspectorPanel from "./InspectorPanel";
 
 export type ServiceStatus = "checking" | "ready" | "unavailable";
 
 function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { signedIn?: boolean; projectName?: string; serviceStatus: ServiceStatus }) {
-  const { workspace, toggleInspector, toggleLibrary } = useWorkspace();
+  const { workspace, toggleLibrary } = useWorkspace();
   const initializedResponsiveLayout = useRef(false);
 
   useEffect(() => {
@@ -21,8 +20,7 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
     initializedResponsiveLayout.current = true;
     if (!window.matchMedia("(max-width: 820px)").matches) return;
     if (!workspace.libraryCollapsed) toggleLibrary();
-    if (!workspace.inspectorCollapsed) toggleInspector();
-  }, [toggleInspector, toggleLibrary, workspace.inspectorCollapsed, workspace.libraryCollapsed]);
+  }, [toggleLibrary, workspace.libraryCollapsed]);
 
   return (
     <div className="studio-shell"
@@ -46,15 +44,6 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
           <i />{serviceStatus === "ready" ? "Ready to process" : serviceStatus === "unavailable" ? "Processing unavailable" : "Checking processing"}
         </span>
         <div className="studio-header-spacer" />
-        {workspace.inspectorCollapsed && (
-          <button
-            className="icon-btn ghost"
-            onClick={toggleInspector}
-            style={{ padding: "4px 10px", fontSize: "var(--fs-xs)" }}
-          >
-            Inspector
-          </button>
-        )}
       </header>
 
       <TransportBar />
@@ -64,7 +53,6 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
 
         <RepresentationStack signedIn={signedIn} canImport={serviceStatus === "ready"} />
 
-        <InspectorPanel />
       </div>
 
     </div>
