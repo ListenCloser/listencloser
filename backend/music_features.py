@@ -23,6 +23,7 @@ import logging
 import os
 import subprocess
 import tempfile
+from typing import Any
 
 import numpy as np
 import soundfile as sf
@@ -591,6 +592,29 @@ def notation_with_engine(midi_bytes: bytes, beat_times: list[float]) -> dict:
         "quantization_report": result.quantization_report,
         "provenance": result.provenance.to_dict(),
     }
+
+
+def adaptive_notation_from_performance(
+    midi_bytes: bytes,
+    beats: list[float],
+    downbeats: list[float] | None = None,
+    beat_positions: list[int] | None = None,
+) -> tuple[bytes, dict[str, Any]]:
+    """Create notation MIDI using adaptive measure-aware quantization.
+
+    Unlike notation_midi_from_performance (fixed subdivisions), this builds a
+    metrical grid from beat/downbeat positions and selects per-measure candidate
+    grids. Performance MIDI is never mutated.
+
+    Returns (notation_midi_bytes, quantization_report_dict).
+    """
+    from notation.grid import build_metrical_grid
+    from notation.quantize import adaptive_quantize
+
+    grid = build_metrical_grid(beats, downbeats, beat_positions)
+    notation_midi, report = adaptive_quantize(midi_bytes, grid)
+    report["grid"] = grid.to_dict()
+    return notation_midi, report
 
 
 def structure_with_engine(wav_bytes: bytes):

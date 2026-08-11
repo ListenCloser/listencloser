@@ -911,11 +911,12 @@ def handle_score(job: Job, client) -> list[str]:
             beat_result = music_features.estimate_beats_with_engine(wav_bytes)
             tempo = beat_result["bpm"]
             beat_times = beat_result["beats"]
+            downbeats = beat_result.get("downbeats")
         except Exception:
             logger.exception("score_beat_tracking_failed")
-    notation_result = music_features.notation_with_engine(midi_bytes, beat_times)
-    notation_midi = notation_result["notation_midi"]
-    notation_report = notation_result["quantization_report"]
+    notation_midi, notation_report = music_features.adaptive_notation_from_performance(
+        midi_bytes, beat_times, downbeats=downbeats
+    )
     _update_progress(client, job.id, 0.5, "creating notation")
     notation_key = _job_storage_key(job, "notation.mid")
     _upload_bytes(client, _STORAGE_BUCKET, notation_key, notation_midi, "audio/midi")
@@ -930,7 +931,11 @@ def handle_score(job: Job, client) -> list[str]:
         owner_id,
         mime_type="audio/midi",
         label="Beat-aligned notation MIDI",
-        metadata={"notation": notation_report, "estimated_tempo_bpm": tempo},
+        metadata={
+            "notation": notation_report,
+            "estimated_tempo_bpm": tempo,
+            "beat_provenance": beat_result.get("provenance"),
+        },
     )
     musicxml = music_features.convert_format(notation_midi, "midi", "musicxml", notation_ready=True)
     storage_key = _job_storage_key(job, "score.musicxml")
