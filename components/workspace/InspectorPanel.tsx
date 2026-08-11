@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 
 const TABS = [
   { id: "insights", label: "Insights" },
+  { id: "studio", label: "Studio" },
   { id: "commands", label: "Shortcuts" },
 ] as const;
 
@@ -98,8 +99,84 @@ export default function InspectorPanel() {
 
       <div style={{ flex: 1, overflow: "auto", padding: "var(--s-3)" }}>
         {activeTab === "insights" && <InsightsTab />}
+        {activeTab === "studio" && <StudioTab />}
         {activeTab === "commands" && <CommandTab />}
       </div>
+    </div>
+  );
+}
+
+function StudioTab() {
+  const { workspace, requestComparison, requestVariation } = useWorkspace();
+  const { transport, play, setActiveSource } = useTransport();
+  const [semitones, setSemitones] = useState(0);
+  const [compareA, setCompareA] = useState("");
+  const [compareB, setCompareB] = useState("");
+  const takes = workspace.takes;
+  const sourceTake = takes[0];
+  const operation = workspace.studioOperation;
+  const variationLabel = useMemo(
+    () => semitones === 0 ? "Duplicate take" : `Transpose ${semitones > 0 ? "+" : ""}${semitones} semitones`,
+    [semitones],
+  );
+
+  if (!sourceTake) {
+    return <p className="insight-intro">Create a transcription first. The Studio works from persisted MIDI takes, never from a temporary browser file.</p>;
+  }
+
+  return (
+    <div style={{ display: "grid", gap: "var(--s-4)" }}>
+      <div>
+        <div className="section-label" style={{ margin: 0 }}>Composition studio</div>
+        <p className="insight-intro">Every operation creates an immutable take with its own playback, score, and analysis. This first tool is intentionally transparent: it changes pitch, not rhythm or melody.</p>
+      </div>
+      <section className="insight-group" aria-labelledby="variation-title">
+        <h3 id="variation-title">Make a variation</h3>
+        <label htmlFor="transpose-semitones" style={{ display: "grid", gap: 6, color: "var(--muted)", fontSize: "var(--fs-xs)" }}>
+          <span>{variationLabel}</span>
+          <input id="transpose-semitones" type="range" min={-12} max={12} step={1} value={semitones} onChange={(event) => setSemitones(Number(event.target.value))} />
+        </label>
+        <button type="button" className="btn btn-primary" style={{ marginTop: "var(--s-3)", width: "100%" }} disabled={operation.state === "running"} onClick={() => requestVariation(sourceTake.versionId, semitones)}>
+          Create playable take
+        </button>
+      </section>
+      <section className="insight-group" aria-labelledby="compare-title">
+        <h3 id="compare-title">Compare takes</h3>
+        <p className="insight-intro">Compare saved note events. The result records additions, removals, and duration changes with provenance.</p>
+        <div style={{ display: "grid", gap: "var(--s-2)" }}>
+          <select className="input" aria-label="First take" value={compareA} onChange={(event) => setCompareA(event.target.value)}>
+            <option value="">Choose first take</option>
+            {takes.map((take) => <option key={take.versionId} value={take.versionId}>{take.label}</option>)}
+          </select>
+          <select className="input" aria-label="Second take" value={compareB} onChange={(event) => setCompareB(event.target.value)}>
+            <option value="">Choose second take</option>
+            {takes.map((take) => <option key={take.versionId} value={take.versionId}>{take.label}</option>)}
+          </select>
+          <button type="button" className="btn" disabled={!compareA || !compareB || compareA === compareB || operation.state === "running"} onClick={() => requestComparison(compareA, compareB)}>
+            Compare selected takes
+          </button>
+        </div>
+      </section>
+      <section className="insight-group" aria-labelledby="takes-title">
+        <h3 id="takes-title">Saved takes</h3>
+        <div style={{ display: "grid", gap: "var(--s-2)" }}>
+          {takes.map((take) => {
+            const source = transport.sources.find((item) => item.label === `${take.label} playback`);
+            return (
+              <div key={take.versionId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--s-2)" }}>
+                <span style={{ fontSize: "var(--fs-xs)", color: "var(--muted)" }}>{take.label}</span>
+                {source && <button type="button" className="btn" style={{ padding: "3px 8px", fontSize: "var(--fs-xs)" }} onClick={() => { setActiveSource(source); window.setTimeout(play, 0); }}>Audition</button>}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      {operation.state !== "idle" && (
+        <div className={`operation-card${operation.state === "error" ? " operation-card-warning" : ""}`} role="status" aria-live="polite">
+          <strong>{operation.label}</strong>
+          {operation.message && <span>{operation.message}</span>}
+        </div>
+      )}
     </div>
   );
 }
