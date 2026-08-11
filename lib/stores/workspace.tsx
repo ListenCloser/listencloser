@@ -92,7 +92,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setActiveWorkId = useCallback((activeWorkId: string | null) => {
-    setWorkspace((prev) => ({ ...prev, activeWorkId }));
+    setWorkspace((prev) => {
+      if (prev.activeWorkId === activeWorkId) return prev;
+      return {
+        ...prev,
+        activeWorkId,
+        isLoadingWork: Boolean(activeWorkId),
+        representations: [],
+        insights: [],
+        expandedRepresentation: null,
+        focusRepresentation: null,
+      };
+    });
   }, []);
 
   const setLoadingWork = useCallback((isLoadingWork: boolean) => {

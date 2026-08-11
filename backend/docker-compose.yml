@@ -10,12 +10,12 @@ services:
     environment:
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      SOUNDFONT_PATH: /app/soundfonts/FluidR3_GM.sf2
+      SOUNDFONT_PATH: /usr/share/sounds/sf2/FluidR3_GM.sf2
       SENTRY_DSN_BACKEND: ${SENTRY_DSN_BACKEND:-}
       SENTRY_ENV: ${SENTRY_ENV:-production}
+      RELEASE: ${RELEASE:-development}
       WORKER_HEALTH_FILE: /app/runtime/worker-heartbeat.json
     volumes:
-      - ./soundfonts:/app/soundfonts:ro
       - worker-runtime:/app/runtime:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
@@ -34,13 +34,13 @@ services:
     environment:
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      SOUNDFONT_PATH: /app/soundfonts/FluidR3_GM.sf2
+      SOUNDFONT_PATH: /usr/share/sounds/sf2/FluidR3_GM.sf2
       SENTRY_DSN_BACKEND: ${SENTRY_DSN_BACKEND:-}
       SENTRY_ENV: ${SENTRY_ENV:-production}
+      RELEASE: ${RELEASE:-development}
       WORKER_HEALTH_FILE: /app/runtime/worker-heartbeat.json
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
     volumes:
-      - ./soundfonts:/app/soundfonts:ro
       - worker-runtime:/app/runtime
     depends_on:
       backend:

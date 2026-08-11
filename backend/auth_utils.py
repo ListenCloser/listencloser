@@ -1,12 +1,24 @@
+import hashlib
 import os
 import threading
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+
+def _rate_limit_identity(request: Request) -> str:
+    """Isolate authenticated quotas even when requests share a proxy address."""
+    authorization = request.headers.get("authorization", "")
+    if authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip().encode("utf-8")
+        if token:
+            return f"auth:{hashlib.sha256(token).hexdigest()}"
+    return f"ip:{get_remote_address(request)}"
+
+
+limiter = Limiter(key_func=_rate_limit_identity, default_limits=["60/minute"])
 security = HTTPBearer(auto_error=False)
 
 _sb_client = None

@@ -2,6 +2,7 @@
 
 import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
+import { useTransport } from "@/lib/stores/transport";
 
 export default function LibraryPanel({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const {
@@ -10,6 +11,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     setActiveWorkId,
     toggleLibrary,
   } = useWorkspace();
+  const { clearActiveSource } = useTransport();
 
   async function signIn() {
     if (!supabase) return;
@@ -60,7 +62,11 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
           return (
             <button type="button"
               key={work.id}
-              onClick={() => setActiveWorkId(work.id)}
+              onClick={() => {
+                if (!selected) clearActiveSource();
+                setActiveWorkId(work.id);
+              }}
+              aria-current={selected ? "true" : undefined}
               disabled={workspace.isLoadingWork && selected}
               style={{
                 display: "flex",
@@ -81,8 +87,9 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               <span style={{ fontSize: "var(--fs-sm)", fontWeight: "var(--fw-medium)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
                 {work.title}
               </span>
-              <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>
-                {workspace.isLoadingWork && selected ? "Loading…" : new Date(work.created_at).toLocaleDateString()}
+              <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", width: "100%" }}>
+                <span>{new Date(work.created_at).toLocaleDateString()}</span>
+                <span>{workspace.isLoadingWork && selected ? "Loading…" : selected && workspace.representations.length ? "Ready" : "Saved"}</span>
               </span>
             </button>
           );

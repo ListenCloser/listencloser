@@ -13,7 +13,7 @@ and compose or generate new music.
    link from external sources.
 
 2. **Convert unstructured audio → symbolic representations** — audio to MIDI
-   (via basic-pitch), then to sheet music (via abcjs). Future representations
+   (via Basic Pitch), then to MusicXML sheet music. Future representations
    may include chord charts, lead sheets, piano rolls, or DAW export.
 
 3. **Music analysis** — high-level summaries: key / tempo / time signature
@@ -36,8 +36,8 @@ and compose or generate new music.
   All application code is MIT (see LICENSE).
 - **Limit scope** — build the minimum feature that delivers value.
   Avoid premature generalization. Delete dead code.
-- **Clean UI re-use** — a single design token system (`design/tokens.json`)
-  drives all styling. No ad-hoc values.
+- **Clean UI re-use** — the CSS custom properties in `app/globals.css` are the
+  runtime design-token source. No parallel visual system or fake controls.
 - **Clear structure** — predictable file layout: `components/<feature>/`,
   `lib/`, `backend/`, `design/`. Each file has one responsibility.
 - **PR validation** — every PR must pass CI: lint, typecheck, unit tests,
@@ -58,24 +58,23 @@ and compose or generate new music.
   in-browser with zero server round-trips for interaction.
 - **Library as hub** — the library is the single source of truth: upload,
   record, manage, then route to transcribe / analyze / generate.
-- **Server optional** — core features (piano, score rendering, basic analysis)
-  work offline. Heavy computation (transcription, generation) calls the
-  Oracle backend or Supabase Edge Functions.
+- **Durable by default** — source files, jobs, versions, entities, and insights
+  are persisted. Browser rendering can be local, but transcription and analysis
+  are explicit server capabilities whose availability is shown honestly.
 
 ## Architecture
 
 ```
-User Audio → [Library] → [Enhance] → [Transcribe (basic-pitch)]
-                                         ↓
-                                    MIDI / Notes
-                                         ↓
-                              ┌──────────┼──────────┐
-                              ↓          ↓          ↓
-                         Score (abcjs)  Analysis  Generation
-                                        (future)   (future)
+User Audio → [Private Artifact] → [Durable Understand Job]
+                                           ↓
+                         MIDI / Notes / Rendered Audio
+                                           ↓
+                              ┌────────────┴────────────┐
+                              ↓                         ↓
+                       MusicXML Score            Structured Analysis
 ```
 
-The frontend is a Next.js app with React Server Components for static
-content and client components for interactive music tools. Supabase
-handles storage (audio files, MIDI, datasets) and auth (future).
-The Oracle ARM backend runs FastAPI for heavy audio processing.
+The Next.js workspace is deployed on Vercel. Supabase provides authentication,
+Postgres, the durable job queue, and private storage. The Oracle ARM backend runs
+FastAPI plus a separate worker for heavy processing. See ADR-009 for why this
+three-plane deployment remains the simplest viable entirely-free topology.

@@ -2,10 +2,11 @@
 FastAPI router — domain model API endpoints for the understand workflow slice.
 """
 
+import logging
 import mimetypes
 import os
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
@@ -35,6 +36,7 @@ from domain.repositories import (
 )
 
 router = APIRouter(prefix="/api/v1")
+logger = logging.getLogger("domain.api")
 
 _ALLOWED_AUDIO_EXTENSIONS = {"wav", "mp3", "m4a", "flac", "ogg", "aac"}
 
@@ -260,10 +262,16 @@ async def get_work_bundle(
             latest = versions[0] if versions else None
             signed_url = None
             if latest:
-                response = sb.storage.from_(latest.storage_bucket).create_signed_url(
-                    latest.storage_key, 3600
-                )
-                signed_url = _signed_url(response)
+                try:
+                    response = sb.storage.from_(latest.storage_bucket).create_signed_url(
+                        latest.storage_key, 3600
+                    )
+                    signed_url = _signed_url(response)
+                except Exception:
+                    logger.warning(
+                        "artifact_signed_url_failed",
+                        extra={"artifact_id": str(artifact.id), "version_id": str(latest.id)},
+                    )
             items.append(
                 {
                     "artifact": artifact,
@@ -322,8 +330,16 @@ async def upload_artifact(
                 detail="Unsupported audio format",
             )
 
-        work_repo = WorkRepo(sb)
+        max_upload_bytes = int(os.environ.get("MAX_UPLOAD_BYTES", str(4 * 1024 * 1024)))
+        raw = await file.read(max_upload_bytes + 1)
+        if len(raw) > max_upload_bytes:
+            raise HTTPException(status_code=413, detail="File exceeds upload size limit")
+        if not raw:
+            raise HTTPException(status_code=400, detail="Audio file is empty")
+        mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
 
+        work_repo = WorkRepo(sb)
+        created_work = False
         if work_id:
             w_id = UUID(work_id)
             work = work_repo.get(w_id, owner_id)
@@ -338,36 +354,49 @@ async def upload_artifact(
             title = Path(filename).stem
             work = Work(project_id=project_id, title=title)
             work = work_repo.create(work, owner_id)
+            created_work = True
 
-        max_upload_bytes = int(os.environ.get("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
-        raw = await file.read(max_upload_bytes + 1)
-        if len(raw) > max_upload_bytes:
-            raise HTTPException(status_code=413, detail="File exceeds upload size limit")
-        mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-
-        artifact = Artifact(
+        artifact_draft = Artifact(
             work_id=work.id,
             kind=ArtifactKind.audio_original,
             mime_type=mime_type,
         )
         art_repo = ArtifactRepo(sb)
-        artifact = art_repo.create(artifact, owner_id)
-
-        storage_key = f"{owner_id}/{project_id}/{artifact.id}/{uuid4().hex}.{ext}"
+        artifact = None
+        storage_key = None
         bucket = "artifacts"
+        try:
+            artifact = art_repo.create(artifact_draft, owner_id)
+            storage_key = f"{owner_id}/{project_id}/{artifact.id}/{uuid4().hex}.{ext}"
+            sb.storage.from_(bucket).upload(storage_key, raw, {"content-type": mime_type})
 
-        sb.storage.from_(bucket).upload(storage_key, raw, {"content-type": mime_type})
-
-        version = Version(
-            artifact_id=artifact.id,
-            storage_key=storage_key,
-            storage_bucket=bucket,
-            byte_size=len(raw),
-            created_by=owner_id,
-            label=filename,
-        )
-        ver_repo = VersionRepo(sb)
-        version = ver_repo.create(version, owner_id)
+            version = Version(
+                artifact_id=artifact.id,
+                storage_key=storage_key,
+                storage_bucket=bucket,
+                byte_size=len(raw),
+                created_by=owner_id,
+                label=filename,
+            )
+            version = VersionRepo(sb).create(version, owner_id)
+        except Exception:
+            logger.exception("upload_finalize_failed", extra={"project_id": str(project_id)})
+            if storage_key:
+                try:
+                    sb.storage.from_(bucket).remove([storage_key])
+                except Exception:
+                    logger.exception("upload_storage_cleanup_failed")
+            if artifact:
+                try:
+                    art_repo.delete(artifact.id, owner_id)
+                except Exception:
+                    logger.exception("upload_artifact_cleanup_failed")
+            if created_work:
+                try:
+                    work_repo.delete(work.id, owner_id)
+                except Exception:
+                    logger.exception("upload_work_cleanup_failed")
+            raise
 
         return {"artifact": artifact, "version": version}
 
@@ -397,23 +426,52 @@ async def create_understand_workflow(
     try:
         version = _require_version_in_project(sb, version_id, project_id, owner_id)
 
+        job_id = uuid5(
+            NAMESPACE_URL,
+            f"hello-ai:understand:1.0:{owner_id}:{version_id}",
+        )
+        job_repo = JobRepo(sb)
+        existing_job = job_repo.get(job_id, owner_id)
+        if existing_job:
+            existing_workflow = WorkflowRepo(sb).get(existing_job.workflow_id, owner_id)
+            if not existing_workflow:
+                raise RuntimeError("idempotent job references a missing workflow")
+            return {"workflow": existing_workflow, "job": existing_job}
+
         wf_repo = WorkflowRepo(sb)
         workflow = Workflow(
+            id=uuid5(NAMESPACE_URL, f"hello-ai:understand-workflow:1.0:{owner_id}:{version_id}"),
             project_id=project_id,
             kind=WorkflowKind.understand,
             target_version_id=version_id,
         )
-        workflow = wf_repo.create(workflow, owner_id)
+        try:
+            workflow = wf_repo.create(workflow, owner_id)
+        except Exception:
+            concurrent_job = job_repo.get(job_id, owner_id)
+            if concurrent_job:
+                concurrent_workflow = wf_repo.get(concurrent_job.workflow_id, owner_id)
+                if concurrent_workflow:
+                    return {"workflow": concurrent_workflow, "job": concurrent_job}
+            workflow = wf_repo.get(workflow.id, owner_id)
+            if not workflow:
+                raise
 
         job = Job(
+            id=job_id,
             workflow_id=workflow.id,
             capability=Capability(name="understand", version="1.0"),
             input_version_ids=[version_id],
             parameters={"fmt": Path(version.label).suffix.lstrip(".").lower() or "wav"},
+            cache_key=f"understand:1.0:{owner_id}:{version_id}",
             created_by=owner_id,
         )
-        job_repo = JobRepo(sb)
-        job = job_repo.create(job, owner_id)
+        try:
+            job = job_repo.create(job, owner_id)
+        except Exception:
+            job = job_repo.get(job_id, owner_id)
+            if not job:
+                raise
 
         return {"workflow": workflow, "job": job}
 

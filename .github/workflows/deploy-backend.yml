@@ -14,7 +14,8 @@ on:
 
 concurrency:
   group: deploy-backend-${{ github.ref }}
-  cancel-in-progress: true
+  # Never terminate an SSH deployment between container switch and health gate.
+  cancel-in-progress: false
 
 jobs:
   migrate:
@@ -35,11 +36,7 @@ jobs:
           if ! command -v psql >/dev/null 2>&1; then
             sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           fi
-          job_columns="$(psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -Atc \
-            "select count(*) from information_schema.columns where table_schema='public' and table_name='jobs' and column_name in ('workflow_id','capability_name','stage','lease_expires_at','output_version_ids')")"
-          test "$job_columns" = "5" || { echo "durable jobs schema verification failed"; exit 1; }
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -Atc \
-            "select to_regclass('public.worker_heartbeats') is not null" | grep -qx t
+          psql "$SUPABASE_DB_URL" -f scripts/verify_database.sql
 
   deploy:
     needs: migrate
@@ -54,21 +51,27 @@ jobs:
           host: ${{ secrets.ORACLE_VM_HOST }}
           username: ${{ secrets.ORACLE_VM_USER }}
           key: ${{ secrets.ORACLE_VM_SSH_KEY }}
-          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV
+          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA
           script: |
             set -euo pipefail
-            if [ -f ~/hello-ai/scripts/deploy.sh ]; then
-              sudo chmod +x ~/hello-ai/scripts/deploy.sh
-              ~/hello-ai/scripts/deploy.sh
-            else
+            if [ ! -d ~/hello-ai/.git ]; then
               echo "[deploy] first boot — cloning repo"
               git clone https://github.com/gr-rr/hello-ai.git ~/hello-ai
-              sudo chmod +x ~/hello-ai/scripts/deploy.sh
-              ~/hello-ai/scripts/deploy.sh
+              export DEPLOY_PREVIOUS_SHA=""
+            else
+              export DEPLOY_PREVIOUS_SHA="$(cd ~/hello-ai && git rev-parse HEAD)"
             fi
+            cd ~/hello-ai
+            git fetch --quiet origin main
+            git cat-file -e "${DEPLOY_SHA}^{commit}"
+            git reset --hard "$DEPLOY_SHA"
+            test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
+            sudo chmod +x scripts/deploy.sh
+            exec scripts/deploy.sh
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
           SENTRY_ENV: ${{ vars.SENTRY_ENV || 'production' }}
+          DEPLOY_SHA: ${{ github.sha }}

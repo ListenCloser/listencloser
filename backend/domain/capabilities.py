@@ -369,6 +369,27 @@ def download_version_bytes(version: Version, client) -> bytes:
     return client.storage.from_(version.storage_bucket).download(version.storage_key)
 
 
+def _cleanup_partial_job_outputs(client, job_ids: list[str]) -> None:
+    """Remove incomplete output graphs before retrying a composite workflow."""
+    if not job_ids:
+        return
+    result = (
+        client.table("artifact_versions")
+        .select("artifact_id,storage_bucket,storage_key")
+        .in_("produced_by_job_id", job_ids)
+        .execute()
+    )
+    rows = result.data or []
+    for bucket in {row["storage_bucket"] for row in rows}:
+        keys = [row["storage_key"] for row in rows if row["storage_bucket"] == bucket]
+        if keys:
+            client.storage.from_(bucket).remove(keys)
+    artifact_ids = sorted({row["artifact_id"] for row in rows})
+    if artifact_ids:
+        # Artifact deletion cascades versions, note entities, and insights.
+        client.table("artifacts").delete().in_("id", artifact_ids).execute()
+
+
 # ---------------------------------------------------------------------------
 # Handlers
 # ---------------------------------------------------------------------------
@@ -381,6 +402,14 @@ def handle_understand(job: Job, client) -> list[str]:
     and score generation. Closing the browser therefore cannot strand a workflow
     between stages.
     """
+    cleanup_job_ids: list[str] = []
+    if job.lifecycle.retry_count > 0:
+        cleanup_job_ids.append(str(job.id))
+    retry_of = job.provenance.get("retry_of_job_id")
+    if retry_of:
+        cleanup_job_ids.append(str(retry_of))
+    _cleanup_partial_job_outputs(client, cleanup_job_ids)
+
     transcribe_client = _ProgressClient(client, 0.0, 0.65)
     output_ids = handle_transcribe(job, transcribe_client)
 

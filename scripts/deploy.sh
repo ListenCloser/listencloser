@@ -54,18 +54,21 @@ ensure_repo() {
     git branch --set-upstream-to=origin/main main
   fi
 
-  PREV_HEAD="$(git rev-parse HEAD)"
-
-  # fetch and fast-forward
-  git fetch -q origin
-  local behind
-  behind=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo "0")
-  if [ "$behind" -gt 0 ]; then
-    echo "[deploy] behind by $behind commit(s) — hard reset to origin/main"
-    git reset --hard origin/main
+  if [ "${DEPLOY_PREVIOUS_SHA+x}" = "x" ]; then
+    # An explicitly empty value means this is a first deployment, so there is
+    # no valid release to roll back to.
+    PREV_HEAD="${DEPLOY_PREVIOUS_SHA}"
   else
-    echo "[deploy] up to date"
+    PREV_HEAD="$(git rev-parse HEAD)"
   fi
+
+  # Fetch and select the exact release requested by CI. Falling back to
+  # origin/main keeps manual recovery usable without weakening CI deploys.
+  git fetch -q origin
+  local target_revision="${DEPLOY_SHA:-origin/main}"
+  git cat-file -e "${target_revision}^{commit}"
+  git reset --hard "$target_revision"
+  echo "[deploy] selected exact revision $(git rev-parse HEAD)"
 }
 
 # --- main ---
@@ -82,6 +85,7 @@ SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
 SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
 SENTRY_DSN_BACKEND=${SENTRY_DSN_BACKEND:-}
 SENTRY_ENV=${SENTRY_ENV:-production}
+RELEASE=${TARGET_HEAD}
 ENVEOF
 fi
 
@@ -111,15 +115,34 @@ rollback() {
     return 1
   fi
   git reset --hard "$PREV_HEAD"
+  if [ -f "$REPO_DIR/backend/.env" ]; then
+    sed -i "s/^RELEASE=.*/RELEASE=${PREV_HEAD}/" "$REPO_DIR/backend/.env"
+  fi
   docker compose -f "$COMPOSE" build backend worker
   docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans backend worker
-  echo "[deploy] rollback restored $(git rev-parse --short HEAD)" >&2
+  local rollback_elapsed=0
+  until rollback_body="$(curl -fsS "$HEALTH_URL" 2>/dev/null)" \
+    && grep -q '"status":"ready"' <<<"$rollback_body" \
+    && { ! grep -q '"release":' <<<"$rollback_body" \
+      || grep -q "\"release\":\"${PREV_HEAD}\"" <<<"$rollback_body"; }; do
+    rollback_elapsed=$((rollback_elapsed + 2))
+    if [ "$rollback_elapsed" -ge "$MAX_WAIT" ]; then
+      echo "[deploy] rollback failed its health/SHA gate" >&2
+      return 2
+    fi
+    sleep 2
+  done
+  curl -fsS "$QUEUE_HEALTH_URL" | grep -q '"status":"ready"' \
+    || { echo "[deploy] rollback API recovered but queue is not ready" >&2; return 2; }
+  echo "[deploy] rollback restored and verified $(git rev-parse --short HEAD)" >&2
   return 1
 }
 
 echo "[deploy] waiting for ${HEALTH_URL} (max ${MAX_WAIT}s)"
 elapsed=0
-until curl -fsS "$HEALTH_URL" 2>/dev/null | grep -q '"status":"ready"'; do
+until ready_body="$(curl -fsS "$HEALTH_URL" 2>/dev/null)" \
+  && grep -q '"status":"ready"' <<<"$ready_body" \
+  && grep -q "\"release\":\"${TARGET_HEAD}\"" <<<"$ready_body"; do
   elapsed=$((elapsed + 2))
   if [ "$elapsed" -ge "$MAX_WAIT" ]; then
     rollback "API health check failed after ${MAX_WAIT}s"

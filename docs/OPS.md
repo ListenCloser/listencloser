@@ -25,14 +25,14 @@ the VM (see Deploy) — rebuild before concluding a BE change "didn't show up".
 
 ## Environment
 
-Set on the VM via `.env.local` (the backend container reads these):
+GitHub Actions writes `backend/.env` on the VM from repository secrets:
 
 | Var | Purpose |
 |---|---|
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | DB + Storage access |
 | `SENTRY_DSN_BACKEND` | Backend errors/traces (falls back to `SENTRY_DSN`) |
 | `SENTRY_ENV` | `production` on the VM, `development` locally |
-| `RELEASE` | e.g. `backend@1.2.3` (shows in Sentry) |
+| `RELEASE` | Exact deployed Git SHA; written by `scripts/deploy.sh` |
 
 Frontend Sentry uses `NEXT_PUBLIC_SENTRY_DSN` (separate, in the Vercel build).
 
@@ -43,10 +43,16 @@ Frontend Sentry uses `NEXT_PUBLIC_SENTRY_DSN` (separate, in the Vercel build).
 ./scripts/deploy.sh
 ```
 
-The script pulls, rebuilds the backend and worker containers, polls
+The workflow first resets the VM checkout to the exact triggering Git SHA. The
+script rebuilds the backend and worker containers, polls
 `GET /health/ready` and `GET /health/queue`, and **auto-rolls back to the
 previous commit** if either service is not healthy within `HEALTH_TIMEOUT`
-seconds (default 120). Always tail logs after a deploy.
+seconds (default 120). Readiness must report the same release SHA. Rollback is
+also health/SHA-gated. Always tail logs after a deploy.
+
+The production image installs Debian's `fluid-soundfont-gm`; readiness and smoke
+testing should not accept the low-fidelity numpy fallback as normal production
+rendering.
 
 ## Restart / rollback
 
@@ -72,8 +78,9 @@ Live tail (always works, on VM): `docker compose logs -f backend`.
 Grafana/Loki are opt-in: `docker compose -f docker-compose.observability.yml up -d` → Grafana on `:3001`, Loki `:3100`. If `3001` isn't reachable, `ssh -L 3001:localhost:3001 <vm-user>@<vm-ip>` then open http://localhost:3001 (admin / `$GRAFANA_PASSWORD`). Query Loki: `{container="music-ai-backend"} |= "request_failed"` or `|= "req_id=abc123"`.
 
 ## Health (is the backend up?)
-`curl https://gricci-testing.duckdns.org/health/live` → `{"status":"alive"}`;
-`/health/ready` verifies backend configuration; `/health/queue` reports recent
+`curl https://gricci-testing.duckdns.org/health/live` returns liveness plus the
+release SHA; `/health/ready` verifies the database schema and private artifact
+storage; `/health/queue` reports recent
 worker heartbeats, queued/running jobs, and stale leases. The Vercel-facing queue
 check is `/api/health/queue`.
 
@@ -83,6 +90,8 @@ than 45 seconds is not counted as live.
 Backend deploys apply pending migrations before touching the VM. Configure the
 GitHub Actions secret `SUPABASE_DB_URL` with the pooler/session-mode Postgres
 connection string from Supabase Database settings. Failed migrations block deployment.
+PRs that touch migrations also boot a clean local Supabase instance and run the
+full migration history plus an insert/claim/run/succeed lifecycle check.
 
 ## Deployed understanding smoke test
 
@@ -101,7 +110,15 @@ audio, MIDI, rendered audio, MusicXML, note entities, and insights. Never commit
 the access token or private fixture.
 
 ## CI (did my PR break anything?)
-Repo → Actions tab. Workflows: `build.yml` (build+vitest, blocks), `ci.yml` (lint+typecheck+ruff+pytest, blocks), `e2e.yml` (Playwright vs mocks, blocks), `argos.yml` (visual, NON-blocking), `codeql.yml`, `gitleaks.yml`, `dependency-review.yml`, `deploy-backend.yml` (push only).
+Repo → Actions tab. Workflows: `build.yml` (build+vitest, blocks), `ci.yml` (lint+typecheck+ruff+pytest, blocks), `e2e.yml` (Playwright vs mocks, blocks), `database-integration.yml` (real local Postgres/Supabase migrations), `argos.yml` (visual, NON-blocking), `codeql.yml`, `gitleaks.yml`, `dependency-review.yml`, `deploy-backend.yml` (push only).
+
+## Vercel production ownership
+
+`hello-ai.vercel.app` must be assigned to the v2 project built from this repo's
+`main` branch. A green Vercel preview is not production. Required environment:
+`BACKEND_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`. After aliasing, verify the root title is
+`hello-ai — Music Studio` and `/api/health/queue` is ready before smoke testing.
 
 ## Argos (visual diffs)
 `https://app.argos-ci.com` (needs `ARGOS_TOKEN` repo secret); also comments a visual diff on each PR. Non-blocking by design.

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { TransportProvider } from "@/lib/stores/transport";
 import { SelectionProvider } from "@/lib/stores/selection";
 import { TimelineProvider } from "@/lib/stores/timeline";
@@ -13,7 +13,16 @@ import InspectorPanel from "./InspectorPanel";
 export type ServiceStatus = "checking" | "ready" | "unavailable";
 
 function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { signedIn?: boolean; projectName?: string; serviceStatus: ServiceStatus }) {
-  const { workspace, toggleInspector } = useWorkspace();
+  const { workspace, toggleInspector, toggleLibrary } = useWorkspace();
+  const initializedResponsiveLayout = useRef(false);
+
+  useEffect(() => {
+    if (initializedResponsiveLayout.current) return;
+    initializedResponsiveLayout.current = true;
+    if (!window.matchMedia("(max-width: 820px)").matches) return;
+    if (!workspace.libraryCollapsed) toggleLibrary();
+    if (!workspace.inspectorCollapsed) toggleInspector();
+  }, [toggleInspector, toggleLibrary, workspace.inspectorCollapsed, workspace.libraryCollapsed]);
 
   return (
     <div className="studio-shell"

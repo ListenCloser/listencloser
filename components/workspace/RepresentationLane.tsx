@@ -13,10 +13,7 @@ type RepresentationLaneProps = {
   sourceLabel: string;
   confidence: number | null;
   isExpanded: boolean;
-  isFocused: boolean;
   onExpand: () => void;
-  onFocus: () => void;
-  onRemove: () => void;
   children?: ReactNode;
   footerControls?: ReactNode;
   workspaceNotes?: Note[] | null;
@@ -40,10 +37,7 @@ export default function RepresentationLane({
   sourceLabel,
   confidence,
   isExpanded,
-  isFocused,
   onExpand,
-  onFocus,
-  onRemove,
   children,
   footerControls,
   workspaceNotes,
@@ -58,16 +52,19 @@ export default function RepresentationLane({
       style={{
         display: "flex",
         flexDirection: "column",
-        border: `1px solid ${isFocused ? "var(--accent)" : "var(--border)"}`,
+        border: "1px solid var(--border)",
         borderRadius: "var(--r-md)",
         background: "var(--panel)",
         overflow: "hidden",
-        boxShadow: isFocused ? "0 0 16px rgba(192,132,252,0.15)" : undefined,
         transition: "box-shadow var(--dur) var(--ease)",
         ...(isExpanded ? { flex: 1 } : { flexShrink: 0 }),
       }}
     >
-      <div
+      <button
+        type="button"
+        className="representation-header"
+        aria-expanded={isExpanded}
+        aria-label={`${isExpanded ? "Collapse" : "Expand"} ${label}`}
         style={{
           display: "flex",
           alignItems: "center",
@@ -129,36 +126,8 @@ export default function RepresentationLane({
           </span>
         )}
 
-        <button
-          className="icon-btn ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            onFocus();
-          }}
-          style={{
-            fontSize: "var(--fs-xs)",
-            padding: "2px 8px",
-            marginLeft: "auto",
-            background: isFocused ? "var(--accent-soft)" : undefined,
-            color: isFocused ? "var(--accent)" : undefined,
-          }}
-          title="Focus this representation"
-        >
-          ⊙
-        </button>
-
-        <button
-          className="icon-btn ghost danger"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          style={{ fontSize: "var(--fs-xs)", padding: "2px 8px" }}
-          title="Remove"
-        >
-          ✕
-        </button>
-      </div>
+        <span aria-hidden="true" style={{ marginLeft: "auto", color: "var(--muted)" }}>{isExpanded ? "▾" : "▸"}</span>
+      </button>
 
       {isExpanded && (
         <>

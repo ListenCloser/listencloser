@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
+import { useTimeline } from "@/lib/stores/timeline";
 
 const TABS = [
   { id: "insights", label: "Insights" },
-  { id: "commands", label: "Commands" },
+  { id: "commands", label: "Shortcuts" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -58,10 +59,13 @@ export default function InspectorPanel() {
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div style={{ display: "flex", gap: "var(--s-1)" }}>
+        <div role="tablist" aria-label="Inspector views" style={{ display: "flex", gap: "var(--s-1)" }}>
           {TABS.map((t) => (
             <button
               key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === t.id}
               onClick={() => setActiveTab(t.id)}
               style={{
                 padding: "4px 10px",
@@ -101,13 +105,41 @@ export default function InspectorPanel() {
 }
 
 function InsightsTab() {
-  const { workspace } = useWorkspace();
+  const { workspace, expandRepresentation, focusRepresentation } = useWorkspace();
+  const { seek } = useTransport();
+  const { timeline } = useTimeline();
   const summary = workspace.insights.filter((item) =>
     ["key", "tempo", "time_signature"].includes(item.kind),
   );
   const details = workspace.insights.filter((item) =>
     !["key", "tempo", "time_signature"].includes(item.kind),
   );
+  const groups = [
+    { label: "Harmony", kinds: ["chord", "roman_numeral", "cadence", "modulation"] },
+    { label: "Melody & rhythm", kinds: ["melody", "rhythm", "range", "density", "syncopation"] },
+    { label: "Sound", kinds: ["loudness", "spectral_centroid", "audio_descriptor"] },
+  ];
+
+  function seekToEvidence(item: (typeof workspace.insights)[number]) {
+    const seconds = item.span.start_seconds;
+    if (typeof seconds === "number") seek(seconds);
+    else if (typeof item.span.start_beat === "number" && timeline.bpm > 0) {
+      seek(item.span.start_beat * 60 / timeline.bpm);
+    }
+    expandRepresentation("piano_roll");
+    focusRepresentation("piano_roll");
+  }
+
+  function spanLabel(item: (typeof workspace.insights)[number]): string | null {
+    if (typeof item.span.start_measure === "number") return `Measure ${Math.floor(item.span.start_measure) + 1}`;
+    if (typeof item.span.start_beat === "number") return `Beat ${item.span.start_beat.toFixed(1)}`;
+    if (typeof item.span.start_seconds === "number") {
+      const minutes = Math.floor(item.span.start_seconds / 60);
+      const seconds = Math.floor(item.span.start_seconds % 60).toString().padStart(2, "0");
+      return `${minutes}:${seconds}`;
+    }
+    return null;
+  }
 
   if (workspace.insights.length === 0) {
     return (
@@ -120,6 +152,7 @@ function InsightsTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-3)" }}>
       <div className="section-label" style={{ margin: 0 }}>Analysis</div>
+      <p className="insight-intro">Computed from the saved transcription. Treat lower-confidence claims as suggestions to verify by ear.</p>
       <div className="stat-grid">
         {summary.map((item) => (
           <div className="stat" key={item.id}>
@@ -129,12 +162,38 @@ function InsightsTab() {
           </div>
         ))}
       </div>
-      {details.slice(0, 30).map((item) => (
-        <div className="stat" key={item.id}>
-          <span className="s-label">{item.kind.replaceAll("_", " ")}</span>
-          <span className="s-value" style={{ fontSize: "var(--fs-xs)" }}>{item.claim}</span>
-        </div>
-      ))}
+      {groups.map((group) => {
+        const items = details.filter((item) => group.kinds.some((kind) => item.kind.includes(kind)));
+        if (!items.length) return null;
+        return (
+          <section className="insight-group" key={group.label}>
+            <h3>{group.label}</h3>
+            {items.slice(0, 20).map((item) => {
+              const position = spanLabel(item);
+              return (
+                <button type="button" className="insight-row" key={item.id} onClick={() => seekToEvidence(item)}>
+                  <span className="insight-claim">{item.claim}</span>
+                  <span className="insight-meta">
+                    {position && <span>{position}</span>}
+                    <span>{Math.round(item.confidence * 100)}%</span>
+                  </span>
+                </button>
+              );
+            })}
+          </section>
+        );
+      })}
+      {details.length > 0 && groups.every((group) => !details.some((item) => group.kinds.some((kind) => item.kind.includes(kind)))) && (
+        <section className="insight-group">
+          <h3>Details</h3>
+          {details.slice(0, 20).map((item) => (
+            <button type="button" className="insight-row" key={item.id} onClick={() => seekToEvidence(item)}>
+              <span className="insight-claim">{item.claim}</span>
+              <span className="insight-meta"><span>{Math.round(item.confidence * 100)}%</span></span>
+            </button>
+          ))}
+        </section>
+      )}
     </div>
   );
 }
@@ -210,7 +269,8 @@ function CommandTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-3)", minHeight: "100%" }}>
-      <div className="section-label" style={{ margin: 0 }}>Work commands</div>
+      <div className="section-label" style={{ margin: 0 }}>Work shortcuts</div>
+      <p className="insight-intro">Deterministic controls for the active work—not an AI chat.</p>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-2)", flex: 1 }}>
         {messages.map((message, index) => (
           <div

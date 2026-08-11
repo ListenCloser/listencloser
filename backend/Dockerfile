@@ -15,7 +15,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libsndfile1 ffmpeg fluidsynth curl \
+    libsndfile1 ffmpeg fluidsynth fluid-soundfont-gm curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /install /usr/local
@@ -24,7 +24,6 @@ COPY . .
 
 RUN addgroup --system --gid 1001 appuser \
     && adduser --disabled-password --gecos "" --uid 1001 --gid 1001 appuser \
-    && mkdir -p /app/soundfonts \
     && chown -R appuser:appuser /app
 
 USER appuser
