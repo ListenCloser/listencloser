@@ -100,6 +100,15 @@ class RhythmResult(TypedDict):
     rhythmic_density: float
 
 
+class MelodyResult(TypedDict):
+    low_pitch: int
+    high_pitch: int
+    range_semitones: int
+    unique_pitch_classes: int
+    stepwise_ratio: float
+    leap_ratio: float
+
+
 class AnalysisResult(TypedDict):
     key: KeyResult
     tempo: TempoResult
@@ -111,6 +120,7 @@ class AnalysisResult(TypedDict):
     voice_leading: VoiceLeadingResult | None
     phrases: list[PhraseResult]
     rhythm: RhythmResult | None
+    melody: MelodyResult | None
 
 
 # ── Constants ───────────────────────────────────────────────────────────────
@@ -373,6 +383,42 @@ def _midi_rhythm(midi_path: str) -> RhythmResult | None:
         return None
 
 
+def _midi_melody(midi_path: str) -> MelodyResult | None:
+    """Summarize pitch range and melodic motion from the highest active line.
+
+    This is intentionally labelled as a transcription-derived heuristic. It is
+    useful for navigation and discussion, not a claim that polyphonic audio has
+    a single objectively correct melody.
+    """
+    try:
+        pm = pretty_midi.PrettyMIDI(midi_path)
+        notes = sorted(
+            (note for inst in pm.instruments if not inst.is_drum for note in inst.notes),
+            key=lambda note: (note.start, -note.pitch),
+        )
+        if len(notes) < 2:
+            return None
+        # At a shared onset, retain the upper voice as a transparent heuristic.
+        line = []
+        for note in notes:
+            if line and abs(note.start - line[-1].start) < 0.03:
+                continue
+            line.append(note)
+        intervals = [abs(current.pitch - previous.pitch) for previous, current in zip(line, line[1:])]
+        nonzero = [interval for interval in intervals if interval > 0]
+        low, high = min(note.pitch for note in line), max(note.pitch for note in line)
+        return MelodyResult(
+            low_pitch=low,
+            high_pitch=high,
+            range_semitones=high - low,
+            unique_pitch_classes=len({note.pitch % 12 for note in line}),
+            stepwise_ratio=round(sum(interval <= 2 for interval in nonzero) / len(nonzero), 3) if nonzero else 0.0,
+            leap_ratio=round(sum(interval >= 5 for interval in nonzero) / len(nonzero), 3) if nonzero else 0.0,
+        )
+    except Exception:
+        return None
+
+
 # ── Structural analysis: phrases (ISSUE-009) ────────────────────────────────
 
 
@@ -525,6 +571,7 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         "voice_leading": None,
         "phrases": [],
         "rhythm": None,
+        "melody": None,
     }
 
     # Tempo from MIDI metadata
@@ -552,9 +599,6 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         # Chords (music21)
         result["chords"] = _m21_chords(score)
 
-        # Rhythm analysis
-        result["rhythm"] = _midi_rhythm(midi_path)
-
         # Roman numerals (music21)
         detected_key = score.analyze("key")
         result["roman_numerals"] = _m21_roman_numerals(score, detected_key)
@@ -570,6 +614,11 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         result["modulations"] = _detect_modulations(
             score, result["tempo"]["bpm"] if "tempo" in result and result["tempo"] else None
         )
+
+    # These operate directly on the saved performance MIDI and remain useful
+    # even when symbolic parsing fails.
+    result["rhythm"] = _midi_rhythm(midi_path)
+    result["melody"] = _midi_melody(midi_path)
 
     total_ms = round((_time.perf_counter() - t0) * 1000)
     logger.info("analyze_total", extra={"step": "total", "step_ms": total_ms})
