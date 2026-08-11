@@ -559,14 +559,8 @@ def handle_audio_structure(job: Job, client) -> list[str]:
     wav_bytes = music_features.decode_audio_to_wav(
         audio_bytes, fmt=job.parameters.get("fmt", "wav")
     )
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as audio_file:
-        audio_file.write(wav_bytes)
-        wav_path = audio_file.name
-    try:
-        _update_progress(client, job.id, 0.35, "finding beats and musical form")
-        result = music_features.structure_with_engine(wav_path)
-    finally:
-        os.unlink(wav_path)
+    _update_progress(client, job.id, 0.35, "finding beats and musical form")
+    result = music_features.structure_with_engine(wav_bytes)
 
     # The model remains optional until its heavyweight PyTorch/NATTEN runtime
     # is installed on the free ARM worker. Never fail an otherwise useful import
