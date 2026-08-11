@@ -10,7 +10,7 @@ type View = "listen" | "piano_roll" | "score" | "analysis";
 
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport } = useWorkspace();
-  const { seek, toggle, transport } = useTransport();
+  const { seek, pause, play, setActiveSource, transport } = useTransport();
   const { timeline } = useTimeline();
   const byKind = new Map(workspace.representations.map((item) => [item.kind, item]));
   const waveform = byKind.get("waveform");
@@ -29,10 +29,20 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 
   const title: Record<View, string> = { listen: "Listen", piano_roll: "Piano roll", score: "Score", analysis: "Analysis" };
   const subtitle: Record<View, string> = { listen: "Original and transcription playback", piano_roll: "Performance timing and note events", score: "Quantized notation draft", analysis: "Claims linked to the timeline" };
+  const playView = () => {
+    if (transport.isPlaying) { pause(); return; }
+    const transcription = transport.sources.find((source) => source.label === "Transcription playback");
+    if (activeView !== "listen" && transcription && transcription.id !== transport.activeSource?.id) {
+      setActiveSource(transcription);
+      window.setTimeout(play, 0);
+      return;
+    }
+    play();
+  };
   return <main className="piece-desk">
     <header className="piece-desk-heading"><div><p className="piece-eyebrow">Listening workspace</p><h1>{activeWork?.title ?? "Untitled piece"}</h1><p>{subtitle[activeView]}. The transport remains the source of truth in every view.</p></div><button type="button" className="btn" onClick={requestImport}>Import another piece</button></header>
     <div className="piece-view-tabs" role="tablist" aria-label="Workspace views">{available.map((view) => <button key={view} type="button" role="tab" aria-selected={activeView === view} className={activeView === view ? "active" : ""} onClick={() => setActiveView(view)}><strong>{title[view]}</strong><span>{subtitle[view]}</span></button>)}</div>
-    <section className="piece-active-view" aria-labelledby="active-view-title"><div className="piece-section-heading"><div><p className="piece-eyebrow">{subtitle[activeView]}</p><h2 id="active-view-title">{title[activeView]}</h2></div>{activeView !== "analysis" && <button className="btn piece-view-play" type="button" onClick={toggle} disabled={!transport.activeSource}>{transport.isPlaying ? "Pause playback" : "Play from transport"}</button>}</div>
+    <section className="piece-active-view" aria-labelledby="active-view-title"><div className="piece-section-heading"><div><p className="piece-eyebrow">{subtitle[activeView]}</p><h2 id="active-view-title">{title[activeView]}</h2></div>{activeView !== "analysis" && <button className="btn piece-view-play" type="button" onClick={playView} disabled={!transport.activeSource}>{transport.isPlaying ? "Pause playback" : activeView === "listen" ? "Play selected source" : "Play transcription"}</button>}</div>
       {activeView === "listen" && waveform && <RepresentationLane kind="waveform" label="Audio timeline" sourceLabel={waveform.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader audioUrl={waveform.audioUrl} />}
       {activeView === "piano_roll" && pianoRoll && <RepresentationLane kind="piano_roll" label="Piano roll" sourceLabel={pianoRoll.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader workspaceNotes={pianoRoll.notes} />}
       {activeView === "score" && score && <RepresentationLane kind="score" label="Score" sourceLabel={score.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader musicxml={score.musicxml} />}

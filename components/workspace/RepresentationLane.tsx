@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { RepresentationKind } from "@/lib/stores/workspace";
 import { renderRepresentation } from "@/lib/representation-registry";
 import { useTransport } from "@/lib/stores/transport";
+import { useTimeline } from "@/lib/stores/timeline";
 
 type Note = { pitch: number; start: number; end: number; velocity: number };
 
@@ -47,6 +48,7 @@ export default function RepresentationLane({
   hideHeader = false,
 }: RepresentationLaneProps) {
   const { transport, seek } = useTransport();
+  const { timeline } = useTimeline();
   const glyph = KIND_GLYPHS[kind] ?? "▯";
 
   return (
@@ -144,6 +146,7 @@ export default function RepresentationLane({
                 notes: (workspaceNotes ?? []) as Note[] | undefined,
                 musicxml,
                 audioUrl,
+                bpm: timeline.bpm,
                 playheadTime: transport.position,
                 onSeek: seek,
               })}

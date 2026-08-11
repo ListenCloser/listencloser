@@ -265,7 +265,7 @@ def decode_audio_to_wav(audio_bytes: bytes, fmt: str = "wav") -> bytes:
 # ---------------------------------------------------------------------------
 # Format conversion (MIDI <-> MusicXML)
 # ---------------------------------------------------------------------------
-def convert_format(data: bytes, source: str, target: str) -> bytes:
+def convert_format(data: bytes, source: str, target: str, notation_ready: bool = False) -> bytes:
     """Convert between MIDI and MusicXML using music21.
 
     Args:
@@ -296,7 +296,7 @@ def convert_format(data: bytes, source: str, target: str) -> bytes:
         # grid before engraving rather than passing every micro-timing artifact
         # through to MusicXML.  This is still a draft score: the provenance/UI
         # must never claim publication-quality notation from AMT alone.
-        if target == "musicxml":
+        if target == "musicxml" and not notation_ready:
             with contextlib.suppress(Exception):
                 score.quantize(
                     quarterLengthDivisors=(2, 3, 4, 6, 8, 12, 16),
@@ -314,6 +314,77 @@ def convert_format(data: bytes, source: str, target: str) -> bytes:
 
         with open(out_path, "rb") as f:
             return f.read()
+
+
+def estimate_beat_grid(wav_bytes: bytes) -> tuple[float, list[float]]:
+    """Estimate tempo and beat positions from decoded source audio.
+
+    This is intentionally a separate notation concern: performance MIDI stays
+    untouched, while score reduction can use a grid derived from the recording.
+    """
+    import librosa
+
+    audio, sr = sf.read(io.BytesIO(wav_bytes), always_2d=False)
+    if getattr(audio, "ndim", 1) > 1:
+        audio = np.mean(audio, axis=1)
+    tempo, frames = librosa.beat.beat_track(y=np.asarray(audio, dtype=np.float32), sr=sr, trim=False)
+    beats = librosa.frames_to_time(frames, sr=sr).tolist()
+    return float(np.asarray(tempo).reshape(-1)[0]), [float(value) for value in beats]
+
+
+def notation_midi_from_performance(
+    midi_bytes: bytes,
+    beat_times: list[float],
+    subdivisions: int = 4,
+) -> tuple[bytes, dict[str, int | float | str]]:
+    """Create a beat-aligned notation MIDI without mutating performance MIDI.
+
+    Each note onset and end is snapped only to subdivisions of *detected audio
+    beats*. If the audio grid is unavailable, the function preserves timing and
+    reports that honestly instead of inventing a 120-BPM score grid.
+    """
+    import pretty_midi
+
+    midi = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
+    report: dict[str, int | float | str] = {
+        "profile": "beat_aligned_sixteenth_v1",
+        "subdivisions_per_beat": subdivisions,
+        "beat_count": len(beat_times),
+        "quantized_notes": 0,
+        "timing_mode": "audio_beats" if len(beat_times) >= 2 else "preserved_no_grid",
+    }
+    if len(beat_times) < 2:
+        out = io.BytesIO(); midi.write(out)
+        return out.getvalue(), report
+
+    intervals = np.diff(np.asarray(beat_times, dtype=float))
+    median_interval = float(np.median(intervals[intervals > 0])) if np.any(intervals > 0) else 0.5
+    grid: list[float] = []
+    for index, beat in enumerate(beat_times):
+        next_beat = beat_times[index + 1] if index + 1 < len(beat_times) else beat + median_interval
+        for division in range(subdivisions):
+            grid.append(beat + (next_beat - beat) * division / subdivisions)
+    grid.append(beat_times[-1] + median_interval)
+
+    def nearest(value: float) -> float:
+        index = int(np.searchsorted(grid, value))
+        candidates = grid[max(0, index - 1):min(len(grid), index + 1)]
+        return min(candidates, key=lambda candidate: abs(candidate - value)) if candidates else value
+
+    for instrument in midi.instruments:
+        if instrument.is_drum:
+            continue
+        for note in instrument.notes:
+            start = nearest(note.start)
+            end = nearest(note.end)
+            if end <= start:
+                end = start + median_interval / subdivisions
+            if start != note.start or end != note.end:
+                report["quantized_notes"] = int(report["quantized_notes"]) + 1
+            note.start, note.end = start, end
+        instrument.notes.sort(key=lambda note: (note.start, note.pitch, note.end))
+    out = io.BytesIO(); midi.write(out)
+    return out.getvalue(), report
 
 
 # ---------------------------------------------------------------------------
