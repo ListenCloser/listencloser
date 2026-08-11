@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
+import { deleteWork } from "@/lib/api-client";
 
 export default function LibraryPanel({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const {
@@ -10,12 +12,35 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     requestImport,
     setActiveWorkId,
     toggleLibrary,
+    removeWork,
   } = useWorkspace();
   const { clearActiveSource } = useTransport();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   async function signOut() {
     await supabase?.auth.signOut();
     window.location.reload();
+  }
+
+  async function handleDelete(workId: string, title: string) {
+    if (confirmId !== workId) {
+      setConfirmId(workId);
+      return;
+    }
+    setDeletingId(workId);
+    try {
+      if (workspace.activeWorkId === workId) {
+        clearActiveSource();
+        setActiveWorkId(null);
+      }
+      await deleteWork(workId);
+      removeWork(workId);
+    } catch {
+      setConfirmId(null);
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   if (workspace.libraryCollapsed) {
@@ -30,8 +55,8 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     <aside className="studio-library" style={{ width: 260, flexShrink: 0, borderRight: "1px solid var(--border)", background: "var(--panel)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "var(--s-3)", borderBottom: "1px solid var(--border)" }}>
         <div>
-          <div className="section-label" style={{ margin: 0 }}>Project</div>
-          <div style={{ fontSize: "var(--fs-sm)", marginTop: 4 }}>{workspace.project?.name ?? "No project"}</div>
+          <div className="section-label" style={{ margin: 0 }}>Your music</div>
+          <div style={{ fontSize: "var(--fs-sm)", marginTop: 4 }}>{workspace.works.length} piece{workspace.works.length !== 1 ? "s" : ""}</div>
         </div>
         <button className="icon-btn ghost" onClick={toggleLibrary} title="Collapse library">◂</button>
       </div>
@@ -52,38 +77,64 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
         ) : workspace.works.map((work) => {
           const selected = workspace.activeWorkId === work.id;
           return (
-            <button type="button"
-              key={work.id}
-              onClick={() => {
-                if (!selected) clearActiveSource();
-                setActiveWorkId(work.id);
-              }}
-              aria-current={selected ? "true" : undefined}
-              disabled={workspace.isLoadingWork && selected}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 3,
-                width: "100%",
-                padding: "var(--s-3)",
-                marginBottom: "var(--s-1)",
-                border: `1px solid ${selected ? "var(--accent)" : "transparent"}`,
-                borderRadius: "var(--r-md)",
-                background: selected ? "var(--accent-soft)" : "transparent",
-                color: selected ? "var(--accent)" : "var(--text)",
-                cursor: "pointer",
-                textAlign: "left",
-                fontFamily: "inherit",
-              }}
-            >
-              <span style={{ fontSize: "var(--fs-sm)", fontWeight: "var(--fw-medium)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
-                {work.title}
-              </span>
-              <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", width: "100%" }}>
-                <span>{new Date(work.created_at).toLocaleDateString()}</span>
-                <span>{workspace.isLoadingWork && selected ? "Loading…" : selected && workspace.representations.length ? "Ready" : "Saved"}</span>
-              </span>
-            </button>
+            <div key={work.id} style={{ position: "relative", marginBottom: "var(--s-1)" }}>
+              <button type="button"
+                onClick={() => {
+                  if (!selected) clearActiveSource();
+                  setActiveWorkId(work.id);
+                }}
+                aria-current={selected ? "true" : undefined}
+                disabled={workspace.isLoadingWork && selected}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 3,
+                  width: "100%",
+                  padding: "var(--s-3)",
+                  paddingRight: 32,
+                  border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
+                  borderRadius: "var(--r-md)",
+                  background: selected ? "var(--accent-soft)" : "transparent",
+                  color: selected ? "var(--text)" : "var(--text)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                }}
+              >
+                <span style={{ fontSize: "var(--fs-sm)", fontWeight: "var(--fw-medium)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
+                  {work.title}
+                </span>
+                <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", width: "100%" }}>
+                  <span>{new Date(work.created_at).toLocaleDateString()}</span>
+                  <span>{workspace.isLoadingWork && selected ? "Loading…" : selected && workspace.representations.length ? "Ready" : "Saved"}</span>
+                </span>
+              </button>
+              <button
+                title={confirmId === work.id ? "Click again to confirm delete" : "Delete work"}
+                onClick={(e) => { e.stopPropagation(); handleDelete(work.id, work.title); }}
+                disabled={deletingId === work.id}
+                style={{
+                  position: "absolute",
+                  top: "var(--s-2)",
+                  right: "var(--s-2)",
+                  width: 20,
+                  height: 20,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "none",
+                  borderRadius: "var(--r-sm)",
+                  background: confirmId === work.id ? "var(--danger-soft)" : "transparent",
+                  color: confirmId === work.id ? "var(--danger)" : "var(--muted)",
+                  cursor: "pointer",
+                  fontSize: 10,
+                  padding: 0,
+                  opacity: 0.6,
+                }}
+              >
+                {deletingId === work.id ? "…" : confirmId === work.id ? "🗑" : "×"}
+              </button>
+            </div>
           );
         })}
       </div>
