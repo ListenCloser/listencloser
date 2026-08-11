@@ -40,6 +40,9 @@ services:
       RELEASE: ${RELEASE:-development}
       WORKER_HEALTH_FILE: /app/runtime/worker-heartbeat.json
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+      ALLIN1_ENABLED: ${ALLIN1_ENABLED:-false}
+      ALLIN1_MODEL: ${ALLIN1_MODEL:-harmonix-all}
+      ALLIN1_DEVICE: ${ALLIN1_DEVICE:-cpu}
     volumes:
       - worker-runtime:/app/runtime
     depends_on:

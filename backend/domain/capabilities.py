@@ -14,6 +14,7 @@ from uuid import UUID
 import numpy as np
 
 import analyze
+import audio_structure
 import music_features
 from domain.models import (
     Alignment,
@@ -424,20 +425,27 @@ def handle_understand(job: Job, client) -> list[str]:
     if midi_version_id is None:
         raise ValueError("understand workflow produced no MIDI version")
 
+    structure_job = job.model_copy(
+        update={
+            "capability": Capability(name="audio_structure", version="1.0"),
+            "input_version_ids": [job.input_version_ids[0]],
+        }
+    )
+    handle_audio_structure(structure_job, _ProgressClient(client, 0.65, 0.10))
     analyze_job = job.model_copy(
         update={
             "capability": Capability(name="analyze", version="1.0"),
             "input_version_ids": [midi_version_id],
         }
     )
-    handle_analyze(analyze_job, _ProgressClient(client, 0.65, 0.2))
+    handle_analyze(analyze_job, _ProgressClient(client, 0.75, 0.15))
     score_job = job.model_copy(
         update={
             "capability": Capability(name="score", version="1.0"),
             "input_version_ids": [midi_version_id, job.input_version_ids[0]],
         }
     )
-    score_ids = handle_score(score_job, _ProgressClient(client, 0.85, 0.15))
+    score_ids = handle_score(score_job, _ProgressClient(client, 0.90, 0.10))
     return [*output_ids, *score_ids]
 
 
@@ -538,6 +546,119 @@ def handle_transcribe(job: Job, client) -> list[str]:
 
     _update_progress(client, job.id, 1.0, "transcription complete")
     return output_ids
+
+
+def handle_audio_structure(job: Job, client) -> list[str]:
+    """Persist original-audio tempo, meter anchors, and functional sections."""
+    if not job.input_version_ids:
+        raise ValueError("audio_structure requires an audio input version")
+
+    owner_id = _resolve_owner_id(client, job.workflow_id)
+    input_version = _lookup_version(client, job.input_version_ids[0])
+    _update_progress(client, job.id, 0.1, "preparing audio structure analysis")
+    audio_bytes = download_version_bytes(input_version, client)
+    wav_bytes = music_features.decode_audio_to_wav(
+        audio_bytes, fmt=job.parameters.get("fmt", "wav")
+    )
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as audio_file:
+        audio_file.write(wav_bytes)
+        wav_path = audio_file.name
+    try:
+        _update_progress(client, job.id, 0.35, "finding beats and musical form")
+        result = audio_structure.analyze_file(wav_path)
+    finally:
+        os.unlink(wav_path)
+
+    # The model remains optional until its heavyweight PyTorch/NATTEN runtime
+    # is installed on the free ARM worker. Never fail an otherwise useful import
+    # or invent structure when it is unavailable.
+    if result is None:
+        _update_progress(client, job.id, 1.0, "audio structure analysis unavailable")
+        return []
+
+    _update_progress(client, job.id, 0.65, "storing beat grid and sections")
+    entities: list[Entity] = []
+    for index, time in enumerate(result.downbeats[:1000]):
+        entities.append(
+            Entity(
+                version_id=input_version.id,
+                kind=EntityKind.beat,
+                span=Span(start_seconds=time),
+                label=f"Downbeat {index + 1}",
+            )
+        )
+    for index, segment in enumerate(result.segments[:200]):
+        entities.append(
+            Entity(
+                version_id=input_version.id,
+                kind=EntityKind.section,
+                span=Span(start_seconds=segment.start, end_seconds=segment.end),
+                label=f"{segment.label.title()} {index + 1}",
+            )
+        )
+    if entities:
+        EntityRepo(client).create_many(entities, owner_id)
+
+    insight_ids: list[str] = []
+    insight_ids.append(
+        str(
+            _create_insight(
+                client,
+                input_version.id,
+                "audio_structure",
+                (
+                    f"{len(result.segments)} labelled sections · "
+                    f"{len(result.downbeats)} downbeats · {round(result.bpm)} BPM"
+                ),
+                evidence={
+                    **result.evidence(),
+                    "beats_seconds": result.beats,
+                    "downbeats_seconds": result.downbeats,
+                },
+                confidence=0.65,
+                job=job,
+                owner_id=owner_id,
+            )
+        )
+    )
+    insight_ids.append(
+        str(
+            _create_insight(
+                client,
+                input_version.id,
+                "audio_tempo",
+                f"Recording tempo: {round(result.bpm)} BPM",
+                evidence={"bpm": result.bpm, "source": "audio_structure"},
+                confidence=0.7,
+                job=job,
+                owner_id=owner_id,
+            )
+        )
+    )
+    for segment in result.segments[:100]:
+        insight_ids.append(
+            str(
+                _create_insight(
+                    client,
+                    input_version.id,
+                    "section",
+                    segment.label.title(),
+                    evidence={
+                        "label": segment.label,
+                        "start_seconds": segment.start,
+                        "end_seconds": segment.end,
+                        "engine": result.engine,
+                        "model": result.model,
+                    },
+                    span=Span(start_seconds=segment.start, end_seconds=segment.end),
+                    confidence=0.6,
+                    job=job,
+                    owner_id=owner_id,
+                )
+            )
+        )
+    _update_progress(client, job.id, 1.0, "audio structure analysis complete")
+    return insight_ids
 
 
 def handle_analyze(job: Job, client) -> list[str]:
@@ -1452,6 +1573,7 @@ def register_all_capabilities(worker) -> None:
     """Register every capability handler with *worker*."""
     worker.register("transcribe", "1.0", handle_transcribe)
     worker.register("understand", "1.0", handle_understand)
+    worker.register("audio_structure", "1.0", handle_audio_structure)
     worker.register("analyze", "1.0", handle_analyze)
     worker.register("score", "1.0", handle_score)
     worker.register("enhance", "1.0", handle_enhance)
