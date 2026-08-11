@@ -15,7 +15,6 @@ Still needed to complete this slice operationally:
 
 - deployed worker health, queue metrics, and stuck-job alerts;
 - a real-backend smoke test with a small licensed fixture;
-- project/work browsing and reopening prior sessions;
 - better source-format validation and transcription-quality diagnostics;
 - score correction and export from a new immutable version.
 

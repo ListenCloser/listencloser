@@ -3,16 +3,16 @@ Comprehensive unit tests for the hello-ai JobWorker.
 
 All supabase calls are mocked.  No real database is required.
 """
+
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from unittest.mock import ANY, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
 
 from domain.job_worker import JobWorker, _capability_key
-from domain.models import Capability, Job, JobLifecycle, JobStage
-
+from domain.models import Job
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ def make_job_row(**overrides):
 
     All keys that the worker reads are present with sensible defaults.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     base: dict = {
         "id": str(uuid4()),
         "workflow_id": str(uuid4()),
@@ -107,7 +107,9 @@ class TestClaimJob:
         assert claimed is False
 
     def test_claim_returns_false_when_data_is_none(self, worker, mock_supabase):
-        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=None)
+        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=None
+        )
 
         claimed = worker._claim_job(str(uuid4()))
 
@@ -139,7 +141,9 @@ class TestOrphanRecovery:
         assert count == 0
 
     def test_supabase_error_during_recovery(self, worker, mock_supabase):
-        mock_supabase.table.return_value.update.return_value.lt.return_value.in_.return_value.execute.side_effect = Exception("timeout")
+        mock_supabase.table.return_value.update.return_value.lt.return_value.in_.return_value.execute.side_effect = Exception(
+            "timeout"
+        )
 
         count = worker._recover_orphans()
 
@@ -244,7 +248,7 @@ class TestJobExecutionSuccess:
         handler = MagicMock(return_value=["ok"])
         worker.register("transcribe", "1.0", handler)
 
-        _configure_update_eq_eq(mock_supabase, [job_row])   # claim & mark_*
+        _configure_update_eq_eq(mock_supabase, [job_row])  # claim & mark_*
         _configure_sel_eq(mock_supabase, [{"stage": "running"}])  # cancel check
 
         worker._execute_job(job_row)
@@ -263,8 +267,9 @@ class TestJobRetry:
         handler = MagicMock(side_effect=ValueError("bad input"))
         worker.register("transcribe", "1.0", handler)
 
-        with _mock_execute_env(worker) as mocked, patch(
-            "domain.job_worker.time.sleep", return_value=None
+        with (
+            _mock_execute_env(worker) as mocked,
+            patch("domain.job_worker.time.sleep", return_value=None),
         ):
             worker._execute_job(job_row)
 
@@ -278,8 +283,9 @@ class TestJobRetry:
         handler = MagicMock(side_effect=RuntimeError("oops"))
         worker.register("transcribe", "1.0", handler)
 
-        with _mock_execute_env(worker) as mocked, patch(
-            "domain.job_worker.time.sleep", return_value=None
+        with (
+            _mock_execute_env(worker) as mocked,
+            patch("domain.job_worker.time.sleep", return_value=None),
         ):
             worker._execute_job(job_row)
 
@@ -290,9 +296,7 @@ class TestJobRetry:
         handler = MagicMock(side_effect=Exception("fail"))
         worker.register("transcribe", "1.0", handler)
 
-        with _mock_execute_env(worker), patch(
-            "domain.job_worker.time.sleep"
-        ) as mock_sleep:
+        with _mock_execute_env(worker), patch("domain.job_worker.time.sleep") as mock_sleep:
             worker._execute_job(job_row)
 
         mock_sleep.assert_called_once_with(2)  # 2^1
@@ -309,23 +313,23 @@ class TestRetryExhaustion:
         handler = MagicMock(side_effect=Exception("fatal"))
         worker.register("transcribe", "1.0", handler)
 
-        with _mock_execute_env(worker) as mocked, patch(
-            "domain.job_worker.time.sleep", return_value=None
+        with (
+            _mock_execute_env(worker) as mocked,
+            patch("domain.job_worker.time.sleep", return_value=None),
         ):
             worker._execute_job(job_row)
 
         mocked["_requeue_job"].assert_not_called()
-        mocked["_mark_failed"].assert_called_once_with(
-            job_row["id"], "Exception: fatal", ANY
-        )
+        mocked["_mark_failed"].assert_called_once_with(job_row["id"], "Exception: fatal", ANY)
 
     def test_last_retry_allowed_after_that_exhausted(self, worker):
         job_row = make_job_row(retry_count=2, max_retries=3)
         handler = MagicMock(side_effect=Exception("retryable"))
         worker.register("transcribe", "1.0", handler)
 
-        with _mock_execute_env(worker) as mocked, patch(
-            "domain.job_worker.time.sleep", return_value=None
+        with (
+            _mock_execute_env(worker) as mocked,
+            patch("domain.job_worker.time.sleep", return_value=None),
         ):
             worker._execute_job(job_row)
 
@@ -338,8 +342,9 @@ class TestRetryExhaustion:
         handler = MagicMock(side_effect=Exception("very late"))
         worker.register("transcribe", "1.0", handler)
 
-        with _mock_execute_env(worker) as mocked, patch(
-            "domain.job_worker.time.sleep", return_value=None
+        with (
+            _mock_execute_env(worker) as mocked,
+            patch("domain.job_worker.time.sleep", return_value=None),
         ):
             worker._execute_job(job_row)
 
@@ -380,7 +385,9 @@ class TestJobCancellation:
         assert result is False
 
     def test_check_cancelled_safe_on_db_error(self, worker, mock_supabase):
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.side_effect = Exception("timeout")
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.side_effect = (
+            Exception("timeout")
+        )
 
         result = worker._check_cancelled(str(uuid4()))
 
@@ -429,7 +436,9 @@ class TestCacheIdempotency:
 
     def test_cache_check_error_returns_false(self, worker, mock_supabase):
         job_row = make_job_row(cache_key="err-key")
-        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.side_effect = Exception("boom")
+        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.side_effect = Exception(
+            "boom"
+        )
 
         hit = worker._check_cache_hit(job_row)
 
@@ -469,7 +478,9 @@ class TestProgressUpdates:
         assert update_args["progress"] == 1.0
 
     def test_progress_db_error_does_not_raise(self, worker, mock_supabase):
-        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.side_effect = Exception("DB down")
+        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.side_effect = Exception(
+            "DB down"
+        )
 
         worker.update_progress(str(uuid4()), 0.3, "still here")
 
@@ -614,13 +625,9 @@ def _mock_execute_env(
     Also patches ``_renew_lease`` so the heartbeat thread is a no-op.
     """
     patches = {
-        "_check_cache_hit": patch.object(
-            worker, "_check_cache_hit", return_value=cache_hit
-        ),
+        "_check_cache_hit": patch.object(worker, "_check_cache_hit", return_value=cache_hit),
         "_claim_job": patch.object(worker, "_claim_job", return_value=claim_result),
-        "_check_cancelled": patch.object(
-            worker, "_check_cancelled", return_value=cancel_result
-        ),
+        "_check_cancelled": patch.object(worker, "_check_cancelled", return_value=cancel_result),
         "_mark_running": patch.object(worker, "_mark_running"),
         "_mark_succeeded": patch.object(worker, "_mark_succeeded"),
         "_mark_failed": patch.object(worker, "_mark_failed"),

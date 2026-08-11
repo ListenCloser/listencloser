@@ -12,6 +12,7 @@ export default [
       "coverage/",
       "public/",
       "backend/",
+      ".opencode/",
       "**/__pycache__/",
     ],
   },
@@ -28,7 +29,7 @@ export default [
     },
   },
   {
-    files: ["**/*.mjs"],
+    files: ["**/*.mjs", "commitlint.config.js"],
     languageOptions: {
       globals: {
         ...globals.node,

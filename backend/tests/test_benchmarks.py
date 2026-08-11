@@ -44,8 +44,8 @@ def _load_fixture(name: str) -> bytes:
 def _sine_midi_bytes() -> bytes:
     pm = pretty_midi.PrettyMIDI()
     inst = pretty_midi.Instrument(program=0, is_drum=False, name="Piano")
-    inst.notes.append(pretty_midi.Note(velocity=80, pitch=69, start=0.0, end=0.5))   # A4
-    inst.notes.append(pretty_midi.Note(velocity=80, pitch=72, start=0.5, end=1.0))   # C5
+    inst.notes.append(pretty_midi.Note(velocity=80, pitch=69, start=0.0, end=0.5))  # A4
+    inst.notes.append(pretty_midi.Note(velocity=80, pitch=72, start=0.5, end=1.0))  # C5
     pm.instruments.append(inst)
     buf = io.BytesIO()
     pm.write(buf)

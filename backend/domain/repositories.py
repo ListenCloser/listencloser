@@ -1,7 +1,6 @@
 import os
 import threading
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 from supabase import Client, create_client
@@ -39,11 +38,11 @@ __all__ = [
     "JobRepo",
 ]
 
-_sb_client: Optional[Client] = None
+_sb_client: Client | None = None
 _sb_lock = threading.Lock()
 
 
-def get_supabase() -> Optional[Client]:
+def get_supabase() -> Client | None:
     global _sb_client
     if _sb_client is not None:
         return _sb_client
@@ -58,7 +57,7 @@ def get_supabase() -> Optional[Client]:
         return _sb_client
 
 
-def _parse_dt(value) -> Optional[datetime]:
+def _parse_dt(value) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -103,7 +102,7 @@ class ProjectRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Project.model_validate(_first(result.data))
 
-    def get(self, project_id: UUID, owner_id: str) -> Optional[Project]:
+    def get(self, project_id: UUID, owner_id: str) -> Project | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -128,12 +127,7 @@ class ProjectRepo(_Repo):
     def update(self, project: Project, owner_id: str) -> Project:
         self._verify_owner(str(project.id), owner_id)
         data = project.model_dump(mode="json")
-        result = (
-            self.client.table(self.table)
-            .update(data)
-            .eq("id", str(project.id))
-            .execute()
-        )
+        result = self.client.table(self.table).update(data).eq("id", str(project.id)).execute()
         return Project.model_validate(_first(result.data))
 
     def delete(self, project_id: UUID, owner_id: str) -> None:
@@ -167,13 +161,8 @@ class WorkRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Work.model_validate(_first(result.data))
 
-    def get(self, work_id: UUID, owner_id: str) -> Optional[Work]:
-        result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("id", str(work_id))
-            .execute()
-        )
+    def get(self, work_id: UUID, owner_id: str) -> Work | None:
+        result = self.client.table(self.table).select("*").eq("id", str(work_id)).execute()
         if not result.data:
             return None
         self._verify_project(UUID(result.data[0]["project_id"]), owner_id)
@@ -193,12 +182,7 @@ class WorkRepo(_Repo):
     def update(self, work: Work, owner_id: str) -> Work:
         self._verify_project(work.project_id, owner_id)
         data = work.model_dump(mode="json")
-        result = (
-            self.client.table(self.table)
-            .update(data)
-            .eq("id", str(work.id))
-            .execute()
-        )
+        result = self.client.table(self.table).update(data).eq("id", str(work.id)).execute()
         return Work.model_validate(_first(result.data))
 
     def delete(self, work_id: UUID, owner_id: str) -> None:
@@ -217,12 +201,7 @@ class WorkRepo(_Repo):
             raise PermissionError("project not found or not owned by caller")
 
     def _verify_work_owner(self, work_id: UUID, owner_id: str) -> None:
-        w = (
-            self.client.table(self.table)
-            .select("project_id")
-            .eq("id", str(work_id))
-            .execute()
-        )
+        w = self.client.table(self.table).select("project_id").eq("id", str(work_id)).execute()
         if not w.data:
             raise ValueError("work not found")
         self._verify_project(UUID(w.data[0]["project_id"]), owner_id)
@@ -243,13 +222,8 @@ class ArtifactRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Artifact.model_validate(_first(result.data))
 
-    def get(self, artifact_id: UUID, owner_id: str) -> Optional[Artifact]:
-        result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("id", str(artifact_id))
-            .execute()
-        )
+    def get(self, artifact_id: UUID, owner_id: str) -> Artifact | None:
+        result = self.client.table(self.table).select("*").eq("id", str(artifact_id)).execute()
         if not result.data:
             return None
         self._verify_work_owner(UUID(result.data[0]["work_id"]), owner_id)
@@ -271,12 +245,7 @@ class ArtifactRepo(_Repo):
         self.client.table(self.table).delete().eq("id", str(artifact_id)).execute()
 
     def _verify_work_owner(self, work_id: UUID, owner_id: str) -> None:
-        w = (
-            self.client.table("works")
-            .select("project_id")
-            .eq("id", str(work_id))
-            .execute()
-        )
+        w = self.client.table("works").select("project_id").eq("id", str(work_id)).execute()
         if not w.data:
             raise ValueError("work not found")
         proj = (
@@ -290,12 +259,7 @@ class ArtifactRepo(_Repo):
             raise PermissionError("work does not belong to caller's project")
 
     def _verify_artifact_owner(self, artifact_id: UUID, owner_id: str) -> None:
-        a = (
-            self.client.table(self.table)
-            .select("work_id")
-            .eq("id", str(artifact_id))
-            .execute()
-        )
+        a = self.client.table(self.table).select("work_id").eq("id", str(artifact_id)).execute()
         if not a.data:
             raise ValueError("artifact not found")
         self._verify_work_owner(UUID(a.data[0]["work_id"]), owner_id)
@@ -316,13 +280,8 @@ class VersionRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Version.model_validate(_first(result.data))
 
-    def get(self, version_id: UUID, owner_id: str) -> Optional[Version]:
-        result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("id", str(version_id))
-            .execute()
-        )
+    def get(self, version_id: UUID, owner_id: str) -> Version | None:
+        result = self.client.table(self.table).select("*").eq("id", str(version_id)).execute()
         if not result.data:
             return None
         self._verify_artifact_owner(UUID(result.data[0]["artifact_id"]), owner_id)
@@ -339,7 +298,7 @@ class VersionRepo(_Repo):
         )
         return [Version.model_validate(r) for r in result.data]
 
-    def get_latest(self, artifact_id: UUID, owner_id: str) -> Optional[Version]:
+    def get_latest(self, artifact_id: UUID, owner_id: str) -> Version | None:
         self._verify_artifact_owner(artifact_id, owner_id)
         result = (
             self.client.table(self.table)
@@ -354,20 +313,10 @@ class VersionRepo(_Repo):
         return Version.model_validate(result.data[0])
 
     def _verify_artifact_owner(self, artifact_id: UUID, owner_id: str) -> None:
-        a = (
-            self.client.table("artifacts")
-            .select("work_id")
-            .eq("id", str(artifact_id))
-            .execute()
-        )
+        a = self.client.table("artifacts").select("work_id").eq("id", str(artifact_id)).execute()
         if not a.data:
             raise ValueError("artifact not found")
-        w = (
-            self.client.table("works")
-            .select("project_id")
-            .eq("id", a.data[0]["work_id"])
-            .execute()
-        )
+        w = self.client.table("works").select("project_id").eq("id", a.data[0]["work_id"]).execute()
         if not w.data:
             raise ValueError("work not found")
         proj = (
@@ -396,9 +345,7 @@ class EntityRepo(_Repo):
         result = self.client.table(self.table).insert(row).execute()
         return self._row_to_entity(_first(result.data))
 
-    def create_many(
-        self, entities: list[Entity], owner_id: str
-    ) -> list[Entity]:
+    def create_many(self, entities: list[Entity], owner_id: str) -> list[Entity]:
         if not entities:
             return []
         version_id = entities[0].version_id
@@ -408,21 +355,12 @@ class EntityRepo(_Repo):
         rows = [self._entity_to_row(entity) for entity in entities]
         created: list[Entity] = []
         for start in range(0, len(rows), 500):
-            result = (
-                self.client.table(self.table)
-                .insert(rows[start : start + 500])
-                .execute()
-            )
+            result = self.client.table(self.table).insert(rows[start : start + 500]).execute()
             created.extend(self._row_to_entity(row) for row in result.data)
         return created
 
-    def get(self, entity_id: UUID, owner_id: str) -> Optional[Entity]:
-        result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("id", str(entity_id))
-            .execute()
-        )
+    def get(self, entity_id: UUID, owner_id: str) -> Entity | None:
+        result = self.client.table(self.table).select("*").eq("id", str(entity_id)).execute()
         if not result.data:
             return None
         self._verify_version_owner(UUID(result.data[0]["version_id"]), owner_id)
@@ -431,20 +369,12 @@ class EntityRepo(_Repo):
     def list_by_version(self, version_id: UUID, owner_id: str) -> list[Entity]:
         self._verify_version_owner(version_id, owner_id)
         result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("version_id", str(version_id))
-            .execute()
+            self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
         )
         return [self._row_to_entity(r) for r in result.data]
 
     def delete(self, entity_id: UUID, owner_id: str) -> None:
-        e = (
-            self.client.table(self.table)
-            .select("version_id")
-            .eq("id", str(entity_id))
-            .execute()
-        )
+        e = self.client.table(self.table).select("version_id").eq("id", str(entity_id)).execute()
         if not e.data:
             raise ValueError("entity not found")
         self._verify_version_owner(UUID(e.data[0]["version_id"]), owner_id)
@@ -467,12 +397,7 @@ class EntityRepo(_Repo):
         )
         if not a.data:
             raise ValueError("artifact not found")
-        w = (
-            self.client.table("works")
-            .select("project_id")
-            .eq("id", a.data[0]["work_id"])
-            .execute()
-        )
+        w = self.client.table("works").select("project_id").eq("id", a.data[0]["work_id"]).execute()
         if not w.data:
             raise ValueError("work not found")
         proj = (
@@ -582,13 +507,8 @@ class InsightRepo(_Repo):
         result = self.client.table(self.table).insert(row).execute()
         return Insight.model_validate(_first(result.data))
 
-    def get(self, insight_id: UUID, owner_id: str) -> Optional[Insight]:
-        result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("id", str(insight_id))
-            .execute()
-        )
+    def get(self, insight_id: UUID, owner_id: str) -> Insight | None:
+        result = self.client.table(self.table).select("*").eq("id", str(insight_id)).execute()
         if not result.data:
             return None
         self._verify_version_owner(UUID(result.data[0]["version_id"]), owner_id)
@@ -597,20 +517,12 @@ class InsightRepo(_Repo):
     def list_by_version(self, version_id: UUID, owner_id: str) -> list[Insight]:
         self._verify_version_owner(version_id, owner_id)
         result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("version_id", str(version_id))
-            .execute()
+            self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
         )
         return [Insight.model_validate(r) for r in result.data]
 
     def delete(self, insight_id: UUID, owner_id: str) -> None:
-        i = (
-            self.client.table(self.table)
-            .select("version_id")
-            .eq("id", str(insight_id))
-            .execute()
-        )
+        i = self.client.table(self.table).select("version_id").eq("id", str(insight_id)).execute()
         if not i.data:
             raise ValueError("insight not found")
         self._verify_version_owner(UUID(i.data[0]["version_id"]), owner_id)
@@ -633,12 +545,7 @@ class InsightRepo(_Repo):
         )
         if not a.data:
             raise ValueError("artifact not found")
-        w = (
-            self.client.table("works")
-            .select("project_id")
-            .eq("id", a.data[0]["work_id"])
-            .execute()
-        )
+        w = self.client.table("works").select("project_id").eq("id", a.data[0]["work_id"]).execute()
         if not w.data:
             raise ValueError("work not found")
         proj = (
@@ -667,13 +574,8 @@ class AlignmentRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Alignment.model_validate(_first(result.data))
 
-    def get(self, alignment_id: UUID, owner_id: str) -> Optional[Alignment]:
-        result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("id", str(alignment_id))
-            .execute()
-        )
+    def get(self, alignment_id: UUID, owner_id: str) -> Alignment | None:
+        result = self.client.table(self.table).select("*").eq("id", str(alignment_id)).execute()
         if not result.data:
             return None
         self._verify_version_owner(UUID(result.data[0]["version_id"]), owner_id)
@@ -682,19 +584,13 @@ class AlignmentRepo(_Repo):
     def list_by_version(self, version_id: UUID, owner_id: str) -> list[Alignment]:
         self._verify_version_owner(version_id, owner_id)
         result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("version_id", str(version_id))
-            .execute()
+            self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
         )
         return [Alignment.model_validate(r) for r in result.data]
 
     def delete(self, alignment_id: UUID, owner_id: str) -> None:
         al = (
-            self.client.table(self.table)
-            .select("version_id")
-            .eq("id", str(alignment_id))
-            .execute()
+            self.client.table(self.table).select("version_id").eq("id", str(alignment_id)).execute()
         )
         if not al.data:
             raise ValueError("alignment not found")
@@ -718,12 +614,7 @@ class AlignmentRepo(_Repo):
         )
         if not a.data:
             raise ValueError("artifact not found")
-        w = (
-            self.client.table("works")
-            .select("project_id")
-            .eq("id", a.data[0]["work_id"])
-            .execute()
-        )
+        w = self.client.table("works").select("project_id").eq("id", a.data[0]["work_id"]).execute()
         if not w.data:
             raise ValueError("work not found")
         proj = (
@@ -752,13 +643,8 @@ class WorkflowRepo(_Repo):
         result = self.client.table(self.table).insert(data).execute()
         return Workflow.model_validate(_first(result.data))
 
-    def get(self, workflow_id: UUID, owner_id: str) -> Optional[Workflow]:
-        result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("id", str(workflow_id))
-            .execute()
-        )
+    def get(self, workflow_id: UUID, owner_id: str) -> Workflow | None:
+        result = self.client.table(self.table).select("*").eq("id", str(workflow_id)).execute()
         if not result.data:
             return None
         self._verify_project_owner(UUID(result.data[0]["project_id"]), owner_id)
@@ -776,12 +662,7 @@ class WorkflowRepo(_Repo):
         return [Workflow.model_validate(r) for r in result.data]
 
     def delete(self, workflow_id: UUID, owner_id: str) -> None:
-        wf = (
-            self.client.table(self.table)
-            .select("project_id")
-            .eq("id", str(workflow_id))
-            .execute()
-        )
+        wf = self.client.table(self.table).select("project_id").eq("id", str(workflow_id)).execute()
         if not wf.data:
             raise ValueError("workflow not found")
         self._verify_project_owner(UUID(wf.data[0]["project_id"]), owner_id)
@@ -814,13 +695,8 @@ class JobRepo(_Repo):
         result = self.client.table(self.table).insert(row).execute()
         return self._row_to_job(_first(result.data))
 
-    def get(self, job_id: UUID, owner_id: str) -> Optional[Job]:
-        result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("id", str(job_id))
-            .execute()
-        )
+    def get(self, job_id: UUID, owner_id: str) -> Job | None:
+        result = self.client.table(self.table).select("*").eq("id", str(job_id)).execute()
         if not result.data:
             return None
         self._verify_workflow_owner(UUID(result.data[0]["workflow_id"]), owner_id)
@@ -838,27 +714,17 @@ class JobRepo(_Repo):
         return [self._row_to_job(r) for r in result.data]
 
     def update_stage(self, job_id: UUID, stage: JobStage, *, owner_id: str, **kwargs) -> Job:
-        j = (
-            self.client.table(self.table)
-            .select("workflow_id")
-            .eq("id", str(job_id))
-            .execute()
-        )
+        j = self.client.table(self.table).select("workflow_id").eq("id", str(job_id)).execute()
         if not j.data:
             raise ValueError("job not found")
         self._verify_workflow_owner(UUID(j.data[0]["workflow_id"]), owner_id)
 
         patch: dict = {"stage": stage.value}
         patch.update(kwargs)
-        result = (
-            self.client.table(self.table)
-            .update(patch)
-            .eq("id", str(job_id))
-            .execute()
-        )
+        result = self.client.table(self.table).update(patch).eq("id", str(job_id)).execute()
         return self._row_to_job(_first(result.data))
 
-    def claim(self, job_id: UUID, worker_id: str) -> Optional[Job]:
+    def claim(self, job_id: UUID, worker_id: str) -> Job | None:
         result = (
             self.client.table(self.table)
             .select("*")
@@ -875,7 +741,7 @@ class JobRepo(_Repo):
                 {
                     "stage": JobStage.claimed.value,
                     "worker_id": worker_id,
-                    "lease_expires_at": datetime.now(timezone.utc).isoformat(),
+                    "lease_expires_at": datetime.now(UTC).isoformat(),
                 }
             )
             .eq("id", str(job_id))
@@ -888,10 +754,7 @@ class JobRepo(_Repo):
 
     def _verify_workflow_owner(self, workflow_id: UUID, owner_id: str) -> None:
         wf = (
-            self.client.table("workflows")
-            .select("project_id")
-            .eq("id", str(workflow_id))
-            .execute()
+            self.client.table("workflows").select("project_id").eq("id", str(workflow_id)).execute()
         )
         if not wf.data:
             raise ValueError("workflow not found")

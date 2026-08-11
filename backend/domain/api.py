@@ -1,13 +1,14 @@
 """
 FastAPI router — domain model API endpoints for the understand workflow slice.
 """
+
 import mimetypes
 import os
 from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from auth_utils import limiter, verify_token
 from domain.models import (
@@ -80,7 +81,7 @@ class CreateWorkflowBody(BaseModel):
     version_id: str
     project_id: str
     action: str = "transform"
-    parameters: dict = {}
+    parameters: dict = Field(default_factory=dict)
 
 
 class JobStateResponse(BaseModel):
@@ -115,14 +116,34 @@ def _signed_url(storage_response) -> str:
     """Normalize the response shape across supabase-py releases."""
     data = getattr(storage_response, "data", storage_response) or {}
     if isinstance(data, dict):
-        value = (
-            data.get("signedURL")
-            or data.get("signedUrl")
-            or data.get("signed_url")
-        )
+        value = data.get("signedURL") or data.get("signedUrl") or data.get("signed_url")
         if value:
             return str(value)
     raise ValueError("Storage provider did not return a signed URL")
+
+
+def _require_version_in_project(
+    sb,
+    version_id: UUID,
+    project_id: UUID,
+    owner_id: str,
+) -> Version:
+    """Verify both ownership and project membership before queuing work."""
+    version = VersionRepo(sb).get(version_id, owner_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+    artifact = ArtifactRepo(sb).get(version.artifact_id, owner_id)
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    work = WorkRepo(sb).get(artifact.work_id, owner_id)
+    if not work:
+        raise HTTPException(status_code=404, detail="Work not found")
+    if work.project_id != project_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Version does not belong to this project",
+        )
+    return version
 
 
 # ---------------------------------------------------------------------------
@@ -140,9 +161,7 @@ async def create_project(
     sb = _sb()
     owner_id = _owner_id(auth)
     repo = ProjectRepo(sb)
-    project = Project(
-        owner_id=owner_id, name=body.name, description=body.description
-    )
+    project = Project(owner_id=owner_id, name=body.name, description=body.description)
     try:
         return repo.create(project)
     except PermissionError as e:
@@ -189,6 +208,73 @@ async def create_work(
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/projects/{project_id}/works")
+async def list_works(
+    project_id: UUID,
+    auth=Depends(verify_token),
+):
+    sb = _sb()
+    owner_id = _owner_id(auth)
+    try:
+        return WorkRepo(sb).list_by_project(project_id, owner_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get("/works/{work_id}")
+async def get_work_bundle(
+    work_id: UUID,
+    auth=Depends(verify_token),
+):
+    """Return a work and its complete immutable artifact/version graph."""
+    sb = _sb()
+    owner_id = _owner_id(auth)
+    try:
+        work = WorkRepo(sb).get(work_id, owner_id)
+        if not work:
+            raise HTTPException(status_code=404, detail="Work not found")
+
+        artifacts = ArtifactRepo(sb).list_by_work(work_id, owner_id)
+        items = []
+        version_repo = VersionRepo(sb)
+        for artifact in artifacts:
+            versions = version_repo.list_by_artifact(artifact.id, owner_id)
+            latest = versions[0] if versions else None
+            signed_url = None
+            if latest:
+                response = sb.storage.from_(latest.storage_bucket).create_signed_url(
+                    latest.storage_key, 3600
+                )
+                signed_url = _signed_url(response)
+            items.append(
+                {
+                    "artifact": artifact,
+                    "versions": versions,
+                    "latest_version": latest,
+                    "signed_url": signed_url,
+                }
+            )
+        version_ids = {version.id for item in items for version in item["versions"]}
+        workflows = [
+            workflow
+            for workflow in WorkflowRepo(sb).list_by_project(work.project_id, owner_id)
+            if workflow.target_version_id in version_ids
+        ]
+        jobs = [
+            job
+            for workflow in workflows
+            for job in JobRepo(sb).list_by_workflow(workflow.id, owner_id)
+        ]
+        jobs.sort(key=lambda job: job.created_at, reverse=True)
+        return {"work": work, "artifacts": items, "jobs": jobs}
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -239,14 +325,10 @@ async def upload_artifact(
             work = Work(project_id=project_id, title=title)
             work = work_repo.create(work, owner_id)
 
-        max_upload_bytes = int(
-            os.environ.get("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024))
-        )
+        max_upload_bytes = int(os.environ.get("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
         raw = await file.read(max_upload_bytes + 1)
         if len(raw) > max_upload_bytes:
-            raise HTTPException(
-                status_code=413, detail="File exceeds upload size limit"
-            )
+            raise HTTPException(status_code=413, detail="File exceeds upload size limit")
         mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
 
         artifact = Artifact(
@@ -260,9 +342,7 @@ async def upload_artifact(
         storage_key = f"{owner_id}/{project_id}/{artifact.id}/{uuid4().hex}.{ext}"
         bucket = "artifacts"
 
-        sb.storage.from_(bucket).upload(
-            storage_key, raw, {"content-type": mime_type}
-        )
+        sb.storage.from_(bucket).upload(storage_key, raw, {"content-type": mime_type})
 
         version = Version(
             artifact_id=artifact.id,
@@ -301,10 +381,7 @@ async def create_understand_workflow(
     project_id = UUID(body.project_id)
 
     try:
-        ver_repo = VersionRepo(sb)
-        version = ver_repo.get(version_id, owner_id)
-        if not version:
-            raise HTTPException(status_code=404, detail="Version not found")
+        version = _require_version_in_project(sb, version_id, project_id, owner_id)
 
         wf_repo = WorkflowRepo(sb)
         workflow = Workflow(
@@ -316,11 +393,9 @@ async def create_understand_workflow(
 
         job = Job(
             workflow_id=workflow.id,
-            capability=Capability(name="transcribe", version="1.0"),
+            capability=Capability(name="understand", version="1.0"),
             input_version_ids=[version_id],
-            parameters={
-                "fmt": Path(version.label).suffix.lstrip(".").lower() or "wav"
-            },
+            parameters={"fmt": Path(version.label).suffix.lstrip(".").lower() or "wav"},
             created_by=owner_id,
         )
         job_repo = JobRepo(sb)
@@ -387,10 +462,7 @@ async def create_analyze_workflow(
     project_id = UUID(body.project_id)
 
     try:
-        ver_repo = VersionRepo(sb)
-        version = ver_repo.get(version_id, owner_id)
-        if not version:
-            raise HTTPException(status_code=404, detail="Version not found")
+        _require_version_in_project(sb, version_id, project_id, owner_id)
 
         wf_repo = WorkflowRepo(sb)
         workflow = Workflow(
@@ -513,10 +585,7 @@ async def create_correct_workflow(
     project_id = UUID(body.project_id)
 
     try:
-        ver_repo = VersionRepo(sb)
-        version = ver_repo.get(version_id, owner_id)
-        if not version:
-            raise HTTPException(status_code=404, detail="Version not found")
+        _require_version_in_project(sb, version_id, project_id, owner_id)
 
         wf_repo = WorkflowRepo(sb)
         workflow = Workflow(
@@ -569,13 +638,8 @@ async def create_compare_workflow(
     project_id = UUID(body.project_id)
 
     try:
-        ver_repo = VersionRepo(sb)
-        version_a = ver_repo.get(version_id_a, owner_id)
-        if not version_a:
-            raise HTTPException(status_code=404, detail="Version A not found")
-        version_b = ver_repo.get(version_id_b, owner_id)
-        if not version_b:
-            raise HTTPException(status_code=404, detail="Version B not found")
+        _require_version_in_project(sb, version_id_a, project_id, owner_id)
+        _require_version_in_project(sb, version_id_b, project_id, owner_id)
 
         wf_repo = WorkflowRepo(sb)
         workflow = Workflow(
@@ -621,10 +685,7 @@ async def create_create_workflow(
     project_id = UUID(body.project_id)
 
     try:
-        ver_repo = VersionRepo(sb)
-        version = ver_repo.get(version_id, owner_id)
-        if not version:
-            raise HTTPException(status_code=404, detail="Version not found")
+        _require_version_in_project(sb, version_id, project_id, owner_id)
 
         wf_repo = WorkflowRepo(sb)
         workflow = Workflow(

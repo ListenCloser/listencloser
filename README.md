@@ -15,7 +15,8 @@ data.
 - **Transform** — Audio → MIDI notes → rendered WAV and MusicXML
 - **Visualize** — Piano roll, waveform, and sheet music from real outputs
 - **Analyze** — Key, tempo, meter, chords, Roman numerals, and cadences
-- **Persist** — Immutable artifact versions, lineage, provenance, and durable jobs
+- **Persist** — Reopen works backed by immutable versions, lineage, provenance, and durable jobs
+- **Command** — Summarize, focus, import, and switch playback from an honest command surface
 
 ## Architecture
 
@@ -51,10 +52,11 @@ docs/                   Documentation
 
 **Key Rule:** The browser never talks to the Oracle backend directly. All backend calls go through `app/api/*` → `lib/backend.ts` (`proxyToBackend`), keeping the VM URL/key off the client.
 
-The canonical `/` route is a workspace with unified transport, shared selection,
-and domain entities (Projects, Works, Artifacts, Versions, Entities, Insights,
-Alignments). See `docs/ARCHITECTURE.md` for current runtime truth and
-`docs/ROADMAP.md` for the product sequence.
+The canonical `/` route is a workspace with a persistent library, unified
+transport, shared selection, and domain entities (Projects, Works, Artifacts,
+Versions, Entities, Insights, Alignments). See `docs/ARCHITECTURE.md` for current
+runtime truth, `docs/AUDIT.md` for the rewrite boundary, and `docs/ROADMAP.md`
+for the product sequence.
 
 ## Running Tests
 

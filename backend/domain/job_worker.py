@@ -29,9 +29,10 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid4
 
 from .models import Capability, Job, JobLifecycle
@@ -39,18 +40,18 @@ from .models import Capability, Job, JobLifecycle
 logger = logging.getLogger("job_worker")
 
 
-def _parse_datetime(val: Any) -> Optional[datetime]:
+def _parse_datetime(val: Any) -> datetime | None:
     """Coerce a DB value into a timezone-aware ``datetime`` or ``None``."""
     if val is None:
         return None
     if isinstance(val, datetime):
         if val.tzinfo is None:
-            return val.replace(tzinfo=timezone.utc)
+            return val.replace(tzinfo=UTC)
         return val
     try:
         dt = datetime.fromisoformat(str(val))
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, TypeError):
         return None
@@ -70,12 +71,12 @@ def _parse_jsonb(val: Any) -> dict:
     return {}
 
 
-def _parse_uuid_list(val: Any) -> List[UUID]:
+def _parse_uuid_list(val: Any) -> list[UUID]:
     """Parse a Postgres ``uuid[]`` column into a list of ``UUID`` objects."""
     if val is None:
         return []
     if isinstance(val, list):
-        out: List[UUID] = []
+        out: list[UUID] = []
         for v in val:
             if v is None:
                 continue
@@ -119,7 +120,7 @@ class JobWorker:
         self._poll_interval = poll_interval_sec
         self._max_workers = max_workers
 
-        self._capabilities: Dict[str, Callable[..., List[str]]] = {}
+        self._capabilities: dict[str, Callable[..., list[str]]] = {}
         self._running = False
         self._stop_event = threading.Event()
 
@@ -145,9 +146,7 @@ class JobWorker:
             url = os.environ.get("SUPABASE_URL")
             key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
             if not url or not key:
-                raise RuntimeError(
-                    "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set"
-                )
+                raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
             from supabase import create_client  # type: ignore[import-untyped]
 
             self._client = create_client(url, key)
@@ -157,9 +156,7 @@ class JobWorker:
     # Capability registry
     # ------------------------------------------------------------------
 
-    def register(
-        self, name: str, version: str, handler: Callable[..., List[str]]
-    ) -> None:
+    def register(self, name: str, version: str, handler: Callable[..., list[str]]) -> None:
         """Register a handler for a capability (name + version).
 
         ``handler(job: Job, client) -> list[str]``
@@ -181,7 +178,7 @@ class JobWorker:
         whose stage is ``claimed`` or ``running``, then clears the lease
         and worker assignment so the job will be picked up again.
         """
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             result = (
                 self.client.table("jobs")
@@ -215,9 +212,7 @@ class JobWorker:
         Returns ``True`` if exactly one row was updated (meaning this
         worker won the race for the job).
         """
-        expires = (
-            datetime.now(timezone.utc) + timedelta(seconds=self._lease_duration)
-        ).isoformat()
+        expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
         result = (
             self.client.table("jobs")
             .update(
@@ -235,25 +230,21 @@ class JobWorker:
 
     def _mark_running(self, job_id: str) -> None:
         """Transition a claimed job into ``running`` state."""
-        now = datetime.now(timezone.utc).isoformat()
-        self.client.table("jobs").update(
-            {"stage": "running", "started_at": now}
-        ).eq("id", job_id).eq("worker_id", self._worker_id).execute()
+        now = datetime.now(UTC).isoformat()
+        self.client.table("jobs").update({"stage": "running", "started_at": now}).eq(
+            "id", job_id
+        ).eq("worker_id", self._worker_id).execute()
 
     def _renew_lease(self, job_id: str) -> None:
         """Extend the lease on a running job (heartbeat)."""
-        expires = (
-            datetime.now(timezone.utc) + timedelta(seconds=self._lease_duration)
-        ).isoformat()
-        self.client.table("jobs").update(
-            {"lease_expires_at": expires}
-        ).eq("id", job_id).eq("worker_id", self._worker_id).execute()
+        expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
+        self.client.table("jobs").update({"lease_expires_at": expires}).eq("id", job_id).eq(
+            "worker_id", self._worker_id
+        ).execute()
 
-    def _mark_succeeded(
-        self, job_id: str, output_version_ids: List[str]
-    ) -> None:
+    def _mark_succeeded(self, job_id: str, output_version_ids: list[str]) -> None:
         """Mark a job as successfully completed."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.client.table("jobs").update(
             {
                 "stage": "succeeded",
@@ -286,11 +277,9 @@ class JobWorker:
             }
         ).eq("id", job_id).execute()
 
-    def _mark_failed(
-        self, job_id: str, error_message: str, error_details: dict
-    ) -> None:
+    def _mark_failed(self, job_id: str, error_message: str, error_details: dict) -> None:
         """Mark a job as permanently failed (retries exhausted)."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.client.table("jobs").update(
             {
                 "stage": "failed",
@@ -308,12 +297,7 @@ class JobWorker:
     def _check_cancelled(self, job_id: str) -> bool:
         """Return ``True`` if the job has been externally set to ``cancelled``."""
         try:
-            result = (
-                self.client.table("jobs")
-                .select("stage")
-                .eq("id", job_id)
-                .execute()
-            )
+            result = self.client.table("jobs").select("stage").eq("id", job_id).execute()
             if result.data:
                 return result.data[0].get("stage") == "cancelled"
         except Exception:
@@ -347,9 +331,7 @@ class JobWorker:
     # Progress updates (public — called by handlers)
     # ------------------------------------------------------------------
 
-    def update_progress(
-        self, job_id: str, progress: float, message: str = ""
-    ) -> None:
+    def update_progress(self, job_id: str, progress: float, message: str = "") -> None:
         """Update the progress and status message of a running job.
 
         Safe to call from capability handlers during long-running work.
@@ -357,13 +339,11 @@ class JobWorker:
         """
         clamped = max(0.0, min(1.0, float(progress)))
         try:
-            self.client.table("jobs").update(
-                {"progress": clamped, "status_message": message}
-            ).eq("id", job_id).eq("worker_id", self._worker_id).execute()
+            self.client.table("jobs").update({"progress": clamped, "status_message": message}).eq(
+                "id", job_id
+            ).eq("worker_id", self._worker_id).execute()
         except Exception:
-            logger.exception(
-                "update_progress_failed", extra={"job_id": job_id}
-            )
+            logger.exception("update_progress_failed", extra={"job_id": job_id})
 
     # ------------------------------------------------------------------
     # DB row → domain model
@@ -399,7 +379,7 @@ class JobWorker:
             error=row.get("error_message"),
             error_details=_parse_jsonb(row.get("error_details")),
             provenance=_parse_jsonb(row.get("provenance")),
-            created_at=_parse_datetime(row.get("created_at")) or datetime.now(timezone.utc),
+            created_at=_parse_datetime(row.get("created_at")) or datetime.now(UTC),
             created_by=row.get("created_by"),
         )
 
@@ -407,7 +387,7 @@ class JobWorker:
     # Polling
     # ------------------------------------------------------------------
 
-    def _poll_jobs(self) -> Optional[dict]:
+    def _poll_jobs(self) -> dict | None:
         """Return the oldest ``queued`` job row, or ``None`` if the queue
         is empty."""
         try:
@@ -442,7 +422,7 @@ class JobWorker:
                     "cache_key": job_row.get("cache_key"),
                 },
             )
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             self.client.table("jobs").update(
                 {
                     "stage": "succeeded",
@@ -489,12 +469,8 @@ class JobWorker:
         try:
             job_obj = self._row_to_job(job_row)
         except Exception as exc:
-            logger.exception(
-                "job_model_parse_failed", extra={"job_id": job_id}
-            )
-            self._mark_failed(
-                job_id, f"Failed to parse job row into Job model: {exc}", {}
-            )
+            logger.exception("job_model_parse_failed", extra={"job_id": job_id})
+            self._mark_failed(job_id, f"Failed to parse job row into Job model: {exc}", {})
             return
 
         # --- Heartbeat thread ---
@@ -504,20 +480,14 @@ class JobWorker:
             while not heartbeat_stop.wait(self._heartbeat_interval):
                 try:
                     if self._check_cancelled(job_id):
-                        logger.info(
-                            "cancelled_during_run", extra={"job_id": job_id}
-                        )
+                        logger.info("cancelled_during_run", extra={"job_id": job_id})
                         heartbeat_stop.set()
                         return
                     self._renew_lease(job_id)
                 except Exception:
-                    logger.exception(
-                        "heartbeat_failed", extra={"job_id": job_id}
-                    )
+                    logger.exception("heartbeat_failed", extra={"job_id": job_id})
 
-        heartbeat_thread = threading.Thread(
-            target=_heartbeat_loop, daemon=True
-        )
+        heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
         heartbeat_thread.start()
 
         # --- Execute handler ---
@@ -555,14 +525,10 @@ class JobWorker:
                     },
                 )
                 time.sleep(delay)
-                self._requeue_job(
-                    job_id, retry_count, error_message, error_details
-                )
+                self._requeue_job(job_id, retry_count, error_message, error_details)
             else:
                 self._mark_failed(job_id, error_message, error_details)
-                logger.info(
-                    "job_exhausted_retries", extra={"job_id": job_id}
-                )
+                logger.info("job_exhausted_retries", extra={"job_id": job_id})
 
         finally:
             heartbeat_stop.set()
@@ -608,15 +574,11 @@ class JobWorker:
 
                 self._stop_event.wait(self._poll_interval)
 
-            logger.info(
-                "worker_draining", extra={"worker_id": self._worker_id}
-            )
+            logger.info("worker_draining", extra={"worker_id": self._worker_id})
             executor.shutdown(wait=True)
             logger.info("worker_stopped", extra={"worker_id": self._worker_id})
         except Exception:
-            logger.exception(
-                "worker_crashed", extra={"worker_id": self._worker_id}
-            )
+            logger.exception("worker_crashed", extra={"worker_id": self._worker_id})
             executor.shutdown(wait=False)
             raise
 
@@ -626,9 +588,7 @@ class JobWorker:
         Safe to call from any thread.  The main loop will complete the
         in-progress job, drain the thread pool, and return.
         """
-        logger.info(
-            "worker_stop_requested", extra={"worker_id": self._worker_id}
-        )
+        logger.info("worker_stop_requested", extra={"worker_id": self._worker_id})
         self._stop_event.set()
 
 

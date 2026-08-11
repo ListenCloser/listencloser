@@ -4,54 +4,11 @@ import { type ReactNode } from "react";
 import { TransportProvider } from "@/lib/stores/transport";
 import { SelectionProvider } from "@/lib/stores/selection";
 import { TimelineProvider } from "@/lib/stores/timeline";
-import { WorkspaceProvider, useWorkspace, type WorkspaceMode } from "@/lib/stores/workspace";
+import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
 import InspectorPanel from "./InspectorPanel";
-
-const MODES: { id: WorkspaceMode; label: string }[] = [
-  { id: "explore", label: "Explore" },
-  { id: "compare", label: "Compare" },
-  { id: "correct", label: "Correct" },
-  { id: "create", label: "Create" },
-  { id: "history", label: "History" },
-];
-
-function ModeSelector() {
-  const { workspace, setMode } = useWorkspace();
-
-  return (
-    <div style={{ display: "flex", gap: "var(--s-1)" }}>
-      {MODES.map((m) => (
-        <button
-          key={m.id}
-          onClick={() => setMode(m.id)}
-          style={{
-            padding: "4px 12px",
-            borderRadius: "var(--r-full)",
-            border: `1px solid ${workspace.mode === m.id ? "transparent" : "var(--border)"}`,
-            background:
-              workspace.mode === m.id
-                ? "var(--accent)"
-                : "transparent",
-            color:
-              workspace.mode === m.id
-                ? "var(--bg)"
-                : "var(--muted)",
-            fontSize: "var(--fs-xs)",
-            fontWeight: "var(--fw-medium)",
-            cursor: "pointer",
-            fontFamily: "inherit",
-            transition: "all var(--dur) var(--ease)",
-          }}
-        >
-          {m.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolean; projectName?: string }) {
   const { workspace, toggleInspector } = useWorkspace();
@@ -84,7 +41,11 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
           {projectName || "hello-ai"}
         </div>
 
-        <ModeSelector />
+        {workspace.activeWorkId && (
+          <span className="badge" style={{ color: "var(--success)", background: "var(--success-soft)" }}>
+            Persisted session
+          </span>
+        )}
 
         <div style={{ flex: 1 }} />
 
@@ -102,7 +63,7 @@ function WorkspaceContent({ signedIn = false, projectName }: { signedIn?: boolea
       <TransportBar />
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <LibraryPanel signedIn={signedIn} projectName={projectName} />
+        <LibraryPanel signedIn={signedIn} />
 
         <RepresentationStack />
 

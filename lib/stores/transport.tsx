@@ -16,11 +16,13 @@ type TransportState = {
   loopEnd: number | null;
   loopEnabled: boolean;
   activeSource: PlaybackSource | null;
+  sources: PlaybackSource[];
 };
 
 type TransportContextValue = {
   transport: TransportState;
   setActiveSource: (source: PlaybackSource) => void;
+  replaceSources: (sources: PlaybackSource[], activeId?: string) => void;
   clearActiveSource: () => void;
   play: () => void;
   pause: () => void;
@@ -50,6 +52,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     loopEnd: null,
     loopEnabled: false,
     activeSource: null,
+    sources: [],
   });
 
   useEffect(() => {
@@ -85,7 +88,32 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     const audio = audioRef.current;
     audio.src = source.url;
     audio.load();
-    setTransport((prev) => ({ ...prev, activeSource: source, position: 0, isPlaying: false }));
+    setTransport((prev) => ({
+      ...prev,
+      activeSource: source,
+      sources: prev.sources.some((item) => item.id === source.id)
+        ? prev.sources
+        : [...prev.sources, source],
+      position: 0,
+      isPlaying: false,
+    }));
+  }, []);
+
+  const replaceSources = useCallback((sources: PlaybackSource[], activeId?: string) => {
+    const active = sources.find((item) => item.id === activeId) ?? sources[0] ?? null;
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.src = active?.url ?? "";
+      if (active) audio.load();
+    }
+    setTransport((prev) => ({
+      ...prev,
+      sources,
+      activeSource: active,
+      position: 0,
+      isPlaying: false,
+    }));
   }, []);
 
   const clearActiveSource = useCallback(() => {
@@ -97,6 +125,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     setTransport((prev) => ({
       ...prev,
       activeSource: null,
+      sources: [],
       position: 0,
       isPlaying: false,
     }));
@@ -104,10 +133,10 @@ export function TransportProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio || !transport.activeSource?.url) return;
+    if (!audio || !audio.src) return;
     audio.play().catch(() => {});
     setTransport((prev) => ({ ...prev, isPlaying: true }));
-  }, [transport.activeSource]);
+  }, []);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();
@@ -150,6 +179,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       value={{
         transport,
         setActiveSource,
+        replaceSources,
         clearActiveSource,
         play,
         pause,

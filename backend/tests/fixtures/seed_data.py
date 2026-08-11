@@ -25,7 +25,6 @@ from uuid import UUID, uuid4
 
 from supabase import Client
 
-
 # ---------------------------------------------------------------------------
 # create_test_project
 # ---------------------------------------------------------------------------
@@ -99,12 +98,7 @@ def upload_test_audio(
 
     # Resolve owner_id if not provided
     if owner_id is None:
-        proj = (
-            client.table("projects")
-            .select("owner_id")
-            .eq("id", project_id)
-            .execute()
-        )
+        proj = client.table("projects").select("owner_id").eq("id", project_id).execute()
         if not proj.data:
             raise ValueError(f"project not found: {project_id}")
         owner_id = proj.data[0]["owner_id"]
@@ -187,12 +181,7 @@ def wait_for_job(
     terminal = {"succeeded", "failed", "cancelled"}
 
     while time.monotonic() < deadline:
-        result = (
-            client.table("jobs")
-            .select("*")
-            .eq("id", job_id)
-            .execute()
-        )
+        result = client.table("jobs").select("*").eq("id", job_id).execute()
         if not result.data:
             raise ValueError(f"job not found: {job_id}")
 
@@ -204,6 +193,4 @@ def wait_for_job(
 
         time.sleep(poll_interval)
 
-    raise TimeoutError(
-        f"job {job_id} did not reach a terminal state within {timeout}s"
-    )
+    raise TimeoutError(f"job {job_id} did not reach a terminal state within {timeout}s")

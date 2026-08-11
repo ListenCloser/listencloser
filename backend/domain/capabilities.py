@@ -20,6 +20,7 @@ from domain.models import (
     AlignmentKind,
     Artifact,
     ArtifactKind,
+    Capability,
     Entity,
     EntityKind,
     Insight,
@@ -47,22 +48,46 @@ _STORAGE_BUCKET = "artifacts"
 # ---------------------------------------------------------------------------
 
 
+class _ProgressTable:
+    """Map child-capability progress into a parent workflow interval."""
+
+    def __init__(self, table, base: float, scale: float):
+        self._table = table
+        self._base = base
+        self._scale = scale
+
+    def update(self, data: dict):
+        mapped = dict(data)
+        if "progress" in mapped:
+            mapped["progress"] = self._base + self._scale * float(mapped["progress"])
+        return self._table.update(mapped)
+
+
+class _ProgressClient:
+    """Delegate a Supabase client while remapping updates to the jobs table."""
+
+    def __init__(self, client, base: float, scale: float):
+        self._client = client
+        self._base = base
+        self._scale = scale
+
+    @property
+    def storage(self):
+        return self._client.storage
+
+    def table(self, name: str):
+        table = self._client.table(name)
+        if name == "jobs":
+            return _ProgressTable(table, self._base, self._scale)
+        return table
+
+
 def _resolve_owner_id(client, workflow_id: UUID) -> str:
     """Walk workflow → project → owner_id."""
-    wf = (
-        client.table("workflows")
-        .select("project_id")
-        .eq("id", str(workflow_id))
-        .execute()
-    )
+    wf = client.table("workflows").select("project_id").eq("id", str(workflow_id)).execute()
     if not wf.data:
         raise ValueError(f"workflow {workflow_id} not found")
-    proj = (
-        client.table("projects")
-        .select("owner_id")
-        .eq("id", wf.data[0]["project_id"])
-        .execute()
-    )
+    proj = client.table("projects").select("owner_id").eq("id", wf.data[0]["project_id"]).execute()
     if not proj.data:
         raise ValueError(f"project not found for workflow {workflow_id}")
     return proj.data[0]["owner_id"]
@@ -70,44 +95,40 @@ def _resolve_owner_id(client, workflow_id: UUID) -> str:
 
 def _lookup_version(client, version_id: UUID) -> Version:
     """Load a Version row directly (no owner check — service-role client)."""
-    result = (
-        client.table("artifact_versions")
-        .select("*")
-        .eq("id", str(version_id))
-        .execute()
-    )
+    result = client.table("artifact_versions").select("*").eq("id", str(version_id)).execute()
     if not result.data:
         raise ValueError(f"version {version_id} not found")
     return Version.model_validate(result.data[0])
+
+
+def _artifact_kind_for_version(client, version_id: UUID) -> ArtifactKind:
+    version = _lookup_version(client, version_id)
+    result = client.table("artifacts").select("kind").eq("id", str(version.artifact_id)).execute()
+    if not result.data:
+        raise ValueError(f"artifact {version.artifact_id} not found")
+    return ArtifactKind(result.data[0]["kind"])
 
 
 def _resolve_work_id(client, version_id: UUID) -> UUID:
     """Find the ``work_id`` that owns a version."""
     version = _lookup_version(client, version_id)
     result = (
-        client.table("artifacts")
-        .select("work_id")
-        .eq("id", str(version.artifact_id))
-        .execute()
+        client.table("artifacts").select("work_id").eq("id", str(version.artifact_id)).execute()
     )
     if not result.data:
         raise ValueError(f"artifact {version.artifact_id} not found")
     return UUID(result.data[0]["work_id"])
 
 
-def _update_progress(
-    client, job_id: UUID, progress: float, message: str = ""
-) -> None:
+def _update_progress(client, job_id: UUID, progress: float, message: str = "") -> None:
     """Update progress and status message on the jobs table."""
     clamped = max(0.0, min(1.0, float(progress)))
     try:
-        client.table("jobs").update(
-            {"progress": clamped, "status_message": message}
-        ).eq("id", str(job_id)).execute()
+        client.table("jobs").update({"progress": clamped, "status_message": message}).eq(
+            "id", str(job_id)
+        ).execute()
     except Exception:
-        logger.exception(
-            "update_progress_failed", extra={"job_id": str(job_id)}
-        )
+        logger.exception("update_progress_failed", extra={"job_id": str(job_id)})
 
 
 def _upload_bytes(
@@ -117,9 +138,7 @@ def _upload_bytes(
     data: bytes,
     content_type: str = "application/octet-stream",
 ) -> None:
-    client.storage.from_(bucket).upload(
-        key, data, {"content-type": content_type}
-    )
+    client.storage.from_(bucket).upload(key, data, {"content-type": content_type})
 
 
 def _create_output_version(
@@ -335,14 +354,50 @@ def _extract_audio_descriptors(audio: np.ndarray, sr: float) -> dict:
 
 def download_version_bytes(version: Version, client) -> bytes:
     """Fetch raw bytes for a version from Supabase Storage."""
-    return client.storage.from_(version.storage_bucket).download(
-        version.storage_key
-    )
+    return client.storage.from_(version.storage_bucket).download(version.storage_key)
 
 
 # ---------------------------------------------------------------------------
 # Handlers
 # ---------------------------------------------------------------------------
+
+
+def handle_understand(job: Job, client) -> list[str]:
+    """Run the complete durable audio-understanding workflow.
+
+    A single queued job owns transcription, note persistence, harmonic analysis,
+    and score generation. Closing the browser therefore cannot strand a workflow
+    between stages.
+    """
+    transcribe_client = _ProgressClient(client, 0.0, 0.65)
+    output_ids = handle_transcribe(job, transcribe_client)
+
+    midi_version_id = next(
+        (
+            UUID(version_id)
+            for version_id in output_ids
+            if _artifact_kind_for_version(client, UUID(version_id)) == ArtifactKind.midi_performance
+        ),
+        None,
+    )
+    if midi_version_id is None:
+        raise ValueError("understand workflow produced no MIDI version")
+
+    analyze_job = job.model_copy(
+        update={
+            "capability": Capability(name="analyze", version="1.0"),
+            "input_version_ids": [midi_version_id],
+        }
+    )
+    handle_analyze(analyze_job, _ProgressClient(client, 0.65, 0.2))
+    score_job = job.model_copy(
+        update={
+            "capability": Capability(name="score", version="1.0"),
+            "input_version_ids": [midi_version_id],
+        }
+    )
+    score_ids = handle_score(score_job, _ProgressClient(client, 0.85, 0.15))
+    return [*output_ids, *score_ids]
 
 
 def handle_transcribe(job: Job, client) -> list[str]:
@@ -597,9 +652,7 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(caid))
 
-    _update_progress(
-        client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)"
-    )
+    _update_progress(client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)")
     # Insights are queried by input version. Job outputs only contain artifact
     # version IDs, so do not mix insight IDs into that contract.
     return []
@@ -749,7 +802,8 @@ def handle_correct(job: Job, client) -> list[str]:
     if selection_start is not None and selection_end is not None:
         for instrument in pm.instruments:
             instrument.notes = [
-                n for n in instrument.notes
+                n
+                for n in instrument.notes
                 if not (n.start >= selection_start and n.end <= selection_end)
             ]
 
@@ -838,12 +892,14 @@ def handle_compare(job: Job, client) -> list[str]:
         notes: list[dict] = []
         for row in result.data:
             if row.get("note_pitch") is not None:
-                notes.append({
-                    "pitch": row["note_pitch"],
-                    "start": float(row["note_start_seconds"]),
-                    "end": float(row["note_end_seconds"]),
-                    "velocity": row.get("note_velocity", 64),
-                })
+                notes.append(
+                    {
+                        "pitch": row["note_pitch"],
+                        "start": float(row["note_start_seconds"]),
+                        "end": float(row["note_end_seconds"]),
+                        "velocity": row.get("note_velocity", 64),
+                    }
+                )
         return notes
 
     notes_a = _fetch_notes(version_id_a)
@@ -865,20 +921,19 @@ def handle_compare(job: Job, client) -> list[str]:
         for bi, nb in enumerate(notes_b):
             if bi in used_b:
                 continue
-            if (
-                na["pitch"] == nb["pitch"]
-                and abs(na["start"] - nb["start"]) < EPS
-            ):
+            if na["pitch"] == nb["pitch"] and abs(na["start"] - nb["start"]) < EPS:
                 matched = True
                 used_b.add(bi)
                 if abs(na["end"] - nb["end"]) >= EPS:
-                    modified.append({
-                        "pitch": na["pitch"],
-                        "start_a": na["start"],
-                        "end_a": na["end"],
-                        "start_b": nb["start"],
-                        "end_b": nb["end"],
-                    })
+                    modified.append(
+                        {
+                            "pitch": na["pitch"],
+                            "start_a": na["start"],
+                            "end_a": na["end"],
+                            "start_b": nb["start"],
+                            "end_b": nb["end"],
+                        }
+                    )
                 else:
                     unchanged_count += 1
                 break
@@ -922,7 +977,7 @@ def handle_compare(job: Job, client) -> list[str]:
             version_id=version_id_a,
             kind="compare",
             claim=f"Comparison: {len(added)} added, {len(removed)} removed, "
-                  f"{len(modified)} modified, {unchanged_count} unchanged",
+            f"{len(modified)} modified, {unchanged_count} unchanged",
             evidence={
                 "added_count": len(added),
                 "removed_count": len(removed),
@@ -1167,15 +1222,14 @@ def handle_describe(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(cid))
 
-    _update_progress(
-        client, job.id, 1.0, f"describe complete ({len(insight_ids)} insights)"
-    )
+    _update_progress(client, job.id, 1.0, f"describe complete ({len(insight_ids)} insights)")
     return insight_ids
 
 
 def register_all_capabilities(worker) -> None:
     """Register every capability handler with *worker*."""
     worker.register("transcribe", "1.0", handle_transcribe)
+    worker.register("understand", "1.0", handle_understand)
     worker.register("analyze", "1.0", handle_analyze)
     worker.register("score", "1.0", handle_score)
     worker.register("enhance", "1.0", handle_enhance)

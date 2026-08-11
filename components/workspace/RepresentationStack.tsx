@@ -13,22 +13,13 @@ const KIND_LABELS: Record<string, string> = {
   annotations: "Annotations",
 };
 
-type Note = { pitch: number; start: number; end: number; velocity: number };
-
-export default function RepresentationStack({
-  mode = "explore",
-  correctedNotes,
-  onCorrectedNotesChange,
-}: {
-  mode?: string;
-  correctedNotes?: Note[] | null;
-  onCorrectedNotesChange?: ((notes: Note[]) => void) | undefined;
-}) {
+export default function RepresentationStack() {
   const {
     workspace,
     expandRepresentation,
     focusRepresentation,
     removeRepresentation,
+    requestImport,
   } = useWorkspace();
 
   const { representations, expandedRepresentation, focusRepresentation: focusedKind } = workspace;
@@ -59,7 +50,11 @@ export default function RepresentationStack({
           </div>
           <div>Import audio to see representations</div>
         </div>
-        <button className="btn btn-primary" style={{ marginTop: "var(--s-2)" }}>
+        <button
+          className="btn btn-primary"
+          style={{ marginTop: "var(--s-2)" }}
+          onClick={requestImport}
+        >
           Import Audio
         </button>
       </div>
@@ -98,12 +93,9 @@ export default function RepresentationStack({
           onExpand={() => expandRepresentation(rep.kind)}
           onFocus={() => focusRepresentation(rep.kind)}
           onRemove={() => removeRepresentation(rep.kind)}
-          editable={mode === "correct" && rep.kind === "piano_roll"}
-          correctedNotes={rep.kind === "piano_roll" ? correctedNotes : undefined}
           workspaceNotes={rep.notes?.length ? rep.notes : undefined}
           musicxml={rep.musicxml}
           audioUrl={rep.audioUrl}
-          onNotesChange={rep.kind === "piano_roll" ? onCorrectedNotesChange : undefined}
         />
       ))}
     </div>

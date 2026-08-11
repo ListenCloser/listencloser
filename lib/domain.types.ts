@@ -228,3 +228,16 @@ export interface VersionResource {
   artifact: Artifact
   signed_url: string
 }
+
+export interface WorkBundleArtifact {
+  artifact: Artifact
+  versions: Version[]
+  latest_version: Version | null
+  signed_url: string | null
+}
+
+export interface WorkBundle {
+  work: Work
+  artifacts: WorkBundleArtifact[]
+  jobs: Job[]
+}
