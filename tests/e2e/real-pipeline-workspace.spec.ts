@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
 
-test("a persisted work reopens with transcription, score, analysis, and commands", async ({
+test("a persisted work reopens with transcription, score, analysis, and shortcuts", async ({
   page,
 }) => {
-  await page.addInitScript(persistSessionScript(mockSession), MOCK_PROJECT_REF);
+  await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
   await page.goto("/");
   await page.waitForFunction(
     () => navigator.serviceWorker?.controller !== null,
@@ -30,7 +30,7 @@ test("a persisted work reopens with transcription, score, analysis, and commands
 test("import starts one durable understand job and reloads the persisted work", async ({
   page,
 }) => {
-  await page.addInitScript(persistSessionScript(mockSession), MOCK_PROJECT_REF);
+  await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
   await page.goto("/");
   await page.waitForFunction(
     () => navigator.serviceWorker?.controller !== null,
