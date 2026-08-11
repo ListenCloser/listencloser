@@ -803,13 +803,14 @@ def handle_synthesize(job: Job, client) -> list[str]:
     audio_version_id = _create_output_version(
         client,
         work_id,
-        ArtifactKind.audio_original,
+        ArtifactKind.audio_rendered,
         storage_key,
         len(wav_bytes),
         input_version.id,
         job,
         owner_id,
         mime_type="audio/wav",
+        label=str(job.parameters.get("label", "Synthesised playback")),
     )
 
     _update_progress(client, job.id, 1.0, "synthesis complete")
@@ -1081,7 +1082,7 @@ def handle_transform(job: Job, client) -> list[str]:
     if transpose_semitones != 0:
         for instrument in pm.instruments:
             for note in instrument.notes:
-                note.pitch += transpose_semitones
+                note.pitch = max(0, min(127, note.pitch + transpose_semitones))
 
     _update_progress(client, job.id, 0.7, "writing transformed MIDI")
     buf = io.BytesIO()
@@ -1102,10 +1103,78 @@ def handle_transform(job: Job, client) -> list[str]:
         job,
         owner_id,
         mime_type="audio/midi",
+        label=(
+            f"Transposed {transpose_semitones:+d} semitones"
+            if transpose_semitones
+            else "Copied MIDI take"
+        ),
+        metadata={"operation": "transpose", "semitones": transpose_semitones},
     )
+
+    # Comparison and the piano roll operate on persisted entities, rather than
+    # parsing a browser-only MIDI file.  A transformed take must therefore have
+    # the same durable note representation as an understood transcription.
+    entity_repo = EntityRepo(client)
+    for instrument in pm.instruments:
+        for note in instrument.notes:
+            entity_repo.create(
+                Entity(
+                    version_id=output_version_id,
+                    kind=EntityKind.note,
+                    span=Span(start_seconds=note.start, end_seconds=note.end),
+                    note=NoteEntity(
+                        pitch=note.pitch,
+                        start_seconds=note.start,
+                        end_seconds=note.end,
+                        velocity=note.velocity,
+                    ),
+                ),
+                owner_id,
+            )
 
     _update_progress(client, job.id, 1.0, "transform complete")
     return [str(output_version_id)]
+
+
+def handle_variation(job: Job, client) -> list[str]:
+    """Create a complete, immutable transposed take from a saved MIDI version.
+
+    This is deliberately a transparent composition operation, not a claim of
+    generative composition: it preserves timing and changes pitch by the chosen
+    number of semitones.  The result is nevertheless a first-class take with
+    playback, notation, note entities, and fresh analysis.
+    """
+    if not job.input_version_ids:
+        raise ValueError("variation requires a MIDI input version")
+
+    transpose_semitones = int(job.parameters.get("transpose_semitones", 0))
+    if not -12 <= transpose_semitones <= 12:
+        raise ValueError("transpose_semitones must be between -12 and 12")
+
+    _update_progress(client, job.id, 0.05, "preparing a new take")
+    midi_ids = handle_transform(job, client)
+    midi_version_id = UUID(midi_ids[0])
+
+    # Each follow-on capability receives the newly persisted MIDI take as its
+    # input.  Keeping the same durable job gives the user one cancellable,
+    # retryable operation while preserving immutable artifact lineage.
+    variation_job = job.model_copy(
+        update={
+            "input_version_ids": [midi_version_id],
+            "parameters": {
+                "sample_rate": 22050,
+                "label": f"Variation playback ({transpose_semitones:+d} semitones)",
+            },
+        }
+    )
+    _update_progress(client, job.id, 0.58, "rendering variation playback")
+    audio_ids = handle_synthesize(variation_job, client)
+    _update_progress(client, job.id, 0.75, "analysing the new take")
+    insight_ids = handle_analyze(variation_job, client)
+    _update_progress(client, job.id, 0.9, "engraving notation")
+    score_ids = handle_score(variation_job, client)
+    _update_progress(client, job.id, 1.0, "variation ready")
+    return [*midi_ids, *audio_ids, *insight_ids, *score_ids]
 
 
 def handle_generate_continuation(job: Job, client) -> list[str]:
@@ -1281,5 +1350,6 @@ def register_all_capabilities(worker) -> None:
     worker.register("correct", "1.0", handle_correct)
     worker.register("compare", "1.0", handle_compare)
     worker.register("transform", "1.0", handle_transform)
+    worker.register("variation", "1.0", handle_variation)
     worker.register("generate_continuation", "1.0", handle_generate_continuation)
     worker.register("describe", "1.0", handle_describe)

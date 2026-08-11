@@ -12,7 +12,9 @@ import {
   listProjects,
   listWorks,
   retryJob,
+  startCompareWorkflow,
   startUnderstandWorkflow,
+  startVariationWorkflow,
   uploadArtifact,
 } from "@/lib/api-client";
 import { JobObservationError, JobTerminalError, waitForJob } from "@/lib/job-tracking";
@@ -37,6 +39,8 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
     setInsights,
     setLoadingWork,
     setProject,
+    setStudioOperation,
+    setTakes,
     setWorks,
     workspace,
   } = useWorkspace();
@@ -116,9 +120,29 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
         }
       }
       const original = latestByKind.get("audio_original");
-      const rendered = latestByKind.get("audio_rendered");
-      const midi = latestByKind.get("midi_performance") ?? latestByKind.get("midi_corrected");
+      const baseMidi = latestByKind.get("midi_performance");
+      const midi = baseMidi ?? latestByKind.get("midi_corrected");
       const score = latestByKind.get("musicxml_score");
+
+      const takeArtifacts = bundle.artifacts.filter((item) =>
+        item.latest_version && item.signed_url && ["midi_performance", "midi_corrected"].includes(item.artifact.kind),
+      );
+      const takes = takeArtifacts.flatMap((item) => item.latest_version ? [{
+        versionId: item.latest_version.id,
+        label: item.artifact.kind === "midi_performance"
+          ? "Transcription"
+          : item.latest_version.label || "Derived take",
+        parentVersionId: item.latest_version.parent_version_id,
+      }] : []);
+      setTakes(takes);
+      const renderedArtifacts = bundle.artifacts.filter((item) =>
+        item.latest_version && item.signed_url && item.artifact.kind === "audio_rendered",
+      );
+      const rendered = renderedArtifacts.find(
+        (item) => item.latest_version?.parent_version_id === baseMidi?.latest_version?.id,
+      ) ?? renderedArtifacts.find(
+        (item) => item.latest_version?.parent_version_id === midi?.latest_version?.id,
+      );
 
       const sources: PlaybackSource[] = [];
       if (original?.latest_version && original.signed_url) {
@@ -134,6 +158,17 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
           id: rendered.latest_version.id,
           label: "Transcription playback",
           url: rendered.signed_url,
+          kind: "audio",
+        });
+      }
+      for (const item of renderedArtifacts) {
+        const version = item.latest_version;
+        if (!version || !item.signed_url || item.artifact.kind !== "audio_rendered" || version.id === rendered?.latest_version?.id) continue;
+        const take = takes.find((candidate) => candidate.versionId === version.parent_version_id);
+        sources.push({
+          id: version.id,
+          label: take ? `${take.label} playback` : version.label || "Derived take playback",
+          url: item.signed_url,
           kind: "audio",
         });
       }
@@ -247,7 +282,40 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
     } finally {
       if (sequence === loadSequenceRef.current) setLoadingWork(false);
     }
-  }, [replaceRepresentations, replaceSources, setBpm, setInsights, setLoadingWork, setTimeSignature]);
+  }, [replaceRepresentations, replaceSources, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
+
+  const handledStudioAction = useRef(0);
+  useEffect(() => {
+    const action = workspace.studioAction;
+    if (!action || action.id === handledStudioAction.current || !projectId || !workspace.activeWorkId) return;
+    handledStudioAction.current = action.id;
+    const workId = workspace.activeWorkId;
+    void (async () => {
+      const label = action.kind === "variation" ? "Creating a playable take" : "Comparing saved takes";
+      setStudioOperation({ state: "running", label, message: "Queued on the music worker" });
+      try {
+        const result = action.kind === "variation"
+          ? await startVariationWorkflow(action.versionIds[0], projectId, action.semitones ?? 0)
+          : await startCompareWorkflow(action.versionIds[0], action.versionIds[1], projectId);
+        await waitForJob(result.job.id, (current) => {
+          setStudioOperation({ state: "running", label, message: current.message || "Working" });
+        });
+        await loadWork(workId);
+        setStudioOperation({
+          state: "success",
+          label: action.kind === "variation" ? "New take is ready" : "Comparison is ready",
+          message: action.kind === "variation" ? "Playback, score, and analysis have been saved with the new take." : "The comparison was saved in the analysis for the first selected take.",
+        });
+      } catch (cause) {
+        const disconnected = cause instanceof JobObservationError;
+        setStudioOperation({
+          state: disconnected ? "disconnected" : "error",
+          label: disconnected ? "Connection interrupted" : "Studio operation failed",
+          message: cause instanceof Error ? cause.message : "Please try again.",
+        });
+      }
+    })();
+  }, [loadWork, projectId, setStudioOperation, workspace.activeWorkId, workspace.studioAction]);
 
   useEffect(() => {
     let cancelled = false;

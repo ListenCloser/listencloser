@@ -84,6 +84,36 @@ export async function startUnderstandWorkflow(
   });
 }
 
+export async function startVariationWorkflow(
+  versionId: string,
+  projectId: string,
+  transposeSemitones: number,
+): Promise<{ workflow: Workflow; job: Job }> {
+  return apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/variation", {
+    method: "POST",
+    body: JSON.stringify({
+      version_id: versionId,
+      project_id: projectId,
+      transpose_semitones: transposeSemitones,
+    }),
+  });
+}
+
+export async function startCompareWorkflow(
+  versionIdA: string,
+  versionIdB: string,
+  projectId: string,
+): Promise<{ workflow: Workflow; job: Job }> {
+  return apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/compare", {
+    method: "POST",
+    body: JSON.stringify({
+      version_id_a: versionIdA,
+      version_id_b: versionIdB,
+      project_id: projectId,
+    }),
+  });
+}
+
 export async function getJob(jobId: string): Promise<JobStatus> {
   return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}`);
 }
