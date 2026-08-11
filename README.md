@@ -1,6 +1,9 @@
 # hello-ai · Music AI Studio
 
-Turn audio into MIDI and **playable sheet music**. Upload or record audio, get a transcription (basic-pitch on an Oracle VM), and a synthesized score you can play back in the browser. Files persist to Supabase, and music analysis (key, tempo, chords, cadences) is shown after transcription.
+Turn audio into persisted MIDI notes, playable rendered audio, MusicXML sheet
+music, and evidence-backed musical analysis. Processing runs asynchronously on a
+durable worker; the browser displays stored results rather than fabricated demo
+data.
 
 ## Live Demo
 
@@ -8,22 +11,18 @@ Turn audio into MIDI and **playable sheet music**. Upload or record audio, get a
 
 ## Features
 
-- **Library** — Upload, record, play, and delete audio in Supabase Storage
-- **Transform** — Audio → MIDI (basic-pitch) → sheet music (OpenSheetMusicDisplay) with playback
-- **Visualize** — Piano roll, spectrogram, chroma heatmap, tonnetz, sheet music views
-- **Analyze** — Key, tempo, chords, Roman numerals, cadences, modulations, voice leading
-- **Chat** — AI assistant with music tools (Vercel AI SDK + OpenRouter)
+- **Import** — Private authenticated audio upload to Supabase Storage
+- **Transform** — Audio → MIDI notes → rendered WAV and MusicXML
+- **Visualize** — Piano roll, waveform, and sheet music from real outputs
+- **Analyze** — Key, tempo, meter, chords, Roman numerals, and cadences
+- **Persist** — Reopen works backed by immutable versions, lineage, provenance, and durable jobs
+- **Command** — Summarize, focus, import, and switch playback from an honest command surface
 
 ## Architecture
 
 ```
-Browser → Vercel (/api/music/*) → Oracle VM
-                                   FastAPI :8000
-                                     ├─ basic-pitch transcription
-                                     ├─ FluidSynth MIDI→WAV
-                                     ├─ ffmpeg enhance
-                                     ├─ music21 analysis
-                                     └─ Supabase (SERVICE_ROLE)
+Browser → Vercel (/api/v1/*) → FastAPI → Supabase/Postgres queue
+                                      ↘ worker → music engines → artifacts
 ```
 
 The browser never talks to the Oracle backend directly. All backend calls go through `app/api/*` → `lib/backend.ts`.
@@ -43,6 +42,7 @@ components/             React UI components
 lib/                    Shared utilities and API clients
 backend/                FastAPI on Oracle VM
   main.py               API endpoints
+  worker.py             Durable queue worker entrypoint
   music_features.py     basic-pitch transcription, FluidSynth
   analyze.py            music theory analysis (key, chords, cadences)
 supabase/               Database + storage migrations
@@ -52,7 +52,11 @@ docs/                   Documentation
 
 **Key Rule:** The browser never talks to the Oracle backend directly. All backend calls go through `app/api/*` → `lib/backend.ts` (`proxyToBackend`), keeping the VM URL/key off the client.
 
-The app is transitioning to a **workspace architecture** at `/workspace` with a unified transport, shared selection, and domain model entities (Projects, Works, Artifacts, Versions, Entities, Insights, Alignments). See `docs/ORCHESTRATION.md` for the architectural roadmap and `docs/adr/ADR-007.md` for the migration plan from the reference `LibFile` model.
+The canonical `/` route is a workspace with a persistent library, unified
+transport, shared selection, and domain entities (Projects, Works, Artifacts,
+Versions, Entities, Insights, Alignments). See `docs/ARCHITECTURE.md` for current
+runtime truth, `docs/AUDIT.md` for the rewrite boundary, and `docs/ROADMAP.md`
+for the product sequence.
 
 ## Running Tests
 
@@ -80,4 +84,3 @@ npx playwright test       # E2E tests
 | Auth | Supabase Auth (PKCE flow) |
 | Monitoring | Sentry |
 | CI/CD | GitHub Actions, Vercel |
-

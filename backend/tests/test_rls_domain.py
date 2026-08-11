@@ -97,22 +97,16 @@ def _create_user(email: str, password: str = "test-password-123"):
             {"email": email, "password": password, "email_confirm": True}
         )
     except Exception as exc:
-        pytest.skip(
-            f"Cannot create test user via admin API: {exc}"
-        )
+        pytest.skip(f"Cannot create test user via admin API: {exc}")
 
     uid = user_resp.user.id
 
     anon = _sb_anon()
     try:
-        session = anon.auth.sign_in_with_password(
-            {"email": email, "password": password}
-        )
+        session = anon.auth.sign_in_with_password({"email": email, "password": password})
         token = session.session.access_token
     except Exception as exc:
-        pytest.skip(
-            f"Cannot sign in as {email} (check email-confirmation settings): {exc}"
-        )
+        pytest.skip(f"Cannot sign in as {email} (check email-confirmation settings): {exc}")
 
     return uid, token
 
@@ -177,10 +171,12 @@ def test_project_listing_is_scoped_to_owner(user_a, user_b):
     pa = str(uuid.uuid4())
     pb = str(uuid.uuid4())
 
-    service.table("projects").insert([
-        {"id": pa, "owner_id": user_a["uid"], "name": "A-Proj", "description": ""},
-        {"id": pb, "owner_id": user_b["uid"], "name": "B-Proj", "description": ""},
-    ]).execute()
+    service.table("projects").insert(
+        [
+            {"id": pa, "owner_id": user_a["uid"], "name": "A-Proj", "description": ""},
+            {"id": pb, "owner_id": user_b["uid"], "name": "B-Proj", "description": ""},
+        ]
+    ).execute()
 
     # A sees only A's
     a_rows = _client_as_user(user_a["token"]).table("projects").select("*").execute()
@@ -214,9 +210,7 @@ def test_ownership_chain_project_work_artifact_version(user_a, user_b):
     service.table("projects").insert(
         {"id": pid, "owner_id": user_a["uid"], "name": "Chain-Project", "description": ""}
     ).execute()
-    service.table("works").insert(
-        {"id": wid, "project_id": pid, "title": "Chain-Work"}
-    ).execute()
+    service.table("works").insert({"id": wid, "project_id": pid, "title": "Chain-Work"}).execute()
     service.table("artifacts").insert(
         {"id": aid, "work_id": wid, "kind": "audio_original"}
     ).execute()
@@ -231,9 +225,9 @@ def test_ownership_chain_project_work_artifact_version(user_a, user_b):
     ).execute()
 
     chain = {
-        "projects":          ("id", pid),
-        "works":             ("id", wid),
-        "artifacts":         ("id", aid),
+        "projects": ("id", pid),
+        "works": ("id", wid),
+        "artifacts": ("id", aid),
         "artifact_versions": ("id", vid),
     }
 
@@ -319,9 +313,7 @@ def test_cannot_update_foreign_project(user_a, user_b):
     assert result is None, "RLS should block UPDATE on another user's project"
 
     # Project name unchanged
-    row = (
-        service.table("projects").select("name").eq("id", pid).single().execute()
-    )
+    row = service.table("projects").select("name").eq("id", pid).single().execute()
     assert row.data["name"] == "Original"
 
     service.table("projects").delete().eq("id", pid).execute()
@@ -389,9 +381,7 @@ def test_cannot_delete_foreign_work(user_a, user_b):
     service.table("projects").insert(
         {"id": pid, "owner_id": user_a["uid"], "name": "P", "description": ""}
     ).execute()
-    service.table("works").insert(
-        {"id": wid, "project_id": pid, "title": "Keep-Me"}
-    ).execute()
+    service.table("works").insert({"id": wid, "project_id": pid, "title": "Keep-Me"}).execute()
 
     result = _delete_via_user(user_b["token"], "works", match={"id": wid})
     assert result is None, "RLS should block DELETE on another user's work"
@@ -411,10 +401,12 @@ def test_service_role_can_read_any_project(user_a, user_b):
     pa = str(uuid.uuid4())
     pb = str(uuid.uuid4())
 
-    service.table("projects").insert([
-        {"id": pa, "owner_id": user_a["uid"], "name": "SR-A", "description": ""},
-        {"id": pb, "owner_id": user_b["uid"], "name": "SR-B", "description": ""},
-    ]).execute()
+    service.table("projects").insert(
+        [
+            {"id": pa, "owner_id": user_a["uid"], "name": "SR-A", "description": ""},
+            {"id": pb, "owner_id": user_b["uid"], "name": "SR-B", "description": ""},
+        ]
+    ).execute()
 
     rows = service.table("projects").select("*").in_("id", [pa, pb]).execute()
     seen = {r["id"] for r in rows.data}
@@ -672,18 +664,12 @@ def test_workspace_state_upsert_respects_owner(user_a, user_b):
         match={"project_id": pid, "owner_id": user_a["uid"]},
         patch={"tab": "hijacked"},
     )
-    assert result_b is None or len(result_b) == 0, (
-        "RLS should block User B from updating A's workspace state"
-    )
+    assert (
+        result_b is None or len(result_b) == 0
+    ), "RLS should block User B from updating A's workspace state"
 
     # Tab should remain unchanged
-    row = (
-        service.table("workspace_states")
-        .select("tab")
-        .eq("project_id", pid)
-        .single()
-        .execute()
-    )
+    row = service.table("workspace_states").select("tab").eq("project_id", pid).single().execute()
     assert row.data["tab"] == "explore"
 
     service.table("projects").delete().eq("id", pid).execute()

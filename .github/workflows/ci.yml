@@ -34,7 +34,7 @@ jobs:
           python-version: '3.11'
       - name: Ruff (Python)
         run: |
-          pip install ruff
+          pip install ruff==0.5.7
           ruff check backend/ --output-format=github
           ruff format backend/ --check
       - name: Run Python tests

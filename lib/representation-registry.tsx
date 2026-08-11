@@ -4,7 +4,6 @@ import { useRef } from "react";
 import type { ReactNode } from "react";
 import type { RepresentationKind } from "@/lib/stores/workspace";
 import PianoRoll from "@/components/PianoRoll";
-import EditablePianoRoll from "@/components/workspace/EditablePianoRoll";
 import SheetMusic from "@/components/SheetMusic";
 import Visualizer from "@/components/Visualizer";
 import Spectrogram from "@/components/Spectrogram";
@@ -16,8 +15,6 @@ export type RepresentationProps = {
   analysis?: unknown;
   bpm?: number;
   playheadTime?: number;
-  editable?: boolean;
-  onNotesChange?: (notes: { pitch: number; start: number; end: number; velocity: number }[]) => void;
 };
 
 type Note = NonNullable<RepresentationProps["notes"]>[number];
@@ -78,19 +75,9 @@ function Placeholder({ label }: { label: string }) {
 }
 
 const renderers: Record<RepresentationKind, (props: RepresentationProps) => ReactNode> = {
-  piano_roll: ({ notes, bpm, playheadTime, editable, onNotesChange }) => (
+  piano_roll: ({ notes, bpm, playheadTime }) => (
     <div className="representation-body">
-      {editable ? (
-        <EditablePianoRoll
-          notes={(notes ?? []) as Note[]}
-          bpm={bpm}
-          playheadTime={playheadTime}
-          editable
-          onNotesChange={onNotesChange}
-        />
-      ) : (
-        <PianoRoll notes={(notes ?? []) as Note[]} bpm={bpm} playheadTime={playheadTime} />
-      )}
+      <PianoRoll notes={(notes ?? []) as Note[]} bpm={bpm} playheadTime={playheadTime} />
     </div>
   ),
   waveform: ({ audioUrl }) => <WaveformWrapper audioUrl={audioUrl} />,

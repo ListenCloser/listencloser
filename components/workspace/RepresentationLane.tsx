@@ -19,10 +19,9 @@ type RepresentationLaneProps = {
   onRemove: () => void;
   children?: ReactNode;
   footerControls?: ReactNode;
-  editable?: boolean;
-  correctedNotes?: Note[] | null;
   workspaceNotes?: Note[] | null;
-  onNotesChange?: ((notes: Note[]) => void) | undefined;
+  musicxml?: string;
+  audioUrl?: string;
 };
 
 const KIND_GLYPHS: Record<RepresentationKind, string> = {
@@ -47,10 +46,9 @@ export default function RepresentationLane({
   onRemove,
   children,
   footerControls,
-  editable,
-  correctedNotes,
   workspaceNotes,
-  onNotesChange,
+  musicxml,
+  audioUrl,
 }: RepresentationLaneProps) {
   const { transport } = useTransport();
   const glyph = KIND_GLYPHS[kind] ?? "▯";
@@ -172,11 +170,10 @@ export default function RepresentationLane({
             }}
             >
               {children || renderRepresentation(kind, {
-                notes: (correctedNotes ?? workspaceNotes ?? []) as Note[] | undefined,
-                bpm: 120,
+                notes: (workspaceNotes ?? []) as Note[] | undefined,
+                musicxml,
+                audioUrl,
                 playheadTime: transport.position,
-                editable: editable ?? false,
-                onNotesChange: onNotesChange as ((notes: Note[]) => void) | undefined,
               })}
             </div>
 

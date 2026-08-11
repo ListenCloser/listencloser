@@ -11,10 +11,9 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import type { TranscribeResult } from "@/lib/music";
 import { pitchToName } from "@/lib/notes";
 
-type Note = TranscribeResult["notes"][number];
+type Note = { pitch: number; start: number; end: number; velocity: number };
 
 const PPQ = 16;
 const ROW_H = 24;

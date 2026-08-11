@@ -92,5 +92,32 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USER_ID: 501
+        GROUP_ID: 501
+    container_name: music-ai-worker
+    working_dir: /workspace
+    user: "501:501"
+    command: >
+      sh -c "pip install -r /workspace/backend/requirements.txt -q &&
+             python /workspace/backend/worker.py"
+    volumes:
+      - .:/workspace
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - PYTHONPATH=/workspace/backend
+      - SOUNDFONT_PATH=/workspace/backend/soundfonts/FluidR3_GM.sf2
+      - SENTRY_DSN_BACKEND=${SENTRY_DSN_BACKEND:-${SENTRY_DSN:-}}
+      - SENTRY_ENV=${SENTRY_ENV:-development}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   opencode_node_modules:

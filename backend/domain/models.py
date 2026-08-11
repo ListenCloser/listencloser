@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, Generic, Literal, Optional, TypeVar
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,7 +23,7 @@ class Project(BaseModel):
     description: str = ""
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
-    archived_at: Optional[datetime] = None
+    archived_at: datetime | None = None
 
 
 class Work(BaseModel):
@@ -32,7 +32,7 @@ class Work(BaseModel):
     id: UUID = Field(default_factory=new_id)
     project_id: UUID
     title: str
-    composer: Optional[str] = None
+    composer: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -40,6 +40,7 @@ class Work(BaseModel):
 class ArtifactKind(str, Enum):
     audio_original = "audio_original"
     audio_enhanced = "audio_enhanced"
+    audio_rendered = "audio_rendered"
     midi_performance = "midi_performance"
     midi_corrected = "midi_corrected"
     musicxml_score = "musicxml_score"
@@ -63,15 +64,15 @@ class Version(BaseModel):
 
     id: UUID = Field(default_factory=new_id)
     artifact_id: UUID
-    parent_version_id: Optional[UUID] = None
+    parent_version_id: UUID | None = None
     lineage: list[UUID] = Field(default_factory=list)
     storage_key: str
     storage_bucket: str
-    byte_size: Optional[int] = None
-    sha256: Optional[str] = None
+    byte_size: int | None = None
+    sha256: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
-    created_by: Optional[str] = None
-    produced_by_job_id: Optional[UUID] = None
+    created_by: str | None = None
+    produced_by_job_id: UUID | None = None
     label: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -102,7 +103,7 @@ class ChordEntity(BaseModel):
 
     root: str
     quality: str
-    bass: Optional[str] = None
+    bass: str | None = None
     start_seconds: float
     end_seconds: float
 
@@ -118,12 +119,12 @@ class Cadence(BaseModel):
 class Span(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    start_seconds: Optional[float] = None
-    end_seconds: Optional[float] = None
-    start_beat: Optional[float] = None
-    end_beat: Optional[float] = None
-    start_measure: Optional[int] = None
-    end_measure: Optional[int] = None
+    start_seconds: float | None = None
+    end_seconds: float | None = None
+    start_beat: float | None = None
+    end_beat: float | None = None
+    start_measure: int | None = None
+    end_measure: int | None = None
 
 
 class Entity(BaseModel):
@@ -133,9 +134,9 @@ class Entity(BaseModel):
     version_id: UUID
     kind: EntityKind
     span: Span = Field(default_factory=Span)
-    note: Optional[NoteEntity] = None
-    chord: Optional[ChordEntity] = None
-    cadence: Optional[Cadence] = None
+    note: NoteEntity | None = None
+    chord: ChordEntity | None = None
+    cadence: Cadence | None = None
     label: str = ""
 
 
@@ -152,8 +153,8 @@ class Insight(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0, default=1.0)
     provenance: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
-    created_by: Optional[str] = None
-    produced_by_job_id: Optional[UUID] = None
+    created_by: str | None = None
+    produced_by_job_id: UUID | None = None
 
 
 class AlignmentKind(str, Enum):
@@ -193,18 +194,18 @@ class Alignment(BaseModel):
     mapping_data: dict[str, Any] = Field(default_factory=dict)
     confidence: float = Field(ge=0.0, le=1.0, default=1.0)
     created_at: datetime = Field(default_factory=utc_now)
-    produced_by_job_id: Optional[UUID] = None
+    produced_by_job_id: UUID | None = None
 
 
 class Selection(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    time_start_seconds: Optional[float] = None
-    time_end_seconds: Optional[float] = None
-    beat_start: Optional[float] = None
-    beat_end: Optional[float] = None
-    measure_start: Optional[int] = None
-    measure_end: Optional[int] = None
+    time_start_seconds: float | None = None
+    time_end_seconds: float | None = None
+    beat_start: float | None = None
+    beat_end: float | None = None
+    measure_start: int | None = None
+    measure_end: int | None = None
     note_indices: list[int] = Field(default_factory=list)
     entity_ids: list[UUID] = Field(default_factory=list)
 
@@ -234,7 +235,7 @@ class Workflow(BaseModel):
     id: UUID = Field(default_factory=new_id)
     project_id: UUID
     kind: WorkflowKind
-    target_version_id: Optional[UUID] = None
+    target_version_id: UUID | None = None
     parameters: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 
@@ -252,8 +253,8 @@ class ProcessingStatus(BaseModel):
     stage: JobStage
     progress: float = Field(ge=0.0, le=1.0, default=0.0)
     message: str = ""
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 class JobLifecycle(BaseModel):
@@ -263,9 +264,9 @@ class JobLifecycle(BaseModel):
     stages: list[ProcessingStatus] = Field(default_factory=list)
     retry_count: int = 0
     max_retries: int = 3
-    lease_expires_at: Optional[datetime] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    lease_expires_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 class Job(BaseModel):
@@ -278,9 +279,9 @@ class Job(BaseModel):
     input_version_ids: list[UUID] = Field(default_factory=list)
     output_version_ids: list[UUID] = Field(default_factory=list)
     parameters: dict[str, Any] = Field(default_factory=dict)
-    cache_key: Optional[str] = None
-    error: Optional[str] = None
+    cache_key: str | None = None
+    error: str | None = None
     error_details: dict[str, Any] = Field(default_factory=dict)
     provenance: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
-    created_by: Optional[str] = None
+    created_by: str | None = None

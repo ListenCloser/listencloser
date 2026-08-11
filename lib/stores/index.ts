@@ -8,4 +8,4 @@ export { TransportProvider, useTransport } from "./transport";
 export type { PlaybackSource } from "./transport";
 
 export { WorkspaceProvider, useWorkspace } from "./workspace";
-export type { WorkspaceMode, RepresentationKind } from "./workspace";
+export type { RepresentationKind } from "./workspace";

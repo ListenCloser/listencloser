@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -168,9 +167,7 @@ class TestEntity:
         assert e.note.pitch == 60
 
     def test_chord_entity(self, version: Version):
-        chord = ChordEntity(
-            root="C", quality="major", start_seconds=0.0, end_seconds=2.0
-        )
+        chord = ChordEntity(root="C", quality="major", start_seconds=0.0, end_seconds=2.0)
         e = Entity(
             version_id=version.id,
             kind=EntityKind.chord,
@@ -271,7 +268,6 @@ class TestJob:
         assert j.lifecycle.progress == 0.5
 
     def test_progress_bounds(self):
-        cap = Capability(name="transcribe", version="1.0")
         with pytest.raises(Exception):
             JobLifecycle(progress=1.5)
         with pytest.raises(Exception):
@@ -414,6 +410,3 @@ def alignment(version: Version, artifact: Artifact) -> Alignment:
 def job() -> Job:
     cap = Capability(name="transcribe", version="1.0")
     return Job(workflow_id=uuid4(), capability=cap)
-
-
-

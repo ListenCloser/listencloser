@@ -32,8 +32,8 @@ from .repositories import (
     JobRepo,
     ProjectRepo,
     VersionRepo,
-    WorkRepo,
     WorkflowRepo,
+    WorkRepo,
     get_supabase,
 )
 

@@ -1,90 +1,60 @@
 # Product Roadmap
 
-North star: A music analysis and composition platform that helps users
-understand, analyze, and create music — regardless of their existing knowledge.
+North star: a human-guided music workspace that can ingest musical material,
+transform it into useful representations, explain it, compare it, and help a
+person create variations without taking authorship away from them.
 
-## Phase 1: Foundation ✅ (Current)
+## Now: trustworthy audio-to-understanding loop
 
-**Core transcription + library management.**
-- Audio upload (drag-drop or click) + recording
-- WAV → MIDI via basic-pitch (backend)
-- MIDI → sheet music via abcjs (browser)
-- Library: upload, list, delete, play (Supabase Storage)
-- MIDI download
+The first product slice is audio upload → MIDI/note entities → playback and
+MusicXML → harmonic analysis. Its acceptance criterion is simple: every result
+shown in the UI must come from a persisted artifact or insight, and failures must
+remain visible.
 
-**Status:** DELIVERED. Tests pass, CI green, docs written.
+Release hardening now includes worker liveness, aggregate queue health,
+cancel/retry controls, and a deployed smoke-test command. Remaining work:
 
-## Phase 2: Music Analysis 🔜 (Next)
+- run the real-backend smoke test after the heartbeat migration is deployed;
+- production stuck-job alerting from queue-health metrics;
+- better source-format validation and transcription-quality diagnostics;
+- score correction and export from a new immutable version.
 
-**Understand what's in the music.**
-- Key / tempo / time signature detection
-- Chord recognition (audio → chord progression)
-- Structural breakdown (verse / chorus / bridge)
-- Music theory explainer: "This song is in C major, using I-IV-V-vi chords"
-- Similarity search: "Find other songs in my library with similar harmony"
-- Note-level analysis: velocity distribution, pitch range, note density
+## Next: analysis as the core product
 
-**Why this order:** Analysis unlocks the most value for the broadest audience
-(beginners who want to learn, musicians who want to understand songs, producers
-who want to analyze references). It feeds directly into Phase 3 (composition
-playground needs chord suggestions).
+Build a genre-neutral analysis framework while allowing specialized analyzers:
 
-**Effort estimate:** Medium. Most analysis can run client-side (abcjs has
-some built-in). Chord recognition needs a model on the backend.
+- melody, rhythm, meter, harmony, cadence, form, motif, texture, and timbre;
+- confidence, evidence, time spans, provenance, and alternative interpretations;
+- comparison across versions, performances, references, and a user's library;
+- plain-language explanations linked to notes, measures, and audible moments;
+- analyzer evaluation sets split by instrumentation and genre.
 
-## Phase 3: Interactive Composition 🎹
+“Genre-neutral” applies to contracts and composition of capabilities, not to a
+claim that one model performs equally well on every kind of music.
 
-**Create new music with intelligent assistance.**
-- Chord progression suggestions (based on key, style)
-- Voice-leading checker
-- Melody generation conditioned on chords
-- Interactive piano roll / score editor
-- Template library (blues, pop, jazz progressions)
+## Then: human-guided creation
 
-**Why this order:** Builds on Phase 2 (analysis tells you what works) and
-Phase 1 (you can export/import your compositions).
+- correct transcription and notation with version history;
+- request a melody, rhythm, chord, orchestration, or structural variation;
+- constrain suggestions by selected spans, harmony, range, density, or style;
+- audition, compare, accept, reject, and combine suggestions;
+- keep generated material attributed to a capability, model, prompt, and seed.
 
-## Phase 4: Autonomous Generation 🤖
+The existing continuation handler is prototype scaffolding and must not be
+marketed as generative intelligence until it is replaced and evaluated.
 
-**Generate complete pieces from scratch or from a seed.**
-- Style-conditioned generation (e.g., "make a lo-fi beat in A minor")
-- Variation generation ("give me 5 variations of this chorus")
-- Continuation ("extend this melody for 8 more bars")
-- Prompt-to-music (text → audio)
+## Later: sources, learning, and richer representations
 
-**Why this order:** Requires the analysis + composition infrastructure from
-Phases 2-3 to be useful (generation without analysis is a black box).
+- microphone and direct recording;
+- import from licensed/open collections with source and rights metadata;
+- spectrograms, chroma, tonal spaces, structure maps, and aligned performances;
+- contextual music-theory and history lessons grounded in the active work;
+- optional specialist models for polyphonic transcription, separation,
+  orchestration, and audio generation.
 
-## Phase 5: Fine-tuning & Personalization 🧬
+## Product boundary
 
-**Adapt models to the user's taste.**
-- LoRA fine-tuning on user's library
-- Style embedding extraction
-- Personalized chord suggestions
-- Custom soundfont loading
-
-**Why this order:** Most complex, requires all previous infrastructure.
-
----
-
-## How phases are sequenced
-
-```
-Phase 1 ─► Phase 2 ─► Phase 3 ─► Phase 4 ─► Phase 5
-   │           │           │           │           │
-   ▼           ▼           ▼           ▼           ▼
- Library   Analysis    Compose     Generate    Personalize
- Upload    Key/tempo   Chord sugg  Style gen   Fine-tune
- Record    Chords      Melody      Variation   Embeddings
- MIDI      Structure   Editor      Continuation Custom sfont
- Score     Explainer   Templates   Prompt
-```
-
-Each phase builds on the previous one. Within each phase, features are
-ordered by user impact / implementation difficulty.
-
-## Current focus
-
-**Phase 2: Music Analysis** — start with key/tempo detection + chord
-recognition as the first analysis features. These give the most immediate
-value and are the most requested by users.
+The durable backend and capability contracts are the product core. A chat/CLI
+interface can expose operations sooner than a polished studio UI, but all
+operations must remain reachable from the deployed Vercel app. UI breadth should
+follow trustworthy capabilities rather than imply capabilities that do not work.

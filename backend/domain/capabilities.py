@@ -20,6 +20,7 @@ from domain.models import (
     AlignmentKind,
     Artifact,
     ArtifactKind,
+    Capability,
     Entity,
     EntityKind,
     Insight,
@@ -47,22 +48,46 @@ _STORAGE_BUCKET = "artifacts"
 # ---------------------------------------------------------------------------
 
 
+class _ProgressTable:
+    """Map child-capability progress into a parent workflow interval."""
+
+    def __init__(self, table, base: float, scale: float):
+        self._table = table
+        self._base = base
+        self._scale = scale
+
+    def update(self, data: dict):
+        mapped = dict(data)
+        if "progress" in mapped:
+            mapped["progress"] = self._base + self._scale * float(mapped["progress"])
+        return self._table.update(mapped)
+
+
+class _ProgressClient:
+    """Delegate a Supabase client while remapping updates to the jobs table."""
+
+    def __init__(self, client, base: float, scale: float):
+        self._client = client
+        self._base = base
+        self._scale = scale
+
+    @property
+    def storage(self):
+        return self._client.storage
+
+    def table(self, name: str):
+        table = self._client.table(name)
+        if name == "jobs":
+            return _ProgressTable(table, self._base, self._scale)
+        return table
+
+
 def _resolve_owner_id(client, workflow_id: UUID) -> str:
     """Walk workflow → project → owner_id."""
-    wf = (
-        client.table("workflows")
-        .select("project_id")
-        .eq("id", str(workflow_id))
-        .execute()
-    )
+    wf = client.table("workflows").select("project_id").eq("id", str(workflow_id)).execute()
     if not wf.data:
         raise ValueError(f"workflow {workflow_id} not found")
-    proj = (
-        client.table("projects")
-        .select("owner_id")
-        .eq("id", wf.data[0]["project_id"])
-        .execute()
-    )
+    proj = client.table("projects").select("owner_id").eq("id", wf.data[0]["project_id"]).execute()
     if not proj.data:
         raise ValueError(f"project not found for workflow {workflow_id}")
     return proj.data[0]["owner_id"]
@@ -70,44 +95,47 @@ def _resolve_owner_id(client, workflow_id: UUID) -> str:
 
 def _lookup_version(client, version_id: UUID) -> Version:
     """Load a Version row directly (no owner check — service-role client)."""
-    result = (
-        client.table("artifact_versions")
-        .select("*")
-        .eq("id", str(version_id))
-        .execute()
-    )
+    result = client.table("artifact_versions").select("*").eq("id", str(version_id)).execute()
     if not result.data:
         raise ValueError(f"version {version_id} not found")
     return Version.model_validate(result.data[0])
+
+
+def _artifact_kind_for_version(client, version_id: UUID) -> ArtifactKind:
+    version = _lookup_version(client, version_id)
+    result = client.table("artifacts").select("kind").eq("id", str(version.artifact_id)).execute()
+    if not result.data:
+        raise ValueError(f"artifact {version.artifact_id} not found")
+    return ArtifactKind(result.data[0]["kind"])
 
 
 def _resolve_work_id(client, version_id: UUID) -> UUID:
     """Find the ``work_id`` that owns a version."""
     version = _lookup_version(client, version_id)
     result = (
-        client.table("artifacts")
-        .select("work_id")
-        .eq("id", str(version.artifact_id))
-        .execute()
+        client.table("artifacts").select("work_id").eq("id", str(version.artifact_id)).execute()
     )
     if not result.data:
         raise ValueError(f"artifact {version.artifact_id} not found")
     return UUID(result.data[0]["work_id"])
 
 
-def _update_progress(
-    client, job_id: UUID, progress: float, message: str = ""
-) -> None:
-    """Update progress and status message on the jobs table."""
+def _update_progress(client, job_id: UUID, progress: float, message: str = "") -> None:
+    """Update a running job or stop at the next cooperative boundary."""
     clamped = max(0.0, min(1.0, float(progress)))
     try:
-        client.table("jobs").update(
-            {"progress": clamped, "status_message": message}
-        ).eq("id", str(job_id)).execute()
-    except Exception:
-        logger.exception(
-            "update_progress_failed", extra={"job_id": str(job_id)}
+        result = (
+            client.table("jobs")
+            .update({"progress": clamped, "status_message": message})
+            .eq("id", str(job_id))
+            .eq("stage", "running")
+            .execute()
         )
+        if result.data == []:
+            raise RuntimeError("job is no longer running")
+    except Exception:
+        logger.exception("update_progress_failed", extra={"job_id": str(job_id)})
+        raise
 
 
 def _upload_bytes(
@@ -117,9 +145,12 @@ def _upload_bytes(
     data: bytes,
     content_type: str = "application/octet-stream",
 ) -> None:
-    client.storage.from_(bucket).upload(
-        key, data, {"content-type": content_type}
-    )
+    client.storage.from_(bucket).upload(key, data, {"content-type": content_type})
+
+
+def _job_storage_key(job: Job, filename: str) -> str:
+    """Keep automatic retry attempts immutable and collision-free."""
+    return f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/{filename}"
 
 
 def _create_output_version(
@@ -132,6 +163,8 @@ def _create_output_version(
     job: Job,
     owner_id: str,
     mime_type: str = "application/octet-stream",
+    label: str = "",
+    metadata: dict | None = None,
 ) -> UUID:
     """Create an Artifact + Version row and return the version id."""
     artifact_repo = ArtifactRepo(client)
@@ -151,6 +184,8 @@ def _create_output_version(
             byte_size=byte_size,
             produced_by_job_id=job.id,
             created_by=owner_id,
+            label=label,
+            metadata=metadata or {},
         ),
         owner_id,
     )
@@ -331,9 +366,7 @@ def _extract_audio_descriptors(audio: np.ndarray, sr: float) -> dict:
 
 def download_version_bytes(version: Version, client) -> bytes:
     """Fetch raw bytes for a version from Supabase Storage."""
-    return client.storage.from_(version.storage_bucket).download(
-        version.storage_key
-    )
+    return client.storage.from_(version.storage_bucket).download(version.storage_key)
 
 
 # ---------------------------------------------------------------------------
@@ -341,9 +374,47 @@ def download_version_bytes(version: Version, client) -> bytes:
 # ---------------------------------------------------------------------------
 
 
+def handle_understand(job: Job, client) -> list[str]:
+    """Run the complete durable audio-understanding workflow.
+
+    A single queued job owns transcription, note persistence, harmonic analysis,
+    and score generation. Closing the browser therefore cannot strand a workflow
+    between stages.
+    """
+    transcribe_client = _ProgressClient(client, 0.0, 0.65)
+    output_ids = handle_transcribe(job, transcribe_client)
+
+    midi_version_id = next(
+        (
+            UUID(version_id)
+            for version_id in output_ids
+            if _artifact_kind_for_version(client, UUID(version_id)) == ArtifactKind.midi_performance
+        ),
+        None,
+    )
+    if midi_version_id is None:
+        raise ValueError("understand workflow produced no MIDI version")
+
+    analyze_job = job.model_copy(
+        update={
+            "capability": Capability(name="analyze", version="1.0"),
+            "input_version_ids": [midi_version_id],
+        }
+    )
+    handle_analyze(analyze_job, _ProgressClient(client, 0.65, 0.2))
+    score_job = job.model_copy(
+        update={
+            "capability": Capability(name="score", version="1.0"),
+            "input_version_ids": [midi_version_id],
+        }
+    )
+    score_ids = handle_score(score_job, _ProgressClient(client, 0.85, 0.15))
+    return [*output_ids, *score_ids]
+
+
 def handle_transcribe(job: Job, client) -> list[str]:
     """Transcribe audio → MIDI.  Produces ``midi_performance`` and
-    ``audio_enhanced`` (synthesised WAV) output versions."""
+    ``audio_rendered`` (synthesised WAV) output versions."""
     if not job.input_version_ids:
         raise ValueError("transcribe requires at least one input version")
 
@@ -371,7 +442,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
     output_ids: list[str] = []
 
     _update_progress(client, job.id, 0.6, "storing MIDI output")
-    midi_key = f"jobs/{job.id}/transcribed.mid"
+    midi_key = _job_storage_key(job, "transcribed.mid")
     _upload_bytes(client, _STORAGE_BUCKET, midi_key, result["midi"], "audio/midi")
     midi_version_id = _create_output_version(
         client,
@@ -383,22 +454,46 @@ def handle_transcribe(job: Job, client) -> list[str]:
         job,
         owner_id,
         mime_type="audio/midi",
+        label="Transcription MIDI",
+        metadata={"note_count": len(result.get("notes", []))},
     )
     output_ids.append(str(midi_version_id))
 
+    _update_progress(client, job.id, 0.7, "storing note entities")
+    note_entities: list[Entity] = []
+    for item in result.get("notes", []):
+        start = float(item["start"])
+        end = float(item["end"])
+        note_entities.append(
+            Entity(
+                version_id=midi_version_id,
+                kind=EntityKind.note,
+                span=Span(start_seconds=start, end_seconds=end),
+                note=NoteEntity(
+                    pitch=int(item["pitch"]),
+                    start_seconds=start,
+                    end_seconds=end,
+                    velocity=int(item.get("velocity", 64)),
+                ),
+                label=f"MIDI {int(item['pitch'])}",
+            )
+        )
+    EntityRepo(client).create_many(note_entities, owner_id)
+
     _update_progress(client, job.id, 0.8, "storing rendered audio")
-    wav_key = f"jobs/{job.id}/transcribed.wav"
+    wav_key = _job_storage_key(job, "transcribed.wav")
     _upload_bytes(client, _STORAGE_BUCKET, wav_key, result["wav"], "audio/wav")
     audio_version_id = _create_output_version(
         client,
         work_id,
-        ArtifactKind.audio_enhanced,
+        ArtifactKind.audio_rendered,
         wav_key,
         len(result["wav"]),
         input_version.id,
         job,
         owner_id,
         mime_type="audio/wav",
+        label="Transcription playback",
     )
     output_ids.append(str(audio_version_id))
 
@@ -569,10 +664,46 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(caid))
 
-    _update_progress(
-        client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)"
+    _update_progress(client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)")
+    # Insights are queried by input version. Job outputs only contain artifact
+    # version IDs, so do not mix insight IDs into that contract.
+    return []
+
+
+def handle_score(job: Job, client) -> list[str]:
+    """Convert a MIDI performance into MusicXML sheet music."""
+    if not job.input_version_ids:
+        raise ValueError("score requires a MIDI input version")
+
+    owner_id = _resolve_owner_id(client, job.workflow_id)
+    input_version = _lookup_version(client, job.input_version_ids[0])
+    work_id = _resolve_work_id(client, input_version.id)
+    _update_progress(client, job.id, 0.2, "downloading MIDI")
+    midi_bytes = download_version_bytes(input_version, client)
+    _update_progress(client, job.id, 0.5, "creating notation")
+    musicxml = music_features.convert_format(midi_bytes, "midi", "musicxml")
+    storage_key = _job_storage_key(job, "score.musicxml")
+    _upload_bytes(
+        client,
+        _STORAGE_BUCKET,
+        storage_key,
+        musicxml,
+        "application/vnd.recordare.musicxml+xml",
     )
-    return insight_ids
+    version_id = _create_output_version(
+        client,
+        work_id,
+        ArtifactKind.musicxml_score,
+        storage_key,
+        len(musicxml),
+        input_version.id,
+        job,
+        owner_id,
+        mime_type="application/vnd.recordare.musicxml+xml",
+        label="Generated score",
+    )
+    _update_progress(client, job.id, 1.0, "score complete")
+    return [str(version_id)]
 
 
 def handle_enhance(job: Job, client) -> list[str]:
@@ -595,7 +726,7 @@ def handle_enhance(job: Job, client) -> list[str]:
     enhanced = music_features.enhance_audio(audio_bytes, fmt=fmt)
 
     _update_progress(client, job.id, 0.7, "storing enhanced audio")
-    storage_key = f"jobs/{job.id}/enhanced.wav"
+    storage_key = _job_storage_key(job, "enhanced.wav")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, enhanced, "audio/wav")
 
     enhanced_version_id = _create_output_version(
@@ -634,7 +765,7 @@ def handle_synthesize(job: Job, client) -> list[str]:
     wav_bytes = music_features.midi_to_wav(midi_bytes, sr=sr)
 
     _update_progress(client, job.id, 0.7, "storing synthesised audio")
-    storage_key = f"jobs/{job.id}/synthesised.wav"
+    storage_key = _job_storage_key(job, "synthesised.wav")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, wav_bytes, "audio/wav")
 
     audio_version_id = _create_output_version(
@@ -683,7 +814,8 @@ def handle_correct(job: Job, client) -> list[str]:
     if selection_start is not None and selection_end is not None:
         for instrument in pm.instruments:
             instrument.notes = [
-                n for n in instrument.notes
+                n
+                for n in instrument.notes
                 if not (n.start >= selection_start and n.end <= selection_end)
             ]
 
@@ -708,7 +840,7 @@ def handle_correct(job: Job, client) -> list[str]:
     corrected_bytes = buf.getvalue()
 
     _update_progress(client, job.id, 0.8, "storing corrected MIDI")
-    storage_key = f"jobs/{job.id}/corrected.mid"
+    storage_key = _job_storage_key(job, "corrected.mid")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, corrected_bytes, "audio/midi")
 
     output_version_id = _create_output_version(
@@ -772,12 +904,14 @@ def handle_compare(job: Job, client) -> list[str]:
         notes: list[dict] = []
         for row in result.data:
             if row.get("note_pitch") is not None:
-                notes.append({
-                    "pitch": row["note_pitch"],
-                    "start": float(row["note_start_seconds"]),
-                    "end": float(row["note_end_seconds"]),
-                    "velocity": row.get("note_velocity", 64),
-                })
+                notes.append(
+                    {
+                        "pitch": row["note_pitch"],
+                        "start": float(row["note_start_seconds"]),
+                        "end": float(row["note_end_seconds"]),
+                        "velocity": row.get("note_velocity", 64),
+                    }
+                )
         return notes
 
     notes_a = _fetch_notes(version_id_a)
@@ -799,20 +933,19 @@ def handle_compare(job: Job, client) -> list[str]:
         for bi, nb in enumerate(notes_b):
             if bi in used_b:
                 continue
-            if (
-                na["pitch"] == nb["pitch"]
-                and abs(na["start"] - nb["start"]) < EPS
-            ):
+            if na["pitch"] == nb["pitch"] and abs(na["start"] - nb["start"]) < EPS:
                 matched = True
                 used_b.add(bi)
                 if abs(na["end"] - nb["end"]) >= EPS:
-                    modified.append({
-                        "pitch": na["pitch"],
-                        "start_a": na["start"],
-                        "end_a": na["end"],
-                        "start_b": nb["start"],
-                        "end_b": nb["end"],
-                    })
+                    modified.append(
+                        {
+                            "pitch": na["pitch"],
+                            "start_a": na["start"],
+                            "end_a": na["end"],
+                            "start_b": nb["start"],
+                            "end_b": nb["end"],
+                        }
+                    )
                 else:
                     unchanged_count += 1
                 break
@@ -856,7 +989,7 @@ def handle_compare(job: Job, client) -> list[str]:
             version_id=version_id_a,
             kind="compare",
             claim=f"Comparison: {len(added)} added, {len(removed)} removed, "
-                  f"{len(modified)} modified, {unchanged_count} unchanged",
+            f"{len(modified)} modified, {unchanged_count} unchanged",
             evidence={
                 "added_count": len(added),
                 "removed_count": len(removed),
@@ -924,7 +1057,7 @@ def handle_transform(job: Job, client) -> list[str]:
     transformed_bytes = buf.getvalue()
 
     _update_progress(client, job.id, 0.8, "storing transformed MIDI")
-    storage_key = f"jobs/{job.id}/transformed.mid"
+    storage_key = _job_storage_key(job, "transformed.mid")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, transformed_bytes, "audio/midi")
 
     output_version_id = _create_output_version(
@@ -990,7 +1123,7 @@ def handle_generate_continuation(job: Job, client) -> list[str]:
     continued_bytes = buf.getvalue()
 
     _update_progress(client, job.id, 0.8, "storing continued MIDI")
-    storage_key = f"jobs/{job.id}/continued.mid"
+    storage_key = _job_storage_key(job, "continued.mid")
     _upload_bytes(client, _STORAGE_BUCKET, storage_key, continued_bytes, "audio/midi")
 
     output_version_id = _create_output_version(
@@ -1101,16 +1234,16 @@ def handle_describe(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(cid))
 
-    _update_progress(
-        client, job.id, 1.0, f"describe complete ({len(insight_ids)} insights)"
-    )
+    _update_progress(client, job.id, 1.0, f"describe complete ({len(insight_ids)} insights)")
     return insight_ids
 
 
 def register_all_capabilities(worker) -> None:
     """Register every capability handler with *worker*."""
     worker.register("transcribe", "1.0", handle_transcribe)
+    worker.register("understand", "1.0", handle_understand)
     worker.register("analyze", "1.0", handle_analyze)
+    worker.register("score", "1.0", handle_score)
     worker.register("enhance", "1.0", handle_enhance)
     worker.register("synthesize", "1.0", handle_synthesize)
     worker.register("correct", "1.0", handle_correct)

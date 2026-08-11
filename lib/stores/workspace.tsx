@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-
-export type WorkspaceMode = "explore" | "compare" | "correct" | "create" | "history";
+import type { Insight } from "@/lib/domain.types";
+import type { Project, Work } from "@/lib/domain.types";
 
 export type RepresentationKind =
   | "piano_roll"
@@ -15,7 +15,7 @@ export type RepresentationKind =
 
 type Note = { pitch: number; start: number; end: number; velocity: number };
 
-type RepresentationEntry = {
+export type RepresentationEntry = {
   kind: RepresentationKind;
   label: string;
   sourceUrl: string;
@@ -23,23 +23,37 @@ type RepresentationEntry = {
   confidence: number | null;
   provenance: string;
   notes?: Note[];
+  musicxml?: string;
+  audioUrl?: string;
+  versionId?: string;
 };
 
 type WorkspaceState = {
-  mode: WorkspaceMode;
+  project: Project | null;
+  works: Work[];
+  activeWorkId: string | null;
+  isLoadingWork: boolean;
+  importRequestId: number;
   libraryCollapsed: boolean;
   inspectorCollapsed: boolean;
   representations: RepresentationEntry[];
+  insights: Insight[];
   expandedRepresentation: RepresentationKind | null;
   focusRepresentation: RepresentationKind | null;
 };
 
 type WorkspaceContextValue = {
   workspace: WorkspaceState;
-  setMode: (mode: WorkspaceMode) => void;
+  setProject: (project: Project | null) => void;
+  setWorks: (works: Work[]) => void;
+  setActiveWorkId: (workId: string | null) => void;
+  setLoadingWork: (loading: boolean) => void;
+  requestImport: () => void;
   toggleLibrary: () => void;
   toggleInspector: () => void;
   addRepresentation: (rep: RepresentationEntry) => void;
+  replaceRepresentations: (reps: RepresentationEntry[]) => void;
+  setInsights: (insights: Insight[]) => void;
   removeRepresentation: (kind: RepresentationKind) => void;
   expandRepresentation: (kind: RepresentationKind | null) => void;
   focusRepresentation: (kind: RepresentationKind | null) => void;
@@ -56,16 +70,40 @@ export function useWorkspace(): WorkspaceContextValue {
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [workspace, setWorkspace] = useState<WorkspaceState>({
-    mode: "explore",
+    project: null,
+    works: [],
+    activeWorkId: null,
+    isLoadingWork: false,
+    importRequestId: 0,
     libraryCollapsed: false,
     inspectorCollapsed: false,
     representations: [],
+    insights: [],
     expandedRepresentation: null,
     focusRepresentation: null,
   });
 
-  const setMode = useCallback((mode: WorkspaceMode) => {
-    setWorkspace((prev) => ({ ...prev, mode }));
+  const setProject = useCallback((project: Project | null) => {
+    setWorkspace((prev) => ({ ...prev, project }));
+  }, []);
+
+  const setWorks = useCallback((works: Work[]) => {
+    setWorkspace((prev) => ({ ...prev, works }));
+  }, []);
+
+  const setActiveWorkId = useCallback((activeWorkId: string | null) => {
+    setWorkspace((prev) => ({ ...prev, activeWorkId }));
+  }, []);
+
+  const setLoadingWork = useCallback((isLoadingWork: boolean) => {
+    setWorkspace((prev) => ({ ...prev, isLoadingWork }));
+  }, []);
+
+  const requestImport = useCallback(() => {
+    setWorkspace((prev) => ({
+      ...prev,
+      importRequestId: prev.importRequestId + 1,
+    }));
   }, []);
 
   const toggleLibrary = useCallback(() => {
@@ -91,6 +129,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         expandedRepresentation: prev.expandedRepresentation ?? rep.kind,
       };
     });
+  }, []);
+
+  const setInsights = useCallback((insights: Insight[]) => {
+    setWorkspace((prev) => ({ ...prev, insights }));
+  }, []);
+
+  const replaceRepresentations = useCallback((representations: RepresentationEntry[]) => {
+    setWorkspace((prev) => ({
+      ...prev,
+      representations,
+      expandedRepresentation: representations[0]?.kind ?? null,
+      focusRepresentation: null,
+    }));
   }, []);
 
   const removeRepresentation = useCallback((kind: RepresentationKind) => {
@@ -140,10 +191,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     <WorkspaceContext.Provider
       value={{
         workspace,
-        setMode,
+        setProject,
+        setWorks,
+        setActiveWorkId,
+        setLoadingWork,
+        requestImport,
         toggleLibrary,
         toggleInspector,
         addRepresentation,
+        replaceRepresentations,
+        setInsights,
         removeRepresentation,
         expandRepresentation,
         focusRepresentation,

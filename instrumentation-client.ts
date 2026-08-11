@@ -10,3 +10,5 @@ if (dsn) {
     integrations: [Sentry.replayIntegration()],
   });
 }
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
