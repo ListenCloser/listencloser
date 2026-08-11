@@ -1,0 +1,28 @@
+"""Pluggable music inference engines.
+
+Each engine is an internal abstraction that wraps a specific ML/MIR library.
+The production defaults are:
+  - transcription: basic_pitch
+  - beat tracking: librosa
+  - structure: allin1 (optional)
+  - notation: music21
+
+Usage:
+  from engines.registry import get_transcription_engine
+  engine = get_transcription_engine("basic_pitch")
+  result = engine.transcribe(audio_bytes)
+"""
+
+from engines.registry import (
+    get_beat_engine,
+    get_notation_engine,
+    get_structure_engine,
+    get_transcription_engine,
+)
+
+__all__ = [
+    "get_transcription_engine",
+    "get_beat_engine",
+    "get_structure_engine",
+    "get_notation_engine",
+]
