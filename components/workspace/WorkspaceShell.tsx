@@ -36,34 +36,16 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
         overflow: "hidden",
       }}
     >
-      <div className="studio-header"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "var(--s-4)",
-          padding: "var(--s-2) var(--s-4)",
-          background: "var(--panel)",
-          borderBottom: "1px solid var(--border)",
-          minHeight: 44,
-        }}
-      >
-        <div className="brand" style={{ fontSize: "var(--fs-sm)", flexShrink: 0 }}>
+      <header className="studio-header">
+        <div className="brand">
           <span className="brand-dot" />
-          {projectName || "hello-ai"}
+          hello-ai
         </div>
-
-        {workspace.activeWorkId && (
-          <span className="badge" style={{ color: "var(--success)", background: "var(--success-soft)" }}>
-            Persisted session
-          </span>
-        )}
-
-        <span className="badge" style={{ color: serviceStatus === "ready" ? "var(--success)" : serviceStatus === "unavailable" ? "var(--danger)" : "var(--muted)", background: serviceStatus === "ready" ? "var(--success-soft)" : serviceStatus === "unavailable" ? "var(--danger-soft)" : "var(--panel-3)" }}>
-          {serviceStatus === "ready" ? "Service online" : serviceStatus === "unavailable" ? "Service offline" : "Checking service"}
+        <div className="studio-title">{projectName || "My music"}</div>
+        <span className={`studio-service ${serviceStatus}`}>
+          <i />{serviceStatus === "ready" ? "Ready to process" : serviceStatus === "unavailable" ? "Processing unavailable" : "Checking processing"}
         </span>
-
-        <div style={{ flex: 1 }} />
-
+        <div className="studio-header-spacer" />
         {workspace.inspectorCollapsed && (
           <button
             className="icon-btn ghost"
@@ -73,7 +55,7 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
             Inspector
           </button>
         )}
-      </div>
+      </header>
 
       <TransportBar />
 

@@ -292,10 +292,20 @@ def convert_format(data: bytes, source: str, target: str) -> bytes:
 
         score = converter.parse(in_path)
 
-        # Quantize to 16th note grid for cleaner notation
+        # MIDI performance timing is not notation.  Use a deliberate, bounded
+        # grid before engraving rather than passing every micro-timing artifact
+        # through to MusicXML.  This is still a draft score: the provenance/UI
+        # must never claim publication-quality notation from AMT alone.
         if target == "musicxml":
             with contextlib.suppress(Exception):
-                score.quantize(inPlace=True)
+                score.quantize(
+                    quarterLengthDivisors=(2, 3, 4, 6, 8, 12, 16),
+                    processOffsets=True,
+                    processDurations=True,
+                    inPlace=True,
+                )
+            with contextlib.suppress(Exception):
+                score.makeNotation(inPlace=True)
 
         out_ext = ".mid" if target == "midi" else ".xml"
         out_path = os.path.join(td, f"output{out_ext}")

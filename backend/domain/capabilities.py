@@ -732,7 +732,11 @@ def handle_score(job: Job, client) -> list[str]:
         job,
         owner_id,
         mime_type="application/vnd.recordare.musicxml+xml",
-        label="Generated score",
+        label="Quantized notation draft",
+        metadata={
+            "representation": "notation_draft",
+            "quality_notice": "Derived from automatic transcription; review by ear before sharing.",
+        },
     )
     _update_progress(client, job.id, 1.0, "score complete")
     return [str(version_id)]

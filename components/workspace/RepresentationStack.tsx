@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import RepresentationLane from "./RepresentationLane";
 import { useWorkspace } from "@/lib/stores/workspace";
 
@@ -20,7 +21,13 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     requestImport,
   } = useWorkspace();
 
-  const { representations, expandedRepresentation } = workspace;
+  const { representations } = workspace;
+  const preferred = representations.some((item) => item.kind === "score") ? "score" : representations[0]?.kind;
+  const [activeKind, setActiveKind] = useState<string | undefined>(preferred);
+
+  useEffect(() => {
+    if (!representations.some((item) => item.kind === activeKind)) setActiveKind(preferred);
+  }, [activeKind, preferred, representations]);
 
   if (representations.length === 0) {
     return (
@@ -60,40 +67,40 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     );
   }
 
-  const ordered = [...representations];
-  if (expandedRepresentation) {
-    const idx = ordered.findIndex((r) => r.kind === expandedRepresentation);
-    if (idx > 0) {
-      const [item] = ordered.splice(idx, 1);
-      ordered.unshift(item);
-    }
-  }
+  const active = representations.find((item) => item.kind === activeKind) ?? representations[0];
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "var(--s-2)",
-        flex: 1,
-        overflow: "hidden",
-        padding: "var(--s-2)",
-      }}
-    >
-      {ordered.map((rep) => (
+    <main className="piece-desk">
+      <header className="piece-desk-heading">
+        <div>
+          <p className="piece-eyebrow">Active representation</p>
+          <h1>{workspace.works.find((work) => work.id === workspace.activeWorkId)?.title ?? "Untitled work"}</h1>
+          <p>Listen first, then move between the score and performance view.</p>
+        </div>
+        <button type="button" className="btn" onClick={requestImport}>Import another piece</button>
+      </header>
+      <div className="representation-switcher" role="tablist" aria-label="Musical representations">
+        {representations.map((rep) => (
+          <button key={rep.kind} type="button" role="tab" aria-selected={active?.kind === rep.kind} className={active?.kind === rep.kind ? "active" : ""} onClick={() => setActiveKind(rep.kind)}>
+            {KIND_LABELS[rep.kind] ?? rep.label}
+            <span>{rep.sourceLabel}</span>
+          </button>
+        ))}
+      </div>
+      {active && (
         <RepresentationLane
-          key={rep.kind}
-          kind={rep.kind}
-          label={KIND_LABELS[rep.kind] ?? rep.label}
-          sourceLabel={rep.sourceLabel}
-          confidence={rep.confidence}
-          isExpanded={rep.kind === expandedRepresentation}
-          onExpand={() => expandRepresentation(rep.kind)}
-          workspaceNotes={rep.notes?.length ? rep.notes : undefined}
-          musicxml={rep.musicxml}
-          audioUrl={rep.audioUrl}
+          kind={active.kind}
+          label={KIND_LABELS[active.kind] ?? active.label}
+          sourceLabel={active.sourceLabel}
+          confidence={active.confidence}
+          isExpanded
+          onExpand={() => expandRepresentation(active.kind)}
+          hideHeader
+          workspaceNotes={active.notes?.length ? active.notes : undefined}
+          musicxml={active.musicxml}
+          audioUrl={active.audioUrl}
         />
-      ))}
-    </div>
+      )}
+    </main>
   );
 }
