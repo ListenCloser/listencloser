@@ -431,10 +431,13 @@ def handle_transcribe(job: Job, client) -> list[str]:
     frame_threshold = float(job.parameters.get("frame_threshold", 0.3))
     fmt = job.parameters.get("fmt", "wav")
 
+    _update_progress(client, job.id, 0.25, "preparing audio")
+    audio_bytes = music_features.decode_audio_to_wav(audio_bytes, fmt=fmt)
+
     _update_progress(client, job.id, 0.3, "transcribing audio")
     result = music_features.transcribe_audio(
         audio_bytes,
-        fmt=fmt,
+        fmt="wav",
         onset_threshold=onset_threshold,
         frame_threshold=frame_threshold,
     )
@@ -603,7 +606,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             "chord",
             f"{root}:{quality}",
             evidence=ch,
-            span=Span(start_seconds=start, end_seconds=end),
+            span=Span(start_beat=start, end_beat=end),
             confidence=0.85,
             job=job,
             owner_id=owner_id,
@@ -630,7 +633,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             "roman_numeral",
             figure,
             evidence=rn,
-            span=Span(start_seconds=start, end_seconds=end),
+            span=Span(start_beat=start, end_beat=end),
             confidence=0.8,
             job=job,
             owner_id=owner_id,
@@ -657,7 +660,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             "cadence",
             f"{cad_type}: {chords_str}",
             evidence=cad,
-            span=Span(start_seconds=position),
+            span=Span(start_beat=position),
             confidence=0.8,
             job=job,
             owner_id=owner_id,

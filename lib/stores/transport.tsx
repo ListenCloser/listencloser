@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
+import { useTimeline } from "./timeline";
 
 export type PlaybackSource = {
   id: string;
@@ -32,6 +33,7 @@ type TransportContextValue = {
   setLoop: (start: number | null, end: number | null) => void;
   toggleLoop: () => void;
   positionRef: React.RefObject<number>;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
 };
 
 const TransportContext = createContext<TransportContextValue | null>(null);
@@ -43,6 +45,7 @@ export function useTransport(): TransportContextValue {
 }
 
 export function TransportProvider({ children }: { children: ReactNode }) {
+  const { setTotalDuration } = useTimeline();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const positionRef = useRef(0);
   const [transport, setTransport] = useState<TransportState>({
@@ -74,27 +77,34 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     const onEnd = () => {
       setTransport((prev) => ({ ...prev, isPlaying: false }));
     };
+    const onMetadata = () => setTotalDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
 
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("ended", onEnd);
+    audio.addEventListener("loadedmetadata", onMetadata);
     return () => {
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("ended", onEnd);
+      audio.removeEventListener("loadedmetadata", onMetadata);
     };
-  }, [transport.loopEnabled, transport.loopEnd, transport.loopStart]);
+  }, [setTotalDuration, transport.loopEnabled, transport.loopEnd, transport.loopStart]);
 
   const setActiveSource = useCallback((source: PlaybackSource) => {
     if (!audioRef.current) return;
     const audio = audioRef.current;
+    const currentPosition = audio.currentTime;
     audio.src = source.url;
     audio.load();
+    audio.addEventListener("loadedmetadata", () => {
+      audio.currentTime = Math.min(currentPosition, audio.duration || currentPosition);
+    }, { once: true });
     setTransport((prev) => ({
       ...prev,
       activeSource: source,
       sources: prev.sources.some((item) => item.id === source.id)
         ? prev.sources
         : [...prev.sources, source],
-      position: 0,
+      position: currentPosition,
       isPlaying: false,
     }));
   }, []);
@@ -134,8 +144,9 @@ export function TransportProvider({ children }: { children: ReactNode }) {
   const play = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || !audio.src) return;
-    audio.play().catch(() => {});
-    setTransport((prev) => ({ ...prev, isPlaying: true }));
+    void audio.play()
+      .then(() => setTransport((prev) => ({ ...prev, isPlaying: true })))
+      .catch(() => setTransport((prev) => ({ ...prev, isPlaying: false })));
   }, []);
 
   const pause = useCallback(() => {
@@ -189,6 +200,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
         setLoop,
         toggleLoop,
         positionRef,
+        audioRef,
       }}
     >
       <audio ref={audioRef} crossOrigin="anonymous" style={{ display: "none" }} />

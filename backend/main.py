@@ -7,6 +7,7 @@ import os
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from slowapi import _rate_limit_exceeded_handler
@@ -129,45 +130,66 @@ def health_queue():
             "stale_leases": 0,
         }
 
+    now = datetime.now(UTC)
     try:
-        now = datetime.now(UTC)
         active_jobs = (
             client.table("jobs")
             .select("stage,lease_expires_at")
             .in_("stage", ["queued", "claimed", "running"])
             .execute()
         )
+        rows = active_jobs.data or []
+    except Exception:
+        logger.exception("queue_jobs_health_failed")
+        return {
+            "status": "degraded",
+            "reason": "job queue unavailable",
+            "workers": 0,
+            "queued": 0,
+            "running": 0,
+            "stale_leases": 0,
+        }
+
+    workers: list[dict] = []
+    source = "database"
+    try:
         heartbeats = (
             client.table("worker_heartbeats")
             .select("status,heartbeat_at")
             .gte("heartbeat_at", (now - timedelta(seconds=45)).isoformat())
             .execute()
         )
-        rows = active_jobs.data or []
         workers = [row for row in (heartbeats.data or []) if row.get("status") == "running"]
-        queued = sum(row.get("stage") == "queued" for row in rows)
-        running = sum(row.get("stage") in {"claimed", "running"} for row in rows)
-        stale_leases = sum(
-            row.get("stage") in {"claimed", "running"}
-            and row.get("lease_expires_at")
-            and datetime.fromisoformat(str(row["lease_expires_at"]).replace("Z", "+00:00")) < now
-            for row in rows
-        )
-        healthy = bool(workers) and stale_leases == 0
-        return {
-            "status": "ready" if healthy else "degraded",
-            "workers": len(workers),
-            "queued": queued,
-            "running": running,
-            "stale_leases": stale_leases,
-        }
     except Exception:
-        logger.exception("queue_health_failed")
-        return {
-            "status": "degraded",
-            "reason": "queue health unavailable",
-            "workers": 0,
-            "queued": 0,
-            "running": 0,
-            "stale_leases": 0,
-        }
+        source = "runtime_file"
+
+    if not workers:
+        health_path = Path(os.environ.get("WORKER_HEALTH_FILE", "/tmp/hello-ai-worker.json"))
+        try:
+            heartbeat = json.loads(health_path.read_text(encoding="utf-8"))
+            heartbeat_at = datetime.fromisoformat(
+                str(heartbeat["heartbeat_at"]).replace("Z", "+00:00")
+            )
+            if heartbeat.get("status") == "running" and heartbeat_at >= now - timedelta(seconds=45):
+                workers = [heartbeat]
+                source = "runtime_file"
+        except (OSError, ValueError, KeyError, json.JSONDecodeError):
+            logger.warning("worker_runtime_heartbeat_unavailable")
+
+    queued = sum(row.get("stage") == "queued" for row in rows)
+    running = sum(row.get("stage") in {"claimed", "running"} for row in rows)
+    stale_leases = sum(
+        row.get("stage") in {"claimed", "running"}
+        and row.get("lease_expires_at")
+        and datetime.fromisoformat(str(row["lease_expires_at"]).replace("Z", "+00:00")) < now
+        for row in rows
+    )
+    healthy = bool(workers) and stale_leases == 0
+    return {
+        "status": "ready" if healthy else "degraded",
+        "workers": len(workers),
+        "queued": queued,
+        "running": running,
+        "stale_leases": stale_leases,
+        "heartbeat_source": source,
+    }

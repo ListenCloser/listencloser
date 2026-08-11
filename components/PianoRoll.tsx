@@ -44,7 +44,7 @@ export default function PianoRoll({
   for (let p = maxPitch; p >= minPitch; p--) {
     const label = pitchToName(p);
     const n = notes.filter((x) => x.pitch === p);
-    if (n.length > 0) rows.push({ pitch: p, label, notes: n });
+    rows.push({ pitch: p, label, notes: n });
   }
 
   const h = rows.length * ROW_H + TOP_PAD;
@@ -65,7 +65,7 @@ export default function PianoRoll({
         <svg
           viewBox={`0 0 ${W} ${h}`}
           preserveAspectRatio="xMinYMin meet"
-          width="100%"
+          width={W}
           height={h}
           style={{ display: "block" }}
         >

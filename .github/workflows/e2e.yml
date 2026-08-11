@@ -32,11 +32,15 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_MOCK_ENABLED: "true"
+          NEXT_PUBLIC_SUPABASE_URL: "https://cijhpddqvvzyzfzmkdnn.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key"
       - name: Start Next.js
         run: npm run start &
         env:
           NODE_ENV: test
           NEXT_PUBLIC_MOCK_ENABLED: "true"
+          NEXT_PUBLIC_SUPABASE_URL: "https://cijhpddqvvzyzfzmkdnn.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key"
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
       - name: Wait for server
         run: npx wait-on http://localhost:3000

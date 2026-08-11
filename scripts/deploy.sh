@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Health-gated backend deploy for the Oracle VM.
 #
-# Self-healing: handles any repo state (missing, partial, wrong branch, stale).
-# Flow: ensure repo -> pull -> rebuild backend -> wait for /health/ready -> rollback on failure.
+# Build-first, health-gated deployment for both the API and durable worker.
+# The currently running release stays online while replacement images build.
 
 REPO_DIR="${DEPLOY_DIR:-$HOME/hello-ai}"
 REPO_URL="https://github.com/gr-rr/hello-ai.git"
@@ -21,6 +21,7 @@ ensure_repo() {
     rm -rf "$REPO_DIR" 2>/dev/null || true
     git clone "$REPO_URL" "$REPO_DIR"
     cd "$REPO_DIR"
+    PREV_HEAD=""
     return
   fi
 
@@ -53,6 +54,8 @@ ensure_repo() {
     git branch --set-upstream-to=origin/main main
   fi
 
+  PREV_HEAD="$(git rev-parse HEAD)"
+
   # fetch and fast-forward
   git fetch -q origin
   local behind
@@ -68,8 +71,7 @@ ensure_repo() {
 # --- main ---
 echo "[deploy] starting deploy at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ensure_repo
-
-PREV_HEAD="$(git rev-parse --short HEAD)"
+TARGET_HEAD="$(git rev-parse HEAD)"
 
 # --- write .env from environment (deploy workflow passes these) ---
 if [ -n "${SUPABASE_URL:-}" ] || [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
@@ -92,25 +94,45 @@ else
 fi
 cd "$REPO_DIR"
 
-echo "[deploy] stopping old containers"
-docker compose -f "$COMPOSE" down --remove-orphans 2>/dev/null || true
-docker rm -f music-ai-backend 2>/dev/null || true
-docker rm -f music-ai-worker 2>/dev/null || true
+echo "[deploy] building replacement images while the current release stays online"
+docker compose -f "$COMPOSE" build backend worker
 
-echo "[deploy] rebuilding backend"
-docker compose -f "$COMPOSE" up -d --build backend worker
+echo "[deploy] switching API and worker to $(git rev-parse --short HEAD)"
+docker compose -f "$COMPOSE" run --rm --no-deps --user root --entrypoint sh worker \
+  -c 'rm -f /app/runtime/worker-heartbeat.json && chown 1001:1001 /app/runtime'
+docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans backend worker
+
+rollback() {
+  local reason="$1"
+  echo "[deploy] ${reason}; rolling back to ${PREV_HEAD:-no previous revision}" >&2
+  docker compose -f "$COMPOSE" logs --tail=60 backend worker 2>&1 >&2 || true
+  if [ -z "${PREV_HEAD:-}" ]; then
+    echo "[deploy] first deployment has no previous revision" >&2
+    return 1
+  fi
+  git reset --hard "$PREV_HEAD"
+  docker compose -f "$COMPOSE" build backend worker
+  docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans backend worker
+  echo "[deploy] rollback restored $(git rev-parse --short HEAD)" >&2
+  return 1
+}
 
 echo "[deploy] waiting for ${HEALTH_URL} (max ${MAX_WAIT}s)"
 elapsed=0
-until curl -fsS "$HEALTH_URL" >/dev/null 2>&1; do
+until curl -fsS "$HEALTH_URL" 2>/dev/null | grep -q '"status":"ready"'; do
   elapsed=$((elapsed + 2))
   if [ "$elapsed" -ge "$MAX_WAIT" ]; then
-    echo "[deploy] health check failed after ${MAX_WAIT}s; rolling back to ${PREV_HEAD}" >&2
-    echo "[deploy] container logs:" >&2
-    docker compose -f "$COMPOSE" logs --tail=30 backend 2>&1 >&2 || true
-    git checkout -q "$PREV_HEAD"
-    docker compose -f "$COMPOSE" up -d --build backend worker
-    exit 1
+    rollback "API health check failed after ${MAX_WAIT}s"
+  fi
+  sleep 2
+done
+
+echo "[deploy] waiting for the replacement worker container"
+elapsed=0
+until [ "$(docker inspect --format '{{.State.Health.Status}}' music-ai-worker 2>/dev/null)" = "healthy" ]; do
+  elapsed=$((elapsed + 2))
+  if [ "$elapsed" -ge "$MAX_WAIT" ]; then
+    rollback "worker container health check failed after ${MAX_WAIT}s"
   fi
   sleep 2
 done
@@ -120,14 +142,9 @@ elapsed=0
 until curl -fsS "$QUEUE_HEALTH_URL" 2>/dev/null | grep -q '"status":"ready"'; do
   elapsed=$((elapsed + 2))
   if [ "$elapsed" -ge "$MAX_WAIT" ]; then
-    echo "[deploy] worker health check failed after ${MAX_WAIT}s; rolling back to ${PREV_HEAD}" >&2
-    echo "[deploy] container logs:" >&2
-    docker compose -f "$COMPOSE" logs --tail=30 backend worker 2>&1 >&2 || true
-    git checkout -q "$PREV_HEAD"
-    docker compose -f "$COMPOSE" up -d --build backend worker
-    exit 1
+    rollback "worker health check failed after ${MAX_WAIT}s"
   fi
   sleep 2
 done
 
-echo "[deploy] healthy: ${PREV_HEAD} -> $(git rev-parse --short HEAD)"
+echo "[deploy] healthy: ${PREV_HEAD:-first deploy} -> ${TARGET_HEAD}"
