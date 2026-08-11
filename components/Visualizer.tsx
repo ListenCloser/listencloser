@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { withAlpha } from "@/lib/color";
 
 type Props = {
   audioRef: React.RefObject<HTMLAudioElement | null>;
@@ -26,8 +25,8 @@ export default function Visualizer({ audioRef }: Props) {
     let cancelled = false;
 
     const styles = getComputedStyle(document.documentElement);
-    const accent = styles.getPropertyValue("--accent").trim() || "#c084fc";
-    const bg = styles.getPropertyValue("--bg").trim() || "#080515";
+    const accent = styles.getPropertyValue("--accent").trim() || "#bd513a";
+    const bg = "#292825";
 
     // Browsers create the AudioContext suspended until a user gesture.
     // If it stays suspended, cross-origin audio routed through Web Audio is
@@ -75,9 +74,10 @@ export default function Visualizer({ audioRef }: Props) {
         canvasCtx!.fillStyle = bg;
         canvasCtx!.fillRect(0, 0, w, h);
 
-        // Waveform
-        canvasCtx!.lineWidth = 2;
-        canvasCtx!.strokeStyle = accent;
+        // One calm, high-contrast listening trace. Frequency bars made this
+        // representation compete with the score rather than support playback.
+        canvasCtx!.lineWidth = 1.5;
+        canvasCtx!.strokeStyle = "rgba(255,253,249,.9)";
         canvasCtx!.beginPath();
         const sliceWidth = w / bufferLength;
         let x = 0;
@@ -88,22 +88,9 @@ export default function Visualizer({ audioRef }: Props) {
           else canvasCtx!.lineTo(x, y);
           x += sliceWidth;
         }
-        canvasCtx!.lineTo(w, h / 2);
         canvasCtx!.stroke();
-
-        // Spectrogram strip (bottom)
-        const specH = Math.floor(h * 0.32);
-        const y0 = h - specH;
-        analyser.getByteFrequencyData(dataArray);
-        const bars = 64;
-        const barW = w / bars;
-        for (let i = 0; i < bars; i++) {
-          const idx = Math.floor((i / bars) * bufferLength);
-          const mag = dataArray[idx] / 255;
-          const barH = mag * specH;
-          canvasCtx!.fillStyle = withAlpha(accent, 0.3 + mag * 0.6);
-          canvasCtx!.fillRect(i * barW, y0 + (specH - barH), barW - 1, barH);
-        }
+        canvasCtx!.fillStyle = accent;
+        canvasCtx!.fillRect(0, h / 2 - 1, w, 2);
       };
       draw();
     }
