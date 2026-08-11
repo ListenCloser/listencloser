@@ -15,6 +15,7 @@ export type RepresentationProps = {
   analysis?: unknown;
   bpm?: number;
   playheadTime?: number;
+  onSeek?: (seconds: number) => void;
 };
 
 type Note = NonNullable<RepresentationProps["notes"]>[number];
@@ -74,9 +75,9 @@ function Placeholder({ label }: { label: string }) {
 }
 
 const renderers: Record<RepresentationKind, (props: RepresentationProps) => ReactNode> = {
-  piano_roll: ({ notes, bpm, playheadTime }) => (
+  piano_roll: ({ notes, bpm, playheadTime, onSeek }) => (
     <div className="representation-body">
-      <PianoRoll notes={(notes ?? []) as Note[]} bpm={bpm} playheadTime={playheadTime} />
+      <PianoRoll notes={(notes ?? []) as Note[]} bpm={bpm} playheadTime={playheadTime} onSeek={onSeek} />
     </div>
   ),
   waveform: ({ audioUrl }) => <WaveformWrapper audioUrl={audioUrl} />,
