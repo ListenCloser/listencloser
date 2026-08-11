@@ -14,7 +14,6 @@ from uuid import UUID
 import numpy as np
 
 import analyze
-import audio_structure
 import music_features
 from domain.models import (
     Alignment,
@@ -472,7 +471,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
     audio_bytes = music_features.decode_audio_to_wav(audio_bytes, fmt=fmt)
 
     _update_progress(client, job.id, 0.3, "transcribing audio")
-    result = music_features.transcribe_audio(
+    result = music_features.transcribe_with_engine(
         audio_bytes,
         fmt="wav",
         onset_threshold=onset_threshold,
@@ -565,7 +564,7 @@ def handle_audio_structure(job: Job, client) -> list[str]:
         wav_path = audio_file.name
     try:
         _update_progress(client, job.id, 0.35, "finding beats and musical form")
-        result = audio_structure.analyze_file(wav_path)
+        result = music_features.structure_with_engine(wav_path)
     finally:
         os.unlink(wav_path)
 
@@ -915,12 +914,14 @@ def handle_score(job: Job, client) -> list[str]:
             wav_bytes = music_features.decode_audio_to_wav(
                 audio_bytes, fmt=job.parameters.get("fmt", "wav")
             )
-            tempo, beat_times = music_features.estimate_beat_grid(wav_bytes)
+            beat_result = music_features.estimate_beats_with_engine(wav_bytes)
+            tempo = beat_result["bpm"]
+            beat_times = beat_result["beats"]
         except Exception:
             logger.exception("score_beat_tracking_failed")
-    notation_midi, notation_report = music_features.notation_midi_from_performance(
-        midi_bytes, beat_times
-    )
+    notation_result = music_features.notation_with_engine(midi_bytes, beat_times)
+    notation_midi = notation_result["notation_midi"]
+    notation_report = notation_result["quantization_report"]
     _update_progress(client, job.id, 0.5, "creating notation")
     notation_key = _job_storage_key(job, "notation.mid")
     _upload_bytes(client, _STORAGE_BUCKET, notation_key, notation_midi, "audio/midi")

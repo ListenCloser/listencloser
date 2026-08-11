@@ -54,7 +54,7 @@ class BeatTrackingResult:
         return {
             "bpm": round(self.bpm, 3),
             "beat_count": len(self.beats),
-            "downbeat_count": len(self.downbeats),
+            "downbeat_count": len(self.downbeats) if self.downbeats is not None else None,
             "provenance": self.provenance.to_dict(),
         }
 
@@ -68,11 +68,20 @@ class StructureResult:
     segments: list[dict[str, Any]]
     provenance: EngineProvenance
 
+    def evidence(self) -> dict[str, Any]:
+        return {
+            "bpm": self.bpm,
+            "beat_count": len(self.beats),
+            "downbeat_count": len(self.downbeats) if self.downbeats is not None else 0,
+            "segment_count": len(self.segments),
+            "engine": self.provenance.engine,
+        }
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "bpm": round(self.bpm, 3),
             "beat_count": len(self.beats),
-            "downbeat_count": len(self.downbeats) if self.downbeats else None,
+            "downbeat_count": len(self.downbeats) if self.downbeats is not None else None,
             "segment_count": len(self.segments),
             "segments": self.segments,
             "provenance": self.provenance.to_dict(),

@@ -543,9 +543,10 @@ def transcribe_with_engine(
     """
     from engines.registry import get_transcription_engine
 
-    engine = get_transcription_engine()
-    engine._onset_threshold = onset_threshold
-    engine._frame_threshold = frame_threshold
+    engine = get_transcription_engine(
+        onset_threshold=onset_threshold,
+        frame_threshold=frame_threshold,
+    )
     result = engine.transcribe(audio_bytes, fmt=fmt)
     base = {
         "midi": result.midi,
@@ -592,15 +593,12 @@ def notation_with_engine(midi_bytes: bytes, beat_times: list[float]) -> dict:
     }
 
 
-def structure_with_engine(wav_bytes: bytes) -> dict | None:
+def structure_with_engine(wav_bytes: bytes):
     """Run structure analysis using the configured structure engine.
 
-    Returns None when the engine is disabled/unavailable.
+    Returns an engines.base.StructureResult, or None when disabled.
     """
     from engines.registry import get_structure_engine
 
     engine = get_structure_engine()
-    result = engine.analyze(wav_bytes)
-    if result is None:
-        return None
-    return result.to_dict()
+    return engine.analyze(wav_bytes)
