@@ -770,7 +770,7 @@ async def create_compare_workflow(
 
 
 # ---------------------------------------------------------------------------
-# POST /workflows/create
+# POST /workflows/variation
 # ---------------------------------------------------------------------------
 
 
@@ -804,7 +804,10 @@ async def create_variation_workflow(
         workflow = Workflow(
             id=uuid5(
                 NAMESPACE_URL,
-                f"hello-ai:variation-workflow:1.0:{owner_id}:{version_id}:{body.transpose_semitones}",
+                (
+                    "hello-ai:variation-workflow:1.0:"
+                    f"{owner_id}:{version_id}:{body.transpose_semitones}"
+                ),
             ),
             project_id=project_id,
             kind=WorkflowKind.create,
