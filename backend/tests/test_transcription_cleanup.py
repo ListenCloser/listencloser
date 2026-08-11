@@ -21,13 +21,17 @@ def _midi_with(notes: list[tuple[int, float, float, int]]) -> bytes:
 
 
 def test_performance_cleanup_removes_only_explainable_noise():
-    cleaned, report = _clean_midi(_midi_with([
-        (60, 0.0, 0.5, 80),
-        (60, 0.2, 0.7, 60),  # overlapping duplicate merges into the first
-        (64, 0.1, 0.14, 90),  # too short
-        (67, 0.1, 0.2, 10),  # quiet and short
-        (12, 0.0, 1.0, 90),  # outside piano range
-    ]))
+    cleaned, report = _clean_midi(
+        _midi_with(
+            [
+                (60, 0.0, 0.5, 80),
+                (60, 0.2, 0.7, 60),  # overlapping duplicate merges into the first
+                (64, 0.1, 0.14, 90),  # too short
+                (67, 0.1, 0.2, 10),  # quiet and short
+                (12, 0.0, 1.0, 90),  # outside piano range
+            ]
+        )
+    )
     parsed = pretty_midi.PrettyMIDI(io.BytesIO(cleaned))
     notes = parsed.instruments[0].notes
 

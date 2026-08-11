@@ -492,8 +492,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
             "cleanup": result.get("cleanup_report", {}),
             "representation": "performance_midi",
             "quality_notice": (
-                "Conservatively filtered transcription; "
-                "timing is preserved rather than quantized."
+                "Conservatively filtered transcription; timing is preserved rather than quantized."
             ),
         },
     )
@@ -703,6 +702,70 @@ def handle_analyze(job: Job, client) -> list[str]:
             owner_id=owner_id,
         )
         insight_ids.append(str(caid))
+
+    # Rhythm: compact, evidence-backed observations instead of a wall of cards.
+    rhythm = analysis.get("rhythm") or {}
+    if rhythm:
+        rid = _create_insight(
+            client,
+            input_version.id,
+            "rhythm",
+            (
+                f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
+                f"{round(float(rhythm.get('syncopation_ratio', 0)) * 100)}% "
+                "off-beat on the inferred grid"
+            ),
+            evidence=rhythm,
+            confidence=0.65,
+            job=job,
+            owner_id=owner_id,
+        )
+        insight_ids.append(str(rid))
+
+    melody = analysis.get("melody") or {}
+    if melody:
+        mid = _create_insight(
+            client,
+            input_version.id,
+            "melody",
+            f"Range: MIDI {melody.get('low_pitch')}–{melody.get('high_pitch')} · "
+            f"{round(float(melody.get('stepwise_ratio', 0)) * 100)}% "
+            "stepwise motion",
+            evidence=melody,
+            confidence=0.6,
+            job=job,
+            owner_id=owner_id,
+        )
+        insight_ids.append(str(mid))
+
+    voice_leading = analysis.get("voice_leading") or {}
+    if voice_leading:
+        vid = _create_insight(
+            client,
+            input_version.id,
+            "voice_leading",
+            voice_leading.get("motion_summary", "Voice-leading summary"),
+            evidence=voice_leading,
+            confidence=0.55,
+            job=job,
+            owner_id=owner_id,
+        )
+        insight_ids.append(str(vid))
+
+    for modulation in (analysis.get("modulations") or [])[:12]:
+        position = float(modulation.get("position", 0))
+        mid = _create_insight(
+            client,
+            input_version.id,
+            "modulation",
+            f"{modulation.get('from_key', '?')} → {modulation.get('to_key', '?')}",
+            evidence=modulation,
+            span=Span(start_seconds=position),
+            confidence=0.5,
+            job=job,
+            owner_id=owner_id,
+        )
+        insight_ids.append(str(mid))
 
     _update_progress(client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)")
     # Insights are queried by input version. Job outputs only contain artifact
