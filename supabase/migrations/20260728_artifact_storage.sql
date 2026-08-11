@@ -13,6 +13,7 @@ on conflict (id) do update set public = false;
 -- ===========================================================================
 -- RLS: artifacts bucket — owner-scoped read/write
 -- ===========================================================================
+drop policy if exists "artifacts owner select" on storage.objects;
 create policy "artifacts owner select" on storage.objects
   for select using (
     bucket_id = 'artifacts'
@@ -20,6 +21,7 @@ create policy "artifacts owner select" on storage.objects
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "artifacts owner insert" on storage.objects;
 create policy "artifacts owner insert" on storage.objects
   for insert to authenticated
   with check (
