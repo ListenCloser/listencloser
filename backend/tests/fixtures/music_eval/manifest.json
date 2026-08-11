@@ -1,0 +1,17 @@
+{
+  "name": "synthetic_piano",
+  "description": "Synthetic C-E-G then F-A-C piano arpeggios for deterministic evaluation.",
+  "clips": [
+    {
+      "id": "piano_synthetic",
+      "audio": "piano-synthetic.wav",
+      "category": "solo_piano",
+      "reference_midi": "piano-synthetic.mid",
+      "reference": {
+        "bpm": 120,
+        "key": "C major",
+        "meter": "4/4"
+      }
+    }
+  ]
+}
