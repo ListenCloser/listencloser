@@ -26,15 +26,7 @@ class AllInOneEngine(StructureEngine):
 
     def analyze(self, wav_bytes: bytes, **kwargs: Any) -> StructureResult | None:
         if not self._enabled:
-            return StructureResult(
-                bpm=0.0,
-                beats=[],
-                downbeats=[],
-                beat_positions=[],
-                segments=[],
-                provenance=self.provenance,
-                enabled=False,
-            )
+            return None
 
         try:
             import allin1  # type: ignore[import-untyped]
@@ -50,11 +42,10 @@ class AllInOneEngine(StructureEngine):
                 }
                 for s in getattr(result, "segments", [])
             ]
-            beats = [float(b) for b in getattr(result, "beats", [])]
             return StructureResult(
                 bpm=float(getattr(result, "bpm", 0)),
-                beats=beats,
-                downbeats=[float(d) for d in getattr(result, "downbeats", [])],
+                beats=[float(b) for b in getattr(result, "beats", [])],
+                downbeats=[float(d) for d in getattr(result, "downbeats", [])] or None,
                 beat_positions=[int(p) for p in getattr(result, "beat_positions", [])],
                 segments=segments,
                 provenance=self.provenance,

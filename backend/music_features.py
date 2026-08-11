@@ -15,6 +15,8 @@ Runs on CPU (Oracle always-free ARM VM). Suitable for short clips
 (seconds to a couple minutes).
 """
 
+from __future__ import annotations
+
 import contextlib
 import io
 import logging
@@ -520,3 +522,85 @@ def transcribe_audio(
         "num_notes": len(notes),
         "cleanup_report": cleanup_report,
     }
+
+
+# ---------------------------------------------------------------------------
+# Engine-aware wrappers — resolve engines via registry at runtime.
+# The implementations above remain as helpers; the wrappers below are the
+# canonical public API for caller sites that want provenance-aware results.
+# ---------------------------------------------------------------------------
+
+
+def transcribe_with_engine(
+    audio_bytes: bytes,
+    fmt: str = "wav",
+    onset_threshold: float = 0.5,
+    frame_threshold: float = 0.3,
+) -> dict:
+    """Transcribe audio using the configured transcription engine.
+
+    Returns the same dict as transcribe_audio, with 'provenance' added.
+    """
+    from engines.registry import get_transcription_engine
+
+    engine = get_transcription_engine()
+    engine._onset_threshold = onset_threshold
+    engine._frame_threshold = frame_threshold
+    result = engine.transcribe(audio_bytes, fmt=fmt)
+    base = {
+        "midi": result.midi,
+        "wav": result.wav,
+        "notes": result.notes,
+        "num_notes": result.num_notes,
+        "cleanup_report": result.cleanup_report,
+        "provenance": result.provenance.to_dict(),
+    }
+    return base
+
+
+def estimate_beats_with_engine(wav_bytes: bytes) -> dict:
+    """Estimate beats using the configured beat engine.
+
+    Returns a dict with bpm, beats, downbeats (may be None), and provenance.
+    """
+    from engines.registry import get_beat_engine
+
+    engine = get_beat_engine()
+    result = engine.analyze(wav_bytes)
+    return {
+        "bpm": result.bpm,
+        "beats": result.beats,
+        "downbeats": result.downbeats,
+        "provenance": result.provenance.to_dict(),
+    }
+
+
+def notation_with_engine(midi_bytes: bytes, beat_times: list[float]) -> dict:
+    """Create notation using the configured notation engine.
+
+    Returns a dict with notation_midi, musicxml, quantization_report, and provenance.
+    """
+    from engines.registry import get_notation_engine
+
+    engine = get_notation_engine()
+    result = engine.convert(midi_bytes, beat_times)
+    return {
+        "notation_midi": result.notation_midi,
+        "musicxml": result.musicxml,
+        "quantization_report": result.quantization_report,
+        "provenance": result.provenance.to_dict(),
+    }
+
+
+def structure_with_engine(wav_bytes: bytes) -> dict | None:
+    """Run structure analysis using the configured structure engine.
+
+    Returns None when the engine is disabled/unavailable.
+    """
+    from engines.registry import get_structure_engine
+
+    engine = get_structure_engine()
+    result = engine.analyze(wav_bytes)
+    if result is None:
+        return None
+    return result.to_dict()
