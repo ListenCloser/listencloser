@@ -36,16 +36,22 @@ def write_markdown_report(summary: dict[str, Any], output_path: str) -> None:
             lines.append("### Transcription")
             lines.append("| Metric | Value |")
             lines.append("|--------|-------|")
-            lines.append(f"| Note Precision | {tm['note_precision']} |")
-            lines.append(f"| Note Recall | {tm['note_recall']} |")
-            lines.append(f"| Note F1 | {tm['note_f1']} |")
-            lines.append(f"| Onset Precision | {tm['onset_precision']} |")
-            lines.append(f"| Onset Recall | {tm['onset_recall']} |")
-            lines.append(f"| Onset F1 | {tm['onset_f1']} |")
+            lines.append(f"| Onset-only Note Precision | {tm.get('onset_note_precision', '?')} |")
+            lines.append(f"| Onset-only Note Recall | {tm.get('onset_note_recall', '?')} |")
+            lines.append(f"| Onset-only Note F1 | {tm.get('onset_note_f1', '?')} |")
             lines.append(
-                "| Matched / Predicted / Ref | "
-                f"{tm['matched_count']} / {tm['predicted_count']}"
-                f" / {tm['reference_count']} |"
+                f"| Onset+Offset Note Precision | {tm.get('onset_offset_note_precision', '?')} |"
+            )
+            lines.append(
+                f"| Onset+Offset Note Recall | {tm.get('onset_offset_note_recall', '?')} |"
+            )
+            lines.append(f"| Onset+Offset Note F1 | {tm.get('onset_offset_note_f1', '?')} |")
+            lines.append(
+                "| Matched onset / Matched offset / Predicted / Ref | "
+                f"{tm.get('onset_matched_count', '?')} / "
+                f"{tm.get('onset_offset_matched_count', '?')} / "
+                f"{tm.get('predicted_count', '?')} / "
+                f"{tm.get('reference_count', '?')} |"
             )
 
         bm = result.get("beat_metrics")

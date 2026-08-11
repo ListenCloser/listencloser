@@ -60,14 +60,21 @@ def _match_timestamps(
     ref = sorted(reference)
     matched = 0
     unmatched_pred = list(pred)
-    unmatched_ref = list(ref)
+    unmatched_ref: list[float] = []
 
     for r in ref:
+        best_idx: int | None = None
+        best_d = float("inf")
         for i, p in enumerate(unmatched_pred):
-            if abs(p - r) <= tolerance:
-                matched += 1
-                unmatched_pred.pop(i)
-                break
+            d = abs(p - r)
+            if d <= tolerance and d < best_d:
+                best_d = d
+                best_idx = i
+        if best_idx is not None:
+            matched += 1
+            unmatched_pred.pop(best_idx)
+        else:
+            unmatched_ref.append(r)
 
     return matched, unmatched_pred, unmatched_ref
 

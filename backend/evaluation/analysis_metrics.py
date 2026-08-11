@@ -44,6 +44,36 @@ class AnalysisMetrics:
         }
 
 
+def _one_to_one_span_match(
+    pred_items: list[dict[str, Any]],
+    ref_items: list[dict[str, Any]],
+    key_func,
+    window: float,
+) -> tuple[int, int, int]:
+    """One-to-one greedy matching by span key + start time.
+
+    Returns (matched_count, predicted_total_count, reference_total_count).
+    """
+    pred_remaining = list(pred_items)
+    matched = 0
+    for ref in ref_items:
+        ref_key = key_func(ref)
+        ref_start = ref.get("start", 0)
+        best_idx: int | None = None
+        best_d = float("inf")
+        for i, pred in enumerate(pred_remaining):
+            if key_func(pred) != ref_key:
+                continue
+            d = abs(pred.get("start", 0) - ref_start)
+            if d <= window and d < best_d:
+                best_d = d
+                best_idx = i
+        if best_idx is not None:
+            matched += 1
+            pred_remaining.pop(best_idx)
+    return matched, len(pred_items), len(ref_items)
+
+
 def compute_analysis_metrics(
     predicted_key: str | None,
     predicted_bpm: float | None,
@@ -66,20 +96,14 @@ def compute_analysis_metrics(
 
     section_p = section_r = section_f1 = None
     if reference.sections and predicted_sections:
-        ref_labels = [
-            (s["start"], s["end"], s.get("label", ""))
-            for s in reference.sections
-            if "start" in s and "end" in s
-        ]
-        pred_labels = [(s["start"], s["end"], s.get("label", "")) for s in predicted_sections]
-        matched = sum(
-            1
-            for r in ref_labels
-            for p in pred_labels
-            if abs(r[0] - p[0]) <= 1.0 and abs(r[1] - p[1]) <= 1.0
+        matched, pred_total, ref_total = _one_to_one_span_match(
+            predicted_sections,
+            reference.sections,
+            key_func=lambda s: s.get("label", ""),
+            window=3.0,
         )
-        section_p = matched / len(pred_labels) if pred_labels else 0.0
-        section_r = matched / len(ref_labels) if ref_labels else 0.0
+        section_p = matched / pred_total if pred_total > 0 else 0.0
+        section_r = matched / ref_total if ref_total > 0 else 0.0
         section_f1 = (
             2 * section_p * section_r / (section_p + section_r)
             if (section_p + section_r) > 0
@@ -88,13 +112,14 @@ def compute_analysis_metrics(
 
     chord_p = chord_r = chord_f1 = None
     if reference.chords and predicted_chords:
-        ref_roots = [(c.get("root", ""), c.get("start", 0)) for c in reference.chords]
-        pred_roots = [(c.get("root", ""), c.get("start", 0)) for c in predicted_chords]
-        matched_c = sum(
-            1 for r in ref_roots for p in pred_roots if r[0] == p[0] and abs(r[1] - p[1]) <= 0.5
+        matched, pred_total, ref_total = _one_to_one_span_match(
+            predicted_chords,
+            reference.chords,
+            key_func=lambda c: c.get("root", ""),
+            window=1.0,
         )
-        chord_p = matched_c / len(pred_roots) if pred_roots else 0.0
-        chord_r = matched_c / len(ref_roots) if ref_roots else 0.0
+        chord_p = matched / pred_total if pred_total > 0 else 0.0
+        chord_r = matched / ref_total if ref_total > 0 else 0.0
         chord_f1 = 2 * chord_p * chord_r / (chord_p + chord_r) if (chord_p + chord_r) > 0 else 0.0
 
     return AnalysisMetrics(

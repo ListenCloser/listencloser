@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -26,29 +27,31 @@ class Note:
 
 @dataclass(frozen=True)
 class TranscriptionMetrics:
-    note_precision: float
-    note_recall: float
-    note_f1: float
-    onset_precision: float
-    onset_recall: float
-    onset_f1: float
+    onset_note_precision: float
+    onset_note_recall: float
+    onset_note_f1: float
+    onset_offset_note_precision: float
+    onset_offset_note_recall: float
+    onset_offset_note_f1: float
     predicted_count: int
     reference_count: int
-    matched_count: int
+    onset_matched_count: int
+    onset_offset_matched_count: int
     excessive_count: int
     missed_count: int
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "note_precision": round(self.note_precision, 4),
-            "note_recall": round(self.note_recall, 4),
-            "note_f1": round(self.note_f1, 4),
-            "onset_precision": round(self.onset_precision, 4),
-            "onset_recall": round(self.onset_recall, 4),
-            "onset_f1": round(self.onset_f1, 4),
+            "onset_note_precision": round(self.onset_note_precision, 4),
+            "onset_note_recall": round(self.onset_note_recall, 4),
+            "onset_note_f1": round(self.onset_note_f1, 4),
+            "onset_offset_note_precision": round(self.onset_offset_note_precision, 4),
+            "onset_offset_note_recall": round(self.onset_offset_note_recall, 4),
+            "onset_offset_note_f1": round(self.onset_offset_note_f1, 4),
             "predicted_count": self.predicted_count,
             "reference_count": self.reference_count,
-            "matched_count": self.matched_count,
+            "onset_matched_count": self.onset_matched_count,
+            "onset_offset_matched_count": self.onset_offset_matched_count,
             "excessive_count": self.excessive_count,
             "missed_count": self.missed_count,
         }
@@ -58,8 +61,9 @@ def match_notes(
     predicted: Sequence[Note],
     reference: Sequence[Note],
     onset_tolerance: float = 0.05,
+    offset_tolerance: float = 0.05,
 ) -> tuple[list[tuple[Note, Note]], list[Note], list[Note]]:
-    """Greedy note matching.
+    """Greedy note matching by pitch + onset.
 
     Returns (matched_pairs, unmatched_predicted, unmatched_reference).
     """
@@ -67,7 +71,6 @@ def match_notes(
     pred_remaining = list(predicted)
     matched: list[tuple[Note, Note]] = []
 
-    # Sort by start time for deterministic matching
     pred_remaining.sort(key=lambda n: n.start)
     ref_remaining.sort(key=lambda n: n.start)
 
@@ -91,21 +94,13 @@ def compute_note_metrics(
     predicted: Sequence[Note],
     reference: Sequence[Note],
     onset_tolerance: float = 0.05,
+    offset_tolerance: float = 0.05,
 ) -> TranscriptionMetrics:
     matched, excessive, missed = match_notes(predicted, reference, onset_tolerance)
-    matched_count = len(matched)
+    onset_matched = len(matched)
     pred_count = len(predicted)
     ref_count = len(reference)
 
-    note_precision = matched_count / pred_count if pred_count > 0 else 0.0
-    note_recall = matched_count / ref_count if ref_count > 0 else 0.0
-    note_f1 = (
-        2 * note_precision * note_recall / (note_precision + note_recall)
-        if (note_precision + note_recall) > 0
-        else 0.0
-    )
-
-    onset_matched = sum(1 for p, r in matched if abs(p.start - r.start) <= onset_tolerance)
     onset_precision = onset_matched / pred_count if pred_count > 0 else 0.0
     onset_recall = onset_matched / ref_count if ref_count > 0 else 0.0
     onset_f1 = (
@@ -114,16 +109,30 @@ def compute_note_metrics(
         else 0.0
     )
 
+    offset_matched = sum(
+        1
+        for pred, ref in matched
+        if math.isclose(pred.end, ref.end, abs_tol=offset_tolerance + 1e-12)
+    )
+    offset_precision = offset_matched / pred_count if pred_count > 0 else 0.0
+    offset_recall = offset_matched / ref_count if ref_count > 0 else 0.0
+    offset_f1 = (
+        2 * offset_precision * offset_recall / (offset_precision + offset_recall)
+        if (offset_precision + offset_recall) > 0
+        else 0.0
+    )
+
     return TranscriptionMetrics(
-        note_precision=note_precision,
-        note_recall=note_recall,
-        note_f1=note_f1,
-        onset_precision=onset_precision,
-        onset_recall=onset_recall,
-        onset_f1=onset_f1,
+        onset_note_precision=onset_precision,
+        onset_note_recall=onset_recall,
+        onset_note_f1=onset_f1,
+        onset_offset_note_precision=offset_precision,
+        onset_offset_note_recall=offset_recall,
+        onset_offset_note_f1=offset_f1,
         predicted_count=pred_count,
         reference_count=ref_count,
-        matched_count=matched_count,
+        onset_matched_count=onset_matched,
+        onset_offset_matched_count=offset_matched,
         excessive_count=len(excessive),
         missed_count=len(missed),
     )

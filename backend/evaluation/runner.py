@@ -117,19 +117,35 @@ def _run_clip(clip: EvalClip, output_dir: str) -> dict[str, Any]:
         result["analysis_meter"] = (
             f"{analysis['time_signature']['numerator']}/{analysis['time_signature']['denominator']}"
         )
-        result["analysis_sections"] = [
-            {
-                "start": s["position"],
-                "end": s["position"],
-                "label": s.get("type", s.get("kind", "")),
-            }
-            for s in analysis.get("cadences", [])
-        ]
         chords_out = [
             {"root": c["root"], "quality": c["quality"], "start": c["start"], "end": c["end"]}
             for c in analysis.get("chords", [])
         ]
         result["analysis_chords_count"] = len(chords_out)
+
+        # Structure: try the optional All-In-One engine, fall back to empty
+        structure_sections: list[dict[str, Any]] = []
+        try:
+            from audio_structure import analyze_file, enabled, result_dict
+
+            if enabled():
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as swav:
+                    swav_file = swav.name
+                    swav.write(audio_bytes)
+                struct_result = analyze_file(swav_file)
+                os.unlink(swav_file)
+                if struct_result is not None:
+                    d = result_dict(struct_result)
+                    structure_sections = [
+                        {"start": s["start"], "end": s["end"], "label": s["label"]}
+                        for s in d.get("segments", [])
+                    ]
+                    result["structure_engine"] = d.get("engine", "unknown")
+                    result["structure_bpm"] = d.get("bpm")
+                    result["structure_beats"] = d.get("beat_count")
+        except Exception:
+            pass
+        result["analysis_sections"] = structure_sections
 
         result["analysis_metrics"] = analysis_metrics.compute_analysis_metrics(
             predicted_key=result["analysis_key"],
@@ -192,23 +208,21 @@ def run_evaluation(manifest_path: str, output_dir: str = "evaluation/results") -
 
 
 def _midi_to_notes(midi_bytes: bytes) -> list[dict[str, Any]]:
-    """Extract note list from MIDI bytes using music21 (available in backend deps)."""
+    """Extract note list from MIDI bytes using pretty_midi (real-second timing)."""
     import io
 
-    from music21 import converter
+    import pretty_midi
 
-    s = converter.parse(io.BytesIO(midi_bytes))
+    pm = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
     notes: list[dict[str, Any]] = []
-    for n in s.flatten().notesAndRests:
-        if hasattr(n, "pitch") and n.duration is not None:
+    for inst in pm.instruments:
+        for note in inst.notes:
             notes.append(
                 {
-                    "pitch": n.pitch.midi,
-                    "start": float(n.offset),
-                    "end": float(n.offset + float(n.duration.quarterLength) * 0.5),
-                    "velocity": int(
-                        getattr(n, "volume", None) and getattr(n.volume, "velocity", 64) or 64
-                    ),
+                    "pitch": note.pitch,
+                    "start": note.start,
+                    "end": note.end,
+                    "velocity": note.velocity,
                 }
             )
     return notes
