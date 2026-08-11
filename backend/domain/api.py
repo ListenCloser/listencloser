@@ -305,6 +305,46 @@ async def get_work_bundle(
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
+@router.delete("/works/{work_id}")
+@limiter.limit("10/minute")
+async def delete_work(
+    work_id: UUID,
+    request: Request,
+    auth=Depends(verify_token),
+):
+    """Delete a work and its artifacts, versions, and storage objects."""
+    sb = _sb()
+    owner_id = _owner_id(auth)
+    try:
+        work_repo = WorkRepo(sb)
+        work = work_repo.get(work_id, owner_id)
+        if not work:
+            raise HTTPException(status_code=404, detail="Work not found")
+
+        art_repo = ArtifactRepo(sb)
+        ver_repo = VersionRepo(sb)
+        artifacts = art_repo.list_by_work(work_id, owner_id)
+        for artifact in artifacts:
+            versions = ver_repo.list_by_artifact(artifact.id, owner_id)
+            for version in versions:
+                try:
+                    sb.storage.from_(version.storage_bucket).remove([version.storage_key])
+                except Exception:
+                    logger.warning("storage_cleanup_skipped",
+                                   extra={"version_id": str(version.id)})
+            try:
+                art_repo.delete(artifact.id, owner_id)
+            except Exception:
+                logger.exception("artifact_delete_failed")
+
+        work_repo.delete(work_id, owner_id)
+        return {"deleted": str(work_id)}
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
 # ---------------------------------------------------------------------------
 # POST /projects/{project_id}/artifacts/upload
 # ---------------------------------------------------------------------------

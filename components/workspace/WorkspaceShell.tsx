@@ -36,10 +36,6 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
     >
       <header className="studio-header">
         <div className="studio-title">{projectName || "My music"}</div>
-        <span className={`studio-service ${serviceStatus}`}>
-          <i />{serviceStatus === "ready" ? "Ready to process" : serviceStatus === "unavailable" ? "Processing unavailable" : "Checking processing"}
-        </span>
-        <div className="studio-header-spacer" />
       </header>
 
       <TransportBar />

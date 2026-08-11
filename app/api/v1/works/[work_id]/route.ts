@@ -8,3 +8,11 @@ export async function GET(
   const { work_id } = await params;
   return proxyToBackend(req, `/api/v1/works/${work_id}`);
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ work_id: string }> },
+) {
+  const { work_id } = await params;
+  return proxyToBackend(req, `/api/v1/works/${work_id}`);
+}

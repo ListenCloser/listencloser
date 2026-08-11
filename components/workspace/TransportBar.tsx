@@ -51,7 +51,6 @@ export default function TransportBar() {
           ))}
         </div>
       )}
-      <div className="piece-meter">{timeline.bpm} BPM</div>
     </section>
   );
 }

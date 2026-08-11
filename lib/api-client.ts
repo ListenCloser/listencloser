@@ -40,6 +40,12 @@ export async function getWorkBundle(workId: string): Promise<WorkBundle> {
   return apiFetch<WorkBundle>(`/api/v1/works/${workId}`);
 }
 
+export async function deleteWork(workId: string): Promise<{ deleted: string }> {
+  return apiFetch<{ deleted: string }>(`/api/v1/works/${workId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function uploadArtifact(
   projectId: string,
   file: File,
