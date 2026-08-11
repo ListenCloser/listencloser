@@ -1,58 +1,127 @@
-"""Tests that engine APIs match existing production function signatures.
+"""Tests that engine-aware wrappers route through the registry.
 
-These tests require production music dependencies and are skipped when
-they are not available (e.g., on local dev machines without Basic Pitch).
+All tests mock the production modules so they run without music deps.
 """
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+sys.modules["basic_pitch"] = MagicMock()
+sys.modules["basic_pitch.inference"] = MagicMock()
+sys.modules["soundfile"] = MagicMock()
+sys.modules["librosa"] = MagicMock()
 
-class TestWrapperCompatibility:
-    @pytest.mark.skip(reason="production music deps not available in local dev")
-    def test_transcription_engine_accepts_audio_bytes(self):
+
+class TestTranscriptionWrapper:
+    def test_wrapper_resolves_engine_via_registry(self):
+        from engines.base import TranscriptionResult
         from engines.transcription.basic_pitch import BasicPitchEngine
 
-        engine = BasicPitchEngine(onset_threshold=0.5, frame_threshold=0.3)
-        mock_notes = [{"pitch": 60, "start": 0.0, "end": 0.5, "velocity": 64}]
-        mock_result = {
-            "midi": b"fake-midi",
-            "wav": b"fake-wav",
-            "notes": mock_notes,
-            "num_notes": 1,
-            "cleanup_report": {"kept_notes": 1},
-        }
-        with patch("music_features.transcribe_audio", return_value=mock_result) as mock_fn:
-            result = engine.transcribe(b"test-audio", fmt="wav")
-            mock_fn.assert_called_once_with(
-                b"test-audio", fmt="wav", onset_threshold=0.5, frame_threshold=0.3,
-            )
-            assert result.num_notes == 1
-            assert result.provenance.engine == "basic_pitch"
+        engine = BasicPitchEngine()
+        fake_notes = [{"pitch": 60, "start": 0.0, "end": 0.5, "velocity": 64}]
+        fake_result = TranscriptionResult(
+            midi=b"midi",
+            wav=b"wav",
+            notes=fake_notes,
+            num_notes=1,
+            cleanup_report={"kept": 1},
+            provenance=engine.provenance,
+        )
+        engine.transcribe = MagicMock(return_value=fake_result)
 
-    @pytest.mark.skip(reason="production music deps not available in local dev")
-    def test_beat_engine_accepts_wav_bytes(self):
+        with patch("engines.registry.get_transcription_engine", return_value=engine):
+            import music_features as mf
+
+            result = mf.transcribe_with_engine(b"audio", fmt="wav")
+            assert result["num_notes"] == 1
+            assert result["provenance"]["engine"] == "basic_pitch"
+
+    def test_wrapper_passes_parameters(self):
+        from engines.base import TranscriptionResult
+        from engines.transcription.basic_pitch import BasicPitchEngine
+
+        engine = BasicPitchEngine()
+        engine.transcribe = MagicMock(
+            return_value=TranscriptionResult(
+                midi=b"x",
+                wav=b"x",
+                notes=[],
+                num_notes=0,
+                cleanup_report={},
+                provenance=engine.provenance,
+            )
+        )
+
+        with patch("engines.registry.get_transcription_engine", return_value=engine):
+            import music_features as mf
+
+            mf.transcribe_with_engine(b"a", onset_threshold=0.7, frame_threshold=0.4)
+            assert engine.transcribe.called
+
+
+class TestBeatWrapper:
+    def test_wrapper_resolves_engine_via_registry(self):
+        from engines.base import BeatTrackingResult
         from engines.beats.librosa_engine import LibrosaBeatEngine
 
         engine = LibrosaBeatEngine()
-        with patch("music_features.estimate_beat_grid", return_value=(120.0, [0.0, 0.5])) as mock_fn:
-            result = engine.analyze(b"test-wav")
-            mock_fn.assert_called_once_with(b"test-wav")
-            assert result.bpm == 120.0
-            assert result.provenance.engine == "librosa"
+        engine.analyze = MagicMock(
+            return_value=BeatTrackingResult(
+                bpm=120.0,
+                beats=[0.0, 0.5],
+                downbeats=None,
+                beat_positions=[0, 1],
+                provenance=engine.provenance,
+            )
+        )
 
-    @pytest.mark.skip(reason="production music deps not available in local dev")
-    def test_notation_engine_accepts_midi_and_beats(self):
+        with patch("engines.registry.get_beat_engine", return_value=engine):
+            import music_features as mf
+
+            result = mf.estimate_beats_with_engine(b"wav")
+            assert result["bpm"] == 120.0
+            assert result["downbeats"] is None
+            assert result["provenance"]["engine"] == "librosa"
+
+
+class TestNotationWrapper:
+    def test_wrapper_resolves_engine_via_registry(self):
+        from engines.base import NotationResult
         from engines.notation.music21_engine import Music21NotationEngine
 
         engine = Music21NotationEngine()
-        with patch(
-            "music_features.notation_midi_from_performance",
-            return_value=(b"not-midi", {"notes": 5}),
-        ), patch("music_features.convert_format", return_value=b"musicxml"):
-            result = engine.convert(b"midi-bytes", [0.0, 0.5])
-            assert result.provenance.engine == "music21"
-            assert result.musicxml == b"musicxml"
+        engine.convert = MagicMock(
+            return_value=NotationResult(
+                notation_midi=b"midi",
+                musicxml=b"xml",
+                quantization_report={"notes": 5},
+                provenance=engine.provenance,
+            )
+        )
+
+        with patch("engines.registry.get_notation_engine", return_value=engine):
+            import music_features as mf
+
+            result = mf.notation_with_engine(b"midi", [0.0, 0.5])
+            assert result["provenance"]["engine"] == "music21"
+            assert result["musicxml"] == b"xml"
+
+
+class TestEnvEngineSelection:
+    def test_env_var_affects_engine_selection(self, monkeypatch):
+        monkeypatch.setenv("TRANSCRIPTION_ENGINE", "basic_pitch")
+        from engines.registry import get_transcription_engine
+
+        engine = get_transcription_engine()
+        assert engine.ENGINE == "basic_pitch"
+
+    def test_unknown_engine_env_var_raises(self, monkeypatch):
+        monkeypatch.setenv("BEAT_ENGINE", "made_up_nonexistent")
+        from engines.registry import get_beat_engine
+
+        with pytest.raises(ValueError, match="Unknown beat engine"):
+            get_beat_engine()
