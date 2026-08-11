@@ -491,7 +491,10 @@ def handle_transcribe(job: Job, client) -> list[str]:
             "note_count": len(result.get("notes", [])),
             "cleanup": result.get("cleanup_report", {}),
             "representation": "performance_midi",
-            "quality_notice": "Conservatively filtered transcription; timing is preserved rather than quantized.",
+            "quality_notice": (
+                "Conservatively filtered transcription; "
+                "timing is preserved rather than quantized."
+            ),
         },
     )
     output_ids.append(str(midi_version_id))
