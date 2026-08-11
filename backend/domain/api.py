@@ -86,6 +86,12 @@ class CreateWorkflowBody(BaseModel):
     parameters: dict = Field(default_factory=dict)
 
 
+class VariationWorkflowBody(BaseModel):
+    version_id: str
+    project_id: str
+    transpose_semitones: int = Field(ge=-12, le=12)
+
+
 class JobStateResponse(BaseModel):
     id: str
     workflow_id: str
@@ -761,6 +767,81 @@ async def create_compare_workflow(
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# POST /workflows/variation
+# ---------------------------------------------------------------------------
+
+
+@router.post("/workflows/variation")
+@limiter.limit("5/minute")
+async def create_variation_workflow(
+    body: VariationWorkflowBody,
+    request: Request,
+    auth=Depends(verify_token),
+):
+    """Queue an idempotent, complete transposed take from a MIDI version."""
+    sb = _sb()
+    owner_id = _owner_id(auth)
+    version_id = UUID(body.version_id)
+    project_id = UUID(body.project_id)
+
+    try:
+        _require_version_in_project(sb, version_id, project_id, owner_id)
+        job_id = uuid5(
+            NAMESPACE_URL,
+            f"hello-ai:variation:1.0:{owner_id}:{version_id}:{body.transpose_semitones}",
+        )
+        job_repo = JobRepo(sb)
+        existing_job = job_repo.get(job_id, owner_id)
+        if existing_job:
+            workflow = WorkflowRepo(sb).get(existing_job.workflow_id, owner_id)
+            if not workflow:
+                raise RuntimeError("idempotent job references a missing workflow")
+            return {"workflow": workflow, "job": existing_job}
+
+        workflow = Workflow(
+            id=uuid5(
+                NAMESPACE_URL,
+                (
+                    "hello-ai:variation-workflow:1.0:"
+                    f"{owner_id}:{version_id}:{body.transpose_semitones}"
+                ),
+            ),
+            project_id=project_id,
+            kind=WorkflowKind.create,
+            target_version_id=version_id,
+            parameters={"operation": "transpose", "semitones": body.transpose_semitones},
+        )
+        wf_repo = WorkflowRepo(sb)
+        try:
+            workflow = wf_repo.create(workflow, owner_id)
+        except Exception:
+            workflow = wf_repo.get(workflow.id, owner_id)
+            if not workflow:
+                raise
+
+        job = Job(
+            id=job_id,
+            workflow_id=workflow.id,
+            capability=Capability(name="variation", version="1.0"),
+            input_version_ids=[version_id],
+            parameters={"transpose_semitones": body.transpose_semitones},
+            cache_key=f"variation:1.0:{owner_id}:{version_id}:{body.transpose_semitones}",
+            created_by=owner_id,
+        )
+        try:
+            job = job_repo.create(job, owner_id)
+        except Exception:
+            job = job_repo.get(job_id, owner_id)
+            if not job:
+                raise
+        return {"workflow": workflow, "job": job}
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
