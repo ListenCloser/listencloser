@@ -28,7 +28,10 @@ import soundfile as sf
 logger = logging.getLogger("music_features")
 
 # Location of the bundled GM SoundFont used for synthesis.
-SOUNDFONT_PATH = os.environ.get("SOUNDFONT_PATH", "/app/soundfonts/FluidR3_GM.sf2")
+SOUNDFONT_PATH = os.environ.get(
+    "SOUNDFONT_PATH",
+    "/usr/share/sounds/sf2/FluidR3_GM.sf2",
+)
 
 # Subprocess timeout (seconds)
 _FFMPEG_TIMEOUT = 120
@@ -230,8 +233,19 @@ def decode_audio_to_wav(audio_bytes: bytes, fmt: str = "wav") -> bytes:
         try:
             result = subprocess.run(
                 [
-                    "ffmpeg", "-v", "error", "-y", "-i", input_path,
-                    "-ac", "1", "-ar", "22050", "-c:a", "pcm_s16le", output_path,
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-y",
+                    "-i",
+                    input_path,
+                    "-ac",
+                    "1",
+                    "-ar",
+                    "22050",
+                    "-c:a",
+                    "pcm_s16le",
+                    output_path,
                 ],
                 capture_output=True,
                 timeout=_FFMPEG_TIMEOUT,

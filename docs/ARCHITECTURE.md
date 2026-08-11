@@ -78,6 +78,10 @@ source-of-truth work graph.
 - A deployed smoke test must additionally exercise Vercel → FastAPI → worker →
   Supabase with a real licensed audio fixture. Mocked E2E cannot prove model or
   infrastructure availability.
+- `database-integration.yml` boots local Supabase, applies the complete migration
+  history, and executes `scripts/verify_database.sql` against the real schema.
+- Backend deploys select an exact Git SHA, expose it from readiness, and reject a
+  release whose reported SHA differs from the requested commit.
 
 ## Honest limitations
 

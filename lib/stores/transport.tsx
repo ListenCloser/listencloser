@@ -93,10 +93,17 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     if (!audioRef.current) return;
     const audio = audioRef.current;
     const currentPosition = audio.currentTime;
+    const shouldResume = !audio.paused && !audio.ended;
+    audio.pause();
     audio.src = source.url;
     audio.load();
     audio.addEventListener("loadedmetadata", () => {
       audio.currentTime = Math.min(currentPosition, audio.duration || currentPosition);
+      if (shouldResume) {
+        void audio.play()
+          .then(() => setTransport((prev) => ({ ...prev, isPlaying: true })))
+          .catch(() => setTransport((prev) => ({ ...prev, isPlaying: false })));
+      }
     }, { once: true });
     setTransport((prev) => ({
       ...prev,
@@ -105,7 +112,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
         ? prev.sources
         : [...prev.sources, source],
       position: currentPosition,
-      isPlaying: false,
+      isPlaying: shouldResume,
     }));
   }, []);
 

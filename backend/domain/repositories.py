@@ -770,7 +770,7 @@ class JobRepo(_Repo):
             capability=job.capability,
             input_version_ids=job.input_version_ids,
             parameters=job.parameters,
-            cache_key=job.cache_key,
+            cache_key=(f"{job.cache_key}:retry:{job.id}" if job.cache_key else None),
             provenance={
                 **job.provenance,
                 "retry_of_job_id": str(job.id),

@@ -7,7 +7,8 @@ import main
 def test_health_live(client):
     r = client.get("/health/live")
     assert r.status_code == 200
-    assert r.json() == {"status": "alive"}
+    assert r.json()["status"] == "alive"
+    assert "release" in r.json()
 
 
 def test_health_ready(client):
@@ -41,6 +42,7 @@ def test_queue_health_reports_worker_and_active_jobs(client, monkeypatch):
             {
                 "status": "running",
                 "heartbeat_at": "2999-01-01T00:00:00+00:00",
+                "capabilities": ["understand:1.0"],
             }
         ]
     )

@@ -27,12 +27,12 @@ from __future__ import annotations
 import json
 import logging
 import os
-from pathlib import Path
 import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -633,9 +633,7 @@ class JobWorker:
                     if self._claim_job(job_id):
                         with self._in_flight_lock:
                             self._in_flight.add(job_id)
-                        future = executor.submit(
-                            self._execute_job, job_row, already_claimed=True
-                        )
+                        future = executor.submit(self._execute_job, job_row, already_claimed=True)
 
                         def release_slot(_future, completed_job_id=job_id) -> None:
                             with self._in_flight_lock:

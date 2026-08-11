@@ -78,6 +78,37 @@ def test_retry_attempts_get_distinct_storage_keys():
     )
 
 
+def test_retry_cleanup_removes_storage_before_cascading_artifact_rows():
+    client = MagicMock()
+    versions = client.table.return_value.select.return_value.in_
+    versions.return_value.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "artifact_id": "artifact-midi",
+                "storage_bucket": "artifacts",
+                "storage_key": "jobs/old/transcribed.mid",
+            },
+            {
+                "artifact_id": "artifact-score",
+                "storage_bucket": "artifacts",
+                "storage_key": "jobs/old/score.musicxml",
+            },
+        ]
+    )
+
+    capabilities._cleanup_partial_job_outputs(client, ["old-job"])
+
+    client.storage.from_.return_value.remove.assert_called_once_with(
+        [
+            "jobs/old/transcribed.mid",
+            "jobs/old/score.musicxml",
+        ]
+    )
+    client.table.return_value.delete.return_value.in_.assert_called_once_with(
+        "id", ["artifact-midi", "artifact-score"]
+    )
+
+
 def test_understand_runs_all_stages_without_browser_orchestration(monkeypatch):
     midi_id = uuid4()
     audio_id = uuid4()

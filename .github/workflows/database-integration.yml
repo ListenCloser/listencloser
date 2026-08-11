@@ -1,0 +1,37 @@
+name: Database Integration
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/verify_database.sql'
+      - '.github/workflows/database-integration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/verify_database.sql'
+
+concurrency:
+  group: database-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clean-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.113.0
+      - name: Start local Supabase and apply every migration
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset
+          eval "$(supabase status -o env | grep '^DB_URL=')"
+          psql "$DB_URL" -f scripts/verify_database.sql
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup || true

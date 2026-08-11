@@ -17,12 +17,10 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   const {
     workspace,
     expandRepresentation,
-    focusRepresentation,
-    removeRepresentation,
     requestImport,
   } = useWorkspace();
 
-  const { representations, expandedRepresentation, focusRepresentation: focusedKind } = workspace;
+  const { representations, expandedRepresentation } = workspace;
 
   if (representations.length === 0) {
     return (
@@ -90,10 +88,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
           sourceLabel={rep.sourceLabel}
           confidence={rep.confidence}
           isExpanded={rep.kind === expandedRepresentation}
-          isFocused={rep.kind === focusedKind}
           onExpand={() => expandRepresentation(rep.kind)}
-          onFocus={() => focusRepresentation(rep.kind)}
-          onRemove={() => removeRepresentation(rep.kind)}
           workspaceNotes={rep.notes?.length ? rep.notes : undefined}
           musicxml={rep.musicxml}
           audioUrl={rep.audioUrl}

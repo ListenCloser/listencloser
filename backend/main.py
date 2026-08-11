@@ -105,15 +105,42 @@ def health():
 
 @app.get("/health/live")
 def health_live():
-    return {"status": "alive"}
+    return {"status": "alive", "release": os.environ.get("RELEASE", "development")}
 
 
 @app.get("/health/ready")
 def health_ready():
-    configured = get_supabase_client() is not None
+    release = os.environ.get("RELEASE", "development")
+    client = get_supabase_client()
+    if not client:
+        return {
+            "status": "degraded",
+            "supabase": False,
+            "database": False,
+            "storage": False,
+            "release": release,
+            "reason": "supabase not configured",
+        }
+    database_ready = False
+    storage_ready = False
+    try:
+        client.table("jobs").select("id,stage,capability_name").limit(1).execute()
+        client.table("worker_heartbeats").select("worker_id").limit(1).execute()
+        database_ready = True
+    except Exception:
+        logger.exception("readiness_database_failed")
+    try:
+        client.storage.from_("artifacts").list(path="", options={"limit": 1})
+        storage_ready = True
+    except Exception:
+        logger.exception("readiness_storage_failed")
+    configured = database_ready and storage_ready
     return {
         "status": "ready" if configured else "degraded",
-        "supabase": configured,
+        "supabase": True,
+        "database": database_ready,
+        "storage": storage_ready,
+        "release": release,
     }
 
 
@@ -155,11 +182,16 @@ def health_queue():
     try:
         heartbeats = (
             client.table("worker_heartbeats")
-            .select("status,heartbeat_at")
+            .select("status,heartbeat_at,capabilities")
             .gte("heartbeat_at", (now - timedelta(seconds=45)).isoformat())
             .execute()
         )
-        workers = [row for row in (heartbeats.data or []) if row.get("status") == "running"]
+        workers = [
+            row
+            for row in (heartbeats.data or [])
+            if row.get("status") == "running"
+            and "understand:1.0" in (row.get("capabilities") or [])
+        ]
     except Exception:
         source = "runtime_file"
 
@@ -170,7 +202,11 @@ def health_queue():
             heartbeat_at = datetime.fromisoformat(
                 str(heartbeat["heartbeat_at"]).replace("Z", "+00:00")
             )
-            if heartbeat.get("status") == "running" and heartbeat_at >= now - timedelta(seconds=45):
+            if (
+                heartbeat.get("status") == "running"
+                and heartbeat_at >= now - timedelta(seconds=45)
+                and "understand:1.0" in (heartbeat.get("capabilities") or [])
+            ):
                 workers = [heartbeat]
                 source = "runtime_file"
         except (OSError, ValueError, KeyError, json.JSONDecodeError):

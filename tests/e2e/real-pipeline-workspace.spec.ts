@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
 
-test("a persisted work reopens with transcription, score, analysis, and commands", async ({
+test("a persisted work reopens with transcription, score, analysis, and shortcuts", async ({
   page,
 }) => {
-  await page.addInitScript(persistSessionScript(mockSession), MOCK_PROJECT_REF);
+  await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
   await page.goto("/");
   await page.waitForFunction(
     () => navigator.serviceWorker?.controller !== null,
@@ -17,11 +17,12 @@ test("a persisted work reopens with transcription, score, analysis, and commands
   await expect(page.getByText("42 detected notes")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Generated from MIDI")).toBeVisible({ timeout: 20_000 });
 
-  await page.getByRole("button", { name: "Insights" }).click();
+  await page.getByRole("tab", { name: "Insights" }).click();
   await expect(page.getByText("A minor")).toBeVisible();
-  await expect(page.getByText("112 BPM")).toBeVisible();
+  const inspector = page.getByRole("tablist", { name: "Inspector views" }).locator("..").locator("..");
+  await expect(inspector.getByText("112 BPM")).toBeVisible();
 
-  await page.getByRole("button", { name: "Commands" }).click();
+  await page.getByRole("tab", { name: "Shortcuts" }).click();
   await page.getByLabel("Work command").fill("summarize");
   await page.getByRole("button", { name: "Run" }).click();
   await expect(page.getByText(/Key: A minor/)).toBeVisible();
@@ -30,16 +31,17 @@ test("a persisted work reopens with transcription, score, analysis, and commands
 test("import starts one durable understand job and reloads the persisted work", async ({
   page,
 }) => {
-  await page.addInitScript(persistSessionScript(mockSession), MOCK_PROJECT_REF);
+  await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
   await page.goto("/");
   await page.waitForFunction(
     () => navigator.serviceWorker?.controller !== null,
     undefined,
     { timeout: 15_000 },
   );
-  await expect(page.getByRole("button", { name: "Import audio" })).toBeVisible({ timeout: 20_000 });
+  const importButton = page.getByRole("complementary").getByRole("button", { name: "Import audio" });
+  await expect(importButton).toBeVisible({ timeout: 20_000 });
 
-  await page.getByRole("button", { name: "Import audio" }).click();
+  await importButton.click();
   const realAudio = process.env.REAL_AUDIO_FILE;
   await page.locator('input[type="file"]').setInputFiles(
     realAudio && existsSync(realAudio)

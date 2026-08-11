@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
-export default function MSWInit() {
+export default function MSWInit({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -22,5 +22,5 @@ export default function MSWInit() {
   }, []);
 
   if (!ready) return null;
-  return null;
+  return <>{children}</>;
 }

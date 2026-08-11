@@ -17,8 +17,8 @@ export const mockSession = {
   },
 };
 
-export function persistSessionScript(session: unknown = mockSession) {
-  return (projectRef: string) => {
+export function persistSessionScript() {
+  return ({ projectRef, session }: { projectRef: string; session: unknown }) => {
     try {
       window.localStorage.setItem(
         `sb-${projectRef}-auth-token`,

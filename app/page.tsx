@@ -8,7 +8,6 @@ import {
   createProject,
   getEntities,
   getInsights,
-  getJob,
   getWorkBundle,
   listProjects,
   listWorks,
@@ -16,7 +15,7 @@ import {
   startUnderstandWorkflow,
   uploadArtifact,
 } from "@/lib/api-client";
-import type { JobStatus } from "@/lib/domain.types";
+import { JobObservationError, JobTerminalError, waitForJob } from "@/lib/job-tracking";
 import { supabase } from "@/lib/supabase";
 import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
@@ -28,38 +27,7 @@ import {
 const ACCEPT = ".wav,.mp3,.m4a,.flac,.ogg,.aac,audio/*";
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["wav", "mp3", "m4a", "flac", "ogg", "aac"]);
-type UploadStage = "idle" | "uploading" | "processing" | "success" | "error";
-
-const pause = (milliseconds: number) =>
-  new Promise((resolve) => window.setTimeout(resolve, milliseconds));
-
-class JobTerminalError extends Error {
-  constructor(
-    message: string,
-    readonly stage: "failed" | "cancelled",
-  ) {
-    super(message);
-  }
-}
-
-async function waitForJob(
-  jobId: string,
-  onUpdate: (job: JobStatus) => void,
-): Promise<JobStatus> {
-  for (let attempt = 0; attempt < 300; attempt += 1) {
-    const job = await getJob(jobId);
-    onUpdate(job);
-    if (job.stage === "succeeded") return job;
-    if (job.stage === "failed" || job.stage === "cancelled") {
-      throw new JobTerminalError(
-        job.error || job.message || `${job.capability} ${job.stage}`,
-        job.stage,
-      );
-    }
-    await pause(2000);
-  }
-  throw new Error("Processing timed out. The job may still be running.");
-}
+type UploadStage = "idle" | "uploading" | "processing" | "disconnected" | "success" | "error";
 
 function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProjectName: (name: string) => void; serviceStatus: ServiceStatus; refreshService: () => void }) {
   const { user, loading } = useAuth();
@@ -83,6 +51,8 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
   const [dragOver, setDragOver] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [processingWorkId, setProcessingWorkId] = useState<string | null>(null);
+  const [pendingSourceVersionId, setPendingSourceVersionId] = useState<string | null>(null);
+  const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadSequenceRef = useRef(0);
 
@@ -90,6 +60,13 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
     const sequence = ++loadSequenceRef.current;
     setLoadingWork(true);
     setError(null);
+    setActiveJobId(null);
+    setProcessingWorkId(workId);
+    setLoadWarnings([]);
+    setPendingSourceVersionId(null);
+    replaceRepresentations([]);
+    replaceSources([]);
+    setInsights([]);
     try {
       let bundle = await getWorkBundle(workId);
       if (sequence !== loadSequenceRef.current) return;
@@ -98,6 +75,7 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
         ["queued", "claimed", "running"].includes(latestJob.lifecycle.current)
         ? latestJob
         : undefined;
+      let observationIssue: JobObservationError | null = null;
       if (activeJob) {
         setActiveJobId(activeJob.id);
         setFilename(bundle.work.title);
@@ -113,12 +91,15 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
         } catch (cause) {
           // Terminal jobs can still have useful partial artifacts. Re-fetch the
           // bundle and render those before presenting retry controls.
-          if (!(cause instanceof JobTerminalError)) throw cause;
+          if (cause instanceof JobObservationError) observationIssue = cause;
+          else if (!(cause instanceof JobTerminalError)) throw cause;
         }
-        bundle = await getWorkBundle(workId);
-        if (sequence !== loadSequenceRef.current) return;
-        latestJob = bundle.jobs[0];
-        setActiveJobId(null);
+        if (!observationIssue) {
+          bundle = await getWorkBundle(workId);
+          if (sequence !== loadSequenceRef.current) return;
+          latestJob = bundle.jobs[0];
+          setActiveJobId(null);
+        }
       }
       const terminalJob = latestJob &&
         ["failed", "cancelled"].includes(latestJob.lifecycle.current)
@@ -171,28 +152,35 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
         });
       }
 
+      const warnings: string[] = [];
       if (midi?.latest_version) {
-        const [entities, insights] = await Promise.all([
+        const [entitiesResult, insightsResult] = await Promise.allSettled([
           getEntities(midi.latest_version.id),
           getInsights(midi.latest_version.id),
         ]);
         if (sequence !== loadSequenceRef.current) return;
+        const entities = entitiesResult.status === "fulfilled" ? entitiesResult.value : [];
+        const insights = insightsResult.status === "fulfilled" ? insightsResult.value : [];
+        if (entitiesResult.status === "rejected") warnings.push("The note-level piano roll could not be loaded.");
+        if (insightsResult.status === "rejected") warnings.push("The saved analysis could not be loaded.");
         const notes = entities.flatMap((entity) => entity.note ? [{
           pitch: entity.note.pitch,
           start: entity.note.start_seconds,
           end: entity.note.end_seconds,
           velocity: entity.note.velocity,
         }] : []);
-        representations.push({
-          kind: "piano_roll",
-          label: "Piano Roll",
-          sourceUrl: midi.signed_url ?? "",
-          sourceLabel: `${notes.length} detected notes`,
-          confidence: null,
-          provenance: "basic-pitch transcription",
-          notes,
-          versionId: midi.latest_version.id,
-        });
+        if (notes.length > 0) {
+          representations.push({
+            kind: "piano_roll",
+            label: "Piano Roll",
+            sourceUrl: midi.signed_url ?? "",
+            sourceLabel: `${notes.length} detected notes`,
+            confidence: null,
+            provenance: "basic-pitch transcription",
+            notes,
+            versionId: midi.latest_version.id,
+          });
+        }
         setInsights(insights);
         const tempo = insights.find((item) => item.kind === "tempo")?.evidence.bpm;
         if (typeof tempo === "number" && tempo > 0) setBpm(tempo);
@@ -205,31 +193,45 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
       }
 
       if (score?.signed_url) {
-        const response = await fetch(score.signed_url);
-        if (!response.ok) throw new Error("Could not load the persisted MusicXML score");
-        const musicxml = await response.text();
-        if (sequence !== loadSequenceRef.current) return;
-        representations.push({
-          kind: "score",
-          label: "Score",
-          sourceUrl: score.signed_url,
-          sourceLabel: "Generated from MIDI",
-          confidence: null,
-          provenance: "music21 notation",
-          musicxml,
-          versionId: score.latest_version?.id,
-        });
+        try {
+          const response = await fetch(score.signed_url);
+          if (!response.ok) throw new Error("score request failed");
+          const musicxml = await response.text();
+          if (sequence !== loadSequenceRef.current) return;
+          representations.push({
+            kind: "score",
+            label: "Score",
+            sourceUrl: score.signed_url,
+            sourceLabel: "Generated from MIDI",
+            confidence: null,
+            provenance: "music21 notation",
+            musicxml,
+            versionId: score.latest_version?.id,
+          });
+        } catch {
+          warnings.push("The saved score could not be loaded.");
+        }
       }
 
       replaceSources(sources, rendered?.latest_version?.id ?? original?.latest_version?.id);
       replaceRepresentations(representations);
-      if (terminalJob) {
+      setLoadWarnings(warnings);
+      if (observationIssue) {
+        setProcessingWorkId(workId);
+        setError(observationIssue.message);
+        setStage("disconnected");
+      } else if (terminalJob) {
         setActiveJobId(terminalJob.id);
         setError(
           terminalJob.error ||
             terminalJob.lifecycle.message ||
             `Understanding audio ${terminalJob.lifecycle.current}`,
         );
+        setStage("error");
+      } else if (original?.latest_version && !midi && !score) {
+        setPendingSourceVersionId(original.latest_version.id);
+        setProcessingWorkId(workId);
+        setError("The source audio is safe, but music understanding has not completed yet.");
         setStage("error");
       } else if (representations.length === 0) {
         setError("This work has no playable artifacts yet. Import the source audio again.");
@@ -308,11 +310,13 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
       return;
     }
     setFilename(file.name);
+    setPendingSourceVersionId(null);
     setStage("uploading");
     setProgress(2);
     setError(null);
     try {
       const { artifact, version } = await uploadArtifact(projectId, file);
+      setPendingSourceVersionId(version.id);
       setProcessingWorkId(artifact.work_id);
       setWorks(await listWorks(projectId));
       setStage("processing");
@@ -328,9 +332,15 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
       setActiveJobId(null);
       setActiveWorkId(artifact.work_id);
       setProcessingWorkId(null);
+      setPendingSourceVersionId(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Import failed");
-      setStage("error");
+      if (cause instanceof JobObservationError) {
+        setError(cause.message);
+        setStage("disconnected");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Import failed");
+        setStage("error");
+      }
     }
   }, [projectId, serviceStatus, setActiveWorkId, setWorks]);
 
@@ -363,10 +373,65 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
       else setActiveWorkId(workId);
       setProcessingWorkId(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Retry failed");
-      setStage("error");
+      if (cause instanceof JobObservationError) {
+        setError(cause.message);
+        setStage("disconnected");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Retry failed");
+        setStage("error");
+      }
     }
   }, [activeJobId, loadWork, processingWorkId, setActiveWorkId, workspace.activeWorkId]);
+
+  const resumeActiveJob = useCallback(async () => {
+    const workId = processingWorkId ?? workspace.activeWorkId;
+    if (!activeJobId || !workId) return;
+    setStage("processing");
+    setError(null);
+    try {
+      await waitForJob(activeJobId, (current) => {
+        setMessage(current.message || "Understanding music");
+        setProgress(Math.round(current.progress * 100));
+      });
+      setActiveJobId(null);
+      await loadWork(workId);
+    } catch (cause) {
+      if (cause instanceof JobTerminalError) {
+        setError(cause.message);
+        setStage("error");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Could not reconnect to this job");
+        setStage("disconnected");
+      }
+    }
+  }, [activeJobId, loadWork, processingWorkId, workspace.activeWorkId]);
+
+  const startPendingProcessing = useCallback(async () => {
+    const workId = processingWorkId ?? workspace.activeWorkId;
+    if (!pendingSourceVersionId || !projectId || !workId) return;
+    setStage("processing");
+    setError(null);
+    setProgress(0);
+    try {
+      const { job } = await startUnderstandWorkflow(pendingSourceVersionId, projectId);
+      setActiveJobId(job.id);
+      await waitForJob(job.id, (current) => {
+        setMessage(current.message || "Understanding music");
+        setProgress(Math.round(current.progress * 100));
+      });
+      setActiveJobId(null);
+      setPendingSourceVersionId(null);
+      await loadWork(workId);
+    } catch (cause) {
+      if (cause instanceof JobObservationError) {
+        setError(cause.message);
+        setStage("disconnected");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Could not start processing");
+        setStage("error");
+      }
+    }
+  }, [loadWork, pendingSourceVersionId, processingWorkId, projectId, workspace.activeWorkId]);
 
   async function signIn() {
     await supabase?.auth.signInWithOAuth({
@@ -379,11 +444,13 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
     workspace.representations.length === 0 ||
     stage === "processing" ||
     stage === "uploading" ||
+    stage === "disconnected" ||
     stage === "error";
 
   return (
     <>
       <input
+        id="audio-import-input"
         ref={fileInputRef}
         type="file"
         accept={ACCEPT}
@@ -405,7 +472,8 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
               </div>
             )}
             {!loading && user && projectId && serviceStatus === "ready" && stage === "idle" && !workspace.isLoadingWork && (
-              <div
+              <button
+                type="button"
                 className={`drop-zone${dragOver ? " drag-over" : ""}`}
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
@@ -418,8 +486,8 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
                 }}
               >
                 <strong>Drop an audio file to understand it</strong>
-                <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>WAV · MP3 · M4A · FLAC · OGG · AAC</span>
-              </div>
+                <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>WAV · MP3 · M4A · FLAC · OGG · AAC · up to 4 MB</span>
+              </button>
             )}
             {!loading && user && serviceStatus === "checking" && stage === "idle" && (
               <div className="drop-zone"><strong>Checking the processing service…</strong><span>Imports will be enabled when it is ready.</span></div>
@@ -448,6 +516,15 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
                 )}
               </div>
             )}
+            {stage === "disconnected" && (
+              <div className="operation-card operation-card-warning" role="alert">
+                <strong>Connection interrupted</strong><span>{error}</span>
+                <span>The durable server job has not been duplicated or restarted.</span>
+                <button className="btn btn-primary" onClick={() => void resumeActiveJob()}>
+                  Reconnect to job
+                </button>
+              </div>
+            )}
             {stage === "error" && (
               <div style={{ background: "var(--danger-soft)", border: "1px solid var(--danger)", borderRadius: "var(--r-lg)", padding: "var(--s-5)", display: "grid", gap: "var(--s-3)", color: "var(--danger)" }}>
                 <strong>Operation failed</strong><span>{error}</span>
@@ -457,6 +534,11 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
                       Retry processing
                     </button>
                   )}
+                  {!activeJobId && pendingSourceVersionId && (
+                    <button className="btn btn-primary" onClick={() => void startPendingProcessing()}>
+                      Process saved audio
+                    </button>
+                  )}
                   <button className="btn" onClick={() => { setStage("idle"); setError(null); setProgress(0); }}>
                     {workspace.representations.length ? "Dismiss" : "Try another file"}
                   </button>
@@ -464,6 +546,13 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
               </div>
             )}
           </div>
+        </div>
+      )}
+      {loadWarnings.length > 0 && stage === "success" && (
+        <div className="workspace-notice" role="status">
+          <strong>Some saved results need attention</strong>
+          <span>{loadWarnings.join(" ")}</span>
+          <button type="button" className="icon-btn" aria-label="Dismiss notice" onClick={() => setLoadWarnings([])}>✕</button>
         </div>
       )}
     </>
