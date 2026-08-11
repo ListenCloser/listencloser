@@ -226,10 +226,15 @@ function InsightsTab() {
     );
   }
 
+  const key = summary.find((item) => item.kind === "key")?.claim.replace(/^Key:\s*/, "");
+  const tempo = summary.find((item) => item.kind === "tempo")?.evidence.bpm;
+  const meter = summary.find((item) => item.kind === "time_signature")?.claim.replace(/^Time Signature:\s*/, "");
+  const chordPath = details.filter((item) => item.kind === "chord").slice(0, 8);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-3)" }}>
-      <div className="section-label" style={{ margin: 0 }}>Analysis</div>
-      <p className="insight-intro">Computed from the saved transcription. Treat lower-confidence claims as suggestions to verify by ear.</p>
+      <div className="section-label" style={{ margin: 0 }}>What this piece is doing</div>
+      <p className="insight-intro">{[key, typeof tempo === "number" ? `${Math.round(tempo)} BPM` : null, meter].filter(Boolean).join(" · ") || "Analysis is available below."} These are listening hypotheses from the saved transcription, not facts about the original recording.</p>
       <div className="stat-grid">
         {summary.map((item) => (
           <div className="stat" key={item.id}>
@@ -239,13 +244,23 @@ function InsightsTab() {
           </div>
         ))}
       </div>
+      {chordPath.length > 0 && (
+        <section className="insight-group">
+          <h3>Harmonic path</h3>
+          <div className="rn-chips">
+            {chordPath.map((item) => <button type="button" className="rn-chip" key={item.id} onClick={() => seekToEvidence(item)}>{item.claim}</button>)}
+          </div>
+          <p className="insight-intro">Select a chord to hear and inspect its location.</p>
+        </section>
+      )}
       {groups.map((group) => {
         const items = details.filter((item) => group.kinds.some((kind) => item.kind.includes(kind)));
-        if (!items.length) return null;
+        const visibleItems = items.filter((item) => item.kind !== "chord").slice(0, 8);
+        if (!visibleItems.length) return null;
         return (
           <section className="insight-group" key={group.label}>
             <h3>{group.label}</h3>
-            {items.slice(0, 20).map((item) => {
+            {visibleItems.map((item) => {
               const position = spanLabel(item);
               return (
                 <button type="button" className="insight-row" key={item.id} onClick={() => seekToEvidence(item)}>
@@ -263,7 +278,7 @@ function InsightsTab() {
       {details.length > 0 && groups.every((group) => !details.some((item) => group.kinds.some((kind) => item.kind.includes(kind)))) && (
         <section className="insight-group">
           <h3>Details</h3>
-          {details.slice(0, 20).map((item) => (
+          {details.slice(0, 8).map((item) => (
             <button type="button" className="insight-row" key={item.id} onClick={() => seekToEvidence(item)}>
               <span className="insight-claim">{item.claim}</span>
               <span className="insight-meta"><span>{Math.round(item.confidence * 100)}%</span></span>

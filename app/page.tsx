@@ -237,7 +237,7 @@ function HomeContent({ onProjectName, serviceStatus, refreshService }: { onProje
             kind: "score",
             label: "Score",
             sourceUrl: score.signed_url,
-            sourceLabel: "Generated from MIDI",
+            sourceLabel: "Quantized notation draft · review by ear",
             confidence: null,
             provenance: "music21 notation",
             musicxml,

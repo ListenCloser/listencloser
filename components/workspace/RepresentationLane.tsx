@@ -19,6 +19,7 @@ type RepresentationLaneProps = {
   workspaceNotes?: Note[] | null;
   musicxml?: string;
   audioUrl?: string;
+  hideHeader?: boolean;
 };
 
 const KIND_GLYPHS: Record<RepresentationKind, string> = {
@@ -43,6 +44,7 @@ export default function RepresentationLane({
   workspaceNotes,
   musicxml,
   audioUrl,
+  hideHeader = false,
 }: RepresentationLaneProps) {
   const { transport } = useTransport();
   const glyph = KIND_GLYPHS[kind] ?? "▯";
@@ -60,7 +62,7 @@ export default function RepresentationLane({
         ...(isExpanded ? { flex: 1 } : { flexShrink: 0 }),
       }}
     >
-      <button
+      {!hideHeader && <button
         type="button"
         className="representation-header"
         aria-expanded={isExpanded}
@@ -127,7 +129,7 @@ export default function RepresentationLane({
         )}
 
         <span aria-hidden="true" style={{ marginLeft: "auto", color: "var(--muted)" }}>{isExpanded ? "▾" : "▸"}</span>
-      </button>
+      </button>}
 
       {isExpanded && (
         <>
