@@ -153,6 +153,23 @@ def midi_to_wav(midi_bytes: bytes, sr: int = 22050) -> bytes:
     return _midi_to_wav_numpy(midi_bytes, sr)
 
 
+def measure_start_seconds(midi_bytes: bytes) -> list[float]:
+    """Measure start times (seconds) for a MIDI file.
+
+    Uses the same pretty_midi tempo/time-signature interpretation as
+    :func:`midi_to_wav`, so these seconds line up with the synthesized audio
+    timeline. Returns an empty list if measure boundaries cannot be derived.
+    """
+    import pretty_midi
+
+    try:
+        midi = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
+        return [round(float(t), 3) for t in midi.get_downbeats()]
+    except Exception:
+        logger.warning("measure_start_seconds failed, no measure grid available")
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Audio cleanup (ffmpeg pipeline, hidden preprocessing step)
 # ---------------------------------------------------------------------------

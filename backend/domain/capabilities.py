@@ -974,8 +974,47 @@ def handle_score(job: Job, client) -> list[str]:
             "quality_notice": "Derived from automatic transcription; review by ear before sharing.",
         },
     )
+
+    # Score playback is derived from the notation representation (quantized
+    # notation MIDI), never the raw performance MIDI. A separate synthesized
+    # artifact keeps the three playback sources semantically distinct.
+    score_audio_version_id: UUID | None = None
+    _update_progress(client, job.id, 0.95, "rendering score playback")
+    try:
+        score_audio = music_features.midi_to_wav(notation_midi)
+        measure_starts = music_features.measure_start_seconds(notation_midi)
+    except Exception:
+        logger.exception("score_playback_render_failed")
+        score_audio = None
+        measure_starts = []
+    if score_audio is not None:
+        score_key = _job_storage_key(job, "score.wav")
+        _upload_bytes(client, _STORAGE_BUCKET, score_key, score_audio, "audio/wav")
+        score_audio_version_id = _create_output_version(
+            client,
+            work_id,
+            ArtifactKind.rendered_score,
+            score_key,
+            len(score_audio),
+            notation_version_id,
+            job,
+            owner_id,
+            mime_type="audio/wav",
+            label="Score playback",
+            metadata={
+                "representation": "score_playback",
+                "measure_starts_seconds": measure_starts,
+                "notation_midi_version_id": str(notation_version_id),
+                "quality_notice": (
+                    "Synthesized from the quantized notation, not the raw performance."
+                ),
+            },
+        )
     _update_progress(client, job.id, 1.0, "score complete")
-    return [str(notation_version_id), str(version_id)]
+    output_ids = [str(notation_version_id), str(version_id)]
+    if score_audio_version_id is not None:
+        output_ids.append(str(score_audio_version_id))
+    return output_ids
 
 
 def handle_enhance(job: Job, client) -> list[str]:

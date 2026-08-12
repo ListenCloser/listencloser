@@ -78,7 +78,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     <section className="piece-active-view" aria-label={view.title}>
       {activeView === "listen" && waveform && <RepresentationLane kind="waveform" label="Audio timeline" sourceLabel={transport.activeSource?.label ?? waveform.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader audioUrl={waveform.audioUrl} />}
       {activeView === "piano_roll" && pianoRoll && <RepresentationLane kind="piano_roll" label="Piano roll" sourceLabel={pianoRoll.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader workspaceNotes={pianoRoll.notes} />}
-      {activeView === "score" && score && <RepresentationLane kind="score" label="Score" sourceLabel={score.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader musicxml={score.musicxml} />}
+      {activeView === "score" && score && <RepresentationLane kind="score" label="Score" sourceLabel={score.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader musicxml={score.musicxml} measureStarts={score.measureStarts} />}
       {activeView === "analysis" && <div className="piece-analysis"><AnalysisSummary onSeek={seek} bpm={timeline.bpm} /></div>}
     </section>
   </main>;

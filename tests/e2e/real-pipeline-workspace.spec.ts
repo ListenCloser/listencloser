@@ -62,6 +62,29 @@ test("import starts one durable understand job and reloads the persisted work", 
   });
 });
 
+test("score appears as a playback source and follows the transport", async ({
+  page,
+}) => {
+  await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
+  await page.goto("/");
+  await page.waitForFunction(
+    () => navigator.serviceWorker?.controller !== null,
+    undefined,
+    { timeout: 15_000 },
+  );
+  await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+
+  // A notation-derived render exists, so Score is a selectable source.
+  await expect(page.getByRole("button", { name: "Score", exact: true })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Score" }).click();
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
+  await expect(page.getByText("Select Score in the transport to hear this notation.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Score", exact: true }).click();
+  await expect(page.getByText("Playing from the score. Click a measure to jump.")).toBeVisible();
+});
+
 test("signed-out users see the sign-in gate, not the importer", async ({ page }) => {
   await page.goto("/");
   await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, undefined, { timeout: 15_000 });

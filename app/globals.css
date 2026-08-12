@@ -981,3 +981,7 @@ html,body { background:var(--bg); }
   .piece-hearing { flex-wrap:wrap; }
   .piece-hearing-label { display:none; }
 }
+
+/* ── Score playback / animated score following ─────────────────────────── */
+.sheet-music-hint { margin:0 0 10px; padding:6px 12px; color:var(--muted); font-size:var(--fs-xs); background:var(--panel-2); border-radius:var(--r-full); display:inline-block; }
+.piece-active-view .sheet-music-container { overflow:auto; }

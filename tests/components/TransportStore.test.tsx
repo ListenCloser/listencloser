@@ -53,4 +53,22 @@ describe("TransportProvider", () => {
     expect(result.current.transport.activeSource).toBeNull();
     expect(result.current.transport.sources).toEqual([]);
   });
+
+  it("keeps a score source as a distinct active source", () => {
+    const { result } = renderHook(() => useTransport(), { wrapper });
+    const score = {
+      id: "score-audio",
+      label: "Score",
+      url: "data:audio/wav;base64,score",
+      kind: "audio" as const,
+      role: "score" as const,
+    };
+
+    act(() => {
+      result.current.replaceSources([src("transcription", "t"), score], "score-audio");
+    });
+    expect(result.current.transport.activeSource?.id).toBe("score-audio");
+    expect(result.current.transport.activeSource?.role).toBe("score");
+    expect(result.current.transport.sources.map((s) => s.role)).toEqual(["transcription", "score"]);
+  });
 });

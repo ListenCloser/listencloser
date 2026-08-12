@@ -20,7 +20,8 @@ import {
 import { JobObservationError, JobTerminalError, waitForJob, sanitizeJobError } from "@/lib/job-tracking";
 import { supabase } from "@/lib/supabase";
 import { useTimeline } from "@/lib/stores/timeline";
-import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
+import { useTransport } from "@/lib/stores/transport";
+import { buildPlaybackSources } from "@/lib/playback-sources";
 import {
   useWorkspace,
   type RepresentationEntry,
@@ -129,6 +130,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       const baseMidi = latestByKind.get("midi_performance");
       const midi = baseMidi ?? latestByKind.get("midi_corrected");
       const score = latestByKind.get("musicxml_score");
+      const renderedScore = latestByKind.get("rendered_score");
 
       const takeArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && ["midi_performance", "midi_corrected"].includes(item.artifact.kind),
@@ -153,38 +155,15 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         (item) => item.latest_version?.parent_version_id === midi?.latest_version?.id,
       ) ?? renderedArtifacts[0];
 
-      const sources: PlaybackSource[] = [];
-      if (original?.latest_version && original.signed_url) {
-        sources.push({
-          id: original.latest_version.id,
-          label: "Original",
-          url: original.signed_url,
-          kind: "audio",
-          role: "original",
-        });
-      }
-      if (primaryRendered?.latest_version && primaryRendered.signed_url) {
-        sources.push({
-          id: primaryRendered.latest_version.id,
-          label: "Transcription",
-          url: primaryRendered.signed_url,
-          kind: "audio",
-          role: "transcription",
-        });
-      }
-      let extraTakeIndex = 0;
-      for (const item of renderedArtifacts) {
-        const version = item.latest_version;
-        if (!version || !item.signed_url || version.id === primaryRendered?.latest_version?.id) continue;
-        extraTakeIndex += 1;
-        sources.push({
-          id: version.id,
-          label: `Take ${extraTakeIndex}`,
-          url: item.signed_url,
-          kind: "audio",
-          role: "derived",
-        });
-      }
+      const extraRendered = renderedArtifacts.filter(
+        (item) => item.latest_version && item.signed_url && item.latest_version.id !== primaryRendered?.latest_version?.id,
+      );
+      const { sources, activeId } = buildPlaybackSources({
+        original: original?.latest_version && original.signed_url ? { id: original.latest_version.id, url: original.signed_url } : null,
+        transcription: primaryRendered?.latest_version && primaryRendered.signed_url ? { id: primaryRendered.latest_version.id, url: primaryRendered.signed_url } : null,
+        extraTakes: extraRendered.map((item) => ({ id: item.latest_version!.id, url: item.signed_url! })),
+        score: renderedScore?.latest_version && renderedScore.signed_url ? { id: renderedScore.latest_version.id, url: renderedScore.signed_url } : null,
+      });
 
       const representations: RepresentationEntry[] = [];
       if (original?.signed_url) {
@@ -247,6 +226,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           if (!response.ok) throw new Error("score request failed");
           const musicxml = await response.text();
           if (sequence !== loadSequenceRef.current) return;
+          const measureStarts = (renderedScore?.latest_version?.metadata?.measure_starts_seconds as number[] | undefined) ?? [];
           representations.push({
             kind: "score",
             label: "Score",
@@ -255,6 +235,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
             confidence: null,
             provenance: "music21 notation",
             musicxml,
+            measureStarts,
             versionId: score.latest_version?.id,
           });
         } catch {
@@ -262,7 +243,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         }
       }
 
-      replaceSources(sources, primaryRendered?.latest_version?.id ?? original?.latest_version?.id);
+      replaceSources(sources, activeId ?? undefined);
       replaceRepresentations(representations);
       setInsights(pendingInsights);
       if (pendingTempo !== null) setBpm(pendingTempo);
