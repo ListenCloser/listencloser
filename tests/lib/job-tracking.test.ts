@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { JobObservationError, JobTerminalError, waitForJob } from "@/lib/job-tracking";
+import { JobObservationError, JobTerminalError, sanitizeJobError, waitForJob } from "@/lib/job-tracking";
 import type { JobStatus } from "@/lib/domain.types";
 
 const status = (stage: JobStatus["stage"], message: string = stage): JobStatus => ({
@@ -58,5 +58,24 @@ describe("waitForJob", () => {
     });
     controller.abort();
     await expect(promise).rejects.toMatchObject({ name: "AbortError" });
+  });
+});
+
+describe("sanitizeJobError", () => {
+  it("collapses raw database diagnostics into a stable user message", () => {
+    const raw =
+      'APIError: null value in column "confidence" of relation "insights" violates not-null constraint';
+    expect(sanitizeJobError(raw)).toBe("Processing could not be completed. Retry processing.");
+  });
+
+  it("keeps already-safe, concise messages", () => {
+    expect(sanitizeJobError("Processing could not be completed. Retry processing.")).toBe(
+      "Processing could not be completed. Retry processing.",
+    );
+  });
+
+  it("falls back for empty input", () => {
+    expect(sanitizeJobError(null)).toBe("Processing could not be completed. Retry processing.");
+    expect(sanitizeJobError("")).toBe("Processing could not be completed. Retry processing.");
   });
 });

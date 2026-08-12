@@ -554,7 +554,11 @@ class JobWorker:
         except Exception as exc:
             logger.exception("job_handler_failed", extra={"job_id": job_id})
 
-            error_message = f"{type(exc).__name__}: {exc}"
+            # User-facing error text must never leak raw database exceptions
+            # (e.g. Postgres constraint details). The full traceback is already
+            # in the logs and the raw exception is preserved in error_details
+            # for diagnostics.
+            error_message = "Processing could not be completed. Retry processing."
             error_details = {
                 "exception": str(exc),
                 "type": type(exc).__name__,

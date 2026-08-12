@@ -4,12 +4,18 @@ on:
   pull_request:
     paths:
       - 'supabase/migrations/**'
+      - 'backend/domain/**'
+      - 'backend/music_features.py'
+      - 'backend/tests/integration/**'
       - 'scripts/verify_database.sql'
       - '.github/workflows/database-integration.yml'
   push:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
+      - 'backend/domain/**'
+      - 'backend/music_features.py'
+      - 'backend/tests/integration/**'
       - 'scripts/verify_database.sql'
 
 concurrency:
@@ -17,21 +23,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  clean-database:
+  integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
           version: 2.113.0
-      - name: Start local Supabase and apply every migration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Start local Supabase and apply every migration from zero
         run: |
           set -euo pipefail
           supabase start
           supabase db reset
+      - name: Verify database schema contracts (SQL)
+        run: |
+          set -euo pipefail
           eval "$(supabase status -o env | grep '^DB_URL=')"
           psql "$DB_URL" -f scripts/verify_database.sql
+      - name: Install backend dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install -r backend/requirements.txt
+      - name: Run backend integration tests against the fresh database
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env | grep -E '^(SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY)=')"
+          export SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY
+          python -m pytest backend/tests/integration -m integration -v
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup || true

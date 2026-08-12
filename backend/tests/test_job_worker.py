@@ -274,9 +274,24 @@ class TestJobRetry:
             worker._execute_job(job_row)
 
         mocked["_requeue_job"].assert_called_once_with(
-            job_row["id"], 1, "ValueError: bad input", ANY
+            job_row["id"], 1, "Processing could not be completed. Retry processing.", ANY
         )
         mocked["_mark_failed"].assert_not_called()
+
+    def test_raw_exception_preserved_in_error_details(self, worker):
+        job_row = make_job_row(retry_count=0, max_retries=3)
+        handler = MagicMock(side_effect=ValueError("bad input"))
+        worker.register("transcribe", "1.0", handler)
+
+        with (
+            _mock_execute_env(worker) as mocked,
+            patch("domain.job_worker.time.sleep", return_value=None),
+        ):
+            worker._execute_job(job_row)
+
+        error_details = mocked["_requeue_job"].call_args[0][3]
+        assert error_details["exception"] == "bad input"
+        assert error_details["type"] == "ValueError"
 
     def test_retry_increments_count_correctly(self, worker):
         job_row = make_job_row(retry_count=2, max_retries=5)
@@ -320,7 +335,9 @@ class TestRetryExhaustion:
             worker._execute_job(job_row)
 
         mocked["_requeue_job"].assert_not_called()
-        mocked["_mark_failed"].assert_called_once_with(job_row["id"], "Exception: fatal", ANY)
+        mocked["_mark_failed"].assert_called_once_with(
+            job_row["id"], "Processing could not be completed. Retry processing.", ANY
+        )
 
     def test_last_retry_allowed_after_that_exhausted(self, worker):
         job_row = make_job_row(retry_count=2, max_retries=3)

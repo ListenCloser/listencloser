@@ -56,6 +56,31 @@ begin
   end if;
 end $$;
 
+-- Null confidence is an intentional domain contract (heuristic insights store
+-- NULL). A NOT NULL default of 1.0 would silently invent confidence and was
+-- the source of the production "confidence not-null" regression.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns c
+    where c.table_schema = 'public'
+      and c.table_name = 'insights'
+      and c.column_name = 'confidence'
+      and c.is_nullable = 'YES'
+  ) then
+    raise exception 'insights.confidence must be nullable (see 20260814_insights_confidence_nullable.sql)';
+  end if;
+  if exists (
+    select 1 from information_schema.columns c
+    where c.table_schema = 'public'
+      and c.table_name = 'insights'
+      and c.column_name = 'confidence'
+      and c.column_default is not null
+  ) then
+    raise exception 'insights.confidence must not carry a numeric default';
+  end if;
+end $$;
+
 -- Exercise the minimum durable lifecycle against the actual schema. This is
 -- rolled back so it is safe both in local CI and after production migration.
 begin;
