@@ -1,7 +1,20 @@
-"""Note-level transcription evaluation metrics."""
+"""Note-level transcription evaluation metrics.
+
+Two matching criteria are reported separately:
+
+- **onset-only**: a predicted note matches a reference note if their pitches
+  agree and their onsets are within ``onset_tolerance`` seconds.
+- **onset+offset**: additionally requires the note *offsets* (ends) to agree
+  within ``offset_tolerance`` seconds.
+
+``note_f1`` refers to the stricter onset+offset match; ``onset_f1`` refers to
+the looser onset-only match. They are intentionally different so timing/duration
+quality can be measured independently of onset detection.
+"""
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -26,15 +39,18 @@ class Note:
 
 @dataclass(frozen=True)
 class TranscriptionMetrics:
+    # onset+offset (strict note) matching
     note_precision: float
     note_recall: float
     note_f1: float
+    # onset-only matching
     onset_precision: float
     onset_recall: float
     onset_f1: float
     predicted_count: int
     reference_count: int
-    matched_count: int
+    matched_count: int  # onset+offset matched pairs
+    onset_matched_count: int  # onset-only matched pairs
     excessive_count: int
     missed_count: int
 
@@ -49,6 +65,7 @@ class TranscriptionMetrics:
             "predicted_count": self.predicted_count,
             "reference_count": self.reference_count,
             "matched_count": self.matched_count,
+            "onset_matched_count": self.onset_matched_count,
             "excessive_count": self.excessive_count,
             "missed_count": self.missed_count,
         }
@@ -59,7 +76,7 @@ def match_notes(
     reference: Sequence[Note],
     onset_tolerance: float = 0.05,
 ) -> tuple[list[tuple[Note, Note]], list[Note], list[Note]]:
-    """Greedy note matching.
+    """Greedy onset-only note matching by pitch + onset.
 
     Returns (matched_pairs, unmatched_predicted, unmatched_reference).
     """
@@ -67,7 +84,6 @@ def match_notes(
     pred_remaining = list(predicted)
     matched: list[tuple[Note, Note]] = []
 
-    # Sort by start time for deterministic matching
     pred_remaining.sort(key=lambda n: n.start)
     ref_remaining.sort(key=lambda n: n.start)
 
@@ -91,39 +107,41 @@ def compute_note_metrics(
     predicted: Sequence[Note],
     reference: Sequence[Note],
     onset_tolerance: float = 0.05,
+    offset_tolerance: float = 0.05,
 ) -> TranscriptionMetrics:
-    matched, excessive, missed = match_notes(predicted, reference, onset_tolerance)
-    matched_count = len(matched)
+    onset_matched, excessive, missed = match_notes(predicted, reference, onset_tolerance)
+    onset_matched_count = len(onset_matched)
     pred_count = len(predicted)
     ref_count = len(reference)
 
-    note_precision = matched_count / pred_count if pred_count > 0 else 0.0
-    note_recall = matched_count / ref_count if ref_count > 0 else 0.0
-    note_f1 = (
-        2 * note_precision * note_recall / (note_precision + note_recall)
-        if (note_precision + note_recall) > 0
-        else 0.0
-    )
+    # onset+offset: subset of onset-matched pairs whose offsets also agree.
+    offset_matched = [
+        (p, r)
+        for p, r in onset_matched
+        if math.isclose(p.end, r.end, abs_tol=offset_tolerance + 1e-12)
+    ]
+    matched_count = len(offset_matched)
 
-    onset_matched = sum(1 for p, r in matched if abs(p.start - r.start) <= onset_tolerance)
-    onset_precision = onset_matched / pred_count if pred_count > 0 else 0.0
-    onset_recall = onset_matched / ref_count if ref_count > 0 else 0.0
-    onset_f1 = (
-        2 * onset_precision * onset_recall / (onset_precision + onset_recall)
-        if (onset_precision + onset_recall) > 0
-        else 0.0
-    )
+    def _p_r_f1(matched: int, pred_n: int, ref_n: int) -> tuple[float, float, float]:
+        p = matched / pred_n if pred_n > 0 else 0.0
+        r = matched / ref_n if ref_n > 0 else 0.0
+        f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0.0
+        return p, r, f1
+
+    note_p, note_r, note_f1 = _p_r_f1(matched_count, pred_count, ref_count)
+    onset_p, onset_r, onset_f1 = _p_r_f1(onset_matched_count, pred_count, ref_count)
 
     return TranscriptionMetrics(
-        note_precision=note_precision,
-        note_recall=note_recall,
+        note_precision=note_p,
+        note_recall=note_r,
         note_f1=note_f1,
-        onset_precision=onset_precision,
-        onset_recall=onset_recall,
+        onset_precision=onset_p,
+        onset_recall=onset_r,
         onset_f1=onset_f1,
         predicted_count=pred_count,
         reference_count=ref_count,
         matched_count=matched_count,
+        onset_matched_count=onset_matched_count,
         excessive_count=len(excessive),
         missed_count=len(missed),
     )

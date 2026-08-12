@@ -42,16 +42,23 @@ def _reference_notes(clip: dict[str, Any], prepared: Path) -> list[Note]:
     else:
         midi_path = prepared / "babyslakh" / "extracted" / clip["source_id"] / "all_src.mid"
         notes = load_babyslakh_notes(str(midi_path))
-    return [
-        Note(
-            pitch=n["pitch"],
-            start=n["start"] - start,
-            end=n["end"] - start,
-            velocity=n.get("velocity", 80),
+    clipped: list[Note] = []
+    for n in notes:
+        if n["start"] >= end or n["end"] <= start:
+            continue
+        clipped_start = max(n["start"], start) - start
+        clipped_end = min(n["end"], end) - start
+        if clipped_end - clipped_start <= 1e-6:
+            continue
+        clipped.append(
+            Note(
+                pitch=n["pitch"],
+                start=clipped_start,
+                end=clipped_end,
+                velocity=n.get("velocity", 80),
+            )
         )
-        for n in notes
-        if n["start"] < end and n["end"] > start
-    ]
+    return clipped
 
 
 def _transcribe_bytes(wav_bytes: bytes, onset: float, frame: float) -> list[Note]:

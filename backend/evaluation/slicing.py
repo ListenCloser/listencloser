@@ -141,6 +141,34 @@ def slice_chord_annotations(
     return result
 
 
+def slice_note_dicts(
+    notes: list[dict[str, Any]],
+    start: float,
+    end: float,
+) -> list[dict[str, Any]]:
+    """Clip note-event dicts to [start, end) and rebase times to zero.
+
+    Expects dicts with ``start``/``end`` (seconds). Notes that merely overlap
+    the window have their boundaries clamped; fully-outside notes are dropped.
+    No returned note has a negative start or an end beyond the excerpt duration.
+    """
+    result: list[dict[str, Any]] = []
+    for n in notes:
+        n_start = float(n["start"])
+        n_end = float(n["end"])
+        if n_end <= start + _EPSILON or n_start >= end - _EPSILON:
+            continue
+        clipped_start = max(n_start, start) - start
+        clipped_end = min(n_end, end) - start
+        if clipped_end - clipped_start <= _EPSILON:
+            continue
+        clipped = dict(n)
+        clipped["start"] = clipped_start
+        clipped["end"] = clipped_end
+        result.append(clipped)
+    return result
+
+
 def _first_tempo(pm: Any) -> float:
     try:
         _, tempos = pm.get_tempo_changes()

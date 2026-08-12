@@ -21,6 +21,7 @@ from evaluation.slicing import (
     slice_beat_annotations,
     slice_chord_annotations,
     slice_midi,
+    slice_note_dicts,
     slice_samples,
 )
 
@@ -112,6 +113,34 @@ class TestChordSlicing:
         assert len(result) == 1
         assert result[0]["start"] == pytest.approx(0.0, abs=1e-6)
         assert result[0]["root"] == "G"
+
+
+class TestNoteDictSlicing:
+    def test_clips_crossing_both_boundaries(self):
+        # Note starts before the window and ends after it.
+        notes = [{"pitch": 60, "start": 5.0, "end": 25.0, "velocity": 80}]
+        result = slice_note_dicts(notes, 10.0, 20.0)
+        assert len(result) == 1
+        assert result[0]["start"] == pytest.approx(0.0, abs=1e-6)
+        assert result[0]["end"] == pytest.approx(10.0, abs=1e-6)
+
+    def test_no_negative_start(self):
+        notes = [{"pitch": 60, "start": 8.0, "end": 12.0, "velocity": 80}]
+        result = slice_note_dicts(notes, 10.0, 20.0)
+        assert result[0]["start"] == pytest.approx(0.0, abs=1e-6)
+        assert result[0]["end"] == pytest.approx(2.0, abs=1e-6)
+
+    def test_drops_fully_outside_notes(self):
+        notes = [
+            {"pitch": 60, "start": 0.0, "end": 1.0, "velocity": 80},
+            {"pitch": 64, "start": 30.0, "end": 31.0, "velocity": 80},
+        ]
+        assert slice_note_dicts(notes, 10.0, 20.0) == []
+
+    def test_end_never_exceeds_excerpt_duration(self):
+        notes = [{"pitch": 60, "start": 15.0, "end": 25.0, "velocity": 80}]
+        result = slice_note_dicts(notes, 10.0, 20.0)
+        assert result[0]["end"] == pytest.approx(10.0, abs=1e-6)
 
 
 # ── Manifest / models ────────────────────────────────────────────────────────
@@ -207,7 +236,9 @@ class TestMaestroMetadata:
     def test_finds_test_entry_by_source_id(self):
         from evaluation.datasets.maestro import find_test_entry
 
-        full = "2004/MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.midi"
+        full = (
+            "2004/MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.midi"
+        )
         entry = find_test_entry(self._meta(), full)
         assert entry is not None
         assert entry["midi_filename"] == full
@@ -216,7 +247,10 @@ class TestMaestroMetadata:
     def test_finds_by_unique_suffix(self):
         from evaluation.datasets.maestro import find_test_entry
 
-        entry = find_test_entry(self._meta(), "MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.midi")
+        entry = find_test_entry(
+            self._meta(),
+            "MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.midi",
+        )
         assert entry is not None
 
     def test_does_not_match_train_or_validation(self):
