@@ -37,10 +37,10 @@
       "dataset": "maestro",
       "split": "test",
       "category": "solo_piano",
-      "source_id": "MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav",
+      "source_id": "2004/MIDI-Unprocessed_SMF_17_R1_2004_03-06_ORIG_MID--AUDIO_20_R2_2004_12_Track12_wav--1.midi",
       "license": "CC BY-NC-SA 4.0",
-      "excerpt_start": 0,
-      "excerpt_end": 20,
+      "excerpt_start": 30,
+      "excerpt_end": 55,
       "metrics": [
         "note_onset",
         "note_offset"
@@ -51,10 +51,10 @@
       "dataset": "maestro",
       "split": "test",
       "category": "solo_piano",
-      "source_id": "MIDI-Unprocessed_07_R1_2006_01-04_ORIG_MID--AUDIO_07_R1_2006_01_Track01_wav",
+      "source_id": "2008/MIDI-Unprocessed_09_R3_2008_01-07_ORIG_MID--AUDIO_09_R3_2008_wav--2.midi",
       "license": "CC BY-NC-SA 4.0",
-      "excerpt_start": 0,
-      "excerpt_end": 20,
+      "excerpt_start": 10,
+      "excerpt_end": 35,
       "metrics": [
         "note_onset",
         "note_offset"
@@ -65,10 +65,10 @@
       "dataset": "maestro",
       "split": "test",
       "category": "solo_piano",
-      "source_id": "MIDI-Unprocessed_09_R1_2008_01-04_ORIG_MID--AUDIO_09_R1_2008_01_Track01_wav",
+      "source_id": "2008/MIDI-Unprocessed_10_R2_2008_01-05_ORIG_MID--AUDIO_10_R2_2008_wav--1.midi",
       "license": "CC BY-NC-SA 4.0",
-      "excerpt_start": 0,
-      "excerpt_end": 20,
+      "excerpt_start": 20,
+      "excerpt_end": 45,
       "metrics": [
         "note_onset",
         "note_offset"
@@ -79,10 +79,10 @@
       "dataset": "maestro",
       "split": "test",
       "category": "solo_piano",
-      "source_id": "MIDI-Unprocessed_11_R1_2010_01-03_ORIG_MID--AUDIO_11_R1_2010_01_Track01_wav",
+      "source_id": "2008/MIDI-Unprocessed_17_R2_2008_01-04_ORIG_MID--AUDIO_17_R2_2008_wav--1.midi",
       "license": "CC BY-NC-SA 4.0",
-      "excerpt_start": 0,
-      "excerpt_end": 20,
+      "excerpt_start": 60,
+      "excerpt_end": 85,
       "metrics": [
         "note_onset",
         "note_offset"
@@ -93,10 +93,10 @@
       "dataset": "maestro",
       "split": "test",
       "category": "solo_piano",
-      "source_id": "MIDI-Unprocessed_13_R1_2011_01-05_ORIG_MID--AUDIO_13_R1_2011_01_Track01_wav",
+      "source_id": "2017/MIDI-Unprocessed_049_PIANO049_MID--AUDIO-split_07-06-17_Piano-e_2-06_wav--2.midi",
       "license": "CC BY-NC-SA 4.0",
-      "excerpt_start": 0,
-      "excerpt_end": 20,
+      "excerpt_start": 100,
+      "excerpt_end": 125,
       "metrics": [
         "note_onset",
         "note_offset"

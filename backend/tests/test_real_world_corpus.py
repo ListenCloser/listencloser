@@ -189,31 +189,35 @@ class TestRegistry:
 
 class TestMaestroMetadata:
     def _meta(self):
+        # Columnar v3.0.0 schema: seven top-level dicts keyed by index.
         return {
-            "0": {
-                "split": "train",
-                "midi_filename": "2004/MIDI-Unprocessed_A_1.midi",
-                "audio_filename": "2004/MIDI-Unprocessed_A_1.wav",
+            "split": {"0": "train", "1": "test", "2": "validation"},
+            "midi_filename": {
+                "0": "2004/MIDI-Unprocessed_A_1.midi",
+                "1": "2004/MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.midi",
+                "2": "2015/MIDI-Unprocessed_B_1.midi",
             },
-            "1": {
-                "split": "test",
-                "midi_filename": "2004/MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.midi",
-                "audio_filename": "2004/MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.wav",
-            },
-            "2": {
-                "split": "validation",
-                "midi_filename": "2015/MIDI-Unprocessed_B_1.midi",
-                "audio_filename": "2015/MIDI-Unprocessed_B_1.wav",
+            "audio_filename": {
+                "0": "2004/MIDI-Unprocessed_A_1.wav",
+                "1": "2004/MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.wav",
+                "2": "2015/MIDI-Unprocessed_B_1.wav",
             },
         }
 
     def test_finds_test_entry_by_source_id(self):
         from evaluation.datasets.maestro import find_test_entry
 
-        entry = find_test_entry(self._meta(), "MIDI-Unprocessed_04_R1_2004")
+        full = "2004/MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.midi"
+        entry = find_test_entry(self._meta(), full)
         assert entry is not None
-        assert entry["split"] == "test"
-        assert entry["midi_filename"].endswith(".midi")
+        assert entry["midi_filename"] == full
+        assert entry["audio_filename"].endswith(".wav")
+
+    def test_finds_by_unique_suffix(self):
+        from evaluation.datasets.maestro import find_test_entry
+
+        entry = find_test_entry(self._meta(), "MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.midi")
+        assert entry is not None
 
     def test_does_not_match_train_or_validation(self):
         from evaluation.datasets.maestro import find_test_entry
