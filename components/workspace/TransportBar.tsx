@@ -11,24 +11,45 @@ function formatTime(s: number): string {
 
 export default function TransportBar() {
   const { transport, seek, setActiveSource, setLoop, stop, toggle, toggleLoop } = useTransport();
-  const { timeline, totalDuration } = useTimeline();
+  const { totalDuration } = useTimeline();
   const { isPlaying, position, loopEnabled, loopStart, loopEnd, activeSource, sources } = transport;
   const hasSource = Boolean(activeSource);
 
   return (
-    <section className="piece-transport" aria-label="Playback controls">
+    <section className="piece-transport" aria-label="Playback">
       <div className="piece-transport-controls">
-        <button type="button" className="piece-play" onClick={toggle} aria-label={hasSource ? (isPlaying ? "Pause" : "Play") : "Import audio to enable playback"} disabled={!hasSource}>
+        <button
+          type="button"
+          className="piece-play"
+          onClick={toggle}
+          aria-label={hasSource ? (isPlaying ? "Pause" : "Play") : "Import audio to enable playback"}
+          disabled={!hasSource}
+        >
           {isPlaying ? "⏸" : "▶"}
         </button>
         <button type="button" className="piece-stop" onClick={stop} aria-label="Stop" disabled={!hasSource}>
           ■
         </button>
       </div>
+
       <div className="piece-timeline">
-        <div className="piece-time"><span>{formatTime(position)}</span><span>{formatTime(totalDuration)}</span></div>
-        <input className="piece-seek" type="range" aria-label="Playback position" min={0} max={Math.max(totalDuration, 0.01)} step={0.01} value={Math.min(position, Math.max(totalDuration, 0.01))} onChange={(event) => seek(Number(event.target.value))} disabled={!hasSource || totalDuration <= 0} />
+        <div className="piece-time">
+          <span>{formatTime(position)}</span>
+          <span>{formatTime(totalDuration)}</span>
+        </div>
+        <input
+          className="piece-seek"
+          type="range"
+          aria-label="Playback position"
+          min={0}
+          max={Math.max(totalDuration, 0.01)}
+          step={0.01}
+          value={Math.min(position, Math.max(totalDuration, 0.01))}
+          onChange={(event) => seek(Number(event.target.value))}
+          disabled={!hasSource || totalDuration <= 0}
+        />
       </div>
+
       <div className="piece-transport-controls">
         <button
           className={`piece-stop ${loopEnabled ? "piece-control-active" : ""}`}
@@ -42,13 +63,23 @@ export default function TransportBar() {
           ↺
         </button>
       </div>
+
       {sources.length > 0 && (
-        <div className="piece-sources" role="group" aria-label="Compare playback sources">
-          {sources.map((source) => (
-            <button key={source.id} type="button" className={`piece-source${activeSource?.id === source.id ? " active" : ""}`} onClick={() => setActiveSource(source)}>
-              {source.label.replace(" playback", "")}
-            </button>
-          ))}
+        <div className="piece-hearing">
+          <span className="piece-hearing-label">Hearing</span>
+          <div className="piece-sources" role="group" aria-label="What you're hearing">
+            {sources.map((source) => (
+              <button
+                key={source.id}
+                type="button"
+                className={`piece-source${activeSource?.id === source.id ? " active" : ""}`}
+                aria-pressed={activeSource?.id === source.id}
+                onClick={() => setActiveSource(source)}
+              >
+                {source.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </section>

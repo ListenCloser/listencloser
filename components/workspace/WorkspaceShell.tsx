@@ -35,7 +35,9 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
       }}
     >
       <header className="studio-header">
-        <div className="studio-title">{projectName || "My music"}</div>
+        <div className="studio-title">
+          <span className="brand"><span className="brand-dot" />{projectName || "Music Lab"}</span>
+        </div>
       </header>
 
       <TransportBar />
