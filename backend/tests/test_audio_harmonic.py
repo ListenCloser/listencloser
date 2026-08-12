@@ -161,6 +161,43 @@ class TestFusion:
         sc = [{"root": "D", "quality": "min", "start": 0}]
         result = fuse_chords(ac, sc)
         assert result.conflict_count == 1
+        assert result.consensus_count == 0
+        assert result.audio_only_count == 0
+        assert result.symbolic_only_count == 0
+
+    def test_conflict_not_double_counted(self):
+        """A same-time disagreement is exactly one conflict, not also unmatched."""
+        ac = [AudioChordFrame(0, 1, "C", "maj", 0.8)]
+        sc = [{"root": "D", "quality": "min", "start": 0}]
+        result = fuse_chords(ac, sc)
+        assert result.conflict_count == 1
+        assert result.audio_only_count == 0
+        assert result.symbolic_only_count == 0
+
+    def test_temporal_before_label(self):
+        """A closer conflicting chord must win over a farther agreeing chord."""
+        ac = [AudioChordFrame(0, 1, "C", "maj", 0.8)]
+        sc = [
+            {"root": "D", "quality": "min", "start": 0.1},
+            {"root": "C", "quality": "maj", "start": 0.8},
+        ]
+        result = fuse_chords(ac, sc, onset_tolerance=1.0)
+        # 0.1s D:min is temporally closest → conflict; not consensus with 0.8s C:maj
+        assert result.conflict_count == 1
+        assert result.consensus_count == 0
+
+    def test_enharmonic_root_agreement(self):
+        """A# and Bb are the same pitch class and should agree."""
+        ac = [AudioChordFrame(0, 1, "Bb", "maj", 0.8)]
+        sc = [{"root": "A#", "quality": "maj", "start": 0}]
+        result = fuse_chords(ac, sc)
+        assert result.consensus_count == 1
+
+    def test_enharmonic_csharp_db(self):
+        ac = [AudioChordFrame(0, 1, "C#", "min", 0.8)]
+        sc = [{"root": "Db", "quality": "min", "start": 0}]
+        result = fuse_chords(ac, sc)
+        assert result.consensus_count == 1
 
     def test_chord_no_overlap_no_consensus(self):
         ac = [AudioChordFrame(0, 1, "C", "maj", 0.8)]

@@ -812,6 +812,8 @@ def handle_fuse_harmonic(job: Job, client) -> list[str]:
     ]
     fused_chords = fuse_chords(audio_chords, sym_chords)
     if fused_chords.consensus_count > 0 or fused_chords.conflict_count > 0:
+        total_matched = fused_chords.consensus_count + fused_chords.conflict_count
+        agreement_ratio = fused_chords.consensus_count / total_matched if total_matched else 0.0
         _create_insight(
             client, audio_version_id, "fused_chords",
             (
@@ -819,7 +821,7 @@ def handle_fuse_harmonic(job: Job, client) -> list[str]:
                 f"{fused_chords.conflict_count} conflict"
             ),
             evidence=fused_chords.to_dict(),
-            confidence=0.5,
+            confidence=round(agreement_ratio, 3),
             job=job, owner_id=owner_id,
         )
 

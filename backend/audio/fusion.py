@@ -26,10 +26,29 @@ _QUALITY_MAP = {
     "dom": "dom",
 }
 
+_PC_SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+_PC_FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
 
-def _canonical(root: str, quality: str) -> str:
+
+def _pitch_class(root: str) -> int:
+    """Map a root spelling (sharp or flat) to a pitch class integer 0..11."""
+    r = (root or "").strip()
+    if r in _PC_SHARP:
+        return _PC_SHARP.index(r)
+    if r in _PC_FLAT:
+        return _PC_FLAT.index(r)
+    # Fallback: try single letter
+    if r.upper() in _PC_SHARP:
+        return _PC_SHARP.index(r.upper())
+    return -1
+
+
+def _canonical(root: str, quality: str) -> tuple[int, str]:
     q = quality or ""
-    return f"{root.upper()}:{_QUALITY_MAP.get(q, _QUALITY_MAP.get(q.lower(), q.lower()))}"
+    return (
+        _pitch_class(root),
+        _QUALITY_MAP.get(q, _QUALITY_MAP.get(q.lower(), q.lower())),
+    )
 
 
 @dataclass(frozen=True)
@@ -122,6 +141,12 @@ def fuse_chords(
     symbolic_chords: list[dict[str, Any]] | None,
     onset_tolerance: float = 1.0,
 ) -> FusedChordResult:
+    """Match chords temporally first, then classify each pair.
+
+    One-to-one assignment by nearest onset within tolerance. A matched pair is
+    consensus if its canonical identity agrees, otherwise conflict. Only truly
+    unmatched events count as audio_only / symbolic_only.
+    """
     a = audio_chords or []
     s = symbolic_chords or []
     consensus = 0
@@ -129,30 +154,39 @@ def fuse_chords(
     matched_symbolic: set[int] = set()
 
     for ac in a:
-        match_idx: int | None = None
+        # Choose the temporally closest unmatched symbolic event.
+        best_j: int | None = None
+        best_dist = float("inf")
         for j, sc in enumerate(s):
             if j in matched_symbolic:
                 continue
-            if not _onsets_match(ac.start_seconds, sc.get("start", 0), onset_tolerance):
-                continue
-            ac_canon = _canonical(ac.root, ac.quality)
-            sc_canon = _canonical(sc.get("root", ""), sc.get("quality", ""))
-            if ac_canon == sc_canon:
-                match_idx = j
-                break
-        if match_idx is not None:
+            dist = abs(ac.start_seconds - float(sc.get("start", 0)))
+            if dist <= onset_tolerance and dist < best_dist:
+                best_dist = dist
+                best_j = j
+
+        if best_j is None:
+            continue  # unmatched audio -> audio_only
+        matched_symbolic.add(best_j)
+
+        ac_canon = _canonical(ac.root, ac.quality)
+        sc = s[best_j]
+        sc_canon = _canonical(sc.get("root", ""), sc.get("quality", ""))
+        if ac_canon == sc_canon:
             consensus += 1
-            matched_symbolic.add(match_idx)
         else:
             conflict += 1
+
+    audio_only = len(a) - (consensus + conflict)
+    symbolic_only = len(s) - len(matched_symbolic)
 
     return FusedChordResult(
         audio_chords=a,
         symbolic_chords=s,
         consensus_count=consensus,
         conflict_count=conflict,
-        audio_only_count=max(0, len(a) - consensus),
-        symbolic_only_count=max(0, len(s) - len(matched_symbolic)),
+        audio_only_count=audio_only,
+        symbolic_only_count=symbolic_only,
     )
 
 
