@@ -68,7 +68,7 @@ begin
       and c.column_name = 'confidence'
       and c.is_nullable = 'YES'
   ) then
-    raise exception 'insights.confidence must be nullable (see 20260814_insights_confidence_nullable.sql)';
+    raise exception 'insights.confidence must be nullable (see 202608140002_insights_confidence_nullable.sql)';
   end if;
   if exists (
     select 1 from information_schema.columns c

@@ -11,8 +11,8 @@ def sb():
     Skipped unless SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set, which the
     database-integration CI job provides via `supabase status -o env`.
     """
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    url = os.environ.get("SUPABASE_URL") or os.environ.get("API_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SERVICE_ROLE_KEY")
     if not url or not key:
         pytest.skip(
             "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set; "

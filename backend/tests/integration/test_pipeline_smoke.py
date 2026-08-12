@@ -112,6 +112,11 @@ def test_understand_pipeline_persists_full_bundle(sb, monkeypatch):
         music_features, "get_transcription_engine_for_job", lambda *a, **k: _FixtureEngine()
     )
     monkeypatch.setattr(music_features, "structure_with_engine", lambda wav: None)
+    # The fixture already supplies valid WAV bytes; skip the ffmpeg decode so the
+    # smoke test exercises persistence without an external audio toolchain.
+    monkeypatch.setattr(
+        music_features, "decode_audio_to_wav", lambda audio_bytes, fmt="wav": audio_bytes
+    )
 
     def _fake_download(version_obj, client):
         kind = capabilities._artifact_kind_for_version(client, version_obj.id)

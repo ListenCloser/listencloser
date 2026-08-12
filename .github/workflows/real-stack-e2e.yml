@@ -43,7 +43,11 @@ jobs:
       - name: Export Supabase environment
         run: |
           set -euo pipefail
-          eval "$(supabase status -o env | grep -E '^(SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY)=')"
+          eval "$(supabase status -o env)"
+          # Normalize version-dependent CLI names to the names the backend expects.
+          SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
+          SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
+          SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
           echo "SUPABASE_URL=$SUPABASE_URL" >> "$GITHUB_ENV"
           echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> "$GITHUB_ENV"
           echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
