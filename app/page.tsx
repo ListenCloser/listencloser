@@ -45,7 +45,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     workspace,
   } = useWorkspace();
   const { replaceSources } = useTransport();
-  const { setBpm, setTimeSignature } = useTimeline();
+  const { setBpm, setTimeSignature, resetTimeline } = useTimeline();
   const [projectId, setProjectId] = useState("");
   const [stage, setStage] = useState<UploadStage>("idle");
   const [filename, setFilename] = useState("");
@@ -67,9 +67,11 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     setProcessingWorkId(workId);
     setLoadWarnings([]);
     setPendingSourceVersionId(null);
+    resetTimeline();
     replaceRepresentations([]);
     replaceSources([]);
     setInsights([]);
+    setTakes([]);
     try {
       let bundle = await getWorkBundle(workId);
       if (sequence !== loadSequenceRef.current) return;
@@ -263,13 +265,20 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         );
         setStage("error");
       } else if (original?.latest_version && !midi && !score) {
+        // Source audio is safe but transcription hasn't produced artifacts yet.
+        // This is a legitimate "not yet analyzed" state, not a failure.
         setPendingSourceVersionId(original.latest_version.id);
-        setProcessingWorkId(workId);
-        setError("The source audio is safe, but music understanding has not completed yet.");
-        setStage("error");
+        setProcessingWorkId(null);
+        setError(null);
+        warnings.push("Music understanding has not completed yet. Run Analyze to transcribe this work.");
+        setLoadWarnings(warnings);
+        setStage("success");
       } else if (representations.length === 0) {
-        setError("This work has no playable artifacts yet. Import the source audio again.");
-        setStage("error");
+        // No playable artifacts at all — an empty work, not an error.
+        setError(null);
+        warnings.push("This work has no playable artifacts yet.");
+        setLoadWarnings(warnings);
+        setStage("success");
       } else {
         setActiveJobId(null);
         setStage("success");
@@ -281,7 +290,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     } finally {
       if (sequence === loadSequenceRef.current) setLoadingWork(false);
     }
-  }, [replaceRepresentations, replaceSources, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
+  }, [replaceRepresentations, replaceSources, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature, resetTimeline]);
 
   const handledStudioAction = useRef(0);
   useEffect(() => {

@@ -125,6 +125,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         representations: [],
         insights: [],
         takes: [],
+        studioAction: null,
+        studioOperation: { state: "idle", label: "" },
         expandedRepresentation: null,
         focusRepresentation: null,
       };
@@ -147,13 +149,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeWork = useCallback((workId: string) => {
-    setWorkspace((prev) => ({
-      ...prev,
-      works: prev.works.filter((w) => w.id !== workId),
-      activeWorkId: prev.activeWorkId === workId ? null : prev.activeWorkId,
-      representations: prev.activeWorkId === workId ? [] : prev.representations,
-      insights: prev.activeWorkId === workId ? [] : prev.insights,
-    }));
+    setWorkspace((prev) => {
+      const removingActive = prev.activeWorkId === workId;
+      return {
+        ...prev,
+        works: prev.works.filter((w) => w.id !== workId),
+        activeWorkId: removingActive ? null : prev.activeWorkId,
+        representations: removingActive ? [] : prev.representations,
+        insights: removingActive ? [] : prev.insights,
+        takes: removingActive ? [] : prev.takes,
+        studioAction: removingActive ? null : prev.studioAction,
+        studioOperation: removingActive ? { state: "idle", label: "" } : prev.studioOperation,
+        isLoadingWork: removingActive ? false : prev.isLoadingWork,
+      };
+    });
   }, []);
 
   const toggleInspector = useCallback(() => {

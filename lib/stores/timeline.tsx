@@ -13,6 +13,7 @@ type TimelineContextValue = {
   timeline: TimelineState;
   setBpm: (bpm: number) => void;
   setTimeSignature: (num: number, den: number) => void;
+  resetTimeline: () => void;
   secondsToBeats: (seconds: number) => number;
   beatsToSeconds: (beats: number) => number;
   secondsToMeasures: (seconds: number) => number;
@@ -47,6 +48,11 @@ export function TimelineProvider({ children }: { children: ReactNode }) {
     setTimeline((prev) => ({ ...prev, timeSignatureNumerator: num, timeSignatureDenominator: den }));
   }, []);
 
+  const resetTimeline = useCallback(() => {
+    setTimeline(DEFAULT);
+    setTotalDuration(0);
+  }, []);
+
   const secondsToBeats = useCallback(
     (seconds: number) => (seconds / 60) * timeline.bpm,
     [timeline.bpm],
@@ -68,7 +74,7 @@ export function TimelineProvider({ children }: { children: ReactNode }) {
 
   return (
     <TimelineContext.Provider
-      value={{ timeline, setBpm, setTimeSignature, secondsToBeats, beatsToSeconds, secondsToMeasures, totalDuration, setTotalDuration }}
+      value={{ timeline, setBpm, setTimeSignature, resetTimeline, secondsToBeats, beatsToSeconds, secondsToMeasures, totalDuration, setTotalDuration }}
     >
       {children}
     </TimelineContext.Provider>
