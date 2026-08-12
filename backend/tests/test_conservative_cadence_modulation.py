@@ -8,7 +8,7 @@ pytest.importorskip("music21", reason="music21 not installed")
 
 from music21 import chord, key, note, stream
 
-from analyze import _detect_modulations, _m21_cadences
+from analyze import _detect_modulations, _key_from_pc_vector, _m21_cadences
 
 
 def _make_score(chords: list[tuple[str, float]]):
@@ -28,14 +28,14 @@ def _make_score(chords: list[tuple[str, float]]):
 
 class TestCadenceConservatism:
     def test_v_i_mid_phrase_is_not_strong_cadence(self):
-        """V-I in the middle of a measure should have low confidence."""
+        """V-I in the middle of a measure should carry only an evidence score."""
         score = _make_score([("C E G", 0.0), ("G B D", 1.0), ("C E G", 2.0)])
         detected = key.Key("C")
         cands = _m21_cadences(score, detected)
-        # We only emit candidates, and mid-measure arrivals get <= 0.6 confidence.
         for c in cands:
-            assert c["confidence"] <= 0.8
+            assert c["evidence_score"] <= 0.8
             assert "evidence" in c
+            assert "confidence" not in c
 
     def test_cadence_candidate_has_evidence(self):
         score = _make_score([("G B D", 0.0), ("C E G", 1.0)])
@@ -45,12 +45,12 @@ class TestCadenceConservatism:
         for c in cands:
             assert c["type"] in ("authentic", "plagal", "half", "deceptive")
             assert "chords" in c
-            assert "confidence" in c
+            assert "evidence_score" in c
 
 
 class TestModulationConservatism:
     def test_one_window_change_is_not_modulation(self):
-        """A stable single-key piece should produce no confident modulation."""
+        """A stable single-key piece should produce no modulation events."""
         s = stream.Score()
         p = stream.Part()
         m = stream.Measure()
@@ -62,10 +62,10 @@ class TestModulationConservatism:
         p.append(m)
         s.insert(0, p)
         mods = _detect_modulations(s, 120.0)
-        confident = [mod for mod in mods if mod["confidence"] >= 0.7]
-        assert len(confident) == 0
+        # A stable piece should produce no modulation/tonicization events.
+        assert len(mods) == 0
 
-    def test_modulation_has_kind_field(self):
+    def test_modulation_has_evidence_not_confidence(self):
         s = stream.Score()
         p = stream.Part()
         m = stream.Measure()
@@ -78,4 +78,14 @@ class TestModulationConservatism:
         mods = _detect_modulations(s, 120.0)
         for mod in mods:
             assert mod["kind"] in ("possible_tonicization", "possible_modulation")
-            assert "confidence" in mod
+            assert "run_length_windows" in mod
+            assert "duration_seconds" in mod
+            assert "confidence" not in mod
+
+
+class TestKeyFromPCVector:
+    def test_empty_vector_returns_none(self):
+        import numpy as np
+
+        result = _key_from_pc_vector(np.zeros(12))
+        assert result is None

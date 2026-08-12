@@ -73,7 +73,7 @@ class CadenceResult(TypedDict):
     type: str
     chords: list[str]
     position: float
-    confidence: float
+    evidence_score: float
     evidence: dict
 
 
@@ -82,7 +82,9 @@ class ModulationResult(TypedDict):
     to_key: str
     position: float
     kind: str  # "possible_tonicization" or "possible_modulation"
-    confidence: float
+    run_length_windows: int
+    duration_seconds: float
+    window_size_seconds: float
 
 
 class VoiceLeadingResult(TypedDict):
@@ -285,17 +287,17 @@ def _m21_cadences(score, detected_key) -> list[CadenceResult]:
                 near_boundary = (off - m_start) <= 0.5
                 # Duration evidence: longer arrival is more phrase-ending-like.
                 long_arrival = dur >= 1.0
-                confidence = 0.5
+                evidence_score = 0.5
                 if near_boundary:
-                    confidence += 0.2
+                    evidence_score += 0.2
                 if long_arrival:
-                    confidence += 0.1
+                    evidence_score += 0.1
                 candidates.append(
                     CadenceResult(
                         type=cad_type,
                         chords=pair,
                         position=round(off, 3),
-                        confidence=round(min(confidence, 0.8), 3),
+                        evidence_score=round(min(evidence_score, 0.8), 3),
                         evidence={
                             "metric_position": (
                                 "near_measure_boundary" if near_boundary else "mid_measure"
@@ -439,6 +441,7 @@ def _midi_melody(midi_path: str) -> MelodyResult | None:
 
         # Group by onset windows (30 ms) to find competing notes at each time.
         line: list[pretty_midi.Note] = []
+        margins: list[float] = []
         i = 0
         while i < len(notes):
             window = [notes[i]]
@@ -446,9 +449,10 @@ def _midi_melody(midi_path: str) -> MelodyResult | None:
             while j < len(notes) and notes[j].start - notes[i].start < 0.03:
                 window.append(notes[j])
                 j += 1
-            best = _pick_melody_note(window, line[-1] if line else None)
+            best, margin = _pick_melody_note(window, line[-1] if line else None)
             if best is not None:
                 line.append(best)
+                margins.append(margin)
             i = j
 
         if len(line) < 2:
@@ -458,10 +462,9 @@ def _midi_melody(midi_path: str) -> MelodyResult | None:
         nonzero = [iv for iv in intervals if iv > 0]
         low, high = min(n.pitch for n in line), max(n.pitch for n in line)
 
-        # Confidence: lower when many competing onsets (ambiguous voice).
-        avg_candidates = _avg_onset_candidates(notes)
-        ambiguity = max(0.0, min(1.0, (avg_candidates - 1) / 3.0))
-        confidence = round(1.0 - ambiguity * 0.6, 3)
+        # Quality: average score margin between chosen and runner-up candidates.
+        avg_margin = float(np.mean(margins)) if margins else 0.0
+        quality_score = round(max(0.0, min(1.0, avg_margin)), 3)
 
         return MelodyResult(
             low_pitch=low,
@@ -472,8 +475,8 @@ def _midi_melody(midi_path: str) -> MelodyResult | None:
             if nonzero
             else 0.0,
             leap_ratio=round(sum(iv >= 5 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0,
-            confidence=confidence,
-            heuristic="continuity_aware_skyline",
+            confidence=quality_score,
+            heuristic="greedy_continuity_skyline",
         )
     except Exception:
         return None
@@ -482,17 +485,16 @@ def _midi_melody(midi_path: str) -> MelodyResult | None:
 def _pick_melody_note(
     window: list[pretty_midi.Note],
     prev: pretty_midi.Note | None,
-) -> pretty_midi.Note | None:
+) -> tuple[pretty_midi.Note | None, float]:
     """Pick the most melodic candidate from a simultaneous onset group.
 
     Scores each candidate by: duration (sustained preferred), small leap from
-    previous note, and pitch height. A short high spike scores worse than a
-    sustained nearby line.
+    previous note, and pitch height. Returns (note, score_margin) where margin
+    is the gap between the best and second-best candidate score.
     """
     if not window:
-        return None
-    best_note = None
-    best_score = -1.0
+        return None, 0.0
+    scored: list[tuple[float, pretty_midi.Note]] = []
     for note in window:
         dur = note.end - note.start
         dur_score = min(dur / 2.0, 1.0)  # cap at 2s
@@ -501,31 +503,14 @@ def _pick_melody_note(
             leap_score = 1.0 - min(leap / 12.0, 1.0)
         else:
             leap_score = 0.5
-        height_score = (note.pitch - 60) / 48.0  # modest preference for upper line
+        height_score = (note.pitch - 60) / 48.0
         score = dur_score * 0.5 + leap_score * 0.4 + height_score * 0.1
-        if score > best_score:
-            best_score = score
-            best_note = note
-    return best_note
-
-
-def _avg_onset_candidates(notes: list[pretty_midi.Note]) -> float:
-    """Average number of notes sharing an onset window (ambiguity proxy)."""
-    if not notes:
-        return 0.0
-    total_windows = 0
-    total_candidates = 0
-    i = 0
-    while i < len(notes):
-        count = 1
-        j = i + 1
-        while j < len(notes) and notes[j].start - notes[i].start < 0.03:
-            count += 1
-            j += 1
-        total_windows += 1
-        total_candidates += count
-        i = j
-    return total_candidates / total_windows if total_windows else 0.0
+        scored.append((score, note))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    best_score, best_note = scored[0]
+    second_score = scored[1][0] if len(scored) > 1 else best_score
+    margin = best_score - second_score
+    return best_note, margin
 
 
 # ── Structural analysis: phrases (ISSUE-009) ────────────────────────────────
@@ -548,9 +533,9 @@ def _m21_phrases(score) -> list[PhraseResult]:
 def _detect_modulations(score, tempo_bpm: float | None = None) -> list[ModulationResult]:
     """Detect key changes using overlapping windows with sustained-evidence gating.
 
-    A single noisy window change is NOT a modulation. A new key must persist
-    across multiple consecutive overlapping windows. Brief changes are labelled
-    "possible_tonicization"; sustained changes are "possible_modulation".
+    A single noisy window change is NOT a modulation. Key history is run-length
+    encoded so each sustained local-key region emits at most one transition.
+    Brief changes are "possible_tonicization"; sustained ones "possible_modulation".
     """
     all_notes = []
     for part in score.parts:
@@ -583,36 +568,39 @@ def _detect_modulations(score, tempo_bpm: float | None = None) -> list[Modulatio
             for pc, cnt in Counter(p % 12 for p in pitches).items():
                 pc_dist[pc] = cnt
             kr = _key_from_pc_vector(pc_dist)
-            key_history.append((t, f"{kr['tonic']} {kr['mode']}"))
+            if kr is not None:
+                key_history.append((t, f"{kr['tonic']} {kr['mode']}"))
         t += step_sec
 
+    # Run-length encode key history into (key, start_time, run_length).
+    runs: list[tuple[str, float, int]] = []
+    for kt, key in key_history:
+        if runs and runs[-1][0] == key:
+            prev_key, prev_start, prev_len = runs[-1]
+            runs[-1] = (prev_key, prev_start, prev_len + 1)
+        else:
+            runs.append((key, kt, 1))
+
     modulations: list[ModulationResult] = []
-    for i in range(1, len(key_history)):
-        if key_history[i - 1][1] == key_history[i][1]:
-            continue
-        new_key = key_history[i][1]
-        # Sustained evidence: count consecutive windows agreeing on new_key.
-        run = 1
-        j = i + 1
-        while j < len(key_history) and key_history[j][1] == new_key:
-            run += 1
-            j += 1
-        if run >= 3:
+    for i in range(1, len(runs)):
+        prev_key, prev_start, prev_len = runs[i - 1]
+        new_key, new_start, new_len = runs[i]
+        if new_len >= 3:
             kind = "possible_modulation"
-            confidence = 0.7
-        elif run == 2:
+        elif new_len == 2:
             kind = "possible_tonicization"
-            confidence = 0.4
         else:
             # Single-window fluctuation: not a modulation.
             continue
         modulations.append(
             ModulationResult(
-                from_key=key_history[i - 1][1],
+                from_key=prev_key,
                 to_key=new_key,
-                position=round(key_history[i][0], 3),
+                position=round(new_start, 3),
                 kind=kind,
-                confidence=confidence,
+                run_length_windows=new_len,
+                duration_seconds=round(new_len * step_sec, 3),
+                window_size_seconds=round(window_sec, 3),
             )
         )
     return modulations
@@ -629,15 +617,15 @@ _KS_MINOR_C = _KS_MINOR - _KS_MINOR.mean()
 _KS_MINOR_C = _KS_MINOR_C / np.linalg.norm(_KS_MINOR_C)
 
 
-def _key_from_pc_vector(pc: np.ndarray) -> KeyResult:
+def _key_from_pc_vector(pc: np.ndarray) -> KeyResult | None:
     """Estimate key from a 12-dim pitch-class distribution.
 
     Uses centered/normalized Krumhansl-Schmuckler profiles (cosine similarity)
-    so the score is not biased by profile magnitude. Used by modulation
-    detection to estimate the key of each window.
+    so the score is not biased by profile magnitude. Returns None when there is
+    no pitch-class evidence, rather than fabricating a key.
     """
     if pc.sum() <= 0:
-        return KeyResult(tonic="C", mode="major", confidence=0.0)
+        return None
     pc_c = pc - pc.mean()
     pc_c = pc_c / (np.linalg.norm(pc_c) + 1e-10)
     candidates: list[tuple[str, str, float]] = []

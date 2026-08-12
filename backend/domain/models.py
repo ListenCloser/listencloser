@@ -150,7 +150,7 @@ class Insight(BaseModel):
     span: Span = Field(default_factory=Span)
     entity_ids: list[UUID] = Field(default_factory=list)
     evidence: dict[str, Any] = Field(default_factory=dict)
-    confidence: float = Field(ge=0.0, le=1.0, default=1.0)
+    confidence: float | None = Field(ge=0.0, le=1.0, default=None)
     provenance: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
     created_by: str | None = None

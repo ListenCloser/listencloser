@@ -12,6 +12,10 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
+function formatConfidence(confidence: number | null): string {
+  return confidence == null ? "—" : `${Math.round(confidence * 100)}%`;
+}
+
 export default function InspectorPanel() {
   const { workspace, toggleInspector } = useWorkspace();
   const [activeTab, setActiveTab] = useState<TabId>("insights");
@@ -239,7 +243,7 @@ function InsightsTab() {
           <div className="stat" key={item.id}>
             <span className="s-label">{item.kind.replaceAll("_", " ")}</span>
             <span className="s-value">{item.claim.replace(/^[^:]+:\s*/, "")}</span>
-            <span className="s-label">{Math.round(item.confidence * 100)}% confidence</span>
+            <span className="s-label">{formatConfidence(item.confidence)} confidence</span>
           </div>
         ))}
       </div>
@@ -266,7 +270,7 @@ function InsightsTab() {
                   <span className="insight-claim">{item.claim}</span>
                   <span className="insight-meta">
                     {position && <span>{position}</span>}
-                    <span>{Math.round(item.confidence * 100)}%</span>
+                    <span>{formatConfidence(item.confidence)}</span>
                   </span>
                 </button>
               );
@@ -280,7 +284,7 @@ function InsightsTab() {
           {details.slice(0, 8).map((item) => (
             <button type="button" className="insight-row" key={item.id} onClick={() => seekToEvidence(item)}>
               <span className="insight-claim">{item.claim}</span>
-              <span className="insight-meta"><span>{Math.round(item.confidence * 100)}%</span></span>
+              <span className="insight-meta"><span>{formatConfidence(item.confidence)}</span></span>
             </button>
           ))}
         </section>
