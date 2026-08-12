@@ -215,10 +215,11 @@ def health_queue():
     queued = sum(row.get("stage") == "queued" for row in rows)
     running = sum(row.get("stage") in {"claimed", "running"} for row in rows)
     stale_leases = sum(
-        row.get("stage") in {"claimed", "running"}
+        1
+        for row in rows
+        if row.get("stage") in {"claimed", "running"}
         and row.get("lease_expires_at")
         and datetime.fromisoformat(str(row["lease_expires_at"]).replace("Z", "+00:00")) < now
-        for row in rows
     )
     healthy = bool(workers) and stale_leases == 0
     return {

@@ -19,6 +19,21 @@ export class JobObservationError extends Error {
   }
 }
 
+const DEFAULT_SAFE_MESSAGE = "Processing could not be completed. Retry processing.";
+
+/**
+ * Collapse raw backend/database diagnostics (Postgres constraint errors,
+ * Supabase APIError payloads, etc.) into a stable user-facing message.
+ * Detailed errors stay available in logs/dev diagnostics.
+ */
+export function sanitizeJobError(raw: string | null | undefined): string {
+  if (!raw) return DEFAULT_SAFE_MESSAGE;
+  const suspicious =
+    raw.length > 200 ||
+    /APIError|Postgres|not-null|constraint|Supabase|relation|column|pgsql|\{|\}|code\s*[=:]/i.test(raw);
+  return suspicious ? DEFAULT_SAFE_MESSAGE : raw;
+}
+
 type TrackingOptions = {
   fetchJob?: (jobId: string) => Promise<JobStatus>;
   maxAttempts?: number;
@@ -72,7 +87,7 @@ export async function waitForJob(
     if (job.stage === "succeeded") return job;
     if (job.stage === "failed" || job.stage === "cancelled") {
       throw new JobTerminalError(
-        job.error || job.message || `${job.capability} ${job.stage}`,
+        sanitizeJobError(job.error || job.message) || `${job.capability} ${job.stage}`,
         job.stage,
       );
     }

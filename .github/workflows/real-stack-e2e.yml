@@ -1,0 +1,128 @@
+name: Real-stack E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'tests/e2e/real-stack-workflow.spec.ts'
+      - 'playwright.realstack.config.ts'
+      - '.github/workflows/real-stack-e2e.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'tests/e2e/real-stack-workflow.spec.ts'
+      - 'playwright.realstack.config.ts'
+
+concurrency:
+  group: real-stack-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.113.0
+
+      - name: Start local Supabase and apply every migration from zero
+        run: |
+          supabase start
+          supabase db reset
+
+      - name: Export Supabase environment
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          # Normalize version-dependent CLI names to the names the backend expects.
+          SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
+          SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
+          SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
+          echo "SUPABASE_URL=$SUPABASE_URL" >> "$GITHUB_ENV"
+          echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install -r backend/requirements.txt
+
+      - name: Start backend API
+        run: |
+          cd backend
+          nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+
+      - name: Start worker
+        run: |
+          cd backend
+          nohup python worker.py > /tmp/worker.log 2>&1 &
+          echo $! > /tmp/worker.pid
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build frontend against the local stack
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_MOCK_ENABLED: "false"
+        run: |
+          npm ci
+          npm run build
+
+      - name: Start frontend
+        run: |
+          MUSIC_BACKEND_URL=http://127.0.0.1:8000 nohup npm run start > /tmp/frontend.log 2>&1 &
+          echo $! > /tmp/frontend.pid
+
+      - name: Wait for the stack to come up
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8000/health/live > /dev/null && curl -sf http://localhost:3000 > /dev/null; then
+              echo "stack ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "stack did not become ready" >&2
+          tail -40 /tmp/backend.log || true
+          tail -40 /tmp/frontend.log || true
+          exit 1
+
+      - name: Run real-stack browser test
+        env:
+          REAL_AUDIO_FILE: ${{ github.workspace }}/tests/fixtures/real-piano.m4a
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx playwright install chromium --with-deps
+          npx playwright test --config=playwright.realstack.config.ts
+
+      - name: Upload service logs on failure
+        if: failure()
+        run: |
+          echo "===== backend ====="; tail -150 /tmp/backend.log || true
+          echo "===== worker ====="; tail -150 /tmp/worker.log || true
+          echo "===== frontend ====="; tail -150 /tmp/frontend.log || true
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup || true

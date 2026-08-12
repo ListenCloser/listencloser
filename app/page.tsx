@@ -17,7 +17,7 @@ import {
   startVariationWorkflow,
   uploadArtifact,
 } from "@/lib/api-client";
-import { JobObservationError, JobTerminalError, waitForJob } from "@/lib/job-tracking";
+import { JobObservationError, JobTerminalError, waitForJob, sanitizeJobError } from "@/lib/job-tracking";
 import { supabase } from "@/lib/supabase";
 import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
@@ -275,9 +275,9 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       } else if (terminalJob) {
         setActiveJobId(terminalJob.id);
         setError(
-          terminalJob.error ||
-            terminalJob.lifecycle.message ||
-            `Understanding audio ${terminalJob.lifecycle.current}`,
+          sanitizeJobError(
+            terminalJob.error || terminalJob.lifecycle.message || `Understanding audio ${terminalJob.lifecycle.current}`,
+          ),
         );
         setStage("error");
       } else if (original?.latest_version && !midi && !score) {
