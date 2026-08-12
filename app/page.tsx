@@ -188,7 +188,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           kind: "waveform",
           label: "Waveform",
           sourceUrl: original.signed_url,
-          sourceLabel: "Original audio",
+          sourceLabel: "Playback source",
           confidence: null,
           provenance: "uploaded source",
           audioUrl: original.signed_url,
@@ -299,6 +299,20 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       if (sequence === loadSequenceRef.current) setLoadingWork(false);
     }
   }, [replaceRepresentations, replaceSources, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature, resetTimeline]);
+
+  // Abort any in-flight job polling when the active work is deleted (activeWorkId
+  // becomes null without a new loadWork) and on unmount.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (workspace.activeWorkId === null) {
+      abortRef.current?.abort();
+    }
+  }, [workspace.activeWorkId]);
 
   const handledStudioAction = useRef(0);
   useEffect(() => {

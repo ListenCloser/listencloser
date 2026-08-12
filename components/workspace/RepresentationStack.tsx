@@ -29,7 +29,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   if (!available.length) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
 
   const title: Record<View, string> = { listen: "Listen", piano_roll: "Piano roll", score: "Score", analysis: "Analysis" };
-  const subtitle: Record<View, string> = { listen: "Original and transcription playback", piano_roll: "Performance timing and note events", score: "Quantized notation draft", analysis: "Claims linked to the timeline" };
+  const subtitle: Record<View, string> = { listen: "Waveform of the selected playback source", piano_roll: "Performance timing and note events", score: "Quantized notation draft", analysis: "Claims linked to the timeline" };
   const playView = () => {
     if (transport.isPlaying) { pause(); return; }
     const transcription = transport.sources.find((source) => source.role === "transcription");
