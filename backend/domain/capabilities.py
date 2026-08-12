@@ -229,6 +229,16 @@ def _create_insight(
     return insight.id
 
 
+def _derived_chord_confidence(key_conf: float) -> float:
+    """Chord confidence scales with key confidence, capped below certainty."""
+    return max(0.35, min(0.7, key_conf * 0.8))
+
+
+def _derived_roman_confidence(key_conf: float) -> float:
+    """Roman-numeral confidence is bounded by key confidence."""
+    return max(0.3, min(0.65, key_conf * 0.75))
+
+
 # ---------------------------------------------------------------------------
 # Audio descriptor extraction (Essentia / librosa)
 # ---------------------------------------------------------------------------
@@ -498,8 +508,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
             "cleanup": result.cleanup_report,
             "representation": "performance_midi",
             "quality_notice": (
-                "Conservatively filtered transcription; "
-                "timing is preserved rather than quantized."
+                "Conservatively filtered transcription; timing is preserved rather than quantized."
             ),
             "provenance": result.provenance.to_dict(),
         },
@@ -758,7 +767,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             f"{root}:{quality}",
             evidence=ch,
             span=Span(start_beat=start, end_beat=end),
-            confidence=0.85,
+            confidence=round(_derived_chord_confidence(key_conf), 3),
             job=job,
             owner_id=owner_id,
         )
@@ -785,7 +794,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             figure,
             evidence=rn,
             span=Span(start_beat=start, end_beat=end),
-            confidence=0.8,
+            confidence=round(_derived_roman_confidence(key_conf), 3),
             job=job,
             owner_id=owner_id,
         )
@@ -805,14 +814,15 @@ def handle_analyze(job: Job, client) -> list[str]:
         cad_type = cad.get("type", "?")
         chords_str = " → ".join(cad.get("chords", []))
         position = float(cad.get("position", 0))
+        cad_conf = float(cad.get("confidence", 0.5))
         caid = _create_insight(
             client,
             input_version.id,
-            "cadence",
+            "cadence_candidate",
             f"{cad_type}: {chords_str}",
             evidence=cad,
             span=Span(start_beat=position),
-            confidence=0.8,
+            confidence=round(cad_conf, 3),
             job=job,
             owner_id=owner_id,
         )
@@ -821,17 +831,25 @@ def handle_analyze(job: Job, client) -> list[str]:
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.
     rhythm = analysis.get("rhythm") or {}
     if rhythm:
+        sync_avail = bool(rhythm.get("syncopation_available", False))
+        sync_ratio = rhythm.get("syncopation_ratio")
+        if sync_avail and sync_ratio is not None:
+            claim = (
+                f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
+                f"{round(float(sync_ratio) * 100)}% off-beat on the inferred grid"
+            )
+        else:
+            claim = (
+                f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
+                "syncopation unavailable (no metrical grid)"
+            )
         rid = _create_insight(
             client,
             input_version.id,
             "rhythm",
-            (
-                f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
-                f"{round(float(rhythm.get('syncopation_ratio', 0)) * 100)}% "
-                "off-beat on the inferred grid"
-            ),
+            claim,
             evidence=rhythm,
-            confidence=0.65,
+            confidence=0.65 if sync_avail else 0.4,
             job=job,
             owner_id=owner_id,
         )
@@ -839,6 +857,7 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     melody = analysis.get("melody") or {}
     if melody:
+        mel_conf = float(melody.get("confidence", 0.5))
         mid = _create_insight(
             client,
             input_version.id,
@@ -847,7 +866,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             f"{round(float(melody.get('stepwise_ratio', 0)) * 100)}% "
             "stepwise motion",
             evidence=melody,
-            confidence=0.6,
+            confidence=round(mel_conf, 3),
             job=job,
             owner_id=owner_id,
         )
@@ -860,8 +879,8 @@ def handle_analyze(job: Job, client) -> list[str]:
             input_version.id,
             "voice_leading",
             voice_leading.get("motion_summary", "Voice-leading summary"),
-            evidence=voice_leading,
-            confidence=0.55,
+            evidence={**voice_leading, "heuristic": True},
+            confidence=0.4,
             job=job,
             owner_id=owner_id,
         )
@@ -869,6 +888,7 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     for modulation in (analysis.get("modulations") or [])[:12]:
         position = float(modulation.get("position", 0))
+        mod_conf = float(modulation.get("confidence", 0.4))
         mid = _create_insight(
             client,
             input_version.id,
@@ -876,7 +896,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             f"{modulation.get('from_key', '?')} → {modulation.get('to_key', '?')}",
             evidence=modulation,
             span=Span(start_seconds=position),
-            confidence=0.5,
+            confidence=round(mod_conf, 3),
             job=job,
             owner_id=owner_id,
         )

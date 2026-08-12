@@ -191,7 +191,7 @@ function InsightsTab() {
   );
   const groups = [
     { label: "Form & pulse", kinds: ["audio_structure", "audio_tempo", "section"] },
-    { label: "Harmony", kinds: ["chord", "roman_numeral", "cadence", "modulation"] },
+    { label: "Harmony", kinds: ["chord", "roman_numeral", "cadence", "cadence_candidate", "modulation"] },
     { label: "Melody & rhythm", kinds: ["melody", "rhythm", "range", "density", "syncopation"] },
     { label: "Sound", kinds: ["loudness", "spectral_centroid", "audio_descriptor"] },
   ];
