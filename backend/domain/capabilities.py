@@ -466,17 +466,16 @@ def handle_transcribe(job: Job, client) -> list[str]:
     onset_threshold = float(job.parameters.get("onset_threshold", 0.5))
     frame_threshold = float(job.parameters.get("frame_threshold", 0.3))
     fmt = job.parameters.get("fmt", "wav")
+    engine_name = job.parameters.get("transcription_engine")
 
     _update_progress(client, job.id, 0.25, "preparing audio")
     audio_bytes = music_features.decode_audio_to_wav(audio_bytes, fmt=fmt)
 
     _update_progress(client, job.id, 0.3, "transcribing audio")
-    result = music_features.transcribe_with_engine(
-        audio_bytes,
-        fmt="wav",
-        onset_threshold=onset_threshold,
-        frame_threshold=frame_threshold,
+    engine = music_features.get_transcription_engine_for_job(
+        engine_name, onset_threshold, frame_threshold
     )
+    result = engine.transcribe(audio_bytes, fmt="wav")
 
     output_ids: list[str] = []
 

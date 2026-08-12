@@ -560,6 +560,25 @@ def transcribe_with_engine(
     return base
 
 
+def get_transcription_engine_for_job(
+    name: str | None = None,
+    onset_threshold: float = 0.5,
+    frame_threshold: float = 0.3,
+):
+    """Resolve a transcription engine for a durable job.
+
+    When name is provided, use it directly. Otherwise falls back to
+    TRANSCRIPTION_ENGINE env var or 'basic_pitch' default.
+    """
+    from engines.registry import get_transcription_engine
+
+    return get_transcription_engine(
+        name=name,
+        onset_threshold=onset_threshold,
+        frame_threshold=frame_threshold,
+    )
+
+
 def estimate_beats_with_engine(wav_bytes: bytes) -> dict:
     """Estimate beats using the configured beat engine.
 
