@@ -150,6 +150,20 @@ class TestFusion:
         assert result.agreement == "unavailable"
         assert result.tonic is None
 
+    def test_enharmonic_key_consensus(self):
+        ak = AudioKeyResult(
+            tonic="C#", mode="major", score=0.8, best_score=0.8, second_best_score=0.3
+        )
+        result = fuse_key(ak, "Db major", 0.7)
+        assert result.agreement == "consensus"
+
+    def test_key_mode_consensus(self):
+        ak = AudioKeyResult(
+            tonic="A", mode="minor", score=0.8, best_score=0.8, second_best_score=0.3
+        )
+        result = fuse_key(ak, "A minor", 0.7)
+        assert result.agreement == "consensus"
+
     def test_chord_consensus_overlap(self):
         ac = [AudioChordFrame(0, 1, "C", "maj", 0.8)]
         sc = [{"root": "C", "quality": "maj", "start": 0.5}]

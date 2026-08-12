@@ -100,9 +100,10 @@ def fuse_key(
         return FusedKeyResult(tonic=None, mode=None, agreement="unavailable")
 
     if audio_key is not None and symbolic_key is not None:
-        audio_str = f"{audio_key.tonic} {audio_key.mode}".lower()
-        sym_str = symbolic_key.lower()
-        if audio_str == sym_str:
+        sym_tonic, sym_mode = _parse_key(symbolic_key)
+        if _pitch_class(audio_key.tonic) == _pitch_class(sym_tonic) and _mode_equal(
+            audio_key.mode, sym_mode
+        ):
             return FusedKeyResult(
                 tonic=audio_key.tonic,
                 mode=audio_key.mode,
@@ -128,8 +129,8 @@ def fuse_key(
             audio_key=audio_key,
         )
     return FusedKeyResult(
-        tonic=symbolic_key.split()[0] if " " in symbolic_key else symbolic_key,
-        mode=symbolic_key.split()[1] if " " in symbolic_key else "major",
+        tonic=_parse_key(symbolic_key)[0],
+        mode=_parse_key(symbolic_key)[1],
         agreement="symbolic_only",
         symbolic_key=symbolic_key,
         symbolic_score=symbolic_score,
@@ -190,5 +191,24 @@ def fuse_chords(
     )
 
 
-def _onsets_match(a_start: float, s_start: float, tolerance: float) -> bool:
-    return abs(a_start - s_start) <= tolerance
+def _parse_key(key: str) -> tuple[str, str]:
+    """Split a key string like 'C# major' into (tonic, mode)."""
+    parts = (key or "").split()
+    if len(parts) == 0:
+        return "C", "major"
+    if len(parts) == 1:
+        return parts[0], "major"
+    return parts[0], parts[1]
+
+
+def _mode_equal(a: str, b: str) -> bool:
+    return _canonical_mode(a) == _canonical_mode(b)
+
+
+def _canonical_mode(mode: str) -> str:
+    m = (mode or "").lower().strip()
+    if m in ("major", "maj", "m", ""):
+        return "major"
+    if m in ("minor", "min"):
+        return "minor"
+    return m
