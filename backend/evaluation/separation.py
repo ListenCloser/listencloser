@@ -3,7 +3,9 @@
 Not part of production. Used only by the evaluation benchmark.
 
 Engine facts (verified at integration time):
-  - library: demucs 4.0.1 (maintained fork: https://github.com/adefossez/demucs)
+  - library: demucs 4.0.1 — official continuation of facebookresearch/demucs by
+    the original author (adefossez/demucs); author notes it is not actively
+    developed, so expect slow replies / no new features
   - model:   htdemucs (hybrid transformer)
   - license: MIT (library + model)
   - sources: drums, bass, other, vocals

@@ -6,7 +6,8 @@ Engine: Demucs htdemucs 4.0.1 + Basic Pitch (onset=0.5, frame=0.3)
 
 ## Environment
 
-- Library: demucs 4.0.1 (maintained fork: adefossez/demucs)
+- Library: demucs 4.0.1 (official continuation of facebookresearch/demucs by the
+  original author, adefossez/demucs; not actively developed per the author)
 - Model: htdemucs (hybrid transformer)
 - License: MIT (library + model)
 - Model download: ~80 MB
