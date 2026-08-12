@@ -199,7 +199,7 @@ def _create_insight(
     claim: str,
     evidence: dict | None = None,
     span: Span | None = None,
-    confidence: float = 1.0,
+    confidence: float | None = None,
     job: Job | None = None,
     owner_id: str = "",
 ) -> UUID:
@@ -498,8 +498,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
             "cleanup": result.cleanup_report,
             "representation": "performance_midi",
             "quality_notice": (
-                "Conservatively filtered transcription; "
-                "timing is preserved rather than quantized."
+                "Conservatively filtered transcription; timing is preserved rather than quantized."
             ),
             "provenance": result.provenance.to_dict(),
         },
@@ -756,9 +755,9 @@ def handle_analyze(job: Job, client) -> list[str]:
             input_version.id,
             "chord",
             f"{root}:{quality}",
-            evidence=ch,
+            evidence={**ch, "key_confidence": key_conf},
             span=Span(start_beat=start, end_beat=end),
-            confidence=0.85,
+            confidence=None,
             job=job,
             owner_id=owner_id,
         )
@@ -783,9 +782,9 @@ def handle_analyze(job: Job, client) -> list[str]:
             input_version.id,
             "roman_numeral",
             figure,
-            evidence=rn,
+            evidence={**rn, "key_confidence": key_conf},
             span=Span(start_beat=start, end_beat=end),
-            confidence=0.8,
+            confidence=None,
             job=job,
             owner_id=owner_id,
         )
@@ -808,11 +807,11 @@ def handle_analyze(job: Job, client) -> list[str]:
         caid = _create_insight(
             client,
             input_version.id,
-            "cadence",
+            "cadence_candidate",
             f"{cad_type}: {chords_str}",
             evidence=cad,
             span=Span(start_beat=position),
-            confidence=0.8,
+            confidence=None,
             job=job,
             owner_id=owner_id,
         )
@@ -821,17 +820,25 @@ def handle_analyze(job: Job, client) -> list[str]:
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.
     rhythm = analysis.get("rhythm") or {}
     if rhythm:
+        sync_avail = bool(rhythm.get("syncopation_available", False))
+        sync_ratio = rhythm.get("syncopation_ratio")
+        if sync_avail and sync_ratio is not None:
+            claim = (
+                f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
+                f"{round(float(sync_ratio) * 100)}% off-beat on the inferred grid"
+            )
+        else:
+            claim = (
+                f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
+                "syncopation unavailable (no metrical grid)"
+            )
         rid = _create_insight(
             client,
             input_version.id,
             "rhythm",
-            (
-                f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
-                f"{round(float(rhythm.get('syncopation_ratio', 0)) * 100)}% "
-                "off-beat on the inferred grid"
-            ),
+            claim,
             evidence=rhythm,
-            confidence=0.65,
+            confidence=None,
             job=job,
             owner_id=owner_id,
         )
@@ -839,6 +846,8 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     melody = analysis.get("melody") or {}
     if melody:
+        # melody['quality_score'] is a greedy-skyline candidate-margin score,
+        # not a calibrated probability; preserved in evidence only.
         mid = _create_insight(
             client,
             input_version.id,
@@ -847,7 +856,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             f"{round(float(melody.get('stepwise_ratio', 0)) * 100)}% "
             "stepwise motion",
             evidence=melody,
-            confidence=0.6,
+            confidence=None,
             job=job,
             owner_id=owner_id,
         )
@@ -858,10 +867,10 @@ def handle_analyze(job: Job, client) -> list[str]:
         vid = _create_insight(
             client,
             input_version.id,
-            "voice_leading",
+            "voice_motion_candidate",
             voice_leading.get("motion_summary", "Voice-leading summary"),
-            evidence=voice_leading,
-            confidence=0.55,
+            evidence={**voice_leading, "heuristic": True},
+            confidence=None,
             job=job,
             owner_id=owner_id,
         )
@@ -876,7 +885,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             f"{modulation.get('from_key', '?')} → {modulation.get('to_key', '?')}",
             evidence=modulation,
             span=Span(start_seconds=position),
-            confidence=0.5,
+            confidence=None,
             job=job,
             owner_id=owner_id,
         )

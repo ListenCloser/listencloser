@@ -21,6 +21,8 @@ Pipeline:
     MIDI → music21 parse → analysis functions → structured result
 """
 
+from __future__ import annotations
+
 import logging
 import time as _time
 from collections import Counter
@@ -71,12 +73,18 @@ class CadenceResult(TypedDict):
     type: str
     chords: list[str]
     position: float
+    evidence_score: float
+    evidence: dict
 
 
 class ModulationResult(TypedDict):
     from_key: str
     to_key: str
     position: float
+    kind: str  # "possible_tonicization" or "possible_modulation"
+    run_length_windows: int
+    duration_seconds: float
+    window_size_seconds: float
 
 
 class VoiceLeadingResult(TypedDict):
@@ -96,8 +104,9 @@ class PhraseResult(TypedDict):
 class RhythmResult(TypedDict):
     beat_count: int
     avg_note_duration: float
-    syncopation_ratio: float
+    syncopation_ratio: float | None
     rhythmic_density: float
+    syncopation_available: bool
 
 
 class MelodyResult(TypedDict):
@@ -107,6 +116,8 @@ class MelodyResult(TypedDict):
     unique_pitch_classes: int
     stepwise_ratio: float
     leap_ratio: float
+    quality_score: float
+    heuristic: str
 
 
 class AnalysisResult(TypedDict):
@@ -231,12 +242,17 @@ def _m21_roman_numerals(score, detected_key) -> list[RomanNumeralResult]:
 
 
 def _m21_cadences(score, detected_key) -> list[CadenceResult]:
-    """Delegate cadence detection to music21."""
+    """Detect cadence candidates from adjacent Roman numerals.
+
+    This is deliberately conservative: a V-I progression is only a candidate,
+    not a confirmed cadence. Evidence includes metric position, chord duration,
+    and whether the arrival lands near a measure boundary.
+    """
     try:
         from music21 import roman
     except ImportError:
         return []
-    cadences: list[CadenceResult] = []
+    candidates: list[CadenceResult] = []
     patterns = [
         ("authentic", ["V", "I"]),
         ("plagal", ["IV", "I"]),
@@ -247,38 +263,67 @@ def _m21_cadences(score, detected_key) -> list[CadenceResult]:
         ("half", ["i", "V"]),
         ("deceptive", ["V", "VI"]),
     ]
-    chord_seq: list[tuple[float, str]] = []
+    # Collect (offset, figure, duration_qn, measure_start_offset)
+    chord_seq: list[tuple[float, str, float, float]] = []
     for part in score.parts:
         for measure in part.getElementsByClass("Measure"):
+            m_start = float(measure.offset) if measure.offset is not None else 0.0
             for ch in measure.getElementsByClass("Chord"):
                 try:
                     rn = roman.romanNumeralFromChord(ch, detected_key)
                     offset = float(ch.getOffsetInHierarchy(score))
-                    chord_seq.append((offset, rn.figure))
+                    dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
+                    chord_seq.append((offset, rn.figure, dur, m_start))
                 except Exception:
                     continue
+
     for i in range(len(chord_seq) - 1):
-        pair = [chord_seq[i][1], chord_seq[i + 1][1]]
+        prev_off, prev_fig, prev_dur, prev_m = chord_seq[i]
+        off, fig, dur, m_start = chord_seq[i + 1]
+        pair = [prev_fig, fig]
         for cad_type, pattern in patterns:
             if pair == pattern:
-                cadences.append(
+                # Metric evidence: arrival near a measure boundary boosts confidence.
+                near_boundary = (off - m_start) <= 0.5
+                # Duration evidence: longer arrival is more phrase-ending-like.
+                long_arrival = dur >= 1.0
+                evidence_score = 0.5
+                if near_boundary:
+                    evidence_score += 0.2
+                if long_arrival:
+                    evidence_score += 0.1
+                candidates.append(
                     CadenceResult(
                         type=cad_type,
                         chords=pair,
-                        position=round(chord_seq[i][0], 3),
+                        position=round(off, 3),
+                        evidence_score=round(min(evidence_score, 0.8), 3),
+                        evidence={
+                            "metric_position": (
+                                "near_measure_boundary" if near_boundary else "mid_measure"
+                            ),
+                            "arrival_duration_qn": round(dur, 3),
+                            "method": "roman_numeral_pattern",
+                        },
                     )
                 )
                 break
-    return cadences
+    return candidates
 
 
 def _m21_voice_leading(score) -> VoiceLeadingResult | None:
-    """Delegate voice leading analysis to music21."""
+    """Voice-leading analysis, only when separated voices exist.
+
+    Transcribed MIDI is typically a single flattened part or an arbitrary
+    parser split. Contrapuntal motion statistics are meaningless without
+    trustworthy independent voices, so suppress when fewer than two parts
+    carry independent melodic lines.
+    """
     try:
         from music21 import voiceLeading
     except ImportError:
         return None
-    parts = list(score.parts)
+    parts = [p for p in list(score.parts) if _has_melodic_content(p)]
     if len(parts) < 2:
         return None
     parallel = contrary = oblique = similar = total = 0
@@ -323,18 +368,26 @@ def _m21_voice_leading(score) -> VoiceLeadingResult | None:
     )
 
 
+def _has_melodic_content(part) -> bool:
+    """A part has melodic content if it contains enough notes to form a line."""
+    try:
+        notes = list(part.recurse().getElementsByClass("Note"))
+        return len(notes) >= 4
+    except Exception:
+        return False
+
+
 # ── Rhythm analysis (ISSUE-010) ────────────────────────────────────────────
 
 
 def _midi_rhythm(midi_path: str) -> RhythmResult | None:
     """Analyze rhythm using pretty_midi.
 
-    WHY custom: pretty_midi provides beat tracking and note-level timing
-    data. We compute:
-    - beat_count: estimated beats from tempo
-    - avg_note_duration: average note length in seconds
-    - syncopation_ratio: fraction of notes off the beat grid
-    - rhythmic_density: notes per second
+    Reports note density and average duration (honest, well-defined stats).
+    Syncopation is NOT computed here: a raw performance MIDI has no trustworthy
+    metrical hierarchy (beat/downbeat) — pretty_midi injects a default 4/4 that
+    is an assumption, not evidence. Syncopation requires the beat/downbeat grid
+    from the audio beat tracker, which lives in a different pipeline stage.
     """
     try:
         pm = pretty_midi.PrettyMIDI(midi_path)
@@ -342,17 +395,14 @@ def _midi_rhythm(midi_path: str) -> RhythmResult | None:
         if duration <= 0:
             return None
 
-        # Count total notes
         total_notes = sum(len(inst.notes) for inst in pm.instruments if not inst.is_drum)
         if total_notes == 0:
             return None
 
-        # Estimate beats from tempo
         tempos = pm.get_tempo_changes()[1]
         bpm = float(np.median(tempos)) if len(tempos) > 0 else 120.0
         beat_count = int(duration * bpm / 60.0)
 
-        # Average note duration
         all_durations = []
         for inst in pm.instruments:
             if inst.is_drum:
@@ -361,113 +411,131 @@ def _midi_rhythm(midi_path: str) -> RhythmResult | None:
                 all_durations.append(note.end - note.start)
         avg_duration = float(np.mean(all_durations)) if all_durations else 0.0
 
-        # Syncopation: fraction of notes that don't start on a beat
-        beat_duration = 60.0 / bpm
-        syncopated = 0
-        for inst in pm.instruments:
-            if inst.is_drum:
-                continue
-            for note in inst.notes:
-                beat_pos = (note.start % beat_duration) / beat_duration
-                if beat_pos > 0.1 and beat_pos < 0.9:
-                    syncopated += 1
-        syncopation_ratio = syncopated / total_notes if total_notes > 0 else 0.0
-
         return RhythmResult(
             beat_count=beat_count,
             avg_note_duration=round(avg_duration, 3),
-            syncopation_ratio=round(syncopation_ratio, 3),
+            syncopation_ratio=None,
             rhythmic_density=round(total_notes / duration, 2),
+            syncopation_available=False,
         )
     except Exception:
         return None
 
 
 def _midi_melody(midi_path: str) -> MelodyResult | None:
-    """Summarize pitch range and melodic motion from the highest active line.
+    """Continuity-aware skyline melody heuristic.
 
-    This is intentionally labelled as a transcription-derived heuristic. It is
-    useful for navigation and discussion, not a claim that polyphonic audio has
-    a single objectively correct melody.
+    Rather than always picking the highest note at each onset, prefer a
+    sustained upper line that minimizes melodic leaps and favors longer,
+    overlapping notes. Isolated high spikes are downweighted.
+
+    This is a heuristic for polyphonic transcription, NOT a claim about the
+    composer's intended melody.
     """
     try:
         pm = pretty_midi.PrettyMIDI(midi_path)
-        notes = sorted(
-            (note for inst in pm.instruments if not inst.is_drum for note in inst.notes),
-            key=lambda note: (note.start, -note.pitch),
-        )
+        notes = [note for inst in pm.instruments if not inst.is_drum for note in inst.notes]
         if len(notes) < 2:
             return None
-        # At a shared onset, retain the upper voice as a transparent heuristic.
-        line = []
-        for note in notes:
-            if line and abs(note.start - line[-1].start) < 0.03:
-                continue
-            line.append(note)
-        intervals = [
-            abs(current.pitch - previous.pitch)
-            for previous, current in zip(line, line[1:], strict=False)
-        ]
-        nonzero = [interval for interval in intervals if interval > 0]
-        low, high = min(note.pitch for note in line), max(note.pitch for note in line)
+        notes.sort(key=lambda n: (n.start, -n.pitch))
+
+        # Group by onset windows (30 ms) to find competing notes at each time.
+        line: list[pretty_midi.Note] = []
+        margins: list[float] = []
+        i = 0
+        while i < len(notes):
+            window = [notes[i]]
+            j = i + 1
+            while j < len(notes) and notes[j].start - notes[i].start < 0.03:
+                window.append(notes[j])
+                j += 1
+            best, margin = _pick_melody_note(window, line[-1] if line else None)
+            if best is not None:
+                line.append(best)
+                margins.append(margin)
+            i = j
+
+        if len(line) < 2:
+            return None
+
+        intervals = [abs(line[i + 1].pitch - line[i].pitch) for i in range(len(line) - 1)]
+        nonzero = [iv for iv in intervals if iv > 0]
+        low, high = min(n.pitch for n in line), max(n.pitch for n in line)
+
+        # Quality: average score margin between chosen and runner-up candidates.
+        avg_margin = float(np.mean(margins)) if margins else 0.0
+        quality_score = round(max(0.0, min(1.0, avg_margin)), 3)
+
         return MelodyResult(
             low_pitch=low,
             high_pitch=high,
             range_semitones=high - low,
-            unique_pitch_classes=len({note.pitch % 12 for note in line}),
-            stepwise_ratio=round(sum(interval <= 2 for interval in nonzero) / len(nonzero), 3)
+            unique_pitch_classes=len({n.pitch % 12 for n in line}),
+            stepwise_ratio=round(sum(iv <= 2 for iv in nonzero) / len(nonzero), 3)
             if nonzero
             else 0.0,
-            leap_ratio=round(sum(interval >= 5 for interval in nonzero) / len(nonzero), 3)
-            if nonzero
-            else 0.0,
+            leap_ratio=round(sum(iv >= 5 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0,
+            quality_score=quality_score,
+            heuristic="greedy_continuity_skyline",
         )
     except Exception:
         return None
+
+
+def _pick_melody_note(
+    window: list[pretty_midi.Note],
+    prev: pretty_midi.Note | None,
+) -> tuple[pretty_midi.Note | None, float]:
+    """Pick the most melodic candidate from a simultaneous onset group.
+
+    Scores each candidate by: duration (sustained preferred), small leap from
+    previous note, and pitch height. Returns (note, score_margin) where margin
+    is the gap between the best and second-best candidate score.
+    """
+    if not window:
+        return None, 0.0
+    scored: list[tuple[float, pretty_midi.Note]] = []
+    for note in window:
+        dur = note.end - note.start
+        dur_score = min(dur / 2.0, 1.0)  # cap at 2s
+        if prev is not None:
+            leap = abs(note.pitch - prev.pitch)
+            leap_score = 1.0 - min(leap / 12.0, 1.0)
+        else:
+            leap_score = 0.5
+        height_score = (note.pitch - 60) / 48.0
+        score = dur_score * 0.5 + leap_score * 0.4 + height_score * 0.1
+        scored.append((score, note))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    best_score, best_note = scored[0]
+    second_score = scored[1][0] if len(scored) > 1 else best_score
+    margin = best_score - second_score
+    return best_note, margin
 
 
 # ── Structural analysis: phrases (ISSUE-009) ────────────────────────────────
 
 
 def _m21_phrases(score) -> list[PhraseResult]:
-    """Detect phrases using music21's slur analysis.
+    """Phrase boundary detection is NOT implemented.
 
-    WHY custom: music21 doesn't have a direct phrase boundary detection
-    function that returns structured data. This uses slur markings as
-    phrase indicators, which is a standard approach in music analysis.
+    The previous implementation returned chord spans labelled as "phrases",
+    which is misleading. Real phrase-boundary analysis requires evidence
+    (rests, slurs, cadence context, melodic closure) that is not available
+    from raw transcription. Return empty to avoid fake phrase claims.
     """
-    try:
-        phrases: list[PhraseResult] = []
-        for part in score.parts:
-            for measure in part.getElementsByClass("Measure"):
-                for ch in measure.getElementsByClass("Chord"):
-                    try:
-                        offset = float(ch.getOffsetInHierarchy(score))
-                        dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
-                        # Simple heuristic: short chords (< 0.5 beats) are likely grace notes
-                        if dur < 0.25:
-                            continue
-                        phrases.append(
-                            PhraseResult(
-                                start=round(offset, 3),
-                                end=round(offset + dur, 3),
-                                kind="chord",
-                            )
-                        )
-                    except Exception:
-                        continue
-        return phrases[:200]  # Limit to prevent huge outputs
-    except Exception:
-        return []
+    return []
 
 
 # ── Custom: Modulation detection (no OOTB equivalent) ───────────────────────
 
 
 def _detect_modulations(score, tempo_bpm: float | None = None) -> list[ModulationResult]:
-    """
-    Detect key modulations via windowed pitch-class analysis.
-    Uses time in seconds (not quarter notes) for stable window sizes.
+    """Detect key changes using overlapping windows with sustained-evidence gating.
+
+    A single noisy window change is NOT a modulation. Key history is run-length
+    encoded so each sustained local-key region emits at most one transition.
+    Brief changes are "possible_tonicization"; sustained ones "possible_modulation".
     """
     all_notes = []
     for part in score.parts:
@@ -475,42 +543,66 @@ def _detect_modulations(score, tempo_bpm: float | None = None) -> list[Modulatio
             offset = float(note.offset) if note.offset is not None else 0.0
             if hasattr(note, "pitch") and note.pitch is not None:
                 all_notes.append((offset, note.pitch.midi))
-    if len(all_notes) < _MODULATION_WINDOW_COUNT * 4:
+    if len(all_notes) < 16:
         return []
     all_notes.sort(key=lambda x: x[0])
 
-    # Convert quarter-note positions to seconds using tempo
     qpm = tempo_bpm if tempo_bpm else 120.0
     max_offset_qn = all_notes[-1][0] if all_notes else 1.0
-    max_offset_sec = max_offset_qn * 60.0 / qpm
-    window_sec = max_offset_sec / max(_MODULATION_WINDOW_COUNT, 1)
+    total_sec = max_offset_qn * 60.0 / qpm
+    if total_sec <= 0:
+        return []
+
+    # Overlapping windows: window_sec step half of window size.
+    window_sec = total_sec / 8.0
+    step_sec = window_sec / 2.0
 
     key_history: list[tuple[float, str]] = []
-    for w in range(_MODULATION_WINDOW_COUNT):
-        t_start_sec = w * window_sec
-        t_end_sec = (w + 1) * window_sec
-        t_start_qn = t_start_sec * qpm / 60.0
-        t_end_qn = t_end_sec * qpm / 60.0
-        pitches = [p for t, p in all_notes if t_start_qn <= t < t_end_qn]
-        if len(pitches) < _MIN_NOTES_PER_WINDOW:
-            continue
-        pc_counts = Counter(p % 12 for p in pitches)
-        pc_dist = np.zeros(12)
-        for pc, cnt in pc_counts.items():
-            pc_dist[pc] = cnt
-        kr = _key_from_pc_vector(pc_dist)
-        key_history.append((t_start_sec, f"{kr['tonic']} {kr['mode']}"))
+    t = 0.0
+    while t + window_sec <= total_sec + 1e-9:
+        t_start_qn = t * qpm / 60.0
+        t_end_qn = (t + window_sec) * qpm / 60.0
+        pitches = [p for toff, p in all_notes if t_start_qn <= toff < t_end_qn]
+        if len(pitches) >= _MIN_NOTES_PER_WINDOW:
+            pc_dist = np.zeros(12)
+            for pc, cnt in Counter(p % 12 for p in pitches).items():
+                pc_dist[pc] = cnt
+            kr = _key_from_pc_vector(pc_dist)
+            if kr is not None:
+                key_history.append((t, f"{kr['tonic']} {kr['mode']}"))
+        t += step_sec
+
+    # Run-length encode key history into (key, start_time, run_length).
+    runs: list[tuple[str, float, int]] = []
+    for kt, key in key_history:
+        if runs and runs[-1][0] == key:
+            prev_key, prev_start, prev_len = runs[-1]
+            runs[-1] = (prev_key, prev_start, prev_len + 1)
+        else:
+            runs.append((key, kt, 1))
 
     modulations: list[ModulationResult] = []
-    for i in range(1, len(key_history)):
-        if key_history[i - 1][1] != key_history[i][1]:
-            modulations.append(
-                ModulationResult(
-                    from_key=key_history[i - 1][1],
-                    to_key=key_history[i][1],
-                    position=round(key_history[i][0], 3),
-                )
+    for i in range(1, len(runs)):
+        prev_key, prev_start, prev_len = runs[i - 1]
+        new_key, new_start, new_len = runs[i]
+        if new_len >= 3:
+            kind = "possible_modulation"
+        elif new_len == 2:
+            kind = "possible_tonicization"
+        else:
+            # Single-window fluctuation: not a modulation.
+            continue
+        modulations.append(
+            ModulationResult(
+                from_key=prev_key,
+                to_key=new_key,
+                position=round(new_start, 3),
+                kind=kind,
+                run_length_windows=new_len,
+                duration_seconds=round(new_len * step_sec, 3),
+                window_size_seconds=round(window_sec, 3),
             )
+        )
     return modulations
 
 
@@ -519,29 +611,32 @@ def _detect_modulations(score, tempo_bpm: float | None = None) -> list[Modulatio
 _KS_MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
 _KS_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
 
+_KS_MAJOR_C = _KS_MAJOR - _KS_MAJOR.mean()
+_KS_MAJOR_C = _KS_MAJOR_C / np.linalg.norm(_KS_MAJOR_C)
+_KS_MINOR_C = _KS_MINOR - _KS_MINOR.mean()
+_KS_MINOR_C = _KS_MINOR_C / np.linalg.norm(_KS_MINOR_C)
 
-def _key_from_pc_vector(pc: np.ndarray) -> KeyResult:
+
+def _key_from_pc_vector(pc: np.ndarray) -> KeyResult | None:
     """Estimate key from a 12-dim pitch-class distribution.
 
-    WHY custom: Used by modulation detection to estimate key of each window.
-    music21's score.analyze('key') requires a full Score object, not a
-    pitch-class vector. This is a lightweight alternative for windowed analysis.
+    Uses centered/normalized Krumhansl-Schmuckler profiles (cosine similarity)
+    so the score is not biased by profile magnitude. Returns None when there is
+    no pitch-class evidence, rather than fabricating a key.
     """
     if pc.sum() <= 0:
-        return KeyResult(tonic="C", mode="major", confidence=0.0)
-    pc = pc / pc.max() if pc.max() > 0 else pc
-    best_corr, best_tonic, best_mode = -1.0, "C", "major"
+        return None
+    pc_c = pc - pc.mean()
+    pc_c = pc_c / (np.linalg.norm(pc_c) + 1e-10)
+    candidates: list[tuple[str, str, float]] = []
     for shift in range(12):
-        rolled = np.roll(pc, shift)
-        corr_major = float(np.dot(rolled, _KS_MAJOR))
-        corr_minor = float(np.dot(rolled, _KS_MINOR))
-        if corr_major > best_corr:
-            best_corr, best_tonic, best_mode = corr_major, _NOTES[shift], "major"
-        if corr_minor > best_corr:
-            best_corr, best_tonic, best_mode = corr_minor, _NOTES[shift], "minor"
-    max_possible = float(np.dot(_KS_MAJOR, _KS_MAJOR))
-    confidence = round(min(max(best_corr / max_possible if max_possible > 0 else 0.0, 0.0), 1.0), 3)
-    return KeyResult(tonic=best_tonic, mode=best_mode, confidence=confidence)
+        rolled = np.roll(pc_c, -shift)
+        candidates.append((_NOTES[shift], "major", float(np.dot(rolled, _KS_MAJOR_C))))
+        candidates.append((_NOTES[shift], "minor", float(np.dot(rolled, _KS_MINOR_C))))
+    candidates.sort(key=lambda x: x[2], reverse=True)
+    best = candidates[0]
+    confidence = round(min(max(best[2], 0.0), 1.0), 3)
+    return KeyResult(tonic=best[0], mode=best[1], confidence=confidence)
 
 
 # ── Main entry point ────────────────────────────────────────────────────────

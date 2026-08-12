@@ -112,7 +112,7 @@ export interface Insight {
   span: Span
   entity_ids: string[]
   evidence: Record<string, unknown>
-  confidence: number
+  confidence: number | null
   provenance: Record<string, unknown>
   created_at: string
   created_by: string | null
