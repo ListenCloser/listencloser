@@ -431,20 +431,34 @@ def handle_understand(job: Job, client) -> list[str]:
         }
     )
     handle_audio_structure(structure_job, _ProgressClient(client, 0.65, 0.10))
+    audio_harmonic_job = job.model_copy(
+        update={
+            "capability": Capability(name="audio_harmonic", version="1.0"),
+            "input_version_ids": [job.input_version_ids[0]],
+        }
+    )
+    handle_audio_harmonic(audio_harmonic_job, _ProgressClient(client, 0.75, 0.08))
     analyze_job = job.model_copy(
         update={
             "capability": Capability(name="analyze", version="1.0"),
             "input_version_ids": [midi_version_id],
         }
     )
-    handle_analyze(analyze_job, _ProgressClient(client, 0.75, 0.15))
+    handle_analyze(analyze_job, _ProgressClient(client, 0.83, 0.07))
+    fuse_job = job.model_copy(
+        update={
+            "capability": Capability(name="fuse_harmonic", version="1.0"),
+            "input_version_ids": [midi_version_id, job.input_version_ids[0]],
+        }
+    )
+    handle_fuse_harmonic(fuse_job, _ProgressClient(client, 0.90, 0.05))
     score_job = job.model_copy(
         update={
             "capability": Capability(name="score", version="1.0"),
             "input_version_ids": [midi_version_id, job.input_version_ids[0]],
         }
     )
-    score_ids = handle_score(score_job, _ProgressClient(client, 0.90, 0.10))
+    score_ids = handle_score(score_job, _ProgressClient(client, 0.95, 0.05))
     return [*output_ids, *score_ids]
 
 
@@ -498,8 +512,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
             "cleanup": result.cleanup_report,
             "representation": "performance_midi",
             "quality_notice": (
-                "Conservatively filtered transcription; "
-                "timing is preserved rather than quantized."
+                "Conservatively filtered transcription; timing is preserved rather than quantized."
             ),
             "provenance": result.provenance.to_dict(),
         },
@@ -653,6 +666,178 @@ def handle_audio_structure(job: Job, client) -> list[str]:
         )
     _update_progress(client, job.id, 1.0, "audio structure analysis complete")
     return insight_ids
+
+
+def handle_audio_harmonic(job: Job, client) -> list[str]:
+    """Run audio-native key and chord detection on the original recording.
+
+    Persists results as insights with 'model' confidence source, suitable for
+    later fusion with symbolic MIDI analysis.
+    """
+    import io
+
+    import numpy as np
+    import soundfile as sf
+
+    from audio.harmonic import detect_key, estimate_chords
+
+    if not job.input_version_ids:
+        raise ValueError("audio_harmonic requires at least one input version")
+    owner_id = _resolve_owner_id(client, job.workflow_id)
+    _update_progress(client, job.id, 0.1, "loading audio for harmonic analysis")
+    input_version = _lookup_version(client, job.input_version_ids[0])
+    audio_bytes = download_version_bytes(input_version, client)
+    audio_data, sr = sf.read(io.BytesIO(audio_bytes))
+    if audio_data.ndim > 1:
+        audio_data = np.mean(audio_data, axis=1)
+    audio_data = audio_data.astype(np.float32)
+
+    insight_ids: list[str] = []
+    _update_progress(client, job.id, 0.3, "detecting audio key")
+    audio_key = detect_key(audio_data, float(sr))
+    if audio_key is not None:
+        insight_ids.append(
+            str(
+                _create_insight(
+                    client,
+                    input_version.id,
+                    "audio_key",
+                    f"{audio_key.tonic} {audio_key.mode}",
+                    evidence=audio_key.to_dict(),
+                    confidence=round(audio_key.confidence, 3),
+                    job=job,
+                    owner_id=owner_id,
+                )
+            )
+        )
+
+    _update_progress(client, job.id, 0.6, "estimating audio chords")
+    chords = estimate_chords(audio_data, float(sr))
+    for _i, chord in enumerate(chords[:24]):
+        insight_ids.append(
+            str(
+                _create_insight(
+                    client,
+                    input_version.id,
+                    "audio_chord",
+                    f"{chord.root}:{chord.quality}",
+                    evidence={
+                        "root": chord.root,
+                        "quality": chord.quality,
+                        "start_seconds": chord.start_seconds,
+                        "end_seconds": chord.end_seconds,
+                        "confidence": chord.confidence,
+                        "source": chord.source,
+                    },
+                    span=Span(start_seconds=chord.start_seconds, end_seconds=chord.end_seconds),
+                    confidence=round(chord.confidence, 3),
+                    job=job,
+                    owner_id=owner_id,
+                )
+            )
+        )
+
+    _update_progress(client, job.id, 1.0, "audio harmonic analysis complete")
+    return insight_ids
+
+
+def handle_fuse_harmonic(job: Job, client) -> list[str]:
+    """Fuse audio-native harmonic evidence with symbolic MIDI analysis.
+
+    Reads audio_key/audio_chord insights (from handle_audio_harmonic) and
+    symbolic key/chord insights (from handle_analyze) and creates fused
+    consensus/conflict annotations.
+    """
+    from audio.fusion import fuse_chords, fuse_key
+
+    if len(job.input_version_ids) < 2:
+        return []
+    owner_id = _resolve_owner_id(client, job.workflow_id)
+    midi_version_id = job.input_version_ids[0]
+    audio_version_id = job.input_version_ids[1]
+
+    _update_progress(client, job.id, 0.3, "fetching harmonic evidence")
+    audio_insights = [
+        i
+        for i in InsightRepo(client).list_by_version(audio_version_id, owner_id)
+        if i.kind in ("audio_key", "audio_chord")
+    ]
+    symbolic_insights = [
+        i
+        for i in InsightRepo(client).list_by_version(midi_version_id, owner_id)
+        if i.kind in ("key", "chord")
+    ]
+
+    _update_progress(client, job.id, 0.5, "fusing key estimates")
+    audio_key_insight = next((i for i in audio_insights if i.kind == "audio_key"), None)
+    sym_key_insight = next((i for i in symbolic_insights if i.kind == "key"), None)
+    audio_key_data = audio_key_insight.evidence if audio_key_insight else None
+    if audio_key_data:
+        from audio.harmonic import AudioKeyResult
+
+        ak = AudioKeyResult(
+            tonic=audio_key_data["tonic"],
+            mode=audio_key_data["mode"],
+            confidence=float(audio_key_data.get("confidence", 0.5)),
+        )
+    else:
+        ak = None
+    sym_key_str = sym_key_insight.claim if sym_key_insight else None
+    sym_key_conf = float(sym_key_insight.confidence) if sym_key_insight else None
+    fused_key = fuse_key(ak, sym_key_str, sym_key_conf)
+    _create_insight(
+        client,
+        audio_version_id,
+        "fused_key",
+        f"{fused_key.tonic} {fused_key.mode} ({fused_key.agreement})",
+        evidence=fused_key.to_dict(),
+        confidence=0.75 if fused_key.agreement == "consensus" else 0.45,
+        job=job,
+        owner_id=owner_id,
+    )
+
+    _update_progress(client, job.id, 0.7, "fusing chord evidence")
+    from audio.harmonic import AudioChordFrame
+
+    audio_chords = [
+        AudioChordFrame(
+            start_seconds=float(i.evidence["start_seconds"]),
+            end_seconds=float(i.evidence["end_seconds"]),
+            root=i.evidence["root"],
+            quality=i.evidence["quality"],
+            confidence=float(i.evidence.get("confidence", 0.5)),
+        )
+        for i in audio_insights
+        if i.kind == "audio_chord"
+    ]
+    sym_chords = [
+        {
+            "root": i.evidence.get("root", ""),
+            "quality": i.evidence.get("quality", ""),
+            "start": float(i.span.start_seconds) if i.span else 0,
+        }
+        for i in symbolic_insights
+        if i.kind == "chord"
+    ]
+    fused_chords = fuse_chords(audio_chords, sym_chords)
+    if fused_chords.consensus_count > 0 or fused_chords.conflict_count > 0:
+        _create_insight(
+            client,
+            audio_version_id,
+            "fused_chords",
+            (
+                f"{fused_chords.consensus_count} consensus, "
+                f"{fused_chords.conflict_count} conflict, "
+                f"{fused_chords.audio_only_count} audio-only"
+            ),
+            evidence=fused_chords.to_dict(),
+            confidence=0.6,
+            job=job,
+            owner_id=owner_id,
+        )
+
+    _update_progress(client, job.id, 1.0, "harmonic fusion complete")
+    return []
 
 
 def handle_analyze(job: Job, client) -> list[str]:
@@ -1575,6 +1760,8 @@ def register_all_capabilities(worker) -> None:
     worker.register("transcribe", "1.0", handle_transcribe)
     worker.register("understand", "1.0", handle_understand)
     worker.register("audio_structure", "1.0", handle_audio_structure)
+    worker.register("audio_harmonic", "1.0", handle_audio_harmonic)
+    worker.register("fuse_harmonic", "1.0", handle_fuse_harmonic)
     worker.register("analyze", "1.0", handle_analyze)
     worker.register("score", "1.0", handle_score)
     worker.register("enhance", "1.0", handle_enhance)
