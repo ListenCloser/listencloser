@@ -181,7 +181,7 @@ def benchmark_cleanup_ablation(manifest_path: str, output_path: str) -> dict[str
             )
             cl_notes = _midi_to_notes(cl)
             m = compute_note_metrics(cl_notes, ref_notes).to_dict() if ref_notes else None
-            f1_val = m["onset_note_f1"] if m else None
+            f1_val = m["note_f1"] if m else None
             clip_r[name] = {"count": len(cl_notes), "report": rep, "f1": f1_val}
         results[clip.id] = clip_r
 
@@ -216,7 +216,7 @@ def _group_by_category(
                 m = configs[key].get(cid, {}).get("metrics")
                 t = configs[key].get(cid, {}).get("time_s", 0)
                 if m:
-                    f1s.append(m["onset_note_f1"])
+                    f1s.append(m["note_f1"])
                 runtimes.append(t)
             results[key] = {
                 "macro_f1": round(sum(f1s) / len(f1s), 4) if f1s else None,
