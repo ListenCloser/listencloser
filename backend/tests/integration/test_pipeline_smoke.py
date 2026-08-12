@@ -138,8 +138,8 @@ def test_understand_pipeline_persists_full_bundle(sb, monkeypatch):
         "audio_original",
         "midi_performance",
         "audio_rendered",
+        "midi_corrected",
         "musicxml_score",
-        "rendered_score",
     ):
         assert expected in kinds, f"missing artifact kind {expected}: {sorted(kinds)}"
 
