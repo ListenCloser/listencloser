@@ -669,11 +669,7 @@ def handle_audio_structure(job: Job, client) -> list[str]:
 
 
 def handle_audio_harmonic(job: Job, client) -> list[str]:
-    """Run audio-native key and chord detection on the original recording.
-
-    Persists results as insights with 'model' confidence source, suitable for
-    later fusion with symbolic MIDI analysis.
-    """
+    """Run audio-native key and chord detection on the original recording."""
     import io
 
     import numpy as np
@@ -687,7 +683,10 @@ def handle_audio_harmonic(job: Job, client) -> list[str]:
     _update_progress(client, job.id, 0.1, "loading audio for harmonic analysis")
     input_version = _lookup_version(client, job.input_version_ids[0])
     audio_bytes = download_version_bytes(input_version, client)
-    audio_data, sr = sf.read(io.BytesIO(audio_bytes))
+    wav_bytes = music_features.decode_audio_to_wav(
+        audio_bytes, fmt=job.parameters.get("fmt", "wav")
+    )
+    audio_data, sr = sf.read(io.BytesIO(wav_bytes))
     if audio_data.ndim > 1:
         audio_data = np.mean(audio_data, axis=1)
     audio_data = audio_data.astype(np.float32)
@@ -696,46 +695,30 @@ def handle_audio_harmonic(job: Job, client) -> list[str]:
     _update_progress(client, job.id, 0.3, "detecting audio key")
     audio_key = detect_key(audio_data, float(sr))
     if audio_key is not None:
-        insight_ids.append(
-            str(
-                _create_insight(
-                    client,
-                    input_version.id,
-                    "audio_key",
-                    f"{audio_key.tonic} {audio_key.mode}",
-                    evidence=audio_key.to_dict(),
-                    confidence=round(audio_key.confidence, 3),
-                    job=job,
-                    owner_id=owner_id,
-                )
-            )
-        )
+        insight_ids.append(str(_create_insight(
+            client, input_version.id, "audio_key",
+            f"{audio_key.tonic} {audio_key.mode}",
+            evidence=audio_key.to_dict(),
+            confidence=round(audio_key.score, 3),
+            job=job, owner_id=owner_id,
+        )))
 
     _update_progress(client, job.id, 0.6, "estimating audio chords")
     chords = estimate_chords(audio_data, float(sr))
-    for _i, chord in enumerate(chords[:24]):
-        insight_ids.append(
-            str(
-                _create_insight(
-                    client,
-                    input_version.id,
-                    "audio_chord",
-                    f"{chord.root}:{chord.quality}",
-                    evidence={
-                        "root": chord.root,
-                        "quality": chord.quality,
-                        "start_seconds": chord.start_seconds,
-                        "end_seconds": chord.end_seconds,
-                        "confidence": chord.confidence,
-                        "source": chord.source,
-                    },
-                    span=Span(start_seconds=chord.start_seconds, end_seconds=chord.end_seconds),
-                    confidence=round(chord.confidence, 3),
-                    job=job,
-                    owner_id=owner_id,
-                )
-            )
-        )
+    for chord in chords:
+        insight_ids.append(str(_create_insight(
+            client, input_version.id, "audio_chord",
+            f"{chord.root}:{chord.quality}",
+            evidence={
+                "root": chord.root, "quality": chord.quality,
+                "start_seconds": chord.start_seconds,
+                "end_seconds": chord.end_seconds,
+                "score": chord.score, "source": chord.source,
+            },
+            span=Span(start_seconds=chord.start_seconds, end_seconds=chord.end_seconds),
+            confidence=round(chord.score, 3),
+            job=job, owner_id=owner_id,
+        )))
 
     _update_progress(client, job.id, 1.0, "audio harmonic analysis complete")
     return insight_ids
@@ -778,23 +761,25 @@ def handle_fuse_harmonic(job: Job, client) -> list[str]:
         ak = AudioKeyResult(
             tonic=audio_key_data["tonic"],
             mode=audio_key_data["mode"],
-            confidence=float(audio_key_data.get("confidence", 0.5)),
+            score=float(audio_key_data.get("score", 0.0)),
+            best_score=float(audio_key_data.get("best_score", 0.0)),
+            second_best_score=float(audio_key_data.get("second_best_score", 0.0)),
         )
     else:
         ak = None
     sym_key_str = sym_key_insight.claim if sym_key_insight else None
-    sym_key_conf = float(sym_key_insight.confidence) if sym_key_insight else None
-    fused_key = fuse_key(ak, sym_key_str, sym_key_conf)
-    _create_insight(
-        client,
-        audio_version_id,
-        "fused_key",
-        f"{fused_key.tonic} {fused_key.mode} ({fused_key.agreement})",
-        evidence=fused_key.to_dict(),
-        confidence=0.75 if fused_key.agreement == "consensus" else 0.45,
-        job=job,
-        owner_id=owner_id,
-    )
+    sym_key_score = float(sym_key_insight.confidence) if sym_key_insight else None
+    fused_key = fuse_key(ak, sym_key_str, sym_key_score)
+    if fused_key.tonic is not None:
+        _create_insight(
+            client, audio_version_id, "fused_key",
+            f"{fused_key.tonic} {fused_key.mode} ({fused_key.agreement})",
+            evidence=fused_key.to_dict(),
+            confidence=round(
+                max(ak.score if ak else 0, sym_key_score or 0), 3
+            ) if fused_key.agreement == "consensus" else None,
+            job=job, owner_id=owner_id,
+        )
 
     _update_progress(client, job.id, 0.7, "fusing chord evidence")
     from audio.harmonic import AudioChordFrame
@@ -803,37 +788,27 @@ def handle_fuse_harmonic(job: Job, client) -> list[str]:
         AudioChordFrame(
             start_seconds=float(i.evidence["start_seconds"]),
             end_seconds=float(i.evidence["end_seconds"]),
-            root=i.evidence["root"],
-            quality=i.evidence["quality"],
-            confidence=float(i.evidence.get("confidence", 0.5)),
+            root=i.evidence["root"], quality=i.evidence["quality"],
+            score=float(i.evidence.get("score", 0.5)),
         )
-        for i in audio_insights
-        if i.kind == "audio_chord"
+        for i in audio_insights if i.kind == "audio_chord"
     ]
     sym_chords = [
-        {
-            "root": i.evidence.get("root", ""),
-            "quality": i.evidence.get("quality", ""),
-            "start": float(i.span.start_seconds) if i.span else 0,
-        }
-        for i in symbolic_insights
-        if i.kind == "chord"
+        {"root": i.evidence.get("root", ""), "quality": i.evidence.get("quality", ""),
+         "start": float(i.span.start_seconds) if i.span else 0}
+        for i in symbolic_insights if i.kind == "chord"
     ]
     fused_chords = fuse_chords(audio_chords, sym_chords)
     if fused_chords.consensus_count > 0 or fused_chords.conflict_count > 0:
         _create_insight(
-            client,
-            audio_version_id,
-            "fused_chords",
+            client, audio_version_id, "fused_chords",
             (
                 f"{fused_chords.consensus_count} consensus, "
-                f"{fused_chords.conflict_count} conflict, "
-                f"{fused_chords.audio_only_count} audio-only"
+                f"{fused_chords.conflict_count} conflict"
             ),
             evidence=fused_chords.to_dict(),
-            confidence=0.6,
-            job=job,
-            owner_id=owner_id,
+            confidence=None,
+            job=job, owner_id=owner_id,
         )
 
     _update_progress(client, job.id, 1.0, "harmonic fusion complete")

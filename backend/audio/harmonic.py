@@ -1,11 +1,14 @@
-"""Audio-native key and chord analysis.
+"""Audio-native key and chord analysis using librosa chroma.
 
-All functions operate on decoded audio (np.ndarray, sr).
-Results carry provenance and are suitable for fusion with symbolic analysis.
+Key detection uses normalized Krumhansl-Schmuckler correlation.
+Chord estimation uses beat-synchronous cosine-similarity template matching.
+
+All functions operate on decoded mono float32 audio (np.ndarray, sr).
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -45,29 +48,36 @@ _KS_MINOR = np.array(
     ],
     dtype=np.float64,
 )
+
+# Center and normalize the KS profiles so cosine similarity is well-behaved.
+_KS_MAJOR_C = _KS_MAJOR - _KS_MAJOR.mean()
+_KS_MAJOR_C = _KS_MAJOR_C / np.linalg.norm(_KS_MAJOR_C)
+_KS_MINOR_C = _KS_MINOR - _KS_MINOR.mean()
+_KS_MINOR_C = _KS_MINOR_C / np.linalg.norm(_KS_MINOR_C)
+
 _NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 _CHORD_TEMPLATES: dict[str, np.ndarray] = {}
 for _root_idx in range(12):
-    _base = np.zeros(12, dtype=np.float64)
-    _base[_root_idx] = 1.0
-    _base[(_root_idx + 4) % 12] = 1.0
-    _base[(_root_idx + 7) % 12] = 1.0
-    _CHORD_TEMPLATES[f"{_NOTES[_root_idx]}:maj"] = _base
+    _base_maj = np.zeros(12, dtype=np.float64)
+    _base_maj[_root_idx] = 1.0
+    _base_maj[(_root_idx + 4) % 12] = 1.0
+    _base_maj[(_root_idx + 7) % 12] = 1.0
+    _CHORD_TEMPLATES[f"{_NOTES[_root_idx]}:maj"] = _base_maj / math.sqrt(3)
     _base_min = np.zeros(12, dtype=np.float64)
     _base_min[_root_idx] = 1.0
     _base_min[(_root_idx + 3) % 12] = 1.0
     _base_min[(_root_idx + 7) % 12] = 1.0
-    _CHORD_TEMPLATES[f"{_NOTES[_root_idx]}:min"] = _base_min
-
-_N_TEMPLATES = len(_CHORD_TEMPLATES)
+    _CHORD_TEMPLATES[f"{_NOTES[_root_idx]}:min"] = _base_min / math.sqrt(3)
 
 
 @dataclass(frozen=True)
 class AudioKeyResult:
     tonic: str
     mode: str
-    confidence: float
+    score: float
+    best_score: float
+    second_best_score: float
     source: str = "librosa_krumhansl"
     version: str = field(default_factory=lambda: _librosa_version())
 
@@ -75,7 +85,9 @@ class AudioKeyResult:
         return {
             "tonic": self.tonic,
             "mode": self.mode,
-            "confidence": round(self.confidence, 3),
+            "score": round(self.score, 4),
+            "best_score": round(self.best_score, 4),
+            "second_best_score": round(self.second_best_score, 4),
             "source": self.source,
             "version": self.version,
         }
@@ -87,43 +99,40 @@ class AudioChordFrame:
     end_seconds: float
     root: str
     quality: str
-    confidence: float
+    score: float
     source: str = "librosa_chroma_template"
 
 
 def detect_key(audio: np.ndarray, sr: float) -> AudioKeyResult | None:
-    """Detect key from audio using librosa chroma + Krumhansl-Schmuckler profiles."""
+    """Detect key using centered/normalized KS profiles (cosine similarity)."""
     try:
         import librosa
 
         y_harm = librosa.effects.harmonic(audio.astype(np.float32))
         chroma = librosa.feature.chroma_cqt(y=y_harm, sr=float(sr))
         chroma_mean = np.mean(chroma, axis=1)
-        if chroma_mean.sum() > 0:
-            chroma_mean = chroma_mean / chroma_mean.max()
+        if chroma_mean.sum() <= 0:
+            return None
+        chroma_c = chroma_mean - chroma_mean.mean()
+        chroma_c = chroma_c / (np.linalg.norm(chroma_c) + 1e-10)
 
-        best_corr = -1.0
-        best_tonic = "C"
-        best_mode = "major"
+        candidates: list[tuple[str, str, float]] = []
         for shift in range(12):
-            rolled = np.roll(chroma_mean, shift)
-            corr_major = float(np.dot(rolled, _KS_MAJOR))
-            corr_minor = float(np.dot(rolled, _KS_MINOR))
-            if corr_major > best_corr:
-                best_corr = corr_major
-                best_tonic = _NOTES[shift]
-                best_mode = "major"
-            if corr_minor > best_corr:
-                best_corr = corr_minor
-                best_tonic = _NOTES[shift]
-                best_mode = "minor"
+            rolled = np.roll(chroma_c, -shift)
+            score_maj = float(np.dot(rolled, _KS_MAJOR_C))
+            score_min = float(np.dot(rolled, _KS_MINOR_C))
+            candidates.append((_NOTES[shift], "major", score_maj))
+            candidates.append((_NOTES[shift], "minor", score_min))
+        candidates.sort(key=lambda x: x[2], reverse=True)
 
-        max_possible = float(np.dot(_KS_MAJOR, _KS_MAJOR))
-        confidence = best_corr / max_possible if max_possible > 0 else 0.0
+        best = candidates[0]
+        second = candidates[1] if len(candidates) > 1 else best
         return AudioKeyResult(
-            tonic=best_tonic,
-            mode=best_mode,
-            confidence=round(min(max(confidence, 0.0), 1.0), 3),
+            tonic=best[0],
+            mode=best[1],
+            score=best[2],
+            best_score=best[2],
+            second_best_score=second[2],
         )
     except Exception:
         return None
@@ -134,14 +143,14 @@ def estimate_chords(
     sr: float,
     hop_length: int = 512,
 ) -> list[AudioChordFrame]:
-    """Estimate chord labels over time using beat-synchronous chroma + template matching."""
+    """Beat-synchronous chord estimation using cosine-similarity template matching."""
     import librosa
 
     y_harm = librosa.effects.harmonic(audio.astype(np.float32))
     chroma = librosa.feature.chroma_cqt(y=y_harm, sr=float(sr), hop_length=hop_length)
     chroma = chroma / (chroma.max(axis=0, keepdims=True) + 1e-10)
 
-    tempo, beat_frames = librosa.beat.beat_track(
+    _, beat_frames = librosa.beat.beat_track(
         y=audio.astype(np.float32),
         sr=float(sr),
         hop_length=hop_length,
@@ -153,31 +162,33 @@ def estimate_chords(
 
     frames: list[AudioChordFrame] = []
     for i in range(len(times) - 1):
-        start = times[i]
-        end = times[i + 1]
         f_start = int(beat_frames[i])
         f_end = int(beat_frames[i + 1])
         segment = np.mean(chroma[:, f_start:f_end], axis=1)
         if segment.sum() == 0:
             continue
-        segment = segment / segment.max()
+        segment = segment - segment.mean()
+        seg_norm = np.linalg.norm(segment)
+        if seg_norm < 1e-10:
+            continue
+        segment = segment / seg_norm
 
         best_label = ""
-        best_corr = -1.0
+        best_score = -1.0
         for label, template in _CHORD_TEMPLATES.items():
-            corr = float(np.dot(segment, template))
-            if corr > best_corr:
-                best_corr = corr
+            score = float(np.dot(segment, template))
+            if score > best_score:
+                best_score = score
                 best_label = label
-        if best_label and best_corr > 0.3:
+        if best_label and best_score > 0.3:
             root, quality = best_label.split(":", 1)
             frames.append(
                 AudioChordFrame(
-                    start_seconds=start,
-                    end_seconds=end,
+                    start_seconds=float(times[i]),
+                    end_seconds=float(times[i + 1]),
                     root=root,
                     quality=quality,
-                    confidence=round(best_corr / 3.0, 3),
+                    score=round(best_score, 4),
                 )
             )
     return _merge_adjacent(frames)
@@ -195,7 +206,7 @@ def _merge_adjacent(frames: list[AudioChordFrame]) -> list[AudioChordFrame]:
                 end_seconds=f.end_seconds,
                 root=prev.root,
                 quality=prev.quality,
-                confidence=round((prev.confidence + f.confidence) / 2, 3),
+                score=round((prev.score + f.score) / 2, 4),
             )
         else:
             merged.append(f)
