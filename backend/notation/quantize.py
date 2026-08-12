@@ -2,8 +2,7 @@
 
 Each measure selects the simplest candidate grid that explains the
 performed timing well enough, using a cost function over all notes
-in that measure. Candidate grids are derived from the actual detected
-beat durations, not fixed-second assumptions.
+in that measure. Candidate grids are anchored to the measure boundary.
 
 Performance MIDI is never modified.
 """
@@ -15,8 +14,6 @@ from typing import Any
 import numpy as np
 
 from notation.grid import MetricalGrid, _median_interval, measure_boundary_end
-
-GRID_NAMES = ["quarter", "eighth", "triplet_eighth", "sixteenth"]
 
 
 def adaptive_quantize(
@@ -31,10 +28,10 @@ def adaptive_quantize(
     report: dict[str, Any] = _fresh_report(grid)
 
     if not grid.global_beats():
-        return _fail_honest(midi, report)
+        return _fail_honest(midi, report, "preserved_no_grid")
 
     if grid.inferred_meter is None or not grid.measure_boundaries:
-        return _fail_honest(midi, report)
+        return _fail_honest(midi, report, "preserved_no_meter")
 
     measures = _collect_notes_by_measure(midi, grid)
     selections: list[dict[str, Any]] = []
@@ -47,21 +44,18 @@ def adaptive_quantize(
         bpm = grid.inferred_meter[0]
         sel = _select_grid_for_measure(notes, m_start, m_end, bpm, m_idx)
         selections.append(sel)
-        quantize_fn = _build_quantizer(sel["step_seconds"])
-        for note in notes:
-            note.start = quantize_fn(note.start_t)
-            note.end = quantize_fn(note.end_t)
-            if note.end <= note.start:
-                note.end = note.start + _min_duration(grid)
-
-    for instrument in midi.instruments:
-        if instrument.is_drum:
-            continue
-        instrument.notes.sort(key=lambda n: (n.start, n.pitch, n.end))
+        quantize_fn = _build_quantizer_from_step(m_start, m_end, sel["step_seconds"])
+        for qn in notes:
+            new_start = quantize_fn(qn.start_t)
+            new_end = quantize_fn(qn.end_t)
+            if new_end <= new_start:
+                new_end = new_start + _min_duration(grid)
+            qn.note.start = new_start
+            qn.note.end = new_end
 
     report["timing_mode"] = "metrical_grid"
     report["grid_selections"] = selections
-    report["quantized_notes"] = _count_quantized(selections)
+    report["quantized_notes"] = _count_changed(selections)
     report["onset_movement_sum"] = round(
         sum(s["avg_movement"] * s["note_count"] for s in selections), 4
     )
@@ -84,8 +78,12 @@ def _fresh_report(grid: MetricalGrid) -> dict[str, Any]:
     }
 
 
-def _fail_honest(midi: Any, report: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
-    report["timing_mode"] = "preserved_no_grid"
+def _fail_honest(
+    midi: Any,
+    report: dict[str, Any],
+    mode: str,
+) -> tuple[bytes, dict[str, Any]]:
+    report["timing_mode"] = mode
     return _encode(midi), report
 
 
@@ -98,12 +96,10 @@ def _encode(midi: Any) -> bytes:
 
 
 class _QNote:
-    __slots__ = ("pitch", "start", "end", "start_t", "end_t")
+    __slots__ = ("note", "start_t", "end_t")
 
     def __init__(self, note: Any) -> None:
-        self.pitch = note.pitch
-        self.start = note.start
-        self.end = note.end
+        self.note = note
         self.start_t = float(note.start)
         self.end_t = float(note.end)
 
@@ -129,7 +125,7 @@ def _select_grid_for_measure(
 ) -> dict[str, Any]:
     dur = m_end - m_start
     if dur <= 0:
-        return _fallback_selection(m_idx, notes)
+        return _fallback_selection(m_idx, len(notes))
 
     beat_dur = dur / max(beats_per_measure, 1)
     candidates = [
@@ -143,33 +139,37 @@ def _select_grid_for_measure(
     best_step = beat_dur / 2
     best_cost = float("inf")
     best_movement = {"avg": 0.0, "max": 0.0}
+    best_changed = 0
 
     for name, step in candidates:
         fn = _build_quantizer_from_step(m_start, m_end, step)
-        cost, movement = _grid_cost_for_notes(notes, fn, name)
+        cost, movement, changed = _grid_cost_for_notes(notes, fn, name)
         if cost < best_cost:
             best_cost = cost
             best_name = name
             best_step = step
             best_movement = movement
+            best_changed = changed
 
     return {
         "measure_index": m_idx,
         "grid_name": best_name,
         "step_seconds": round(best_step, 6),
         "note_count": len(notes),
+        "changed_count": best_changed,
         "cost": round(best_cost, 4),
         "avg_movement": round(best_movement["avg"], 6),
         "max_movement": round(best_movement["max"], 6),
     }
 
 
-def _fallback_selection(m_idx: int, notes: list[_QNote]) -> dict[str, Any]:
+def _fallback_selection(m_idx: int, count: int) -> dict[str, Any]:
     return {
         "measure_index": m_idx,
         "grid_name": "fallback",
         "step_seconds": 0.125,
-        "note_count": len(notes),
+        "note_count": count,
+        "changed_count": 0,
         "cost": 999,
         "avg_movement": 0.0,
         "max_movement": 0.0,
@@ -180,52 +180,41 @@ def _grid_cost_for_notes(
     notes: list[_QNote],
     quantize_fn,
     grid_name: str,
-) -> tuple[float, dict[str, float]]:
+) -> tuple[float, dict[str, float], int]:
     onset_errs: list[float] = []
-    dur_errs: list[float] = []
+    changed = 0
     for n in notes:
         o = quantize_fn(n.start_t)
         e = quantize_fn(n.end_t)
         if e <= o:
-            return float("inf"), {"avg": 0, "max": 0}
+            return float("inf"), {"avg": 0, "max": 0}, 0
+        if abs(o - n.start_t) > 1e-9 or abs(e - n.end_t) > 1e-9:
+            changed += 1
         onset_errs.append(abs(o - n.start_t))
-        dur_errs.append(abs((e - o) - (n.end_t - n.start_t)))
     avg_onset = float(np.mean(onset_errs)) if onset_errs else 0.0
-    avg_dur = float(np.mean(dur_errs)) if dur_errs else 0.0
     max_onset = float(np.max(onset_errs)) if onset_errs else 0.0
-    complexity = _complexity_penalty(grid_name)
+    complexity = _complexity_penalty(grid_name, len(notes))
     return (
-        avg_onset * 8.0 + avg_dur * 5.0 + complexity,
+        avg_onset * 8.0 + complexity,
         {"avg": avg_onset, "max": max_onset},
+        changed,
     )
 
 
-def _complexity_penalty(grid_name: str) -> float:
-    return {"quarter": 0.0, "eighth": 0.3, "triplet_eighth": 0.8, "sixteenth": 1.2}.get(
+def _complexity_penalty(grid_name: str, note_count: int) -> float:
+    base = {"quarter": 0.0, "eighth": 0.3, "triplet_eighth": 0.8, "sixteenth": 1.2}.get(
         grid_name, 2.0
     )
-
-
-def _build_quantizer(step: float):
-    """Return a quantizer function that snaps to a grid with the given step."""
-
-    def fn(value: float) -> float:
-        idx = int(value / step)
-        candidates = [(idx + offset) * step for offset in (-1, 0, 1, 2)]
-        return min(candidates, key=lambda c: abs(c - value))
-
-    return fn
+    return base * (1.0 + note_count * 0.01)
 
 
 def _build_quantizer_from_step(m_start: float, m_end: float, step: float):
-    """Build a quantizer with fixed positions based on start+step."""
+    """Build a quantizer with grid positions anchored at m_start."""
     pts = []
     t = m_start
-    while t <= m_end + 1e-9:
+    while t <= m_end + step * 0.5:
         pts.append(t)
         t += step
-    if abs(pts[-1] - m_end) > 1e-9:
-        pts.append(m_end)
     grid = sorted(set(pts))
     import bisect
 
@@ -249,5 +238,5 @@ def _min_duration(grid: MetricalGrid) -> float:
     return max(_median_interval(grid.beats) / 4, 0.05)
 
 
-def _count_quantized(selections: list[dict[str, Any]]) -> int:
-    return sum(s.get("note_count", 0) for s in selections)
+def _count_changed(selections: list[dict[str, Any]]) -> int:
+    return sum(s.get("changed_count", 0) for s in selections)

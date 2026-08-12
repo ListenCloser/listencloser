@@ -38,13 +38,22 @@ def _notes_from_midi(midi_bytes: bytes) -> list[dict]:
 
 
 class TestAdaptiveQuantize:
-    def test_performance_midi_unchanged(self):
-        midi = _make_midi([(60, 0.0, 0.5)])
-        original = midi
-        beats = [0.0, 0.5, 1.0]
-        grid = build_metrical_grid(beats)
-        _result, _report = adaptive_quantize(original, grid)
+    def test_performance_midi_unchanged_notation_midi_quantized(self):
+        """Input bytes untouched; returned MIDI has quantized timings."""
+        midi = _make_midi([(60, 0.03, 0.47), (64, 0.52, 0.98)])
+        original = midi  # bytes
+        beats = [0.0, 0.5, 1.0, 1.5]
+        downbeats = [0.0, 1.0]
+        grid = build_metrical_grid(beats, downbeats)
+        result_midi, report = adaptive_quantize(midi, grid)
+        # Input unchanged
         assert original == midi
+        # Output quantized
+        notes = _notes_from_midi(result_midi)
+        for n in notes:
+            assert abs(n["start"] - round(n["start"] / 0.5) * 0.5) < 0.06
+        assert report["timing_mode"] == "metrical_grid"
+        assert report["quantized_notes"] >= 2
 
     def test_no_negative_durations(self):
         midi = _make_midi([(60, 0.0, 0.05), (64, 0.48, 0.52)])
@@ -184,3 +193,15 @@ class TestAdaptiveQuantize:
         _result_midi, report = adaptive_quantize(midi, grid)
         indices = sorted({s["measure_index"] for s in report["grid_selections"]})
         assert indices == [0, 1, 2]
+
+    def test_measure_start_not_at_time_zero(self):
+        """Grid anchored at measure boundary, not absolute time 0."""
+        midi = _make_midi([(60, 1.13, 1.62), (64, 1.62, 2.12)])
+        beats = [1.0, 1.5, 2.0, 2.5]
+        downbeats = [1.0, 2.0, 3.0]
+        grid = build_metrical_grid(beats, downbeats)
+        result_midi, report = adaptive_quantize(midi, grid)
+        notes = _notes_from_midi(result_midi)
+        for n in notes:
+            assert n["start"] >= 1.0
+            assert abs(n["start"] - round(n["start"] / 0.5) * 0.5) < 0.06
