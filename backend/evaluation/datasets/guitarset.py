@@ -2,7 +2,7 @@
 
 Source:   https://github.com/marl/GuitarSet
 Version:  1.1.0
-License:  MIT (verify against the repository LICENSE before redistribution)
+License:  MIT (as stated in the repository LICENSE)
 Split:    test (the repo designates held-out folds)
 
 GuitarSet provides 6-channel audio + JAMS annotations (pitch/beat) for solo
@@ -19,7 +19,7 @@ from evaluation.datasets.registry import DatasetAdapter, ManualAcquisitionError,
 
 class GuitarSetAdapter(DatasetAdapter):
     name = "guitarset"
-    license = "MIT (verify)"
+    license = "MIT"
 
     def resolve(self, clip: dict[str, Any]) -> ResolvedClip:
         ddir = cache.dataset_dir("guitarset")

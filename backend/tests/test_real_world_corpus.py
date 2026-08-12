@@ -185,3 +185,49 @@ class TestRegistry:
         adapter = get_adapter("asap")
         with pytest.raises(ManualAcquisitionError):
             adapter.resolve({"source_id": "NoSuch/999", "dataset": "asap"})
+
+
+class TestMaestroMetadata:
+    def _meta(self):
+        return {
+            "0": {
+                "split": "train",
+                "midi_filename": "2004/MIDI-Unprocessed_A_1.midi",
+                "audio_filename": "2004/MIDI-Unprocessed_A_1.wav",
+            },
+            "1": {
+                "split": "test",
+                "midi_filename": "2004/MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.midi",
+                "audio_filename": "2004/MIDI-Unprocessed_04_R1_2004_01-05_ORIG_MID--AUDIO_04_R1_2004_01_Track01_wav.wav",
+            },
+            "2": {
+                "split": "validation",
+                "midi_filename": "2015/MIDI-Unprocessed_B_1.midi",
+                "audio_filename": "2015/MIDI-Unprocessed_B_1.wav",
+            },
+        }
+
+    def test_finds_test_entry_by_source_id(self):
+        from evaluation.datasets.maestro import find_test_entry
+
+        entry = find_test_entry(self._meta(), "MIDI-Unprocessed_04_R1_2004")
+        assert entry is not None
+        assert entry["split"] == "test"
+        assert entry["midi_filename"].endswith(".midi")
+
+    def test_does_not_match_train_or_validation(self):
+        from evaluation.datasets.maestro import find_test_entry
+
+        assert find_test_entry(self._meta(), "MIDI-Unprocessed_A_1") is None
+        assert find_test_entry(self._meta(), "MIDI-Unprocessed_B_1") is None
+
+    def test_missing_source_id_returns_none(self):
+        from evaluation.datasets.maestro import find_test_entry
+
+        assert find_test_entry(self._meta(), "Nonexistent_Track") is None
+
+    def test_non_dict_metadata_returns_none(self):
+        from evaluation.datasets.maestro import find_test_entry
+
+        assert find_test_entry([], "x") is None
+        assert find_test_entry(None, "x") is None

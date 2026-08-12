@@ -2,7 +2,7 @@
 
 Source:   https://github.com/fosfrancesco/asap-dataset
 Version:  repository snapshot (performance MIDI + score MIDI + MusicXML)
-License:  CC BY-NC-SA 4.0 (verify against the repository LICENSE before redistribution)
+License:  CC BY-NC-SA 4.0 (as stated in the repository README)
 Split:    subset of published pieces (no official train/test split)
 
 ASAP links performance audio/notes to aligned beat/downbeat annotations and
@@ -21,7 +21,7 @@ from evaluation.datasets.registry import DatasetAdapter, ManualAcquisitionError,
 
 class AsapAdapter(DatasetAdapter):
     name = "asap"
-    license = "CC BY-NC-SA 4.0 (verify)"
+    license = "CC BY-NC-SA 4.0"
 
     def resolve(self, clip: dict[str, Any]) -> ResolvedClip:
         # ASAP layout: asap-dataset/<performer>/<piece>/ with
