@@ -41,6 +41,15 @@ def get_beat_engine(name: str | None = None) -> BeatTrackingEngine:
     name = name or os.environ.get("BEAT_ENGINE", "librosa")
     if name == "librosa":
         return LibrosaBeatEngine()
+    if name == "beat_this":
+        try:
+            from engines.beats.beat_this_engine import BeatThisEngine
+
+            return BeatThisEngine()
+        except ImportError:
+            raise RuntimeError(
+                "beat_this is not installed. Install with: pip install beat-this"
+            ) from None
     raise ValueError(f"Unknown beat engine: {name}")
 
 

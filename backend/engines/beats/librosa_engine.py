@@ -28,7 +28,7 @@ class LibrosaBeatEngine(BeatTrackingEngine):
             bpm=float(bpm),
             beats=beats,
             downbeats=None,
-            beat_positions=list(range(len(beats))) if beats else [],
+            beat_positions=None,
             provenance=self.provenance,
         )
 

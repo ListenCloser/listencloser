@@ -47,7 +47,7 @@ class BeatTrackingResult:
     bpm: float
     beats: list[float]
     downbeats: list[float] | None
-    beat_positions: list[int]
+    beat_positions: list[int] | None
     provenance: EngineProvenance
 
     def to_dict(self) -> dict[str, Any]:
