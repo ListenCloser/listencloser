@@ -121,6 +121,11 @@ export const handlers = [
     });
   }),
 
+  http.delete("/api/v1/works/:workId", async ({ params }) => {
+    await delay(100);
+    return HttpResponse.json({ deleted: String(params.workId) });
+  }),
+
   http.get("/api/v1/versions/:versionId/entities", async () => {
     return HttpResponse.json(fakeNotes.map((n, i) => ({
       id: `mock-entity-${i}`, version_id: "mock-midi-version", kind: "note",

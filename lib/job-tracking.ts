@@ -24,6 +24,7 @@ type TrackingOptions = {
   maxAttempts?: number;
   maxConsecutiveFailures?: number;
   pollIntervalMs?: number;
+  signal?: AbortSignal;
 };
 
 const pause = (milliseconds: number) =>
@@ -38,14 +39,23 @@ export async function waitForJob(
   const maxAttempts = options.maxAttempts ?? 300;
   const maxConsecutiveFailures = options.maxConsecutiveFailures ?? 5;
   const pollIntervalMs = options.pollIntervalMs ?? 2000;
+  const { signal } = options;
   let consecutiveFailures = 0;
 
+  const throwIfAborted = () => {
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+  };
+
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    throwIfAborted();
     let job: JobStatus;
     try {
       job = await fetchJob(jobId);
       consecutiveFailures = 0;
-    } catch {
+    } catch (cause) {
+      throwIfAborted();
       consecutiveFailures += 1;
       if (consecutiveFailures >= maxConsecutiveFailures) {
         throw new JobObservationError(
@@ -57,6 +67,7 @@ export async function waitForJob(
       continue;
     }
 
+    throwIfAborted();
     onUpdate(job);
     if (job.stage === "succeeded") return job;
     if (job.stage === "failed" || job.stage === "cancelled") {

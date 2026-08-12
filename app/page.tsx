@@ -58,9 +58,13 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
   const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadSequenceRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const loadWork = useCallback(async (workId: string) => {
     const sequence = ++loadSequenceRef.current;
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const signal = abortRef.current.signal;
     setLoadingWork(true);
     setError(null);
     setActiveJobId(null);
@@ -92,10 +96,11 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
             if (sequence !== loadSequenceRef.current) return;
             setMessage(current.message || "Understanding music");
             setProgress(Math.round(current.progress * 100));
-          });
+          }, { signal });
         } catch (cause) {
           // Terminal jobs can still have useful partial artifacts. Re-fetch the
           // bundle and render those before presenting retry controls.
+          if (cause instanceof DOMException && cause.name === "AbortError") return;
           if (cause instanceof JobObservationError) observationIssue = cause;
           else if (!(cause instanceof JobTerminalError)) throw cause;
         }
@@ -152,6 +157,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           label: "Original audio",
           url: original.signed_url,
           kind: "audio",
+          role: "original",
         });
       }
       if (rendered?.latest_version && rendered.signed_url) {
@@ -160,6 +166,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           label: "Transcription playback",
           url: rendered.signed_url,
           kind: "audio",
+          role: "transcription",
         });
       }
       for (const item of renderedArtifacts) {
@@ -171,6 +178,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           label: take ? `${take.label} playback` : version.label || "Derived take playback",
           url: item.signed_url,
           kind: "audio",
+          role: "derived",
         });
       }
 
