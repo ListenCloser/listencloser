@@ -57,4 +57,4 @@ docs/FILE_AUDIT.md
 
 # Real-world music evaluation dataset cache (never commit audio/MIDI)
 backend/evaluation/.cache/
-backend/evaluation/reports/
+backend/evaluation/reports/*.json

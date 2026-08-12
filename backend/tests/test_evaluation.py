@@ -69,6 +69,23 @@ class TestTranscriptionMetrics:
         m = compute_note_metrics(pred, ref)
         assert m.note_f1 == 0.0
 
+    def test_onset_f1_differs_from_note_f1_when_offsets_differ(self):
+        # Same onset + pitch, but the predicted note is much shorter.
+        pred = [Note(60, 0.0, 0.2, 64)]
+        ref = [Note(60, 0.0, 1.0, 64)]
+        m = compute_note_metrics(pred, ref, onset_tolerance=0.05, offset_tolerance=0.05)
+        assert m.onset_f1 == 1.0  # onset-only match succeeds
+        assert m.note_f1 == 0.0  # offset mismatch fails strict note match
+        assert m.onset_matched_count == 1
+        assert m.matched_count == 0
+
+    def test_note_f1_equals_onset_f1_when_offsets_match(self):
+        pred = [Note(60, 0.0, 1.0, 64)]
+        ref = [Note(60, 0.0, 1.0, 64)]
+        m = compute_note_metrics(pred, ref)
+        assert m.note_f1 == 1.0
+        assert m.onset_f1 == 1.0
+
 
 class TestBeatMetrics:
     def test_bpm_error(self):

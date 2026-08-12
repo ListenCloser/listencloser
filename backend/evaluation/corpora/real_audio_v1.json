@@ -1,0 +1,134 @@
+{
+  "name": "real_audio_v1",
+  "description": "First real-audio transcription benchmark: GuitarSet (guitar) and BabySlakh (full-mix). Synthetic piano fixtures are retained separately as control cases. Use `python -m evaluation.datasets.prepare --corpus real_audio_v1` to resolve clips into MUSIC_EVAL_CACHE_DIR.",
+  "datasets": {
+    "guitarset": {
+      "source": "https://zenodo.org/records/3371780",
+      "version": "GuitarSet (Zenodo record 3371780)",
+      "license": "CC BY 4.0",
+      "split": "test (fold 0)",
+      "files": {
+        "annotation.zip": "md5:b39b78e63d3446f2e54ddb7a54df9b10",
+        "audio_mono-mic.zip": "md5:275966d6610ac34999b58426beb119c3"
+      },
+      "redistribution": "do not commit audio/annotations; download to cache"
+    },
+    "babyslakh": {
+      "source": "https://zenodo.org/records/4603870",
+      "version": "BabySlakh (first 20 Slakh tracks)",
+      "license": "CC BY 4.0",
+      "split": "fixed 20-track subset",
+      "files": {
+        "babyslakh_16k.tar.gz": "md5:311096dc2bde7d61c97e930edbfc7f78"
+      },
+      "redistribution": "do not commit audio/MIDI; download to cache"
+    }
+  },
+  "clips": [
+    {
+      "id": "guitarset_bn1_comp",
+      "dataset": "guitarset",
+      "split": "test",
+      "category": "guitar",
+      "source_id": "00_BN1-129-Eb_comp",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    },
+    {
+      "id": "guitarset_rock2_comp",
+      "dataset": "guitarset",
+      "split": "test",
+      "category": "guitar",
+      "source_id": "00_Rock2-142-D_comp",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    },
+    {
+      "id": "guitarset_jazz1_comp",
+      "dataset": "guitarset",
+      "split": "test",
+      "category": "guitar",
+      "source_id": "00_Jazz1-130-D_comp",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    },
+    {
+      "id": "guitarset_ss3_solo",
+      "dataset": "guitarset",
+      "split": "test",
+      "category": "guitar",
+      "source_id": "00_SS3-84-Bb_solo",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    },
+    {
+      "id": "guitarset_funk1_comp",
+      "dataset": "guitarset",
+      "split": "test",
+      "category": "guitar",
+      "source_id": "00_Funk1-114-Ab_comp",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    },
+    {
+      "id": "babyslakh_01",
+      "dataset": "babyslakh",
+      "category": "full_mix",
+      "source_id": "Track00001",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    },
+    {
+      "id": "babyslakh_02",
+      "dataset": "babyslakh",
+      "category": "full_mix",
+      "source_id": "Track00002",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    },
+    {
+      "id": "babyslakh_03",
+      "dataset": "babyslakh",
+      "category": "full_mix",
+      "source_id": "Track00003",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    },
+    {
+      "id": "babyslakh_04",
+      "dataset": "babyslakh",
+      "category": "full_mix",
+      "source_id": "Track00004",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    },
+    {
+      "id": "babyslakh_05",
+      "dataset": "babyslakh",
+      "category": "full_mix",
+      "source_id": "Track00005",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset"]
+    }
+  ]
+}

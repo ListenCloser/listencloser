@@ -95,6 +95,7 @@ def benchmark_cleanup_ablation(manifest_path: str, output_path: str) -> dict[str
             out_dir = os.path.join(td, "out")
             os.makedirs(out_dir, exist_ok=True)
             from basic_pitch.inference import predict
+
             _, midi_data, _ = predict(in_path, onset_threshold=onset, frame_threshold=frame)
             midi_path = os.path.join(out_dir, "input.mid")
             midi_data.write(midi_path)
@@ -102,17 +103,21 @@ def benchmark_cleanup_ablation(manifest_path: str, output_path: str) -> dict[str
                 raw = f.read()
             return raw, len(midi_data.instruments[0].notes) if midi_data.instruments else 0
 
-    def clean_config(midi_bytes: bytes, remove_short=True, remove_low_vel=True,
-                     remove_range=True, merge=True) -> tuple[bytes, dict]:
+    def clean_config(
+        midi_bytes: bytes, remove_short=True, remove_low_vel=True, remove_range=True, merge=True
+    ) -> tuple[bytes, dict]:
         m = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
         report: dict[str, int | str] = {
             "profile": (
                 f"abl_s{int(remove_short)}_v{int(remove_low_vel)}"
                 f"_r{int(remove_range)}_m{int(merge)}"
             ),
-            "input_notes": 0, "kept_notes": 0,
-            "removed_short": 0, "removed_low_velocity": 0,
-            "removed_out_of_range": 0, "merged_overlaps": 0,
+            "input_notes": 0,
+            "kept_notes": 0,
+            "removed_short": 0,
+            "removed_low_velocity": 0,
+            "removed_out_of_range": 0,
+            "merged_overlaps": 0,
         }
         for inst in m.instruments:
             if inst.is_drum:
@@ -127,16 +132,19 @@ def benchmark_cleanup_ablation(manifest_path: str, output_path: str) -> dict[str
             if remove_short:
                 filtered = [n for n in filtered if (n.end - n.start) >= _MIN_DUR]
                 report["removed_short"] = int(report["removed_short"]) + (
-                    int(report["input_notes"]) - len(filtered)
-                    - int(report["removed_out_of_range"])
+                    int(report["input_notes"]) - len(filtered) - int(report["removed_out_of_range"])
                 )
             if remove_low_vel:
-                filtered = [n for n in filtered if not (
-                    n.velocity < _LOW_VEL and (n.end - n.start) < _LOW_VEL_SHORT
-                )]
+                filtered = [
+                    n
+                    for n in filtered
+                    if not (n.velocity < _LOW_VEL and (n.end - n.start) < _LOW_VEL_SHORT)
+                ]
                 report["removed_low_velocity"] = int(report["removed_low_velocity"]) + (
-                    int(report["input_notes"]) - len(filtered)
-                    - int(report["removed_out_of_range"]) - int(report["removed_short"])
+                    int(report["input_notes"])
+                    - len(filtered)
+                    - int(report["removed_out_of_range"])
+                    - int(report["removed_short"])
                 )
             if merge:
                 filtered.sort(key=lambda n: (n.pitch, n.start))
@@ -192,7 +200,6 @@ def benchmark_cleanup_ablation(manifest_path: str, output_path: str) -> dict[str
     return summary
 
 
-
 _MIN_DUR = 0.075
 _MIN_PITCH = 21
 _MAX_PITCH = 108
@@ -201,7 +208,8 @@ _LOW_VEL_SHORT = 0.16
 
 
 def _group_by_category(
-    manifest: CorpusManifest, configs: dict[str, dict[str, Any]],
+    manifest: CorpusManifest,
+    configs: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     cats: dict[str, list[str]] = {}
     for clip in manifest.clips:
