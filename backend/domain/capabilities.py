@@ -481,32 +481,34 @@ def handle_transcribe(job: Job, client) -> list[str]:
 
     _update_progress(client, job.id, 0.6, "storing MIDI output")
     midi_key = _job_storage_key(job, "transcribed.mid")
-    _upload_bytes(client, _STORAGE_BUCKET, midi_key, result["midi"], "audio/midi")
+    _upload_bytes(client, _STORAGE_BUCKET, midi_key, result.midi, "audio/midi")
     midi_version_id = _create_output_version(
         client,
         work_id,
         ArtifactKind.midi_performance,
         midi_key,
-        len(result["midi"]),
+        len(result.midi),
         input_version.id,
         job,
         owner_id,
         mime_type="audio/midi",
         label="Transcription MIDI",
         metadata={
-            "note_count": len(result.get("notes", [])),
-            "cleanup": result.get("cleanup_report", {}),
+            "note_count": result.num_notes,
+            "cleanup": result.cleanup_report,
             "representation": "performance_midi",
             "quality_notice": (
-                "Conservatively filtered transcription; timing is preserved rather than quantized."
+                "Conservatively filtered transcription; "
+                "timing is preserved rather than quantized."
             ),
+            "provenance": result.provenance.to_dict(),
         },
     )
     output_ids.append(str(midi_version_id))
 
     _update_progress(client, job.id, 0.7, "storing note entities")
     note_entities: list[Entity] = []
-    for item in result.get("notes", []):
+    for item in result.notes:
         start = float(item["start"])
         end = float(item["end"])
         note_entities.append(
@@ -527,13 +529,13 @@ def handle_transcribe(job: Job, client) -> list[str]:
 
     _update_progress(client, job.id, 0.8, "storing rendered audio")
     wav_key = _job_storage_key(job, "transcribed.wav")
-    _upload_bytes(client, _STORAGE_BUCKET, wav_key, result["wav"], "audio/wav")
+    _upload_bytes(client, _STORAGE_BUCKET, wav_key, result.wav, "audio/wav")
     audio_version_id = _create_output_version(
         client,
         work_id,
         ArtifactKind.audio_rendered,
         wav_key,
-        len(result["wav"]),
+        len(result.wav),
         input_version.id,
         job,
         owner_id,
