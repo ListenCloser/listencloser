@@ -38,6 +38,15 @@ class EvalClip:
     reference_midi: str | None = None
     reference_musicxml: str | None = None
     reference: Reference = field(default_factory=Reference)
+    # Real-world dataset provenance / excerpt metadata (optional; synthetic
+    # fixtures leave these unset).
+    dataset: str | None = None
+    split: str | None = None
+    source_id: str | None = None
+    license: str | None = None
+    metrics: list[str] = field(default_factory=list)
+    excerpt_start: float | None = None
+    excerpt_end: float | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], base_dir: str = "") -> EvalClip:
@@ -65,6 +74,13 @@ class EvalClip:
                 chords=ref_data.get("chords", []),
                 sections=ref_data.get("sections", []),
             ),
+            dataset=data.get("dataset"),
+            split=data.get("split"),
+            source_id=data.get("source_id"),
+            license=data.get("license"),
+            metrics=data.get("metrics", []),
+            excerpt_start=data.get("excerpt_start"),
+            excerpt_end=data.get("excerpt_end"),
         )
 
 
