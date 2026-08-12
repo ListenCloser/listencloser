@@ -29,11 +29,9 @@ function storageKey(url: string): string {
   return `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
 }
 
-type Session = { access_token: string; user_id: string };
+let session: Record<string, unknown> | null = null;
 
-let session: Session | null = null;
-
-async function createSession(): Promise<Session> {
+async function createSession(): Promise<Record<string, unknown>> {
   if (session) return session;
   if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) {
     throw new Error("SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY must be set");
@@ -64,8 +62,8 @@ async function createSession(): Promise<Session> {
   if (!tokenBody?.access_token) {
     throw new Error(`failed to sign in test user: ${token.status} ${JSON.stringify(tokenBody)}`);
   }
-  session = { access_token: tokenBody.access_token, user_id: tokenBody.user?.id ?? "" };
-  return session;
+  session = tokenBody;
+  return tokenBody as Record<string, unknown>;
 }
 
 async function transportPosition(page: import("@playwright/test").Page): Promise<number> {
@@ -79,31 +77,32 @@ test("real-stack happy path: import → play → inspect → reload → delete",
 
   const auth = await createSession();
   await page.addInitScript(
-    ({ key, access_token, user_id }) => {
+    ({ key, session }) => {
       window.localStorage.setItem(
         key,
         JSON.stringify({
-          access_token,
+          access_token: session.access_token,
           token_type: "bearer",
           expires_in: 3600,
           expires_at: Math.floor(Date.now() / 1000) + 3600,
-          refresh_token: "",
-          user: {
-            id: user_id,
-            email: "e2e@real-stack.test",
-            aud: "authenticated",
-            role: "authenticated",
-            app_metadata: {},
-            user_metadata: {},
-            created_at: new Date().toISOString(),
-          },
+          refresh_token: session.refresh_token ?? "",
+          user: session.user,
         }),
       );
     },
-    { key: storageKey(SUPABASE_URL!), access_token: auth.access_token, user_id: auth.user_id },
+    { key: storageKey(SUPABASE_URL!), session: auth },
   );
 
+  // ── Wait for the app to finish first-load project setup ─────────────────────
+  // The app lazily creates the project on first load; importing before that
+  // completes races with `projectId` and surfaces "Your project is still
+  // loading". Wait for the create/list round-trip to settle first.
+  const projectSettled = page.waitForResponse(
+    (resp) => resp.url().includes("/api/v1/projects") && resp.request().method() === "POST",
+    { timeout: 30_000 },
+  ).catch(() => {});
   await page.goto("/");
+  await projectSettled;
 
   // ── Import real audio ──────────────────────────────────────────────────────
   const importButton = page.getByRole("complementary").getByRole("button", { name: "Import audio" });
