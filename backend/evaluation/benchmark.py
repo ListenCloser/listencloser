@@ -88,7 +88,7 @@ def benchmark_cleanup_ablation(manifest_path: str, output_path: str) -> dict[str
 
     def raw_transcribe(clip: EvalClip) -> tuple[bytes, int]:
         audio_bytes = Path(clip.audio).read_bytes()
-        with tempfile.NamedTemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as td:
             in_path = os.path.join(td, "input.wav")
             with open(in_path, "wb") as f:
                 f.write(audio_bytes)
