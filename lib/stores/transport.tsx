@@ -8,6 +8,7 @@ export type PlaybackSource = {
   label: string;
   url: string;
   kind: "audio" | "midi" | "score";
+  role: "original" | "transcription" | "derived";
 };
 
 type TransportState = {
@@ -111,7 +112,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       sources: prev.sources.some((item) => item.id === source.id)
         ? prev.sources
         : [...prev.sources, source],
-      position: currentPosition,
+      position: Math.min(currentPosition, audio.duration || currentPosition),
       isPlaying: shouldResume,
     }));
   }, []);
@@ -124,12 +125,16 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       audio.src = active?.url ?? "";
       if (active) audio.load();
     }
+    positionRef.current = 0;
     setTransport((prev) => ({
       ...prev,
       sources,
       activeSource: active,
       position: 0,
       isPlaying: false,
+      loopStart: null,
+      loopEnd: null,
+      loopEnabled: false,
     }));
   }, []);
 
@@ -139,12 +144,16 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       audio.pause();
       audio.src = "";
     }
+    positionRef.current = 0;
     setTransport((prev) => ({
       ...prev,
       activeSource: null,
       sources: [],
       position: 0,
       isPlaying: false,
+      loopStart: null,
+      loopEnd: null,
+      loopEnabled: false,
     }));
   }, []);
 
@@ -167,6 +176,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       audio.pause();
       audio.currentTime = 0;
     }
+    positionRef.current = 0;
     setTransport((prev) => ({ ...prev, isPlaying: false, position: 0 }));
   }, []);
 

@@ -5,6 +5,7 @@ import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
 import { deleteWork } from "@/lib/api-client";
+import { deriveAvailability } from "@/lib/representation-availability";
 
 export default function LibraryPanel({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const {
@@ -106,7 +107,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
                 </span>
                 <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", width: "100%" }}>
                   <span>{new Date(work.created_at).toLocaleDateString()}</span>
-                  <span>{workspace.isLoadingWork && selected ? "Loading…" : selected && workspace.representations.length ? "Ready" : "Saved"}</span>
+                  <span>{workspace.isLoadingWork && selected ? "Loading…" : selected && deriveAvailability(workspace.representations, workspace.insights.length).availableKinds.length ? "Ready" : "Saved"}</span>
                 </span>
               </button>
               <button

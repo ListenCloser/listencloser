@@ -47,4 +47,16 @@ describe("waitForJob", () => {
       pollIntervalMs: 0,
     })).rejects.toMatchObject({ stage: "failed", message: "decoder failed" } satisfies Partial<JobTerminalError>);
   });
+
+  it("aborts polling when the signal is cancelled", async () => {
+    const controller = new AbortController();
+    const fetchJob = vi.fn().mockResolvedValue(status("running"));
+    const promise = waitForJob("job-1", () => undefined, {
+      fetchJob,
+      pollIntervalMs: 0,
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(promise).rejects.toMatchObject({ name: "AbortError" });
+  });
 });

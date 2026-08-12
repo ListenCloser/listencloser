@@ -46,4 +46,38 @@ describe("WorkspaceProvider", () => {
     expect(result.current.workspace.representations).toEqual([]);
     expect(result.current.workspace.insights).toEqual([]);
   });
+
+  it("clears studio state when switching works", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    act(() => {
+      result.current.setActiveWorkId("work-a");
+      result.current.requestVariation("version-1", 2);
+    });
+    expect(result.current.workspace.studioAction).not.toBeNull();
+
+    act(() => result.current.setActiveWorkId("work-b"));
+    expect(result.current.workspace.studioAction).toBeNull();
+    expect(result.current.workspace.studioOperation.state).toBe("idle");
+  });
+
+  it("clears takes and studio state when deleting the active work", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    act(() => {
+      result.current.setWorks([
+        { id: "work-a", project_id: "p", title: "A", composer: null, created_at: "", updated_at: "" },
+      ]);
+      result.current.setActiveWorkId("work-a");
+      result.current.setTakes([{ versionId: "v", label: "Transcription", parentVersionId: null }]);
+      result.current.requestVariation("v", 1);
+    });
+
+    act(() => result.current.removeWork("work-a"));
+
+    expect(result.current.workspace.activeWorkId).toBeNull();
+    expect(result.current.workspace.takes).toEqual([]);
+    expect(result.current.workspace.studioAction).toBeNull();
+    expect(result.current.workspace.isLoadingWork).toBe(false);
+  });
 });

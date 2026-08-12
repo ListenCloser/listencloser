@@ -45,7 +45,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     workspace,
   } = useWorkspace();
   const { replaceSources } = useTransport();
-  const { setBpm, setTimeSignature } = useTimeline();
+  const { setBpm, setTimeSignature, resetTimeline } = useTimeline();
   const [projectId, setProjectId] = useState("");
   const [stage, setStage] = useState<UploadStage>("idle");
   const [filename, setFilename] = useState("");
@@ -58,18 +58,24 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
   const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadSequenceRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const loadWork = useCallback(async (workId: string) => {
     const sequence = ++loadSequenceRef.current;
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const signal = abortRef.current.signal;
     setLoadingWork(true);
     setError(null);
     setActiveJobId(null);
     setProcessingWorkId(workId);
     setLoadWarnings([]);
     setPendingSourceVersionId(null);
+    resetTimeline();
     replaceRepresentations([]);
     replaceSources([]);
     setInsights([]);
+    setTakes([]);
     try {
       let bundle = await getWorkBundle(workId);
       if (sequence !== loadSequenceRef.current) return;
@@ -90,10 +96,11 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
             if (sequence !== loadSequenceRef.current) return;
             setMessage(current.message || "Understanding music");
             setProgress(Math.round(current.progress * 100));
-          });
+          }, { signal });
         } catch (cause) {
           // Terminal jobs can still have useful partial artifacts. Re-fetch the
           // bundle and render those before presenting retry controls.
+          if (cause instanceof DOMException && cause.name === "AbortError") return;
           if (cause instanceof JobObservationError) observationIssue = cause;
           else if (!(cause instanceof JobTerminalError)) throw cause;
         }
@@ -150,6 +157,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           label: "Original audio",
           url: original.signed_url,
           kind: "audio",
+          role: "original",
         });
       }
       if (rendered?.latest_version && rendered.signed_url) {
@@ -158,6 +166,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           label: "Transcription playback",
           url: rendered.signed_url,
           kind: "audio",
+          role: "transcription",
         });
       }
       for (const item of renderedArtifacts) {
@@ -169,6 +178,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           label: take ? `${take.label} playback` : version.label || "Derived take playback",
           url: item.signed_url,
           kind: "audio",
+          role: "derived",
         });
       }
 
@@ -178,7 +188,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           kind: "waveform",
           label: "Waveform",
           sourceUrl: original.signed_url,
-          sourceLabel: "Original audio",
+          sourceLabel: "Playback source",
           confidence: null,
           provenance: "uploaded source",
           audioUrl: original.signed_url,
@@ -263,13 +273,20 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         );
         setStage("error");
       } else if (original?.latest_version && !midi && !score) {
+        // Source audio is safe but transcription hasn't produced artifacts yet.
+        // This is a legitimate "not yet analyzed" state, not a failure.
         setPendingSourceVersionId(original.latest_version.id);
-        setProcessingWorkId(workId);
-        setError("The source audio is safe, but music understanding has not completed yet.");
-        setStage("error");
+        setProcessingWorkId(null);
+        setError(null);
+        warnings.push("Music understanding has not completed yet. Run Analyze to transcribe this work.");
+        setLoadWarnings(warnings);
+        setStage("success");
       } else if (representations.length === 0) {
-        setError("This work has no playable artifacts yet. Import the source audio again.");
-        setStage("error");
+        // No playable artifacts at all — an empty work, not an error.
+        setError(null);
+        warnings.push("This work has no playable artifacts yet.");
+        setLoadWarnings(warnings);
+        setStage("success");
       } else {
         setActiveJobId(null);
         setStage("success");
@@ -281,7 +298,21 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     } finally {
       if (sequence === loadSequenceRef.current) setLoadingWork(false);
     }
-  }, [replaceRepresentations, replaceSources, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
+  }, [replaceRepresentations, replaceSources, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature, resetTimeline]);
+
+  // Abort any in-flight job polling when the active work is deleted (activeWorkId
+  // becomes null without a new loadWork) and on unmount.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (workspace.activeWorkId === null) {
+      abortRef.current?.abort();
+    }
+  }, [workspace.activeWorkId]);
 
   const handledStudioAction = useRef(0);
   useEffect(() => {
