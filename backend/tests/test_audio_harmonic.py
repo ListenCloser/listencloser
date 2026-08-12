@@ -84,9 +84,23 @@ class TestAudioKeyDetection:
         assert result.tonic == "G"
 
     def test_a_minor_rotation(self):
-        chroma = _KS_MINOR.copy()
+        # A minor: tonic mass at A (pitch class 9), minor profile.
+        chroma = np.zeros(12)
+        for i, weight in enumerate(_KS_MINOR):
+            chroma[(9 + i) % 12] = weight
         result = self._detect_with_chroma(chroma)
         assert result is not None
+        assert result.tonic == "A"
+        assert result.mode == "minor"
+
+    def test_e_minor_rotation(self):
+        # E minor: tonic mass at E (pitch class 4), minor profile.
+        chroma = np.zeros(12)
+        for i, weight in enumerate(_KS_MINOR):
+            chroma[(4 + i) % 12] = weight
+        result = self._detect_with_chroma(chroma)
+        assert result is not None
+        assert result.tonic == "E"
         assert result.mode == "minor"
 
     def test_uses_score_not_confidence(self):
@@ -184,3 +198,14 @@ class TestFusion:
         ac = [AudioChordFrame(0, 1, "C", "maj", 0.8)]
         result = fuse_chords(ac, None)
         assert result.audio_only_count == 1
+
+    def test_custom_onset_tolerance_changes_matching(self):
+        """A tighter tolerance must reject matches a wider tolerance accepts."""
+        ac = [AudioChordFrame(0, 1, "C", "maj", 0.8)]
+        sc = [{"root": "C", "quality": "maj", "start": 1.5}]
+        # With tolerance 2.0, onset diff 1.5 matches.
+        wide = fuse_chords(ac, sc, onset_tolerance=2.0)
+        assert wide.consensus_count == 1
+        # With tolerance 0.5, onset diff 1.5 does not match.
+        narrow = fuse_chords(ac, sc, onset_tolerance=0.5)
+        assert narrow.consensus_count == 0

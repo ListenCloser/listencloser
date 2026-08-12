@@ -229,6 +229,15 @@ def _create_insight(
     return insight.id
 
 
+def _clamp01(value: float) -> float:
+    """Clamp a raw similarity score to [0, 1] for the confidence field.
+
+    This is a bounded heuristic derived from a cosine/template score, NOT a
+    calibrated probability. Raw scores are preserved in evidence.
+    """
+    return round(max(0.0, min(1.0, value)), 3)
+
+
 # ---------------------------------------------------------------------------
 # Audio descriptor extraction (Essentia / librosa)
 # ---------------------------------------------------------------------------
@@ -699,7 +708,7 @@ def handle_audio_harmonic(job: Job, client) -> list[str]:
             client, input_version.id, "audio_key",
             f"{audio_key.tonic} {audio_key.mode}",
             evidence=audio_key.to_dict(),
-            confidence=round(audio_key.score, 3),
+            confidence=_clamp01(audio_key.score),
             job=job, owner_id=owner_id,
         )))
 
@@ -716,7 +725,7 @@ def handle_audio_harmonic(job: Job, client) -> list[str]:
                 "score": chord.score, "source": chord.source,
             },
             span=Span(start_seconds=chord.start_seconds, end_seconds=chord.end_seconds),
-            confidence=round(chord.score, 3),
+            confidence=_clamp01(chord.score),
             job=job, owner_id=owner_id,
         )))
 
@@ -771,13 +780,16 @@ def handle_fuse_harmonic(job: Job, client) -> list[str]:
     sym_key_score = float(sym_key_insight.confidence) if sym_key_insight else None
     fused_key = fuse_key(ak, sym_key_str, sym_key_score)
     if fused_key.tonic is not None:
+        # Confidence is a clamped heuristic of the audio score; agreement state
+        # and both source scores are preserved in evidence. Not calibrated.
+        fused_conf = _clamp01(ak.score) if ak is not None else (
+            _clamp01(sym_key_score) if sym_key_score is not None else 0.0
+        )
         _create_insight(
             client, audio_version_id, "fused_key",
             f"{fused_key.tonic} {fused_key.mode} ({fused_key.agreement})",
             evidence=fused_key.to_dict(),
-            confidence=round(
-                max(ak.score if ak else 0, sym_key_score or 0), 3
-            ) if fused_key.agreement == "consensus" else None,
+            confidence=fused_conf,
             job=job, owner_id=owner_id,
         )
 
@@ -807,7 +819,7 @@ def handle_fuse_harmonic(job: Job, client) -> list[str]:
                 f"{fused_chords.conflict_count} conflict"
             ),
             evidence=fused_chords.to_dict(),
-            confidence=None,
+            confidence=0.5,
             job=job, owner_id=owner_id,
         )
 

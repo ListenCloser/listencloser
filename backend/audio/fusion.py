@@ -133,7 +133,7 @@ def fuse_chords(
         for j, sc in enumerate(s):
             if j in matched_symbolic:
                 continue
-            if not _overlaps(ac.start_seconds, ac.end_seconds, sc.get("start", 0)):
+            if not _onsets_match(ac.start_seconds, sc.get("start", 0), onset_tolerance):
                 continue
             ac_canon = _canonical(ac.root, ac.quality)
             sc_canon = _canonical(sc.get("root", ""), sc.get("quality", ""))
@@ -156,8 +156,5 @@ def fuse_chords(
     )
 
 
-def _overlaps(a_start: float, a_end: float, s_start: float) -> bool:
-    return abs(a_start - s_start) <= _DEFAULT_ONSET_TOLERANCE
-
-
-_DEFAULT_ONSET_TOLERANCE = 2.0
+def _onsets_match(a_start: float, s_start: float, tolerance: float) -> bool:
+    return abs(a_start - s_start) <= tolerance
