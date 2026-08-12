@@ -54,3 +54,7 @@ data/
 !.env.example
 .test-run-*.json
 docs/FILE_AUDIT.md
+
+# Real-world music evaluation dataset cache (never commit audio/MIDI)
+backend/evaluation/.cache/
+backend/evaluation/reports/
