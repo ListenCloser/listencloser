@@ -116,7 +116,7 @@ class MelodyResult(TypedDict):
     unique_pitch_classes: int
     stepwise_ratio: float
     leap_ratio: float
-    confidence: float
+    quality_score: float
     heuristic: str
 
 
@@ -475,7 +475,7 @@ def _midi_melody(midi_path: str) -> MelodyResult | None:
             if nonzero
             else 0.0,
             leap_ratio=round(sum(iv >= 5 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0,
-            confidence=quality_score,
+            quality_score=quality_score,
             heuristic="greedy_continuity_skyline",
         )
     except Exception:

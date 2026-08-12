@@ -45,7 +45,7 @@ class TestMelodyHeuristic:
         assert chosen is not None
         assert chosen.pitch == 62
 
-    def test_melody_has_confidence(self):
+    def test_melody_has_quality_score(self):
         import io
         import os
         import tempfile
@@ -59,7 +59,7 @@ class TestMelodyHeuristic:
         try:
             result = _midi_melody(path)
             assert result is not None
-            assert "confidence" in result
+            assert "quality_score" in result
             assert result["heuristic"] == "greedy_continuity_skyline"
         finally:
             os.unlink(path)

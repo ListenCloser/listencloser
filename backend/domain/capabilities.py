@@ -846,8 +846,8 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     melody = analysis.get("melody") or {}
     if melody:
-        # melody['confidence'] is a greedy-skyline quality score (candidate
-        # margin), not a calibrated probability; preserved in evidence only.
+        # melody['quality_score'] is a greedy-skyline candidate-margin score,
+        # not a calibrated probability; preserved in evidence only.
         mid = _create_insight(
             client,
             input_version.id,
