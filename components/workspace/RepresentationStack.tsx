@@ -9,9 +9,28 @@ import { deriveAvailability } from "@/lib/representation-availability";
 
 type View = "listen" | "piano_roll" | "score" | "analysis";
 
+const VIEWS: Record<View, { title: string; description: string }> = {
+  listen: {
+    title: "Listen",
+    description: "Hear your recording and its transcription — choose what you're hearing in the transport.",
+  },
+  piano_roll: {
+    title: "Piano roll",
+    description: "Every detected note with its timing and pitch.",
+  },
+  score: {
+    title: "Score",
+    description: "Your music as notation. Read-only for now — playing directly from the score is coming soon.",
+  },
+  analysis: {
+    title: "Analysis",
+    description: "A musical summary of the transcription. Select an item to hear that moment.",
+  },
+};
+
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport } = useWorkspace();
-  const { seek, pause, play, setActiveSource, transport } = useTransport();
+  const { seek, transport } = useTransport();
   const { timeline } = useTimeline();
   const { byKind, analysis } = deriveAvailability(workspace.representations, workspace.insights.length);
   const waveform = byKind.get("waveform");
@@ -19,40 +38,69 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   const pianoRoll = byKind.get("piano_roll");
   const activeWork = workspace.works.find((work) => work.id === workspace.activeWorkId);
   const available: View[] = [waveform && "listen", pianoRoll && "piano_roll", score && "score", analysis && "analysis"].filter(Boolean) as View[];
-  const [activeView, setActiveView] = useState<View>(available[0] ?? "listen");
+  const [activeView, setActiveView] = useState<View>("listen");
 
   useEffect(() => {
-    if (!available.includes(activeView)) setActiveView(available[0] ?? "listen");
+    if (!available.includes(activeView)) {
+      setActiveView(available.includes("listen") ? "listen" : (available[0] ?? "listen"));
+    }
   }, [activeView, available]);
 
-  if (workspace.isLoadingWork) return <main className="piece-desk"><div className="piece-loading" role="status">Opening your piece…</div></main>;
+  if (workspace.isLoadingWork) return <main className="piece-desk"><div className="piece-loading" role="status">Opening your music…</div></main>;
   if (!available.length) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
 
-  const title: Record<View, string> = { listen: "Listen", piano_roll: "Piano roll", score: "Score", analysis: "Analysis" };
-  const subtitle: Record<View, string> = { listen: "Waveform of the selected playback source", piano_roll: "Performance timing and note events", score: "Quantized notation draft", analysis: "Claims linked to the timeline" };
-  const playView = () => {
-    if (transport.isPlaying) { pause(); return; }
-    const transcription = transport.sources.find((source) => source.role === "transcription");
-    if (activeView !== "listen" && transcription && transcription.id !== transport.activeSource?.id) {
-      setActiveSource(transcription);
-      window.setTimeout(play, 0);
-      return;
-    }
-    play();
-  };
+  const view = VIEWS[activeView];
+
   return <main className="piece-desk">
-    <header className="piece-desk-heading"><div><p className="piece-eyebrow">Listening workspace</p><h1>{activeWork?.title ?? "Untitled piece"}</h1><p>{subtitle[activeView]}. The transport remains the source of truth in every view.</p></div><button type="button" className="btn" onClick={requestImport}>Import another piece</button></header>
-    <div className="piece-view-tabs" role="tablist" aria-label="Workspace views">{available.map((view) => <button key={view} type="button" role="tab" aria-selected={activeView === view} className={activeView === view ? "active" : ""} onClick={() => setActiveView(view)}><strong>{title[view]}</strong><span>{subtitle[view]}</span></button>)}</div>
-    <section className="piece-active-view" aria-labelledby="active-view-title"><div className="piece-section-heading"><div><p className="piece-eyebrow">{subtitle[activeView]}</p><h2 id="active-view-title">{title[activeView]}</h2></div>{activeView !== "analysis" && <button className="btn piece-view-play" type="button" onClick={playView} disabled={!transport.activeSource}>{transport.isPlaying ? "Pause playback" : activeView === "listen" ? "Play selected source" : "Play transcription"}</button>}</div>
+    <header className="piece-desk-heading">
+      <div>
+        <h1>{activeWork?.title ?? "Untitled piece"}</h1>
+        <p>{view.description}</p>
+      </div>
+      <button type="button" className="btn" onClick={requestImport}>Import another</button>
+    </header>
+
+    <div className="piece-view-tabs" role="tablist" aria-label="Workspace views">
+      {available.map((key) => (
+        <button
+          key={key}
+          type="button"
+          role="tab"
+          aria-selected={activeView === key}
+          className={activeView === key ? "active" : ""}
+          onClick={() => setActiveView(key)}
+        >
+          {VIEWS[key].title}
+        </button>
+      ))}
+    </div>
+
+    <section className="piece-active-view" aria-label={view.title}>
       {activeView === "listen" && waveform && <RepresentationLane kind="waveform" label="Audio timeline" sourceLabel={transport.activeSource?.label ?? waveform.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader audioUrl={waveform.audioUrl} />}
       {activeView === "piano_roll" && pianoRoll && <RepresentationLane kind="piano_roll" label="Piano roll" sourceLabel={pianoRoll.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader workspaceNotes={pianoRoll.notes} />}
       {activeView === "score" && score && <RepresentationLane kind="score" label="Score" sourceLabel={score.sourceLabel} confidence={null} isExpanded onExpand={() => {}} hideHeader musicxml={score.musicxml} />}
-      {activeView === "analysis" && <AnalysisSummary onSeek={seek} bpm={timeline.bpm} />}
+      {activeView === "analysis" && <div className="piece-analysis"><AnalysisSummary onSeek={seek} bpm={timeline.bpm} /></div>}
     </section>
   </main>;
 }
 
-function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canImport: boolean; onImport: () => void }) { return <main className="piece-desk piece-empty"><p className="piece-eyebrow">Your library is empty</p><h1>Start with a recording.</h1><p>Upload one audio file. We will preserve the original, create a playable transcription, and derive views you can inspect together.</p><button className="btn btn-primary" onClick={onImport} disabled={!signedIn || !canImport}>{canImport ? "Import audio" : "Preparing import…"}</button><small>WAV, MP3, M4A, FLAC, OGG, or AAC · up to 4 MB</small></main>; }
+function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canImport: boolean; onImport: () => void }) {
+  return (
+    <main className="piece-desk piece-empty">
+      <h1>Start with a recording.</h1>
+      <p>Upload an audio file. We will keep the original, create a playable transcription, and give you a piano roll, score, and analysis to inspect together.</p>
+      <button className="btn btn-primary" onClick={onImport} disabled={!signedIn || !canImport}>{canImport ? "Import audio" : "Preparing import…"}</button>
+      <small>WAV, MP3, M4A, FLAC, OGG, or AAC · up to 4 MB</small>
+    </main>
+  );
+}
+
+const FACT_LABELS: Record<string, string> = {
+  key: "Key",
+  tempo: "Tempo",
+  time_signature: "Time signature",
+  audio_tempo: "Tempo",
+};
 
 function AnalysisSummary({ onSeek, bpm }: { onSeek: (seconds: number) => void; bpm: number }) {
   const { workspace } = useWorkspace();
@@ -64,5 +112,20 @@ function AnalysisSummary({ onSeek, bpm }: { onSeek: (seconds: number) => void; b
   const goTo = (item: (typeof workspace.insights)[number]) => onSeek(item.span.start_seconds ?? (typeof item.span.start_beat === "number" && bpm > 0 ? item.span.start_beat * 60 / bpm : 0));
   if (!workspace.insights.length) return <p className="analysis-empty">Analysis is still being prepared for this transcription.</p>;
   const filteredCount = workspace.insights.length - confident.length;
-  return <div className="analysis-content"><div className="analysis-facts">{primary.map((item) => <div key={item.id}><span>{item.kind.replaceAll("_", " ")}</span><strong>{item.claim.replace(/^[^:]+:\s*/, "")}</strong></div>)}</div>{sections.length > 0 && <div className="analysis-block"><h3>Form</h3><div className="rn-chips">{sections.map((item) => <button type="button" className="rn-chip" key={item.id} onClick={() => goTo(item)}>{item.claim}</button>)}</div></div>}{chords.length > 0 && <div className="analysis-block"><h3>Harmonic path</h3><div className="rn-chips">{chords.map((item) => <button type="button" className="rn-chip" key={item.id} onClick={() => goTo(item)}>{item.claim}</button>)}</div></div>}{observations.length > 0 && <div className="analysis-block"><h3>Observations</h3>{observations.map((item) => <button type="button" className="analysis-observation" key={item.id} onClick={() => goTo(item)}><span>{item.claim}</span>{item.confidence != null && <small>{Math.round(item.confidence * 100)}% confidence</small>}</button>)}</div>}{filteredCount > 0 && <p className="analysis-filtered-notice">{filteredCount} low-confidence claim{filteredCount !== 1 ? "s" : ""} hidden.</p>}</div>;
+  return (
+    <div className="analysis-content">
+      <div className="analysis-facts">
+        {primary.map((item) => (
+          <div key={item.id}>
+            <span>{FACT_LABELS[item.kind] ?? item.kind}</span>
+            <strong>{item.claim.replace(/^[^:]+:\s*/, "")}</strong>
+          </div>
+        ))}
+      </div>
+      {sections.length > 0 && <div className="analysis-block"><h3>Form</h3><div className="rn-chips">{sections.map((item) => <button type="button" className="rn-chip" key={item.id} onClick={() => goTo(item)}>{item.claim}</button>)}</div></div>}
+      {chords.length > 0 && <div className="analysis-block"><h3>Harmonic path</h3><div className="rn-chips">{chords.map((item) => <button type="button" className="rn-chip" key={item.id} onClick={() => goTo(item)}>{item.claim}</button>)}</div></div>}
+      {observations.length > 0 && <div className="analysis-block"><h3>Observations</h3>{observations.map((item) => <button type="button" className="analysis-observation" key={item.id} onClick={() => goTo(item)}><span>{item.claim}</span>{item.confidence != null && <small>{Math.round(item.confidence * 100)}% confidence</small>}</button>)}</div>}
+      {filteredCount > 0 && <p className="analysis-filtered-notice">{filteredCount} low-confidence claim{filteredCount !== 1 ? "s" : ""} hidden.</p>}
+    </div>
+  );
 }

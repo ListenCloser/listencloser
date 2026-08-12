@@ -14,16 +14,20 @@ test("a persisted work reopens with synchronized musical workspace views", async
   );
 
   await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("42 detected notes")).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("Generated from MIDI")).toBeVisible({ timeout: 20_000 });
 
+  // The playback sources are human labels, never internal artifact ids.
+  await expect(page.getByText("Hearing", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Original", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Transcription", exact: true })).toBeVisible();
+
+  // The four representations are discoverable from the tab bar.
   await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible();
   await page.getByRole("tab", { name: "Piano roll" }).click();
-  await expect(page.getByRole("heading", { name: "Piano roll" })).toBeVisible();
+  await expect(page.getByTestId("piano-roll")).toBeVisible();
+  await expect(page.getByText(/42 notes/)).toBeVisible();
   await page.getByRole("tab", { name: "Score" }).click();
-  await expect(page.getByRole("heading", { name: "Score" })).toBeVisible();
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
   await page.getByRole("tab", { name: "Analysis" }).click();
-  await expect(page.getByRole("heading", { name: "What this transcription suggests" })).toBeVisible();
   await expect(page.getByText("A minor")).toBeVisible();
   await expect(page.getByText("112 BPM")).toBeVisible();
 });
@@ -50,19 +54,17 @@ test("import starts one durable understand job and reloads the persisted work", 
   );
 
   await expect(page.getByText(/You can close this page/)).toBeVisible();
-  await expect(page.getByText("42 detected notes")).toBeVisible({
+  await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({
     timeout: 20_000,
   });
-  await expect(page.getByText("Generated from MIDI")).toBeVisible({
+  await expect(page.getByRole("button", { name: "Transcription", exact: true })).toBeVisible({
     timeout: 20_000,
   });
-
 });
 
-test("signed-out users cannot accidentally open the importer", async ({ page }) => {
+test("signed-out users see the sign-in gate, not the importer", async ({ page }) => {
   await page.goto("/");
   await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, undefined, { timeout: 15_000 });
-  await expect(page.getByRole("button", { name: "Sign in to begin" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible();
-  await expect(page.getByText("Service online")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import audio" })).not.toBeVisible();
 });

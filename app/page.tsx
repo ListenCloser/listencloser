@@ -144,38 +144,42 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       const renderedArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && item.artifact.kind === "audio_rendered",
       );
-      const rendered = renderedArtifacts.find(
+      // Prefer the render that corresponds to the primary transcription, then
+      // fall back to the first available render. Human labels are used so
+      // internal artifact/version identifiers never surface in the UI.
+      const primaryRendered = renderedArtifacts.find(
         (item) => item.latest_version?.parent_version_id === baseMidi?.latest_version?.id,
       ) ?? renderedArtifacts.find(
         (item) => item.latest_version?.parent_version_id === midi?.latest_version?.id,
-      );
+      ) ?? renderedArtifacts[0];
 
       const sources: PlaybackSource[] = [];
       if (original?.latest_version && original.signed_url) {
         sources.push({
           id: original.latest_version.id,
-          label: "Original audio",
+          label: "Original",
           url: original.signed_url,
           kind: "audio",
           role: "original",
         });
       }
-      if (rendered?.latest_version && rendered.signed_url) {
+      if (primaryRendered?.latest_version && primaryRendered.signed_url) {
         sources.push({
-          id: rendered.latest_version.id,
-          label: "Transcription playback",
-          url: rendered.signed_url,
+          id: primaryRendered.latest_version.id,
+          label: "Transcription",
+          url: primaryRendered.signed_url,
           kind: "audio",
           role: "transcription",
         });
       }
+      let extraTakeIndex = 0;
       for (const item of renderedArtifacts) {
         const version = item.latest_version;
-        if (!version || !item.signed_url || item.artifact.kind !== "audio_rendered" || version.id === rendered?.latest_version?.id) continue;
-        const take = takes.find((candidate) => candidate.versionId === version.parent_version_id);
+        if (!version || !item.signed_url || version.id === primaryRendered?.latest_version?.id) continue;
+        extraTakeIndex += 1;
         sources.push({
           id: version.id,
-          label: take ? `${take.label} playback` : version.label || "Derived take playback",
+          label: `Take ${extraTakeIndex}`,
           url: item.signed_url,
           kind: "audio",
           role: "derived",
@@ -197,6 +201,9 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       }
 
       const warnings: string[] = [];
+      let pendingInsights: Awaited<ReturnType<typeof getInsights>> = [];
+      let pendingTempo: number | null = null;
+      let pendingSignature: { numerator: number; denominator: number } | null = null;
       if (midi?.latest_version) {
         const [entitiesResult, insightsResult] = await Promise.allSettled([
           getEntities(midi.latest_version.id),
@@ -207,6 +214,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         const insights = insightsResult.status === "fulfilled" ? insightsResult.value : [];
         if (entitiesResult.status === "rejected") warnings.push("The note-level piano roll could not be loaded.");
         if (insightsResult.status === "rejected") warnings.push("The saved analysis could not be loaded.");
+        pendingInsights = insights;
         const notes = entities.flatMap((entity) => entity.note ? [{
           pitch: entity.note.pitch,
           start: entity.note.start_seconds,
@@ -225,15 +233,12 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
             versionId: midi.latest_version.id,
           });
         }
-        setInsights(insights);
         const tempo = insights.find((item) => item.kind === "tempo")?.evidence.bpm;
-        if (typeof tempo === "number" && tempo > 0) setBpm(tempo);
+        if (typeof tempo === "number" && tempo > 0) pendingTempo = tempo;
         const signature = insights.find((item) => item.kind === "time_signature")?.evidence;
         if (typeof signature?.numerator === "number" && typeof signature?.denominator === "number") {
-          setTimeSignature(signature.numerator, signature.denominator);
+          pendingSignature = { numerator: signature.numerator, denominator: signature.denominator };
         }
-      } else {
-        setInsights([]);
       }
 
       if (score?.signed_url) {
@@ -257,8 +262,11 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         }
       }
 
-      replaceSources(sources, rendered?.latest_version?.id ?? original?.latest_version?.id);
+      replaceSources(sources, primaryRendered?.latest_version?.id ?? original?.latest_version?.id);
       replaceRepresentations(representations);
+      setInsights(pendingInsights);
+      if (pendingTempo !== null) setBpm(pendingTempo);
+      if (pendingSignature !== null) setTimeSignature(pendingSignature.numerator, pendingSignature.denominator);
       setLoadWarnings(warnings);
       if (observationIssue) {
         setProcessingWorkId(workId);
@@ -660,15 +668,15 @@ function SignedOutLanding({ serviceStatus }: { serviceStatus: ServiceStatus }) {
 
   return (
     <main className="welcome-page">
-      <header className="welcome-header"><span className="brand"><span className="brand-dot" />hello-ai</span><span>{serviceStatus === "ready" ? "Processing is ready" : "Music workspace"}</span></header>
+      <header className="welcome-header"><span className="brand"><span className="brand-dot" />Music Lab</span><span>{serviceStatus === "ready" ? "Processing is ready" : "Music workspace"}</span></header>
       <section className="welcome-hero">
         <p className="piece-eyebrow">A place to listen closely</p>
         <h1>See what your music is doing.</h1>
-        <p>Bring in a recording, compare the original with its transcription, and inspect a piano roll, notation draft, and musical analysis in one place.</p>
+        <p>Bring in a recording, compare the original with its transcription, and inspect a piano roll, notation, and musical analysis in one place.</p>
         <button className="btn btn-primary" onClick={signIn}>Sign in with Google</button>
-        <small>Your recordings and derived artifacts stay private to your account.</small>
+        <small>Your recordings and their transcriptions stay private to your account.</small>
       </section>
-      <section className="welcome-steps" aria-label="How hello-ai works"><div><b>01</b><span>Import audio</span></div><div><b>02</b><span>Listen & compare</span></div><div><b>03</b><span>Inspect the music</span></div></section>
+      <section className="welcome-steps" aria-label="How Music Lab works"><div><b>01</b><span>Import audio</span></div><div><b>02</b><span>Listen & compare</span></div><div><b>03</b><span>Inspect the music</span></div></section>
     </main>
   );
 }
