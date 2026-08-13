@@ -15,6 +15,12 @@ from evaluation.corpus import EvalClip
 from evaluation.models import Reference
 
 
+# Tolerance window for structure boundary matching (seconds).
+# Follows MIREX structural segmentation convention: 0.5 second tolerance window
+# with one-to-one boundary matching.
+TOLERANCE_S = 0.5
+
+
 EngineCategory = Literal[
     "transcription",
     "beat_tracking",
@@ -171,6 +177,10 @@ def _run_clip_on_engine(
     import tracemalloc
     from pathlib import Path
 
+    # Initialize timing/tracing state BEFORE try block to avoid UnboundLocalError in except
+    tracemalloc.start()
+    t0 = time.monotonic()
+
     result = EngineEvalResult(
         engine_name=adapter.engine_info.name,
         clip_id=clip.id,
@@ -204,10 +214,7 @@ def _run_clip_on_engine(
                 # Warm-up failures are non-fatal
                 pass
 
-        # Timed run
-        tracemalloc.start()
-        t0 = time.monotonic()
-
+        # Timed run - timer already started
         if category == "transcription":
             audio_bytes = Path(clip.audio).read_bytes()
             output = adapter.transcribe(audio_bytes, **adapter_kwargs)
@@ -339,46 +346,83 @@ def _compute_harmony_metrics(output: dict[str, Any], clip: EvalClip) -> dict[str
 
 
 def _compute_structure_metrics(output: dict[str, Any], clip: EvalClip) -> dict[str, Any]:
-    """Compute structure analysis metrics against reference segments."""
-    # Requires reference segments in clip.reference.sections
+    """Compute structure analysis metrics against reference segments.
+
+    Uses tolerance-based one-to-one boundary matching (following MIREX convention).
+    A predicted boundary matches a reference boundary if within tolerance window.
+    """
+    # Tolerance window in seconds (following MIREX structural segmentation convention)
+    TOLERANCE_S = 0.5
+
     ref_sections = clip.reference.sections if clip.reference.sections else []
     pred_segments = output.get("segments", [])
-    
+
     if not ref_sections or not pred_segments:
-        return {"sections_count": len(pred_segments)}
-    
-    # Boundary F1: compare predicted segment boundaries to reference
-    # Segments are [{"start": float, "end": float, "label": str}, ...]
-    ref_boundaries = set()
+        return {"sections_count": len(pred_segments), "boundary_f1": 0.0, "boundary_precision": 0.0, "boundary_recall": 0.0, "tolerance_s": TOLERANCE_S}
+
+    # Extract all boundaries (start and end times)
+    ref_boundaries: list[float] = []
     for s in ref_sections:
         if "start" in s:
-            ref_boundaries.add(round(s["start"], 2))
+            ref_boundaries.append(float(s["start"]))
         if "end" in s:
-            ref_boundaries.add(round(s["end"], 2))
-    
-    pred_boundaries = set()
+            ref_boundaries.append(float(s["end"]))
+
+    pred_boundaries: list[float] = []
     for s in pred_segments:
         if "start" in s:
-            pred_boundaries.add(round(s["start"], 2))
+            pred_boundaries.append(float(s["start"]))
         if "end" in s:
-            pred_boundaries.add(round(s["end"], 2))
-    
+            pred_boundaries.append(float(s["end"]))
+
     if not ref_boundaries:
-        return {"sections_count": len(pred_segments)}
-    
-    tp = len(ref_boundaries & pred_boundaries)
-    fp = len(pred_boundaries - ref_boundaries)
-    fn = len(ref_boundaries - pred_boundaries)
-    
+        return {"sections_count": len(pred_segments), "boundary_f1": 0.0, "boundary_precision": 0.0, "boundary_recall": 0.0, "tolerance_s": TOLERANCE_S}
+
+    # One-to-one matching with tolerance: greedy nearest neighbor
+    ref_matched = [False] * len(ref_boundaries)
+    pred_matched = [False] * len(pred_boundaries)
+    tp = 0
+
+    # Sort both lists for greedy matching
+    ref_sorted = sorted((b, i) for i, b in enumerate(ref_boundaries))
+    pred_sorted = sorted((b, i) for i, b in enumerate(pred_boundaries))
+
+    ri = 0
+    pi = 0
+    while ri < len(ref_sorted) and pi < len(pred_sorted):
+        ref_b, ref_idx = ref_sorted[ri]
+        pred_b, pred_idx = pred_sorted[pi]
+        diff = abs(ref_b - pred_b)
+
+        if diff <= TOLERANCE_S:
+            # Match found
+            tp += 1
+            ref_matched[ref_idx] = True
+            pred_matched[pred_idx] = True
+            ri += 1
+            pi += 1
+        elif pred_b < ref_b - TOLERANCE_S:
+            # Prediction too early, move to next prediction
+            pi += 1
+        else:
+            # Reference too early, move to next reference
+            ri += 1
+
+    fp = len(pred_boundaries) - tp
+    fn = len(ref_boundaries) - tp
+
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-    
+
     return {
         "sections_count": len(pred_segments),
         "boundary_precision": round(precision, 3),
         "boundary_recall": round(recall, 3),
         "boundary_f1": round(f1, 3),
+        "tolerance_s": TOLERANCE_S,
+        "num_ref_boundaries": len(ref_boundaries),
+        "num_pred_boundaries": len(pred_boundaries),
     }
 
 
