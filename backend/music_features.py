@@ -634,6 +634,11 @@ def transcribe_with_engine(
 ) -> dict:
     """Transcribe audio using the configured transcription engine.
 
+    Uses the global registry default engine. Durable jobs that need a
+    per-job engine selection call :func:`get_transcription_engine_for_job`
+    instead (see ``handle_transcribe``), so requirement handlers never bypass
+    the engine seam.
+
     Returns the same dict as transcribe_audio, with 'provenance' added.
     """
     from engines.registry import get_transcription_engine
@@ -649,6 +654,10 @@ def transcribe_with_engine(
         "notes": result.notes,
         "num_notes": result.num_notes,
         "cleanup_report": result.cleanup_report,
+        "model_note_events": result.model_note_events,
+        "tempo_is_placeholder": result.tempo_is_placeholder,
+        "meter_is_placeholder": result.meter_is_placeholder,
+        "supports_meter": result.supports_meter,
         "provenance": result.provenance.to_dict(),
     }
     return base
@@ -690,15 +699,17 @@ def estimate_beats_with_engine(wav_bytes: bytes) -> dict:
     }
 
 
-def notation_with_engine(midi_bytes: bytes, beat_times: list[float]) -> dict:
+def notation_with_engine(midi_bytes: bytes, beat_times: list[float], **kwargs: Any) -> dict:
     """Create notation using the configured notation engine.
 
     Returns a dict with notation_midi, musicxml, quantization_report, and provenance.
+    Keyword arguments are forwarded to the engine's convert method (e.g. adaptive,
+    downbeats, beat_positions, notation_ready, piano_grand_staff).
     """
     from engines.registry import get_notation_engine
 
     engine = get_notation_engine()
-    result = engine.convert(midi_bytes, beat_times)
+    result = engine.convert(midi_bytes, beat_times, **kwargs)
     return {
         "notation_midi": result.notation_midi,
         "musicxml": result.musicxml,

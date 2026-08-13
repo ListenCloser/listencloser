@@ -67,9 +67,9 @@ def _transcribe_bytes(wav_bytes: bytes, onset: float, frame: float) -> list[Note
     backend_dir = str(Path(__file__).resolve().parent.parent)
     if backend_dir not in sys.path:
         sys.path.insert(0, backend_dir)
-    from music_features import transcribe_audio
+    from music_features import transcribe_with_engine
 
-    tr = transcribe_audio(wav_bytes, fmt="wav", onset_threshold=onset, frame_threshold=frame)
+    tr = transcribe_with_engine(wav_bytes, fmt="wav", onset_threshold=onset, frame_threshold=frame)
     return [Note.from_dict(n) for n in tr.get("notes", [])]
 
 

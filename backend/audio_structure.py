@@ -1,9 +1,9 @@
 """Audio-derived metrical and functional structure.
 
-This is deliberately separate from :mod:`analyze`, which interprets the
-transcribed MIDI.  A song's beat grid and form belong to the original recording
-and must retain seconds-based evidence so a person can hear what each claim
-refers to.
+Compatibility alias for the canonical structure engine seam in
+:mod:`engines.structure.allin1_engine`.  A song's beat grid and form belong to
+the original recording and must retain seconds-based evidence so a person can
+hear what each claim refers to.
 
 The optional engine is All-In-One.  It is kept behind a small adapter because
 its PyTorch/NATTEN runtime is significantly heavier than the core worker.  An
@@ -13,14 +13,12 @@ failed import.
 
 from __future__ import annotations
 
-import importlib
-import logging
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("audio_structure")
+from engines.structure.allin1_engine import AllInOneEngine
 
 
 @dataclass(frozen=True)
@@ -38,7 +36,7 @@ class StructureResult:
     beat_positions: list[int]
     segments: list[Segment]
     model: str
-    engine: str = "all-in-one"
+    engine: str = "allin1"
 
     def evidence(self) -> dict[str, Any]:
         """JSON-safe aggregate evidence for the summary claim."""
@@ -60,52 +58,25 @@ def enabled() -> bool:
 def analyze_file(path: str | Path, model: str | None = None) -> StructureResult | None:
     """Return All-In-One structure for a decoded WAV, or ``None`` when disabled.
 
-    The import happens here rather than at module import time so the ordinary
-    API process can start while the heavyweight worker image is being rolled
-    out.  Callers persist results only after this returns a complete result.
+    Delegate to the canonical engine adapter so there is exactly one allin1
+    invocation and normalization path.  ``model`` is kept for API compatibility
+    and selects a non-default model when provided.
     """
-    if not enabled():
-        return None
-
-    try:
-        allin1 = importlib.import_module("allin1")
-    except ImportError as exc:
-        logger.warning("allin1_not_installed", extra={"reason": str(exc)})
-        return None
-
-    selected_model = model or os.environ.get("ALLIN1_MODEL", "harmonix-all")
-    device = os.environ.get("ALLIN1_DEVICE", "cpu")
-    try:
-        raw = allin1.analyze(str(path), model=selected_model, device=device)
-    except Exception:
-        logger.exception("allin1_analysis_failed", extra={"model": selected_model})
-        return None
-
-    # allin1 returns a dataclass today, but normalize by attribute instead of
-    # coupling persistence to its internal result serialization.
-    segments = [
-        Segment(
-            start=round(float(item.start), 3),
-            end=round(float(item.end), 3),
-            label=str(item.label).strip().lower() or "section",
-        )
-        for item in (getattr(raw, "segments", None) or [])
-        if float(item.end) > float(item.start) >= 0
-    ]
-    beats = [round(float(value), 3) for value in (getattr(raw, "beats", None) or [])]
-    downbeats = [round(float(value), 3) for value in (getattr(raw, "downbeats", None) or [])]
-    positions = [int(value) for value in (getattr(raw, "beat_positions", None) or [])]
-    bpm = round(float(getattr(raw, "bpm", 0.0) or 0.0), 2)
-    if bpm <= 0 or not beats:
-        logger.warning("allin1_incomplete_result", extra={"model": selected_model})
+    engine = AllInOneEngine(model=model) if model else AllInOneEngine()
+    result = engine.analyze(str(Path(path)))
+    if result is None:
         return None
     return StructureResult(
-        bpm=bpm,
-        beats=beats,
-        downbeats=downbeats,
-        beat_positions=positions,
-        segments=segments,
-        model=selected_model,
+        bpm=result.bpm,
+        beats=result.beats,
+        downbeats=result.downbeats or [],
+        beat_positions=result.beat_positions,
+        segments=[
+            Segment(start=seg["start"], end=seg["end"], label=seg["label"])
+            for seg in result.segments
+        ],
+        model=result.provenance.model or os.environ.get("ALLIN1_MODEL", "harmonix-all"),
+        engine=result.provenance.engine,
     )
 
 

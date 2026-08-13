@@ -87,11 +87,13 @@ def _transcribe(wav: np.ndarray, sr: int, onset: float, frame: float) -> list[No
     backend_dir = str(Path(__file__).resolve().parent.parent)
     if backend_dir not in sys.path:
         sys.path.insert(0, backend_dir)
-    from music_features import transcribe_audio
+    from music_features import transcribe_with_engine
 
     buf = io.BytesIO()
     sf.write(buf, wav, sr, format="WAV")
-    tr = transcribe_audio(buf.getvalue(), fmt="wav", onset_threshold=onset, frame_threshold=frame)
+    tr = transcribe_with_engine(
+        buf.getvalue(), fmt="wav", onset_threshold=onset, frame_threshold=frame
+    )
     return [Note.from_dict(n) for n in tr.get("notes", [])]
 
 
