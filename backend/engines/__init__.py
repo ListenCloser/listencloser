@@ -6,6 +6,8 @@ The production defaults are:
   - beat tracking: librosa
   - structure: allin1 (optional)
   - notation: music21
+  - harmony: music21
+  - melody: skyline (pretty_midi + custom heuristic)
 
 Usage:
   from engines.registry import get_transcription_engine
@@ -15,6 +17,8 @@ Usage:
 
 from engines.registry import (
     get_beat_engine,
+    get_harmony_engine,
+    get_melody_engine,
     get_notation_engine,
     get_structure_engine,
     get_transcription_engine,
@@ -25,4 +29,6 @@ __all__ = [
     "get_beat_engine",
     "get_structure_engine",
     "get_notation_engine",
+    "get_harmony_engine",
+    "get_melody_engine",
 ]
