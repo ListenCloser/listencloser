@@ -1,0 +1,465 @@
+"""Music21 symbolic harmony engine.
+
+Wraps music21-based harmonic analysis (key, chords, Roman numerals,
+cadences, voice leading, phrases, modulations) behind the HarmonyEngine
+seam. Logic is identical to the previous ``analyze._m21_*`` helpers; only
+the entry point changed so callers route through the registry and receive
+provenance. No model swaps, no analysis-semantics changes.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import tempfile
+from collections import Counter
+from typing import Any
+
+import numpy as np
+
+from engines.base import EngineProvenance, HarmonyEngine, HarmonyResult
+
+logger = logging.getLogger("engines.harmony.music21")
+
+_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+_QUALITY_MAP = {
+    "major": "M",
+    "minor": "m",
+    "diminished": "dim",
+    "augmented": "aug",
+    "dominant seventh": "7",
+    "major seventh": "maj7",
+    "minor seventh": "min7",
+    "half-diminished": "m7b5",
+    "diminished seventh": "dim7",
+    "suspended fourth": "sus4",
+    "major sixth": "6",
+    "minor sixth": "m6",
+    "dominant ninth": "9",
+}
+
+_MODULATION_WINDOW_COUNT = 8
+_MIN_NOTES_PER_WINDOW = 4
+
+_KS_MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
+_KS_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
+
+_KS_MAJOR_C = _KS_MAJOR - _KS_MAJOR.mean()
+_KS_MAJOR_C = _KS_MAJOR_C / np.linalg.norm(_KS_MAJOR_C)
+_KS_MINOR_C = _KS_MINOR - _KS_MINOR.mean()
+_KS_MINOR_C = _KS_MINOR_C / np.linalg.norm(_KS_MINOR_C)
+
+
+def _m21_key(score):
+    """Delegate key estimation to music21's built-in analysis.
+
+    Returns ``None`` when there is no reliable evidence (a parse failure, a
+    missing tonic, or a missing correlation coefficient) rather than
+    fabricating a "C major" default or a made-up confidence value.
+    """
+    try:
+        key = score.analyze("key")
+        corr = key.correlationCoefficient
+        if corr is None:
+            return None
+        tonic = key.tonic.name if key.tonic else None
+        if tonic is None:
+            return None
+        return {
+            "tonic": tonic,
+            "mode": key.mode or "major",
+            "confidence": round(float(corr), 3),
+        }
+    except Exception:
+        logger.warning("music21 key estimation failed", exc_info=True)
+        return None
+
+
+def _m21_chords(score) -> list[dict[str, Any]]:
+    """Delegate chord detection to music21's chord analysis.
+
+    Chords whose root or quality cannot be determined are skipped so the
+    surface does not fill with ``?:unknown`` spam.
+    """
+    results: list[dict[str, Any]] = []
+    try:
+        for chord in score.flatten().getElementsByClass("Chord"):
+            try:
+                root = chord.root()
+                if root is None:
+                    continue
+                root_name = root.name
+                implied = str(chord.impliedQuality) if hasattr(chord, "impliedQuality") else ""
+                quality = _QUALITY_MAP.get(implied, implied)
+                if not quality or quality == "unknown":
+                    continue
+                start = float(chord.getOffsetInHierarchy(score))
+                dur = float(chord.quarterLength) if hasattr(chord, "quarterLength") else 0.0
+                if dur > 0:
+                    results.append(
+                        {
+                            "root": root_name,
+                            "quality": quality,
+                            "start": round(start, 3),
+                            "end": round(start + dur, 3),
+                        }
+                    )
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return results
+
+
+def _m21_roman_numerals(score, detected_key) -> list[dict[str, Any]]:
+    """Delegate Roman numeral analysis to music21."""
+    try:
+        from music21 import roman
+    except ImportError:
+        return []
+    results: list[dict[str, Any]] = []
+    for part in score.parts:
+        for measure in part.getElementsByClass("Measure"):
+            for ch in measure.getElementsByClass("Chord"):
+                try:
+                    rn = roman.romanNumeralFromChord(ch, detected_key)
+                    if not rn.figure:
+                        continue
+                    root_p = ch.root()
+                    if root_p is None:
+                        continue
+                    root_name = root_p.name
+                    implied = str(rn.impliedQuality) if hasattr(rn, "impliedQuality") else "unknown"
+                    quality = _QUALITY_MAP.get(implied, implied)
+                    if not quality or quality == "unknown":
+                        continue
+                    start = float(ch.getOffsetInHierarchy(score))
+                    dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
+                    results.append(
+                        {
+                            "figure": rn.figure,
+                            "root": root_name,
+                            "quality": quality,
+                            "start": round(start, 3),
+                            "end": round(start + dur, 3),
+                        }
+                    )
+                except Exception:
+                    continue
+            if len(results) > 500:
+                break
+        if len(results) > 500:
+            break
+    return results
+
+
+def _m21_cadences(score, detected_key) -> list[dict[str, Any]]:
+    """Detect cadence candidates from adjacent Roman numerals.
+
+    This is deliberately conservative: a V-I progression is only a candidate,
+    not a confirmed cadence. Evidence includes metric position, chord duration,
+    and whether the arrival lands near a measure boundary.
+    """
+    try:
+        from music21 import roman
+    except ImportError:
+        return []
+    candidates: list[dict[str, Any]] = []
+    patterns = [
+        ("authentic", ["V", "I"]),
+        ("plagal", ["IV", "I"]),
+        ("half", ["I", "V"]),
+        ("deceptive", ["V", "vi"]),
+        ("authentic", ["V7", "I"]),
+        ("authentic", ["V", "i"]),
+        ("half", ["i", "V"]),
+        ("deceptive", ["V", "VI"]),
+    ]
+    # Collect (offset, figure, duration_qn, measure_start_offset)
+    chord_seq: list[tuple[float, str, float, float]] = []
+    for part in score.parts:
+        for measure in part.getElementsByClass("Measure"):
+            m_start = float(measure.offset) if measure.offset is not None else 0.0
+            for ch in measure.getElementsByClass("Chord"):
+                try:
+                    rn = roman.romanNumeralFromChord(ch, detected_key)
+                    offset = float(ch.getOffsetInHierarchy(score))
+                    dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
+                    chord_seq.append((offset, rn.figure, dur, m_start))
+                except Exception:
+                    continue
+
+    for i in range(len(chord_seq) - 1):
+        prev_off, prev_fig, prev_dur, prev_m = chord_seq[i]
+        off, fig, dur, m_start = chord_seq[i + 1]
+        pair = [prev_fig, fig]
+        for cad_type, pattern in patterns:
+            if pair == pattern:
+                # Metric evidence: arrival near a measure boundary boosts confidence.
+                near_boundary = (off - m_start) <= 0.5
+                # Duration evidence: longer arrival is more phrase-ending-like.
+                long_arrival = dur >= 1.0
+                evidence_score = 0.5
+                if near_boundary:
+                    evidence_score += 0.2
+                if long_arrival:
+                    evidence_score += 0.1
+                candidates.append(
+                    {
+                        "type": cad_type,
+                        "chords": pair,
+                        "position": round(off, 3),
+                        "evidence_score": round(min(evidence_score, 0.8), 3),
+                        "evidence": {
+                            "metric_position": (
+                                "near_measure_boundary" if near_boundary else "mid_measure"
+                            ),
+                            "arrival_duration_qn": round(dur, 3),
+                            "method": "roman_numeral_pattern",
+                        },
+                    }
+                )
+                break
+    return candidates
+
+
+def _m21_voice_leading(score):
+    """Voice-leading analysis, only when separated voices exist.
+
+    Transcribed MIDI is typically a single flattened part or an arbitrary
+    parser split. Contrapuntal motion statistics are meaningless without
+    trustworthy independent voices, so suppress when fewer than two parts
+    carry independent melodic lines.
+    """
+    try:
+        from music21 import voiceLeading
+    except ImportError:
+        return None
+    parts = [p for p in list(score.parts) if _has_melodic_content(p)]
+    if len(parts) < 2:
+        return None
+    parallel = contrary = oblique = similar = total = 0
+    for i in range(min(len(parts), 4)):
+        for j in range(i + 1, min(len(parts), 4)):
+            try:
+                for vlq in voiceLeading.iterateAllVoiceLeadingQuartets(parts[i], parts[j]):
+                    motion = vlq.motionType()
+                    if "Parallel" in str(motion):
+                        parallel += 1
+                    elif "Contrary" in str(motion):
+                        contrary += 1
+                    elif "Oblique" in str(motion):
+                        oblique += 1
+                    elif "Similar" in str(motion):
+                        similar += 1
+                    total += 1
+                    if total > 2000:
+                        break
+            except Exception:
+                continue
+            if total > 2000:
+                break
+        if total > 2000:
+            break
+    if total == 0:
+        return None
+    p, c, o, s = (round(n / total, 3) for n in [parallel, contrary, oblique, similar])
+    dominant = max(
+        ("parallel", p),
+        ("contrary", c),
+        ("oblique", o),
+        ("similar", s),
+        key=lambda x: x[1],
+    )
+    return {
+        "parallel": p,
+        "contrary": c,
+        "oblique": o,
+        "similar": s,
+        "motion_summary": f"{dominant[0]} motion dominates ({dominant[1] * 100:.0f}%)",
+    }
+
+
+def _has_melodic_content(part) -> bool:
+    """A part has melodic content if it contains enough notes to form a line."""
+    try:
+        notes = list(part.recurse().getElementsByClass("Note"))
+        return len(notes) >= 4
+    except Exception:
+        return False
+
+
+def _m21_phrases(score) -> list[dict[str, Any]]:
+    """Phrase boundary detection is NOT implemented.
+
+    The previous implementation returned chord spans labelled as "phrases",
+    which is misleading. Real phrase-boundary analysis requires evidence
+    (rests, slurs, cadence context, melodic closure) that is not available
+    from raw transcription. Return empty to avoid fake phrase claims.
+    """
+    return []
+
+
+def _detect_modulations(score, tempo_bpm: float | None = None) -> list[dict[str, Any]]:
+    """Detect key changes using overlapping windows with sustained-evidence gating.
+
+    A single noisy window change is NOT a modulation. Key history is run-length
+    encoded so each sustained local-key region emits at most one transition.
+    Brief changes are "possible_tonicization"; sustained ones "possible_modulation".
+    """
+    all_notes = []
+    for part in score.parts:
+        for note in part.recurse().getElementsByClass("GeneralNote"):
+            offset = float(note.offset) if note.offset is not None else 0.0
+            if hasattr(note, "pitch") and note.pitch is not None:
+                all_notes.append((offset, note.pitch.midi))
+    if len(all_notes) < 16:
+        return []
+    all_notes.sort(key=lambda x: x[0])
+
+    qpm = tempo_bpm if tempo_bpm else 120.0
+    max_offset_qn = all_notes[-1][0] if all_notes else 1.0
+    total_sec = max_offset_qn * 60.0 / qpm
+    if total_sec <= 0:
+        return []
+
+    # Overlapping windows: window_sec step half of window size.
+    window_sec = total_sec / 8.0
+    step_sec = window_sec / 2.0
+
+    key_history: list[tuple[float, str]] = []
+    t = 0.0
+    while t + window_sec <= total_sec + 1e-9:
+        t_start_qn = t * qpm / 60.0
+        t_end_qn = (t + window_sec) * qpm / 60.0
+        pitches = [p for toff, p in all_notes if t_start_qn <= toff < t_end_qn]
+        if len(pitches) >= _MIN_NOTES_PER_WINDOW:
+            pc_dist = np.zeros(12)
+            for pc, cnt in Counter(p % 12 for p in pitches).items():
+                pc_dist[pc] = cnt
+            kr = _key_from_pc_vector(pc_dist)
+            if kr is not None:
+                key_history.append((t, f"{kr['tonic']} {kr['mode']}"))
+        t += step_sec
+
+    # Run-length encode key history into (key, start_time, run_length).
+    runs: list[tuple[str, float, int]] = []
+    for kt, key in key_history:
+        if runs and runs[-1][0] == key:
+            prev_key, prev_start, prev_len = runs[-1]
+            runs[-1] = (prev_key, prev_start, prev_len + 1)
+        else:
+            runs.append((key, kt, 1))
+
+    modulations: list[dict[str, Any]] = []
+    for i in range(1, len(runs)):
+        prev_key, prev_start, prev_len = runs[i - 1]
+        new_key, new_start, new_len = runs[i]
+        if new_len >= 3:
+            kind = "possible_modulation"
+        elif new_len == 2:
+            kind = "possible_tonicization"
+        else:
+            # Single-window fluctuation: not a modulation.
+            continue
+        modulations.append(
+            {
+                "from_key": prev_key,
+                "to_key": new_key,
+                "position": round(new_start, 3),
+                "kind": kind,
+                "run_length_windows": new_len,
+                "duration_seconds": round(new_len * step_sec, 3),
+                "window_size_seconds": round(window_sec, 3),
+            }
+        )
+    return modulations
+
+
+def _key_from_pc_vector(pc: np.ndarray):
+    """Estimate key from a 12-dim pitch-class distribution.
+
+    Uses centered/normalized Krumhansl-Schmuckler profiles (cosine similarity)
+    so the score is not biased by profile magnitude. Returns None when there is
+    no pitch-class evidence, rather than fabricating a key.
+    """
+    if pc.sum() <= 0:
+        return None
+    pc_c = pc - pc.mean()
+    pc_c = pc_c / (np.linalg.norm(pc_c) + 1e-10)
+    candidates: list[tuple[str, str, float]] = []
+    for shift in range(12):
+        rolled = np.roll(pc_c, -shift)
+        candidates.append((_NOTES[shift], "major", float(np.dot(rolled, _KS_MAJOR_C))))
+        candidates.append((_NOTES[shift], "minor", float(np.dot(rolled, _KS_MINOR_C))))
+    candidates.sort(key=lambda x: x[2], reverse=True)
+    best = candidates[0]
+    confidence = round(min(max(best[2], 0.0), 1.0), 3)
+    return {"tonic": best[0], "mode": best[1], "confidence": confidence}
+
+
+class Music21HarmonyEngine(HarmonyEngine):
+    ENGINE = "music21"
+
+    def __init__(self) -> None:
+        pass
+
+    @property
+    def provenance(self) -> EngineProvenance:
+        return EngineProvenance(
+            engine=self.ENGINE,
+            library_version=_music21_version(),
+        )
+
+    def analyze(
+        self,
+        midi_bytes: bytes,
+        tempo_bpm: float | None = None,
+        **kwargs: Any,
+    ) -> HarmonyResult:
+        from music21 import converter
+
+        score = None
+        with tempfile.TemporaryDirectory() as td:
+            in_path = os.path.join(td, "input.mid")
+            with open(in_path, "wb") as f:
+                f.write(midi_bytes)
+            try:
+                score = converter.parse(in_path, quantizePost=False)
+            except Exception:
+                logger.exception("music21 parse failed")
+
+        if score is None:
+            return HarmonyResult(
+                key=None,
+                chords=[],
+                roman_numerals=[],
+                cadences=[],
+                modulations=[],
+                voice_leading=None,
+                phrases=[],
+                provenance=self.provenance,
+            )
+
+        key_result = _m21_key(score)
+        detected_key = score.analyze("key")
+        return HarmonyResult(
+            key=key_result,
+            chords=_m21_chords(score),
+            roman_numerals=_m21_roman_numerals(score, detected_key),
+            cadences=_m21_cadences(score, detected_key),
+            modulations=_detect_modulations(score, tempo_bpm),
+            voice_leading=_m21_voice_leading(score),
+            phrases=_m21_phrases(score),
+            provenance=self.provenance,
+        )
+
+
+def _music21_version() -> str:
+    try:
+        import music21
+
+        return music21.__version__  # type: ignore[attr-defined]
+    except Exception:
+        return "unknown"

@@ -5,6 +5,8 @@ Production defaults:
   BEAT_ENGINE=librosa
   STRUCTURE_ENGINE=allin1
   NOTATION_ENGINE=music21
+  HARMONY_ENGINE=music21
+  MELODY_ENGINE=skyline
 """
 
 from __future__ import annotations
@@ -13,11 +15,15 @@ import os
 
 from engines.base import (
     BeatTrackingEngine,
+    HarmonyEngine,
+    MelodyEngine,
     NotationEngine,
     StructureEngine,
     TranscriptionEngine,
 )
 from engines.beats.librosa_engine import LibrosaBeatEngine
+from engines.harmony.music21_engine import Music21HarmonyEngine
+from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.music21_engine import Music21NotationEngine
 from engines.structure.allin1_engine import AllInOneEngine
 from engines.transcription.basic_pitch import BasicPitchEngine
@@ -65,3 +71,17 @@ def get_notation_engine(name: str | None = None) -> NotationEngine:
     if name == "music21":
         return Music21NotationEngine()
     raise ValueError(f"Unknown notation engine: {name}")
+
+
+def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
+    name = name or os.environ.get("HARMONY_ENGINE", "music21")
+    if name == "music21":
+        return Music21HarmonyEngine()
+    raise ValueError(f"Unknown harmony engine: {name}")
+
+
+def get_melody_engine(name: str | None = None) -> MelodyEngine:
+    name = name or os.environ.get("MELODY_ENGINE", "skyline")
+    if name == "skyline":
+        return SkylineMelodyEngine()
+    raise ValueError(f"Unknown melody engine: {name}")

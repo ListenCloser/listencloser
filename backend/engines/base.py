@@ -126,6 +126,42 @@ class StructureEngine(Protocol):
     def analyze(self, wav_bytes: bytes, **kwargs: Any) -> StructureResult | None: ...
 
 
+@dataclass(frozen=True)
+class HarmonyResult:
+    key: dict[str, Any] | None
+    chords: list[dict[str, Any]]
+    roman_numerals: list[dict[str, Any]]
+    cadences: list[dict[str, Any]]
+    modulations: list[dict[str, Any]]
+    voice_leading: dict[str, Any] | None
+    phrases: list[dict[str, Any]]
+    provenance: EngineProvenance
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "chords": self.chords,
+            "roman_numerals": self.roman_numerals,
+            "cadences": self.cadences,
+            "modulations": self.modulations,
+            "voice_leading": self.voice_leading,
+            "phrases": self.phrases,
+            "provenance": self.provenance.to_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class MelodyResult:
+    melody: dict[str, Any] | None
+    provenance: EngineProvenance
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "melody": self.melody,
+            "provenance": self.provenance.to_dict(),
+        }
+
+
 @runtime_checkable
 class NotationEngine(Protocol):
     def convert(self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any) -> NotationResult:
@@ -145,4 +181,29 @@ class NotationEngine(Protocol):
 
         These options describe requested notation semantics, not a specific
         library.  Returns a NotationResult.
+        """
+
+
+@runtime_checkable
+class HarmonyEngine(Protocol):
+    def analyze(
+        self,
+        midi_bytes: bytes,
+        tempo_bpm: float | None = None,
+        **kwargs: Any,
+    ) -> HarmonyResult:
+        """Symbolic harmonic analysis of a MIDI file.
+
+        Returns a normalized HarmonyResult (key, chords, roman numerals,
+        cadences, modulations, voice leading, phrases) with provenance.
+        """
+
+
+@runtime_checkable
+class MelodyEngine(Protocol):
+    def analyze(self, midi_bytes: bytes, **kwargs: Any) -> MelodyResult:
+        """Symbolic melody extraction from a MIDI file.
+
+        Returns a normalized MelodyResult (melody features or None when no
+        melodic line is detected) with provenance.
         """
