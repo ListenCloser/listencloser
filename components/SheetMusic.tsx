@@ -59,6 +59,8 @@ export default function SheetMusic({
         drawTimeSignatures: true,
         followCursor: true,
         autoBeam: false,
+        pageFormat: "Endless",
+        drawingParameters: "compacttight",
       });
       osmdRef.current = osmd;
       currentMeasureRef.current = -1;

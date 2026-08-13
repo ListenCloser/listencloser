@@ -238,5 +238,49 @@ def _min_duration(grid: MetricalGrid) -> float:
     return max(_median_interval(grid.beats) / 4, 0.05)
 
 
+def quantize_fixed_grid(
+    midi_bytes: bytes,
+    bpm: float | None = None,
+    subdivision: int = 2,
+) -> tuple[bytes, dict[str, Any]]:
+    """Quantize note onsets/offsets to a fixed rhythmic grid.
+
+    Used when beat/downbeat tracking is unavailable or inconsistent with the
+    MIDI's own tempo. A fixed eighth-note grid (subdivision=2) anchored to the
+    MIDI tempo produces clean, readable durations instead of raw performance
+    micro-timing. Returns ``(midi_bytes, report)``.
+    """
+    import io
+
+    import pretty_midi
+
+    midi = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
+    if bpm is None:
+        tempo_changes = midi.get_tempo_changes()
+        bpm = float(tempo_changes[1][0]) if tempo_changes[1] else 120.0
+    step = 60.0 / bpm / subdivision
+
+    for instrument in midi.instruments:
+        for note in instrument.notes:
+            start = round(float(note.start) / step) * step
+            end = round(float(note.end) / step) * step
+            if end <= start:
+                end = start + step
+            note.start = start
+            note.end = end
+
+    out = io.BytesIO()
+    midi.write(out)
+    report: dict[str, Any] = {
+        "profile": "fixed_grid_v1",
+        "timing_mode": "fixed_grid",
+        "bpm": round(bpm, 3),
+        "subdivision": subdivision,
+        "grid_step_seconds": round(step, 4),
+        "quantized_notes": sum(len(i.notes) for i in midi.instruments),
+    }
+    return out.getvalue(), report
+
+
 def _count_changed(selections: list[dict[str, Any]]) -> int:
     return sum(s.get("changed_count", 0) for s in selections)

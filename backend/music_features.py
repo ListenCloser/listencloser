@@ -327,6 +327,20 @@ def convert_format(data: bytes, source: str, target: str, notation_ready: bool =
             with contextlib.suppress(Exception):
                 score.makeNotation(inPlace=True)
 
+        # Emit a key signature only when music21's analysis is confident. A
+        # low-confidence key (or a default C major fallback) must not fabricate
+        # a signature the transcription did not actually support.
+        if target == "musicxml":
+            with contextlib.suppress(Exception):
+                analyzed = score.analyze("key")
+                corr = analyzed.correlationCoefficient
+                if corr is not None and corr >= 0.8:
+                    from music21 import key as _key_mod
+
+                    signature = _key_mod.KeySignature(analyzed.sharps)
+                    first_measure = score.parts[0].getElementsByClass("Measure")[0]
+                    first_measure.insert(0, signature)
+
         out_ext = ".mid" if target == "midi" else ".xml"
         out_path = os.path.join(td, f"output{out_ext}")
         fmt = "midi" if target == "midi" else "musicxml"
@@ -645,11 +659,19 @@ def adaptive_notation_from_performance(
     Returns (notation_midi_bytes, quantization_report_dict).
     """
     from notation.grid import build_metrical_grid
-    from notation.quantize import adaptive_quantize
+    from notation.quantize import adaptive_quantize, quantize_fixed_grid
 
     grid = build_metrical_grid(beats, downbeats, beat_positions)
     notation_midi, report = adaptive_quantize(midi_bytes, grid)
     report["grid"] = grid.to_dict()
+
+    # When beat/downbeat tracking is unavailable (or inconsistent with the
+    # MIDI's own tempo), fall back to a fixed eighth-note grid so the notation
+    # still renders as clean, readable durations instead of raw micro-timing.
+    if report.get("timing_mode") in (None, "preserved_no_grid", "preserved_no_meter"):
+        notation_midi, report = quantize_fixed_grid(midi_bytes)
+        report["grid"] = grid.to_dict()
+
     return notation_midi, report
 
 
