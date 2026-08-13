@@ -174,3 +174,131 @@ class TestSkylineMelodyAdapter:
         result = engine.analyze(b"not-a-midi")
         assert result.melody is None
         assert result.provenance.engine == "skyline"
+
+
+class TestTimingExcludesSetup:
+    """Verify that measured inference runtime excludes prepare() and warm-up."""
+
+    def test_runtime_excludes_prepare_and_warmup(self):
+        """Prepare and warm-up sleep time must NOT be counted in inference runtime."""
+        import time
+        import tempfile
+
+        class SlowAdapter:
+            engine_info = type("Info", (), {
+                "name": "slow_test",
+                "category": "transcription",
+                "repo_url": "",
+                "license": "",
+                "install_cmd": "",
+                "model_size_mb": 0,
+                "requires_gpu": False,
+                "notes": "",
+            })()
+
+            def __init__(self):
+                self._prepared = False
+                self._warmed = False
+
+            def is_available(self) -> bool:
+                return True
+
+            def prepare(self) -> None:
+                time.sleep(0.1)  # Simulate slow model loading
+                self._prepared = True
+
+            def transcribe(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
+                time.sleep(0.05)  # Simulate actual inference
+                self._warmed = True
+                return {"midi": b"", "notes": [], "num_notes": 0, "cleanup_report": {}}
+
+            def estimate_beats(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
+                raise NotImplementedError
+
+            def analyze_harmony(self, midi_bytes: bytes, **kwargs) -> dict[str, Any]:
+                raise NotImplementedError
+
+            def analyze_structure(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
+                raise NotImplementedError
+
+        from evaluation.engines import _run_clip_on_engine
+        from evaluation.models import EvalClip
+
+        # Create a temp audio file
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            f.write(b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x40\x1f\x00\x00\x40\x1f\x00\x00\x01\x00\x08\x00data\x00\x00\x00\x00")
+            temp_audio = f.name
+
+        try:
+            clip = EvalClip(
+                id="test_clip",
+                audio=temp_audio,
+                category="solo_piano",
+            )
+
+            adapter = SlowAdapter()
+            result = _run_clip_on_engine(adapter, clip, "transcription", warmup=True)
+
+            assert result.success
+            # Inference runtime should be ~0.05s (transcribe sleep), NOT ~0.15s (prepare + warmup + inference)
+            assert result.runtime_s < 0.1, f"Runtime {result.runtime_s:.3f}s should exclude prepare/warmup"
+            assert result.runtime_s > 0.03, f"Runtime {result.runtime_s:.3f}s should include actual inference"
+            # Peak memory should be non-negative
+            assert result.peak_memory_mb >= 0
+        finally:
+            try:
+                os.unlink(temp_audio)
+            except Exception:
+                pass
+
+    def test_failed_prepare_returns_zero_runtime(self):
+        """If prepare() fails, runtime should be 0 (not mislabel setup time as inference)."""
+        import time
+
+        class FailingPrepareAdapter:
+            engine_info = type("Info", (), {
+                "name": "fail_prepare",
+                "category": "transcription",
+                "repo_url": "",
+                "license": "",
+                "install_cmd": "",
+                "model_size_mb": 0,
+                "requires_gpu": False,
+                "notes": "",
+            })()
+
+            def is_available(self) -> bool:
+                return True
+
+            def prepare(self) -> None:
+                time.sleep(0.1)
+                raise RuntimeError("Model load failed")
+
+            def transcribe(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
+                raise NotImplementedError("Should not be called")
+
+            def estimate_beats(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
+                raise NotImplementedError
+
+            def analyze_harmony(self, midi_bytes: bytes, **kwargs) -> dict[str, Any]:
+                raise NotImplementedError
+
+            def analyze_structure(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
+                raise NotImplementedError
+
+        from evaluation.engines import _run_clip_on_engine
+        from evaluation.models import EvalClip
+
+        clip = EvalClip(
+            id="test_clip",
+            audio=b"dummy",
+            category="solo_piano",
+        )
+
+        adapter = FailingPrepareAdapter()
+        result = _run_clip_on_engine(adapter, clip, "transcription", warmup=True)
+
+        assert not result.success
+        assert "Model load failed" in result.error
+        assert result.runtime_s == 0.0, "Failed prepare should yield 0 runtime"
+        assert result.peak_memory_mb == 0.0
