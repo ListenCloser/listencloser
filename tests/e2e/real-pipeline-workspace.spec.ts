@@ -74,15 +74,45 @@ test("score appears as a playback source and follows the transport", async ({
   );
   await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
 
-  // A notation-derived render exists, so Score is a selectable source.
-  await expect(page.getByRole("button", { name: "Score", exact: true })).toBeVisible();
+  // A notation-derived render exists, so the score rendition is a selectable source.
+  await expect(page.getByRole("button", { name: "Score rendition", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
-  await expect(page.getByText("Select Score in the transport to hear this notation (notation time).")).toBeVisible();
+  await expect(page.getByText("Select Score rendition in the transport to hear this notation (notation time).")).toBeVisible();
 
-  await page.getByRole("button", { name: "Score", exact: true }).click();
-  await expect(page.getByText("Playing the score in notation time. Click a measure to jump.")).toBeVisible();
+  await page.getByRole("button", { name: "Score rendition", exact: true }).click();
+  await expect(page.getByText("Playing the score rendition in notation time. Click a measure to jump.")).toBeVisible();
+});
+
+test("the representation changes independently of the playback source", async ({
+  page,
+}) => {
+  await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
+  await page.goto("/");
+  await page.waitForFunction(
+    () => navigator.serviceWorker?.controller !== null,
+    undefined,
+    { timeout: 15_000 },
+  );
+  await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+
+  // Settle on the score rendition as the source, then keep listening to it
+  // while moving between representations.
+  await page.getByRole("button", { name: "Original", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("tab", { name: "Piano roll" }).click();
+  await expect(page.getByTestId("piano-roll")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("tab", { name: "Score" }).click();
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("tab", { name: "Analysis" }).click();
+  await expect(page.getByText("A minor")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("signed-out users see the sign-in gate, not the importer", async ({ page }) => {

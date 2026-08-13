@@ -58,7 +58,7 @@ describe("TransportProvider", () => {
     const { result } = renderHook(() => useTransport(), { wrapper });
     const score = {
       id: "score-audio",
-      label: "Score",
+      label: "Score rendition",
       url: "data:audio/wav;base64,score",
       kind: "audio" as const,
       role: "score" as const,

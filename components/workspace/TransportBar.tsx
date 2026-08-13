@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransport } from "@/lib/stores/transport";
-import { useTimeline } from "@/lib/stores/timeline";
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -11,8 +10,7 @@ function formatTime(s: number): string {
 
 export default function TransportBar() {
   const { transport, seek, setActiveSource, setLoop, stop, toggle, toggleLoop } = useTransport();
-  const { totalDuration } = useTimeline();
-  const { isPlaying, position, loopEnabled, loopStart, loopEnd, activeSource, sources } = transport;
+  const { isPlaying, position, duration, loopEnabled, loopStart, loopEnd, activeSource, sources } = transport;
   const hasSource = Boolean(activeSource);
 
   return (
@@ -35,18 +33,18 @@ export default function TransportBar() {
       <div className="piece-timeline">
         <div className="piece-time">
           <span>{formatTime(position)}</span>
-          <span>{formatTime(totalDuration)}</span>
+          <span>{formatTime(duration)}</span>
         </div>
         <input
           className="piece-seek"
           type="range"
           aria-label="Playback position"
           min={0}
-          max={Math.max(totalDuration, 0.01)}
+          max={Math.max(duration, 0.01)}
           step={0.01}
-          value={Math.min(position, Math.max(totalDuration, 0.01))}
+          value={Math.min(position, Math.max(duration, 0.01))}
           onChange={(event) => seek(Number(event.target.value))}
-          disabled={!hasSource || totalDuration <= 0}
+          disabled={!hasSource || duration <= 0}
         />
       </div>
 
@@ -54,7 +52,7 @@ export default function TransportBar() {
         <button
           className={`piece-stop ${loopEnabled ? "piece-control-active" : ""}`}
           onClick={() => {
-            if (!loopEnabled && (loopStart === null || loopEnd === null) && totalDuration > 0) setLoop(0, totalDuration);
+            if (!loopEnabled && (loopStart === null || loopEnd === null) && duration > 0) setLoop(0, duration);
             toggleLoop();
           }}
           aria-label="Toggle loop"
@@ -85,7 +83,7 @@ export default function TransportBar() {
             <span
               className="piece-hearing-note"
               style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", whiteSpace: "nowrap" }}
-              title="Original and Transcription play in performance time; the Score plays in notation time."
+              title="Original and Transcription play in performance time; the Score rendition plays in notation time."
             >
               notation time
             </span>

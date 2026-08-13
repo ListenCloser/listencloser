@@ -192,7 +192,7 @@ function StudioTab() {
 }
 
 function InsightsTab() {
-  const { workspace, expandRepresentation, focusRepresentation } = useWorkspace();
+  const { workspace, setActiveRepresentation } = useWorkspace();
   const { seek } = useTransport();
   const { timeline } = useTimeline();
   const summary = workspace.insights.filter((item) =>
@@ -214,8 +214,7 @@ function InsightsTab() {
     else if (typeof item.span.start_beat === "number" && timeline.bpm > 0) {
       seek(item.span.start_beat * 60 / timeline.bpm);
     }
-    expandRepresentation("piano_roll");
-    focusRepresentation("piano_roll");
+    setActiveRepresentation("piano_roll");
   }
 
   function spanLabel(item: (typeof workspace.insights)[number]): string | null {
