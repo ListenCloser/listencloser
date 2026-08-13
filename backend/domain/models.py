@@ -96,6 +96,7 @@ class NoteEntity(BaseModel):
     end_seconds: float
     velocity: int = 64
     voice: int = 0
+    amplitude: float | None = None
 
 
 class ChordEntity(BaseModel):

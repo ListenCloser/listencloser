@@ -529,6 +529,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
                     start_seconds=start,
                     end_seconds=end,
                     velocity=int(item.get("velocity", 64)),
+                    amplitude=item.get("amplitude"),
                 ),
                 label=f"MIDI {int(item['pitch'])}",
             )
