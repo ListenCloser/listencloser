@@ -60,8 +60,14 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadSequenceRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const loadedWorkRef = useRef<string | null>(null);
 
   const loadWork = useCallback(async (workId: string) => {
+    // Re-loading the *same* work (e.g. after creating a take or comparing
+    // versions) must not reset the transport: the listener is still inspecting
+    // the same piece, so keep the playhead and playback state.
+    const preserveTransport = loadedWorkRef.current === workId;
+    loadedWorkRef.current = workId;
     const sequence = ++loadSequenceRef.current;
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -74,7 +80,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     setPendingSourceVersionId(null);
     resetTimeline();
     replaceRepresentations([]);
-    replaceSources([]);
+    if (!preserveTransport) replaceSources([]);
     setInsights([]);
     setTakes([]);
     try {
@@ -243,7 +249,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         }
       }
 
-      replaceSources(sources, activeId ?? undefined);
+      replaceSources(sources, activeId ?? undefined, preserveTransport);
       replaceRepresentations(representations);
       setInsights(pendingInsights);
       if (pendingTempo !== null) setBpm(pendingTempo);

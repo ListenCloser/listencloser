@@ -145,8 +145,8 @@ export default function SheetMusic({
   const hint = !hasScorePlayback
     ? "Score playback is not available for this piece yet."
     : isScoreActive
-      ? "Playing from the score. Click a measure to jump."
-      : "Select Score in the transport to hear this notation.";
+      ? "Playing the score in notation time. Click a measure to jump."
+      : "Select Score in the transport to hear this notation (notation time).";
 
   return (
     <>

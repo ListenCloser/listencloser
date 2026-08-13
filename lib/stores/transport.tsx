@@ -24,7 +24,7 @@ type TransportState = {
 type TransportContextValue = {
   transport: TransportState;
   setActiveSource: (source: PlaybackSource) => void;
-  replaceSources: (sources: PlaybackSource[], activeId?: string) => void;
+  replaceSources: (sources: PlaybackSource[], activeId?: string, preservePosition?: boolean) => void;
   clearActiveSource: () => void;
   play: () => void;
   pause: () => void;
@@ -49,6 +49,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
   const { setTotalDuration } = useTimeline();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const positionRef = useRef(0);
+  const activeSourceIdRef = useRef<string | null>(null);
   const [transport, setTransport] = useState<TransportState>({
     position: 0,
     isPlaying: false,
@@ -106,6 +107,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
           .catch(() => setTransport((prev) => ({ ...prev, isPlaying: false })));
       }
     }, { once: true });
+    activeSourceIdRef.current = source.id;
     setTransport((prev) => ({
       ...prev,
       activeSource: source,
@@ -117,24 +119,38 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const replaceSources = useCallback((sources: PlaybackSource[], activeId?: string) => {
-    const active = sources.find((item) => item.id === activeId) ?? sources[0] ?? null;
+  const replaceSources = useCallback((sources: PlaybackSource[], activeId?: string, preservePosition = false) => {
+    const fallbackActive = sources.find((item) => item.id === activeId) ?? sources[0] ?? null;
+    const active = preservePosition
+      ? (sources.find((item) => item.id === activeSourceIdRef.current) ?? fallbackActive)
+      : fallbackActive;
     const audio = audioRef.current;
+    const previousPosition = positionRef.current;
+    const wasPlaying = audio ? !audio.paused && !audio.ended : false;
     if (audio) {
       audio.pause();
       audio.src = active?.url ?? "";
       if (active) audio.load();
     }
-    positionRef.current = 0;
+    if (preservePosition && audio && active) {
+      audio.addEventListener("loadedmetadata", () => {
+        audio.currentTime = Math.min(previousPosition, audio.duration || previousPosition);
+        if (wasPlaying) {
+          void audio.play()
+            .then(() => setTransport((prev) => ({ ...prev, isPlaying: true })))
+            .catch(() => setTransport((prev) => ({ ...prev, isPlaying: false })));
+        }
+      }, { once: true });
+    }
+    activeSourceIdRef.current = active?.id ?? null;
+    positionRef.current = preservePosition ? previousPosition : 0;
     setTransport((prev) => ({
       ...prev,
       sources,
       activeSource: active,
-      position: 0,
-      isPlaying: false,
-      loopStart: null,
-      loopEnd: null,
-      loopEnabled: false,
+      position: preservePosition ? previousPosition : 0,
+      isPlaying: preservePosition ? wasPlaying : false,
+      ...(preservePosition ? {} : { loopStart: null, loopEnd: null, loopEnabled: false }),
     }));
   }, []);
 
@@ -145,6 +161,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       audio.src = "";
     }
     positionRef.current = 0;
+    activeSourceIdRef.current = null;
     setTransport((prev) => ({
       ...prev,
       activeSource: null,

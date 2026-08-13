@@ -20,7 +20,7 @@ const VIEWS: Record<View, { title: string; description: string }> = {
   },
   score: {
     title: "Score",
-    description: "Your music as notation. Read-only for now — playing directly from the score is coming soon.",
+    description: "Your music as notation, in notation time. Playing from the score follows the notated measures — the recording and the score may drift apart where timing is flexible.",
   },
   analysis: {
     title: "Analysis",

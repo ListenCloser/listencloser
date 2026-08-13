@@ -71,4 +71,35 @@ describe("TransportProvider", () => {
     expect(result.current.transport.activeSource?.role).toBe("score");
     expect(result.current.transport.sources.map((s) => s.role)).toEqual(["transcription", "score"]);
   });
+
+  it("preserves position and active source when replacing with preservePosition", () => {
+    const { result } = renderHook(() => useTransport(), { wrapper });
+
+    act(() => {
+      result.current.replaceSources([src("original", "a")], "a");
+      result.current.seek(7);
+    });
+    expect(result.current.transport.position).toBe(7);
+
+    act(() => {
+      result.current.replaceSources([src("original", "a")], "a", true);
+    });
+    expect(result.current.transport.position).toBe(7);
+    expect(result.current.transport.activeSource?.id).toBe("a");
+  });
+
+  it("falls back to the requested source when the preserved source is gone", () => {
+    const { result } = renderHook(() => useTransport(), { wrapper });
+
+    act(() => {
+      result.current.replaceSources([src("original", "a")], "a");
+      result.current.seek(7);
+    });
+
+    act(() => {
+      result.current.replaceSources([src("transcription", "b")], "b", true);
+    });
+    expect(result.current.transport.position).toBe(7);
+    expect(result.current.transport.activeSource?.id).toBe("b");
+  });
 });
