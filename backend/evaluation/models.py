@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Literal
+import os
 
 ClipCategory = Literal[
     "solo_piano",
@@ -53,16 +54,16 @@ class EvalClip:
         ref_data = data.get("reference", {})
         return cls(
             id=data["id"],
-            audio=f"{base_dir}/{data['audio']}" if base_dir else data["audio"],
+            audio=(f"{base_dir}/{data['audio']}" if base_dir and not os.path.isabs(data['audio']) else data["audio"]),
             category=data["category"],
             reference_midi=(
                 f"{base_dir}/{data['reference_midi']}"
-                if base_dir and data.get("reference_midi")
+                if base_dir and data.get("reference_midi") and not os.path.isabs(data["reference_midi"])
                 else data.get("reference_midi")
             ),
             reference_musicxml=(
                 f"{base_dir}/{data['reference_musicxml']}"
-                if base_dir and data.get("reference_musicxml")
+                if base_dir and data.get("reference_musicxml") and not os.path.isabs(data["reference_musicxml"])
                 else data.get("reference_musicxml")
             ),
             reference=Reference(

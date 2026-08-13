@@ -1,0 +1,45 @@
+{
+  "name": "oss_bakeoff_v1",
+  "description": "OSS engine bakeoff corpus: piano fixtures for transcription + existing corpora for beat/harmony/structure.",
+  "datasets": {
+    "local_piano": {
+      "source": "local fixtures",
+      "version": "v1",
+      "license": "proprietary (test fixtures only)",
+      "split": "test",
+      "redistribution": "do not redistribute"
+    }
+  },
+  "clips": [
+    {
+      "id": "real_piano_m4a",
+      "dataset": "local_piano",
+      "category": "solo_piano",
+      "audio": "/Users/giancarloricci/hello-ai/tests/fixtures/real-piano.m4a",
+      "reference_midi": null,
+      "reference_musicxml": null,
+      "reference": {
+        "bpm": 120,
+        "key": "C major",
+        "meter": "4/4"
+      },
+      "license": "test fixture",
+      "metrics": ["note_onset", "note_offset", "beat", "downbeat", "key"]
+    },
+    {
+      "id": "piano_simple_m4a",
+      "dataset": "local_piano",
+      "category": "solo_piano",
+      "audio": "/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a",
+      "reference_midi": null,
+      "reference_musicxml": null,
+      "reference": {
+        "bpm": 120,
+        "key": "C major",
+        "meter": "4/4"
+      },
+      "license": "test fixture",
+      "metrics": ["note_onset", "note_offset", "beat", "downbeat", "key"]
+    }
+  ]
+}
