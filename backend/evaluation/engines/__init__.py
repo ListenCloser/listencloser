@@ -171,15 +171,20 @@ def _run_clip_on_engine(
     warmup: bool = True,
     **adapter_kwargs,
 ) -> EngineEvalResult:
-    """Run a single clip through the engine adapter."""
+    """Run a single clip through the engine adapter.
+    
+    Timing: warm-up and prepare() are NOT included in measured runtime.
+    Timing starts immediately before the actual inference run.
+    """
     import os
     import time
     import tracemalloc
     from pathlib import Path
 
-    # Initialize timing/tracing state BEFORE try block to avoid UnboundLocalError in except
-    tracemalloc.start()
-    t0 = time.monotonic()
+    # Pre-initialize for failure safety (values used if exception before measurement starts)
+    elapsed = 0.0
+    peak_mb = 0.0
+    timer_started = False
 
     result = EngineEvalResult(
         engine_name=adapter.engine_info.name,
@@ -189,6 +194,7 @@ def _run_clip_on_engine(
     )
 
     try:
+        # --- Setup phase (NOT timed) ---
         if not adapter.is_available():
             raise RuntimeError(f"Engine {adapter.engine_info.name} not available")
 
@@ -214,7 +220,11 @@ def _run_clip_on_engine(
                 # Warm-up failures are non-fatal
                 pass
 
-        # Timed run - timer already started
+        # --- Measured inference run ---
+        tracemalloc.start()
+        t0 = time.monotonic()
+        timer_started = True
+
         if category == "transcription":
             audio_bytes = Path(clip.audio).read_bytes()
             output = adapter.transcribe(audio_bytes, **adapter_kwargs)
@@ -256,9 +266,15 @@ def _run_clip_on_engine(
         )
 
     except Exception as e:
-        elapsed = time.monotonic() - t0
-        current, peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
+        if timer_started:
+            elapsed = time.monotonic() - t0
+            current, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            peak_mb = peak / (1024 * 1024)
+        else:
+            # Failure during setup (is_available/prepare/warmup) - no inference time
+            elapsed = 0.0
+            peak_mb = 0.0
         result = EngineEvalResult(
             engine_name=adapter.engine_info.name,
             clip_id=clip.id,
@@ -266,7 +282,7 @@ def _run_clip_on_engine(
             success=False,
             error=str(e),
             runtime_s=elapsed,
-            peak_memory_mb=peak / (1024 * 1024),
+            peak_memory_mb=peak_mb,
         )
 
     return result
