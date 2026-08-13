@@ -16,6 +16,14 @@ function formatConfidence(confidence: number | null): string {
   return confidence == null ? "—" : `${Math.round(confidence * 100)}%`;
 }
 
+const NOT_DETECTED = "Not confidently detected";
+
+function methodLabel(provenance: Record<string, unknown>): string | null {
+  const method = provenance.method;
+  if (method === "detected" || method === "inferred" || method === "heuristic") return method;
+  return null;
+}
+
 export default function InspectorPanel() {
   const { workspace, toggleInspector } = useWorkspace();
   const [activeTab, setActiveTab] = useState<TabId>("insights");
@@ -229,21 +237,26 @@ function InsightsTab() {
     );
   }
 
-  const key = summary.find((item) => item.kind === "key")?.claim.replace(/^Key:\s*/, "");
+  const key = summary.find((item) => item.kind === "key")?.claim.replace(/^Key:\s*/, "") ?? "Key not confidently detected";
   const tempo = summary.find((item) => item.kind === "tempo")?.evidence.bpm;
-  const meter = summary.find((item) => item.kind === "time_signature")?.claim.replace(/^Time Signature:\s*/, "");
+  const meter = summary.find((item) => item.kind === "time_signature")?.claim.replace(/^Time Signature:\s*/, "") ?? null;
   const chordPath = details.filter((item) => item.kind === "chord").slice(0, 8);
+  const primaryStats = [
+    { label: "key", item: summary.find((item) => item.kind === "key") },
+    { label: "tempo", item: summary.find((item) => item.kind === "tempo") },
+    { label: "time signature", item: summary.find((item) => item.kind === "time_signature") },
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--s-3)" }}>
       <div className="section-label" style={{ margin: 0 }}>What this piece is doing</div>
       <p className="insight-intro">{[key, typeof tempo === "number" ? `${Math.round(tempo)} BPM` : null, meter].filter(Boolean).join(" · ") || "Analysis is available below."} These are listening hypotheses from the saved transcription, not facts about the original recording.</p>
       <div className="stat-grid">
-        {summary.map((item) => (
-          <div className="stat" key={item.id}>
-            <span className="s-label">{item.kind.replaceAll("_", " ")}</span>
-            <span className="s-value">{item.claim.replace(/^[^:]+:\s*/, "")}</span>
-            <span className="s-label">{formatConfidence(item.confidence)} confidence</span>
+        {primaryStats.map(({ label, item }) => (
+          <div className="stat" key={label}>
+            <span className="s-label">{label}</span>
+            <span className="s-value">{item ? item.claim.replace(/^[^:]+:\s*/, "") : NOT_DETECTED}</span>
+            <span className="s-label">{item ? `${formatConfidence(item.confidence)} confidence` : "unavailable"}</span>
           </div>
         ))}
       </div>
@@ -270,6 +283,7 @@ function InsightsTab() {
                   <span className="insight-claim">{item.claim}</span>
                   <span className="insight-meta">
                     {position && <span>{position}</span>}
+                    {methodLabel(item.provenance) && <span>{methodLabel(item.provenance)}</span>}
                     <span>{formatConfidence(item.confidence)}</span>
                   </span>
                 </button>
