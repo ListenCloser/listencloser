@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import type { Insight } from "@/lib/domain.types";
 import type { Project, Work } from "@/lib/domain.types";
+import type { RepresentationId } from "@/lib/representations";
 
 export type RepresentationKind =
   | "piano_roll"
@@ -55,8 +56,7 @@ type WorkspaceState = {
   takes: StudioTake[];
   studioAction: { id: number; kind: "variation" | "compare"; versionIds: string[]; semitones?: number } | null;
   studioOperation: StudioOperation;
-  expandedRepresentation: RepresentationKind | null;
-  focusRepresentation: RepresentationKind | null;
+  activeRepresentation: RepresentationId | null;
 };
 
 type WorkspaceContextValue = {
@@ -77,13 +77,23 @@ type WorkspaceContextValue = {
   requestVariation: (versionId: string, semitones: number) => void;
   requestComparison: (versionIdA: string, versionIdB: string) => void;
   setStudioOperation: (operation: StudioOperation) => void;
-  removeRepresentation: (kind: RepresentationKind) => void;
-  expandRepresentation: (kind: RepresentationKind | null) => void;
-  focusRepresentation: (kind: RepresentationKind | null) => void;
-  reorderRepresentations: (fromIndex: number, toIndex: number) => void;
+  setActiveRepresentation: (representation: RepresentationId | null) => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+
+function representationKindToKnown(kind: RepresentationKind): RepresentationId | null {
+  switch (kind) {
+    case "waveform":
+      return "listen";
+    case "piano_roll":
+      return "piano_roll";
+    case "score":
+      return "score";
+    default:
+      return null;
+  }
+}
 
 export function useWorkspace(): WorkspaceContextValue {
   const ctx = useContext(WorkspaceContext);
@@ -105,8 +115,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     takes: [],
     studioAction: null,
     studioOperation: { state: "idle", label: "" },
-    expandedRepresentation: null,
-    focusRepresentation: null,
+    activeRepresentation: null,
   });
 
   const setProject = useCallback((project: Project | null) => {
@@ -129,8 +138,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         takes: [],
         studioAction: null,
         studioOperation: { state: "idle", label: "" },
-        expandedRepresentation: null,
-        focusRepresentation: null,
+        activeRepresentation: null,
       };
     });
   }, []);
@@ -162,6 +170,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         takes: removingActive ? [] : prev.takes,
         studioAction: removingActive ? null : prev.studioAction,
         studioOperation: removingActive ? { state: "idle", label: "" } : prev.studioOperation,
+        activeRepresentation: removingActive ? null : prev.activeRepresentation,
         isLoadingWork: removingActive ? false : prev.isLoadingWork,
       };
     });
@@ -190,7 +199,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       return {
         ...prev,
         representations: [...prev.representations, rep],
-        expandedRepresentation: prev.expandedRepresentation ?? rep.kind,
+        activeRepresentation: prev.activeRepresentation ?? representationKindToKnown(rep.kind),
       };
     });
   }, []);
@@ -225,52 +234,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setWorkspace((prev) => ({
       ...prev,
       representations,
-      expandedRepresentation: representations[0]?.kind ?? null,
-      focusRepresentation: null,
+      activeRepresentation: prev.activeRepresentation ?? null,
     }));
   }, []);
 
-  const removeRepresentation = useCallback((kind: RepresentationKind) => {
-    setWorkspace((prev) => {
-      const filtered = prev.representations.filter((r) => r.kind !== kind);
-      return {
-        ...prev,
-        representations: filtered,
-        expandedRepresentation:
-          prev.expandedRepresentation === kind
-            ? filtered.length > 0
-              ? filtered[0].kind
-              : null
-            : prev.expandedRepresentation,
-        focusRepresentation:
-          prev.focusRepresentation === kind ? null : prev.focusRepresentation,
-      };
-    });
-  }, []);
-
-  const expandRepresentation = useCallback((kind: RepresentationKind | null) => {
-    setWorkspace((prev) => {
-      if (prev.expandedRepresentation === kind) {
-        return { ...prev, expandedRepresentation: null };
-      }
-      return { ...prev, expandedRepresentation: kind };
-    });
-  }, []);
-
-  const focusRepresentation = useCallback((kind: RepresentationKind | null) => {
+  const setActiveRepresentation = useCallback((representation: RepresentationId | null) => {
     setWorkspace((prev) => ({
       ...prev,
-      focusRepresentation: prev.focusRepresentation === kind ? null : kind,
+      activeRepresentation: representation,
     }));
-  }, []);
-
-  const reorderRepresentations = useCallback((fromIndex: number, toIndex: number) => {
-    setWorkspace((prev) => {
-      const reps = [...prev.representations];
-      const [moved] = reps.splice(fromIndex, 1);
-      reps.splice(toIndex, 0, moved);
-      return { ...prev, representations: reps };
-    });
   }, []);
 
   return (
@@ -293,10 +265,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         requestVariation,
         requestComparison,
         setStudioOperation,
-        removeRepresentation,
-        expandRepresentation,
-        focusRepresentation,
-        reorderRepresentations,
+        setActiveRepresentation,
       }}
     >
       {children}

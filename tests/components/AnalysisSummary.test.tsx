@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Insight } from "@/lib/domain.types";
 import { useWorkspace } from "@/lib/stores/workspace";
-import { AnalysisSummary } from "@/components/workspace/RepresentationStack";
+import { AnalysisSummary } from "@/components/workspace/AnalysisSummary";
 
 vi.mock("@/lib/stores/workspace", () => ({
   useWorkspace: vi.fn(),

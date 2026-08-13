@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
-import { useTimeline } from "./timeline";
 
 export type PlaybackSource = {
   id: string;
@@ -14,6 +13,7 @@ export type PlaybackSource = {
 type TransportState = {
   position: number;
   isPlaying: boolean;
+  duration: number;
   loopStart: number | null;
   loopEnd: number | null;
   loopEnabled: boolean;
@@ -46,13 +46,13 @@ export function useTransport(): TransportContextValue {
 }
 
 export function TransportProvider({ children }: { children: ReactNode }) {
-  const { setTotalDuration } = useTimeline();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const positionRef = useRef(0);
   const activeSourceIdRef = useRef<string | null>(null);
   const [transport, setTransport] = useState<TransportState>({
     position: 0,
     isPlaying: false,
+    duration: 0,
     loopStart: null,
     loopEnd: null,
     loopEnabled: false,
@@ -79,7 +79,10 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     const onEnd = () => {
       setTransport((prev) => ({ ...prev, isPlaying: false }));
     };
-    const onMetadata = () => setTotalDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+    const onMetadata = () => {
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      setTransport((prev) => ({ ...prev, duration }));
+    };
 
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("ended", onEnd);
@@ -89,7 +92,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener("ended", onEnd);
       audio.removeEventListener("loadedmetadata", onMetadata);
     };
-  }, [setTotalDuration, transport.loopEnabled, transport.loopEnd, transport.loopStart]);
+  }, [transport.loopEnabled, transport.loopEnd, transport.loopStart]);
 
   const setActiveSource = useCallback((source: PlaybackSource) => {
     if (!audioRef.current) return;
@@ -150,7 +153,9 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       activeSource: active,
       position: preservePosition ? previousPosition : 0,
       isPlaying: preservePosition ? wasPlaying : false,
-      ...(preservePosition ? {} : { loopStart: null, loopEnd: null, loopEnabled: false }),
+      ...(preservePosition
+        ? {}
+        : { duration: 0, loopStart: null, loopEnd: null, loopEnabled: false }),
     }));
   }, []);
 
@@ -168,6 +173,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       sources: [],
       position: 0,
       isPlaying: false,
+      duration: 0,
       loopStart: null,
       loopEnd: null,
       loopEnabled: false,

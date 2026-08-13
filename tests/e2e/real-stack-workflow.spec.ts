@@ -147,12 +147,12 @@ test("real-stack happy path: import → play → inspect → reload → delete",
   await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
 
   // ── Score is a distinct Hearing source and plays from the notation ──────────
-  const scoreSource = page.getByRole("button", { name: "Score", exact: true });
+  const scoreSource = page.getByRole("button", { name: "Score rendition", exact: true });
   await expect(scoreSource).toBeVisible();
-  await expect(page.getByText("Select Score in the transport to hear this notation (notation time).")).toBeVisible();
+  await expect(page.getByText("Select Score rendition in the transport to hear this notation (notation time).")).toBeVisible();
   await scoreSource.click();
   await expect(scoreSource).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("Playing the score in notation time. Click a measure to jump.")).toBeVisible();
+  await expect(page.getByText("Playing the score rendition in notation time. Click a measure to jump.")).toBeVisible();
 
   // Playback starts and can be paused. The transport position change itself is
   // asserted deterministically via the measure click below, since headless
@@ -184,6 +184,44 @@ test("real-stack happy path: import → play → inspect → reload → delete",
   await expect(page.getByRole("button", { name: "Transcription", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(scoreSource).toHaveAttribute("aria-pressed", "false");
 
+  // ── Representation changes never stop playback or reset the playhead ───────
+  // Change playback source to Original and play, then move between
+  // representations while playback continues. The transport position is the
+  // single clock; switching a view must not pause, rewind, or hop sources.
+  await page.getByRole("button", { name: "Original", exact: true }).click();
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole("tab", { name: "Piano roll" }).click();
+  await expect(page.getByTestId("piano-roll")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+  const positionOnPianoRoll = await transportPosition(page);
+  expect(positionOnPianoRoll).toBeGreaterThan(0);
+
+  await page.getByRole("tab", { name: "Score" }).click();
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+  await expect.poll(() => transportPosition(page), { timeout: 10_000 }).toBeGreaterThanOrEqual(positionOnPianoRoll);
+  // The score rendition is still NOT the heard source; only the view changed.
+  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+
+  // ── Playback source changes keep the representation and the playhead ───────
+  // While the Score representation is open, swapping what we hear must not
+  // collapse the view, reset the playhead, or silently change the source.
+  const positionBeforeSourceSwap = await transportPosition(page);
+  await page.getByRole("button", { name: "Transcription", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Transcription", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
+  await expect.poll(() => transportPosition(page)).toBe(positionBeforeSourceSwap);
+
+  await page.getByRole("button", { name: "Score rendition", exact: true }).click();
+  await expect(scoreSource).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
+  await expect.poll(() => transportPosition(page)).toBe(positionBeforeSourceSwap);
+
   // ── Analysis persists real insight content ─────────────────────────────────
   await page.getByRole("tab", { name: "Analysis" }).click();
   await expect(page.getByText(/Key|Tempo|BPM|Time signature/i).first()).toBeVisible({ timeout: 20_000 });
@@ -196,13 +234,13 @@ test("real-stack happy path: import → play → inspect → reload → delete",
   await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Original", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Transcription", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Score", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Score rendition", exact: true })).toBeVisible();
 
   // Score source still works after reload.
   await page.getByRole("tab", { name: "Score" }).click();
-  await expect(page.getByText("Select Score in the transport to hear this notation (notation time).")).toBeVisible();
-  await page.getByRole("button", { name: "Score", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Score", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Select Score rendition in the transport to hear this notation (notation time).")).toBeVisible();
+  await page.getByRole("button", { name: "Score rendition", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Score rendition", exact: true })).toHaveAttribute("aria-pressed", "true");
 
   // ── Switch sources again after reload ──────────────────────────────────────
   await page.getByRole("button", { name: "Original", exact: true }).click();

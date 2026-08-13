@@ -26,7 +26,7 @@ export function buildPlaybackSources({
   // Score playback is a distinct source: it is only offered when a
   // notation-derived render exists, and it never aliases the transcription.
   if (score) {
-    sources.push({ id: score.id, label: "Score", role: "score", url: score.url, kind: "audio" });
+    sources.push({ id: score.id, label: "Score rendition", role: "score", url: score.url, kind: "audio" });
   }
   const activeId = transcription?.id ?? original?.id ?? null;
   return { sources, activeId };
