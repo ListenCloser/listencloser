@@ -20,6 +20,14 @@ const src = (role: "original" | "transcription" | "derived", id: string) => ({
   role,
 });
 
+const score = {
+  id: "score-audio",
+  label: "Score rendition",
+  url: "data:audio/wav;base64,score",
+  kind: "audio" as const,
+  role: "score" as const,
+};
+
 describe("TransportProvider", () => {
   it("resets loop state when replacing sources", () => {
     const { result } = renderHook(() => useTransport(), { wrapper });
@@ -56,13 +64,6 @@ describe("TransportProvider", () => {
 
   it("keeps a score source as a distinct active source", () => {
     const { result } = renderHook(() => useTransport(), { wrapper });
-    const score = {
-      id: "score-audio",
-      label: "Score rendition",
-      url: "data:audio/wav;base64,score",
-      kind: "audio" as const,
-      role: "score" as const,
-    };
 
     act(() => {
       result.current.replaceSources([src("transcription", "t"), score], "score-audio");
@@ -70,6 +71,94 @@ describe("TransportProvider", () => {
     expect(result.current.transport.activeSource?.id).toBe("score-audio");
     expect(result.current.transport.activeSource?.role).toBe("score");
     expect(result.current.transport.sources.map((s) => s.role)).toEqual(["transcription", "score"]);
+  });
+
+  it("enters compare mode with the chosen pair and starts on side A", () => {
+    const { result } = renderHook(() => useTransport(), { wrapper });
+
+    act(() => {
+      result.current.replaceSources([src("original", "a"), src("transcription", "b"), score], "a");
+    });
+    act(() => {
+      result.current.startCompare(src("original", "a"), score);
+    });
+
+    expect(result.current.transport.compareEnabled).toBe(true);
+    expect(result.current.transport.compareA?.id).toBe("a");
+    expect(result.current.transport.compareB?.id).toBe("score-audio");
+    expect(result.current.transport.activeSide).toBe("A");
+    expect(result.current.transport.activeSource?.id).toBe("a");
+  });
+
+  it("toggling the compare side switches the active source without losing it", () => {
+    const { result } = renderHook(() => useTransport(), { wrapper });
+
+    act(() => {
+      result.current.replaceSources([src("original", "a"), src("transcription", "b"), score], "a");
+      result.current.startCompare(src("original", "a"), score);
+    });
+
+    act(() => {
+      result.current.setCompareSide("B");
+    });
+    expect(result.current.transport.activeSide).toBe("B");
+    expect(result.current.transport.activeSource?.id).toBe("score-audio");
+
+    act(() => {
+      result.current.setCompareSide("A");
+    });
+    expect(result.current.transport.activeSide).toBe("A");
+    expect(result.current.transport.activeSource?.id).toBe("a");
+    expect(result.current.transport.compareEnabled).toBe(true);
+  });
+
+  it("swapping a compare side keeps the other side intact", () => {
+    const { result } = renderHook(() => useTransport(), { wrapper });
+
+    act(() => {
+      result.current.replaceSources([src("original", "a"), src("transcription", "b"), score], "a");
+      result.current.startCompare(src("original", "a"), score);
+      result.current.setCompareSource("B", src("transcription", "b"));
+    });
+
+    expect(result.current.transport.compareB?.id).toBe("b");
+    expect(result.current.transport.compareA?.id).toBe("a");
+    expect(result.current.transport.compareEnabled).toBe(true);
+  });
+
+  it("exiting compare keeps the active source but clears the pair", () => {
+    const { result } = renderHook(() => useTransport(), { wrapper });
+
+    act(() => {
+      result.current.replaceSources([src("original", "a"), src("transcription", "b"), score], "a");
+      result.current.startCompare(src("original", "a"), score);
+      result.current.setCompareSide("B");
+    });
+    expect(result.current.transport.activeSource?.id).toBe("score-audio");
+
+    act(() => result.current.exitCompare());
+
+    expect(result.current.transport.compareEnabled).toBe(false);
+    expect(result.current.transport.compareA).toBeNull();
+    expect(result.current.transport.compareB).toBeNull();
+    expect(result.current.transport.activeSide).toBe("A");
+    expect(result.current.transport.activeSource?.id).toBe("score-audio");
+  });
+
+  it("clears compare state when the active source is cleared", () => {
+    const { result } = renderHook(() => useTransport(), { wrapper });
+
+    act(() => {
+      result.current.replaceSources([src("original", "a"), src("transcription", "b"), score], "a");
+      result.current.startCompare(src("original", "a"), score);
+      result.current.clearActiveSource();
+    });
+
+    expect(result.current.transport.compareEnabled).toBe(false);
+    expect(result.current.transport.compareA).toBeNull();
+    expect(result.current.transport.compareB).toBeNull();
+    expect(result.current.transport.activeSource).toBeNull();
+    expect(result.current.transport.sources).toEqual([]);
   });
 
   it("preserves position and active source when replacing with preservePosition", () => {
