@@ -634,6 +634,11 @@ def transcribe_with_engine(
 ) -> dict:
     """Transcribe audio using the configured transcription engine.
 
+    Uses the global registry default engine. Durable jobs that need a
+    per-job engine selection call :func:`get_transcription_engine_for_job`
+    instead (see ``handle_transcribe``), so requirement handlers never bypass
+    the engine seam.
+
     Returns the same dict as transcribe_audio, with 'provenance' added.
     """
     from engines.registry import get_transcription_engine

@@ -128,6 +128,21 @@ class StructureEngine(Protocol):
 
 @runtime_checkable
 class NotationEngine(Protocol):
-    def convert(
-        self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any
-    ) -> NotationResult: ...
+    def convert(self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any) -> NotationResult:
+        """Produce notated MIDI and MusicXML from a performance MIDI and beat grid.
+
+        Interface contract (engines must honor these when present; unknown
+        options may be ignored):
+
+        - ``adaptive``: build the metrical grid and quantize per-measure from
+          beat/downbeat positions, instead of a fixed subdivision grid.
+        - ``downbeats``: beat-position subset that anchors measure boundaries.
+        - ``beat_positions``: metrical position (1-based step) of each beat.
+        - ``notation_ready``: input MIDI is already quantized notation; do not
+          re-quantize or infer meter.
+        - ``piano_grand_staff``: engrave treble+bass staves instead of a single
+          staff.
+
+        These options describe requested notation semantics, not a specific
+        library.  Returns a NotationResult.
+        """
