@@ -14,9 +14,9 @@ import { existsSync } from "node:fs";
  *   SUPABASE_ANON_KEY            local Supabase anon key
  *   SUPABASE_SERVICE_ROLE_KEY    local Supabase service-role key
  *
- * Score *playback* (Score source, cursor following, click-to-seek) is the scope
- * of PR #207 and is intentionally not asserted here; this suite verifies that
- * the Score *notation* renders and that Original/Transcription playback work.
+ * Covers the full happy path including score playback: Original and
+ * Transcription playback, Score as a distinct notation-derived source, animated
+ * score following, measure click-to-seek, reload persistence, and deletion.
  */
 
 const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
@@ -68,6 +68,13 @@ async function createSession(): Promise<Record<string, unknown>> {
 
 async function transportPosition(page: import("@playwright/test").Page): Promise<number> {
   return Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
+}
+
+async function scoreCursorLeft(page: import("@playwright/test").Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const cursor = document.querySelector<HTMLElement>('.sheet-music-container img[id^="cursorImg"]');
+    return cursor ? cursor.style.left : null;
+  });
 }
 
 test("real-stack happy path: import → play → inspect → reload → delete", async ({ page }) => {
@@ -141,6 +148,42 @@ test("real-stack happy path: import → play → inspect → reload → delete",
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
 
+  // ── Score is a distinct Hearing source and plays from the notation ──────────
+  const scoreSource = page.getByRole("button", { name: "Score", exact: true });
+  await expect(scoreSource).toBeVisible();
+  await expect(page.getByText("Select Score in the transport to hear this notation.")).toBeVisible();
+  await scoreSource.click();
+  await expect(scoreSource).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Playing from the score. Click a measure to jump.")).toBeVisible();
+
+  const scoreStart = await transportPosition(page);
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect.poll(() => transportPosition(page), { timeout: 15_000 }).toBeGreaterThan(scoreStart);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+
+  // Clicking a later measure seeks the transport to that score-derived time and
+  // advances the score cursor to the clicked measure (both driven by transport
+  // position, not a detached timer).
+  const beforeSeek = await transportPosition(page);
+  const cursorBefore = await scoreCursorLeft(page);
+  const measures = page.locator(".sheet-music-container g.vf-measure");
+  const measureCount = await measures.count();
+  expect(measureCount).toBeGreaterThan(2);
+  const targetMeasure = measures.nth(2);
+  const targetBox = await targetMeasure.boundingBox();
+  expect(targetBox).not.toBeNull();
+  await page.mouse.click(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2);
+  await expect.poll(() => transportPosition(page), { timeout: 10_000 }).not.toBe(beforeSeek);
+  await expect.poll(
+    async () => (await scoreCursorLeft(page)) !== cursorBefore,
+    { timeout: 10_000 },
+  ).toBe(true);
+
+  // Switching to Transcription deactivates Score.
+  await page.getByRole("button", { name: "Transcription", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Transcription", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(scoreSource).toHaveAttribute("aria-pressed", "false");
+
   // ── Analysis persists real insight content ─────────────────────────────────
   await page.getByRole("tab", { name: "Analysis" }).click();
   await expect(page.getByText(/Key|Tempo|BPM|Time signature/i).first()).toBeVisible({ timeout: 20_000 });
@@ -153,6 +196,13 @@ test("real-stack happy path: import → play → inspect → reload → delete",
   await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Original", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Transcription", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Score", exact: true })).toBeVisible();
+
+  // Score source still works after reload.
+  await page.getByRole("tab", { name: "Score" }).click();
+  await expect(page.getByText("Select Score in the transport to hear this notation.")).toBeVisible();
+  await page.getByRole("button", { name: "Score", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Score", exact: true })).toHaveAttribute("aria-pressed", "true");
 
   // ── Switch sources again after reload ──────────────────────────────────────
   await page.getByRole("button", { name: "Original", exact: true }).click();

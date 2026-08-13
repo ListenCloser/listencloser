@@ -145,19 +145,41 @@ def test_understand_pipeline_persists_full_bundle(sb, monkeypatch):
         "audio_rendered",
         "midi_corrected",
         "musicxml_score",
+        "rendered_score",
     ):
         assert expected in kinds, f"missing artifact kind {expected}: {sorted(kinds)}"
 
-    midi_artifact = next(row for row in artifacts if row["kind"] == "midi_performance")
-    versions = (
-        sb.table("artifact_versions")
-        .select("*")
-        .eq("artifact_id", midi_artifact["id"])
-        .execute()
-        .data
-    )
-    assert versions
-    midi_version_id = versions[0]["id"]
+    def _version_for(kind: str) -> dict:
+        artifact = next(row for row in artifacts if row["kind"] == kind)
+        versions = (
+            sb.table("artifact_versions")
+            .select("*")
+            .eq("artifact_id", artifact["id"])
+            .execute()
+            .data
+        )
+        assert versions, f"no version for {kind}"
+        return versions[0]
+
+    notation_version = _version_for("midi_corrected")
+    performance_version = _version_for("midi_performance")
+    transcription_version = _version_for("audio_rendered")
+    score_version = _version_for("rendered_score")
+
+    # rendered_score is derived from the notation representation, never the
+    # performance MIDI render, and is a distinct source id from the transcription.
+    assert (
+        score_version["parent_version_id"] == notation_version["id"]
+    ), "rendered_score must be parented from the notation MIDI, not the performance MIDI"
+    assert score_version["parent_version_id"] != performance_version["id"]
+    assert score_version["id"] != transcription_version["id"]
+
+    # Score playback carries the measure grid used for animated following.
+    measure_starts = score_version["metadata"].get("measure_starts_seconds")
+    assert measure_starts, "rendered_score missing measure_starts_seconds"
+    assert measure_starts[0] == 0.0
+
+    midi_version_id = performance_version["id"]
 
     insights = (
         sb.table("insights").select("*").eq("version_id", str(midi_version_id)).execute().data

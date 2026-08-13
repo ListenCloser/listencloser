@@ -15,6 +15,9 @@ export type RepresentationProps = {
   analysis?: unknown;
   bpm?: number;
   playheadTime?: number;
+  isScoreActive?: boolean;
+  hasScorePlayback?: boolean;
+  measureStarts?: number[];
   onSeek?: (seconds: number) => void;
 };
 
@@ -81,9 +84,16 @@ const renderers: Record<RepresentationKind, (props: RepresentationProps) => Reac
     </div>
   ),
   waveform: ({ audioUrl }) => <WaveformWrapper audioUrl={audioUrl} />,
-  score: ({ musicxml, bpm, playheadTime }) => (
+  score: ({ musicxml, playheadTime, isScoreActive, hasScorePlayback, measureStarts, onSeek }) => (
     <div className="representation-body">
-      <SheetMusic musicXml={musicxml ?? ""} bpm={bpm} playheadTime={playheadTime} />
+      <SheetMusic
+        musicXml={musicxml ?? ""}
+        playheadTime={playheadTime}
+        isScoreActive={isScoreActive}
+        hasScorePlayback={hasScorePlayback}
+        measureStarts={measureStarts}
+        onSeek={onSeek}
+      />
     </div>
   ),
   spectrogram: ({ audioUrl }) => <SpectrogramWrapper audioUrl={audioUrl} />,

@@ -1,23 +1,45 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   musicXml: string;
   className?: string;
   playheadTime?: number;
-  bpm?: number;
+  isScoreActive?: boolean;
+  hasScorePlayback?: boolean;
+  measureStarts?: number[];
+  onSeek?: (seconds: number) => void;
 };
 
-export default function SheetMusic({ musicXml, className, playheadTime = 0, bpm = 120 }: Props) {
+function measureIndexAt(starts: number[], time: number): number {
+  let index = 0;
+  for (let i = 0; i < starts.length; i += 1) {
+    if (starts[i] <= time) index = i;
+    else break;
+  }
+  return index;
+}
+
+export default function SheetMusic({
+  musicXml,
+  className,
+  playheadTime = 0,
+  isScoreActive = false,
+  hasScorePlayback = false,
+  measureStarts,
+  onSeek,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<any>(null);
-  const cursorStepRef = useRef(-1);
+  const currentMeasureRef = useRef(-1);
+  const [osmdReady, setOsmdReady] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current || !musicXml) return;
 
     let cancelled = false;
+    setOsmdReady(false);
 
     async function render() {
       const { OpenSheetMusicDisplay } = await import("opensheetmusicdisplay");
@@ -39,13 +61,14 @@ export default function SheetMusic({ musicXml, className, playheadTime = 0, bpm 
         autoBeam: false,
       });
       osmdRef.current = osmd;
+      currentMeasureRef.current = -1;
 
       try {
         await osmd.load(musicXml);
         if (!cancelled) {
           osmd.render();
           osmd.cursor.show();
-          cursorStepRef.current = 0;
+          setOsmdReady(true);
         }
       } catch (err) {
         console.error("OSMD render failed:", err);
@@ -65,25 +88,49 @@ export default function SheetMusic({ musicXml, className, playheadTime = 0, bpm 
 
   useEffect(() => {
     const osmd = osmdRef.current;
-    if (!osmd?.cursor || !Number.isFinite(playheadTime) || bpm <= 0) return;
-    // OSMD's cursor is expressed in score timestamps. Until beat tracking is
-    // persisted with the score, use the same MIDI tempo grid used by the piano
-    // roll. This gives a visible, deterministic playback relationship without
-    // pretending it is a perfect score-following alignment.
-    const targetStep = Math.max(0, Math.floor(playheadTime * bpm / 60));
-    try {
-      if (targetStep < cursorStepRef.current) {
-        osmd.cursor.reset();
-        cursorStepRef.current = 0;
-      }
-      const steps = Math.min(targetStep - cursorStepRef.current, 64);
-      for (let index = 0; index < steps; index += 1) osmd.cursor.next();
-      if (steps > 0) cursorStepRef.current += steps;
-    } catch {
-      // Cursor support varies with MusicXML content; score rendering remains
-      // usable even when a cursor cannot advance for a malformed draft.
+    if (!osmdReady || !osmd?.cursor) return;
+
+    if (!isScoreActive || !measureStarts || measureStarts.length === 0) {
+      currentMeasureRef.current = -1;
+      return;
     }
-  }, [bpm, playheadTime]);
+
+    const target = Math.min(measureIndexAt(measureStarts, playheadTime), measureStarts.length - 1);
+    if (target === currentMeasureRef.current) return;
+
+    let from = currentMeasureRef.current;
+    if (from < 0 || target < from) {
+      osmd.cursor.reset();
+      from = 0;
+    }
+    const steps = Math.max(0, target - from);
+    for (let i = 0; i < steps; i += 1) osmd.cursor.nextMeasure();
+    currentMeasureRef.current = target;
+  }, [osmdReady, isScoreActive, measureStarts, playheadTime]);
+
+  function handleClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (!onSeek || !isScoreActive || !measureStarts || measureStarts.length === 0) return;
+    const container = containerRef.current;
+    if (!container) return;
+    // Map the click to the engraved measure whose bounding box contains it,
+    // avoiding the OSMD internal coordinate transform entirely.
+    const measures = container.querySelectorAll("g.vf-measure");
+    for (const measureEl of measures) {
+      const rect = measureEl.getBoundingClientRect();
+      if (
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom
+      ) {
+        const index = Number(measureEl.getAttribute("id")) - 1;
+        if (index >= 0 && measureStarts[index] != null) {
+          onSeek(measureStarts[index]);
+        }
+        return;
+      }
+    }
+  }
 
   if (!musicXml) {
     return (
@@ -93,18 +140,29 @@ export default function SheetMusic({ musicXml, className, playheadTime = 0, bpm 
     );
   }
 
+  const hint = !hasScorePlayback
+    ? "Score playback is not available for this piece yet."
+    : isScoreActive
+      ? "Playing from the score. Click a measure to jump."
+      : "Select Score in the transport to hear this notation.";
+
   return (
-    <div
-      ref={containerRef}
-      className={`sheet-music-container ${className ?? ""}`}
-      style={{
-        overflow: "auto",
-        maxHeight: 500,
-        background: "#f8f8f8",
-        borderRadius: "var(--r-md)",
-        padding: "var(--s-4)",
-        border: "1px solid var(--border-strong)",
-      }}
-    />
+    <>
+      <p className="sheet-music-hint">{hint}</p>
+      <div
+        ref={containerRef}
+        className={`sheet-music-container ${className ?? ""}`}
+        onClick={handleClick}
+        style={{
+          overflow: "auto",
+          maxHeight: 640,
+          background: "#f8f8f8",
+          borderRadius: "var(--r-md)",
+          padding: "var(--s-4)",
+          border: "1px solid var(--border-strong)",
+          cursor: isScoreActive && measureStarts && measureStarts.length > 0 ? "pointer" : "default",
+        }}
+      />
+    </>
   );
 }

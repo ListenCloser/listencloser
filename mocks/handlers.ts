@@ -12,6 +12,14 @@ const fakeNotes = Array.from({ length: 42 }, (_, i) => {
 
 const wavBase64 = sampleWavBase64;
 
+const PITCH_STEPS = ["C", "D", "E", "F", "G", "A"];
+const musicxml = `<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list><part id="P1">${PITCH_STEPS.map(
+  (step, i) =>
+    `<measure number="${i + 1}"><attributes><divisions>1</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes><note><pitch><step>${step}</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note></measure>`,
+).join("")}</part></score-partwise>`;
+
+const measureStartsSeconds = [0, 2, 4, 6, 8, 10];
+
 export const handlers = [
   // ── Domain API v1 ──────────────────────────────────────────
 
@@ -88,11 +96,10 @@ export const handlers = [
 
   http.get("/api/v1/versions/:versionId", async ({ params }) => {
     const id = String(params.versionId);
-    const kind = id.includes("midi") ? "midi_performance" : id.includes("score") ? "musicxml_score" : "audio_rendered";
-    const musicxml = `<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>1</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes><note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note></measure></part></score-partwise>`;
+    const kind = id.includes("rendered-score") ? "rendered_score" : id.includes("midi") ? "midi_performance" : id.includes("score") ? "musicxml_score" : "audio_rendered";
     const signedUrl = kind === "musicxml_score"
       ? `data:application/xml,${encodeURIComponent(musicxml)}`
-      : kind === "audio_rendered" ? `data:audio/wav;base64,${sampleWavOutputBase64}` : "https://example.com/mock.mid";
+      : kind === "audio_rendered" || kind === "rendered_score" ? `data:audio/wav;base64,${sampleWavOutputBase64}` : "https://example.com/mock.mid";
     return HttpResponse.json({
       version: { id, artifact_id: `artifact-${id}`, storage_bucket: "artifacts", storage_key: `mock/${id}`, parent_version_id: null, lineage: [], byte_size: 100, sha256: null, label: id, metadata: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-job-1" },
       artifact: { id: `artifact-${id}`, work_id: "mock-work-1", kind, mime_type: "application/octet-stream", created_at: new Date().toISOString() },
@@ -102,11 +109,10 @@ export const handlers = [
 
   http.get("/api/v1/works/:workId", async () => {
     const now = new Date().toISOString();
-    const musicxml = `<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>1</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes><note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note></measure></part></score-partwise>`;
-    const item = (id: string, kind: string, signedUrl: string) => ({
+    const item = (id: string, kind: string, signedUrl: string, metadata: Record<string, unknown> = {}) => ({
       artifact: { id: `artifact-${id}`, work_id: "mock-work-1", kind, mime_type: "application/octet-stream", created_at: now },
-      versions: [{ id, artifact_id: `artifact-${id}`, storage_bucket: "artifacts", storage_key: `mock/${id}`, parent_version_id: null, lineage: [], byte_size: 100, sha256: null, label: id, metadata: {}, created_at: now, created_by: "mock-user-1", produced_by_job_id: "mock-job-1" }],
-      latest_version: { id, artifact_id: `artifact-${id}`, storage_bucket: "artifacts", storage_key: `mock/${id}`, parent_version_id: null, lineage: [], byte_size: 100, sha256: null, label: id, metadata: {}, created_at: now, created_by: "mock-user-1", produced_by_job_id: "mock-job-1" },
+      versions: [{ id, artifact_id: `artifact-${id}`, storage_bucket: "artifacts", storage_key: `mock/${id}`, parent_version_id: null, lineage: [], byte_size: 100, sha256: null, label: id, metadata, created_at: now, created_by: "mock-user-1", produced_by_job_id: "mock-job-1" }],
+      latest_version: { id, artifact_id: `artifact-${id}`, storage_bucket: "artifacts", storage_key: `mock/${id}`, parent_version_id: null, lineage: [], byte_size: 100, sha256: null, label: id, metadata, created_at: now, created_by: "mock-user-1", produced_by_job_id: "mock-job-1" },
       signed_url: signedUrl,
     });
     return HttpResponse.json({
@@ -117,6 +123,7 @@ export const handlers = [
         item("mock-midi-version", "midi_performance", "https://example.com/mock.mid"),
         item("mock-audio-version", "audio_rendered", `data:audio/wav;base64,${sampleWavOutputBase64}`),
         item("mock-score-version", "musicxml_score", `data:application/xml,${encodeURIComponent(musicxml)}`),
+        item("mock-rendered-score-version", "rendered_score", `data:audio/wav;base64,${sampleWavOutputBase64}`, { measure_starts_seconds: measureStartsSeconds }),
       ],
     });
   }),

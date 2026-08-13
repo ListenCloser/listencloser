@@ -20,6 +20,7 @@ type RepresentationLaneProps = {
   workspaceNotes?: Note[] | null;
   musicxml?: string;
   audioUrl?: string;
+  measureStarts?: number[];
   hideHeader?: boolean;
 };
 
@@ -45,6 +46,7 @@ export default function RepresentationLane({
   workspaceNotes,
   musicxml,
   audioUrl,
+  measureStarts,
   hideHeader = false,
 }: RepresentationLaneProps) {
   const { transport, seek } = useTransport();
@@ -148,6 +150,9 @@ export default function RepresentationLane({
                 audioUrl,
                 bpm: timeline.bpm,
                 playheadTime: transport.position,
+                isScoreActive: transport.activeSource?.role === "score",
+                hasScorePlayback: transport.sources.some((source) => source.role === "score"),
+                measureStarts,
                 onSeek: seek,
               })}
             </div>

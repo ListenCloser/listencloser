@@ -25,6 +25,7 @@ export type RepresentationEntry = {
   notes?: Note[];
   musicxml?: string;
   audioUrl?: string;
+  measureStarts?: number[];
   versionId?: string;
 };
 

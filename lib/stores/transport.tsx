@@ -8,7 +8,7 @@ export type PlaybackSource = {
   label: string;
   url: string;
   kind: "audio" | "midi" | "score";
-  role: "original" | "transcription" | "derived";
+  role: "original" | "transcription" | "derived" | "score";
 };
 
 type TransportState = {
