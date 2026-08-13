@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Literal
+import os
 
 ClipCategory = Literal[
     "solo_piano",
@@ -51,20 +52,27 @@ class EvalClip:
     @classmethod
     def from_dict(cls, data: dict[str, Any], base_dir: str = "") -> EvalClip:
         ref_data = data.get("reference", {})
+        # Support environment variable substitution in paths: ${VAR}/path or ${VAR}
+        def resolve_path(path: str | None) -> str | None:
+            if path is None:
+                return None
+            if path.startswith("${"):
+                # Handle ${VAR}/rest or ${VAR}
+                end = path.find("}")
+                if end != -1:
+                    env_var = path[2:end]
+                    rest = path[end+1:]
+                    expanded = os.environ.get(env_var, "")
+                    if expanded:
+                        return expanded + rest
+            return f"{base_dir}/{path}" if base_dir and not os.path.isabs(path) else path
+
         return cls(
             id=data["id"],
-            audio=f"{base_dir}/{data['audio']}" if base_dir else data["audio"],
+            audio=resolve_path(data.get("audio")),
             category=data["category"],
-            reference_midi=(
-                f"{base_dir}/{data['reference_midi']}"
-                if base_dir and data.get("reference_midi")
-                else data.get("reference_midi")
-            ),
-            reference_musicxml=(
-                f"{base_dir}/{data['reference_musicxml']}"
-                if base_dir and data.get("reference_musicxml")
-                else data.get("reference_musicxml")
-            ),
+            reference_midi=resolve_path(data.get("reference_midi")),
+            reference_musicxml=resolve_path(data.get("reference_musicxml")),
             reference=Reference(
                 bpm=ref_data.get("bpm"),
                 key=ref_data.get("key"),

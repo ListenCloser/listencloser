@@ -1,0 +1,37 @@
+{
+  "name": "oss_bakeoff_qualitative_v1",
+  "description": "Qualitative-only diagnostic fixtures for OSS engine bakeoff. These have NO reference ground truth (reference_midi: null) and are intended ONLY for visual/auditory inspection of engine outputs. They must NOT be used for quantitative metric computation.",
+  "datasets": {
+    "local_piano": {
+      "source": "local test fixtures",
+      "version": "v1",
+      "license": "proprietary (test fixtures only)",
+      "split": "qualitative",
+      "redistribution": "do not redistribute"
+    }
+  },
+  "clips": [
+    {
+      "id": "real_piano_m4a",
+      "dataset": "local_piano",
+      "category": "solo_piano",
+      "audio": "${TEST_FIXTURES_DIR}/real-piano.m4a",
+      "reference_midi": null,
+      "reference_musicxml": null,
+      "reference": {},
+      "license": "test fixture",
+      "metrics": ["qualitative_only"]
+    },
+    {
+      "id": "piano_simple_m4a",
+      "dataset": "local_piano",
+      "category": "solo_piano",
+      "audio": "${TEST_FIXTURES_DIR}/piano-simple.m4a",
+      "reference_midi": null,
+      "reference_musicxml": null,
+      "reference": {},
+      "license": "test fixture",
+      "metrics": ["qualitative_only"]
+    }
+  ]
+}
