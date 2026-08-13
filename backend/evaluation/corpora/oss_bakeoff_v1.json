@@ -87,7 +87,7 @@
       "split": "test",
       "category": "pitched_single_instrument",
       "source_id": "00_Rock2-142-D_comp",
-      "license": "MIT",
+      "license": "CC BY 4.0",
       "excerpt_start": 0,
       "excerpt_end": 20,
       "metrics": ["note_onset", "note_offset", "beat", "downbeat"]
