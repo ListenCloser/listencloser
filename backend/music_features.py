@@ -659,17 +659,18 @@ def adaptive_notation_from_performance(
     Returns (notation_midi_bytes, quantization_report_dict).
     """
     from notation.grid import build_metrical_grid
-    from notation.quantize import adaptive_quantize, quantize_fixed_grid
+    from notation.quantize import adaptive_quantize, quantize_rhythmic_grid
 
     grid = build_metrical_grid(beats, downbeats, beat_positions)
     notation_midi, report = adaptive_quantize(midi_bytes, grid)
     report["grid"] = grid.to_dict()
 
     # When beat/downbeat tracking is unavailable (or inconsistent with the
-    # MIDI's own tempo), fall back to a fixed eighth-note grid so the notation
-    # still renders as clean, readable durations instead of raw micro-timing.
+    # MIDI's own tempo), fall back to evidence-based rhythmic grid selection so
+    # the notation uses musically plausible note values rather than raw
+    # performance micro-timing.
     if report.get("timing_mode") in (None, "preserved_no_grid", "preserved_no_meter"):
-        notation_midi, report = quantize_fixed_grid(midi_bytes)
+        notation_midi, report = quantize_rhythmic_grid(midi_bytes)
         report["grid"] = grid.to_dict()
 
     return notation_midi, report
