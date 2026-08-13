@@ -18,6 +18,7 @@ Runs on CPU (Oracle always-free ARM VM). Suitable for short clips
 from __future__ import annotations
 
 import contextlib
+import copy
 import io
 import logging
 import os
@@ -285,13 +286,22 @@ def decode_audio_to_wav(audio_bytes: bytes, fmt: str = "wav") -> bytes:
 # ---------------------------------------------------------------------------
 # Format conversion (MIDI <-> MusicXML)
 # ---------------------------------------------------------------------------
-def convert_format(data: bytes, source: str, target: str, notation_ready: bool = False) -> bytes:
+def convert_format(
+    data: bytes,
+    source: str,
+    target: str,
+    notation_ready: bool = False,
+    piano_grand_staff: bool = False,
+) -> bytes:
     """Convert between MIDI and MusicXML using music21.
 
     Args:
         data: Raw file bytes (MIDI or MusicXML).
         source: 'midi' or 'musicxml'.
         target: 'midi' or 'musicxml'.
+        notation_ready: True when ``data`` is already quantized notation MIDI.
+        piano_grand_staff: When converting MIDI -> MusicXML, engrave a piano
+            grand staff (treble + bass staves) instead of a single staff.
 
     Returns:
         Converted file bytes.
@@ -310,22 +320,27 @@ def convert_format(data: bytes, source: str, target: str, notation_ready: bool =
         with open(in_path, "wb") as f:
             f.write(data)
 
-        score = converter.parse(in_path)
+        if piano_grand_staff and source == "midi" and target == "musicxml":
+            from notation.staffing import grand_staff_from_midi
 
-        # MIDI performance timing is not notation.  Use a deliberate, bounded
-        # grid before engraving rather than passing every micro-timing artifact
-        # through to MusicXML.  This is still a draft score: the provenance/UI
-        # must never claim publication-quality notation from AMT alone.
-        if target == "musicxml" and not notation_ready:
-            with contextlib.suppress(Exception):
-                score.quantize(
-                    quarterLengthDivisors=(2, 3, 4, 6, 8, 12, 16),
-                    processOffsets=True,
-                    processDurations=True,
-                    inPlace=True,
-                )
-            with contextlib.suppress(Exception):
-                score.makeNotation(inPlace=True)
+            score = grand_staff_from_midi(data)
+        else:
+            score = converter.parse(in_path)
+
+            # MIDI performance timing is not notation.  Use a deliberate, bounded
+            # grid before engraving rather than passing every micro-timing artifact
+            # through to MusicXML.  This is still a draft score: the provenance/UI
+            # must never claim publication-quality notation from AMT alone.
+            if target == "musicxml" and not notation_ready:
+                with contextlib.suppress(Exception):
+                    score.quantize(
+                        quarterLengthDivisors=(2, 3, 4, 6, 8, 12, 16),
+                        processOffsets=True,
+                        processDurations=True,
+                        inPlace=True,
+                    )
+                with contextlib.suppress(Exception):
+                    score.makeNotation(inPlace=True)
 
         # Emit a key signature only when music21's analysis is confident. A
         # low-confidence key (or a default C major fallback) must not fabricate
@@ -338,8 +353,9 @@ def convert_format(data: bytes, source: str, target: str, notation_ready: bool =
                     from music21 import key as _key_mod
 
                     signature = _key_mod.KeySignature(analyzed.sharps)
-                    first_measure = score.parts[0].getElementsByClass("Measure")[0]
-                    first_measure.insert(0, signature)
+                    for part in score.parts:
+                        first_measure = part.getElementsByClass("Measure")[0]
+                        first_measure.insert(0, copy.deepcopy(signature))
 
         out_ext = ".mid" if target == "midi" else ".xml"
         out_path = os.path.join(td, f"output{out_ext}")

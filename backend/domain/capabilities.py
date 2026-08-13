@@ -990,7 +990,9 @@ def handle_score(job: Job, client) -> list[str]:
             "beat_provenance": beat_result.get("provenance"),
         },
     )
-    musicxml = music_features.convert_format(notation_midi, "midi", "musicxml", notation_ready=True)
+    musicxml = music_features.convert_format(
+        notation_midi, "midi", "musicxml", notation_ready=True, piano_grand_staff=True
+    )
     storage_key = _job_storage_key(job, "score.musicxml")
     _upload_bytes(
         client,
