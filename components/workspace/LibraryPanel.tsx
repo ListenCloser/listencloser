@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
+import { useSelection } from "@/lib/stores/selection";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
+import { useTimeline } from "@/lib/stores/timeline";
 import { deleteWork } from "@/lib/api-client";
+import { presentableTitle } from "@/lib/format";
 import { deriveAvailability } from "@/lib/representation-availability";
 
 export default function LibraryPanel({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
@@ -14,31 +17,45 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     setActiveWorkId,
     toggleLibrary,
     removeWork,
+    restoreWork,
   } = useWorkspace();
   const { clearActiveSource } = useTransport();
+  const { resetTimeline } = useTimeline();
+  const { clearSelection } = useSelection();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function signOut() {
     await supabase?.auth.signOut();
     window.location.reload();
   }
 
-  async function handleDelete(workId: string, title: string) {
+  async function handleDelete(workId: string) {
     if (confirmId !== workId) {
       setConfirmId(workId);
+      setDeleteError(null);
       return;
     }
+    const removed = workspace.works.find((work) => work.id === workId);
     setDeletingId(workId);
+    setConfirmId(null);
+    setDeleteError(null);
+    // Optimistic: the work leaves the library and workspace state immediately.
+    // If it was the active work, stop any playback and clear the transport,
+    // playhead, duration, and selection so no stale time survives the delete.
+    if (workspace.activeWorkId === workId) {
+      clearActiveSource();
+      resetTimeline();
+    }
+    removeWork(workId);
+    clearSelection();
     try {
-      if (workspace.activeWorkId === workId) {
-        clearActiveSource();
-        setActiveWorkId(null);
-      }
       await deleteWork(workId);
-      removeWork(workId);
     } catch {
-      setConfirmId(null);
+      // Backend deletion failed: put the work back and let the user retry.
+      if (removed) restoreWork(removed);
+      setDeleteError("That work could not be deleted. It has been restored.");
     } finally {
       setDeletingId(null);
     }
@@ -71,6 +88,11 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
       )}
 
       <div style={{ flex: 1, overflow: "auto", padding: "var(--s-2)" }}>
+        {deleteError && (
+          <div role="alert" style={{ margin: "var(--s-2)", padding: "var(--s-2) var(--s-3)", fontSize: "var(--fs-xs)", lineHeight: 1.45, color: "var(--danger)", background: "var(--danger-soft)", border: "1px solid var(--danger)", borderRadius: "var(--r-md)" }}>
+            {deleteError}
+          </div>
+        )}
         {workspace.works.length === 0 ? (
           <p style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", lineHeight: 1.5, padding: "var(--s-2)" }}>
             Imported works will appear here and can be reopened in later sessions.
@@ -92,7 +114,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
                   gap: 3,
                   width: "100%",
                   padding: "var(--s-3)",
-                  paddingRight: 32,
+                  paddingRight: 40,
                   border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
                   borderRadius: "var(--r-md)",
                   background: selected ? "var(--accent-soft)" : "transparent",
@@ -103,7 +125,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
                 }}
               >
                 <span style={{ fontSize: "var(--fs-sm)", fontWeight: "var(--fw-medium)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>
-                  {work.title}
+                  {presentableTitle(work.title)}
                 </span>
                 <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", width: "100%" }}>
                   <span>{new Date(work.created_at).toLocaleDateString()}</span>
@@ -112,14 +134,14 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               </button>
               <button
                 title={confirmId === work.id ? "Click again to confirm delete" : "Delete work"}
-                onClick={(e) => { e.stopPropagation(); handleDelete(work.id, work.title); }}
+                onClick={(e) => { e.stopPropagation(); void handleDelete(work.id); }}
                 disabled={deletingId === work.id}
                 style={{
                   position: "absolute",
                   top: "var(--s-2)",
                   right: "var(--s-2)",
-                  width: 20,
-                  height: 20,
+                  width: 30,
+                  height: 30,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -128,9 +150,9 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
                   background: confirmId === work.id ? "var(--danger-soft)" : "transparent",
                   color: confirmId === work.id ? "var(--danger)" : "var(--muted)",
                   cursor: "pointer",
-                  fontSize: 10,
+                  fontSize: 12,
                   padding: 0,
-                  opacity: 0.6,
+                  opacity: confirmId === work.id ? 1 : 0.75,
                 }}
               >
                 {deletingId === work.id ? "…" : confirmId === work.id ? "🗑" : "×"}

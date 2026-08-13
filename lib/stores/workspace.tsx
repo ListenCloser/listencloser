@@ -69,6 +69,7 @@ type WorkspaceContextValue = {
   toggleLibrary: () => void;
   toggleInspector: () => void;
   removeWork: (workId: string) => void;
+  restoreWork: (work: Work) => void;
   addRepresentation: (rep: RepresentationEntry) => void;
   replaceRepresentations: (reps: RepresentationEntry[]) => void;
   setInsights: (insights: Insight[]) => void;
@@ -163,6 +164,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         studioOperation: removingActive ? { state: "idle", label: "" } : prev.studioOperation,
         isLoadingWork: removingActive ? false : prev.isLoadingWork,
       };
+    });
+  }, []);
+
+  const restoreWork = useCallback((work: Work) => {
+    setWorkspace((prev) => {
+      if (prev.works.some((w) => w.id === work.id)) return prev;
+      return { ...prev, works: [...prev.works, work] };
     });
   }, []);
 
@@ -277,6 +285,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         toggleLibrary,
         toggleInspector,
         removeWork,
+        restoreWork,
         addRepresentation,
         replaceRepresentations,
         setInsights,
