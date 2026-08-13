@@ -12,7 +12,7 @@ pytest.importorskip("pretty_midi", reason="pretty_midi not installed locally")
 import pretty_midi
 
 from notation.grid import build_metrical_grid
-from notation.quantize import adaptive_quantize
+from notation.quantize import adaptive_quantize, quantize_fixed_grid
 
 
 def _make_midi(notes) -> bytes:
@@ -205,3 +205,43 @@ class TestAdaptiveQuantize:
         for n in notes:
             assert n["start"] >= 1.0
             assert abs(n["start"] - round(n["start"] / 0.5) * 0.5) < 0.06
+
+
+class TestFixedGridQuantize:
+    def test_quantizes_to_eighth_note_grid(self):
+        """Micro-timing collapses to a clean eighth-note grid."""
+        midi = _make_midi([(60, 0.03, 0.47), (64, 0.52, 0.98), (67, 1.03, 1.62)])
+        result_midi, report = quantize_fixed_grid(midi)
+        assert report["timing_mode"] == "fixed_grid"
+        step = report["grid_step_seconds"]
+        assert step == 0.5  # _make_midi uses 60 BPM; subdivision 2 -> eighth
+        notes = _notes_from_midi(result_midi)
+        # Onsets and offsets land on multiples of the grid step.
+        for n in notes:
+            assert abs(n["start"] - round(n["start"] / step) * step) < 1e-6
+            assert abs(n["end"] - round(n["end"] / step) * step) < 1e-6
+        # Durations are clean multiples of the grid step.
+        durations = {round(n["end"] - n["start"], 3) for n in notes}
+        assert durations <= {step, step * 2, step * 3, step * 4}
+
+    def test_short_note_gets_minimum_grid_duration(self):
+        """A sub-grid-length note is floored to at least one grid step."""
+        midi = _make_midi([(60, 0.0, 0.05)])
+        result_midi, report = quantize_fixed_grid(midi)
+        notes = _notes_from_midi(result_midi)
+        assert notes[0]["start"] == 0.0
+        assert notes[0]["end"] == report["grid_step_seconds"]
+
+    def test_respects_midi_tempo(self):
+        """Grid step derives from the MIDI's own tempo, not a hardcoded 120."""
+        midi = pretty_midi.PrettyMIDI(initial_tempo=240)
+        inst = pretty_midi.Instrument(program=0)
+        inst.notes.append(pretty_midi.Note(velocity=64, pitch=60, start=0.0, end=0.2))
+        midi.instruments.append(inst)
+        buf = io.BytesIO()
+        midi.write(buf)
+        result_midi, report = quantize_fixed_grid(buf.getvalue())
+        assert report["bpm"] == 240.0
+        assert report["grid_step_seconds"] == 0.125
+        notes = _notes_from_midi(result_midi)
+        assert abs(notes[0]["end"] - round(notes[0]["end"] / 0.125) * 0.125) < 1e-6
