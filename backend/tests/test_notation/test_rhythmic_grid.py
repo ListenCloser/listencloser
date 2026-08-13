@@ -8,11 +8,11 @@ import pytest
 
 pytest.importorskip("pretty_midi", reason="pretty_midi not installed locally")
 
-import pretty_midi
+import pretty_midi  # noqa: E402
 
-from notation.metrics import musicxml_metrics
-from notation.quantize import quantize_rhythmic_grid
-from tests.fixtures.rhythmic import (
+from notation.metrics import musicxml_metrics  # noqa: E402
+from notation.quantize import quantize_rhythmic_grid  # noqa: E402
+from tests.fixtures.rhythmic import (  # noqa: E402
     dotted_rhythm,
     sixteenth_notes,
     straight_eighths,
