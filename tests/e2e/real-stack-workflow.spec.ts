@@ -149,10 +149,10 @@ test("real-stack happy path: import → play → inspect → reload → delete",
   // ── Score is a distinct Hearing source and plays from the notation ──────────
   const scoreSource = page.getByRole("button", { name: "Score", exact: true });
   await expect(scoreSource).toBeVisible();
-  await expect(page.getByText("Select Score in the transport to hear this notation.")).toBeVisible();
+  await expect(page.getByText("Select Score in the transport to hear this notation (notation time).")).toBeVisible();
   await scoreSource.click();
   await expect(scoreSource).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("Playing from the score. Click a measure to jump.")).toBeVisible();
+  await expect(page.getByText("Playing the score in notation time. Click a measure to jump.")).toBeVisible();
 
   // Playback starts and can be paused. The transport position change itself is
   // asserted deterministically via the measure click below, since headless
@@ -200,7 +200,7 @@ test("real-stack happy path: import → play → inspect → reload → delete",
 
   // Score source still works after reload.
   await page.getByRole("tab", { name: "Score" }).click();
-  await expect(page.getByText("Select Score in the transport to hear this notation.")).toBeVisible();
+  await expect(page.getByText("Select Score in the transport to hear this notation (notation time).")).toBeVisible();
   await page.getByRole("button", { name: "Score", exact: true }).click();
   await expect(page.getByRole("button", { name: "Score", exact: true })).toHaveAttribute("aria-pressed", "true");
 

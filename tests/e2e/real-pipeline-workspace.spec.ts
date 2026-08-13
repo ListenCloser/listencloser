@@ -79,10 +79,10 @@ test("score appears as a playback source and follows the transport", async ({
 
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
-  await expect(page.getByText("Select Score in the transport to hear this notation.")).toBeVisible();
+  await expect(page.getByText("Select Score in the transport to hear this notation (notation time).")).toBeVisible();
 
   await page.getByRole("button", { name: "Score", exact: true }).click();
-  await expect(page.getByText("Playing from the score. Click a measure to jump.")).toBeVisible();
+  await expect(page.getByText("Playing the score in notation time. Click a measure to jump.")).toBeVisible();
 });
 
 test("signed-out users see the sign-in gate, not the importer", async ({ page }) => {

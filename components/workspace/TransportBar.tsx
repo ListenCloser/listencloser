@@ -74,12 +74,22 @@ export default function TransportBar() {
                 type="button"
                 className={`piece-source${activeSource?.id === source.id ? " active" : ""}`}
                 aria-pressed={activeSource?.id === source.id}
+                title={source.role === "score" ? "Notation time" : "Performance time"}
                 onClick={() => setActiveSource(source)}
               >
                 {source.label}
               </button>
             ))}
           </div>
+          {activeSource?.role === "score" && (
+            <span
+              className="piece-hearing-note"
+              style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", whiteSpace: "nowrap" }}
+              title="Original and Transcription play in performance time; the Score plays in notation time."
+            >
+              notation time
+            </span>
+          )}
         </div>
       )}
     </section>
