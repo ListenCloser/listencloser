@@ -1,45 +1,96 @@
 {
   "name": "oss_bakeoff_v1",
-  "description": "OSS engine bakeoff corpus: piano fixtures for transcription + existing corpora for beat/harmony/structure.",
+  "description": "OSS engine bakeoff corpus using existing real-world datasets with reference ground truth. Qualitative-only fixtures are in a separate manifest. Use `python -m evaluation.datasets.prepare --corpus real_audio_v1` or `real_world_v1` to resolve clips into MUSIC_EVAL_CACHE_DIR.",
   "datasets": {
-    "local_piano": {
-      "source": "local fixtures",
+    "real_audio_v1": {
+      "source": "https://zenodo.org/records/3371780 (GuitarSet), https://zenodo.org/records/4603870 (BabySlakh)",
       "version": "v1",
-      "license": "proprietary (test fixtures only)",
+      "license": "CC BY 4.0",
       "split": "test",
-      "redistribution": "do not redistribute"
+      "redistribution": "do not commit audio/annotations; download to cache"
+    },
+    "real_world_v1": {
+      "source": "https://magenta.tensorflow.org/datasets/maestro, https://github.com/fosfrancesco/asap-dataset, https://github.com/marl/GuitarSet, https://zenodo.org/record/4599666",
+      "version": "v1",
+      "license": "mixed (CC BY 4.0, CC BY-NC-SA 4.0, MIT)",
+      "split": "mixed",
+      "redistribution": "do not commit audio/MIDI; download to cache only"
     }
   },
   "clips": [
     {
-      "id": "real_piano_m4a",
-      "dataset": "local_piano",
-      "category": "solo_piano",
-      "audio": "/Users/giancarloricci/hello-ai/tests/fixtures/real-piano.m4a",
-      "reference_midi": null,
-      "reference_musicxml": null,
-      "reference": {
-        "bpm": 120,
-        "key": "C major",
-        "meter": "4/4"
-      },
-      "license": "test fixture",
-      "metrics": ["note_onset", "note_offset", "beat", "downbeat", "key"]
+      "id": "guitarset_bn1_comp",
+      "dataset": "guitarset",
+      "split": "test",
+      "category": "guitar",
+      "source_id": "00_BN1-129-Eb_comp",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset", "beat", "downbeat"]
     },
     {
-      "id": "piano_simple_m4a",
-      "dataset": "local_piano",
+      "id": "guitarset_rock2_comp",
+      "dataset": "guitarset",
+      "split": "test",
+      "category": "guitar",
+      "source_id": "00_Rock2-142-D_comp",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset", "beat", "downbeat"]
+    },
+    {
+      "id": "babyslakh_01",
+      "dataset": "babyslakh",
+      "category": "full_mix",
+      "source_id": "Track00001",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset", "beat", "downbeat"]
+    },
+    {
+      "id": "babyslakh_02",
+      "dataset": "babyslakh",
+      "category": "full_mix",
+      "source_id": "Track00002",
+      "license": "CC BY 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset", "beat", "downbeat"]
+    },
+    {
+      "id": "maestro_test_01",
+      "dataset": "maestro",
+      "split": "test",
       "category": "solo_piano",
-      "audio": "/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a",
-      "reference_midi": null,
-      "reference_musicxml": null,
-      "reference": {
-        "bpm": 120,
-        "key": "C major",
-        "meter": "4/4"
-      },
-      "license": "test fixture",
-      "metrics": ["note_onset", "note_offset", "beat", "downbeat", "key"]
+      "source_id": "2004/MIDI-Unprocessed_SMF_17_R1_2004_03-06_ORIG_MID--AUDIO_20_R2_2004_12_Track12_wav--1.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 30,
+      "excerpt_end": 55,
+      "metrics": ["note_onset", "note_offset", "beat", "downbeat", "key", "chord", "notation"]
+    },
+    {
+      "id": "asap_bach_01",
+      "dataset": "asap",
+      "category": "solo_piano",
+      "source_id": "Bach/01",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 0,
+      "excerpt_end": 25,
+      "metrics": ["note_onset", "note_offset", "beat", "downbeat", "notation"]
+    },
+    {
+      "id": "guitarset_01",
+      "dataset": "guitarset",
+      "split": "test",
+      "category": "pitched_single_instrument",
+      "source_id": "00_Rock2-142-D_comp",
+      "license": "MIT",
+      "excerpt_start": 0,
+      "excerpt_end": 20,
+      "metrics": ["note_onset", "note_offset", "beat", "downbeat"]
     }
   ]
 }

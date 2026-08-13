@@ -54,7 +54,6 @@ class BasicPitchAdapter(EngineAdapter):
 
     def transcribe(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
         import io
-        import soundfile as sf
         import tempfile
         from basic_pitch.inference import predict
 
@@ -81,15 +80,10 @@ class BasicPitchAdapter(EngineAdapter):
                         "velocity": note.velocity,
                     })
 
-            # Try to get MIDI bytes via fluidsynth, fall back to raw MIDI
-            midi_bytes = None
-            try:
-                midi_bytes = midi_data.fluidsynth()
-            except Exception:
-                # fluidsynth not available - write MIDI to bytes directly
-                midi_buf = io.BytesIO()
-                midi_data.write(midi_buf)
-                midi_bytes = midi_buf.getvalue()
+            # Get actual MIDI bytes (not fluidsynth audio)
+            midi_buf = io.BytesIO()
+            midi_data.write(midi_buf)
+            midi_bytes = midi_buf.getvalue()
 
             return {
                 "midi": midi_bytes,
@@ -184,8 +178,13 @@ class TranskunAdapter(EngineAdapter):
                         "velocity": note.velocity,
                     })
 
+            # Get actual MIDI bytes (not fluidsynth audio)
+            midi_buf = io.BytesIO()
+            midi_data.write(midi_buf)
+            midi_bytes = midi_buf.getvalue()
+
             return {
-                "midi": midi_data.fluidsynth(),
+                "midi": midi_bytes,
                 "notes": notes,
                 "num_notes": len(notes),
             }
@@ -272,8 +271,13 @@ class PianoTranscriptionAdapter(EngineAdapter):
                         "velocity": note.velocity,
                     })
 
+            # Get actual MIDI bytes (not fluidsynth audio)
+            midi_buf = io.BytesIO()
+            midi_data.write(midi_buf)
+            midi_bytes = midi_buf.getvalue()
+
             return {
-                "midi": midi_data.fluidsynth(),
+                "midi": midi_bytes,
                 "notes": notes,
                 "num_notes": len(notes),
             }

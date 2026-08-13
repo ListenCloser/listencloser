@@ -162,6 +162,7 @@ def _run_clip_on_engine(
     adapter: EngineAdapter,
     clip: EvalClip,
     category: EngineCategory,
+    warmup: bool = True,
     **adapter_kwargs,
 ) -> EngineEvalResult:
     """Run a single clip through the engine adapter."""
@@ -169,10 +170,6 @@ def _run_clip_on_engine(
     import time
     import tracemalloc
     from pathlib import Path
-
-    # Measure runtime and memory
-    tracemalloc.start()
-    t0 = time.monotonic()
 
     result = EngineEvalResult(
         engine_name=adapter.engine_info.name,
@@ -186,6 +183,30 @@ def _run_clip_on_engine(
             raise RuntimeError(f"Engine {adapter.engine_info.name} not available")
 
         adapter.prepare()
+
+        # Warm-up run (not timed) to avoid first-clip penalty for lazy loading/JIT
+        if warmup:
+            try:
+                if category == "transcription":
+                    audio_bytes = Path(clip.audio).read_bytes()
+                    adapter.transcribe(audio_bytes, **adapter_kwargs)
+                elif category == "beat_tracking":
+                    audio_bytes = Path(clip.audio).read_bytes()
+                    adapter.estimate_beats(audio_bytes, **adapter_kwargs)
+                elif category == "harmony":
+                    if clip.reference_midi:
+                        midi_bytes = Path(clip.reference_midi).read_bytes()
+                        adapter.analyze_harmony(midi_bytes, **adapter_kwargs)
+                elif category == "structure":
+                    audio_bytes = Path(clip.audio).read_bytes()
+                    adapter.analyze_structure(audio_bytes, **adapter_kwargs)
+            except Exception:
+                # Warm-up failures are non-fatal
+                pass
+
+        # Timed run
+        tracemalloc.start()
+        t0 = time.monotonic()
 
         if category == "transcription":
             audio_bytes = Path(clip.audio).read_bytes()
@@ -318,9 +339,47 @@ def _compute_harmony_metrics(output: dict[str, Any], clip: EvalClip) -> dict[str
 
 
 def _compute_structure_metrics(output: dict[str, Any], clip: EvalClip) -> dict[str, Any]:
-    """Compute structure analysis metrics against reference."""
-    # Structure metrics placeholder - would need reference sections
-    return {"sections_count": len(output.get("segments", []))}
+    """Compute structure analysis metrics against reference segments."""
+    # Requires reference segments in clip.reference.sections
+    ref_sections = clip.reference.sections if clip.reference.sections else []
+    pred_segments = output.get("segments", [])
+    
+    if not ref_sections or not pred_segments:
+        return {"sections_count": len(pred_segments)}
+    
+    # Boundary F1: compare predicted segment boundaries to reference
+    # Segments are [{"start": float, "end": float, "label": str}, ...]
+    ref_boundaries = set()
+    for s in ref_sections:
+        if "start" in s:
+            ref_boundaries.add(round(s["start"], 2))
+        if "end" in s:
+            ref_boundaries.add(round(s["end"], 2))
+    
+    pred_boundaries = set()
+    for s in pred_segments:
+        if "start" in s:
+            pred_boundaries.add(round(s["start"], 2))
+        if "end" in s:
+            pred_boundaries.add(round(s["end"], 2))
+    
+    if not ref_boundaries:
+        return {"sections_count": len(pred_segments)}
+    
+    tp = len(ref_boundaries & pred_boundaries)
+    fp = len(pred_boundaries - ref_boundaries)
+    fn = len(ref_boundaries - pred_boundaries)
+    
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    
+    return {
+        "sections_count": len(pred_segments),
+        "boundary_precision": round(precision, 3),
+        "boundary_recall": round(recall, 3),
+        "boundary_f1": round(f1, 3),
+    }
 
 
 def _aggregate_results(
@@ -383,7 +442,11 @@ def _compute_category_aggregate(
             "macro_chord_f1": sum(chord_f1s) / len(chord_f1s) if chord_f1s else 0,
         }
     elif category == "structure":
-        return {"avg_segments": sum(r.metrics.get("sections_count", 0) for r in succeeded if r.metrics) / len(succeeded) if succeeded else 0}
+        boundary_f1s = [r.metrics.get("boundary_f1", 0) for r in succeeded if r.metrics]
+        return {
+            "macro_boundary_f1": sum(boundary_f1s) / len(boundary_f1s) if boundary_f1s else 0,
+            "avg_segments": sum(r.metrics.get("sections_count", 0) for r in succeeded if r.metrics) / len(succeeded) if succeeded else 0,
+        }
 
     return {}
 
