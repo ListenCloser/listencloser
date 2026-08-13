@@ -10,6 +10,8 @@ export type PlaybackSource = {
   role: "original" | "transcription" | "derived" | "score";
 };
 
+export type CompareSide = "A" | "B";
+
 type TransportState = {
   position: number;
   isPlaying: boolean;
@@ -19,6 +21,10 @@ type TransportState = {
   loopEnabled: boolean;
   activeSource: PlaybackSource | null;
   sources: PlaybackSource[];
+  compareEnabled: boolean;
+  compareA: PlaybackSource | null;
+  compareB: PlaybackSource | null;
+  activeSide: CompareSide;
 };
 
 type TransportContextValue = {
@@ -33,6 +39,10 @@ type TransportContextValue = {
   seek: (time: number) => void;
   setLoop: (start: number | null, end: number | null) => void;
   toggleLoop: () => void;
+  startCompare: (a: PlaybackSource, b: PlaybackSource) => void;
+  setCompareSide: (side: CompareSide) => void;
+  setCompareSource: (side: CompareSide, source: PlaybackSource) => void;
+  exitCompare: () => void;
   positionRef: React.RefObject<number>;
   audioRef: React.RefObject<HTMLAudioElement | null>;
 };
@@ -49,6 +59,8 @@ export function TransportProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const positionRef = useRef(0);
   const activeSourceIdRef = useRef<string | null>(null);
+  const sourcesRef = useRef<PlaybackSource[]>([]);
+  const compareRef = useRef<{ aId: string | null; bId: string | null; side: CompareSide }>({ aId: null, bId: null, side: "A" });
   const [transport, setTransport] = useState<TransportState>({
     position: 0,
     isPlaying: false,
@@ -58,6 +70,10 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     loopEnabled: false,
     activeSource: null,
     sources: [],
+    compareEnabled: false,
+    compareA: null,
+    compareB: null,
+    activeSide: "A",
   });
 
   useEffect(() => {
@@ -123,6 +139,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const replaceSources = useCallback((sources: PlaybackSource[], activeId?: string, preservePosition = false) => {
+    sourcesRef.current = sources;
     const fallbackActive = sources.find((item) => item.id === activeId) ?? sources[0] ?? null;
     const active = preservePosition
       ? (sources.find((item) => item.id === activeSourceIdRef.current) ?? fallbackActive)
@@ -134,6 +151,15 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       audio.pause();
       audio.src = active?.url ?? "";
       if (active) audio.load();
+    }
+    const compareStillValid =
+      compareRef.current.aId !== null &&
+      compareRef.current.bId !== null &&
+      sources.some((item) => item.id === compareRef.current.aId) &&
+      sources.some((item) => item.id === compareRef.current.bId);
+    const keepCompare = preservePosition && compareStillValid;
+    if (!keepCompare) {
+      compareRef.current = { aId: null, bId: null, side: "A" };
     }
     if (preservePosition && audio && active) {
       audio.addEventListener("loadedmetadata", () => {
@@ -153,6 +179,10 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       activeSource: active,
       position: preservePosition ? previousPosition : 0,
       isPlaying: preservePosition ? wasPlaying : false,
+      compareEnabled: keepCompare ? prev.compareEnabled : false,
+      ...(keepCompare
+        ? {}
+        : { compareA: null, compareB: null }),
       ...(preservePosition
         ? {}
         : { duration: 0, loopStart: null, loopEnd: null, loopEnabled: false }),
@@ -165,8 +195,10 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       audio.pause();
       audio.src = "";
     }
+    sourcesRef.current = [];
     positionRef.current = 0;
     activeSourceIdRef.current = null;
+    compareRef.current = { aId: null, bId: null, side: "A" };
     setTransport((prev) => ({
       ...prev,
       activeSource: null,
@@ -177,6 +209,10 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       loopStart: null,
       loopEnd: null,
       loopEnabled: false,
+      compareEnabled: false,
+      compareA: null,
+      compareB: null,
+      activeSide: "A",
     }));
   }, []);
 
@@ -225,6 +261,66 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     setTransport((prev) => ({ ...prev, loopEnabled: !prev.loopEnabled }));
   }, []);
 
+  const startCompare = useCallback((a: PlaybackSource, b: PlaybackSource) => {
+    if (a.id === b.id) return;
+    compareRef.current = { aId: a.id, bId: b.id, side: "A" };
+    setTransport((prev) => ({
+      ...prev,
+      compareEnabled: true,
+      compareA: a,
+      compareB: b,
+      activeSide: "A",
+      activeSource: prev.activeSource ?? a,
+    }));
+  }, []);
+
+  const setCompareSide = useCallback((side: CompareSide) => {
+    const compare = compareRef.current;
+    if (!compare.aId || !compare.bId) return;
+    const targetId = side === "A" ? compare.aId : compare.bId;
+    const target = sourcesRef.current.find((item) => item.id === targetId);
+    if (!target) return;
+    compareRef.current = { ...compare, side };
+    if (targetId !== activeSourceIdRef.current) {
+      setActiveSource(target);
+    }
+    setTransport((prev) => ({
+      ...prev,
+      activeSide: side,
+      activeSource: target,
+    }));
+  }, [setActiveSource]);
+
+  const setCompareSource = useCallback((side: CompareSide, source: PlaybackSource) => {
+    const compare = compareRef.current;
+    if (!compare.aId || !compare.bId) return;
+    const next = side === "A"
+      ? { ...compare, aId: source.id }
+      : { ...compare, bId: source.id };
+    compareRef.current = next;
+    const sideBecameActiveTarget = side === next.side && source.id === (next.side === "A" ? next.aId : next.bId);
+    if (sideBecameActiveTarget && source.id !== activeSourceIdRef.current) {
+      setActiveSource(source);
+    }
+    setTransport((prev) => ({
+      ...prev,
+      compareA: side === "A" ? source : prev.compareA,
+      compareB: side === "B" ? source : prev.compareB,
+      ...(sideBecameActiveTarget ? { activeSource: source } : {}),
+    }));
+  }, [setActiveSource]);
+
+  const exitCompare = useCallback(() => {
+    compareRef.current = { aId: null, bId: null, side: "A" };
+    setTransport((prev) => ({
+      ...prev,
+      compareEnabled: false,
+      compareA: null,
+      compareB: null,
+      activeSide: "A",
+    }));
+  }, []);
+
   return (
     <TransportContext.Provider
       value={{
@@ -239,6 +335,10 @@ export function TransportProvider({ children }: { children: ReactNode }) {
         seek,
         setLoop,
         toggleLoop,
+        startCompare,
+        setCompareSide,
+        setCompareSource,
+        exitCompare,
         positionRef,
         audioRef,
       }}

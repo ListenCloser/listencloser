@@ -85,6 +85,33 @@ describe("Workspace session state transitions", () => {
     expect(result.current.transport.transport.activeSource?.role).toBe("transcription");
   });
 
+  it("entering and toggling compare never changes the representation or resets the playhead", () => {
+    const { result } = renderHook(() => useSession(), { wrapper });
+    const scoreSource = {
+      id: "score-audio",
+      label: "Score rendition",
+      url: "data:audio/wav;base64,score",
+      kind: "audio" as const,
+      role: "score" as const,
+    };
+
+    act(() => {
+      result.current.workspace.setActiveRepresentation("score");
+      result.current.transport.replaceSources([src("original", "a"), src("transcription", "b"), scoreSource], "a");
+      result.current.transport.seek(7);
+      result.current.transport.startCompare(src("original", "a"), scoreSource);
+      result.current.transport.setCompareSide("B");
+      result.current.transport.setCompareSide("A");
+      result.current.transport.setCompareSource("B", src("transcription", "b"));
+      result.current.transport.exitCompare();
+    });
+
+    expect(result.current.workspace.workspace.activeRepresentation).toBe("score");
+    expect(result.current.transport.transport.activeSource?.id).toBe("a");
+    expect(result.current.transport.transport.position).toBe(7);
+    expect(result.current.transport.transport.compareEnabled).toBe(false);
+  });
+
   it("preserves position and the active source when the same work is reloaded", () => {
     const { result } = renderHook(() => useSession(), { wrapper });
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useTransport } from "@/lib/stores/transport";
+import { useEffect, useRef, useState } from "react";
+import { useTransport, type CompareSide } from "@/lib/stores/transport";
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -8,10 +9,112 @@ function formatTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
+function SourceMenu({
+  triggerLabel,
+  triggerAria,
+  options,
+  selectedId,
+  onSelect,
+}: {
+  triggerLabel: string;
+  triggerAria: string;
+  options: { id: string; label: string }[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="piece-source-select" ref={ref}>
+      <button
+        type="button"
+        className="piece-source-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={triggerAria}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span>{triggerLabel}</span>
+        <span className="piece-caret" aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <div className="piece-source-menu" role="listbox" aria-label={triggerAria}>
+          {options.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="option"
+              aria-selected={selectedId === option.id}
+              onClick={() => {
+                onSelect(option.id);
+                setOpen(false);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TransportBar() {
-  const { transport, seek, setActiveSource, setLoop, stop, toggle, toggleLoop } = useTransport();
-  const { isPlaying, position, duration, loopEnabled, loopStart, loopEnd, activeSource, sources } = transport;
+  const {
+    transport,
+    seek,
+    setActiveSource,
+    setLoop,
+    stop,
+    toggle,
+    toggleLoop,
+    startCompare,
+    setCompareSide,
+    setCompareSource,
+    exitCompare,
+  } = useTransport();
+  const {
+    isPlaying,
+    position,
+    duration,
+    loopEnabled,
+    loopStart,
+    loopEnd,
+    activeSource,
+    sources,
+    compareEnabled,
+    compareA,
+    compareB,
+    activeSide,
+  } = transport;
   const hasSource = Boolean(activeSource);
+
+  const original = sources.find((item) => item.role === "original") ?? sources[0] ?? null;
+  const defaultB = sources.find((item) => item.id !== original?.id && ["transcription", "score"].includes(item.role))
+    ?? sources.find((item) => item.id !== original?.id)
+    ?? null;
+
+  const joinCompare = () => {
+    if (!original || !defaultB || original.id === defaultB.id) return;
+    startCompare(original, defaultB);
+  };
 
   return (
     <section className="piece-transport" aria-label="Playback">
@@ -64,29 +167,72 @@ export default function TransportBar() {
 
       {sources.length > 0 && (
         <div className="piece-hearing">
-          <span className="piece-hearing-label">Hearing</span>
-          <div className="piece-sources" role="group" aria-label="What you're hearing">
-            {sources.map((source) => (
-              <button
-                key={source.id}
-                type="button"
-                className={`piece-source${activeSource?.id === source.id ? " active" : ""}`}
-                aria-pressed={activeSource?.id === source.id}
-                title={source.role === "score" ? "Notation time" : "Performance time"}
-                onClick={() => setActiveSource(source)}
-              >
-                {source.label}
+          {!compareEnabled ? (
+            <>
+              <SourceMenu
+                triggerLabel={activeSource ? activeSource.label : "No source"}
+                triggerAria={`Listening to: ${activeSource ? activeSource.label : "no source"}`}
+                options={sources.map((item) => ({ id: item.id, label: item.label }))}
+                selectedId={activeSource?.id ?? null}
+                onSelect={(id) => {
+                  const next = sources.find((item) => item.id === id);
+                  if (next) setActiveSource(next);
+                }}
+              />
+              {sources.length > 1 && (
+                <button type="button" className="piece-compare-enter" onClick={joinCompare}>
+                  Compare
+                </button>
+              )}
+              {activeSource?.role === "score" && (
+                <span
+                  className="piece-hearing-note"
+                  style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", whiteSpace: "nowrap" }}
+                  title="Original and Transcription play in performance time; the Score rendition plays in notation time."
+                >
+                  notation time
+                </span>
+              )}
+            </>
+          ) : (
+            <div className="piece-compare" role="group" aria-label="Compare playback">
+              <span className="piece-hearing-label">Compare</span>
+              {(["A", "B"] as const).map((side) => {
+                const sideSource = side === "A" ? compareA : compareB;
+                const other = side === "A" ? compareB : compareA;
+                return (
+                  <SourceMenu
+                    key={side}
+                    triggerLabel={`${side} · ${sideSource ? sideSource.label : "Choose…"}`}
+                    triggerAria={`${side}: ${sideSource ? sideSource.label : "Choose…"}`}
+                    options={sources
+                      .filter((item) => item.id !== other?.id)
+                      .map((item) => ({ id: item.id, label: item.label }))}
+                    selectedId={sideSource?.id ?? null}
+                    onSelect={(id) => {
+                      const next = sources.find((item) => item.id === id);
+                      if (next) setCompareSource(side, next);
+                    }}
+                  />
+                );
+              })}
+              <div className="piece-compare-sides" role="group" aria-label="Active compare side">
+                {(["A", "B"] as const).map((side) => (
+                  <button
+                    key={side}
+                    type="button"
+                    className={`piece-compare-chip${activeSide === side ? " active" : ""}`}
+                    aria-pressed={activeSide === side}
+                    onClick={() => setCompareSide(side)}
+                  >
+                    {side}
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="piece-compare-exit" aria-label="Exit compare" onClick={exitCompare}>
+                ✕
               </button>
-            ))}
-          </div>
-          {activeSource?.role === "score" && (
-            <span
-              className="piece-hearing-note"
-              style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", whiteSpace: "nowrap" }}
-              title="Original and Transcription play in performance time; the Score rendition plays in notation time."
-            >
-              notation time
-            </span>
+            </div>
           )}
         </div>
       )}

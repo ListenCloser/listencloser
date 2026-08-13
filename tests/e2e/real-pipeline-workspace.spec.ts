@@ -16,9 +16,11 @@ test("a persisted work reopens with synchronized musical workspace views", async
   await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
 
   // The playback sources are human labels, never internal artifact ids.
-  await expect(page.getByText("Hearing", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Original", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Transcription", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Listening to:/ })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Original", exact: true })).not.toBeVisible();
+  await page.getByRole("button", { name: /Listening to:/ }).click();
+  await expect(page.getByRole("option", { name: "Original", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Transcription", exact: true })).toBeVisible();
 
   // The four representations are discoverable from the tab bar.
   await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible();
@@ -57,7 +59,7 @@ test("import starts one durable understand job and reloads the persisted work", 
   await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({
     timeout: 20_000,
   });
-  await expect(page.getByRole("button", { name: "Transcription", exact: true })).toBeVisible({
+  await expect(page.getByRole("button", { name: /Listening to:/ })).toBeVisible({
     timeout: 20_000,
   });
 });
@@ -75,13 +77,14 @@ test("score appears as a playback source and follows the transport", async ({
   await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
 
   // A notation-derived render exists, so the score rendition is a selectable source.
-  await expect(page.getByRole("button", { name: "Score rendition", exact: true })).toBeVisible();
-
+  await page.getByRole("button", { name: /Listening to:/ }).click();
+  await expect(page.getByRole("option", { name: "Score rendition", exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
   await expect(page.getByText("Select Score rendition in the transport to hear this notation (notation time).")).toBeVisible();
 
-  await page.getByRole("button", { name: "Score rendition", exact: true }).click();
+  await page.getByRole("button", { name: /Listening to:/ }).click();
+  await page.getByRole("option", { name: "Score rendition", exact: true }).click();
   await expect(page.getByText("Playing the score rendition in notation time. Click a measure to jump.")).toBeVisible();
 });
 
@@ -97,22 +100,67 @@ test("the representation changes independently of the playback source", async ({
   );
   await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
 
-  // Settle on the score rendition as the source, then keep listening to it
+  // Settle on the original as the source, then keep listening to it
   // while moving between representations.
-  await page.getByRole("button", { name: "Original", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveAttribute("aria-pressed", "true");
+  const listeningTrigger = page.getByRole("button", { name: /Listening to:/ });
+  await listeningTrigger.click();
+  await page.getByRole("option", { name: "Original", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Listening to: Original", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Piano roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Listening to: Original", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Listening to: Original", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Analysis" }).click();
   await expect(page.getByText("A minor")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Original", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Listening to: Original", exact: true })).toBeVisible();
+});
+
+test("compare mode toggles A/B at the same playhead without changing the view", async ({ page }) => {
+  await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
+  await page.goto("/");
+  await page.waitForFunction(
+    () => navigator.serviceWorker?.controller !== null,
+    undefined,
+    { timeout: 15_000 },
+  );
+  await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+
+  // Settle on the original source and open the Score representation.
+  const listeningTrigger = page.getByRole("button", { name: /Listening to:/ });
+  await listeningTrigger.click();
+  await page.getByRole("option", { name: "Original", exact: true }).click();
+  await page.getByRole("tab", { name: "Score" }).click();
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
+
+  // Enter compare: A is Original, B defaults to Transcription.
+  await page.getByRole("button", { name: "Compare", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Compare playback" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "A: Original", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "B: Transcription", exact: true })).toBeVisible();
+
+  // Toggle to B: the representation must stay open and the source must switch.
+  await page.getByRole("button", { name: "B", exact: true }).click();
+  await expect(page.getByRole("button", { name: "B", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("button", { name: "B: Transcription", exact: true })).toBeVisible();
+
+  // Toggle back to A.
+  await page.getByRole("button", { name: "A", exact: true }).click();
+  await expect(page.getByRole("button", { name: "A", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "A: Original", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "B: Transcription", exact: true })).toBeVisible();
+
+  // Exit compare keeps the active source and the Score view.
+  await page.getByRole("button", { name: "Exit compare", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Compare playback" })).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Listening to: Original", exact: true })).toBeVisible();
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
 });
 
 test("signed-out users see the sign-in gate, not the importer", async ({ page }) => {
