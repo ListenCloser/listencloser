@@ -9,6 +9,7 @@ type Props = {
   isScoreActive?: boolean;
   hasScorePlayback?: boolean;
   measureStarts?: number[];
+  scoreDuration?: number | null;
   selectedMeasures?: { start: number; end: number } | null;
   measureApproximate?: boolean;
   onSeek?: (seconds: number) => void;
@@ -155,9 +156,16 @@ export default function SheetMusic({
     if (!measureStarts || measureStarts.length === 0) return;
     const container = containerRef.current;
     if (!container) return;
-    // Map the click to the engraved measure whose bounding box contains it,
-    // avoiding the OSMD internal coordinate transform entirely.
-    const measures = container.querySelectorAll("g.vf-measure");
+// Map the click to the engraved measure whose bounding box contains it,
+// avoiding the OSMD internal coordinate transform entirely.
+// ASSUMPTION: OSMD renders each measure as a <g class="vf-measure"> with an
+// `id` attribute equal to the 1-based measure index (e.g., "1", "2", ...).
+// This holds for single-part piano scores rendered with Endless page format.
+// For multi-staff/grand-staff scores, VexFlow may generate separate measure
+// elements per part/staff with different ID schemes. If that becomes a
+// supported use case, this logic will need to be updated to use OSMD's
+// `getMeasureList()` API or similar for stable measure identification.
+const measures = container.querySelectorAll("g.vf-measure");
     for (const measureEl of measures) {
       const rect = measureEl.getBoundingClientRect();
       if (

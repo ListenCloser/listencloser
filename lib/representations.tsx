@@ -100,6 +100,7 @@ function ScoreView() {
   const { transport, seek } = useTransport();
   const entry = workspace.representations.find((item) => item.kind === "score");
   const measureStarts = entry?.measureStarts ?? [];
+  const scoreDuration = entry?.audioUrl ? transport.duration : null;
   const selection = workspace.selection;
   const selectedMeasures = selection?.measureRange
     ? selection.measureRange
@@ -114,13 +115,16 @@ function ScoreView() {
         isScoreActive={transport.activeSource?.role === "score"}
         hasScorePlayback={transport.sources.some((source) => source.role === "score")}
         measureStarts={measureStarts}
+        scoreDuration={scoreDuration}
         selectedMeasures={selectedMeasures}
         measureApproximate={Boolean(
           selection?.timeRange && !selection?.measureRange,
         )}
         onSeek={seek}
         onSelectMeasures={(start, end) =>
-          setSelection(composeMeasureSelection(start, end, measureStarts))
+          setSelection(
+            composeMeasureSelection(start, end, measureStarts, scoreDuration),
+          )
         }
       />
     </div>

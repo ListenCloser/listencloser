@@ -36,7 +36,7 @@ describe("WorkspaceProvider", () => {
         produced_by_job_id: null,
       }]);
       result.current.setSelection({
-        timeRange: { start: 1, end: 3 },
+        timeRange: { start: 1, end: 3, domain: "performance" },
         provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
       });
     });
@@ -58,7 +58,7 @@ describe("WorkspaceProvider", () => {
 
     act(() => {
       result.current.setSelection({
-        timeRange: { start: 2, end: 4 },
+        timeRange: { start: 1, end: 3, domain: "performance" },
         provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
       });
       result.current.setActiveRepresentation("piano_roll");
@@ -66,7 +66,7 @@ describe("WorkspaceProvider", () => {
       result.current.setActiveRepresentation("listen");
     });
 
-    expect(result.current.workspace.selection?.timeRange).toEqual({ start: 2, end: 4 });
+    expect(result.current.workspace.selection?.timeRange).toEqual({ start: 1, end: 3, domain: "performance" });
     expect(result.current.workspace.activeRepresentation).toBe("listen");
   });
 
@@ -79,7 +79,7 @@ describe("WorkspaceProvider", () => {
       ]);
       result.current.setActiveWorkId("work-a");
       result.current.setSelection({
-        timeRange: { start: 1, end: 3 },
+        timeRange: { start: 1, end: 3, domain: "performance" },
         provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
       });
     });

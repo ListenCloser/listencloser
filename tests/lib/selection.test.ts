@@ -19,17 +19,22 @@ const notes = [
 describe("selection mapping helpers", () => {
   it("maps a single measure to its exact boundary interval on the score timeline", () => {
     const range = timeRangeFromMeasures(2, 2, measureStarts);
-    expect(range).toEqual({ start: 4, end: 6 });
+    expect(range).toEqual({ start: 4, end: 6, domain: "notation" });
   });
 
   it("maps a measure range end to the next measure boundary", () => {
     const range = timeRangeFromMeasures(0, 2, measureStarts);
-    expect(range).toEqual({ start: 0, end: 6 });
+    expect(range).toEqual({ start: 0, end: 6, domain: "notation" });
   });
 
-  it("clamps to the last boundary for the final measure", () => {
+  it("returns null for the final measure when no scoreDuration is provided", () => {
     const range = timeRangeFromMeasures(5, 5, measureStarts);
-    expect(range).toEqual({ start: 10, end: 10 });
+    expect(range).toBeNull();
+  });
+
+  it("derives timeRange for final measure when scoreDuration is provided", () => {
+    const range = timeRangeFromMeasures(5, 5, measureStarts, 12);
+    expect(range).toEqual({ start: 10, end: 12, domain: "notation" });
   });
 
   it("derives a coarse approximate measure range from a time range", () => {
@@ -63,7 +68,7 @@ describe("selection mapping helpers", () => {
 
   it("composes a time selection with exact provenance and derived note ids", () => {
     const selection = composeTimeSelection(1.0, 2.0, notes, "waveform");
-    expect(selection.timeRange).toEqual({ start: 1, end: 2 });
+    expect(selection.timeRange).toEqual({ start: 1, end: 2, domain: "performance" });
     expect(selection.noteIds).toEqual(["n1", "n2"]);
     expect(selection.provenance).toEqual({
       origin: "waveform",
@@ -75,7 +80,7 @@ describe("selection mapping helpers", () => {
   it("composes a measure selection with exact measure provenance and score-timeline time", () => {
     const selection = composeMeasureSelection(1, 3, measureStarts);
     expect(selection.measureRange).toEqual({ start: 1, end: 3 });
-    expect(selection.timeRange).toEqual({ start: 2, end: 8 });
+    expect(selection.timeRange).toEqual({ start: 2, end: 8, domain: "notation" });
     expect(selection.provenance).toEqual({
       origin: "score",
       timeExact: false,
@@ -86,7 +91,7 @@ describe("selection mapping helpers", () => {
   it("composes a note selection with exact provenance and a derived time range", () => {
     const selection = composeNoteSelection(notes, ["n1", "n2"]);
     expect(selection?.noteIds).toEqual(["n1", "n2"]);
-    expect(selection?.timeRange).toEqual({ start: 0.5, end: 2.4 });
+    expect(selection?.timeRange).toEqual({ start: 0.5, end: 2.4, domain: "performance" });
     expect(selection?.provenance.timeExact).toBe(true);
     expect(composeNoteSelection(notes, [])).toBeNull();
   });

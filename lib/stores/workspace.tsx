@@ -58,7 +58,7 @@ export type StudioOperation = {
 export type SelectionOrigin = "waveform" | "piano_roll" | "score" | null;
 
 export type MusicalSelection = {
-  timeRange?: { start: number; end: number };
+  timeRange?: { start: number; end: number; domain: "performance" | "notation" };
   noteIds?: string[];
   measureRange?: { start: number; end: number };
   provenance: {

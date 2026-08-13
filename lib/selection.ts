@@ -8,17 +8,30 @@ export type NoteLike = { id?: string; start: number; end: number };
  * selected measure (or the last available boundary when end is the final
  * measure). This is a direct reading of the score's own measure timing data,
  * so it is NOT approximate on the score's timeline.
+ *
+ * If the selection includes the final measure and there is no next boundary,
+ * returns null (cannot honestly derive an end time without fabricating).
  */
 export function timeRangeFromMeasures(
   startMeasure: number,
   endMeasure: number,
   measureStarts: number[],
-): { start: number; end: number } {
+  scoreDuration?: number | null,
+): { start: number; end: number; domain: "notation" } | null {
   const startIndex = Math.max(0, Math.min(startMeasure, measureStarts.length - 1));
   const endIndex = Math.max(startIndex, Math.min(endMeasure, measureStarts.length - 1));
   const start = measureStarts[startIndex] ?? 0;
-  const end = measureStarts[endIndex + 1] ?? measureStarts[endIndex] ?? start;
-  return { start, end };
+  const nextStart = measureStarts[endIndex + 1];
+  if (nextStart != null) {
+    return { start, end: nextStart, domain: "notation" };
+  }
+  // Final measure: use scoreDuration if provided and > start; otherwise we
+  // cannot honestly determine the end boundary — return null instead of
+  // fabricating a zero-length range.
+  if (scoreDuration != null && scoreDuration > start) {
+    return { start, end: scoreDuration, domain: "notation" };
+  }
+  return null;
 }
 
 /**
@@ -88,7 +101,7 @@ export function composeTimeSelection(
   notes: NoteLike[] = [],
   origin: Exclude<SelectionOrigin, null>,
 ): MusicalSelection {
-  const timeRange = { start, end };
+  const timeRange = { start, end, domain: "performance" as const };
   const selection: MusicalSelection = {
     timeRange,
     provenance: { origin, timeExact: true, measureApproximate: false },
@@ -101,21 +114,26 @@ export function composeTimeSelection(
 /**
  * Composes a selection object from a direct score-measure selection: the
  * measure range is exact on the score, and the accompanying timeRange is an
- * exact reading of the score's measure timing data (not the performance
- * timeline, hence marked approximate for cross-representation use).
+ * exact reading of the score's measure timing data (notation time). If the
+ * measure range includes the final measure and no honest end boundary exists,
+ * timeRange is omitted.
  */
 export function composeMeasureSelection(
   startMeasure: number,
   endMeasure: number,
   measureStarts: number[],
+  scoreDuration?: number | null,
   origin: "score" | null = "score",
 ): MusicalSelection {
-  const timeRange = timeRangeFromMeasures(startMeasure, endMeasure, measureStarts);
-  return {
-    timeRange,
+  const timeRange = timeRangeFromMeasures(startMeasure, endMeasure, measureStarts, scoreDuration);
+  const selection: MusicalSelection = {
     measureRange: { start: startMeasure, end: endMeasure },
     provenance: { origin, timeExact: false, measureApproximate: false },
   };
+  if (timeRange) {
+    selection.timeRange = timeRange;
+  }
+  return selection;
 }
 
 /**
@@ -130,7 +148,7 @@ export function composeNoteSelection(
   const timeRange = timeRangeFromNotes(notes, ids);
   if (!timeRange) return null;
   return {
-    timeRange,
+    timeRange: { ...timeRange, domain: "performance" },
     noteIds: ids,
     provenance: { origin, timeExact: true, measureApproximate: false },
   };
