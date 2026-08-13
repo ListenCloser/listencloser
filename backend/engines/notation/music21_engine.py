@@ -24,12 +24,29 @@ class Music21NotationEngine(NotationEngine):
         self,
         midi_bytes: bytes,
         beat_times: list[float],
+        *,
+        adaptive: bool = False,
+        downbeats: list[float] | None = None,
+        beat_positions: list[int] | None = None,
+        notation_ready: bool = False,
+        piano_grand_staff: bool = False,
         **kwargs: Any,
     ) -> NotationResult:
         import music_features as mf
 
-        notation_midi, quant_report = mf.notation_midi_from_performance(midi_bytes, beat_times)
-        musicxml = mf.convert_format(notation_midi, "midi", "musicxml")
+        if adaptive:
+            notation_midi, quant_report = mf.adaptive_notation_from_performance(
+                midi_bytes, beat_times, downbeats=downbeats, beat_positions=beat_positions
+            )
+        else:
+            notation_midi, quant_report = mf.notation_midi_from_performance(midi_bytes, beat_times)
+        musicxml = mf.convert_format(
+            notation_midi,
+            "midi",
+            "musicxml",
+            notation_ready=notation_ready,
+            piano_grand_staff=piano_grand_staff,
+        )
         return NotationResult(
             notation_midi=notation_midi,
             musicxml=musicxml,

@@ -70,12 +70,17 @@ def _seed_midi_version(sb, engine: str) -> Version:
     workflow = WorkflowRepo(sb).create(
         Workflow(project_id=project.id, kind=WorkflowKind.understand), OWNER_ID
     )
+    metadata: dict = {"provenance": {"engine": engine, "library_version": "test"}}
+    if engine == "basic_pitch":
+        metadata["tempo_is_placeholder"] = True
+        metadata["meter_is_placeholder"] = True
+        metadata["supports_meter"] = False
     version = VersionRepo(sb).create(
         Version(
             artifact_id=artifact.id,
             storage_key=f"it/{uuid.uuid4().hex}.mid",
             storage_bucket="artifacts",
-            metadata={"provenance": {"engine": engine, "library_version": "test"}},
+            metadata=metadata,
         ),
         OWNER_ID,
     )

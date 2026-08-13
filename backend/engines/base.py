@@ -34,12 +34,18 @@ class TranscriptionResult:
     cleanup_report: dict[str, Any]
     provenance: EngineProvenance
     model_note_events: list[dict[str, Any]] = field(default_factory=list)
+    tempo_is_placeholder: bool = False
+    meter_is_placeholder: bool = False
+    supports_meter: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "num_notes": self.num_notes,
             "cleanup_report": self.cleanup_report,
             "provenance": self.provenance.to_dict(),
+            "tempo_is_placeholder": self.tempo_is_placeholder,
+            "meter_is_placeholder": self.meter_is_placeholder,
+            "supports_meter": self.supports_meter,
         }
 
 

@@ -9,6 +9,7 @@ value for the audio key detector) and that a provenance method is set.
 
 from __future__ import annotations
 
+import types
 import uuid
 
 import numpy as np
@@ -115,18 +116,20 @@ def test_describe_key_without_detector_confidence_is_null(monkeypatch):
 def test_audio_structure_insights_have_no_fabricated_confidence(monkeypatch):
     captured: list[dict] = []
 
-    class _Segment:
-        def __init__(self, label: str, start: float, end: float):
-            self.label, self.start, self.end = label, start, end
-
     class _FakeStructure:
         def __init__(self):
             self.bpm = 120.0
             self.beats = [0.0, 0.5, 1.0]
             self.downbeats = [0.0]
-            self.segments = [_Segment("Intro", 0.0, 2.0), _Segment("Verse", 2.0, 5.0)]
-            self.engine = "test"
-            self.model = "test"
+            self.segments = [
+                {"label": "Intro", "start": 0.0, "end": 2.0},
+                {"label": "Verse", "start": 2.0, "end": 5.0},
+            ]
+            self._provenance = types.SimpleNamespace(engine="test", model="test")
+
+        @property
+        def provenance(self) -> types.SimpleNamespace:
+            return self._provenance
 
         def evidence(self) -> dict:
             return {
@@ -134,7 +137,7 @@ def test_audio_structure_insights_have_no_fabricated_confidence(monkeypatch):
                 "beat_count": len(self.beats),
                 "downbeat_count": len(self.downbeats),
                 "segment_count": len(self.segments),
-                "engine": self.engine,
+                "engine": self._provenance.engine,
             }
 
     monkeypatch.setattr(capabilities, "_resolve_owner_id", lambda client, workflow_id: OWNER_ID)

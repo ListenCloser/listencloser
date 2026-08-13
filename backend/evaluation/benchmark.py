@@ -38,13 +38,15 @@ def _transcribe_raw(manifest: CorpusManifest, onset: float, frame: float) -> dic
     backend_dir = str(Path(__file__).resolve().parent.parent)
     if backend_dir not in sys.path:
         sys.path.insert(0, backend_dir)
-    from music_features import transcribe_audio
+    from music_features import transcribe_with_engine
 
     results: dict[str, dict[str, Any]] = {}
     for clip in manifest.clips:
         audio_bytes = Path(clip.audio).read_bytes()
         t0 = time.monotonic()
-        tr = transcribe_audio(audio_bytes, fmt="wav", onset_threshold=onset, frame_threshold=frame)
+        tr = transcribe_with_engine(
+            audio_bytes, fmt="wav", onset_threshold=onset, frame_threshold=frame
+        )
         elapsed = time.monotonic() - t0
         if clip.reference_midi:
             ref_bytes = Path(clip.reference_midi).read_bytes()
