@@ -88,10 +88,25 @@ class TestMelodyEngineEquivalence:
 class TestAnalyzeRoutesThroughEngines:
     def test_analyze_midi_includes_engine_provenance(self):
         analysis = analyze_midi(str(PIANO_SYNTHETIC))
-        assert analysis["harmony_provenance"]["engine"] == "music21"
+        hp = analysis["harmony_provenance"]
+        assert hp["key"]["engine"] == "music21"
+        assert hp["chords"]["engine"] == "music21"
+        assert hp["roman_numerals"]["engine"] == "music21"
+        assert hp["cadences"]["engine"] == "custom-rule"
+        assert hp["modulations"]["engine"] == "custom-rule"
         assert analysis["melody_provenance"]["engine"] == "skyline"
         assert analysis["key"] == {"tonic": "F", "mode": "major", "confidence": 0.813}
         assert analysis["melody"]["heuristic"] == "greedy_continuity_skyline"
+
+    def test_custom_components_do_not_claim_music21(self):
+        """Cadence and modulation are custom logic; provenance must not imply
+        music21 produced them."""
+        hp = Music21HarmonyEngine().component_provenance()
+        assert hp["cadences"].engine == "custom-rule"
+        assert hp["cadences"].parameters["method"] == "roman_numeral_pattern"
+        assert hp["modulations"].engine == "custom-rule"
+        assert hp["modulations"].parameters["method"] == "windowed_krumhansl-schmuckler"
+        assert hp["phrases"].parameters["returns_empty"] is True
 
     def test_analyze_midi_matches_engine_outputs(self):
         midi_bytes = _read_bytes(PIANO_SYNTHETIC)
@@ -102,3 +117,22 @@ class TestAnalyzeRoutesThroughEngines:
         assert analysis["chords"] == harmony.chords
         assert analysis["roman_numerals"] == harmony.roman_numerals
         assert analysis["melody"] == melody.melody
+
+
+class TestIntentionalBehaviorChange:
+    def test_harmony_failure_keeps_rhythm_and_melody(self, monkeypatch):
+        """Intentional (only) behavior change vs pre-refactor: a harmony-engine
+        failure no longer aborts the whole analysis. Rhythm/melody still run
+        and harmony stays in its conservative no-evidence state."""
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("harmony engine exploded")
+
+        monkeypatch.setattr("analyze.get_harmony_engine", boom)
+        analysis = analyze_midi(str(PIANO_SYNTHETIC))
+        assert analysis["key"] is None
+        assert analysis["chords"] == []
+        assert analysis["roman_numerals"] == []
+        assert analysis["harmony_provenance"] == {}
+        assert analysis["melody"] is not None
+        assert analysis["rhythm"] is not None

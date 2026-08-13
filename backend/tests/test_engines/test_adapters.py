@@ -110,10 +110,15 @@ class TestHarmonyResult:
             voice_leading=None,
             phrases=[],
             provenance=EngineProvenance(engine="music21", library_version="10.5"),
+            component_provenance={
+                "key": EngineProvenance(engine="music21", library_version="10.5"),
+                "cadences": EngineProvenance(engine="custom-rule", library_version="custom"),
+            },
         )
         d = result.to_dict()
         assert d["key"] is None
         assert d["provenance"]["engine"] == "music21"
+        assert d["component_provenance"]["cadences"]["engine"] == "custom-rule"
 
 
 class TestMelodyResult:

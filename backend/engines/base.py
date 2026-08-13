@@ -136,6 +136,7 @@ class HarmonyResult:
     voice_leading: dict[str, Any] | None
     phrases: list[dict[str, Any]]
     provenance: EngineProvenance
+    component_provenance: dict[str, EngineProvenance] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -147,6 +148,7 @@ class HarmonyResult:
             "voice_leading": self.voice_leading,
             "phrases": self.phrases,
             "provenance": self.provenance.to_dict(),
+            "component_provenance": {k: v.to_dict() for k, v in self.component_provenance.items()},
         }
 
 
