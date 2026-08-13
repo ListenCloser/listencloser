@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   musicXml: string;
@@ -33,11 +33,13 @@ export default function SheetMusic({
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<any>(null);
   const currentMeasureRef = useRef(-1);
+  const [osmdReady, setOsmdReady] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current || !musicXml) return;
 
     let cancelled = false;
+    setOsmdReady(false);
 
     async function render() {
       const { OpenSheetMusicDisplay } = await import("opensheetmusicdisplay");
@@ -66,6 +68,7 @@ export default function SheetMusic({
         if (!cancelled) {
           osmd.render();
           osmd.cursor.show();
+          setOsmdReady(true);
         }
       } catch (err) {
         console.error("OSMD render failed:", err);
@@ -85,7 +88,7 @@ export default function SheetMusic({
 
   useEffect(() => {
     const osmd = osmdRef.current;
-    if (!osmd?.cursor) return;
+    if (!osmdReady || !osmd?.cursor) return;
 
     if (!isScoreActive || !measureStarts || measureStarts.length === 0) {
       currentMeasureRef.current = -1;
@@ -103,22 +106,29 @@ export default function SheetMusic({
     const steps = Math.max(0, target - from);
     for (let i = 0; i < steps; i += 1) osmd.cursor.nextMeasure();
     currentMeasureRef.current = target;
-  }, [isScoreActive, measureStarts, playheadTime]);
+  }, [osmdReady, isScoreActive, measureStarts, playheadTime]);
 
   function handleClick(event: React.MouseEvent<HTMLDivElement>) {
-    const osmd = osmdRef.current;
-    if (!osmd || !onSeek || !isScoreActive || !measureStarts || measureStarts.length === 0) return;
-    try {
-      const domPoint = { x: event.clientX, y: event.clientY };
-      const svgPoint = osmd.GraphicSheet.domToSvg(domPoint);
-      const osmdPoint = osmd.GraphicSheet.svgToOsmd(svgPoint);
-      const measure = osmd.GraphicSheet.GetNearestObject(osmdPoint, "GraphicalMeasure");
-      const index = measure?.parentSourceMeasure?.measureListIndex;
-      if (typeof index === "number" && measureStarts[index] != null) {
-        onSeek(measureStarts[index]);
+    if (!onSeek || !isScoreActive || !measureStarts || measureStarts.length === 0) return;
+    const container = containerRef.current;
+    if (!container) return;
+    // Map the click to the engraved measure whose bounding box contains it,
+    // avoiding the OSMD internal coordinate transform entirely.
+    const measures = container.querySelectorAll("g.vf-measure");
+    for (const measureEl of measures) {
+      const rect = measureEl.getBoundingClientRect();
+      if (
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom
+      ) {
+        const index = Number(measureEl.getAttribute("id")) - 1;
+        if (index >= 0 && measureStarts[index] != null) {
+          onSeek(measureStarts[index]);
+        }
+        return;
       }
-    } catch {
-      // Clicks outside the engraved systems are ignored.
     }
   }
 

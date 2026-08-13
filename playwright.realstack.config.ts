@@ -16,5 +16,10 @@ export default defineConfig({
     baseURL: process.env.REAL_STACK_APP_URL || "http://localhost:3000",
     viewport: { width: 1280, height: 900 },
     trace: "retain-on-failure",
+    // Headless Chromium throttles the media clock without an audio device; keep
+    // playback advancing in real time for the playback/transport assertions.
+    launchOptions: {
+      args: ["--autoplay-policy=no-user-gesture-required", "--mute-audio"],
+    },
   },
 });
