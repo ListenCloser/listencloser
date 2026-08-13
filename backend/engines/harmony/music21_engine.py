@@ -412,6 +412,46 @@ class Music21HarmonyEngine(HarmonyEngine):
             library_version=_music21_version(),
         )
 
+    def component_provenance(self) -> dict[str, EngineProvenance]:
+        """Per-sub-capability provenance.
+
+        Music21 delivers key, chords, roman numerals, and voice leading via
+        its own modules. Cadence candidates and modulations are CUSTOM logic
+        that only *uses* music21's chord stream; labeling them as music21
+        outputs would mislead. ``phrases`` is deliberately unimplemented.
+        """
+        music21 = EngineProvenance(engine="music21", library_version=_music21_version())
+        cadences = EngineProvenance(
+            engine="custom-rule",
+            library_version="custom",
+            parameters={
+                "method": "roman_numeral_pattern",
+                "note": "custom adjacent-RN pattern heuristic over music21 output",
+            },
+        )
+        modulations = EngineProvenance(
+            engine="custom-rule",
+            library_version="custom",
+            parameters={
+                "method": "windowed_krumhansl-schmuckler",
+                "window_context": "overlapping windows over music21 note stream",
+            },
+        )
+        phrases = EngineProvenance(
+            engine="custom-rule",
+            library_version="custom",
+            parameters={"method": "unimplemented", "returns_empty": True},
+        )
+        return {
+            "key": music21,
+            "chords": music21,
+            "roman_numerals": music21,
+            "cadences": cadences,
+            "modulations": modulations,
+            "voice_leading": music21,
+            "phrases": phrases,
+        }
+
     def analyze(
         self,
         midi_bytes: bytes,
@@ -419,6 +459,8 @@ class Music21HarmonyEngine(HarmonyEngine):
         **kwargs: Any,
     ) -> HarmonyResult:
         from music21 import converter
+
+        components = self.component_provenance()
 
         score = None
         with tempfile.TemporaryDirectory() as td:
@@ -440,6 +482,7 @@ class Music21HarmonyEngine(HarmonyEngine):
                 voice_leading=None,
                 phrases=[],
                 provenance=self.provenance,
+                component_provenance=components,
             )
 
         key_result = _m21_key(score)
@@ -453,6 +496,7 @@ class Music21HarmonyEngine(HarmonyEngine):
             voice_leading=_m21_voice_leading(score),
             phrases=_m21_phrases(score),
             provenance=self.provenance,
+            component_provenance=components,
         )
 
 

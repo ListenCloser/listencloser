@@ -216,6 +216,12 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
     and rhythm stats are read directly from the MIDI with pretty_midi. Engine
     provenance is attached so persistence can record how each fact was
     produced.
+
+    Intentional behavior change vs. the pre-engine implementation (2026,
+    engine-seam refactor): a harmony-engine failure no longer aborts the whole
+    analysis. This module swallows it, keeps harmony in its conservative
+    no-evidence state, and still produces rhythm/melody. Covered by
+    TestIntentionalBehaviorChange.
     """
     t0 = _time.perf_counter()
 
@@ -236,6 +242,8 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         "phrases": [],
         "rhythm": None,
         "melody": None,
+        "harmony_provenance": {},
+        "melody_provenance": None,
     }
 
     # Tempo from MIDI metadata
@@ -272,7 +280,9 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         result["modulations"] = harmony.modulations
         result["voice_leading"] = harmony.voice_leading
         result["phrases"] = harmony.phrases
-        result["harmony_provenance"] = harmony.provenance.to_dict()
+        result["harmony_provenance"] = {
+            k: v.to_dict() for k, v in harmony.component_provenance.items()
+        }
     except Exception:
         logger.exception("harmony engine failed")
 

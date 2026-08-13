@@ -714,8 +714,12 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     insight_ids: list[str] = []
     pulse_is_default = _transcription_defaults_pulse(input_version)
-    harmony_provenance = analysis.get("harmony_provenance")
+    harmony_provenance = analysis.get("harmony_provenance") or {}
     melody_provenance = analysis.get("melody_provenance")
+
+    def _hp(component: str) -> dict | None:
+        """Per-component harmony provenance (None when unavailable)."""
+        return harmony_provenance.get(component)
 
     # Key — only written when there is a real detection with a correlation
     # coefficient. A weak correlation is still stored (the frontend withholds
@@ -736,7 +740,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="detected",
-            engine_provenance=harmony_provenance,
+            engine_provenance=_hp("key"),
         )
         insight_ids.append(str(kid))
 
@@ -809,7 +813,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="inferred",
-            engine_provenance=harmony_provenance,
+            engine_provenance=_hp("chords"),
         )
         insight_ids.append(str(cid))
 
@@ -838,7 +842,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="inferred",
-            engine_provenance=harmony_provenance,
+            engine_provenance=_hp("roman_numerals"),
         )
         insight_ids.append(str(rid))
 
@@ -867,7 +871,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="heuristic",
-            engine_provenance=harmony_provenance,
+            engine_provenance=_hp("cadences"),
         )
         insight_ids.append(str(caid))
 
@@ -931,7 +935,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="heuristic",
-            engine_provenance=harmony_provenance,
+            engine_provenance=_hp("voice_leading"),
         )
         insight_ids.append(str(vid))
 
@@ -948,7 +952,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="heuristic",
-            engine_provenance=harmony_provenance,
+            engine_provenance=_hp("modulations"),
         )
         insight_ids.append(str(mid))
 
