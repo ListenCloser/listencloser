@@ -95,17 +95,20 @@ function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canIm
   );
 }
 
-const FACT_LABELS: Record<string, string> = {
-  key: "Key",
-  tempo: "Tempo",
-  time_signature: "Time signature",
-  audio_tempo: "Tempo",
-};
+const NOT_DETECTED = "Not confidently detected";
 
-function AnalysisSummary({ onSeek, bpm }: { onSeek: (seconds: number) => void; bpm: number }) {
+export function AnalysisSummary({ onSeek, bpm }: { onSeek: (seconds: number) => void; bpm: number }) {
   const { workspace } = useWorkspace();
   const confident = workspace.insights.filter((item) => item.confidence != null && item.confidence >= 0.5);
-  const primary = confident.filter((item) => ["key", "tempo", "time_signature", "audio_tempo"].includes(item.kind));
+  const claimValue = (item?: (typeof workspace.insights)[number]) => (item ? item.claim.replace(/^[^:]+:\s*/, "") : NOT_DETECTED);
+  const keyFact = confident.find((item) => item.kind === "key");
+  const tempoFact = confident.find((item) => item.kind === "audio_tempo") ?? confident.find((item) => item.kind === "tempo");
+  const meterFact = confident.find((item) => item.kind === "time_signature");
+  const facts = [
+    { label: "Key", value: claimValue(keyFact) },
+    { label: "Tempo", value: claimValue(tempoFact) },
+    { label: "Time signature", value: claimValue(meterFact) },
+  ];
   const chords = confident.filter((item) => item.kind === "chord").slice(0, 12);
   const sections = confident.filter((item) => item.kind === "section").slice(0, 12);
   const observations = confident.filter((item) => !["key", "tempo", "time_signature", "audio_tempo", "chord", "section"].includes(item.kind));
@@ -115,10 +118,10 @@ function AnalysisSummary({ onSeek, bpm }: { onSeek: (seconds: number) => void; b
   return (
     <div className="analysis-content">
       <div className="analysis-facts">
-        {primary.map((item) => (
-          <div key={item.id}>
-            <span>{FACT_LABELS[item.kind] ?? item.kind}</span>
-            <strong>{item.claim.replace(/^[^:]+:\s*/, "")}</strong>
+        {facts.map((fact) => (
+          <div key={fact.label}>
+            <span>{fact.label}</span>
+            <strong>{fact.value}</strong>
           </div>
         ))}
       </div>

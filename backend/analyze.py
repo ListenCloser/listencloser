@@ -121,9 +121,9 @@ class MelodyResult(TypedDict):
 
 
 class AnalysisResult(TypedDict):
-    key: KeyResult
-    tempo: TempoResult
-    time_signature: TimeSigResult
+    key: KeyResult | None
+    tempo: TempoResult | None
+    time_signature: TimeSigResult | None
     chords: list[ChordResult]
     roman_numerals: list[RomanNumeralResult]
     cadences: list[CadenceResult]
@@ -161,32 +161,49 @@ _MIN_NOTES_PER_WINDOW = 4
 # ── music21 analysis (delegated, not custom) ────────────────────────────────
 
 
-def _m21_key(score) -> KeyResult:
-    """Delegate key estimation to music21's built-in analysis."""
+def _m21_key(score) -> KeyResult | None:
+    """Delegate key estimation to music21's built-in analysis.
+
+    Returns ``None`` when there is no reliable evidence (a parse failure, a
+    missing tonic, or a missing correlation coefficient) rather than
+    fabricating a "C major" default or a made-up confidence value.
+    """
     try:
         key = score.analyze("key")
         corr = key.correlationCoefficient
+        if corr is None:
+            return None
+        tonic = key.tonic.name if key.tonic else None
+        if tonic is None:
+            return None
         return KeyResult(
-            tonic=key.tonic.name if key.tonic else "C",
+            tonic=tonic,
             mode=key.mode or "major",
-            confidence=round(corr if corr is not None else 0.85, 3),
+            confidence=round(float(corr), 3),
         )
     except Exception:
-        return KeyResult(tonic="C", mode="major", confidence=0.0)
+        logger.warning("music21 key estimation failed", exc_info=True)
+        return None
 
 
 def _m21_chords(score) -> list[ChordResult]:
-    """Delegate chord detection to music21's chord analysis."""
+    """Delegate chord detection to music21's chord analysis.
+
+    Chords whose root or quality cannot be determined are skipped so the
+    surface does not fill with ``?:unknown`` spam.
+    """
     results: list[ChordResult] = []
     try:
         for chord in score.flatten().getElementsByClass("Chord"):
             try:
                 root = chord.root()
-                root_name = root.name if root else "?"
-                implied = (
-                    str(chord.impliedQuality) if hasattr(chord, "impliedQuality") else "unknown"
-                )
+                if root is None:
+                    continue
+                root_name = root.name
+                implied = str(chord.impliedQuality) if hasattr(chord, "impliedQuality") else ""
                 quality = _QUALITY_MAP.get(implied, implied)
+                if not quality or quality == "unknown":
+                    continue
                 start = float(chord.getOffsetInHierarchy(score))
                 dur = float(chord.quarterLength) if hasattr(chord, "quarterLength") else 0.0
                 if dur > 0:
@@ -217,10 +234,16 @@ def _m21_roman_numerals(score, detected_key) -> list[RomanNumeralResult]:
             for ch in measure.getElementsByClass("Chord"):
                 try:
                     rn = roman.romanNumeralFromChord(ch, detected_key)
+                    if not rn.figure:
+                        continue
                     root_p = ch.root()
-                    root_name = root_p.name if root_p else "?"
+                    if root_p is None:
+                        continue
+                    root_name = root_p.name
                     implied = str(rn.impliedQuality) if hasattr(rn, "impliedQuality") else "unknown"
                     quality = _QUALITY_MAP.get(implied, implied)
+                    if not quality or quality == "unknown":
+                        continue
                     start = float(ch.getOffsetInHierarchy(score))
                     dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
                     results.append(
@@ -663,9 +686,9 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
     pm = pretty_midi.PrettyMIDI(midi_path)
 
     result: AnalysisResult = {
-        "key": KeyResult(tonic="C", mode="major", confidence=0.0),
-        "tempo": TempoResult(bpm=120.0, confidence=0.0),
-        "time_signature": TimeSigResult(numerator=4, denominator=4, confidence=0.0),
+        "key": None,
+        "tempo": None,
+        "time_signature": None,
         "chords": [],
         "roman_numerals": [],
         "cadences": [],
@@ -686,10 +709,11 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
 
     # Time signature from MIDI metadata
     try:
-        _, ts_nums, ts_denoms = pm.get_time_signatures()
-        if len(ts_nums) > 0:
+        ts_changes = pm.time_signature_changes
+        if ts_changes:
+            ts = ts_changes[0]
             result["time_signature"] = TimeSigResult(
-                numerator=int(ts_nums[0]), denominator=int(ts_denoms[0]), confidence=0.9
+                numerator=int(ts.numerator), denominator=int(ts.denominator), confidence=0.9
             )
     except Exception:
         pass
@@ -714,7 +738,7 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
 
         # Modulations (custom — windowed analysis)
         result["modulations"] = _detect_modulations(
-            score, result["tempo"]["bpm"] if "tempo" in result and result["tempo"] else None
+            score, result["tempo"]["bpm"] if result["tempo"] else None
         )
 
     # These operate directly on the saved performance MIDI and remain useful

@@ -202,9 +202,25 @@ def _create_insight(
     confidence: float | None = None,
     job: Job | None = None,
     owner_id: str = "",
+    method: str | None = None,
 ) -> UUID:
-    """Create an Insight row and return its id."""
+    """Create an Insight row and return its id.
+
+    ``method`` is the evidence provenance: ``"detected"`` (direct measurement),
+    ``"inferred"`` (derived via a model), or ``"heuristic"`` (rule-based). A
+    missing insight for a fact is its ``"unavailable"`` state.
+    """
     repo = InsightRepo(client)
+    provenance: dict = (
+        {
+            "capability": job.capability.name,
+            "capability_version": job.capability.version,
+        }
+        if job
+        else {}
+    )
+    if method:
+        provenance["method"] = method
     insight = repo.create(
         Insight(
             version_id=version_id,
@@ -215,14 +231,7 @@ def _create_insight(
             confidence=confidence,
             produced_by_job_id=job.id if job else None,
             created_by=owner_id if owner_id else None,
-            provenance=(
-                {
-                    "capability": job.capability.name,
-                    "capability_version": job.capability.version,
-                }
-                if job
-                else {}
-            ),
+            provenance=provenance,
         ),
         owner_id,
     )
@@ -654,6 +663,19 @@ def handle_audio_structure(job: Job, client) -> list[str]:
     return insight_ids
 
 
+def _transcription_defaults_pulse(input_version: Version) -> bool:
+    """True when a MIDI's tempo/meter are transcription defaults, not evidence.
+
+    The basic_pitch engine does not estimate tempo or meter; it writes 120 BPM
+    and 4/4 placeholders into every transcribed MIDI. Those values must not be
+    surfaced as detected facts — only real audio/beat evidence counts.
+    """
+    provenance = (input_version.metadata or {}).get("provenance", {})
+    if not isinstance(provenance, dict):
+        return False
+    return provenance.get("engine") == "basic_pitch"
+
+
 def handle_analyze(job: Job, client) -> list[str]:
     """Analyze MIDI → insights for key, tempo, time signature, chords,
     Roman numerals, and cadences."""
@@ -679,29 +701,35 @@ def handle_analyze(job: Job, client) -> list[str]:
         os.unlink(midi_path)
 
     insight_ids: list[str] = []
+    pulse_is_default = _transcription_defaults_pulse(input_version)
 
-    # Key
+    # Key — only written when there is a real detection with a correlation
+    # coefficient. A weak correlation is still stored (the frontend withholds
+    # it from the primary summary), but a failed detection is not fabricated.
     _update_progress(client, job.id, 0.45, "storing key insight")
-    key_data = analysis.get("key", {}) or {}
-    tonic = key_data.get("tonic", "?")
-    mode = key_data.get("mode", "?")
+    key_data = analysis.get("key") or {}
     key_conf = float(key_data.get("confidence", 0.0))
-    kid = _create_insight(
-        client,
-        input_version.id,
-        "key",
-        f"Key: {tonic} {mode}",
-        evidence={"tonic": tonic, "mode": mode},
-        confidence=key_conf,
-        job=job,
-        owner_id=owner_id,
-    )
-    insight_ids.append(str(kid))
+    if key_data:
+        tonic = key_data.get("tonic", "?")
+        mode = key_data.get("mode", "?")
+        kid = _create_insight(
+            client,
+            input_version.id,
+            "key",
+            f"Key: {tonic} {mode}",
+            evidence={"tonic": tonic, "mode": mode},
+            confidence=key_conf,
+            job=job,
+            owner_id=owner_id,
+            method="detected",
+        )
+        insight_ids.append(str(kid))
 
-    # Tempo
+    # Tempo — the transcribed MIDI carries basic_pitch's 120 BPM default, not
+    # audio/beat evidence, so it is not surfaced as a detected fact there.
     _update_progress(client, job.id, 0.50, "storing tempo insight")
-    tempo_data = analysis.get("tempo", {}) or {}
-    if tempo_data:
+    tempo_data = analysis.get("tempo") or {}
+    if tempo_data and not pulse_is_default:
         bpm = float(tempo_data.get("bpm", 0))
         tempo_conf = float(tempo_data.get("confidence", 0.0))
         tid = _create_insight(
@@ -709,17 +737,19 @@ def handle_analyze(job: Job, client) -> list[str]:
             input_version.id,
             "tempo",
             f"Tempo: {bpm} BPM",
-            evidence={"bpm": bpm},
+            evidence={"bpm": bpm, "source": "midi_metadata"},
             confidence=tempo_conf,
             job=job,
             owner_id=owner_id,
+            method="detected",
         )
         insight_ids.append(str(tid))
 
-    # Time signature
+    # Time signature — no downbeat evidence is available for the transcribed
+    # MIDI, so a default 4/4 is never surfaced as a detected fact.
     _update_progress(client, job.id, 0.55, "storing time signature insight")
-    ts_data = analysis.get("time_signature", {}) or {}
-    if ts_data:
+    ts_data = analysis.get("time_signature") or {}
+    if ts_data and not pulse_is_default:
         num = int(ts_data.get("numerator", 4))
         den = int(ts_data.get("denominator", 4))
         ts_conf = float(ts_data.get("confidence", 0.0))
@@ -728,10 +758,11 @@ def handle_analyze(job: Job, client) -> list[str]:
             input_version.id,
             "time_signature",
             f"Time Signature: {num}/{den}",
-            evidence={"numerator": num, "denominator": den},
+            evidence={"numerator": num, "denominator": den, "source": "midi_metadata"},
             confidence=ts_conf,
             job=job,
             owner_id=owner_id,
+            method="detected",
         )
         insight_ids.append(str(tsid))
 
@@ -748,6 +779,8 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         root = ch.get("root", "?")
         quality = ch.get("quality", "?")
+        if root in ("?", "") or quality in ("?", "", "unknown"):
+            continue
         start = float(ch.get("start", 0))
         end = float(ch.get("end", 0))
         cid = _create_insight(
@@ -760,6 +793,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             confidence=None,
             job=job,
             owner_id=owner_id,
+            method="inferred",
         )
         insight_ids.append(str(cid))
 
@@ -787,6 +821,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             confidence=None,
             job=job,
             owner_id=owner_id,
+            method="inferred",
         )
         insight_ids.append(str(rid))
 
@@ -814,6 +849,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             confidence=None,
             job=job,
             owner_id=owner_id,
+            method="heuristic",
         )
         insight_ids.append(str(caid))
 
@@ -841,6 +877,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             confidence=None,
             job=job,
             owner_id=owner_id,
+            method="heuristic",
         )
         insight_ids.append(str(rid))
 
@@ -859,6 +896,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             confidence=None,
             job=job,
             owner_id=owner_id,
+            method="heuristic",
         )
         insight_ids.append(str(mid))
 
@@ -873,6 +911,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             confidence=None,
             job=job,
             owner_id=owner_id,
+            method="heuristic",
         )
         insight_ids.append(str(vid))
 
@@ -888,6 +927,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             confidence=None,
             job=job,
             owner_id=owner_id,
+            method="heuristic",
         )
         insight_ids.append(str(mid))
 
