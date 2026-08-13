@@ -282,5 +282,158 @@ def quantize_fixed_grid(
     return out.getvalue(), report
 
 
+# ---------------------------------------------------------------------------
+# Evidence-based rhythmic grid selection
+# ---------------------------------------------------------------------------
+
+# (name, subdivision factor, complexity prior). ``factor`` divides the beat:
+# quarter=1, eighth=2, triplet-eighth=3, sixteenth=4. The complexity prior is a
+# fixed simplicity preference for coarser grids (kept small so a finer grid is
+# chosen when timing evidence clearly favours it).
+RHYTHMIC_CANDIDATES: tuple[tuple[str, float, float], ...] = (
+    ("quarter", 1.0, 0.0),
+    ("eighth", 2.0, 0.2),
+    ("triplet_eighth", 3.0, 0.5),
+    ("sixteenth", 4.0, 0.8),
+)
+
+# When notes fall exactly between two candidate grids this is the tie-break
+# toward the finer grid; it is bounded below so a coarse grid is not chosen just
+# to hide a noisy onset cloud.
+_SNAP_EPSILON = 1e-6
+
+
+def quantize_rhythmic_grid(
+    midi_bytes: bytes,
+    bpm: float | None = None,
+) -> tuple[bytes, dict[str, Any]]:
+    """Quantize to the simplest rhythmic grid that explains the performance.
+
+    Tries quarter, eighth, triplet-eighth and sixteenth grids anchored to the
+    MIDI's own tempo, scoring each on onset/duration displacement, notation
+    fragmentation (distinct durations), and a simplicity prior. Returns
+    ``(midi_bytes, report)`` with the selected subdivision and diagnostics.
+    """
+    import io
+
+    import pretty_midi
+
+    midi = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
+    if bpm is None:
+        tempo_changes = midi.get_tempo_changes()
+        bpm = float(tempo_changes[1][0]) if tempo_changes[1] else 120.0
+    beat = 60.0 / bpm
+
+    notes = [
+        (note, float(note.start), float(note.end))
+        for instrument in midi.instruments
+        if not instrument.is_drum
+        for note in instrument.notes
+    ]
+
+    # A note is "misaligned" if it sits more than 5% of a beat off the grid;
+    # deliberate off-beat rhythms keep many notes misaligned on a coarse grid,
+    # whereas transcription noise affects only a few.
+    epsilon = beat * 0.05
+
+    best: dict[str, Any] | None = None
+    candidate_costs: dict[str, float] = {}
+    for name, factor, complexity in RHYTHMIC_CANDIDATES:
+        step = beat / factor
+        cost, metrics = _evaluate_candidate(notes, step, complexity, epsilon)
+        candidate_costs[name] = round(cost, 6)
+        if best is None or cost < best["cost"]:
+            best = {
+                "name": name,
+                "factor": factor,
+                "step": step,
+                "cost": cost,
+                "metrics": metrics,
+            }
+
+    chosen = best or {
+        "name": "eighth",
+        "factor": 2.0,
+        "step": beat / 2.0,
+        "cost": 0.0,
+        "metrics": {},
+    }
+    step = chosen["step"]
+
+    onset_shifts: list[float] = []
+    duration_shifts: list[float] = []
+    for note, start, end in notes:
+        new_start = round(start / step) * step
+        new_end = round(end / step) * step
+        if new_end <= new_start + _SNAP_EPSILON:
+            new_end = new_start + step
+        onset_shifts.append(abs(new_start - start))
+        duration_shifts.append(abs((new_end - new_start) - (end - start)))
+        note.start = new_start
+        note.end = new_end
+
+    out = io.BytesIO()
+    midi.write(out)
+
+    report: dict[str, Any] = {
+        "profile": "rhythmic_grid_v1",
+        "timing_mode": "rhythmic_grid",
+        "bpm": round(bpm, 3),
+        "selected_grid": chosen["name"],
+        "grid_step_seconds": round(step, 6),
+        "candidate_costs": candidate_costs,
+        "note_count": len(notes),
+        "onset_shift_mean": round(float(np.mean(onset_shifts)) if onset_shifts else 0.0, 6),
+        "onset_shift_p95": round(
+            float(np.percentile(onset_shifts, 95)) if onset_shifts else 0.0, 6
+        ),
+        "duration_shift_mean": round(
+            float(np.mean(duration_shifts)) if duration_shifts else 0.0, 6
+        ),
+        "duration_shift_p95": round(
+            float(np.percentile(duration_shifts, 95)) if duration_shifts else 0.0, 6
+        ),
+    }
+    return out.getvalue(), report
+
+
+def _evaluate_candidate(
+    notes: list[tuple[Any, float, float]],
+    step: float,
+    complexity: float,
+    epsilon: float,
+) -> tuple[float, dict[str, Any]]:
+    """Score a candidate grid over all notes.
+
+    Returns ``(cost, metrics)``. The cost combines the fraction of notes left
+    misaligned beyond ``epsilon`` (deliberate off-beat rhythms keep many notes
+    misaligned on a too-coarse grid), a duration-displacement term, a
+    simplicity prior, and a distinct-duration fragmentation penalty. It never
+    optimizes for "fewer ties" at the expense of timing.
+    """
+    misaligned = 0
+    duration_rel: list[float] = []
+    distinct_durs: set[float] = set()
+    for _note, start, end in notes:
+        new_start = round(start / step) * step
+        new_end = round(end / step) * step
+        if new_end <= new_start + _SNAP_EPSILON:
+            new_end = new_start + step
+        if abs(new_start - start) > epsilon:
+            misaligned += 1
+        duration_rel.append(abs((new_end - new_start) - (end - start)) / step)
+        distinct_durs.add(round((new_end - new_start) / step, 6))
+
+    misalign_frac = misaligned / len(notes) if notes else 0.0
+    avg_duration = float(np.mean(duration_rel)) if duration_rel else 0.0
+    cost = misalign_frac * 2.0 + avg_duration * 0.5 + complexity + len(distinct_durs) * 0.02
+    return cost, {
+        "misalign_frac": round(misalign_frac, 6),
+        "avg_duration_rel": round(avg_duration, 6),
+        "distinct_durations": len(distinct_durs),
+        "cost": round(cost, 6),
+    }
+
+
 def _count_changed(selections: list[dict[str, Any]]) -> int:
     return sum(s.get("changed_count", 0) for s in selections)
