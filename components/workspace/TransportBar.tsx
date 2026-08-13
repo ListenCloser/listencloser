@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTransport, type CompareSide } from "@/lib/stores/transport";
+import { useWorkspace } from "@/lib/stores/workspace";
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -104,7 +105,23 @@ export default function TransportBar() {
     compareB,
     activeSide,
   } = transport;
+  const { workspace } = useWorkspace();
   const hasSource = Boolean(activeSource);
+
+  const selectionTimeRange = workspace.selection?.timeRange ?? null;
+  const loopSelectionActive =
+    loopEnabled &&
+    loopStart !== null &&
+    loopEnd !== null &&
+    selectionTimeRange !== null &&
+    Math.abs(loopStart - selectionTimeRange.start) < 0.05 &&
+    Math.abs(loopEnd - selectionTimeRange.end) < 0.05;
+
+  const applyLoopSelection = () => {
+    if (!selectionTimeRange || !hasSource) return;
+    setLoop(selectionTimeRange.start, selectionTimeRange.end);
+    if (!loopEnabled) toggleLoop();
+  };
 
   const original = sources.find((item) => item.role === "original") ?? sources[0] ?? null;
   const defaultB = sources.find((item) => item.id !== original?.id && ["transcription", "score"].includes(item.role))
@@ -163,6 +180,18 @@ export default function TransportBar() {
         >
           ↺
         </button>
+        {selectionTimeRange && (
+          <button
+            className={`piece-stop ${loopSelectionActive ? "piece-control-active" : ""}`}
+            onClick={applyLoopSelection}
+            aria-label="Loop selection"
+            aria-pressed={loopSelectionActive}
+            disabled={!hasSource}
+            title={`Loop the selected region (${selectionTimeRange.start.toFixed(1)}s – ${selectionTimeRange.end.toFixed(1)}s)`}
+          >
+            ↻
+          </button>
+        )}
       </div>
 
       {sources.length > 0 && (

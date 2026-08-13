@@ -2,7 +2,6 @@
 
 import { type ReactNode, useEffect, useRef } from "react";
 import { TransportProvider } from "@/lib/stores/transport";
-import { SelectionProvider } from "@/lib/stores/selection";
 import { TimelineProvider } from "@/lib/stores/timeline";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 import TransportBar from "./TransportBar";
@@ -67,12 +66,10 @@ export default function WorkspaceShell({
   return (
     <TimelineProvider>
       <TransportProvider>
-        <SelectionProvider>
-          <WorkspaceProvider>
-            {children}
-            <WorkspaceContent signedIn={signedIn} projectName={projectName} serviceStatus={serviceStatus} />
-          </WorkspaceProvider>
-        </SelectionProvider>
+        <WorkspaceProvider>
+          {children}
+          <WorkspaceContent signedIn={signedIn} projectName={projectName} serviceStatus={serviceStatus} />
+        </WorkspaceProvider>
       </TransportProvider>
     </TimelineProvider>
   );
