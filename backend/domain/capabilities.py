@@ -276,7 +276,7 @@ def _extract_essentia(audio: np.ndarray, sr: float) -> dict | None:
         result["key"] = {
             "tonic": tonic,
             "mode": mode,
-            "confidence": round(float(key_strength), 3) if key_strength else 0.7,
+            "confidence": round(float(key_strength), 3) if key_strength else None,
         }
 
         loudness_extractor = es.LoudnessEBUR128()
@@ -617,9 +617,10 @@ def handle_audio_structure(job: Job, client) -> list[str]:
                     "beats_seconds": result.beats,
                     "downbeats_seconds": result.downbeats,
                 },
-                confidence=0.65,
+                confidence=None,
                 job=job,
                 owner_id=owner_id,
+                method="inferred",
             )
         )
     )
@@ -631,9 +632,10 @@ def handle_audio_structure(job: Job, client) -> list[str]:
                 "audio_tempo",
                 f"Recording tempo: {round(result.bpm)} BPM",
                 evidence={"bpm": result.bpm, "source": "audio_structure"},
-                confidence=0.7,
+                confidence=None,
                 job=job,
                 owner_id=owner_id,
+                method="detected",
             )
         )
     )
@@ -653,9 +655,10 @@ def handle_audio_structure(job: Job, client) -> list[str]:
                         "model": result.model,
                     },
                     span=Span(start_seconds=segment.start, end_seconds=segment.end),
-                    confidence=0.6,
+                    confidence=None,
                     job=job,
                     owner_id=owner_id,
+                    method="inferred",
                 )
             )
         )
@@ -1603,24 +1606,27 @@ def handle_describe(job: Job, client) -> list[str]:
             "bpm",
             f"Tempo: {bpm} BPM",
             evidence={"bpm": bpm},
-            confidence=0.8,
+            confidence=None,
             job=job,
             owner_id=owner_id,
+            method="detected",
         )
         insight_ids.append(str(bid))
 
     _update_progress(client, job.id, 0.6, "storing key insight")
     key_data = descriptors.get("key")
     if key_data:
+        key_conf = key_data.get("confidence")
         kid = _create_insight(
             client,
             input_version.id,
             "key",
             f"Key: {key_data['tonic']} {key_data['mode']}",
             evidence=key_data,
-            confidence=float(key_data.get("confidence", 0.7)),
+            confidence=float(key_conf) if key_conf is not None else None,
             job=job,
             owner_id=owner_id,
+            method="detected",
         )
         insight_ids.append(str(kid))
 
@@ -1633,9 +1639,10 @@ def handle_describe(job: Job, client) -> list[str]:
             "loudness",
             f"Integrated loudness: {loudness:.1f} LUFS",
             evidence={"loudness_lufs": loudness},
-            confidence=0.85,
+            confidence=None,
             job=job,
             owner_id=owner_id,
+            method="detected",
         )
         insight_ids.append(str(lid))
 
@@ -1648,9 +1655,10 @@ def handle_describe(job: Job, client) -> list[str]:
             "spectral_centroid",
             f"Spectral centroid: {centroid:.0f} Hz",
             evidence={"spectral_centroid_hz": centroid},
-            confidence=0.85,
+            confidence=None,
             job=job,
             owner_id=owner_id,
+            method="detected",
         )
         insight_ids.append(str(cid))
 
