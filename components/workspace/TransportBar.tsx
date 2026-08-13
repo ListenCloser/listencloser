@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useTransport, type CompareSide } from "@/lib/stores/transport";
+import { useTransport, type CompareSide, type PlaybackSource } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
+
+type PlaybackDomain = "performance" | "notation";
+
+function sourceDomain(source: PlaybackSource | null): PlaybackDomain | null {
+  if (!source) return null;
+  if (source.role === "score") return "notation";
+  return "performance";
+}
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -108,7 +116,12 @@ export default function TransportBar() {
   const { workspace } = useWorkspace();
   const hasSource = Boolean(activeSource);
 
-  const selectionTimeRange = workspace.selection?.timeRange ?? null;
+  const selection = workspace.selection;
+  const selectionTimeRange = selection?.timeRange ?? null;
+  const selectionDomain = selectionTimeRange?.domain ?? null;
+  const activeDomain = sourceDomain(activeSource);
+  const domainMatches = selectionDomain !== null && activeDomain !== null && selectionDomain === activeDomain;
+
   const loopSelectionActive =
     loopEnabled &&
     loopStart !== null &&
@@ -119,6 +132,11 @@ export default function TransportBar() {
 
   const applyLoopSelection = () => {
     if (!selectionTimeRange || !hasSource) return;
+    if (!domainMatches) {
+      // Cross-domain loop would silently treat notation seconds as performance
+      // seconds (or vice versa). Disable to avoid misleading loops.
+      return;
+    }
     setLoop(selectionTimeRange.start, selectionTimeRange.end);
     if (!loopEnabled) toggleLoop();
   };
@@ -182,12 +200,16 @@ export default function TransportBar() {
         </button>
         {selectionTimeRange && (
           <button
-            className={`piece-stop ${loopSelectionActive ? "piece-control-active" : ""}`}
+            className={`piece-stop ${loopSelectionActive ? "piece-control-active" : ""}${!domainMatches ? " piece-control-disabled" : ""}`}
             onClick={applyLoopSelection}
-            aria-label="Loop selection"
+            aria-label={domainMatches ? "Loop selection" : "Loop selection (disabled: selection and source have different time domains)"}
             aria-pressed={loopSelectionActive}
-            disabled={!hasSource}
-            title={`Loop the selected region (${selectionTimeRange.start.toFixed(1)}s – ${selectionTimeRange.end.toFixed(1)}s)`}
+            disabled={!hasSource || !domainMatches}
+            title={
+              domainMatches
+                ? `Loop the selected region (${selectionTimeRange.start.toFixed(1)}s – ${selectionTimeRange.end.toFixed(1)}s)`
+                : `Selection is in ${selectionDomain} time; active source is ${activeDomain} time. Loop disabled.`
+            }
           >
             ↻
           </button>

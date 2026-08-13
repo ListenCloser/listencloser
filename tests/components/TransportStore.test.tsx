@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { TimelineProvider } from "@/lib/stores/timeline";
 import { TransportProvider, useTransport } from "@/lib/stores/transport";
+import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -190,5 +191,79 @@ describe("TransportProvider", () => {
     });
     expect(result.current.transport.position).toBe(7);
     expect(result.current.transport.activeSource?.id).toBe("b");
+  });
+});
+
+describe("TransportProvider domain-aware loop", () => {
+  const perfSrc = { id: "perf", label: "Original", url: "data:audio/wav;base64,perf", kind: "audio" as const, role: "original" as const };
+  const scoreSrc = { id: "score", label: "Score rendition", url: "data:audio/wav;base64,score", kind: "audio" as const, role: "score" as const };
+
+  function wrapperWithWorkspace({ children }: { children: ReactNode }) {
+    return (
+      <TimelineProvider>
+        <TransportProvider>
+          <WorkspaceProvider>{children}</WorkspaceProvider>
+        </TransportProvider>
+      </TimelineProvider>
+    );
+  }
+
+  function useSession() {
+    const transport = useTransport();
+    const workspace = useWorkspace();
+    return { transport, workspace };
+  }
+
+  it("enables loop selection when domain matches (performance ↔ performance)", () => {
+    const { result } = renderHook(() => useSession(), { wrapper: wrapperWithWorkspace });
+
+    act(() => {
+      result.current.transport.replaceSources([perfSrc], "perf");
+      result.current.workspace.setSelection({
+        timeRange: { start: 2, end: 6, domain: "performance" },
+        provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
+      });
+      // Simulate clicking "Loop selection" - domain matches so it should enable
+      if (result.current.workspace.selection?.timeRange && result.current.transport.activeSource) {
+        const sel = result.current.workspace.selection;
+        const active = result.current.transport.activeSource;
+        const selDomain = sel.timeRange?.domain ?? null;
+        const activeDomain = active.role === "score" ? "notation" : "performance";
+        if (selDomain === activeDomain) {
+          result.current.transport.setLoop(sel.timeRange!.start, sel.timeRange!.end);
+          result.current.transport.toggleLoop();
+        }
+      }
+    });
+
+    expect(result.current.transport.transport.loopEnabled).toBe(true);
+    expect(result.current.transport.transport.loopStart).toBe(2);
+    expect(result.current.transport.transport.loopEnd).toBe(6);
+  });
+
+  it("does not enable loop selection when domain mismatches (performance ↔ notation)", () => {
+    const { result } = renderHook(() => useSession(), { wrapper: wrapperWithWorkspace });
+
+    act(() => {
+      result.current.transport.replaceSources([perfSrc, scoreSrc], "score");
+      result.current.workspace.setSelection({
+        timeRange: { start: 2, end: 6, domain: "notation" },
+        provenance: { origin: "score", timeExact: false, measureApproximate: false },
+      });
+      // Simulate clicking "Loop selection" - domain mismatches (score notation vs active performance)
+      if (result.current.workspace.selection?.timeRange && result.current.transport.activeSource) {
+        const sel = result.current.workspace.selection;
+        const active = result.current.transport.activeSource;
+        const selDomain = sel.timeRange?.domain ?? null;
+        const activeDomain = active.role === "score" ? "notation" : "performance";
+        if (selDomain === activeDomain) {
+          result.current.transport.setLoop(sel.timeRange!.start, sel.timeRange!.end);
+          result.current.transport.toggleLoop();
+        }
+      }
+    });
+
+    // Loop should not be enabled because domains mismatch
+    expect(result.current.transport.transport.loopEnabled).toBe(false);
   });
 });
