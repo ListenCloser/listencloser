@@ -211,9 +211,19 @@ test("real-stack happy path: import → play → inspect → reload → delete",
   await expect(page.getByRole("button", { name: "Transcription", exact: true })).toHaveAttribute("aria-pressed", "true");
 
   // ── Delete is durable across reload ────────────────────────────────────────
+  // Confirm a real duration/source is loaded first (seek disabled otherwise).
+  await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
   await page.getByTitle("Delete work").click();
   await page.getByTitle("Click again to confirm delete").click();
-  await expect(page.getByText(/Imported works will appear here|Start with a recording/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Imported works will appear here|Start with a recording/i).first()).toBeVisible({ timeout: 15_000 });
+
+  // No stale transport state survives the delete: playback stopped, playhead
+  // at 0:00, duration cleared, no source selected.
+  await expect(page.getByRole("slider", { name: "Playback position" })).toBeDisabled();
+  const times = page.locator(".piece-time span");
+  await expect(times.nth(0)).toHaveText("0:00");
+  await expect(times.nth(1)).toHaveText("0:00");
+  await expect(page.getByText(/Hearing/)).toHaveCount(0);
 
   await page.reload();
   await expect(page.getByRole("tab", { name: "Listen" })).not.toBeVisible({ timeout: 30_000 });

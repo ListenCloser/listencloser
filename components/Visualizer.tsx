@@ -26,7 +26,8 @@ export default function Visualizer({ audioRef }: Props) {
 
     const styles = getComputedStyle(document.documentElement);
     const accent = styles.getPropertyValue("--accent").trim() || "#bd513a";
-    const bg = "#292825";
+    const trace = styles.getPropertyValue("--text").trim() || "#191a1b";
+    const bg = styles.getPropertyValue("--panel-2").trim() || "#efede7";
 
     // Browsers create the AudioContext suspended until a user gesture.
     // If it stays suspended, cross-origin audio routed through Web Audio is
@@ -74,10 +75,12 @@ export default function Visualizer({ audioRef }: Props) {
         canvasCtx!.fillStyle = bg;
         canvasCtx!.fillRect(0, 0, w, h);
 
-        // One calm, high-contrast listening trace. Frequency bars made this
-        // representation compete with the score rather than support playback.
-        canvasCtx!.lineWidth = 1.5;
-        canvasCtx!.strokeStyle = "rgba(255,253,249,.9)";
+        // One calm, high-contrast listening trace on the workspace's light
+        // surface. The accent center line is the zero reference so the wave
+        // stays clearly readable; the transport keeps the playhead obvious.
+        canvasCtx!.lineWidth = 1.75;
+        canvasCtx!.strokeStyle = trace;
+        canvasCtx!.globalAlpha = 0.6;
         canvasCtx!.beginPath();
         const sliceWidth = w / bufferLength;
         let x = 0;
@@ -89,6 +92,7 @@ export default function Visualizer({ audioRef }: Props) {
           x += sliceWidth;
         }
         canvasCtx!.stroke();
+        canvasCtx!.globalAlpha = 1;
         canvasCtx!.fillStyle = accent;
         canvasCtx!.fillRect(0, h / 2 - 1, w, 2);
       };

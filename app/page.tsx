@@ -21,6 +21,7 @@ import { JobObservationError, JobTerminalError, waitForJob, sanitizeJobError } f
 import { supabase } from "@/lib/supabase";
 import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
+import { understandStageLabel, presentableTitle } from "@/lib/format";
 import { buildPlaybackSources } from "@/lib/playback-sources";
 import {
   useWorkspace,
@@ -97,11 +98,11 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         setFilename(bundle.work.title);
         setStage("processing");
         setProgress(Math.round(activeJob.lifecycle.progress * 100));
-        setMessage(activeJob.lifecycle.message || "Understanding music");
+        setMessage(understandStageLabel(activeJob.lifecycle.progress));
         try {
           await waitForJob(activeJob.id, (current) => {
             if (sequence !== loadSequenceRef.current) return;
-            setMessage(current.message || "Understanding music");
+            setMessage(understandStageLabel(current.progress));
             setProgress(Math.round(current.progress * 100));
           }, { signal });
         } catch (cause) {
@@ -416,7 +417,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       const { job } = await startUnderstandWorkflow(version.id, projectId);
       setActiveJobId(job.id);
       await waitForJob(job.id, (current) => {
-        setMessage(current.message || "Understanding music");
+        setMessage(understandStageLabel(current.progress));
         setProgress(5 + Math.round(current.progress * 90));
       });
       const works = await listWorks(projectId);
@@ -458,7 +459,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       const retried = await retryJob(activeJobId);
       setActiveJobId(retried.id);
       await waitForJob(retried.id, (current) => {
-        setMessage(current.message || "Retrying music understanding");
+        setMessage(understandStageLabel(current.progress));
         setProgress(Math.round(current.progress * 100));
       });
       setActiveJobId(null);
@@ -483,7 +484,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     setError(null);
     try {
       await waitForJob(activeJobId, (current) => {
-        setMessage(current.message || "Understanding music");
+        setMessage(understandStageLabel(current.progress));
         setProgress(Math.round(current.progress * 100));
       });
       setActiveJobId(null);
@@ -509,7 +510,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       const { job } = await startUnderstandWorkflow(pendingSourceVersionId, projectId);
       setActiveJobId(job.id);
       await waitForJob(job.id, (current) => {
-        setMessage(current.message || "Understanding music");
+        setMessage(understandStageLabel(current.progress));
         setProgress(Math.round(current.progress * 100));
       });
       setActiveJobId(null);
@@ -550,11 +551,11 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, pointerEvents: "none" }}>
           <div style={{ pointerEvents: "auto", maxWidth: 480, width: "100%", padding: "var(--s-4)" }}>
             {(stage === "uploading" || stage === "processing") && (
-              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: "var(--s-5)", display: "grid", gap: "var(--s-3)" }}>
-                <span style={{ color: "var(--muted)", fontSize: "var(--fs-sm)" }}>{filename}</span>
+              <div className="piece-processing-card" role="status">
+                <span className="piece-processing-filename">{presentableTitle(filename)}</span>
                 <progress value={progress} max={100} style={{ width: "100%" }} />
-                <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>{stage === "uploading" ? "Uploading" : message} · {progress}%</span>
-                <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>You can close this page; processing will continue on the server.</span>
+                <span className="piece-processing-stage">{stage === "uploading" ? "Uploading your recording…" : message} · {Math.round(progress)}%</span>
+                <span className="piece-processing-hint">You can close this page; processing will continue on the server.</span>
                 {stage === "processing" && activeJobId && (
                   <button className="btn" onClick={() => void cancelActiveJob()}>
                     Cancel processing

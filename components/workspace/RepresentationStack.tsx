@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import RepresentationLane from "./RepresentationLane";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
+import { presentableTitle } from "@/lib/format";
 import { deriveAvailability } from "@/lib/representation-availability";
 
 type View = "listen" | "piano_roll" | "score" | "analysis";
@@ -20,7 +21,7 @@ const VIEWS: Record<View, { title: string; description: string }> = {
   },
   score: {
     title: "Score",
-    description: "Your music as notation, in notation time. Playing from the score follows the notated measures — the recording and the score may drift apart where timing is flexible.",
+    description: "Score playback follows the written timing.",
   },
   analysis: {
     title: "Analysis",
@@ -46,15 +47,27 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     }
   }, [activeView, available]);
 
-  if (workspace.isLoadingWork) return <main className="piece-desk"><div className="piece-loading" role="status">Opening your music…</div></main>;
+  if (workspace.isLoadingWork) {
+    return (
+      <main className="piece-desk">
+        <div className="piece-loading" role="status">
+          <span className="spinner" aria-hidden="true" />
+          <div className="piece-loading-copy">
+            <strong>Opening your music…</strong>
+            <span>Loading the saved recording, transcription, and analysis.</span>
+          </div>
+        </div>
+      </main>
+    );
+  }
   if (!available.length) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
 
   const view = VIEWS[activeView];
 
   return <main className="piece-desk">
     <header className="piece-desk-heading">
-      <div>
-        <h1>{activeWork?.title ?? "Untitled piece"}</h1>
+      <div className="piece-desk-title">
+        <h1 title={activeWork?.title}>{presentableTitle(activeWork?.title ?? "Untitled piece")}</h1>
         <p>{view.description}</p>
       </div>
       <button type="button" className="btn" onClick={requestImport}>Import another</button>
@@ -104,11 +117,13 @@ export function AnalysisSummary({ onSeek, bpm }: { onSeek: (seconds: number) => 
   const keyFact = confident.find((item) => item.kind === "key");
   const tempoFact = confident.find((item) => item.kind === "audio_tempo") ?? confident.find((item) => item.kind === "tempo");
   const meterFact = confident.find((item) => item.kind === "time_signature");
-  const facts = [
+  const factDefinitions = [
     { label: "Key", value: claimValue(keyFact) },
     { label: "Tempo", value: claimValue(tempoFact) },
     { label: "Time signature", value: claimValue(meterFact) },
   ];
+  const presentFacts = factDefinitions.filter((fact) => fact.value !== NOT_DETECTED);
+  const missingFacts = factDefinitions.filter((fact) => fact.value === NOT_DETECTED);
   const chords = confident.filter((item) => item.kind === "chord").slice(0, 12);
   const sections = confident.filter((item) => item.kind === "section").slice(0, 12);
   const observations = confident.filter((item) => !["key", "tempo", "time_signature", "audio_tempo", "chord", "section"].includes(item.kind));
@@ -117,18 +132,37 @@ export function AnalysisSummary({ onSeek, bpm }: { onSeek: (seconds: number) => 
   const filteredCount = workspace.insights.length - confident.length;
   return (
     <div className="analysis-content">
-      <div className="analysis-facts">
-        {facts.map((fact) => (
-          <div key={fact.label}>
-            <span>{fact.label}</span>
-            <strong>{fact.value}</strong>
-          </div>
-        ))}
-      </div>
+      {presentFacts.length > 0 && (
+        <div className="analysis-facts">
+          {presentFacts.map((fact) => (
+            <div key={fact.label}>
+              <span>{fact.label}</span>
+              <strong>{fact.value}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+      {missingFactsNote(presentFacts.length, missingFacts)}
       {sections.length > 0 && <div className="analysis-block"><h3>Form</h3><div className="rn-chips">{sections.map((item) => <button type="button" className="rn-chip" key={item.id} onClick={() => goTo(item)}>{item.claim}</button>)}</div></div>}
       {chords.length > 0 && <div className="analysis-block"><h3>Harmonic path</h3><div className="rn-chips">{chords.map((item) => <button type="button" className="rn-chip" key={item.id} onClick={() => goTo(item)}>{item.claim}</button>)}</div></div>}
-      {observations.length > 0 && <div className="analysis-block"><h3>Observations</h3>{observations.map((item) => <button type="button" className="analysis-observation" key={item.id} onClick={() => goTo(item)}><span>{item.claim}</span>{item.confidence != null && <small>{Math.round(item.confidence * 100)}% confidence</small>}</button>)}</div>}
-      {filteredCount > 0 && <p className="analysis-filtered-notice">{filteredCount} low-confidence claim{filteredCount !== 1 ? "s" : ""} hidden.</p>}
+      {observations.length > 0 && <div className="analysis-block"><h3>Observations</h3>{observations.map((item) => <button type="button" className="analysis-observation" key={item.id} onClick={() => goTo(item)}><span>{item.claim}</span></button>)}</div>}
+      {presentFacts.length + sections.length + chords.length + observations.length === 0 && (
+        <div className="analysis-unavailable">
+          <strong>The automatic summary came back empty</strong>
+          <span>We couldn't confidently identify the key, tempo, or form for this piece. The notes and structure are still available in the other views.</span>
+        </div>
+      )}
+      {filteredCount > 0 && (
+        <p className="analysis-filtered-notice">
+          Some possible findings were too uncertain to show.
+        </p>
+      )}
     </div>
   );
+}
+
+function missingFactsNote(presentCount: number, missingFacts: { label: string; value: string }[]): ReactNode {
+  if (presentCount === 0 || missingFacts.length === 0) return null;
+  const names = missingFacts.map((fact) => fact.label.toLowerCase());
+  return <p className="analysis-missing-note">The {names.join(" and ")} {names.length > 1 ? "weren't" : "wasn't"} detected confidently.</p>;
 }

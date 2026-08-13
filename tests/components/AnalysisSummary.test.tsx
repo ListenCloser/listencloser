@@ -36,11 +36,12 @@ beforeEach(() => {
 });
 
 describe("AnalysisSummary truthfulness", () => {
-  it("shows 'Not confidently detected' for key/tempo/meter when no supported evidence exists", () => {
+  it("shows a subtle unavailable state (not empty fact cards) when no supported evidence exists", () => {
     seed([insight({ kind: "rhythm" })]);
     render(<AnalysisSummary onSeek={() => {}} bpm={120} />);
 
-    expect(screen.getAllByText("Not confidently detected")).toHaveLength(3);
+    expect(screen.getByText("The automatic summary came back empty")).toBeInTheDocument();
+    expect(screen.queryByText("Not confidently detected")).not.toBeInTheDocument();
   });
 
   it("does not surface a weak key (confidence < 0.5) as a primary fact", () => {
@@ -51,7 +52,7 @@ describe("AnalysisSummary truthfulness", () => {
     render(<AnalysisSummary onSeek={() => {}} bpm={120} />);
 
     expect(screen.queryByText("C major")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Not confidently detected")).toHaveLength(3);
+    expect(screen.getByText("The automatic summary came back empty")).toBeInTheDocument();
   });
 
   it("renders supported evidence (confidence >= 0.5) normally", () => {
@@ -77,5 +78,17 @@ describe("AnalysisSummary truthfulness", () => {
 
     expect(screen.getByText("96 BPM")).toBeInTheDocument();
     expect(screen.queryByText("120 BPM")).not.toBeInTheDocument();
+  });
+
+  it("notes which summary details were not detected confidently", () => {
+    seed([
+      insight({ id: "strong-key", kind: "key", claim: "Key: A minor", confidence: 0.82, evidence: { tonic: "A", mode: "minor" } }),
+      insight({ id: "tempo", kind: "tempo", claim: "Tempo: 112 BPM", confidence: 0.9, evidence: { bpm: 112 } }),
+    ]);
+    render(<AnalysisSummary onSeek={() => {}} bpm={120} />);
+
+    expect(screen.getByText("A minor")).toBeInTheDocument();
+    expect(screen.getByText("112 BPM")).toBeInTheDocument();
+    expect(screen.getByText("The time signature wasn't detected confidently.")).toBeInTheDocument();
   });
 });

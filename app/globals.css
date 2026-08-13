@@ -985,3 +985,36 @@ html,body { background:var(--bg); }
 /* ── Score playback / animated score following ─────────────────────────── */
 .sheet-music-hint { margin:0 0 10px; padding:6px 12px; color:var(--muted); font-size:var(--fs-xs); background:var(--panel-2); border-radius:var(--r-full); display:inline-block; }
 .piece-active-view .sheet-music-container { overflow:auto; }
+
+/* ── Core workspace polish (#216) ──────────────────────────────────────── */
+.piece-loading {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:var(--s-4); min-height:60vh; margin:auto; padding:var(--s-7) var(--s-5);
+  text-align:center;
+}
+.piece-loading .spinner { width:34px; height:34px; border-width:3px; }
+.piece-loading-copy { display:grid; gap:6px; justify-items:center; max-width:440px; }
+.piece-loading-copy strong { font-size:var(--fs-md); font-weight:var(--fw-semibold); color:var(--text); }
+.piece-loading-copy span { color:var(--muted); font-size:var(--fs-sm); line-height:1.55; }
+
+.piece-desk-heading .piece-desk-title { min-width:0; }
+.piece-desk-heading h1 { max-width:720px; overflow-wrap:anywhere; }
+
+/* Listen/waveform: light surface matching the workspace, wave stays clear. */
+.piece-active-view .visualizer,
+.piece-audio-view .visualizer { background:var(--panel-2); }
+
+/* Upload / processing overlay card: clear hierarchy, text off borders. */
+.piece-processing-card { display:grid; gap:var(--s-3); padding:var(--s-5); background:var(--panel); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-md); }
+.piece-processing-card progress { accent-color:var(--accent); }
+.piece-processing-filename { color:var(--text); font-size:var(--fs-sm); font-weight:var(--fw-medium); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.piece-processing-stage { color:var(--text); font-size:var(--fs-sm); }
+.piece-processing-hint { color:var(--muted); font-size:var(--fs-xs); line-height:1.5; }
+.piece-processing-card .btn { justify-self:start; }
+
+/* Sparse Analysis: supported facts only, subtle unavailable explanations. */
+.analysis-unavailable { display:grid; gap:6px; max-width:560px; }
+.analysis-unavailable strong { font-size:var(--fs-sm); color:var(--text); }
+.analysis-unavailable span { color:var(--muted); font-size:var(--fs-sm); line-height:1.55; }
+.analysis-missing-note { margin:0; color:var(--muted); font-size:var(--fs-xs); }
+.analysis-filtered-notice { margin:0; color:var(--muted); font-size:var(--fs-xs); }
