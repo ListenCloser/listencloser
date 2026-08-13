@@ -429,6 +429,8 @@ class EntityRepo(_Repo):
             row["note_end_seconds"] = entity.note.end_seconds
             row["note_velocity"] = entity.note.velocity
             row["note_voice"] = entity.note.voice
+            if entity.note.amplitude is not None:
+                row["note_amplitude"] = entity.note.amplitude
         if entity.chord:
             row["chord_root"] = entity.chord.root
             row["chord_quality"] = entity.chord.quality
@@ -459,6 +461,7 @@ class EntityRepo(_Repo):
                 end_seconds=row["note_end_seconds"],
                 velocity=row.get("note_velocity", 64),
                 voice=row.get("note_voice", 0),
+                amplitude=row.get("note_amplitude"),
             )
 
         chord = None

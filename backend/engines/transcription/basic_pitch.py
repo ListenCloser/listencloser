@@ -46,6 +46,7 @@ class BasicPitchEngine(TranscriptionEngine):
             num_notes=result["num_notes"],
             cleanup_report=result.get("cleanup_report", {}),
             provenance=self.provenance,
+            model_note_events=result.get("model_note_events", []),
         )
 
 

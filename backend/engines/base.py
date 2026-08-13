@@ -33,6 +33,7 @@ class TranscriptionResult:
     num_notes: int
     cleanup_report: dict[str, Any]
     provenance: EngineProvenance
+    model_note_events: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {

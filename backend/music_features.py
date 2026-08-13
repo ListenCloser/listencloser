@@ -518,7 +518,8 @@ def transcribe_audio(
     frame_threshold: float = 0.3,
 ) -> dict:
     """Transcribe audio to MIDI. Returns a dict with midi (bytes), wav (bytes),
-    notes (list of {pitch, start, end, velocity}), and duration_s.
+    notes (list of {pitch, start, end, velocity, amplitude}), model_note_events
+    (the raw Basic Pitch note events with per-note amplitude), and duration_s.
 
     Expects clean WAV (callers run enhance_audio first)."""
     from basic_pitch.inference import predict
@@ -534,7 +535,7 @@ def transcribe_audio(
         # basic-pitch writes <input_stem>.mid + note events to out_dir.
         out_dir = os.path.join(td, "out")
         os.makedirs(out_dir, exist_ok=True)
-        _, midi_data, _note_events = predict(
+        _model_output, midi_data, note_events = predict(
             in_path,
             onset_threshold=onset_threshold,
             frame_threshold=frame_threshold,
@@ -543,6 +544,21 @@ def transcribe_audio(
         midi_data.write(midi_path)
         with open(midi_path, "rb") as f:
             midi_bytes = f.read()
+
+    # Basic Pitch's per-note evidence: (start_s, end_s, pitch_midi, amplitude,
+    # pitch_bends). ``amplitude`` is the mean note-frame activation in [0, 1] —
+    # the model's per-note "presence" score, NOT a calibrated probability. The
+    # MIDI velocity is Basic Pitch's own ``round(127 * amplitude)`` rounding.
+    model_note_events = [
+        {
+            "start": float(start),
+            "end": float(end),
+            "pitch": int(pitch),
+            "amplitude": float(amplitude),
+            "pitch_bends": [int(b) for b in pitch_bends] if pitch_bends else None,
+        }
+        for (start, end, pitch, amplitude, pitch_bends) in note_events
+    ]
 
     # Post-process MIDI: remove noise, normalize velocities
     try:
@@ -555,12 +571,42 @@ def transcribe_audio(
     import pretty_midi
 
     cleaned_midi = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
-    notes = [
-        {"pitch": note.pitch, "start": note.start, "end": note.end, "velocity": note.velocity}
-        for instrument in cleaned_midi.instruments
-        for note in instrument.notes
-        if not instrument.is_drum
-    ]
+    # Match canonical notes back to their model evidence.  The MIDI round-trip
+    # quantizes onsets to ticks (~0.5 ms), so greedy-match by pitch + nearest
+    # onset within a 20 ms tolerance.
+    events_by_pitch: dict[int, list[dict]] = {}
+    for ev in model_note_events:
+        events_by_pitch.setdefault(ev["pitch"], []).append(ev)
+    for evs in events_by_pitch.values():
+        evs.sort(key=lambda e: e["start"])
+    used: set[int] = set()
+    notes = []
+    for instrument in cleaned_midi.instruments:
+        for note in instrument.notes:
+            if instrument.is_drum:
+                continue
+            amplitude = None
+            best = None
+            best_d = 20e-3
+            for ev in events_by_pitch.get(note.pitch, []):
+                if id(ev) in used:
+                    continue
+                d = abs(ev["start"] - note.start)
+                if d < best_d:
+                    best_d = d
+                    best = ev
+            if best is not None:
+                used.add(id(best))
+                amplitude = best["amplitude"]
+            notes.append(
+                {
+                    "pitch": note.pitch,
+                    "start": note.start,
+                    "end": note.end,
+                    "velocity": note.velocity,
+                    "amplitude": amplitude,
+                }
+            )
 
     wav_bytes = midi_to_wav(midi_bytes)
     return {
@@ -569,6 +615,7 @@ def transcribe_audio(
         "notes": notes,
         "num_notes": len(notes),
         "cleanup_report": cleanup_report,
+        "model_note_events": model_note_events,
     }
 
 
