@@ -47,6 +47,9 @@ class BasicPitchEngine(TranscriptionEngine):
             cleanup_report=result.get("cleanup_report", {}),
             provenance=self.provenance,
             model_note_events=result.get("model_note_events", []),
+            tempo_is_placeholder=True,
+            meter_is_placeholder=True,
+            supports_meter=False,
         )
 
 

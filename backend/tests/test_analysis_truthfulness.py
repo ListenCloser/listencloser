@@ -56,8 +56,10 @@ class _FakeChordScore:
         return []
 
 
-def _version_with_provenance(provenance: dict | None) -> Version:
-    metadata = {"provenance": provenance} if provenance else {}
+def _version_with_provenance(provenance: dict | None, flags: dict | None = None) -> Version:
+    metadata: dict = {"provenance": provenance} if provenance else {}
+    if flags:
+        metadata.update(flags)
     return Version(
         artifact_id=uuid.uuid4(),
         storage_key="key.mid",
@@ -106,10 +108,14 @@ class TestChordsFilterUnknown:
 
 
 class TestTranscriptionDefaultsPulse:
-    def test_basic_pitch_marks_pulse_as_default(self):
-        assert _transcription_defaults_pulse(_version_with_provenance({"engine": "basic_pitch"}))
+    def test_placeholder_flags_mark_pulse_as_default(self):
+        version = _version_with_provenance(
+            {"engine": "basic_pitch"},
+            flags={"tempo_is_placeholder": True, "meter_is_placeholder": True},
+        )
+        assert _transcription_defaults_pulse(version)
 
-    def test_other_engine_is_not_default(self):
+    def test_no_flags_is_not_default(self):
         assert not _transcription_defaults_pulse(_version_with_provenance({"engine": "fixture"}))
 
     def test_missing_provenance_is_not_default(self):

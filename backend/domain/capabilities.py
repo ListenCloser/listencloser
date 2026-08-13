@@ -510,6 +510,9 @@ def handle_transcribe(job: Job, client) -> list[str]:
                 "Conservatively filtered transcription; timing is preserved rather than quantized."
             ),
             "provenance": result.provenance.to_dict(),
+            "tempo_is_placeholder": result.tempo_is_placeholder,
+            "meter_is_placeholder": result.meter_is_placeholder,
+            "supports_meter": result.supports_meter,
         },
     )
     output_ids.append(str(midi_version_id))
@@ -595,8 +598,8 @@ def handle_audio_structure(job: Job, client) -> list[str]:
             Entity(
                 version_id=input_version.id,
                 kind=EntityKind.section,
-                span=Span(start_seconds=segment.start, end_seconds=segment.end),
-                label=f"{segment.label.title()} {index + 1}",
+                span=Span(start_seconds=segment["start"], end_seconds=segment["end"]),
+                label=f"{segment['label'].title()} {index + 1}",
             )
         )
     if entities:
@@ -647,15 +650,15 @@ def handle_audio_structure(job: Job, client) -> list[str]:
                     client,
                     input_version.id,
                     "section",
-                    segment.label.title(),
+                    segment["label"].title(),
                     evidence={
-                        "label": segment.label,
-                        "start_seconds": segment.start,
-                        "end_seconds": segment.end,
-                        "engine": result.engine,
-                        "model": result.model,
+                        "label": segment["label"],
+                        "start_seconds": segment["start"],
+                        "end_seconds": segment["end"],
+                        "engine": result.provenance.engine,
+                        "model": result.provenance.model,
                     },
-                    span=Span(start_seconds=segment.start, end_seconds=segment.end),
+                    span=Span(start_seconds=segment["start"], end_seconds=segment["end"]),
                     confidence=None,
                     job=job,
                     owner_id=owner_id,
@@ -670,14 +673,14 @@ def handle_audio_structure(job: Job, client) -> list[str]:
 def _transcription_defaults_pulse(input_version: Version) -> bool:
     """True when a MIDI's tempo/meter are transcription defaults, not evidence.
 
-    The basic_pitch engine does not estimate tempo or meter; it writes 120 BPM
-    and 4/4 placeholders into every transcribed MIDI. Those values must not be
-    surfaced as detected facts — only real audio/beat evidence counts.
+    Engines declare whether their transcription output carries placeholder
+    tempo/meter (e.g. basic_pitch's 120 BPM and 4/4) through explicit metadata
+    flags on the output version, never via engine-name matching.
     """
-    provenance = (input_version.metadata or {}).get("provenance", {})
-    if not isinstance(provenance, dict):
+    metadata = input_version.metadata or {}
+    if not isinstance(metadata, dict):
         return False
-    return provenance.get("engine") == "basic_pitch"
+    return bool(metadata.get("tempo_is_placeholder") or metadata.get("meter_is_placeholder"))
 
 
 def handle_analyze(job: Job, client) -> list[str]:
@@ -968,9 +971,16 @@ def handle_score(job: Job, client) -> list[str]:
             downbeats = beat_result.get("downbeats")
         except Exception:
             logger.exception("score_beat_tracking_failed")
-    notation_midi, notation_report = music_features.adaptive_notation_from_performance(
-        midi_bytes, beat_times, downbeats=downbeats
+    notation_result = music_features.notation_with_engine(
+        midi_bytes,
+        beat_times,
+        downbeats=downbeats,
+        adaptive=True,
+        notation_ready=True,
+        piano_grand_staff=True,
     )
+    notation_midi = notation_result["notation_midi"]
+    notation_report = notation_result["quantization_report"]
     _update_progress(client, job.id, 0.5, "creating notation")
     notation_key = _job_storage_key(job, "notation.mid")
     _upload_bytes(client, _STORAGE_BUCKET, notation_key, notation_midi, "audio/midi")
@@ -991,9 +1001,7 @@ def handle_score(job: Job, client) -> list[str]:
             "beat_provenance": beat_result.get("provenance"),
         },
     )
-    musicxml = music_features.convert_format(
-        notation_midi, "midi", "musicxml", notation_ready=True, piano_grand_staff=True
-    )
+    musicxml = notation_result["musicxml"]
     storage_key = _job_storage_key(job, "score.musicxml")
     _upload_bytes(
         client,

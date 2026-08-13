@@ -58,9 +58,11 @@ def _transcribe(audio_bytes: bytes, onset: float, frame: float) -> dict[str, Any
     backend_dir = str(Path(__file__).resolve().parent.parent)
     if backend_dir not in sys.path:
         sys.path.insert(0, backend_dir)
-    from music_features import transcribe_audio
+    from music_features import transcribe_with_engine
 
-    return transcribe_audio(audio_bytes, fmt="wav", onset_threshold=onset, frame_threshold=frame)
+    return transcribe_with_engine(
+        audio_bytes, fmt="wav", onset_threshold=onset, frame_threshold=frame
+    )
 
 
 def _metric_block(pred: list[Note], ref: list[Note]) -> dict[str, Any] | None:

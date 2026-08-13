@@ -34,12 +34,18 @@ class TranscriptionResult:
     cleanup_report: dict[str, Any]
     provenance: EngineProvenance
     model_note_events: list[dict[str, Any]] = field(default_factory=list)
+    tempo_is_placeholder: bool = False
+    meter_is_placeholder: bool = False
+    supports_meter: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "num_notes": self.num_notes,
             "cleanup_report": self.cleanup_report,
             "provenance": self.provenance.to_dict(),
+            "tempo_is_placeholder": self.tempo_is_placeholder,
+            "meter_is_placeholder": self.meter_is_placeholder,
+            "supports_meter": self.supports_meter,
         }
 
 
@@ -122,6 +128,21 @@ class StructureEngine(Protocol):
 
 @runtime_checkable
 class NotationEngine(Protocol):
-    def convert(
-        self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any
-    ) -> NotationResult: ...
+    def convert(self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any) -> NotationResult:
+        """Produce notated MIDI and MusicXML from a performance MIDI and beat grid.
+
+        Interface contract (engines must honor these when present; unknown
+        options may be ignored):
+
+        - ``adaptive``: build the metrical grid and quantize per-measure from
+          beat/downbeat positions, instead of a fixed subdivision grid.
+        - ``downbeats``: beat-position subset that anchors measure boundaries.
+        - ``beat_positions``: metrical position (1-based step) of each beat.
+        - ``notation_ready``: input MIDI is already quantized notation; do not
+          re-quantize or infer meter.
+        - ``piano_grand_staff``: engrave treble+bass staves instead of a single
+          staff.
+
+        These options describe requested notation semantics, not a specific
+        library.  Returns a NotationResult.
+        """

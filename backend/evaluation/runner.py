@@ -32,11 +32,10 @@ def _run_clip(clip: EvalClip, output_dir: str) -> dict[str, Any]:
 
     from analyze import analyze_midi
     from music_features import (
-        convert_format,
-        estimate_beat_grid,
+        estimate_beats_with_engine,
         midi_to_wav,
-        notation_midi_from_performance,
-        transcribe_audio,
+        notation_with_engine,
+        transcribe_with_engine,
     )
 
     result: dict[str, Any] = {"clip_id": clip.id, "category": clip.category}
@@ -44,7 +43,7 @@ def _run_clip(clip: EvalClip, output_dir: str) -> dict[str, Any]:
     audio_bytes = Path(clip.audio).read_bytes()
 
     t0 = time.monotonic()
-    transcription = transcribe_audio(audio_bytes, fmt="wav")
+    transcription = transcribe_with_engine(audio_bytes, fmt="wav")
     result["transcription_time_s"] = round(time.monotonic() - t0, 2)
 
     midi_bytes = transcription["midi"]
@@ -76,7 +75,8 @@ def _run_clip(clip: EvalClip, output_dir: str) -> dict[str, Any]:
 
     # --- Beat estimation ---
     t0 = time.monotonic()
-    bpm_est, beat_times = estimate_beat_grid(audio_bytes)
+    beat_result = estimate_beats_with_engine(audio_bytes)
+    bpm_est, beat_times = beat_result["bpm"], beat_result["beats"]
     result["beat_time_s"] = round(time.monotonic() - t0, 2)
     result["estimated_bpm"] = round(bpm_est, 2)
     result["estimated_beats"] = len(beat_times)
@@ -96,10 +96,10 @@ def _run_clip(clip: EvalClip, output_dir: str) -> dict[str, Any]:
 
     # --- Notation ---
     try:
-        notation_midi_bytes, quant_report = notation_midi_from_performance(midi_bytes, beat_times)
-        musicxml_bytes = convert_format(notation_midi_bytes, "midi", "musicxml")
+        notation = notation_with_engine(midi_bytes, beat_times)
+        musicxml_bytes = notation["musicxml"]
         result["notation_metrics"] = notation_metrics.diagnose_musicxml(musicxml_bytes).to_dict()
-        result["notation_quantization"] = quant_report
+        result["notation_quantization"] = notation["quantization_report"]
     except Exception:
         result["notation_metrics"] = None
         result["notation_quantization"] = None
