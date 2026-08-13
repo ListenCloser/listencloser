@@ -203,12 +203,15 @@ def _create_insight(
     job: Job | None = None,
     owner_id: str = "",
     method: str | None = None,
+    engine_provenance: dict | None = None,
 ) -> UUID:
     """Create an Insight row and return its id.
 
     ``method`` is the evidence provenance: ``"detected"`` (direct measurement),
     ``"inferred"`` (derived via a model), or ``"heuristic"`` (rule-based). A
     missing insight for a fact is its ``"unavailable"`` state.
+    ``engine_provenance`` is the engine metadata (engine name, library version,
+    parameters) recorded by the engine seam that produced the fact.
     """
     repo = InsightRepo(client)
     provenance: dict = (
@@ -221,6 +224,8 @@ def _create_insight(
     )
     if method:
         provenance["method"] = method
+    if engine_provenance:
+        provenance["engine"] = engine_provenance
     insight = repo.create(
         Insight(
             version_id=version_id,
@@ -709,6 +714,12 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     insight_ids: list[str] = []
     pulse_is_default = _transcription_defaults_pulse(input_version)
+    harmony_provenance = analysis.get("harmony_provenance") or {}
+    melody_provenance = analysis.get("melody_provenance")
+
+    def _hp(component: str) -> dict | None:
+        """Per-component harmony provenance (None when unavailable)."""
+        return harmony_provenance.get(component)
 
     # Key — only written when there is a real detection with a correlation
     # coefficient. A weak correlation is still stored (the frontend withholds
@@ -729,6 +740,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="detected",
+            engine_provenance=_hp("key"),
         )
         insight_ids.append(str(kid))
 
@@ -801,6 +813,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="inferred",
+            engine_provenance=_hp("chords"),
         )
         insight_ids.append(str(cid))
 
@@ -829,6 +842,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="inferred",
+            engine_provenance=_hp("roman_numerals"),
         )
         insight_ids.append(str(rid))
 
@@ -857,6 +871,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="heuristic",
+            engine_provenance=_hp("cadences"),
         )
         insight_ids.append(str(caid))
 
@@ -904,6 +919,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="heuristic",
+            engine_provenance=melody_provenance,
         )
         insight_ids.append(str(mid))
 
@@ -919,6 +935,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="heuristic",
+            engine_provenance=_hp("voice_leading"),
         )
         insight_ids.append(str(vid))
 
@@ -935,6 +952,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="heuristic",
+            engine_provenance=_hp("modulations"),
         )
         insight_ids.append(str(mid))
 

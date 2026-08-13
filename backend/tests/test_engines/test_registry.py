@@ -5,9 +5,13 @@ from __future__ import annotations
 import pytest
 
 from engines.beats.librosa_engine import LibrosaBeatEngine
+from engines.harmony.music21_engine import Music21HarmonyEngine
+from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.music21_engine import Music21NotationEngine
 from engines.registry import (
     get_beat_engine,
+    get_harmony_engine,
+    get_melody_engine,
     get_notation_engine,
     get_structure_engine,
     get_transcription_engine,
@@ -33,6 +37,14 @@ class TestRegistryDefaults:
         engine = get_notation_engine()
         assert isinstance(engine, Music21NotationEngine)
 
+    def test_default_harmony_is_music21(self):
+        engine = get_harmony_engine()
+        assert isinstance(engine, Music21HarmonyEngine)
+
+    def test_default_melody_is_skyline(self):
+        engine = get_melody_engine()
+        assert isinstance(engine, SkylineMelodyEngine)
+
 
 class TestRegistryExplicitSelection:
     def test_select_basic_pitch_explicitly(self):
@@ -48,6 +60,18 @@ class TestRegistryExplicitSelection:
             get_transcription_engine("nonexistent")
         with pytest.raises(ValueError, match="Unknown beat engine"):
             get_beat_engine("made_up")
+        with pytest.raises(ValueError, match="Unknown harmony engine"):
+            get_harmony_engine("made_up")
+        with pytest.raises(ValueError, match="Unknown melody engine"):
+            get_melody_engine("made_up")
+
+    def test_select_harmony_explicitly(self):
+        engine = get_harmony_engine("music21")
+        assert isinstance(engine, Music21HarmonyEngine)
+
+    def test_select_melody_explicitly(self):
+        engine = get_melody_engine("skyline")
+        assert isinstance(engine, SkylineMelodyEngine)
 
     def test_env_var_selection(self, monkeypatch):
         monkeypatch.setenv("TRANSCRIPTION_ENGINE", "basic_pitch")
