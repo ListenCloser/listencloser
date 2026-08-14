@@ -47,3 +47,12 @@ export type AskResponse = {
   references: AskReference[];
   suggestedActions?: AskAction[];
 };
+
+/**
+ * A single message in the Ask conversation, local to the current work/session.
+ * User turns carry plain text; assistant turns carry the full typed response
+ * so references and suggested actions stay structured (never string-joined).
+ */
+export type AskMessage =
+  | { id: string; role: "user"; text: string }
+  | { id: string; role: "assistant"; response: AskResponse };

@@ -150,4 +150,22 @@ export const handlers = [
       { id: "time-insight", version_id: "mock-midi-version", kind: "time_signature", claim: "Time Signature: 4/4", span, entity_ids: [], evidence: { numerator: 4, denominator: 4 }, confidence: 0.9, provenance: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-analysis-job" },
     ]);
   }),
+
+  http.post("/api/v1/ask", async () => {
+    await delay(250);
+    return HttpResponse.json({
+      answer: "This passage stays centered on the tonic, with a gentle stepwise descent that keeps the motion gentle before the phrase lands on the downbeat.",
+      references: [
+        { type: "time", start: 4, end: 8, domain: "performance" },
+        { type: "measure", start: 2, end: 4 },
+        { type: "notes", ids: ["mock-entity-16", "mock-entity-17"] },
+        { type: "insight", id: "key-insight" },
+      ],
+      suggestedActions: [
+        { type: "show_representation", representationId: "score" },
+        { type: "loop", start: 4, end: 8, domain: "performance" },
+        { type: "seek", seconds: 4, domain: "performance" },
+      ],
+    });
+  }),
 ];

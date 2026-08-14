@@ -5,6 +5,7 @@ import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 import { categorizeInsights, filterByCategory, insightStartSeconds } from "@/lib/inspector/insights";
 import { formatTime } from "@/lib/format";
+import AskPanel from "./AskPanel";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
 
@@ -115,15 +116,63 @@ function renderInsightList(
 }
 
 export default function InspectorPanel() {
-  const { workspace } = useWorkspace();
+  const { workspace, setInspectorMode } = useWorkspace();
   const { transport, seek } = useTransport();
   const { timeline } = useTimeline();
-  if (workspace.inspectorMode !== "analysis") {
-    return null;
-  }
+  const mode = workspace.inspectorMode;
+
+  return (
+    <aside className="inspector">
+      <header className="inspector-header">
+        <div className="inspector-mode-tabs" role="tablist" aria-label="Inspector mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "analysis"}
+            className={mode === "analysis" ? "active" : ""}
+            onClick={() => setInspectorMode("analysis")}
+          >
+            Analysis
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "ask"}
+            className={mode === "ask" ? "active" : ""}
+            onClick={() => setInspectorMode("ask")}
+          >
+            Ask
+          </button>
+        </div>
+        {mode === "analysis" ? (
+          <h2>Analysis</h2>
+        ) : (
+          <h2>Ask</h2>
+        )}
+        {mode === "analysis" && (
+          <InsightScopeHeader scope={workspace.selection ? "selection" : "whole-work"} selection={workspace.selection} />
+        )}
+      </header>
+
+      {mode === "analysis"
+        ? <AnalysisContent workspace={workspace} seek={seek} bpm={timeline.bpm} />
+        : <div className="inspector-content ask-content"><AskPanel /></div>}
+    </aside>
+  );
+}
+
+function AnalysisContent({
+  workspace,
+  seek,
+  bpm,
+}: {
+  workspace: ReturnType<typeof useWorkspace>["workspace"];
+  seek: (seconds: number) => void;
+  bpm: number;
+}) {
   const hasSelection = workspace.selection != null;
 
-  const categorized = categorizeInsights(workspace.insights, workspace.selection, timeline.bpm);
+  const categorized = categorizeInsights(workspace.insights, workspace.selection, bpm);
   const selectionInsights = filterByCategory(categorized, "selection");
   const wholeWorkInsights = filterByCategory(categorized, "whole-work");
 
@@ -146,50 +195,43 @@ export default function InspectorPanel() {
   const filteredCount = categorized.filter((c) => c.category === "unrelated").length;
 
   return (
-    <aside className="inspector">
-      <header className="inspector-header">
-        <h2>Analysis</h2>
-        <InsightScopeHeader scope={hasSelection ? "selection" : "whole-work"} selection={workspace.selection} />
-      </header>
-
-      <div className="inspector-content">
-        {!hasSelection && (
-          <section className="inspector-section">
-            <h3>Overview</h3>
-            <div className="inspector-facts">
-              {renderFact("Key", claimValue(keyFact(confWholeWork)))}
-              {renderFact("Tempo", claimValue(tempoFact(confWholeWork)))}
-              {renderFact("Time signature", claimValue(meterFact(confWholeWork)))}
-            </div>
-          </section>
-        )}
-
-        {hasSelection && confSelection.length > 0 && (
-          <section className="inspector-section">
-            <h3>Selection findings</h3>
-            {renderInsightList(confSelection, seek, timeline.bpm)}
-          </section>
-        )}
-
-        {hasSelection && confSelection.length === 0 && (
-          <section className="inspector-section">
-            <h3>Selection</h3>
-            <p className="inspector-empty">No specific analysis is available for this selection yet.</p>
-          </section>
-        )}
-
+    <div className="inspector-content">
+      {!hasSelection && (
         <section className="inspector-section">
-          <h3>Whole-piece findings</h3>
-          {renderInsightList(confWholeWork, seek, timeline.bpm)}
-          {confWholeWork.length === 0 && <p className="inspector-empty">No confident whole-piece findings.</p>}
+          <h3>Overview</h3>
+          <div className="inspector-facts">
+            {renderFact("Key", claimValue(keyFact(confWholeWork)))}
+            {renderFact("Tempo", claimValue(tempoFact(confWholeWork)))}
+            {renderFact("Time signature", claimValue(meterFact(confWholeWork)))}
+          </div>
         </section>
+      )}
 
-        {filteredCount > 0 && (
-          <p className="inspector-filtered-notice">
-            Some uncertain findings were omitted.
-          </p>
-        )}
-      </div>
-    </aside>
+      {hasSelection && confSelection.length > 0 && (
+        <section className="inspector-section">
+          <h3>Selection findings</h3>
+          {renderInsightList(confSelection, seek, bpm)}
+        </section>
+      )}
+
+      {hasSelection && confSelection.length === 0 && (
+        <section className="inspector-section">
+          <h3>Selection</h3>
+          <p className="inspector-empty">No specific analysis is available for this selection yet.</p>
+        </section>
+      )}
+
+      <section className="inspector-section">
+        <h3>Whole-piece findings</h3>
+        {renderInsightList(confWholeWork, seek, bpm)}
+        {confWholeWork.length === 0 && <p className="inspector-empty">No confident whole-piece findings.</p>}
+      </section>
+
+      {filteredCount > 0 && (
+        <p className="inspector-filtered-notice">
+          Some uncertain findings were omitted.
+        </p>
+      )}
+    </div>
   );
 }

@@ -1,0 +1,293 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import { useWorkspace } from "@/lib/stores/workspace";
+import { useTransport } from "@/lib/stores/transport";
+import { useTimeline } from "@/lib/stores/timeline";
+import { deriveAskContext } from "@/lib/ask/context";
+import { askMusic } from "@/lib/ask/client";
+import {
+  describeAskContext,
+  formatReference,
+  resolveReference,
+  validateAction,
+} from "@/lib/ask/render";
+import { composeNoteSelection } from "@/lib/selection";
+import type { AskAction, AskMessage, AskReference, AskResponse } from "@/lib/ask/types";
+
+const STARTER_PROMPTS = [
+  "What is happening harmonically here?",
+  "What changes in this section?",
+  "Why does this passage sound different?",
+  "Summarize this piece.",
+];
+
+function makeId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function referenceLabel(ref: AskReference, insights: { id: string; claim: string }[]): string {
+  const resolveInsight = (id: string) => insights.find((i) => i.id === id)?.claim ?? null;
+  return formatReference(ref, resolveInsight);
+}
+
+function ActionChip({ action, onClick }: { action: AskAction; onClick: (action: AskAction) => void }) {
+  const label = action.type === "seek"
+    ? "Jump to time"
+    : action.type === "loop"
+      ? "Loop passage"
+      : action.type === "show_representation"
+        ? "Open in Score"
+        : "Action";
+  return (
+    <button type="button" className="ask-action-chip" onClick={() => onClick(action)}>
+      {label}
+    </button>
+  );
+}
+
+export default function AskPanel() {
+  const { workspace, appendAskMessage, setActiveRepresentation, setSelection } = useWorkspace();
+  const { transport, seek, setLoop, toggleLoop } = useTransport();
+  const { timeline } = useTimeline();
+  const [draft, setDraft] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastAsked, setLastAsked] = useState<{ question: string; context: ReturnType<typeof deriveAskContext> } | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const activeWorkId = workspace.activeWorkId;
+  const activeSource = transport.activeSource;
+  const scoreEntry = workspace.representations.find((entry) => entry.kind === "score");
+  const pianoRollEntry = workspace.representations.find((entry) => entry.kind === "piano_roll");
+
+  const runAsk = useCallback(async (question: string, context: NonNullable<ReturnType<typeof deriveAskContext>>) => {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await askMusic({ question, context });
+      const assistantMessage: AskMessage = { id: makeId(), role: "assistant", response };
+      appendAskMessage(assistantMessage);
+      setLastAsked(null);
+    } catch {
+      setError("Ask is not available right now. Please try again.");
+    } finally {
+      setPending(false);
+      inputRef.current?.focus();
+    }
+  }, [appendAskMessage]);
+
+  const handleAsk = useCallback(async (question: string) => {
+    const trimmed = question.trim();
+    if (!trimmed || pending || !activeWorkId) return;
+    const context = deriveAskContext(
+      activeWorkId,
+      workspace.activeRepresentation,
+      transport.position,
+      activeSource,
+      workspace.selection,
+      workspace.insights,
+      timeline.bpm,
+    );
+    if (!context) {
+      setError("Ask needs an open work to answer questions.");
+      return;
+    }
+    const userMessage: AskMessage = { id: makeId(), role: "user", text: trimmed };
+    appendAskMessage(userMessage);
+    setDraft("");
+    setLastAsked({ question: trimmed, context });
+    void runAsk(trimmed, context);
+  }, [activeWorkId, activeSource, appendAskMessage, pending, runAsk, timeline.bpm, transport.position, workspace.activeRepresentation, workspace.insights, workspace.selection]);
+
+  const retry = useCallback(() => {
+    if (lastAsked?.question && lastAsked.context) void runAsk(lastAsked.question, lastAsked.context);
+  }, [lastAsked, runAsk]);
+
+  const handleReference = useCallback((ref: AskReference) => {
+    const resolution = resolveReference(ref, {
+      activeSource,
+      insights: workspace.insights,
+      bpm: timeline.bpm,
+      measureStarts: scoreEntry?.measureStarts ?? [],
+      scoreDuration: scoreEntry?.audioUrl ? transport.duration : null,
+      notes: pianoRollEntry?.notes ?? [],
+    });
+    switch (resolution.kind) {
+      case "seek":
+        seek(resolution.seconds);
+        break;
+      case "open-representation":
+        setActiveRepresentation(resolution.representationId);
+        break;
+      case "select-notes": {
+        const composed = composeNoteSelection(pianoRollEntry?.notes ?? [], resolution.ids);
+        setActiveRepresentation("piano_roll");
+        if (composed) setSelection(composed);
+        break;
+      }
+      case "blocked":
+        break;
+    }
+  }, [activeSource, pianoRollEntry, scoreEntry, seek, setActiveRepresentation, setSelection, timeline.bpm, transport.duration, workspace.insights]);
+
+  const handleAction = useCallback((action: AskAction) => {
+    const { allowed } = validateAction(action, activeSource);
+    if (!allowed) return;
+    switch (action.type) {
+      case "seek":
+        seek(action.seconds);
+        break;
+      case "loop":
+        setLoop(action.start, action.end);
+        if (!transport.loopEnabled) toggleLoop();
+        break;
+      case "show_representation":
+        setActiveRepresentation(action.representationId);
+        break;
+    }
+  }, [activeSource, seek, setActiveRepresentation, setLoop, toggleLoop, transport.loopEnabled]);
+
+  const scope = describeAskContext(workspace.selection);
+  const conversation = workspace.askConversation;
+  const starterPrompts = conversation.length === 0;
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void handleAsk(draft);
+    }
+  };
+
+  return (
+    <div className="ask-panel">
+      <div className="ask-context">
+        <span className="ask-context-label">Context</span>
+        <span className="ask-context-value">{scope}</span>
+      </div>
+
+      <div className="ask-conversation" aria-live="polite">
+        {conversation.length === 0 && starterPrompts && (
+          <div className="ask-empty">
+            <p>Ask questions about this piece. Answers reference evidence in the workspace.</p>
+            <div className="ask-prompts">
+              {STARTER_PROMPTS.map((prompt) => (
+                <button
+                  type="button"
+                  className="ask-prompt"
+                  key={prompt}
+                  onClick={() => void handleAsk(prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {conversation.map((message) => (
+          <AskMessageView
+            key={message.id}
+            message={message}
+            insights={workspace.insights}
+            onReference={handleReference}
+            onAction={handleAction}
+          />
+        ))}
+
+        {pending && (
+          <div className="ask-turn ask-thinking" role="status">
+            <span className="spinner" aria-hidden="true" />
+            <span>Thinking…</span>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="ask-error" role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={retry}>
+            Try again
+          </button>
+        </div>
+      )}
+
+      <form
+        className="ask-composer"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleAsk(draft);
+        }}
+      >
+        <textarea
+          ref={inputRef}
+          className="ask-input"
+          placeholder="Ask about this piece…"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={onKeyDown}
+          rows={2}
+          disabled={!activeWorkId}
+        />
+        <button type="submit" className="ask-send" disabled={pending || !draft.trim()}>
+          Send
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function AskMessageView({
+  message,
+  insights,
+  onReference,
+  onAction,
+}: {
+  message: AskMessage;
+  insights: { id: string; claim: string }[];
+  onReference: (ref: AskReference) => void;
+  onAction: (action: AskAction) => void;
+}) {
+  if (message.role === "user") {
+    return (
+      <div className="ask-turn ask-turn-user">
+        <span className="ask-turn-label">You</span>
+        <p>{message.text}</p>
+      </div>
+    );
+  }
+
+  const response: AskResponse = message.response;
+  return (
+    <div className="ask-turn ask-turn-assistant">
+      <span className="ask-turn-label">Ask</span>
+      <p>{response.answer}</p>
+      {response.references.length > 0 && (
+        <div className="ask-references">
+          <span className="ask-ref-label">Evidence</span>
+          <div className="ask-ref-chips">
+            {response.references.map((ref, index) => (
+              <button
+                type="button"
+                className="ask-ref-chip"
+                key={`${ref.type}-${index}`}
+                onClick={() => onReference(ref)}
+              >
+                {referenceLabel(ref, insights)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {response.suggestedActions && response.suggestedActions.length > 0 && (
+        <div className="ask-actions">
+          {response.suggestedActions.map((action, index) => (
+            <ActionChip key={`${action.type}-${index}`} action={action} onClick={onAction} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
