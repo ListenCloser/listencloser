@@ -1,0 +1,68 @@
+{
+  "engine_name": "piano_transcription",
+  "clip_id": "guitarset_funk1_comp",
+  "category": "transcription",
+  "success": true,
+  "output": {
+    "midi": "b\"MThd\\x00\\x00\\x00\\x06\\x00\\x01\\x00\\x02\\x01\\x80MTrk\\x00\\x00\\x00\\x13\\x00\\xffQ\\x03\\x07\\xa1 \\x00\\xffX\\x04\\x04\\x02\\x18\\x08\\x01\\xff/\\x00MTrk\\x00\\x00\\x01M\\x85\\x0c\\xb0@\\x7f\\x81\\\\@\\x00\\x84q@\\x7f\\x81D@\\x00\\x91C\\x900A\\x81j0\\x00\\x86\\x0f\\xb0@\\x7f\\x1b\\x90-&\\x82,\\xb0@\\x00`\\x90-\\x00\\x83T\\xb0@\\x7f\\x81O@\\x00\\x96v@\\x7f\\x86>@\\x00z@\\x7f\\x81\\x15@\\x00\\x87\\x17@\\x7f\\x81@@\\x00\\x8dO@\\x7f\\x82\\x15@\\x00\\x8cE@\\x7f\\x81]@\\x00 @\\x7f\\x82i@\\x00\\x8eq@\\x7f\\x82J@\\x00\\x89\\x10@\\x7f&@\\x00\\x83=@\\x7f\\x81U@\\x00\\x84+@\\x7f\\x81q@\\x00\\x84E@\\x7f\\x81\\r@\\x00\\x84s@\\x7f\\x82'@\\x00\\x8a\\\\@\\x7f\\x13\\x90&4h\\xb0@\\x00\\x81\\x19\\x90&\\x00\\x1f\\xb0@\\x7f0@\\x00\\x86,@\\x7f\\x81a@\\x00\\x92,@\\x7f\\x818@\\x00\\\\@\\x7fE@\\x00\\x84\\x1a@\\x7f\\x81\\x16@\\x00\\x9am@\\x7f\\x81E@\\x00\\x8f^@\\x7f\\x81g@\\x00\\x853@\\x7f6@\\x00\\x85\\x14@\\x7f>@\\x00\\x86\\x0f@\\x7f\\x08@\\x00\\x82B@\\x7f\\x82b@\\x00.@\\x7f\\x81\\n@\\x00T@\\x7ft@\\x00\\x84X\\x90,4\\x07#:\\x07#\\x00\\x81\\n\\xb0@\\x7f>@\\x00\\x88a\\x90,\\x006\\xb0@\\x7f\\x82O@\\x00\\x82^\\x90'/\\x020,\\x85p28\\x84&'\\x00\\x082\\x00\\x81n0\\x00c\\xb0@\\x7f\\x82\\x15@\\x00\\x81_@\\x7f\\x818@\\x00\\x01\\xff/\\x00\"",
+    "notes": [
+      {
+        "pitch": 48,
+        "start": 5.125,
+        "end": 5.4296875,
+        "velocity": 65
+      },
+      {
+        "pitch": 45,
+        "start": 6.484375,
+        "end": 7.0,
+        "velocity": 38
+      },
+      {
+        "pitch": 38,
+        "start": 30.424479166666664,
+        "end": 30.759114583333332,
+        "velocity": 52
+      },
+      {
+        "pitch": 35,
+        "start": 49.38020833333333,
+        "end": 49.389322916666664,
+        "velocity": 58
+      },
+      {
+        "pitch": 44,
+        "start": 49.37109375,
+        "end": 51.109375,
+        "velocity": 52
+      },
+      {
+        "pitch": 39,
+        "start": 52.07161458333333,
+        "end": 53.76953125,
+        "velocity": 47
+      },
+      {
+        "pitch": 50,
+        "start": 53.053385416666664,
+        "end": 53.779947916666664,
+        "velocity": 56
+      },
+      {
+        "pitch": 48,
+        "start": 52.07421875,
+        "end": 54.08984375,
+        "velocity": 44
+      }
+    ],
+    "num_notes": 8
+  },
+  "metrics": {},
+  "runtime_s": 25.831451291916892,
+  "peak_memory_mb": 46.099164962768555,
+  "error": null,
+  "diagnostics": {
+    "eligibility": "ineligible",
+    "reason": "no reference MIDI for transcription scoring"
+  }
+}

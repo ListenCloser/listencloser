@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-08-13T16:57:05",
+  "engines": [
+    {
+      "engine_name": "basic_pitch",
+      "category": "transcription",
+      "engine_info": "EngineInfo(name='basic_pitch', category='transcription', repo_url='https://github.com/spotify/basic-pitch', license='MIT', install_cmd='pip install basic-pitch', model_size_mb=30, requires_gpu=False, python_version='>=3.10', notes=\"Spotify's onset/frame CNN. Current production baseline.\")",
+      "clips_total": 2,
+      "clips_succeeded": 2,
+      "clips_failed": 0,
+      "avg_runtime_s": 0.5627513130000001,
+      "avg_peak_memory_mb": 30.648154258728027,
+      "aggregate_metrics": {
+        "macro_note_f1": 0,
+        "macro_precision": 0,
+        "macro_recall": 0
+      },
+      "failure_cases": []
+    }
+  ]
+}

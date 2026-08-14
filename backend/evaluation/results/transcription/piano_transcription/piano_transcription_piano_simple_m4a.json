@@ -1,0 +1,12 @@
+{
+  "engine_name": "piano_transcription",
+  "clip_id": "piano_simple_m4a",
+  "category": "transcription",
+  "success": false,
+  "output": null,
+  "metrics": null,
+  "runtime_s": 0.0001360001042485237,
+  "peak_memory_mb": 0.43913841247558594,
+  "error": "Error opening <_io.BytesIO object at 0x30854db70>: Format not recognised.",
+  "diagnostics": {}
+}

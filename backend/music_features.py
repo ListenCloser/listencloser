@@ -658,10 +658,6 @@ def transcribe_with_engine(
     )
     result = engine.transcribe(audio_bytes, fmt=fmt)
     prov = result.provenance.to_dict()
-    prov["profile_requested"] = profile or "auto"
-    prov["routing_reason"] = (
-        f"profile={profile or 'auto'} -> engine={engine.ENGINE}"
-    )
     base = {
         "midi": result.midi,
         "wav": result.wav,

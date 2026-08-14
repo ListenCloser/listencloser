@@ -1,0 +1,71 @@
+{
+  "engine_name": "music21_symbolic",
+  "clip_id": "babyslakh_02",
+  "category": "harmony",
+  "success": true,
+  "output": {
+    "key": {
+      "tonic": "D",
+      "mode": "minor",
+      "confidence": 0.9506462534249549
+    },
+    "chords": [],
+    "roman_numerals": [],
+    "cadences": [],
+    "modulations": [
+      {
+        "from_key": "F major",
+        "to_key": "E major",
+        "position": 0.117,
+        "kind": "possible_tonicization",
+        "run_length_windows": 2,
+        "duration_seconds": 0.234,
+        "window_size_seconds": 0.234
+      },
+      {
+        "from_key": "E major",
+        "to_key": "F major",
+        "position": 0.352,
+        "kind": "possible_tonicization",
+        "run_length_windows": 2,
+        "duration_seconds": 0.234,
+        "window_size_seconds": 0.234
+      },
+      {
+        "from_key": "F major",
+        "to_key": "D major",
+        "position": 0.586,
+        "kind": "possible_tonicization",
+        "run_length_windows": 2,
+        "duration_seconds": 0.234,
+        "window_size_seconds": 0.234
+      },
+      {
+        "from_key": "D major",
+        "to_key": "D minor",
+        "position": 1.523,
+        "kind": "possible_tonicization",
+        "run_length_windows": 2,
+        "duration_seconds": 0.234,
+        "window_size_seconds": 0.234
+      }
+    ],
+    "voice_leading": null,
+    "phrases": []
+  },
+  "metrics": {
+    "key_correct": null,
+    "bpm_absolute_error": 250.052,
+    "meter_correct": null,
+    "section_precision": null,
+    "section_recall": null,
+    "section_f1": null,
+    "chord_precision": null,
+    "chord_recall": null,
+    "chord_f1": null
+  },
+  "runtime_s": 0.19385804189369082,
+  "peak_memory_mb": 3.183633804321289,
+  "error": null,
+  "diagnostics": {}
+}

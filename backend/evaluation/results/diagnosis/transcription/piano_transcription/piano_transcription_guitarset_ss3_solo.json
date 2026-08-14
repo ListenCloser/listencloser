@@ -1,0 +1,188 @@
+{
+  "engine_name": "piano_transcription",
+  "clip_id": "guitarset_ss3_solo",
+  "category": "transcription",
+  "success": true,
+  "output": {
+    "midi": "b'MThd\\x00\\x00\\x00\\x06\\x00\\x01\\x00\\x02\\x01\\x80MTrk\\x00\\x00\\x00\\x13\\x00\\xffQ\\x03\\x07\\xa1 \\x00\\xffX\\x04\\x04\\x02\\x18\\x08\\x01\\xff/\\x00MTrk\\x00\\x00\\x00\\xe5\\x0c\\x90Cf\\x00Ff\\x84\\x05>I\\x08C\\x00\\x05Ck\\x82M>\\x00\\x08C\\x00\\x02>F\\x05F\\x00\\x04CY\\x08Fb2\\xb0@\\x7f\\x83.@\\x00\\x15\\x90+<\\n+\\x00\\x00C\\x00\\x02AL\\x05F\\x00\\x05FW\\x83IA\\x00\\x0cF\\x00\\tE,\\x05=&\\x1b>\\x00&=\\x00\\x84-A3\\x81DA\\x00\\x07A+\\x08E\\x00\\x0bE9\\x88\\x19E\\x00\\x17A\\x00\\x0bAL\\x12FL\\nF\\x00\\x82\\x14A\\x00\\x08AR\\x1e\\xb0@\\x7f\\x81)@\\x00\\x82\\x1d@\\x7f\\x81^@\\x00>\\x90A\\x00\\x0bAHdA\\x00\\x83NAF\\x15FI\\x81{A\\x00\\x00F\\x00\\x84fEF\\x08A;s\\xb0@\\x7f6@\\x005\\x90A\\x00\\x00E\\x00\\x07AF\\x04EIXFD\\tF\\x00\\x85iA\\x00\\x04CK\\x03A>\\x08C\\x00\\x83\\x1f\\xb0@\\x7f\\x86k@\\x00\\x86F\\x90A\\x00\\x00E\\x00\\x01\\xff/\\x00'",
+    "notes": [
+      {
+        "pitch": 67,
+        "start": 0.015625,
+        "end": 0.69921875,
+        "velocity": 102
+      },
+      {
+        "pitch": 62,
+        "start": 0.6888020833333333,
+        "end": 1.1393229166666665,
+        "velocity": 73
+      },
+      {
+        "pitch": 67,
+        "start": 0.7057291666666666,
+        "end": 1.1497395833333333,
+        "velocity": 107
+      },
+      {
+        "pitch": 70,
+        "start": 0.015625,
+        "end": 1.1588541666666665,
+        "velocity": 102
+      },
+      {
+        "pitch": 43,
+        "start": 1.8268229166666665,
+        "end": 1.83984375,
+        "velocity": 60
+      },
+      {
+        "pitch": 67,
+        "start": 1.1640625,
+        "end": 1.83984375,
+        "velocity": 89
+      },
+      {
+        "pitch": 70,
+        "start": 1.1744791666666665,
+        "end": 1.8489583333333333,
+        "velocity": 98
+      },
+      {
+        "pitch": 65,
+        "start": 1.8424479166666665,
+        "end": 2.450520833333333,
+        "velocity": 76
+      },
+      {
+        "pitch": 70,
+        "start": 1.85546875,
+        "end": 2.466145833333333,
+        "velocity": 87
+      },
+      {
+        "pitch": 62,
+        "start": 1.15234375,
+        "end": 2.51953125,
+        "velocity": 70
+      },
+      {
+        "pitch": 61,
+        "start": 2.484375,
+        "end": 2.5690104166666665,
+        "velocity": 38
+      },
+      {
+        "pitch": 65,
+        "start": 3.294270833333333,
+        "end": 3.5494791666666665,
+        "velocity": 51
+      },
+      {
+        "pitch": 69,
+        "start": 2.477864583333333,
+        "end": 3.5690104166666665,
+        "velocity": 44
+      },
+      {
+        "pitch": 69,
+        "start": 3.583333333333333,
+        "end": 4.94921875,
+        "velocity": 57
+      },
+      {
+        "pitch": 65,
+        "start": 3.55859375,
+        "end": 4.979166666666666,
+        "velocity": 43
+      },
+      {
+        "pitch": 70,
+        "start": 5.016927083333333,
+        "end": 5.029947916666666,
+        "velocity": 76
+      },
+      {
+        "pitch": 65,
+        "start": 4.993489583333333,
+        "end": 5.389322916666666,
+        "velocity": 76
+      },
+      {
+        "pitch": 65,
+        "start": 5.399739583333333,
+        "end": 6.399739583333333,
+        "velocity": 82
+      },
+      {
+        "pitch": 65,
+        "start": 6.4140625,
+        "end": 6.544270833333333,
+        "velocity": 72
+      },
+      {
+        "pitch": 65,
+        "start": 7.145833333333333,
+        "end": 7.5,
+        "velocity": 70
+      },
+      {
+        "pitch": 70,
+        "start": 7.173177083333333,
+        "end": 7.5,
+        "velocity": 73
+      },
+      {
+        "pitch": 65,
+        "start": 8.309895833333332,
+        "end": 8.598958333333332,
+        "velocity": 59
+      },
+      {
+        "pitch": 69,
+        "start": 8.299479166666666,
+        "end": 8.598958333333332,
+        "velocity": 70
+      },
+      {
+        "pitch": 70,
+        "start": 8.727864583333332,
+        "end": 8.739583333333332,
+        "velocity": 68
+      },
+      {
+        "pitch": 65,
+        "start": 8.608072916666666,
+        "end": 9.709635416666666,
+        "velocity": 70
+      },
+      {
+        "pitch": 67,
+        "start": 9.71484375,
+        "end": 9.729166666666666,
+        "velocity": 75
+      },
+      {
+        "pitch": 65,
+        "start": 9.71875,
+        "end": 12.5,
+        "velocity": 62
+      },
+      {
+        "pitch": 69,
+        "start": 8.61328125,
+        "end": 12.5,
+        "velocity": 73
+      }
+    ],
+    "num_notes": 28
+  },
+  "metrics": {},
+  "runtime_s": 9.201190332882106,
+  "peak_memory_mb": 14.452669143676758,
+  "error": null,
+  "diagnostics": {
+    "eligibility": "ineligible",
+    "reason": "no reference MIDI for transcription scoring"
+  }
+}

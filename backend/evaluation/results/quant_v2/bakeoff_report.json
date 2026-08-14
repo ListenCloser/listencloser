@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-08-14T11:26:49",
+  "engines": [
+    {
+      "engine_name": "basic_pitch",
+      "category": "transcription",
+      "engine_info": "EngineInfo(name='basic_pitch', category='transcription', repo_url='https://github.com/spotify/basic-pitch', license='MIT', install_cmd='pip install basic-pitch', model_size_mb=30, requires_gpu=False, python_version='>=3.10', notes=\"Spotify's onset/frame CNN. Current production baseline.\")",
+      "clips_total": 10,
+      "clips_succeeded": 10,
+      "clips_failed": 0,
+      "avg_runtime_s": 1.6294298290507867,
+      "avg_peak_memory_mb": 20.48996238708496,
+      "aggregate_metrics": {
+        "macro_note_f1": 0.06523999999999999,
+        "macro_precision": 0.07588,
+        "macro_recall": 0.06005999999999999,
+        "clips_scored": 5,
+        "clips_ineligible": 5
+      },
+      "failure_cases": []
+    },
+    {
+      "engine_name": "transkun",
+      "category": "transcription",
+      "engine_info": "EngineInfo(name='transkun', category='transcription', repo_url='https://github.com/qiuqiangkong/transkun', license='MIT', install_cmd='pip install transkun', model_size_mb=150, requires_gpu=False, python_version='>=3.9', notes='Transformer-based piano transcription. Uses EfficientNet backbone + Transformer decoder. Pretrained model included.')",
+      "clips_total": 10,
+      "clips_succeeded": 10,
+      "clips_failed": 0,
+      "avg_runtime_s": 7.95349430013448,
+      "avg_peak_memory_mb": 5.733910942077637,
+      "aggregate_metrics": {
+        "macro_note_f1": 0.18346,
+        "macro_precision": 0.26704,
+        "macro_recall": 0.14046,
+        "clips_scored": 5,
+        "clips_ineligible": 5
+      },
+      "failure_cases": []
+    },
+    {
+      "engine_name": "piano_transcription",
+      "category": "transcription",
+      "engine_info": "EngineInfo(name='piano_transcription', category='transcription', repo_url='https://github.com/qiuqiangkong/piano_transcription', license='MIT', install_cmd='pip install piano-transcription-inference', model_size_mb=200, requires_gpu=False, python_version='>=3.9', notes='CNN-Transformer piano transcription by Qiuqiang Kong. Checkpoint auto-downloaded on first use.')",
+      "clips_total": 10,
+      "clips_succeeded": 10,
+      "clips_failed": 0,
+      "avg_runtime_s": 8.592751341545954,
+      "avg_peak_memory_mb": 14.080315113067627,
+      "aggregate_metrics": {
+        "macro_note_f1": 0.14268,
+        "macro_precision": 0.18105999999999997,
+        "macro_recall": 0.12574000000000002,
+        "clips_scored": 5,
+        "clips_ineligible": 5
+      },
+      "failure_cases": []
+    }
+  ]
+}

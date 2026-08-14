@@ -1,0 +1,12 @@
+{
+  "engine_name": "basic_pitch",
+  "clip_id": "asap_bach_01",
+  "category": "transcription",
+  "success": false,
+  "output": null,
+  "metrics": null,
+  "runtime_s": 4.084082320332527e-06,
+  "peak_memory_mb": 0.00109100341796875,
+  "error": "expected str, bytes or os.PathLike object, not NoneType",
+  "diagnostics": {}
+}

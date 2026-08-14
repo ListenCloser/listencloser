@@ -1,0 +1,108 @@
+{
+  "engine_name": "music21_symbolic",
+  "clip_id": "babyslakh_05",
+  "category": "harmony",
+  "success": true,
+  "output": {
+    "key": {
+      "tonic": "A",
+      "mode": "major",
+      "confidence": 0.8317284903786419
+    },
+    "chords": [],
+    "roman_numerals": [
+      {
+        "figure": "I",
+        "root": "A",
+        "quality": "M",
+        "start": 19.0,
+        "end": 19.25
+      },
+      {
+        "figure": "i5",
+        "root": "A",
+        "quality": "m",
+        "start": 19.0,
+        "end": 22.0
+      },
+      {
+        "figure": "I",
+        "root": "A",
+        "quality": "M",
+        "start": 19.5,
+        "end": 19.75
+      },
+      {
+        "figure": "I",
+        "root": "A",
+        "quality": "M",
+        "start": 20.0,
+        "end": 20.25
+      },
+      {
+        "figure": "I",
+        "root": "A",
+        "quality": "M",
+        "start": 20.5,
+        "end": 20.75
+      },
+      {
+        "figure": "I",
+        "root": "A",
+        "quality": "M",
+        "start": 21.0,
+        "end": 21.25
+      },
+      {
+        "figure": "I",
+        "root": "A",
+        "quality": "M",
+        "start": 21.5,
+        "end": 21.75
+      },
+      {
+        "figure": "iv4b3",
+        "root": "D",
+        "quality": "m",
+        "start": 22.75,
+        "end": 23.0
+      },
+      {
+        "figure": "I6",
+        "root": "A",
+        "quality": "M",
+        "start": 35.0,
+        "end": 38.0
+      }
+    ],
+    "cadences": [],
+    "modulations": [
+      {
+        "from_key": "D minor",
+        "to_key": "E minor",
+        "position": 0.547,
+        "kind": "possible_tonicization",
+        "run_length_windows": 2,
+        "duration_seconds": 0.219,
+        "window_size_seconds": 0.219
+      }
+    ],
+    "voice_leading": null,
+    "phrases": []
+  },
+  "metrics": {
+    "key_correct": null,
+    "bpm_absolute_error": 226.115,
+    "meter_correct": null,
+    "section_precision": null,
+    "section_recall": null,
+    "section_f1": null,
+    "chord_precision": null,
+    "chord_recall": null,
+    "chord_f1": null
+  },
+  "runtime_s": 0.22281533293426037,
+  "peak_memory_mb": 3.7422924041748047,
+  "error": null,
+  "diagnostics": {}
+}

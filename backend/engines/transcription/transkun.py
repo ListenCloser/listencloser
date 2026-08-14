@@ -104,9 +104,12 @@ class TranskunEngine(TranscriptionEngine):
             if fs != self._model.fs:
                 try:
                     import soxr
-                    audio = soxr.resample(audio, fs, self._model.fs)
-                except ImportError:
-                    pass  # skip resampling if soxr not available
+                except ImportError as e:
+                    raise RuntimeError(
+                        f"Transkun requires soxr for resampling (input fs={fs}, model fs={self._model.fs}). "
+                        f"Install with: pip install soxr"
+                    ) from e
+                audio = soxr.resample(audio, fs, self._model.fs)
 
             x = torch.from_numpy(audio).to(self._device)
 

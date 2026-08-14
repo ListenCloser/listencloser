@@ -1,0 +1,133 @@
+{
+  "engine_name": "music21_symbolic",
+  "clip_id": "babyslakh_04",
+  "category": "harmony",
+  "success": true,
+  "output": {
+    "key": {
+      "tonic": "F",
+      "mode": "major",
+      "confidence": 0.7624128480922578
+    },
+    "chords": [],
+    "roman_numerals": [
+      {
+        "figure": "V",
+        "root": "C",
+        "quality": "M",
+        "start": 12.0,
+        "end": 16.0
+      },
+      {
+        "figure": "V",
+        "root": "C",
+        "quality": "M",
+        "start": 24.0,
+        "end": 28.0
+      },
+      {
+        "figure": "v",
+        "root": "C",
+        "quality": "m",
+        "start": 32.0,
+        "end": 35.833
+      },
+      {
+        "figure": "V6",
+        "root": "C",
+        "quality": "M",
+        "start": 32.0,
+        "end": 36.0
+      },
+      {
+        "figure": "v",
+        "root": "C",
+        "quality": "m",
+        "start": 32.5,
+        "end": 32.75
+      },
+      {
+        "figure": "v",
+        "root": "C",
+        "quality": "m",
+        "start": 33.5,
+        "end": 33.75
+      },
+      {
+        "figure": "v",
+        "root": "C",
+        "quality": "m",
+        "start": 34.5,
+        "end": 34.75
+      },
+      {
+        "figure": "v",
+        "root": "C",
+        "quality": "m",
+        "start": 35.5,
+        "end": 35.75
+      },
+      {
+        "figure": "V",
+        "root": "C",
+        "quality": "M",
+        "start": 43.833,
+        "end": 47.667
+      },
+      {
+        "figure": "v",
+        "root": "C",
+        "quality": "m",
+        "start": 47.833,
+        "end": 48.083
+      }
+    ],
+    "cadences": [],
+    "modulations": [
+      {
+        "from_key": "F major",
+        "to_key": "C major",
+        "position": 0.328,
+        "kind": "possible_tonicization",
+        "run_length_windows": 2,
+        "duration_seconds": 0.219,
+        "window_size_seconds": 0.219
+      },
+      {
+        "from_key": "C major",
+        "to_key": "A# major",
+        "position": 0.547,
+        "kind": "possible_tonicization",
+        "run_length_windows": 2,
+        "duration_seconds": 0.219,
+        "window_size_seconds": 0.219
+      },
+      {
+        "from_key": "A# major",
+        "to_key": "D minor",
+        "position": 1.094,
+        "kind": "possible_modulation",
+        "run_length_windows": 4,
+        "duration_seconds": 0.438,
+        "window_size_seconds": 0.219
+      }
+    ],
+    "voice_leading": null,
+    "phrases": []
+  },
+  "metrics": {
+    "key_correct": null,
+    "bpm_absolute_error": 205.761,
+    "meter_correct": null,
+    "section_precision": null,
+    "section_recall": null,
+    "section_f1": null,
+    "chord_precision": null,
+    "chord_recall": null,
+    "chord_f1": null
+  },
+  "runtime_s": 0.18406733404845,
+  "peak_memory_mb": 2.5012102127075195,
+  "error": null,
+  "diagnostics": {}
+}

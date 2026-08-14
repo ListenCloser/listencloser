@@ -1,0 +1,38 @@
+{
+  "engine_name": "piano_transcription",
+  "clip_id": "guitarset_ss3_solo",
+  "category": "transcription",
+  "success": true,
+  "output": {
+    "midi": "b'MThd\\x00\\x00\\x00\\x06\\x00\\x01\\x00\\x02\\x01\\x80MTrk\\x00\\x00\\x00\\x13\\x00\\xffQ\\x03\\x07\\xa1 \\x00\\xffX\\x04\\x04\\x02\\x18\\x08\\x01\\xff/\\x00MTrk\\x00\\x00\\x004\\x835\\xb0@\\x7f\\x87n@\\x00\\xa6Z@\\x7f\\x84C@\\x00\\x81\\\\@\\x7f\\x82]@\\x00\\x81\\xe0E\\x90):\\x01(;U(\\x00\\x17)\\x00\\x8al(>\\x93A(\\x00\\x01\\xff/\\x00'",
+    "notes": [
+      {
+        "pitch": 40,
+        "start": 47.248697916666664,
+        "end": 47.359375,
+        "velocity": 59
+      },
+      {
+        "pitch": 41,
+        "start": 47.24739583333333,
+        "end": 47.389322916666664,
+        "velocity": 58
+      },
+      {
+        "pitch": 40,
+        "start": 49.19661458333333,
+        "end": 52.447916666666664,
+        "velocity": 62
+      }
+    ],
+    "num_notes": 3
+  },
+  "metrics": {},
+  "runtime_s": 26.712795124854892,
+  "peak_memory_mb": 42.73206615447998,
+  "error": null,
+  "diagnostics": {
+    "eligibility": "ineligible",
+    "reason": "no reference MIDI for transcription scoring"
+  }
+}

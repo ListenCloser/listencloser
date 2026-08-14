@@ -1,0 +1,12 @@
+{
+  "engine_name": "music21_symbolic",
+  "clip_id": "real_piano_m4a",
+  "category": "harmony",
+  "success": false,
+  "output": null,
+  "metrics": null,
+  "runtime_s": 1.733284443616867e-05,
+  "peak_memory_mb": 0.00086212158203125,
+  "error": "Harmony evaluation requires reference MIDI",
+  "diagnostics": {}
+}
