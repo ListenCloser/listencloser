@@ -25,6 +25,7 @@ from typing import Any
 
 from evaluation.datasets import cache
 from evaluation.datasets._download import download
+from evaluation.datasets._remote_zip import RemoteZip, download_member
 from evaluation.datasets.registry import (
     DatasetAdapter,
     ManualAcquisitionError,
@@ -34,6 +35,8 @@ from evaluation.datasets.registry import (
 _BASE_URL = "https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0"
 _METADATA_URL = f"{_BASE_URL}/maestro-v3.0.0.json"
 _MIDI_ZIP_URL = f"{_BASE_URL}/maestro-v3.0.0-midi.zip"
+_AUDIO_ZIP_URL = f"{_BASE_URL}/maestro-v3.0.0.zip"
+_AUDIO_ZIP_TOTAL = 108445099632
 
 
 def find_test_entry(meta: Any, source_id: str) -> dict[str, Any] | None:
@@ -102,16 +105,25 @@ class MaestroAdapter(DatasetAdapter):
                 midi_dest.parent.mkdir(parents=True, exist_ok=True)
                 midi_dest.write_bytes(zf.read(zf_path))
 
-        # Audio: only distributed inside the 101 GB maestro-v3.0.0.zip. Require
-        # the user to extract it (or the full archive) into the cache.
+        # Audio: served inside the 101 GB maestro-v3.0.0.zip (ZIP64). Extract
+        # just this performance's WAV with HTTP range requests instead of
+        # downloading the whole archive.
         audio_dest = ddir / "audio" / Path(audio_rel).name
+        audio_zip_member = f"maestro-v3.0.0/{audio_rel}"
         if not audio_dest.exists():
-            raise ManualAcquisitionError(
-                "MAESTRO audio is only distributed inside the 101 GB "
-                "maestro-v3.0.0.zip (individual WAVs are not served). Download "
-                "that archive and extract the audio into MUSIC_EVAL_CACHE_DIR/"
-                f"maestro/audio/{Path(audio_rel).name}. MIDI reference is already "
-                "available."
+            zip_ = RemoteZip(_AUDIO_ZIP_URL, total_size=_AUDIO_ZIP_TOTAL)
+            if not zip_.has(audio_zip_member):
+                raise ManualAcquisitionError(
+                    f"MAESTRO audio '{audio_rel}' not found inside "
+                    f"maestro-v3.0.0.zip. Verify the source_id against the "
+                    f"official test split."
+                )
+            download_member(
+                _AUDIO_ZIP_URL,
+                audio_zip_member,
+                audio_dest,
+                total_size=_AUDIO_ZIP_TOTAL,
+                _zip=zip_,
             )
 
         return ResolvedClip(

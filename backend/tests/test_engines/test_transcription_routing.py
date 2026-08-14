@@ -49,6 +49,37 @@ class TestTranscriptionEngineSelection:
         engine = get_transcription_engine()
         assert engine.ENGINE == "basic_pitch"
 
+    def test_profile_solo_piano_routes_to_transkun(self):
+        from engines.registry import get_transcription_engine
+
+        engine = get_transcription_engine(profile="solo_piano")
+        assert engine.ENGINE == "transkun"
+
+    def test_profile_general_routes_to_basic_pitch(self):
+        from engines.registry import get_transcription_engine
+
+        engine = get_transcription_engine(profile="general")
+        assert engine.ENGINE == "basic_pitch"
+
+    def test_profile_auto_routes_to_basic_pitch(self):
+        from engines.registry import get_transcription_engine
+
+        engine = get_transcription_engine(profile="auto")
+        assert engine.ENGINE == "basic_pitch"
+
+    def test_explicit_name_overrides_profile(self):
+        from engines.registry import get_transcription_engine
+
+        engine = get_transcription_engine(name="basic_pitch", profile="solo_piano")
+        assert engine.ENGINE == "basic_pitch"
+
+    def test_unknown_profile_raises(self):
+        import pytest
+        from engines.registry import get_transcription_engine
+
+        with pytest.raises(ValueError, match="Unknown transcription profile"):
+            get_transcription_engine(profile="nonexistent")
+
 
 class TestProductionHandler:
     def test_transcription_result_has_expected_attributes(self):

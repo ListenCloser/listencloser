@@ -29,7 +29,7 @@ def _manifest_path(name: str) -> Path:
     return corpora_dir / f"{name}.json"
 
 
-def prepare_corpus(corpus: str) -> dict:
+def prepare_corpus(corpus: str, dataset: str | None = None) -> dict:
     manifest_file = _manifest_path(corpus)
     with open(manifest_file) as fh:
         data = json.load(fh)
@@ -37,8 +37,14 @@ def prepare_corpus(corpus: str) -> dict:
     prepared_dir = cache.cache_dir() / "prepared" / corpus
     prepared_dir.mkdir(parents=True, exist_ok=True)
 
+    clips = data["clips"]
+    if dataset:
+        clips = [c for c in clips if c["dataset"] == dataset]
+        if not clips:
+            raise SystemExit(f"no clips for dataset '{dataset}' in corpus '{corpus}'")
+
     results: list[dict] = []
-    for clip in data["clips"]:
+    for clip in clips:
         entry = {"id": clip["id"], "dataset": clip["dataset"], "status": "ok"}
         try:
             resolved = resolve_clip(clip)
@@ -111,8 +117,9 @@ def _read_beat_annotations(path: str) -> list[float]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Prepare the evaluation corpus")
     parser.add_argument("--corpus", default="real_world_v1")
+    parser.add_argument("--dataset", help="restrict preparation to one dataset")
     args = parser.parse_args()
-    prepare_corpus(args.corpus)
+    prepare_corpus(args.corpus, args.dataset)
 
 
 if __name__ == "__main__":

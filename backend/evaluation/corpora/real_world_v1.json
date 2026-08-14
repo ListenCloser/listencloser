@@ -103,6 +103,146 @@
       ]
     },
     {
+      "id": "maestro_test_06",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2015/MIDI-Unprocessed_R1_D1-1-8_mid--AUDIO-from_mp3_05_R1_2015_wav--4.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 30,
+      "excerpt_end": 55,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
+      "id": "maestro_test_07",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2018/MIDI-Unprocessed_Recital17-19_MID--AUDIO_17_R1_2018_wav--2.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 60,
+      "excerpt_end": 85,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
+      "id": "maestro_test_08",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2009/MIDI-Unprocessed_11_R1_2009_06-09_ORIG_MID--AUDIO_11_R1_2009_11_R1_2009_07_WAV.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 30,
+      "excerpt_end": 55,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
+      "id": "maestro_test_09",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2008/MIDI-Unprocessed_09_R3_2008_01-07_ORIG_MID--AUDIO_09_R3_2008_wav--1.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 60,
+      "excerpt_end": 85,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
+      "id": "maestro_test_10",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2013/ORIG-MIDI_02_7_6_13_Group__MID--AUDIO_08_R1_2013_wav--4.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 80,
+      "excerpt_end": 105,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
+      "id": "maestro_test_11",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2013/ORIG-MIDI_01_7_10_13_Group_MID--AUDIO_07_R3_2013_wav--1.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 120,
+      "excerpt_end": 145,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
+      "id": "maestro_test_12",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2011/MIDI-Unprocessed_04_R1_2011_MID--AUDIO_R1-D2_03_Track03_wav.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 80,
+      "excerpt_end": 105,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
+      "id": "maestro_test_13",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2008/MIDI-Unprocessed_08_R1_2008_01-05_ORIG_MID--AUDIO_08_R1_2008_wav--2.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 60,
+      "excerpt_end": 85,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
+      "id": "maestro_test_14",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2009/MIDI-Unprocessed_11_R1_2009_01-05_ORIG_MID--AUDIO_11_R1_2009_11_R1_2009_04_WAV.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 60,
+      "excerpt_end": 85,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
+      "id": "maestro_test_15",
+      "dataset": "maestro",
+      "split": "test",
+      "category": "solo_piano",
+      "source_id": "2018/MIDI-Unprocessed_Recital13-15_MID--AUDIO_14_R1_2018_wav--3.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "excerpt_start": 120,
+      "excerpt_end": 145,
+      "metrics": [
+        "note_onset",
+        "note_offset"
+      ]
+    },
+    {
       "id": "asap_bach_01",
       "dataset": "asap",
       "category": "solo_piano",

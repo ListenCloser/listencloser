@@ -27,16 +27,40 @@ from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.music21_engine import Music21NotationEngine
 from engines.structure.allin1_engine import AllInOneEngine
 from engines.transcription.basic_pitch import BasicPitchEngine
+from engines.transcription.transkun import TranskunEngine
 
 
 def get_transcription_engine(
     name: str | None = None,
+    profile: str | None = None,
     onset_threshold: float = 0.5,
     frame_threshold: float = 0.3,
 ) -> TranscriptionEngine:
-    name = name or os.environ.get("TRANSCRIPTION_ENGINE", "basic_pitch")
+    """Get a transcription engine.
+
+    Args:
+        name: Explicit engine name (overrides profile/env).
+        profile: Transcription profile: "solo_piano" -> transkun, "general" -> basic_pitch.
+                 "auto" retains existing general engine unless trustworthy solo-piano evidence.
+        onset_threshold: Onset threshold for engines that support it.
+        frame_threshold: Frame threshold for engines that support it.
+    """
+    # Profile-based routing (only applies when no explicit name given)
+    if name is None:
+        if profile == "solo_piano":
+            name = "transkun"
+        elif profile in ("general", "auto", None):
+            name = os.environ.get("TRANSCRIPTION_ENGINE", "basic_pitch")
+        else:
+            raise ValueError(f"Unknown transcription profile: {profile}")
+
     if name == "basic_pitch":
         return BasicPitchEngine(
+            onset_threshold=onset_threshold,
+            frame_threshold=frame_threshold,
+        )
+    if name == "transkun":
+        return TranskunEngine(
             onset_threshold=onset_threshold,
             frame_threshold=frame_threshold,
         )
