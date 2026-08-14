@@ -498,8 +498,11 @@ def _aggregate_results(
     scored = [r for r in succeeded if not r.diagnostics.get("eligibility", "").startswith("ineligible")]
     ineligible = [r for r in succeeded if r.diagnostics.get("eligibility", "").startswith("ineligible")]
 
-    avg_runtime = sum(r.runtime_s for r in scored) / len(scored) if scored else 0.0
-    avg_memory = sum(r.peak_memory_mb for r in scored) / len(scored) if scored else 0.0
+    # Runtime/memory: average over every clip where inference actually ran
+    # (succeeded), including ineligible ones — an ineligible clip still
+    # consumed inference time. Scored subset is used only for metrics.
+    avg_runtime = sum(r.runtime_s for r in succeeded) / len(succeeded) if succeeded else 0.0
+    avg_memory = sum(r.peak_memory_mb for r in succeeded) / len(succeeded) if succeeded else 0.0
 
     # Category-specific aggregate metrics (only from scored clips)
     aggregate_metrics = _compute_category_aggregate(scored, category)
@@ -592,8 +595,10 @@ def write_evaluation_report(
             f.write(f"- **Clips**: {r.clips_succeeded}/{r.clips_total} succeeded\n")
             ineligible = r.aggregate_metrics.get("clips_ineligible", 0)
             scored = r.aggregate_metrics.get("clips_scored", 0)
-            if ineligible:
-                f.write(f"- **Scored**: {scored} clips, **Ineligible**: {ineligible} clips\n")
+            f.write(
+                f"- **Eligibility**: {scored} scored, {ineligible} ineligible, "
+                f"{r.clips_failed} failed (of {r.clips_total} total)\n"
+            )
             f.write(f"- **Avg runtime**: {r.avg_runtime_s:.2f}s\n")
             f.write(f"- **Avg memory**: {r.avg_peak_memory_mb:.1f} MB\n")
             f.write(f"- **Aggregate metrics**: {r.aggregate_metrics}\n")
