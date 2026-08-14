@@ -7,6 +7,7 @@ routing — production code continues to use the existing engine seams.
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol, Literal
@@ -27,6 +28,34 @@ EngineCategory = Literal[
     "harmony",
     "structure",
 ]
+
+
+class _BytesJSONEncoder(json.JSONEncoder):
+    """JSON encoder that serializes bytes (e.g. MIDI payloads) losslessly.
+
+    Bytes are encoded as ``{"__base64__": "<base64>"}`` so binary outputs
+    round-trip through JSON safely and explicitly, instead of relying on
+    ``str(bytes)`` reprs that required ``eval()`` to recover.
+    """
+
+    def default(self, o: Any) -> Any:
+        if isinstance(o, bytes):
+            import base64
+
+            return {"__base64__": base64.b64encode(o).decode("ascii")}
+        import numpy as np
+
+        if isinstance(o, np.integer):
+            return int(o)
+        if isinstance(o, np.floating):
+            return float(o)
+        if isinstance(o, np.bool_):
+            return bool(o)
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        # Preserve prior default=str behavior for other non-serializable
+        # objects (e.g. EngineInfo in the aggregate report).
+        return str(o)
 
 
 @dataclass(frozen=True)
@@ -159,9 +188,30 @@ def run_engine_evaluation(
         # Write per-clip result
         clip_path = Path(output_dir) / f"{adapter.engine_info.name}_{clip.id}.json"
         with open(clip_path, "w") as f:
-            json.dump(clip_result.__dict__, f, indent=2, default=str)
+            json.dump(clip_result.__dict__, f, indent=2, cls=_BytesJSONEncoder)
 
     return _aggregate_results(adapter, clip_results, category)
+
+
+def _check_clip_eligibility(category: EngineCategory, clip: EvalClip) -> str | None:
+    """Check if a clip has required reference data for scoring.
+
+    Returns None if eligible, or a reason string if ineligible.
+    Ineligible clips are run for diagnostics but not scored.
+    """
+    if category == "transcription":
+        if not clip.reference_midi:
+            return "no reference MIDI for transcription scoring"
+    elif category == "beat_tracking":
+        if not clip.reference.beats and clip.reference.bpm is None:
+            return "no reference beats or BPM for beat scoring"
+    elif category == "harmony":
+        if not clip.reference_midi:
+            return "no reference MIDI for harmony scoring"
+    elif category == "structure":
+        if not clip.reference.sections:
+            return "no reference sections for structure scoring"
+    return None
 
 
 def _run_clip_on_engine(
@@ -220,6 +270,9 @@ def _run_clip_on_engine(
                 # Warm-up failures are non-fatal
                 pass
 
+        # Check eligibility for scoring
+        eligibility_reason = _check_clip_eligibility(category, clip)
+
         # --- Measured inference run ---
         tracemalloc.start()
         t0 = time.monotonic()
@@ -228,24 +281,44 @@ def _run_clip_on_engine(
         if category == "transcription":
             audio_bytes = Path(clip.audio).read_bytes()
             output = adapter.transcribe(audio_bytes, **adapter_kwargs)
-            metrics = _compute_transcription_metrics(output, clip)
+            if eligibility_reason:
+                metrics = {}
+                diagnostics = {"eligibility": "ineligible", "reason": eligibility_reason}
+            else:
+                metrics = _compute_transcription_metrics(output, clip)
+                diagnostics = {}
 
         elif category == "beat_tracking":
             audio_bytes = Path(clip.audio).read_bytes()
             output = adapter.estimate_beats(audio_bytes, **adapter_kwargs)
-            metrics = _compute_beat_metrics(output, clip)
+            if eligibility_reason:
+                metrics = {}
+                diagnostics = {"eligibility": "ineligible", "reason": eligibility_reason}
+            else:
+                metrics = _compute_beat_metrics(output, clip)
+                diagnostics = {}
 
         elif category == "harmony":
             if not clip.reference_midi:
                 raise RuntimeError("Harmony evaluation requires reference MIDI")
             midi_bytes = Path(clip.reference_midi).read_bytes()
             output = adapter.analyze_harmony(midi_bytes, **adapter_kwargs)
-            metrics = _compute_harmony_metrics(output, clip)
+            if eligibility_reason:
+                metrics = {}
+                diagnostics = {"eligibility": "ineligible", "reason": eligibility_reason}
+            else:
+                metrics = _compute_harmony_metrics(output, clip)
+                diagnostics = {}
 
         elif category == "structure":
             audio_bytes = Path(clip.audio).read_bytes()
             output = adapter.analyze_structure(audio_bytes, **adapter_kwargs)
-            metrics = _compute_structure_metrics(output, clip)
+            if eligibility_reason:
+                metrics = {}
+                diagnostics = {"eligibility": "ineligible", "reason": eligibility_reason}
+            else:
+                metrics = _compute_structure_metrics(output, clip)
+                diagnostics = {}
 
         else:
             raise ValueError(f"Unknown category: {category}")
@@ -263,6 +336,7 @@ def _run_clip_on_engine(
             metrics=metrics,
             runtime_s=elapsed,
             peak_memory_mb=peak / (1024 * 1024),
+            diagnostics=diagnostics,
         )
 
     except Exception as e:
@@ -293,6 +367,7 @@ def _compute_transcription_metrics(output: dict[str, Any], clip: EvalClip) -> di
     if not clip.reference_midi:
         return {}
 
+    from pathlib import Path
     from evaluation.transcription_metrics import Note, compute_note_metrics
 
     ref_notes = []
@@ -302,9 +377,8 @@ def _compute_transcription_metrics(output: dict[str, Any], clip: EvalClip) -> di
         ref_notes = _midi_to_notes(ref_bytes)
 
     pred_notes = [Note.from_dict(n) for n in output.get("notes", [])]
-    ref_note_objs = [Note.from_dict(n) for n in ref_notes]
 
-    return compute_note_metrics(pred_notes, ref_note_objs).to_dict()
+    return compute_note_metrics(pred_notes, ref_notes).to_dict()
 
 
 def _compute_beat_metrics(output: dict[str, Any], clip: EvalClip) -> dict[str, Any]:
@@ -450,12 +524,19 @@ def _aggregate_results(
     """Aggregate clip-level results into engine-level report."""
     succeeded = [r for r in clip_results if r.success]
     failed = [r for r in clip_results if not r.success]
+    scored = [r for r in succeeded if not r.diagnostics.get("eligibility", "").startswith("ineligible")]
+    ineligible = [r for r in succeeded if r.diagnostics.get("eligibility", "").startswith("ineligible")]
 
+    # Runtime/memory: average over every clip where inference actually ran
+    # (succeeded), including ineligible ones — an ineligible clip still
+    # consumed inference time. Scored subset is used only for metrics.
     avg_runtime = sum(r.runtime_s for r in succeeded) / len(succeeded) if succeeded else 0.0
     avg_memory = sum(r.peak_memory_mb for r in succeeded) / len(succeeded) if succeeded else 0.0
 
-    # Category-specific aggregate metrics
-    aggregate_metrics = _compute_category_aggregate(succeeded, category)
+    # Category-specific aggregate metrics (only from scored clips)
+    aggregate_metrics = _compute_category_aggregate(scored, category)
+    aggregate_metrics["clips_scored"] = len(scored)
+    aggregate_metrics["clips_ineligible"] = len(ineligible)
 
     return EngineAggregateReport(
         engine_name=adapter.engine_info.name,
@@ -483,29 +564,32 @@ def _compute_category_aggregate(
         return {}
 
     if category == "transcription":
-        f1s = [r.metrics.get("note_f1", 0) for r in succeeded if r.metrics]
+        f1s = [v for v in (r.metrics.get("note_f1") for r in succeeded if r.metrics) if v is not None]
+        precisions = [v for v in (r.metrics.get("note_precision") for r in succeeded if r.metrics) if v is not None]
+        recalls = [v for v in (r.metrics.get("note_recall") for r in succeeded if r.metrics) if v is not None]
         return {
             "macro_note_f1": sum(f1s) / len(f1s) if f1s else 0,
-            "macro_precision": sum(r.metrics.get("precision", 0) for r in succeeded if r.metrics) / len(succeeded) if succeeded else 0,
-            "macro_recall": sum(r.metrics.get("recall", 0) for r in succeeded if r.metrics) / len(succeeded) if succeeded else 0,
+            "macro_precision": sum(precisions) / len(precisions) if precisions else 0,
+            "macro_recall": sum(recalls) / len(recalls) if recalls else 0,
         }
     elif category == "beat_tracking":
-        f_measures = [r.metrics.get("f_measure", 0) for r in succeeded if r.metrics]
+        f_measures = [v for v in (r.metrics.get("beat_f1") for r in succeeded if r.metrics) if v is not None]
         return {
             "macro_f_measure": sum(f_measures) / len(f_measures) if f_measures else 0,
         }
     elif category == "harmony":
-        key_accs = [r.metrics.get("key_accuracy", 0) for r in succeeded if r.metrics]
-        chord_f1s = [r.metrics.get("chord_f1", 0) for r in succeeded if r.metrics]
+        key_accs = [v for v in (r.metrics.get("key_correct") for r in succeeded if r.metrics) if v is not None]
+        chord_f1s = [v for v in (r.metrics.get("chord_f1") for r in succeeded if r.metrics) if v is not None]
         return {
             "macro_key_accuracy": sum(key_accs) / len(key_accs) if key_accs else 0,
             "macro_chord_f1": sum(chord_f1s) / len(chord_f1s) if chord_f1s else 0,
         }
     elif category == "structure":
-        boundary_f1s = [r.metrics.get("boundary_f1", 0) for r in succeeded if r.metrics]
+        boundary_f1s = [v for v in (r.metrics.get("boundary_f1") for r in succeeded if r.metrics) if v is not None]
+        section_counts = [v for v in (r.metrics.get("sections_count") for r in succeeded if r.metrics) if v is not None]
         return {
             "macro_boundary_f1": sum(boundary_f1s) / len(boundary_f1s) if boundary_f1s else 0,
-            "avg_segments": sum(r.metrics.get("sections_count", 0) for r in succeeded if r.metrics) / len(succeeded) if succeeded else 0,
+            "avg_segments": sum(section_counts) / len(section_counts) if section_counts else 0,
         }
 
     return {}
@@ -524,7 +608,7 @@ def write_evaluation_report(
     }
 
     with open(output_path, "w") as f:
-        json.dump(data, f, indent=2, default=str)
+        json.dump(data, f, indent=2, cls=_BytesJSONEncoder)
 
     # Also write markdown summary
     md_path = output_path.replace(".json", ".md")
@@ -538,6 +622,12 @@ def write_evaluation_report(
             f.write(f"- **Model size**: {r.engine_info.model_size_mb or 'N/A'} MB\n")
             f.write(f"- **Requires GPU**: {r.engine_info.requires_gpu}\n")
             f.write(f"- **Clips**: {r.clips_succeeded}/{r.clips_total} succeeded\n")
+            ineligible = r.aggregate_metrics.get("clips_ineligible", 0)
+            scored = r.aggregate_metrics.get("clips_scored", 0)
+            f.write(
+                f"- **Eligibility**: {scored} scored, {ineligible} ineligible, "
+                f"{r.clips_failed} failed (of {r.clips_total} total)\n"
+            )
             f.write(f"- **Avg runtime**: {r.avg_runtime_s:.2f}s\n")
             f.write(f"- **Avg memory**: {r.avg_peak_memory_mb:.1f} MB\n")
             f.write(f"- **Aggregate metrics**: {r.aggregate_metrics}\n")

@@ -51,9 +51,19 @@ class Music21HarmonyAdapter(EngineAdapter):
 
     def analyze_harmony(self, midi_bytes: bytes, **kwargs) -> dict[str, Any]:
         import io
+        import tempfile
         from music21 import converter, chord, roman, voiceLeading, key
 
-        score = converter.parse(io.BytesIO(midi_bytes))
+        # Write MIDI to temp file for music21 parsing (BytesIO triggers
+        # MuseData format detection bug in music21)
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            f.write(midi_bytes)
+            temp_path = f.name
+
+        try:
+            score = converter.parse(temp_path)
+        finally:
+            os.unlink(temp_path)
 
         # Key estimation
         k = score.analyze("key")

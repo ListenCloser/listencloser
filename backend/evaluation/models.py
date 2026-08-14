@@ -70,7 +70,7 @@ class EvalClip:
         return cls(
             id=data["id"],
             audio=resolve_path(data.get("audio")),
-            category=data["category"],
+            category=data.get("category", "unknown"),
             reference_midi=resolve_path(data.get("reference_midi")),
             reference_musicxml=resolve_path(data.get("reference_musicxml")),
             reference=Reference(
