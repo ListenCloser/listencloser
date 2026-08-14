@@ -1,6 +1,7 @@
 import type { Insight } from "@/lib/domain.types";
 import type { PlaybackSource } from "@/lib/stores/transport";
 import type { MusicalSelection } from "@/lib/stores/workspace";
+import type { RepresentationId } from "@/lib/representations";
 import { categorizeInsights } from "@/lib/inspector/insights";
 import type { AskContext } from "./types";
 
@@ -18,7 +19,7 @@ export type { AskAction, AskContext, AskReference, AskResponse } from "./types";
  */
 export function deriveAskContext(
   workId: string | null,
-  representationId: string | null,
+  representationId: RepresentationId | null,
   currentTime: number,
   activeSource: PlaybackSource | null,
   selection: MusicalSelection | null,

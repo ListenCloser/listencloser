@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { deriveAskContext } from "@/lib/ask/context";
+import type { AskAction, AskContext } from "@/lib/ask/types";
 import type { Insight } from "@/lib/domain.types";
 import type { PlaybackSource } from "@/lib/stores/transport";
 import type { MusicalSelection } from "@/lib/stores/workspace";
+import type { RepresentationId } from "@/lib/representations";
 
 function insight(overrides: Partial<Insight>): Insight {
   return {
@@ -96,5 +98,16 @@ describe("deriveAskContext", () => {
     expect(ctx?.selection).toBe(selection);
     expect(ctx?.visibleInsights[0].insight).toBe(selectionInsight);
     expect(ctx?.playbackSourceId).toBe(perfSource.id);
+  });
+});
+
+describe("ask contract type hardening", () => {
+  it("uses the canonical RepresentationId for context and actions", () => {
+    expectTypeOf<AskContext>().toHaveProperty("representationId").toEqualTypeOf<RepresentationId>();
+    expectTypeOf<AskAction>().toEqualTypeOf<
+      | { type: "seek"; seconds: number; domain: "performance" | "notation" }
+      | { type: "loop"; start: number; end: number; domain: "performance" | "notation" }
+      | { type: "show_representation"; representationId: RepresentationId }
+    >();
   });
 });

@@ -1,5 +1,6 @@
 import type { CategorizedInsight } from "@/lib/inspector/insights";
 import type { MusicalSelection } from "@/lib/stores/workspace";
+import type { RepresentationId } from "@/lib/representations";
 
 /**
  * The workspace context a future music copilot can reason about.
@@ -11,7 +12,7 @@ import type { MusicalSelection } from "@/lib/stores/workspace";
  */
 export type AskContext = {
   workId: string;
-  representationId: string;
+  representationId: RepresentationId;
   currentTime: number;
   playbackSourceId: string | null;
   selection: MusicalSelection | null;
@@ -39,7 +40,7 @@ export type AskReference =
 export type AskAction =
   | { type: "seek"; seconds: number; domain: "performance" | "notation" }
   | { type: "loop"; start: number; end: number; domain: "performance" | "notation" }
-  | { type: "show_representation"; representationId: string };
+  | { type: "show_representation"; representationId: RepresentationId };
 
 export type AskResponse = {
   answer: string;
