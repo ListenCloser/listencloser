@@ -61,14 +61,13 @@ describe("Workspace session state transitions", () => {
       result.current.workspace.setActiveRepresentation("listen");
       result.current.workspace.setActiveRepresentation("piano_roll");
       result.current.workspace.setActiveRepresentation("score");
-      result.current.workspace.setActiveRepresentation("analysis");
     });
 
     expect(result.current.transport.transport.position).toBe(transportBefore.position);
     expect(result.current.transport.transport.isPlaying).toBe(transportBefore.isPlaying);
     expect(result.current.transport.transport.duration).toBe(transportBefore.duration);
     expect(result.current.transport.transport.activeSource).toBe(activeSourceBefore);
-    expect(result.current.workspace.workspace.activeRepresentation).toBe("analysis");
+    expect(result.current.workspace.workspace.activeRepresentation).toBe("score");
   });
 
   it("keeps the same representation when the playback source changes", () => {

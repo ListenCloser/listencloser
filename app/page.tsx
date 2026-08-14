@@ -202,6 +202,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         if (insightsResult.status === "rejected") warnings.push("The saved analysis could not be loaded.");
         pendingInsights = insights;
         const notes = entities.flatMap((entity) => entity.note ? [{
+          id: entity.id,
           pitch: entity.note.pitch,
           start: entity.note.start_seconds,
           end: entity.note.end_seconds,

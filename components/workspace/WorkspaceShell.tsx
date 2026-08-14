@@ -2,17 +2,17 @@
 
 import { type ReactNode, useEffect, useRef } from "react";
 import { TransportProvider } from "@/lib/stores/transport";
-import { SelectionProvider } from "@/lib/stores/selection";
 import { TimelineProvider } from "@/lib/stores/timeline";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
+import InspectorPanel from "./Inspector";
 
 export type ServiceStatus = "checking" | "ready" | "unavailable";
 
 function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { signedIn?: boolean; projectName?: string; serviceStatus: ServiceStatus }) {
-  const { workspace, toggleLibrary } = useWorkspace();
+  const { workspace, toggleLibrary, toggleInspector } = useWorkspace();
   const initializedResponsiveLayout = useRef(false);
 
   useEffect(() => {
@@ -21,6 +21,8 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
     if (!window.matchMedia("(max-width: 820px)").matches) return;
     if (!workspace.libraryCollapsed) toggleLibrary();
   }, [toggleLibrary, workspace.libraryCollapsed]);
+
+  const inspectorOpen = !workspace.inspectorCollapsed;
 
   return (
     <div className="studio-shell"
@@ -47,6 +49,13 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
 
         <RepresentationStack signedIn={signedIn} canImport={serviceStatus === "ready"} />
 
+        {inspectorOpen && (
+          <>
+            <aside className="studio-inspector"><InspectorPanel /></aside>
+            <div className="studio-inspector-backdrop" onClick={toggleInspector} aria-hidden="true" />
+          </>
+        )}
+
       </div>
 
     </div>
@@ -67,12 +76,10 @@ export default function WorkspaceShell({
   return (
     <TimelineProvider>
       <TransportProvider>
-        <SelectionProvider>
-          <WorkspaceProvider>
-            {children}
-            <WorkspaceContent signedIn={signedIn} projectName={projectName} serviceStatus={serviceStatus} />
-          </WorkspaceProvider>
-        </SelectionProvider>
+        <WorkspaceProvider>
+          {children}
+          <WorkspaceContent signedIn={signedIn} projectName={projectName} serviceStatus={serviceStatus} />
+        </WorkspaceProvider>
       </TransportProvider>
     </TimelineProvider>
   );

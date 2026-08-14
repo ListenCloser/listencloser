@@ -5,10 +5,17 @@ import type { RepresentationAvailability } from "@/lib/representation-availabili
 import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
-import Visualizer from "@/components/Visualizer";
+import {
+  composeMeasureSelection,
+  composeNoteSelection,
+  composeTimeSelection,
+  measureRangeFromTime,
+  noteIdsInRange,
+} from "@/lib/selection";
+import Waveform from "@/components/Waveform";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
-import { AnalysisSummary } from "@/components/workspace/AnalysisSummary";
+
 
 /**
  * The representation registry (Psr: "Representation").
@@ -18,7 +25,7 @@ import { AnalysisSummary } from "@/components/workspace/AnalysisSummary";
  * harmony, rhythm, …) are registered here and become reachable through the
  * same navigation without touching RepresentationStack.
  */
-export type RepresentationId = "listen" | "piano_roll" | "score" | "analysis";
+export type RepresentationId = "listen" | "piano_roll" | "score";
 
 export type RepresentationDefinition = {
   id: RepresentationId;
@@ -31,8 +38,8 @@ export type RepresentationDefinition = {
 };
 
 function ListenView() {
-  const { workspace } = useWorkspace();
-  const { audioRef } = useTransport();
+  const { workspace, setSelection } = useWorkspace();
+  const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
   if (!waveform?.audioUrl) {
     return (
@@ -43,32 +50,63 @@ function ListenView() {
   }
   return (
     <div className="representation-body">
-      <Visualizer audioRef={audioRef} />
+      <Waveform
+        url={waveform.audioUrl}
+        position={transport.position}
+        selection={workspace.selection}
+        onSeek={seek}
+        onSelect={(start, end) =>
+          setSelection(composeTimeSelection(start, end, [], "waveform"))
+        }
+      />
     </div>
   );
 }
 
 function PianoRollView() {
-  const { workspace } = useWorkspace();
+  const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const { timeline } = useTimeline();
   const entry = workspace.representations.find((item) => item.kind === "piano_roll");
+  const notes = entry?.notes ?? [];
+  const selection = workspace.selection;
+  const selectedNoteIds =
+    selection?.timeRange
+      ? noteIdsInRange(notes, selection.timeRange.start, selection.timeRange.end)
+      : [];
   return (
     <div className="representation-body">
       <PianoRoll
-        notes={entry?.notes ?? []}
+        notes={notes}
         bpm={timeline.bpm}
         playheadTime={transport.position}
         onSeek={seek}
+        selectionTimeRange={selection?.timeRange}
+        selectedNoteIds={selection?.noteIds ?? selectedNoteIds}
+        onSelectRange={(start, end) =>
+          setSelection(composeTimeSelection(start, end, notes, "piano_roll"))
+        }
+        onSelectNotes={(ids) => {
+          const composed = composeNoteSelection(notes, ids);
+          if (composed) setSelection(composed);
+        }}
       />
     </div>
   );
 }
 
 function ScoreView() {
-  const { workspace } = useWorkspace();
+  const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const entry = workspace.representations.find((item) => item.kind === "score");
+  const measureStarts = entry?.measureStarts ?? [];
+  const scoreDuration = entry?.audioUrl ? transport.duration : null;
+  const selection = workspace.selection;
+  const selectedMeasures = selection?.measureRange
+    ? selection.measureRange
+    : selection?.timeRange
+      ? measureRangeFromTime(selection.timeRange.start, selection.timeRange.end, measureStarts)
+      : null;
   return (
     <div className="representation-body">
       <SheetMusic
@@ -76,19 +114,19 @@ function ScoreView() {
         playheadTime={transport.position}
         isScoreActive={transport.activeSource?.role === "score"}
         hasScorePlayback={transport.sources.some((source) => source.role === "score")}
-        measureStarts={entry?.measureStarts}
+        measureStarts={measureStarts}
+        scoreDuration={scoreDuration}
+        selectedMeasures={selectedMeasures}
+        measureApproximate={Boolean(
+          selection?.timeRange && !selection?.measureRange,
+        )}
         onSeek={seek}
+        onSelectMeasures={(start, end) =>
+          setSelection(
+            composeMeasureSelection(start, end, measureStarts, scoreDuration),
+          )
+        }
       />
-    </div>
-  );
-}
-
-function AnalysisView() {
-  const { seek } = useTransport();
-  const { timeline } = useTimeline();
-  return (
-    <div className="piece-analysis">
-      <AnalysisSummary onSeek={seek} bpm={timeline.bpm} />
     </div>
   );
 }
@@ -117,14 +155,6 @@ export const REPRESENTATIONS: readonly RepresentationDefinition[] = [
     temporal: true,
     available: (availability) => availability.score,
     component: ScoreView,
-  },
-  {
-    id: "analysis",
-    title: "Analysis",
-    description: "A musical summary of the transcription. Select an item to hear that moment.",
-    temporal: false,
-    available: (availability) => availability.analysis,
-    component: AnalysisView,
   },
 ];
 
