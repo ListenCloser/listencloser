@@ -68,16 +68,16 @@ measure how each engine behaves on dense polyphonic mixes.
 
 | engine | macro note F1 | macro precision | macro recall | scored / ineligible | avg runtime |
 |--------|--------------:|----------------:|-------------:|--------------------:|------------:|
-| basic_pitch | 0.0652 | 0.0759 | 0.0601 | 5 / 5 | 1.8s |
-| transkun | 0.1835 | 0.2670 | 0.1405 | 5 / 5 | 7.1s |
-| piano_transcription | 0.1427 | 0.1811 | 0.1257 | 5 / 5 | 10.2s |
+| basic_pitch | 0.0652 | 0.0759 | 0.0601 | 5 / 5 | 1.6s |
+| transkun | 0.1835 | 0.2670 | 0.1405 | 5 / 5 | 8.0s |
+| piano_transcription | 0.1427 | 0.1811 | 0.1257 | 5 / 5 | 8.6s |
 
 Interpretation caveats:
 
 - GuitarSet clips (5) are ineligible for transcription (no reference MIDI) and
   are correctly reported as `ineligible`, not as failures.
 - On this full-mix set, transkun has the best macro note F1 (0.1835) and is
-  faster than piano_transcription (7.1s vs 10.2s). Basic Pitch under-transcribes
+  faster than piano_transcription (8.0s vs 8.6s). Basic Pitch under-transcribes
   on mix (`babyslakh_02` note F1 = 0.009).
 - **Do not use these numbers to choose between Basic Pitch and a
   piano-specialist engine** — the target is not piano.
@@ -115,8 +115,8 @@ artifacts/real-piano/`.
 | engine | notes | pitch range | notes ≥ MIDI 86 | short (<150ms) | max polyphony | runtime |
 |--------|------:|------------:|----------------:|---------------:|--------------:|--------:|
 | basic_pitch | 234 | 29–93 | 18 | 7 | 6 | 2.1s |
-| transkun | 102 | 48–93 | 16 | 5 | 6 | 14.3s |
-| piano_transcription | 188 | 31–93 | 25 | 13 | 16 | 31.9s |
+| transkun | 102 | 48–93 | 16 | 5 | 6 | 13.6s |
+| piano_transcription | 188 | 31–93 | 25 | 13 | 16 | 29.4s |
 
 Observations (visual/auditory inspection only — **no F1**):
 
@@ -154,8 +154,8 @@ beat metrics measure tracking on dense mixes, not piano-specific behavior.
 
 | engine | macro beat F1 | scored / ineligible | avg runtime |
 |--------|--------------:|--------------------:|------------:|
-| librosa | 0.3089 | 5 / 5 | 0.12s |
-| beat_this | 0.3352 | 5 / 5 | 0.39s |
+| librosa | 0.3089 | 5 / 5 | 0.10s |
+| beat_this | 0.3352 | 5 / 5 | 0.29s |
 
 Notes:
 

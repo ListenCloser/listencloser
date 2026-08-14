@@ -537,3 +537,40 @@ def _make_minimal_midi() -> bytes:
     header = struct.pack(">HHH", 0, 1, ppq)
     track_chunk = b"MTrk" + struct.pack(">I", len(track_data)) + bytes(track_data)
     return b"MThd" + struct.pack(">I", 6) + header + track_chunk
+
+
+class TestBytesJSONRoundTrip:
+    """Regression: MIDI bytes in result JSON must not rely on eval().
+
+    Per-clip results are serialized with _BytesJSONEncoder, which encodes bytes
+    as {"__base64__": ...}; the artifact decoder must decode that explicitly.
+    """
+
+    def test_encoder_round_trips_midi_bytes_losslessly(self):
+        from evaluation.engines import _BytesJSONEncoder
+
+        midi = _make_minimal_midi()
+        # Embed bytes with a NULL byte and non-ASCII to exercise escaping.
+        payload = midi + b"\x00\xff\x10\x00garbage"
+        encoded = json.dumps({"output": {"midi": payload}}, cls=_BytesJSONEncoder)
+        decoded = json.loads(encoded)
+        assert decoded["output"]["midi"]["__base64__"].startswith("TVRoZAAA")
+        assert decoded["output"]["midi"]["__base64__"] == (
+            __import__("base64").b64encode(payload).decode("ascii")
+        )
+
+    def test_artifact_decoder_recovers_base64_without_eval(self):
+        import base64 as b64
+
+        from evaluation.analysis.qualitative_artifacts import _midi_bytes_from_result
+
+        midi = _make_minimal_midi()
+        result = {"output": {"midi": {"__base64__": b64.b64encode(midi).decode("ascii")}}}
+        assert _midi_bytes_from_result(result) == midi
+
+    def test_artifact_decoder_rejects_bytes_repr_string(self):
+        """A legacy str(bytes) repr must NOT be accepted (no eval fallback)."""
+        from evaluation.analysis.qualitative_artifacts import _midi_bytes_from_result
+
+        result = {"output": {"midi": repr(_make_minimal_midi())}}
+        assert _midi_bytes_from_result(result) == b""

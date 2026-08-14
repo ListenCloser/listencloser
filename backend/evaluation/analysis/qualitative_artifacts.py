@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import sys
 from pathlib import Path
@@ -31,13 +32,13 @@ def _midi_bytes_from_result(result: dict) -> bytes:
     raw = result.get("output", {}).get("midi")
     if raw is None:
         return b""
-    # The result JSON stores MIDI as a Python bytes repr string (b'...').
-    if isinstance(raw, str):
-        try:
-            return eval(raw, {"__builtins__": {}}, {})  # noqa: S307
-        except Exception:
-            return b""
-    return raw if isinstance(raw, bytes) else b""
+    # MIDI bytes are serialized as {"__base64__": "..."} by the bakeoff JSON
+    # encoder so they round-trip losslessly without eval.
+    if isinstance(raw, dict) and isinstance(raw.get("__base64__"), str):
+        return base64.b64decode(raw["__base64__"])
+    if isinstance(raw, bytes):
+        return raw
+    return b""
 
 
 def _write_midi(midi_bytes: bytes, path: Path) -> None:

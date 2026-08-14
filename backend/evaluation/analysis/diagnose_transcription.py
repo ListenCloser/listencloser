@@ -74,8 +74,12 @@ def _nearest_onset_error(ref: list[dict], pred: list[dict]) -> float:
     return float(np.nanmean(errors)) if errors else 0.0
 
 
-def _nearest_pitch_agreement(ref: list[dict], pred: list[dict]) -> float:
-    """Fraction of predicted onsets whose nearest reference note matches pitch."""
+def _nearest_onset_pitch_match_within_50ms(ref: list[dict], pred: list[dict]) -> float:
+    """Fraction of predicted onsets whose nearest reference onset (within 50 ms) has the same pitch.
+
+    A predicted note counts only if its closest reference onset is within 50 ms
+    AND the reference pitch matches exactly. Timing is NOT ignored.
+    """
     ref_arr = np.array([[n["onset_seconds"], n["pitch"]] for n in ref])
     hits = 0
     for n in pred:
@@ -136,9 +140,9 @@ def main() -> None:
 
     print("\n--- Alignment metrics (prediction vs reference) ---")
     nerr = _nearest_onset_error(ref, pred)
-    pagree = _nearest_pitch_agreement(ref, pred)
+    pagree = _nearest_onset_pitch_match_within_50ms(ref, pred)
     print(f"nearest-onset error ignoring pitch (mean abs, s): {nerr:.4f}")
-    print(f"nearest-pitch agreement ignoring timing (fraction): {pagree:.4f}")
+    print(f"nearest-onset pitch match within 50ms (fraction): {pagree:.4f}")
     print(f"prediction duration / audio duration ratio: {pred_stats['duration'] / audio_duration:.4f}")
 
     print("\n--- Correctness checks ---")

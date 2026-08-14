@@ -7,6 +7,7 @@ routing — production code continues to use the existing engine seams.
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol, Literal
@@ -27,6 +28,34 @@ EngineCategory = Literal[
     "harmony",
     "structure",
 ]
+
+
+class _BytesJSONEncoder(json.JSONEncoder):
+    """JSON encoder that serializes bytes (e.g. MIDI payloads) losslessly.
+
+    Bytes are encoded as ``{"__base64__": "<base64>"}`` so binary outputs
+    round-trip through JSON safely and explicitly, instead of relying on
+    ``str(bytes)`` reprs that required ``eval()`` to recover.
+    """
+
+    def default(self, o: Any) -> Any:
+        if isinstance(o, bytes):
+            import base64
+
+            return {"__base64__": base64.b64encode(o).decode("ascii")}
+        import numpy as np
+
+        if isinstance(o, np.integer):
+            return int(o)
+        if isinstance(o, np.floating):
+            return float(o)
+        if isinstance(o, np.bool_):
+            return bool(o)
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        # Preserve prior default=str behavior for other non-serializable
+        # objects (e.g. EngineInfo in the aggregate report).
+        return str(o)
 
 
 @dataclass(frozen=True)
@@ -159,7 +188,7 @@ def run_engine_evaluation(
         # Write per-clip result
         clip_path = Path(output_dir) / f"{adapter.engine_info.name}_{clip.id}.json"
         with open(clip_path, "w") as f:
-            json.dump(clip_result.__dict__, f, indent=2, default=str)
+            json.dump(clip_result.__dict__, f, indent=2, cls=_BytesJSONEncoder)
 
     return _aggregate_results(adapter, clip_results, category)
 
@@ -579,7 +608,7 @@ def write_evaluation_report(
     }
 
     with open(output_path, "w") as f:
-        json.dump(data, f, indent=2, default=str)
+        json.dump(data, f, indent=2, cls=_BytesJSONEncoder)
 
     # Also write markdown summary
     md_path = output_path.replace(".json", ".md")
