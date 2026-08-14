@@ -164,6 +164,27 @@ def run_engine_evaluation(
     return _aggregate_results(adapter, clip_results, category)
 
 
+def _check_clip_eligibility(category: EngineCategory, clip: EvalClip) -> str | None:
+    """Check if a clip has required reference data for scoring.
+
+    Returns None if eligible, or a reason string if ineligible.
+    Ineligible clips are run for diagnostics but not scored.
+    """
+    if category == "transcription":
+        if not clip.reference_midi:
+            return "no reference MIDI for transcription scoring"
+    elif category == "beat_tracking":
+        if not clip.reference.beats and clip.reference.bpm is None:
+            return "no reference beats or BPM for beat scoring"
+    elif category == "harmony":
+        if not clip.reference_midi:
+            return "no reference MIDI for harmony scoring"
+    elif category == "structure":
+        if not clip.reference.sections:
+            return "no reference sections for structure scoring"
+    return None
+
+
 def _run_clip_on_engine(
     adapter: EngineAdapter,
     clip: EvalClip,
@@ -199,6 +220,23 @@ def _run_clip_on_engine(
             raise RuntimeError(f"Engine {adapter.engine_info.name} not available")
 
         adapter.prepare()
+
+        # Check eligibility before running inference
+        eligibility_reason = _check_clip_eligibility(category, clip)
+        if eligibility_reason:
+            result = EngineEvalResult(
+                engine_name=adapter.engine_info.name,
+                clip_id=clip.id,
+                category=category,
+                success=True,
+                output={},
+                metrics={},
+                runtime_s=0.0,
+                peak_memory_mb=0.0,
+                error=None,
+                diagnostics={"eligibility": "ineligible", "reason": eligibility_reason},
+            )
+            return result  # Clip not scored; reported as INELIGIBLE
 
         # Warm-up run (not timed) to avoid first-clip penalty for lazy loading/JIT
         if warmup:
@@ -450,12 +488,16 @@ def _aggregate_results(
     """Aggregate clip-level results into engine-level report."""
     succeeded = [r for r in clip_results if r.success]
     failed = [r for r in clip_results if not r.success]
+    scored = [r for r in succeeded if not r.diagnostics.get("eligibility", "").startswith("ineligible")]
+    ineligible = [r for r in succeeded if r.diagnostics.get("eligibility", "").startswith("ineligible")]
 
-    avg_runtime = sum(r.runtime_s for r in succeeded) / len(succeeded) if succeeded else 0.0
-    avg_memory = sum(r.peak_memory_mb for r in succeeded) / len(succeeded) if succeeded else 0.0
+    avg_runtime = sum(r.runtime_s for r in scored) / len(scored) if scored else 0.0
+    avg_memory = sum(r.peak_memory_mb for r in scored) / len(scored) if scored else 0.0
 
-    # Category-specific aggregate metrics
-    aggregate_metrics = _compute_category_aggregate(succeeded, category)
+    # Category-specific aggregate metrics (only from scored clips)
+    aggregate_metrics = _compute_category_aggregate(scored, category)
+    aggregate_metrics["clips_scored"] = len(scored)
+    aggregate_metrics["clips_ineligible"] = len(ineligible)
 
     return EngineAggregateReport(
         engine_name=adapter.engine_info.name,
@@ -541,6 +583,10 @@ def write_evaluation_report(
             f.write(f"- **Model size**: {r.engine_info.model_size_mb or 'N/A'} MB\n")
             f.write(f"- **Requires GPU**: {r.engine_info.requires_gpu}\n")
             f.write(f"- **Clips**: {r.clips_succeeded}/{r.clips_total} succeeded\n")
+            ineligible = r.aggregate_metrics.get("clips_ineligible", 0)
+            scored = r.aggregate_metrics.get("clips_scored", 0)
+            if ineligible:
+                f.write(f"- **Scored**: {scored} clips, **Ineligible**: {ineligible} clips\n")
             f.write(f"- **Avg runtime**: {r.avg_runtime_s:.2f}s\n")
             f.write(f"- **Avg memory**: {r.avg_peak_memory_mb:.1f} MB\n")
             f.write(f"- **Aggregate metrics**: {r.aggregate_metrics}\n")
