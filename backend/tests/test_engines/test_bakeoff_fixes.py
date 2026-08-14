@@ -272,6 +272,24 @@ class TestAudioFormatDetection:
     Also: librosa beat_track returns numpy array for tempo, causing float() crash.
     """
 
+    @pytest.fixture(autouse=True)
+    def _restore_modules(self):
+        """Restore modules that may have been mocked by test_wrappers.py."""
+        import sys
+        saved = {}
+        for mod_name in ["librosa", "soundfile", "basic_pitch", "basic_pitch.inference"]:
+            if mod_name in sys.modules and isinstance(sys.modules[mod_name], MagicMock):
+                saved[mod_name] = sys.modules[mod_name]
+                del sys.modules[mod_name]
+        try:
+            yield
+        finally:
+            for mod_name, mock_mod in saved.items():
+                try:
+                    del sys.modules[mod_name]
+                except KeyError:
+                    pass
+
     def test_piano_transcription_handles_m4a(self):
         from evaluation.engines.transcription import PianoTranscriptionAdapter
 
@@ -352,6 +370,24 @@ class TestEligibilityAfterInference:
     
     The check should only skip metric computation, not the actual inference run.
     """
+
+    @pytest.fixture(autouse=True)
+    def _restore_modules(self):
+        """Restore modules that may have been mocked by test_wrappers.py."""
+        import sys
+        saved = {}
+        for mod_name in ["librosa", "soundfile", "basic_pitch", "basic_pitch.inference"]:
+            if mod_name in sys.modules and isinstance(sys.modules[mod_name], MagicMock):
+                saved[mod_name] = sys.modules[mod_name]
+                del sys.modules[mod_name]
+        try:
+            yield
+        finally:
+            for mod_name, mock_mod in saved.items():
+                try:
+                    del sys.modules[mod_name]
+                except KeyError:
+                    pass
 
     def test_ineligible_clip_still_runs_inference(self):
         """Ineligible clips (no ref MIDI) should still run inference for diagnostics."""
