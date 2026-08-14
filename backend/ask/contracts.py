@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Bounds
@@ -29,6 +29,12 @@ MAX_NOTES_PER_REFERENCE = 64
 MAX_NOTE_ID_LENGTH = 128
 MAX_CLAIM_LENGTH = 2000
 MIN_MEASURE = 1
+MAX_SELECTION_NOTE_IDS = 128
+MAX_INSIGHT_ENTITY_IDS = 64
+MAX_INSIGHT_ID_LENGTH = 128
+MAX_VERSION_ID_LENGTH = 128
+MAX_KIND_LENGTH = 64
+MAX_PLAYBACK_SOURCE_ID_LENGTH = 128
 
 # ---------------------------------------------------------------------------
 # AskContext (request)
@@ -42,12 +48,24 @@ class AskSelectionTimeRange(BaseModel):
     end: float = Field(ge=0)
     domain: Literal["performance", "notation"]
 
+    @model_validator(mode="after")
+    def check_end_ge_start(self) -> AskSelectionTimeRange:
+        if self.end < self.start:
+            raise ValueError("timeRange.end must be >= timeRange.start")
+        return self
+
 
 class AskSelectionMeasureRange(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     start: int
     end: int
+
+    @model_validator(mode="after")
+    def check_end_ge_start(self) -> AskSelectionMeasureRange:
+        if self.end < self.start:
+            raise ValueError("measureRange.end must be >= measureRange.start")
+        return self
 
 
 class AskSelectionProvenance(BaseModel):
@@ -64,7 +82,9 @@ class AskSelection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     timeRange: AskSelectionTimeRange | None = None
-    noteIds: list[Annotated[str, Field(max_length=MAX_NOTE_ID_LENGTH)]] | None = None
+    noteIds: list[Annotated[str, Field(max_length=MAX_NOTE_ID_LENGTH)]] | None = Field(
+        default=None, max_length=MAX_SELECTION_NOTE_IDS
+    )
     measureRange: AskSelectionMeasureRange | None = None
     provenance: AskSelectionProvenance | None = None
 
@@ -90,12 +110,14 @@ class AskInsight(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    id: str
-    version_id: str
-    kind: str
-    claim: Annotated[str, Field(max_length=MAX_CLAIM_LENGTH)]
+    id: Annotated[str, Field(min_length=1, max_length=MAX_INSIGHT_ID_LENGTH)]
+    version_id: Annotated[str, Field(min_length=1, max_length=MAX_VERSION_ID_LENGTH)]
+    kind: Annotated[str, Field(min_length=1, max_length=MAX_KIND_LENGTH)]
+    claim: Annotated[str, Field(min_length=1, max_length=MAX_CLAIM_LENGTH)]
     span: AskInsightSpan = Field(default_factory=AskInsightSpan)
-    entity_ids: list[str] = Field(default_factory=list)
+    entity_ids: list[Annotated[str, Field(max_length=MAX_NOTE_ID_LENGTH)]] = Field(
+        default_factory=list, max_length=MAX_INSIGHT_ENTITY_IDS
+    )
 
 
 class AskVisibleInsight(BaseModel):
@@ -111,7 +133,7 @@ class AskContext(BaseModel):
     workId: UUID
     representationId: Literal["listen", "piano_roll", "score"]
     currentTime: float = Field(ge=0, default=0.0)
-    playbackSourceId: str | None = None
+    playbackSourceId: Annotated[str | None, Field(max_length=MAX_PLAYBACK_SOURCE_ID_LENGTH)] = None
     selection: AskSelection | None = None
     visibleInsights: list[AskVisibleInsight] = Field(
         default_factory=list, max_length=MAX_VISIBLE_INSIGHTS

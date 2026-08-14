@@ -53,7 +53,7 @@ def override_supabase(monkeypatch):
 @pytest.fixture
 def override_provider(monkeypatch):
     def _install(fake: FakeLLMProvider):
-        monkeypatch.setattr("ask.api.build_provider", lambda settings: fake)
+        monkeypatch.setattr("ask.api.build_provider", lambda settings, client=None: fake)
 
     return _install
 
@@ -122,11 +122,11 @@ def _valid_response_payload() -> dict:
         "answer": "G7 creates dominant tension that resolves to C major.",
         "references": [
             {"type": "insight", "id": "insight-selection"},
-            {"type": "time", "start": 1.0, "end": 3.0, "domain": "performance"},
+            {"type": "time", "start": 2.0, "end": 3.0, "domain": "performance"},
         ],
         "suggestedActions": [
             {"type": "show_representation", "representationId": "score"},
-            {"type": "seek", "seconds": 2.0, "domain": "performance"},
+            {"type": "seek", "seconds": 3.0, "domain": "performance"},
         ],
     }
 
@@ -315,7 +315,7 @@ def test_missing_provider_configuration_returns_service_unavailable(
     client, override_auth, override_supabase, monkeypatch
 ):
     monkeypatch.setattr(
-        "ask.api.build_provider", lambda settings: None
+        "ask.api.build_provider", lambda settings, client=None: None
     )
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
 
@@ -344,7 +344,7 @@ def test_unauthorized_request_rejected(client):
 def test_work_not_owned_returns_403(client, override_auth, override_supabase, monkeypatch):
     monkeypatch.setattr(
         "ask.api.build_provider",
-        lambda settings: FakeLLMProvider(responses=[_valid_response_payload()]),
+        lambda settings, client=None: FakeLLMProvider(responses=[_valid_response_payload()]),
     )
 
     class DenyWorkRepo:

@@ -100,7 +100,7 @@ def contract_env(monkeypatch):
     monkeypatch.setattr("ask.api.get_supabase", lambda: SimpleNamespace())
     monkeypatch.setattr(
         "ask.api.build_provider",
-        lambda settings: FakeLLMProvider(
+        lambda settings, client=None: FakeLLMProvider(
             responses=[
                 {
                     "answer": "G7 creates dominant tension that resolves to C major.",
@@ -161,3 +161,84 @@ def test_frontend_contract_request_validates_against_backend_models():
     assert parsed.context.selection.noteIds == ["note-1", "note-2", "note-3"]
     assert parsed.context.visibleInsights[0].category == "selection"
     assert parsed.context.visibleInsights[1].category == "whole-work"
+
+
+def test_time_range_reversed_rejected():
+    from ask.contracts import AskRequest
+
+    bad = FRONTEND_ASK_REQUEST.copy()
+    bad["context"]["selection"]["timeRange"] = {"start": 10.0, "end": 5.0, "domain": "performance"}
+    with pytest.raises(ValueError, match="timeRange.end must be >= timeRange.start"):
+        AskRequest.model_validate(bad)
+
+
+def test_measure_range_reversed_rejected():
+    from ask.contracts import AskRequest
+
+    bad = FRONTEND_ASK_REQUEST.copy()
+    bad["context"]["selection"]["measureRange"] = {"start": 10, "end": 5}
+    with pytest.raises(ValueError, match="measureRange.end must be >= measureRange.start"):
+        AskRequest.model_validate(bad)
+
+
+def test_oversized_selection_note_ids_rejected():
+    from ask.contracts import AskRequest
+
+    bad = FRONTEND_ASK_REQUEST.copy()
+    bad["context"]["selection"]["noteIds"] = [f"note-{i}" for i in range(129)]  # MAX_SELECTION_NOTE_IDS=128
+    with pytest.raises(ValueError):
+        AskRequest.model_validate(bad)
+
+
+def test_oversized_insight_entity_ids_rejected():
+    from ask.contracts import AskRequest
+
+    bad = FRONTEND_ASK_REQUEST.copy()
+    bad["context"]["visibleInsights"][0]["insight"]["entity_ids"] = [f"eid-{i}" for i in range(65)]  # MAX_INSIGHT_ENTITY_IDS=64
+    with pytest.raises(ValueError):
+        AskRequest.model_validate(bad)
+
+
+def test_oversized_insight_id_rejected():
+    from ask.contracts import AskRequest
+
+    bad = FRONTEND_ASK_REQUEST.copy()
+    bad["context"]["visibleInsights"][0]["insight"]["id"] = "x" * 129  # MAX_INSIGHT_ID_LENGTH=128
+    with pytest.raises(ValueError):
+        AskRequest.model_validate(bad)
+
+
+def test_oversized_version_id_rejected():
+    from ask.contracts import AskRequest
+
+    bad = FRONTEND_ASK_REQUEST.copy()
+    bad["context"]["visibleInsights"][0]["insight"]["version_id"] = "x" * 129  # MAX_VERSION_ID_LENGTH=128
+    with pytest.raises(ValueError):
+        AskRequest.model_validate(bad)
+
+
+def test_oversized_kind_rejected():
+    from ask.contracts import AskRequest
+
+    bad = FRONTEND_ASK_REQUEST.copy()
+    bad["context"]["visibleInsights"][0]["insight"]["kind"] = "x" * 65  # MAX_KIND_LENGTH=64
+    with pytest.raises(ValueError):
+        AskRequest.model_validate(bad)
+
+
+def test_oversized_playback_source_id_rejected():
+    from ask.contracts import AskRequest
+
+    bad = FRONTEND_ASK_REQUEST.copy()
+    bad["context"]["playbackSourceId"] = "x" * 129  # MAX_PLAYBACK_SOURCE_ID_LENGTH=128
+    with pytest.raises(ValueError):
+        AskRequest.model_validate(bad)
+
+
+def test_oversized_question_rejected():
+    from ask.contracts import AskRequest
+
+    bad = FRONTEND_ASK_REQUEST.copy()
+    bad["question"] = "x" * 2001  # QUESTION_MAX_LENGTH=2000
+    with pytest.raises(ValueError):
+        AskRequest.model_validate(bad)

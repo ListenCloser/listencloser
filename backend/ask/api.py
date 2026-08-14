@@ -65,7 +65,7 @@ async def create_ask(
     if work is None:
         raise HTTPException(status_code=404, detail="Work not found")
 
-    provider: LLMProvider | None = build_provider(settings)
+    provider: LLMProvider | None = build_provider(settings, client=request.app.state.http_client)
     if provider is None:
         logger.warning("ask_provider_unconfigured")
         raise HTTPException(

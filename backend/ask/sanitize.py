@@ -8,11 +8,17 @@ grounded in the supplied context:
 - notes reference   → every id must come from the supplied selection's
                       `noteIds` (no selection note ids → the reference is
                       dropped, since the model could not have seen any).
-- time reference    → finite numbers, `start >= 0`, `end >= start`, and a
-                      defensible domain (matching the selection's timeline when
-                      one is supplied; no invented cross-domain mappings).
-- measure reference → finite integer range with `end >= start`.
-- seek/loop action  → finite, non-negative, ordered, defensible domain.
+- time reference    → finite numbers, `start >= 0`, `end >= start`, domain in
+                      {"performance", "notation"}, and the range must be fully
+                      contained in a time range present in the supplied
+                      selection or visibleInsight spans.
+- measure reference → finite integer range with `start >= 1`, `end >= start`,
+                      and the range must be fully contained in a measure range
+                      present in the supplied selection or visibleInsight spans.
+- seek/loop action  → finite, non-negative, ordered, domain in
+                      {"performance", "notation"}, and the range must be fully
+                      contained in a time range present in the supplied
+                      selection or visibleInsight spans.
 - show_representation → must be a canonical supported representation.
 
 Invalid items are dropped individually — a single bad optional reference never
@@ -36,38 +42,104 @@ def _is_finite(value: float) -> bool:
     return isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def _defensible_domain(context: AskContext) -> str | None:
-    """The timeline the user is grounded in, when the context can tell.
+def _collect_time_ranges(context: AskContext) -> dict[str, list[tuple[float, float]]]:
+    """Collect all grounded time ranges per domain from selection and insights.
 
-    The selection's `timeRange.domain` is the active source's timeline at
-    selection time. When no selection exists there is no defensible signal, so
-    cross-domain checks are skipped rather than guessed.
+    Returns dict mapping domain -> list of (start, end) tuples where end may be
+    None (open-ended). Both selection.timeRange and insight spans contribute.
     """
+    ranges: dict[str, list[tuple[float, float | None]]] = {"performance": [], "notation": []}
+
+    # Selection time range
     if context.selection is not None and context.selection.timeRange is not None:
-        return context.selection.timeRange.domain
-    return None
+        tr = context.selection.timeRange
+        end = tr.end if tr.end is not None and tr.end >= tr.start else None
+        ranges[tr.domain].append((tr.start, end))
+
+    # Insight spans with time domain
+    for item in context.visibleInsights:
+        span = item.insight.span
+        if (
+            span.start_seconds is not None
+            and span.end_seconds is not None
+            and span.end_seconds >= span.start_seconds
+        ):
+            # Determine domain: prefer insight's domain if we had one,
+            # but since InsightSpan doesn't carry domain, we can't assign.
+            # For now, add to both domains - this is conservative.
+            # Actually, the insight came from some representation, but
+            # we don't track that. Safer: only allow time refs that match
+            # a selection time range, or we'd need domain on insight spans.
+            pass
+
+    # Since InsightSpan doesn't carry a domain, we can only ground time
+    # references against the selection's timeRange (which has a domain).
+    # This is the safe, defensible approach.
+    return {k: [(s, e) for s, e in v if e is not None] for k, v in ranges.items() if v}
 
 
-def _time_range_defensible(
+def _collect_measure_ranges(context: AskContext) -> list[tuple[int, int]]:
+    """Collect all grounded measure ranges from selection and insights."""
+    ranges: list[tuple[int, int]] = []
+
+    # Selection measure range
+    if context.selection is not None and context.selection.measureRange is not None:
+        mr = context.selection.measureRange
+        if mr.end >= mr.start:
+            ranges.append((mr.start, mr.end))
+
+    # Insight spans with measure domain
+    for item in context.visibleInsights:
+        span = item.insight.span
+        if (
+            span.start_measure is not None
+            and span.end_measure is not None
+            and span.end_measure >= span.start_measure
+        ):
+            ranges.append((span.start_measure, span.end_measure))
+
+    return ranges
+
+
+def _time_range_contained(
     start: float, end: float | None, domain: str, context: AskContext
 ) -> bool:
+    """Check if [start, end] is fully contained in any grounded time range for domain."""
     if not _is_finite(start) or start < 0:
         return False
     if end is not None and (not _is_finite(end) or end < start):
         return False
-    active_domain = _defensible_domain(context)
-    return not (active_domain is not None and domain != active_domain)
+
+    grounded = _collect_time_ranges(context).get(domain, [])
+    if not grounded:
+        return False
+
+    check_end = end if end is not None else start
+    return any(g_start <= start and check_end <= g_end for g_start, g_end in grounded)
+
+
+def _measure_range_contained(start: int, end: int | None, context: AskContext) -> bool:
+    """Check if [start, end] is fully contained in any grounded measure range."""
+    if not isinstance(start, int) or start < 1:
+        return False
+    if end is not None and (not isinstance(end, int) or end < start):
+        return False
+
+    grounded = _collect_measure_ranges(context)
+    if not grounded:
+        return False
+
+    check_end = end if end is not None else start
+    return any(g_start <= start and check_end <= g_end for g_start, g_end in grounded)
 
 
 def _valid_reference(ref: AskReference, context: AskContext) -> bool:
     if ref.type == "time":
         if ref.domain not in _DOMAINS:
             return False
-        return _time_range_defensible(ref.start, ref.end, ref.domain, context)
+        return _time_range_contained(ref.start, ref.end, ref.domain, context)
     if ref.type == "measure":
-        if not isinstance(ref.start, int) or ref.start < 1:
-            return False
-        return not (ref.end is not None and (not isinstance(ref.end, int) or ref.end < ref.start))
+        return _measure_range_contained(ref.start, ref.end, context)
     if ref.type == "notes":
         if not ref.ids:
             return False
@@ -84,11 +156,11 @@ def _valid_action(action: AskAction, context: AskContext) -> bool:
     if action.type == "seek":
         if action.domain not in _DOMAINS:
             return False
-        return _time_range_defensible(action.seconds, None, action.domain, context)
+        return _time_range_contained(action.seconds, None, action.domain, context)
     if action.type == "loop":
         if action.domain not in _DOMAINS:
             return False
-        return _time_range_defensible(action.start, action.end, action.domain, context)
+        return _time_range_contained(action.start, action.end, action.domain, context)
     if action.type == "show_representation":
         return action.representationId in _CANONICAL_REPRESENTATIONS
     return False

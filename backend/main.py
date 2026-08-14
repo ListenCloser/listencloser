@@ -6,9 +6,11 @@ import logging
 import os
 import time
 import uuid
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI, Request
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -59,6 +61,19 @@ except ImportError:
     logger.warning("sentry_sdk_not_installed")
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: create shared httpx client for LLM provider
+    timeout = httpx.Timeout(30.0, connect=10.0)
+    limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+    app.state.http_client = httpx.AsyncClient(timeout=timeout, limits=limits)
+    logger.info("http_client_created")
+    yield
+    # Shutdown: close shared httpx client
+    await app.state.http_client.aclose()
+    logger.info("http_client_closed")
+
+
 app = FastAPI(
     title="hello-ai music understanding API",
     version="2.0.0",
@@ -66,6 +81,7 @@ app = FastAPI(
         "Persistent projects, immutable music artifacts, asynchronous jobs, "
         "and evidence-backed analysis."
     ),
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

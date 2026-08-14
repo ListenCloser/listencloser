@@ -17,6 +17,7 @@ from ask.providers import (
 )
 
 
+@pytest.mark.asyncio
 async def test_fake_provider_returns_configured_response():
     provider = FakeLLMProvider(
         responses=[
@@ -30,6 +31,7 @@ async def test_fake_provider_returns_configured_response():
     assert result.answer == "An answer."
 
 
+@pytest.mark.asyncio
 async def test_fake_provider_records_prompts_for_grounding_assertions():
     provider = FakeLLMProvider(responses=[{"answer": "x", "references": []}])
     await provider.complete_structured(
@@ -40,6 +42,7 @@ async def test_fake_provider_records_prompts_for_grounding_assertions():
     assert provider.last_user_prompt == "USER"
 
 
+@pytest.mark.asyncio
 async def test_fake_provider_rejects_invalid_payload():
     provider = FakeLLMProvider(responses=[{"unexpected": True}])
     with pytest.raises(AskModelOutputError):
@@ -48,6 +51,7 @@ async def test_fake_provider_rejects_invalid_payload():
         )
 
 
+@pytest.mark.asyncio
 async def test_fake_provider_propagates_configured_error():
     provider = FakeLLMProvider(error=AskProviderTimeoutError("timed out"))
     with pytest.raises(AskProviderTimeoutError):
@@ -81,6 +85,7 @@ def _mock_transport(response: httpx.Response | None = None, error: Exception | N
     return httpx.MockTransport(handler)
 
 
+@pytest.mark.asyncio
 async def test_openai_compatible_parses_valid_structured_output():
     transport = _mock_transport(
         httpx.Response(
@@ -109,6 +114,7 @@ async def test_openai_compatible_parses_valid_structured_output():
     assert result.answer == "Hi"
 
 
+@pytest.mark.asyncio
 async def test_openai_compatible_rejects_malformed_json_output():
     transport = _mock_transport(
         httpx.Response(
@@ -128,6 +134,7 @@ async def test_openai_compatible_rejects_malformed_json_output():
         )
 
 
+@pytest.mark.asyncio
 async def test_openai_compatible_rejects_schema_invalid_output():
     transport = _mock_transport(
         httpx.Response(
@@ -147,6 +154,7 @@ async def test_openai_compatible_rejects_schema_invalid_output():
         )
 
 
+@pytest.mark.asyncio
 async def test_openai_compatible_surfaces_5xx_as_unavailable():
     transport = _mock_transport(httpx.Response(500, json={"error": "boom"}))
     provider = OpenAICompatibleLLMProvider(
@@ -161,6 +169,7 @@ async def test_openai_compatible_surfaces_5xx_as_unavailable():
         )
 
 
+@pytest.mark.asyncio
 async def test_openai_compatible_surfaces_4xx_as_unavailable():
     transport = _mock_transport(httpx.Response(429, json={"error": "rate limited"}))
     provider = OpenAICompatibleLLMProvider(
@@ -175,6 +184,7 @@ async def test_openai_compatible_surfaces_4xx_as_unavailable():
         )
 
 
+@pytest.mark.asyncio
 async def test_openai_compatible_surfaces_timeout():
     transport = _mock_transport(error=httpx.ReadTimeout("timed out"))
     provider = OpenAICompatibleLLMProvider(

@@ -16,9 +16,18 @@ from tests.fixtures.ask import (  # noqa: E402
     make_insight,
     selection_context,
     whole_work_context,
+    no_selection_context,
+    selection_notation_context,
 )
 
-__all__ = ["make_context", "make_insight", "selection_context", "whole_work_context"]
+__all__ = [
+    "make_context",
+    "make_insight",
+    "selection_context",
+    "whole_work_context",
+    "no_selection_context",
+    "selection_notation_context",
+]
 
 
 @pytest.fixture(autouse=True)

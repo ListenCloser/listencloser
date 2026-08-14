@@ -148,7 +148,10 @@ class OpenAICompatibleLLMProvider:
         self._api_key = api_key
         self.model = model
         self._timeout_seconds = timeout_seconds
-        self._client = client or httpx.AsyncClient(timeout=timeout_seconds)
+        self._client = client
+        self._owns_client = client is None
+        if self._owns_client:
+            self._client = httpx.AsyncClient(timeout=timeout_seconds)
 
     async def complete_structured(
         self,
@@ -204,7 +207,8 @@ class OpenAICompatibleLLMProvider:
             ) from exc
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        if self._owns_client and self._client is not None:
+            await self._client.aclose()
 
 
 def build_provider(settings, *, client: httpx.AsyncClient | None = None) -> LLMProvider | None:
