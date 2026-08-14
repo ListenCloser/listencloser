@@ -53,7 +53,7 @@ export async function proxyToBackendFormData(req: NextRequest, path: string) {
   }
 }
 
-export async function proxyToBackend(req: NextRequest, path: string) {
+export async function proxyToBackend(req: NextRequest, path: string, timeoutMs = 20_000) {
   const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
   try {
     const authHeader = req.headers.get("authorization");
@@ -63,7 +63,7 @@ export async function proxyToBackend(req: NextRequest, path: string) {
     const init: RequestInit = {
       method: req.method,
       headers,
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(timeoutMs),
     };
     if (req.method !== "GET" && req.method !== "HEAD") {
       const body = await req.text();

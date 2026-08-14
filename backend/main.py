@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from ask.api import router as ask_router
 from auth_utils import get_supabase_client, limiter
 from domain.api import router as domain_router
 
@@ -69,6 +70,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(domain_router)
+app.include_router(ask_router)
 
 
 @app.middleware("http")
