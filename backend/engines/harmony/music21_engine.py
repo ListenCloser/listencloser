@@ -1,10 +1,8 @@
 """Music21 symbolic harmony engine.
 
 Wraps music21-based harmonic analysis (key, chords, Roman numerals,
-cadences, voice leading, phrases, modulations) behind the HarmonyEngine
-seam. Logic is identical to the previous ``analyze._m21_*`` helpers; only
-the entry point changed so callers route through the registry and receive
-provenance. No model swaps, no analysis-semantics changes.
+cadences, voice leading, phrases) behind the HarmonyEngine seam.
+Modulation detection was removed (custom heuristic produced false positives).
 """
 
 from __future__ import annotations
@@ -12,7 +10,6 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
-from collections import Counter
 from typing import Any
 
 import numpy as np
@@ -38,17 +35,6 @@ _QUALITY_MAP = {
     "minor sixth": "m6",
     "dominant ninth": "9",
 }
-
-_MODULATION_WINDOW_COUNT = 8
-_MIN_NOTES_PER_WINDOW = 4
-
-_KS_MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
-_KS_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
-
-_KS_MAJOR_C = _KS_MAJOR - _KS_MAJOR.mean()
-_KS_MAJOR_C = _KS_MAJOR_C / np.linalg.norm(_KS_MAJOR_C)
-_KS_MINOR_C = _KS_MINOR - _KS_MINOR.mean()
-_KS_MINOR_C = _KS_MINOR_C / np.linalg.norm(_KS_MINOR_C)
 
 
 def _m21_key(score):
