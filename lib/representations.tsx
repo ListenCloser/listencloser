@@ -15,7 +15,7 @@ import {
 import Waveform from "@/components/Waveform";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
-import { AnalysisSummary } from "@/components/workspace/AnalysisSummary";
+
 
 /**
  * The representation registry (Psr: "Representation").
@@ -25,7 +25,7 @@ import { AnalysisSummary } from "@/components/workspace/AnalysisSummary";
  * harmony, rhythm, …) are registered here and become reachable through the
  * same navigation without touching RepresentationStack.
  */
-export type RepresentationId = "listen" | "piano_roll" | "score" | "analysis";
+export type RepresentationId = "listen" | "piano_roll" | "score";
 
 export type RepresentationDefinition = {
   id: RepresentationId;
@@ -131,16 +131,6 @@ function ScoreView() {
   );
 }
 
-function AnalysisView() {
-  const { seek } = useTransport();
-  const { timeline } = useTimeline();
-  return (
-    <div className="piece-analysis">
-      <AnalysisSummary onSeek={seek} bpm={timeline.bpm} />
-    </div>
-  );
-}
-
 export const REPRESENTATIONS: readonly RepresentationDefinition[] = [
   {
     id: "listen",
@@ -165,14 +155,6 @@ export const REPRESENTATIONS: readonly RepresentationDefinition[] = [
     temporal: true,
     available: (availability) => availability.score,
     component: ScoreView,
-  },
-  {
-    id: "analysis",
-    title: "Analysis",
-    description: "A musical summary of the transcription. Select an item to hear that moment.",
-    temporal: false,
-    available: (availability) => availability.analysis,
-    component: AnalysisView,
   },
 ];
 

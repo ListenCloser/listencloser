@@ -7,6 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
+import InspectorPanel from "./Inspector";
 
 export type ServiceStatus = "checking" | "ready" | "unavailable";
 
@@ -45,6 +46,8 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
         <LibraryPanel signedIn={signedIn} canImport={serviceStatus === "ready"} />
 
         <RepresentationStack signedIn={signedIn} canImport={serviceStatus === "ready"} />
+
+        {!workspace.inspectorCollapsed && <aside className="studio-inspector"><InspectorPanel /></aside>}
 
       </div>
 
