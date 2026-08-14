@@ -1,6 +1,6 @@
 import type { Insight } from "@/lib/domain.types";
 import type { MusicalSelection } from "@/lib/stores/workspace";
-import { categorizeInsights, filterByCategory } from "@/lib/inspector/insights";
+import { categorizeInsights, filterByCategory, insightStartSeconds } from "@/lib/inspector/insights";
 import { describe, expect, it } from "vitest";
 
 function insight(overrides: Partial<Insight>): Insight {
@@ -85,5 +85,28 @@ describe("categorizeInsights", () => {
       const result = categorizeInsights([noTimestamp], selection, 120);
       expect(filterByCategory(result, "whole-work")).toHaveLength(1);
     });
+  });
+});
+
+describe("insightStartSeconds", () => {
+  it("returns start_seconds directly when available", () => {
+    const item = insight({ span: { start_seconds: 12.5, end_seconds: 20, start_beat: 48, end_beat: 80, start_measure: null, end_measure: null } });
+    expect(insightStartSeconds(item, 120)).toBe(12.5);
+  });
+
+  it("derives seconds from start_beat when start_seconds is null and BPM is valid", () => {
+    const item = insight({ span: { start_seconds: null, end_seconds: null, start_beat: 96, end_beat: 128, start_measure: null, end_measure: null } });
+    // 96 beats at 120 BPM = 96 * 60 / 120 = 48 seconds
+    expect(insightStartSeconds(item, 120)).toBe(48);
+  });
+
+  it("returns null when neither seconds nor beat-derived time exists", () => {
+    const item = insight({ span: { start_seconds: null, end_seconds: null, start_beat: null, end_beat: null, start_measure: null, end_measure: null } });
+    expect(insightStartSeconds(item, 120)).toBeNull();
+  });
+
+  it("returns null when BPM is not valid even if start_beat exists", () => {
+    const item = insight({ span: { start_seconds: null, end_seconds: null, start_beat: 96, end_beat: 128, start_measure: null, end_measure: null } });
+    expect(insightStartSeconds(item, 0)).toBeNull();
   });
 });

@@ -3,7 +3,7 @@
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
-import { categorizeInsights, filterByCategory } from "@/lib/inspector/insights";
+import { categorizeInsights, filterByCategory, insightStartSeconds } from "@/lib/inspector/insights";
 import { formatTime } from "@/lib/format";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
@@ -47,15 +47,22 @@ function renderFact(label: string, value: string) {
 function renderInsightList(
   insights: Insight[],
   onSeek: (seconds: number) => void,
+  bpm: number,
 ) {
   if (insights.length === 0) return null;
-  const chords = insights.filter((item) => item.kind === "chord").slice(0, 12);
-  const sections = insights.filter((item) => item.kind === "section").slice(0, 12);
+  const seekable = (item: Insight) => {
+    const seconds = insightStartSeconds(item, bpm);
+    return seconds !== null;
+  };
+  const seekTo = (item: Insight) => {
+    const seconds = insightStartSeconds(item, bpm);
+    if (seconds !== null) onSeek(seconds);
+  };
+  const chords = insights.filter((item) => item.kind === "chord" && seekable(item)).slice(0, 12);
+  const sections = insights.filter((item) => item.kind === "section" && seekable(item)).slice(0, 12);
   const observations = insights.filter(
     (item) => !["key", "tempo", "time_signature", "audio_tempo", "chord", "section"].includes(item.kind),
   );
-  const goTo = (item: Insight) =>
-    onSeek(item.span.start_seconds ?? 0);
 
   return (
     <>
@@ -64,7 +71,7 @@ function renderInsightList(
           <h4>Form</h4>
           <div className="rn-chips">
             {sections.map((item) => (
-              <button type="button" className="rn-chip" key={item.id} onClick={() => goTo(item)}>
+              <button type="button" className="rn-chip" key={item.id} onClick={() => seekTo(item)}>
                 {item.claim}
               </button>
             ))}
@@ -76,7 +83,7 @@ function renderInsightList(
           <h4>Harmonic path</h4>
           <div className="rn-chips">
             {chords.map((item) => (
-              <button type="button" className="rn-chip" key={item.id} onClick={() => goTo(item)}>
+              <button type="button" className="rn-chip" key={item.id} onClick={() => seekTo(item)}>
                 {item.claim}
               </button>
             ))}
@@ -86,11 +93,21 @@ function renderInsightList(
       {observations.length > 0 && (
         <div className="inspector-block">
           <h4>Observations</h4>
-          {observations.map((item) => (
-            <button type="button" className="inspector-observation" key={item.id} onClick={() => goTo(item)}>
-              <span>{item.claim}</span>
-            </button>
-          ))}
+          {observations.map((item) => {
+            const seconds = insightStartSeconds(item, bpm);
+            if (seconds === null) {
+              return (
+                <div className="inspector-observation-static" key={item.id}>
+                  <span>{item.claim}</span>
+                </div>
+              );
+            }
+            return (
+              <button type="button" className="inspector-observation" key={item.id} onClick={() => onSeek(seconds)}>
+                <span>{item.claim}</span>
+              </button>
+            );
+          })}
         </div>
       )}
     </>
@@ -150,7 +167,7 @@ export default function InspectorPanel() {
         {hasSelection && confSelection.length > 0 && (
           <section className="inspector-section">
             <h3>Selection findings</h3>
-            {renderInsightList(confSelection, seek)}
+            {renderInsightList(confSelection, seek, timeline.bpm)}
           </section>
         )}
 
@@ -163,7 +180,7 @@ export default function InspectorPanel() {
 
         <section className="inspector-section">
           <h3>Whole-piece findings</h3>
-          {renderInsightList(confWholeWork, seek)}
+          {renderInsightList(confWholeWork, seek, timeline.bpm)}
           {confWholeWork.length === 0 && <p className="inspector-empty">No confident whole-piece findings.</p>}
         </section>
 
