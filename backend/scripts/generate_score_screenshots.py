@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import io
-import os
-import tempfile
 from pathlib import Path
 
 import music21
+
 from music_features import (
-    transcribe_with_engine,
     decode_audio_to_wav,
     estimate_beats_with_engine,
     notation_with_engine,
+    transcribe_with_engine,
 )
 
 OUTPUT_DIR = Path("/Users/giancarloricci/hello-ai/backend/evaluation/reports/engine_comparison")
@@ -42,7 +41,6 @@ def _generate_score_png(musicxml_bytes: bytes, notation_midi_bytes: bytes, out_p
 
 
 def main() -> None:
-    import io
 
     audio_bytes = FIXTURE_PATH.read_bytes()
     print(f"Loaded {len(audio_bytes)} bytes from {FIXTURE_PATH}")
@@ -56,7 +54,9 @@ def main() -> None:
         beats = estimate_beats_with_engine(wav)
         beat_times = beats.get("beats", [])
         
-        notation = notation_with_engine(tr["midi"], beat_times, piano_grand_staff=True, adaptive=True)
+        notation = notation_with_engine(
+            tr["midi"], beat_times, piano_grand_staff=True, adaptive=True
+        )
         print(f"  notation: musicxml={len(notation['musicxml'])} bytes")
         
         # Generate score screenshot
@@ -67,7 +67,7 @@ def main() -> None:
         if out_path.exists():
             print(f"  score PNG generated: {out_path.stat().st_size} bytes")
         elif out_path.with_suffix(".musicxml").exists():
-            print(f"  score PNG failed, musicxml saved instead")
+            print("  score PNG failed, musicxml saved instead")
     
     print(f"\nOutput dir: {OUTPUT_DIR}")
 

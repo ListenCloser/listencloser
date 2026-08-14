@@ -6,13 +6,11 @@ Run: python -m scripts.compare_transcription_engines
 from __future__ import annotations
 
 import io
-import os
 from pathlib import Path
 
 import pretty_midi
 
 from music_features import (
-    decode_audio_to_wav,
     transcribe_with_engine,
 )
 
@@ -93,7 +91,8 @@ def _render_piano_roll(midi_bytes: bytes, out_path: Path, title: str) -> None:
     piano_roll = pm.get_piano_roll(fs=100)
 
     fig, ax = plt.subplots(figsize=(14, 4))
-    ax.imshow(piano_roll, aspect="auto", origin="lower", cmap="hot", extent=[0, pm.get_end_time(), 0, 128])
+    extent = [0, pm.get_end_time(), 0, 128]
+    ax.imshow(piano_roll, aspect="auto", origin="lower", cmap="hot", extent=extent)
     ax.set_title(title)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("MIDI Pitch")
@@ -117,7 +116,6 @@ def _synthesize_playback(midi_bytes: bytes, out_path: Path) -> bool:
 
 
 def main() -> None:
-    import io
 
     audio_bytes = FIXTURE_PATH.read_bytes()
     print(f"Loaded {len(audio_bytes)} bytes from {FIXTURE_PATH}")
@@ -182,57 +180,70 @@ def main() -> None:
         print(f"    Avg velocity: {s.get('avg_velocity', 0):.1f}")
 
     # Generate side-by-side HTML for easy viewing
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-<title>Transcription Engine Comparison</title>
-<style>
-body {{ font-family: system-ui, sans-serif; max-width: 1400px; margin: 0 auto; padding: 20px; }}
-h1 {{ margin-bottom: 0.5rem; }}
-h2 {{ margin-top: 2rem; }}
-table {{ border-collapse: collapse; width: 100%; }}
-td {{ vertical-align: top; padding: 10px; }}
-img {{ max-width: 100%; height: auto; border: 1px solid #ddd; }}
-.comparison-table {{ width: 100%; border-collapse: collapse; }}
-.comparison-table th, .comparison-table td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-.comparison-table th {{ background: #f5f5f5; }}
-</style>
-</head>
-<body>
-<h1>Transcription Engine Comparison: real-piano.m4a</h1>
-<p>Fixture: 54.5s solo piano (M4A)</p>
-
-<h2>Piano Rolls (identical viewport: 0-55s, pitch 21-108)</h2>
-<table><tr>
-<td style="width:50%"><h3>Basic Pitch</h3><img src="basic_pitch_pianoroll.png"></td>
-<td style="width:50%"><h3>Transkun</h3><img src="transkun_pianoroll.png"></td>
-</tr></table>
-
-<h2>Transcription Metrics</h2>
-<table class="comparison-table">
-<tr><th>Metric</th><th>Basic Pitch</th><th>Transkun</th></tr>
-<tr><td>Engine</td><td>{results['basic_pitch']['provenance']['engine']}</td><td>{results['transkun']['provenance']['engine']}</td></tr>
-<tr><td>Profile</td><td>{results['basic_pitch']['provenance']['profile_requested']}</td><td>{results['transkun']['provenance']['profile_requested']}</td></tr>
-<tr><td>Routing</td><td>{results['basic_pitch']['provenance']['routing_reason']}</td><td>{results['transkun']['provenance']['routing_reason']}</td></tr>
-<tr><td>Raw note count</td><td>{results['basic_pitch']['stats'].get('note_count', 0)}</td><td>{results['transkun']['stats'].get('note_count', 0)}</td></tr>
-<tr><td>Pitch range</td><td>{results['basic_pitch']['stats'].get('pitch_range', 'N/A')}</td><td>{results['transkun']['stats'].get('pitch_range', 'N/A')}</td></tr>
-<tr><td>Short notes (<150ms)</td><td>{results['basic_pitch']['stats'].get('short_notes', 0)}</td><td>{results['transkun']['stats'].get('short_notes', 0)}</td></tr>
-<tr><td>High register notes (>=86)</td><td>{results['basic_pitch']['stats'].get('high_register_notes', 0)}</td><td>{results['transkun']['stats'].get('high_register_notes', 0)}</td></tr>
-<tr><td>Isolated high register notes</td><td>{results['basic_pitch']['stats'].get('isolated_high_register', 0)}</td><td>{results['transkun']['stats'].get('isolated_high_register', 0)}</td></tr>
-<tr><td>Max polyphony</td><td>{results['basic_pitch']['stats'].get('max_polyphony', 0)}</td><td>{results['transkun']['stats'].get('max_polyphony', 0)}</td></tr>
-<tr><td>Avg velocity</td><td>{results['basic_pitch']['stats'].get('avg_velocity', 0):.1f}</td><td>{results['transkun']['stats'].get('avg_velocity', 0):.1f}</td></tr>
-</table>
-
-<h2>Synthesized Playback</h2>
-<p><strong>Basic Pitch:</strong> <audio controls src="basic_pitch_playback.wav"></audio></p>
-<p><strong>Transkun:</strong> <audio controls src="transkun_playback.wav"></audio></p>
-
-<h2>Engine Provenance</h2>
-<pre>Basic Pitch: {results['basic_pitch']['provenance']}</pre>
-<pre>Transkun: {results['transkun']['provenance']}</pre>
-</body>
-</html>
-"""
+    html = (
+        "<!DOCTYPE html>\n"
+        "<html>\n"
+        "<head>\n"
+        "<title>Transcription Engine Comparison</title>\n"
+        "<style>\n"
+        "body { font-family: system-ui, sans-serif; max-width: 1400px; margin: 0 auto; padding: 20px; }\n"
+        "h1 { margin-bottom: 0.5rem; }\n"
+        "h2 { margin-top: 2rem; }\n"
+        "table { border-collapse: collapse; width: 100%; }\n"
+        "td { vertical-align: top; padding: 10px; }\n"
+        "img { max-width: 100%; height: auto; border: 1px solid #ddd; }\n"
+        ".comparison-table { width: 100%; border-collapse: collapse; }\n"
+        ".comparison-table th, .comparison-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }\n"
+        ".comparison-table th { background: #f5f5f5; }\n"
+        "</style>\n"
+        "</head>\n"
+        "<body>\n"
+        "<h1>Transcription Engine Comparison: real-piano.m4a</h1>\n"
+        "<p>Fixture: 54.5s solo piano (M4A)</p>\n"
+        "\n"
+        "<h2>Piano Rolls (identical viewport: 0-55s, pitch 21-108)</h2>\n"
+        "<table><tr>\n"
+        "<td style=\"width:50%\"><h3>Basic Pitch</h3><img src=\"basic_pitch_pianoroll.png\"></td>\n"
+        "<td style=\"width:50%\"><h3>Transkun</h3><img src=\"transkun_pianoroll.png\"></td>\n"
+        "</tr></table>\n"
+        "\n"
+        "<h2>Transcription Metrics</h2>\n"
+        "<table class=\"comparison-table\">\n"
+        "<tr><th>Metric</th><th>Basic Pitch</th><th>Transkun</th></tr>\n"
+        f"<tr><td>Engine</td><td>{results['basic_pitch']['provenance']['engine']}</td>"
+        f"<td>{results['transkun']['provenance']['engine']}</td></tr>\n"
+        f"<tr><td>Profile</td><td>{results['basic_pitch']['provenance']['profile_requested']}</td>"
+        f"<td>{results['transkun']['provenance']['profile_requested']}</td></tr>\n"
+        f"<tr><td>Routing</td><td>{results['basic_pitch']['provenance']['routing_reason']}</td>"
+        f"<td>{results['transkun']['provenance']['routing_reason']}</td></tr>\n"
+        f"<tr><td>Raw note count</td><td>{results['basic_pitch']['stats'].get('note_count', 0)}</td>"
+        f"<td>{results['transkun']['stats'].get('note_count', 0)}</td></tr>\n"
+        f"<tr><td>Pitch range</td><td>{results['basic_pitch']['stats'].get('pitch_range', 'N/A')}</td>"
+        f"<td>{results['transkun']['stats'].get('pitch_range', 'N/A')}</td></tr>\n"
+        f"<tr><td>Short notes (<150ms)</td><td>{results['basic_pitch']['stats'].get('short_notes', 0)}</td>"
+        f"<td>{results['transkun']['stats'].get('short_notes', 0)}</td></tr>\n"
+        f"<tr><td>High register notes (>=86)</td><td>{results['basic_pitch']['stats'].get('high_register_notes', 0)}</td>"
+        f"<td>{results['transkun']['stats'].get('high_register_notes', 0)}</td></tr>\n"
+        f"<tr><td>Isolated high register notes</td>"
+        f"<td>{results['basic_pitch']['stats'].get('isolated_high_register', 0)}</td>"
+        f"<td>{results['transkun']['stats'].get('isolated_high_register', 0)}</td></tr>\n"
+        f"<tr><td>Max polyphony</td><td>{results['basic_pitch']['stats'].get('max_polyphony', 0)}</td>"
+        f"<td>{results['transkun']['stats'].get('max_polyphony', 0)}</td></tr>\n"
+        f"<tr><td>Avg velocity</td>"
+        f"<td>{results['basic_pitch']['stats'].get('avg_velocity', 0):.1f}</td>"
+        f"<td>{results['transkun']['stats'].get('avg_velocity', 0):.1f}</td></tr>\n"
+        "</table>\n"
+        "\n"
+        "<h2>Synthesized Playback</h2>\n"
+        "<p><strong>Basic Pitch:</strong> <audio controls src=\"basic_pitch_playback.wav\"></audio></p>\n"
+        "<p><strong>Transkun:</strong> <audio controls src=\"transkun_playback.wav\"></audio></p>\n"
+        "\n"
+        "<h2>Engine Provenance</h2>\n"
+        f"<pre>Basic Pitch: {results['basic_pitch']['provenance']}</pre>\n"
+        f"<pre>Transkun: {results['transkun']['provenance']}</pre>\n"
+        "</body>\n"
+        "</html>"
+    )
     (OUTPUT_DIR / "comparison.html").write_text(html)
     print(f"\n  Comparison HTML: {OUTPUT_DIR / 'comparison.html'}")
     print(f"  Output dir: {OUTPUT_DIR}")

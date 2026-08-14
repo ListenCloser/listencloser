@@ -4,6 +4,19 @@
 
 ---
 
+## Four-Stage Evidence Flow (Critical for Audit)
+
+| Stage | Component | What It Contains | 120 BPM / 4/4 | Zero Chords | False Modulations |
+|-------|-----------|------------------|---------------|-------------|-------------------|
+| **1. Raw `AnalysisResult`** | `analyze.analyze_midi()` | Full typed dict with all fields | ✅ Present (bpm=120, conf=0.9) | ✅ `chords: []` | ✅ 3 events |
+| **2. Persisted `Insight` rows** | `handle_analyze()` → `_create_insight()` | Filtered DB rows | ❌ Suppressed by `_transcription_defaults_pulse()` | ✅ No chord insights | ✅ 3 modulation insights |
+| **3. User-visible Inspector** | `GET /versions/{id}/insights` | Same as stage 2 | ❌ Not shown | ❌ Not shown | ✅ **Shown** (3 cards) |
+| **4. AskContext evidence** | `deriveAskContext()` | `visibleInsights` (whole-work + selection) | ❌ Not in evidence | ❌ Not in evidence | ✅ **In evidence** |
+
+**Key finding**: The 120 BPM / 4/4 placeholders are correctly suppressed at persistence (stage 2). However, **false modulations survive all filters** and reach both Inspector and AskContext.
+
+---
+
 ## 1. Entry Points & Job Orchestration
 
 ### 1.1 Primary Entry Point: `POST /api/v1/workflows/analyze`
@@ -239,7 +252,7 @@ deriveAskContext(workId, representationId, currentTime, activeSource, selection,
 
 ---
 
-## 9. Complete Data Flow Diagram
+## 9. Complete Data Flow Diagram (Four Stages)
 
 ```
 ┌─────────────────┐
@@ -258,20 +271,13 @@ deriveAskContext(workId, representationId, currentTime, activeSource, selection,
 └────────┬────────┘
          ↓
 ┌─────────────────┐
-│ analyze.analyze_midi() │
-│ (analyze.py)    │
-│                 │
-│ ├─ pretty_midi  │──→ tempo, time_sig (metadata)
-│ ├─ HarmonyEngine│──→ key, chords, RN, cadences,
-│ │  (music21)    │     modulations, voice_leading, phrases
-│ ├─ MelodyEngine │──→ melody features
-│ │  (skyline)    │
-│ └─ _midi_rhythm │──→ density, avg_duration
+│ analyze.analyze_midi() │  ← STAGE 1: Raw AnalysisResult
+│ (analyze.py)    │     (tempo=120, chords=[], modulations=3×)
 └────────┬────────┘
          ↓
 ┌─────────────────┐
-│ _create_insight │
-│ per output      │
+│ _create_insight │  ← STAGE 2: Persisted Insights
+│ per output      │     (tempo/ts suppressed, modulations kept)
 │ (capabilities.py)│
 └────────┬────────┘
          ↓
@@ -283,9 +289,10 @@ deriveAskContext(workId, representationId, currentTime, activeSource, selection,
     ┌────┴────┐
     ↓         ↓
 Inspector   AskContext
+(STAGE 3)   (STAGE 4)
 (GET        (deriveAskContext
  /insights)  → visibleInsights
-             → POST /api/v1/ask)
+              → POST /api/v1/ask)
 ```
 
 ---
