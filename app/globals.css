@@ -1006,6 +1006,12 @@ html,body { background:var(--bg); }
 .sheet-music-hint { margin:0 0 10px; padding:6px 12px; color:var(--muted); font-size:var(--fs-xs); background:var(--panel-2); border-radius:var(--r-full); display:inline-block; }
 .piece-active-view .sheet-music-container { overflow:auto; }
 
+/* ── Selectable waveform + shared selection highlights (UX PR 3) ───────── */
+.waveform-wrap { display:grid; gap:6px; }
+.waveform { display:block; width:100%; border-radius:14px; background:var(--bg); cursor:crosshair; touch-action:none; }
+.piece-active-view .waveform { height:min(50vh, 440px); }
+[data-selection-highlight] { pointer-events:none; }
+
 /* ── Core workspace polish (#216) ──────────────────────────────────────── */
 .piece-loading {
   display:flex; flex-direction:column; align-items:center; justify-content:center;

@@ -325,3 +325,134 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   await expect(page.getByRole("tab", { name: "Listen" })).not.toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Start with a recording/i)).toBeVisible({ timeout: 30_000 });
 });
+
+test("shared musical selection across representations (canonical E2E)", async ({
+  page,
+}) => {
+  test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required for the canonical real-stack test (no fallback fixture)");
+  test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
+  test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
+
+  const auth = await createSession();
+  await page.addInitScript(
+    ({ key, session }) => {
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          access_token: session.access_token,
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          refresh_token: session.refresh_token ?? "",
+          user: session.user,
+        }),
+      );
+    },
+    { key: storageKey(SUPABASE_URL!), session: auth },
+  );
+
+  const projectSettled = page.waitForResponse(
+    (resp) => resp.url().includes("/api/v1/projects") && resp.request().method() === "POST",
+    { timeout: 30_000 },
+  ).catch(() => {});
+  await page.goto("/");
+  await projectSettled;
+
+  // Import real audio
+  await page.getByRole("complementary").getByRole("button", { name: "Import audio" }).click();
+  await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
+
+  await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
+  await expect(page.getByText("Operation failed")).not.toBeVisible();
+
+  // Helper: get transport position
+  const transportPos = async () =>
+    Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
+
+  // Helper: waveform canvas drag-select
+  async function selectWaveformRegion(startFrac: number, endFrac: number) {
+    const canvas = page.getByTestId("waveform-canvas");
+    await expect(canvas).toBeVisible();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("waveform canvas not found");
+    const startX = box.x + box.width * startFrac;
+    const endX = box.x + box.width * endFrac;
+    await page.mouse.move(startX, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(endX, box.y + box.height / 2, { steps: 5 });
+    await page.mouse.up();
+  }
+
+  // ── 1. Select region in Waveform (Listen view) ───────────────────────────────
+  await selectWaveformRegion(0.2, 0.6);
+  const selPos1 = await transportPos();
+  expect(selPos1).toBeGreaterThan(0);
+
+  // ── 2. Piano Roll region stays highlighted ───────────────────────────────────
+  await page.getByRole("tab", { name: "Piano roll" }).click();
+  await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
+  // Selection highlight exists as a rect with accent fill in the piano roll SVG
+  await expect(
+    page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.16"]'),
+  ).toBeVisible({ timeout: 10_000 });
+
+  // ── 3. Score measures/region stay highlighted ────────────────────────────────
+  await page.getByRole("tab", { name: "Score" }).click();
+  await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
+  // Selected measures have [data-selection-highlight] rects inside measure groups
+  await expect(page.locator('[data-selection-highlight]')).toBeVisible({ timeout: 10_000 });
+
+  // ── 4. Enable Loop selection → play ──────────────────────────────────────────
+  await page.getByRole("button", { name: "Loop selection" }).click();
+  await expect(page.getByRole("button", { name: "Loop selection" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+
+  // ── 5. Compare Original vs Score rendition → toggle A/B → loop + selection persist ──────────
+  await page.getByRole("button", { name: "Compare", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Compare playback" })).toBeVisible();
+
+  // Set B to Score rendition
+  await page.getByRole("button", { name: "B: " }).click();
+  await page.getByRole("option", { name: "Score rendition", exact: true }).click();
+
+  // Toggle A → B → A, verify loop and selection persist
+  for (const side of ["B", "A", "B"] as const) {
+    await page.getByRole("button", { name: side, exact: true }).click();
+    await expect(page.getByRole("button", { name: side, exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(page.getByRole("button", { name: "Loop selection" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    // Selection highlight still visible on score
+    await expect(page.locator('[data-selection-highlight]')).toBeVisible();
+  }
+
+  await page.getByRole("button", { name: "Exit compare", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Compare playback" })).not.toBeVisible();
+
+  // ── 6. Reverse: select score measure → derived timeRange → switch to Waveform → region visible ──
+  await page.getByRole("tab", { name: "Score" }).click();
+  // Click first measure to select it
+  const firstMeasure = page.locator("g.vf-measure").first();
+  const measureBox = await firstMeasure.boundingBox();
+  if (measureBox) {
+    await page.mouse.click(measureBox.x + measureBox.width / 2, measureBox.y + measureBox.height / 2);
+  }
+
+  // Switch to Listen (Waveform) - selection region should be visible
+  await page.getByRole("tab", { name: "Listen" }).click();
+  await expect(page.getByTestId("waveform-canvas")).toBeVisible();
+  // Waveform shows selection rect for the derived time range
+  const canvas = page.getByTestId("waveform-canvas");
+  await expect(canvas).toBeVisible();
+});

@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useTransport, type CompareSide } from "@/lib/stores/transport";
+import { useTransport, type CompareSide, type PlaybackSource } from "@/lib/stores/transport";
+import { useWorkspace } from "@/lib/stores/workspace";
+
+type PlaybackDomain = "performance" | "notation";
+
+function sourceDomain(source: PlaybackSource | null): PlaybackDomain | null {
+  if (!source) return null;
+  if (source.role === "score") return "notation";
+  return "performance";
+}
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -104,7 +113,33 @@ export default function TransportBar() {
     compareB,
     activeSide,
   } = transport;
+  const { workspace } = useWorkspace();
   const hasSource = Boolean(activeSource);
+
+  const selection = workspace.selection;
+  const selectionTimeRange = selection?.timeRange ?? null;
+  const selectionDomain = selectionTimeRange?.domain ?? null;
+  const activeDomain = sourceDomain(activeSource);
+  const domainMatches = selectionDomain !== null && activeDomain !== null && selectionDomain === activeDomain;
+
+  const loopSelectionActive =
+    loopEnabled &&
+    loopStart !== null &&
+    loopEnd !== null &&
+    selectionTimeRange !== null &&
+    Math.abs(loopStart - selectionTimeRange.start) < 0.05 &&
+    Math.abs(loopEnd - selectionTimeRange.end) < 0.05;
+
+  const applyLoopSelection = () => {
+    if (!selectionTimeRange || !hasSource) return;
+    if (!domainMatches) {
+      // Cross-domain loop would silently treat notation seconds as performance
+      // seconds (or vice versa). Disable to avoid misleading loops.
+      return;
+    }
+    setLoop(selectionTimeRange.start, selectionTimeRange.end);
+    if (!loopEnabled) toggleLoop();
+  };
 
   const original = sources.find((item) => item.role === "original") ?? sources[0] ?? null;
   const defaultB = sources.find((item) => item.id !== original?.id && ["transcription", "score"].includes(item.role))
@@ -163,6 +198,22 @@ export default function TransportBar() {
         >
           ↺
         </button>
+        {selectionTimeRange && (
+          <button
+            className={`piece-stop ${loopSelectionActive ? "piece-control-active" : ""}${!domainMatches ? " piece-control-disabled" : ""}`}
+            onClick={applyLoopSelection}
+            aria-label={domainMatches ? "Loop selection" : "Loop selection (disabled: selection and source have different time domains)"}
+            aria-pressed={loopSelectionActive}
+            disabled={!hasSource || !domainMatches}
+            title={
+              domainMatches
+                ? `Loop the selected region (${selectionTimeRange.start.toFixed(1)}s – ${selectionTimeRange.end.toFixed(1)}s)`
+                : `Selection is in ${selectionDomain} time; active source is ${activeDomain} time. Loop disabled.`
+            }
+          >
+            ↻
+          </button>
+        )}
       </div>
 
       {sources.length > 0 && (

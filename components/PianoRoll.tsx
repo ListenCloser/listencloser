@@ -10,10 +10,12 @@
 
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { pitchToName } from "@/lib/notes";
+import { withAlpha } from "@/lib/color";
 
-type Note = { pitch: number; start: number; end: number; velocity: number };
+type Note = { id?: string; pitch: number; start: number; end: number; velocity: number };
+type TimeRange = { start: number; end: number };
 
 const PPQ = 16;
 const LABEL_W = 40;
@@ -24,13 +26,30 @@ export default function PianoRoll({
   bpm = 120,
   playheadTime = 0,
   onSeek,
+  selectionTimeRange,
+  selectedNoteIds,
+  onSelectRange,
+  onSelectNotes,
 }: {
   notes: Note[];
   bpm?: number;
   playheadTime?: number;
   onSeek?: (seconds: number) => void;
+  selectionTimeRange?: TimeRange | null;
+  selectedNoteIds?: string[];
+  onSelectRange?: (start: number, end: number) => void;
+  onSelectNotes?: (ids: string[]) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [previewRange, setPreviewRange] = useState<TimeRange | null>(null);
+  const dragRef = useRef<{ startX: number; moved: boolean } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const timeToX = useCallback(
+    (time: number) => LABEL_W + (time / 60) * bpm * PPQ,
+    [bpm],
+  );
+
   if (!notes.length) return <p className="muted">No notes to display.</p>;
 
   const sorted = [...notes].sort((a, b) => a.start - b.start);
@@ -53,6 +72,14 @@ export default function PianoRoll({
   const W = LABEL_W + totalPx;
   const playheadX = LABEL_W + (playheadTime / 60) * bpm * PPQ;
 
+  const visibleTimeRange =
+    previewRange ??
+    (selectionTimeRange && selectionTimeRange.end > selectionTimeRange.start
+      ? selectionTimeRange
+      : null);
+
+  const selectedIds = new Set(selectedNoteIds ?? []);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || playheadTime <= 0) return;
@@ -61,23 +88,71 @@ export default function PianoRoll({
     el.scrollLeft = target;
   }, [playheadX]);
 
+  function handlePointerDown(event: React.PointerEvent<SVGSVGElement>) {
+    dragRef.current = { startX: event.clientX, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerMove(event: React.PointerEvent<SVGSVGElement>) {
+    const drag = dragRef.current;
+    if (!drag) return;
+    if (Math.abs(event.clientX - drag.startX) > 4) drag.moved = true;
+    if (drag.moved && onSelectRange) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = event.clientX - rect.left + scrollRef.current!.scrollLeft;
+      const time = Math.max(0, ((x - LABEL_W) / (PPQ * bpm)) * 60);
+      const startT = Math.max(0, ((drag.startX - rect.left + scrollRef.current!.scrollLeft - LABEL_W) / (PPQ * bpm)) * 60);
+      setPreviewRange({
+        start: Math.max(0, Math.min(startT, time)),
+        end: Math.max(0, Math.max(startT, time)),
+      });
+    }
+  }
+
+  function handlePointerUp(event: React.PointerEvent<SVGSVGElement>) {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    if (!drag) return;
+    if (drag.moved) {
+      if (previewRange && onSelectRange) {
+        onSelectRange(previewRange.start, previewRange.end);
+      }
+      setPreviewRange(null);
+      return;
+    }
+    if (!onSeek) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) + scrollRef.current!.scrollLeft;
+    onSeek(Math.max(0, (x - LABEL_W) / (PPQ * bpm) * 60));
+  }
+
+  const rangeSelectedIds = visibleTimeRange
+    ? notes
+        .filter((n) => n.start < visibleTimeRange.end && n.end > visibleTimeRange.start)
+        .map((n) => n.id)
+        .filter((id): id is string => Boolean(id))
+    : [];
+  const highlightIds = new Set([...selectedIds, ...rangeSelectedIds]);
+
   return (
     <div className="piano-roll-container" data-testid="piano-roll">
       <div className="piano-roll-scroll" ref={scrollRef}>
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${W} ${h}`}
           preserveAspectRatio="xMinYMin meet"
           width={W}
           height={h}
           style={{ display: "block" }}
-          onClick={(event) => {
-            if (!onSeek) return;
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = (event.clientX - rect.left) + scrollRef.current!.scrollLeft;
-            onSeek(Math.max(0, (x - LABEL_W) / (PPQ * bpm) * 60));
-          }}
-          role={onSeek ? "button" : undefined}
-          aria-label={onSeek ? "Seek playback from piano roll" : undefined}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          role={onSeek || onSelectRange ? "button" : undefined}
+          aria-label={
+            onSelectRange
+              ? "Select region or seek playback from piano roll"
+              : "Seek playback from piano roll"
+          }
         >
           {/* Left label gutter */}
           <rect x={0} y={0} width={LABEL_W} height={h} fill="var(--panel-2)" />
@@ -111,6 +186,20 @@ export default function PianoRoll({
             );
           })}
 
+          {/* Selected time range highlight */}
+          {visibleTimeRange && (
+            <rect
+              x={timeToX(visibleTimeRange.start)}
+              y={0}
+              width={Math.max(timeToX(visibleTimeRange.end) - timeToX(visibleTimeRange.start), 2)}
+              height={h}
+              fill="var(--accent)"
+              fillOpacity={0.16}
+              stroke="var(--accent)"
+              strokeWidth={1}
+            />
+          )}
+
           {/* Note rows */}
           {rows.map((row, ri) => {
             const y = ri * rowH + TOP_PAD;
@@ -130,6 +219,7 @@ export default function PianoRoll({
                   const dur = n.end - n.start;
                   const w = Math.max((dur / 60) * bpm * PPQ, 4);
                   const active = playheadTime >= n.start && playheadTime <= n.end;
+                  const selected = n.id ? highlightIds.has(n.id) : false;
                   const velOpacity = 0.2 + (n.velocity / 127) * 0.6;
                   return (
                     <rect
@@ -139,12 +229,14 @@ export default function PianoRoll({
                       width={w}
                       height={Math.max(rowH - 3, 6)}
                       rx={3}
-                      fill="var(--accent)"
-                      opacity={active ? 1 : velOpacity}
+                      fill={selected ? "var(--accent-strong)" : "var(--accent)"}
+                      opacity={active ? 1 : selected ? 0.95 : velOpacity}
                       style={
                         active
                           ? { filter: "drop-shadow(0 0 6px var(--accent))" }
-                          : undefined
+                          : selected
+                            ? { filter: "drop-shadow(0 0 4px var(--accent))" }
+                            : undefined
                       }
                     >
                       <title>{row.label} @ {n.start.toFixed(2)}s · velocity {n.velocity}</title>

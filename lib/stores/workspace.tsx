@@ -14,7 +14,7 @@ export type RepresentationKind =
   | "structure"
   | "annotations";
 
-type Note = { pitch: number; start: number; end: number; velocity: number };
+type Note = { id?: string; pitch: number; start: number; end: number; velocity: number };
 
 export type RepresentationEntry = {
   kind: RepresentationKind;
@@ -43,6 +43,36 @@ export type StudioOperation = {
   message?: string;
 };
 
+/**
+ * Shared musical selection across representations.
+ *
+ * Owned by the WorkSession (not per representation). Exactly the fields that
+ * can be mapped honestly are set, never fabricated:
+ *   - timeRange  — seconds in the currently active playback source's timeline.
+ *   - noteIds    — piano-roll note ids (a direct, exact reading).
+ *   - measureRange — score measure indices (a direct, exact reading on the score).
+ * Composing fields (e.g. timeRange derived from measures, or measures derived
+ * from time) is kept coarse and marked in `provenance`, never presented as an
+ * exact cross-timing-domain mapping.
+ */
+export type SelectionOrigin = "waveform" | "piano_roll" | "score" | null;
+
+export type MusicalSelection = {
+  timeRange?: { start: number; end: number; domain: "performance" | "notation" };
+  noteIds?: string[];
+  measureRange?: { start: number; end: number };
+  provenance: {
+    origin: SelectionOrigin;
+    /** True when timeRange is a direct reading in the active source's
+        timeline (waveform and piano-roll selections). False when the
+        timeRange was composed from measure data (approximate). */
+    timeExact: boolean;
+    /** True when measureRange was composed from a time-based selection
+        (approximate). False for direct score measure selections. */
+    measureApproximate: boolean;
+  };
+};
+
 type WorkspaceState = {
   project: Project | null;
   works: Work[];
@@ -57,6 +87,7 @@ type WorkspaceState = {
   studioAction: { id: number; kind: "variation" | "compare"; versionIds: string[]; semitones?: number } | null;
   studioOperation: StudioOperation;
   activeRepresentation: RepresentationId | null;
+  selection: MusicalSelection | null;
 };
 
 type WorkspaceContextValue = {
@@ -78,6 +109,8 @@ type WorkspaceContextValue = {
   requestComparison: (versionIdA: string, versionIdB: string) => void;
   setStudioOperation: (operation: StudioOperation) => void;
   setActiveRepresentation: (representation: RepresentationId | null) => void;
+  setSelection: (selection: MusicalSelection | null) => void;
+  clearSelection: () => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -116,6 +149,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     studioAction: null,
     studioOperation: { state: "idle", label: "" },
     activeRepresentation: null,
+    selection: null,
   });
 
   const setProject = useCallback((project: Project | null) => {
@@ -139,6 +173,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         studioAction: null,
         studioOperation: { state: "idle", label: "" },
         activeRepresentation: null,
+        selection: null,
       };
     });
   }, []);
@@ -171,6 +206,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         studioAction: removingActive ? null : prev.studioAction,
         studioOperation: removingActive ? { state: "idle", label: "" } : prev.studioOperation,
         activeRepresentation: removingActive ? null : prev.activeRepresentation,
+        selection: removingActive ? null : prev.selection,
         isLoadingWork: removingActive ? false : prev.isLoadingWork,
       };
     });
@@ -245,6 +281,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const setSelection = useCallback((selection: MusicalSelection | null) => {
+    setWorkspace((prev) => ({
+      ...prev,
+      selection,
+    }));
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setWorkspace((prev) => ({
+      ...prev,
+      selection: null,
+    }));
+  }, []);
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -266,6 +316,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         requestComparison,
         setStudioOperation,
         setActiveRepresentation,
+        setSelection,
+        clearSelection,
       }}
     >
       {children}

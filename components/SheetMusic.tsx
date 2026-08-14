@@ -9,7 +9,11 @@ type Props = {
   isScoreActive?: boolean;
   hasScorePlayback?: boolean;
   measureStarts?: number[];
+  scoreDuration?: number | null;
+  selectedMeasures?: { start: number; end: number } | null;
+  measureApproximate?: boolean;
   onSeek?: (seconds: number) => void;
+  onSelectMeasures?: (start: number, end: number) => void;
 };
 
 function measureIndexAt(starts: number[], time: number): number {
@@ -28,11 +32,15 @@ export default function SheetMusic({
   isScoreActive = false,
   hasScorePlayback = false,
   measureStarts,
+  selectedMeasures,
+  measureApproximate = false,
   onSeek,
+  onSelectMeasures,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<any>(null);
   const currentMeasureRef = useRef(-1);
+  const anchorMeasureRef = useRef<number | null>(null);
   const [osmdReady, setOsmdReady] = useState(false);
 
   useEffect(() => {
@@ -40,6 +48,7 @@ export default function SheetMusic({
 
     let cancelled = false;
     setOsmdReady(false);
+    anchorMeasureRef.current = null;
 
     async function render() {
       const { OpenSheetMusicDisplay } = await import("opensheetmusicdisplay");
@@ -110,13 +119,53 @@ export default function SheetMusic({
     currentMeasureRef.current = target;
   }, [osmdReady, isScoreActive, measureStarts, playheadTime]);
 
+  // Highlight the selected measures by inserting a translucent rect into each
+  // measure group's SVG user space (getBBox), so it tracks the engraved layout
+  // exactly regardless of CSS scaling. Re-applied on render and selection change.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!osmdReady || !container) return;
+    container.querySelectorAll("[data-selection-highlight]").forEach((node) => node.remove());
+    if (!selectedMeasures || !measureStarts || measureStarts.length === 0) return;
+
+    const NS = "http://www.w3.org/2000/svg";
+    const measures = container.querySelectorAll("g.vf-measure");
+    for (const measureEl of measures) {
+      const index = Number(measureEl.getAttribute("id")) - 1;
+      if (index < selectedMeasures.start || index > selectedMeasures.end) continue;
+      const box = (measureEl as SVGGraphicsElement).getBBox();
+      if (box.width === 0 && box.height === 0) continue;
+      const rect = document.createElementNS(NS, "rect");
+      rect.setAttribute("data-selection-highlight", "true");
+      rect.setAttribute("x", String(box.x));
+      rect.setAttribute("y", String(box.y));
+      rect.setAttribute("width", String(box.width));
+      rect.setAttribute("height", String(box.height));
+      rect.setAttribute("fill", measureApproximate ? "#bd513a" : "#bd513a");
+      rect.setAttribute("fill-opacity", measureApproximate ? "0.12" : "0.18");
+      rect.setAttribute("stroke", "#bd513a");
+      rect.setAttribute("stroke-width", "1.5");
+      rect.setAttribute("stroke-dasharray", measureApproximate ? "4 3" : "none");
+      rect.setAttribute("rx", "4");
+      rect.setAttribute("pointer-events", "none");
+      measureEl.insertBefore(rect, measureEl.firstChild);
+    }
+  }, [osmdReady, selectedMeasures, measureApproximate, measureStarts]);
+
   function handleClick(event: React.MouseEvent<HTMLDivElement>) {
-    if (!onSeek || !isScoreActive || !measureStarts || measureStarts.length === 0) return;
+    if (!measureStarts || measureStarts.length === 0) return;
     const container = containerRef.current;
     if (!container) return;
-    // Map the click to the engraved measure whose bounding box contains it,
-    // avoiding the OSMD internal coordinate transform entirely.
-    const measures = container.querySelectorAll("g.vf-measure");
+// Map the click to the engraved measure whose bounding box contains it,
+// avoiding the OSMD internal coordinate transform entirely.
+// ASSUMPTION: OSMD renders each measure as a <g class="vf-measure"> with an
+// `id` attribute equal to the 1-based measure index (e.g., "1", "2", ...).
+// This holds for single-part piano scores rendered with Endless page format.
+// For multi-staff/grand-staff scores, VexFlow may generate separate measure
+// elements per part/staff with different ID schemes. If that becomes a
+// supported use case, this logic will need to be updated to use OSMD's
+// `getMeasureList()` API or similar for stable measure identification.
+const measures = container.querySelectorAll("g.vf-measure");
     for (const measureEl of measures) {
       const rect = measureEl.getBoundingClientRect();
       if (
@@ -127,7 +176,14 @@ export default function SheetMusic({
       ) {
         const index = Number(measureEl.getAttribute("id")) - 1;
         if (index >= 0 && measureStarts[index] != null) {
-          onSeek(measureStarts[index]);
+          if (isScoreActive && onSeek) onSeek(measureStarts[index]);
+          if (onSelectMeasures) {
+            const anchor = anchorMeasureRef.current;
+            const rangeStart = event.shiftKey && anchor !== null ? Math.min(anchor, index) : index;
+            const rangeEnd = event.shiftKey && anchor !== null ? Math.max(anchor, index) : index;
+            onSelectMeasures(rangeStart, rangeEnd);
+            anchorMeasureRef.current = index;
+          }
         }
         return;
       }
@@ -145,7 +201,7 @@ export default function SheetMusic({
   const hint = !hasScorePlayback
     ? "Score playback is not available for this piece yet."
     : isScoreActive
-      ? "Playing the score rendition in notation time. Click a measure to jump."
+      ? "Playing the score rendition in notation time. Click a measure to jump or select it."
       : "Select Score rendition in the transport to hear this notation (notation time).";
 
   return (
@@ -162,7 +218,7 @@ export default function SheetMusic({
           borderRadius: "var(--r-md)",
           padding: "var(--s-4)",
           border: "1px solid var(--border-strong)",
-          cursor: isScoreActive && measureStarts && measureStarts.length > 0 ? "pointer" : "default",
+          cursor: measureStarts && measureStarts.length > 0 ? "pointer" : "default",
         }}
       />
     </>

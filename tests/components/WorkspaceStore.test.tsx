@@ -35,9 +35,14 @@ describe("WorkspaceProvider", () => {
         created_by: null,
         produced_by_job_id: null,
       }]);
+      result.current.setSelection({
+        timeRange: { start: 1, end: 3, domain: "performance" },
+        provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
+      });
     });
 
     expect(result.current.workspace.representations).toHaveLength(1);
+    expect(result.current.workspace.selection).not.toBeNull();
 
     act(() => result.current.setActiveWorkId("work-b"));
 
@@ -45,6 +50,43 @@ describe("WorkspaceProvider", () => {
     expect(result.current.workspace.isLoadingWork).toBe(true);
     expect(result.current.workspace.representations).toEqual([]);
     expect(result.current.workspace.insights).toEqual([]);
+    expect(result.current.workspace.selection).toBeNull();
+  });
+
+  it("keeps the selection across representation and playback-source changes", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    act(() => {
+      result.current.setSelection({
+        timeRange: { start: 1, end: 3, domain: "performance" },
+        provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
+      });
+      result.current.setActiveRepresentation("piano_roll");
+      result.current.setActiveRepresentation("score");
+      result.current.setActiveRepresentation("listen");
+    });
+
+    expect(result.current.workspace.selection?.timeRange).toEqual({ start: 1, end: 3, domain: "performance" });
+    expect(result.current.workspace.activeRepresentation).toBe("listen");
+  });
+
+  it("clears the selection when deleting the active work", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    act(() => {
+      result.current.setWorks([
+        { id: "work-a", project_id: "p", title: "A", composer: null, created_at: "", updated_at: "" },
+      ]);
+      result.current.setActiveWorkId("work-a");
+      result.current.setSelection({
+        timeRange: { start: 1, end: 3, domain: "performance" },
+        provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
+      });
+    });
+
+    act(() => result.current.removeWork("work-a"));
+
+    expect(result.current.workspace.selection).toBeNull();
   });
 
   it("clears studio state when switching works", () => {

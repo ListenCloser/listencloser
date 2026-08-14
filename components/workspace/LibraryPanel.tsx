@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
-import { useSelection } from "@/lib/stores/selection";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
@@ -18,10 +17,10 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     toggleLibrary,
     removeWork,
     restoreWork,
+    clearSelection,
   } = useWorkspace();
   const { clearActiveSource } = useTransport();
   const { resetTimeline } = useTimeline();
-  const { clearSelection } = useSelection();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
