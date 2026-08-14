@@ -113,8 +113,9 @@ export default function TransportBar() {
     compareB,
     activeSide,
   } = transport;
-  const { workspace } = useWorkspace();
+  const { workspace, toggleInspector } = useWorkspace();
   const hasSource = Boolean(activeSource);
+  const hasInsights = workspace.insights.length > 0;
 
   const selection = workspace.selection;
   const selectionTimeRange = selection?.timeRange ?? null;
@@ -286,6 +287,19 @@ export default function TransportBar() {
             </div>
           )}
         </div>
+      )}
+
+      {hasInsights && (
+        <button
+          type="button"
+          className={`piece-inspector-toggle ${workspace.inspectorCollapsed ? "" : "active"}`}
+          aria-label={workspace.inspectorCollapsed ? "Show analysis" : "Hide analysis"}
+          aria-pressed={!workspace.inspectorCollapsed}
+          onClick={toggleInspector}
+          title={workspace.inspectorCollapsed ? "Show analysis" : "Hide analysis"}
+        >
+          🔎
+        </button>
       )}
     </section>
   );

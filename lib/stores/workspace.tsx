@@ -81,6 +81,7 @@ type WorkspaceState = {
   importRequestId: number;
   libraryCollapsed: boolean;
   inspectorCollapsed: boolean;
+  inspectorMode: "analysis" | "ask";
   representations: RepresentationEntry[];
   insights: Insight[];
   takes: StudioTake[];
@@ -143,6 +144,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     importRequestId: 0,
     libraryCollapsed: false,
     inspectorCollapsed: false,
+    inspectorMode: "analysis",
     representations: [],
     insights: [],
     takes: [],
