@@ -230,7 +230,7 @@ test.describe("contextual Ask inspector (real stack)", () => {
     await page.screenshot({ path: `${SHOTS}/ask-03-answer-references.png` });
 
     // ── 4. Suggested actions render as chips ───────────────────────────────
-    await expect(page.getByRole("button", { name: "Open in Score" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open Score" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Loop passage" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Jump to time" })).toBeVisible();
     await page.screenshot({ path: `${SHOTS}/ask-04-answer-actions.png` });

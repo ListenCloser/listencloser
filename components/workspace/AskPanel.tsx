@@ -7,6 +7,7 @@ import { useTimeline } from "@/lib/stores/timeline";
 import { deriveAskContext } from "@/lib/ask/context";
 import { askMusic } from "@/lib/ask/client";
 import {
+  actionLabel,
   describeAskContext,
   formatReference,
   resolveReference,
@@ -34,16 +35,9 @@ function referenceLabel(ref: AskReference, insights: { id: string; claim: string
 }
 
 function ActionChip({ action, onClick }: { action: AskAction; onClick: (action: AskAction) => void }) {
-  const label = action.type === "seek"
-    ? "Jump to time"
-    : action.type === "loop"
-      ? "Loop passage"
-      : action.type === "show_representation"
-        ? "Open in Score"
-        : "Action";
   return (
     <button type="button" className="ask-action-chip" onClick={() => onClick(action)}>
-      {label}
+      {actionLabel(action)}
     </button>
   );
 }

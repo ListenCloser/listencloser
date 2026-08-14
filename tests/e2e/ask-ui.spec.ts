@@ -51,7 +51,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByText("Key: A minor")).toBeVisible();
 
     // Suggested actions render as chips.
-    await expect(page.getByRole("button", { name: "Open in Score" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open Score" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Loop passage" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Jump to time" })).toBeVisible();
 
@@ -78,7 +78,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
 
     // ── show_representation action opens the correct representation ────────
     await openAsk(page);
-    await page.getByRole("button", { name: "Open in Score" }).click();
+    await page.getByRole("button", { name: "Open Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
   });

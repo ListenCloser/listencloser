@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  actionLabel,
   canSeekInDomain,
   describeAskContext,
   formatReference,
@@ -205,6 +206,29 @@ describe("resolveReference — insight", () => {
       { activeSource: perfSource("original"), insights: [], bpm: 120, measureStarts: [], scoreDuration: null, notes: [] },
     );
     expect(resolution.kind).toBe("blocked");
+  });
+});
+
+describe("actionLabel", () => {
+  it("labels seek and loop actions generically", () => {
+    const seek: AskAction = { type: "seek", seconds: 4, domain: "performance" };
+    const loop: AskAction = { type: "loop", start: 4, end: 8, domain: "performance" };
+    expect(actionLabel(seek)).toBe("Jump to time");
+    expect(actionLabel(loop)).toBe("Loop passage");
+  });
+
+  it("derives show_representation labels from the canonical registry for different targets", () => {
+    const score: AskAction = { type: "show_representation", representationId: "score" };
+    const pianoRoll: AskAction = { type: "show_representation", representationId: "piano_roll" };
+    const listen: AskAction = { type: "show_representation", representationId: "listen" };
+    expect(actionLabel(score)).toBe("Open Score");
+    expect(actionLabel(pianoRoll)).toBe("Open Piano roll");
+    expect(actionLabel(listen)).toBe("Open Listen");
+  });
+
+  it("falls back neutrally for an unknown representation id", () => {
+    const action = { type: "show_representation", representationId: "harmony" } as unknown as AskAction;
+    expect(actionLabel(action)).toBe("Action");
   });
 });
 

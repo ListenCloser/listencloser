@@ -69,6 +69,24 @@ export function formatReference(
 }
 
 /**
+ * User-facing label for a suggested action. `show_representation` labels are
+ * derived from the canonical representation registry's `title` (never a second
+ * mapping), e.g. score → "Open Score", piano_roll → "Open Piano roll".
+ */
+export function actionLabel(action: AskAction): string {
+  switch (action.type) {
+    case "seek":
+      return "Jump to time";
+    case "loop":
+      return "Loop passage";
+    case "show_representation": {
+      const definition = representationById(action.representationId);
+      return definition ? `Open ${definition.title}` : "Action";
+    }
+  }
+}
+
+/**
  * Validate a suggested action against the active playback source and the
  * canonical representation registry. Returns `{ allowed: true }` when safe to
  * execute, otherwise a user-facing reason. Actions are never executed without
