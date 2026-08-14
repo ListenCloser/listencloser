@@ -402,9 +402,10 @@ class Music21HarmonyEngine(HarmonyEngine):
         """Per-sub-capability provenance.
 
         Music21 delivers key, chords, roman numerals, and voice leading via
-        its own modules. Cadence candidates and modulations are CUSTOM logic
-        that only *uses* music21's chord stream; labeling them as music21
-        outputs would mislead. ``phrases`` is deliberately unimplemented.
+        its own modules. Cadence candidates are CUSTOM logic that only *uses*
+        music21's chord stream; labeling them as music21 outputs would mislead.
+        ``phrases`` is deliberately unimplemented.
+        Modulation detection was removed (custom heuristic produced false positives).
         """
         music21 = EngineProvenance(engine="music21", library_version=_music21_version())
         cadences = EngineProvenance(
@@ -413,14 +414,6 @@ class Music21HarmonyEngine(HarmonyEngine):
             parameters={
                 "method": "roman_numeral_pattern",
                 "note": "custom adjacent-RN pattern heuristic over music21 output",
-            },
-        )
-        modulations = EngineProvenance(
-            engine="custom-rule",
-            library_version="custom",
-            parameters={
-                "method": "windowed_krumhansl-schmuckler",
-                "window_context": "overlapping windows over music21 note stream",
             },
         )
         phrases = EngineProvenance(
@@ -433,7 +426,6 @@ class Music21HarmonyEngine(HarmonyEngine):
             "chords": music21,
             "roman_numerals": music21,
             "cadences": cadences,
-            "modulations": modulations,
             "voice_leading": music21,
             "phrases": phrases,
         }
@@ -478,7 +470,7 @@ class Music21HarmonyEngine(HarmonyEngine):
             chords=_m21_chords(score),
             roman_numerals=_m21_roman_numerals(score, detected_key),
             cadences=_m21_cadences(score, detected_key),
-            modulations=_detect_modulations(score, tempo_bpm),
+            modulations=[],
             voice_leading=_m21_voice_leading(score),
             phrases=_m21_phrases(score),
             provenance=self.provenance,
