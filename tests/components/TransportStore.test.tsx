@@ -223,10 +223,13 @@ describe("TransportProvider domain-aware loop", () => {
         timeRange: { start: 2, end: 6, domain: "performance" },
         provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
       });
-      // Simulate clicking "Loop selection" - domain matches so it should enable
-      if (result.current.workspace.selection?.timeRange && result.current.transport.activeSource) {
-        const sel = result.current.workspace.selection;
-        const active = result.current.transport.activeSource;
+    });
+
+    // After state is settled, simulate clicking "Loop selection"
+    act(() => {
+      if (result.current.workspace.workspace.selection?.timeRange && result.current.transport.transport.activeSource) {
+        const sel = result.current.workspace.workspace.selection;
+        const active = result.current.transport.transport.activeSource;
         const selDomain = sel.timeRange?.domain ?? null;
         const activeDomain = active.role === "score" ? "notation" : "performance";
         if (selDomain === activeDomain) {
@@ -241,19 +244,22 @@ describe("TransportProvider domain-aware loop", () => {
     expect(result.current.transport.transport.loopEnd).toBe(6);
   });
 
-  it("does not enable loop selection when domain mismatches (performance ↔ notation)", () => {
+  it("does not enable loop selection when domain mismatches (score active with performance selection)", () => {
     const { result } = renderHook(() => useSession(), { wrapper: wrapperWithWorkspace });
 
     act(() => {
       result.current.transport.replaceSources([perfSrc, scoreSrc], "score");
       result.current.workspace.setSelection({
-        timeRange: { start: 2, end: 6, domain: "notation" },
-        provenance: { origin: "score", timeExact: false, measureApproximate: false },
+        timeRange: { start: 2, end: 6, domain: "performance" },
+        provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
       });
-      // Simulate clicking "Loop selection" - domain mismatches (score notation vs active performance)
-      if (result.current.workspace.selection?.timeRange && result.current.transport.activeSource) {
-        const sel = result.current.workspace.selection;
-        const active = result.current.transport.activeSource;
+    });
+
+    // After state is settled, simulate clicking "Loop selection"
+    act(() => {
+      if (result.current.workspace.workspace.selection?.timeRange && result.current.transport.transport.activeSource) {
+        const sel = result.current.workspace.workspace.selection;
+        const active = result.current.transport.transport.activeSource;
         const selDomain = sel.timeRange?.domain ?? null;
         const activeDomain = active.role === "score" ? "notation" : "performance";
         if (selDomain === activeDomain) {
@@ -263,7 +269,7 @@ describe("TransportProvider domain-aware loop", () => {
       }
     });
 
-    // Loop should not be enabled because domains mismatch
+    // Loop should not be enabled because domains mismatch (selection performance, active notation)
     expect(result.current.transport.transport.loopEnabled).toBe(false);
   });
 });
