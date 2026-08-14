@@ -28,13 +28,14 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const SHOTS = process.env.SCREENSHOT_DIR ?? "docs/pr/ask-ui";
+const SHOTS = process.env.SCREENSHOT_DIR ?? "docs/pr/227";
 
 function storageKey(url: string): string {
   return `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
 }
 
 let session: Record<string, unknown> | null = null;
+let failAsk = false;
 
 async function createSession(): Promise<Record<string, unknown>> {
   if (session) return session;
@@ -143,8 +144,18 @@ test.describe("contextual Ask inspector (real stack)", () => {
     test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
     test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
     await injectAuth(page);
-    // Only the Ask endpoint is mocked; the rest of the stack is real.
-    await page.route("**/api/v1/ask", (route) =>
+    // Only the Ask endpoint is mocked; the rest of the stack is real. The
+    // handler is switchable so the test can also capture the error state.
+    failAsk = false;
+    await page.route("**/api/v1/ask", (route) => {
+      if (failAsk) {
+        route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "Ask is unavailable" }),
+        });
+        return;
+      }
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -156,10 +167,12 @@ test.describe("contextual Ask inspector (real stack)", () => {
           ],
           suggestedActions: [
             { type: "show_representation", representationId: "score" },
+            { type: "loop", start: 2, end: 6, domain: "performance" },
+            { type: "seek", seconds: 2, domain: "performance" },
           ],
         }),
-      }),
-    );
+      });
+    });
   });
 
   test("Ask inspects the real workspace: open → answer → switch modes → collapse", async ({ page }) => {
@@ -170,11 +183,25 @@ test.describe("contextual Ask inspector (real stack)", () => {
     await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
     await expect(page.getByText("Operation failed")).not.toBeVisible();
 
-    // ── Ask mode opens over the real workspace, context shows whole piece ──
+    // ── 1. Ask empty state over the whole piece ────────────────────────────
     await page.getByRole("tab", { name: "Ask" }).click();
     await expect(page.getByPlaceholder("Ask about this piece…")).toBeVisible();
     await expect(page.getByText("Whole piece")).toBeVisible();
     await page.screenshot({ path: `${SHOTS}/ask-01-whole-piece.png` });
+
+    // ── 2. Ask empty state scoped to a selection ───────────────────────────
+    await page.getByRole("tab", { name: "Listen" }).click();
+    const canvas = page.getByTestId("waveform-canvas");
+    await expect(canvas).toBeVisible();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("waveform canvas not found");
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.6, box.y + box.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.getByRole("tab", { name: "Ask" }).click();
+    await expect(page.locator(".ask-context-value")).not.toHaveText("Whole piece");
+    await page.screenshot({ path: `${SHOTS}/ask-02-selection-empty.png` });
 
     // ── Playback continues through the mode switch (never stopped) ────────
     await selectSource(page, "Original");
@@ -193,26 +220,29 @@ test.describe("contextual Ask inspector (real stack)", () => {
     await expect.poll(() => transportPosition(page), { timeout: 10_000 }).toBeGreaterThanOrEqual(posInAnalysis);
     await page.getByRole("button", { name: "Pause", exact: true }).click();
 
-    // ── Ask an actual question (only the ask call is mocked) ───────────────
+    // ── 3. Ask an actual question → answer with evidence references ────────
     await page.getByRole("button", { name: "What is happening harmonically here?" }).click();
     await expect(page.getByText("What is happening harmonically here?")).toBeVisible();
     await expect(page.getByText(/This passage stays on the tonic/)).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Evidence")).toBeVisible();
-    await page.screenshot({ path: `${SHOTS}/ask-02-answered.png` });
+    await expect(page.getByText("0:02–0:06")).toBeVisible();
+    await expect(page.getByText("Measures 1–3")).toBeVisible();
+    await page.screenshot({ path: `${SHOTS}/ask-03-answer-references.png` });
 
-    // ── Selection-scoped context ───────────────────────────────────────────
-    await page.getByRole("tab", { name: "Listen" }).click();
-    const canvas = page.getByTestId("waveform-canvas");
-    await expect(canvas).toBeVisible();
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error("waveform canvas not found");
-    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.6, box.y + box.height / 2, { steps: 5 });
-    await page.mouse.up();
-    await page.getByRole("tab", { name: "Ask" }).click();
-    await expect(page.locator(".ask-context-value")).not.toHaveText("Whole piece");
-    await page.screenshot({ path: `${SHOTS}/ask-03-selection.png` });
+    // ── 4. Suggested actions render as chips ───────────────────────────────
+    await expect(page.getByRole("button", { name: "Open in Score" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Loop passage" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Jump to time" })).toBeVisible();
+    await page.screenshot({ path: `${SHOTS}/ask-04-answer-actions.png` });
+
+    // ── 5. Error state: a failed ask shows an inline retryable error ───────
+    failAsk = true;
+    await page.getByPlaceholder("Ask about this piece…").fill("What key is this passage in?");
+    await page.getByRole("button", { name: "Send" }).click();
+    await expect(page.getByText(/not available right now/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+    await page.screenshot({ path: `${SHOTS}/ask-05-error.png` });
+    failAsk = false;
 
     // ── Representation/transport state stays intact after Ask ──────────────
     await page.getByRole("tab", { name: "Score" }).click();
@@ -227,5 +257,11 @@ test.describe("contextual Ask inspector (real stack)", () => {
     await page.getByRole("button", { name: "Show analysis" }).click();
     await expect(page.locator(".inspector")).toBeVisible();
     await expect(page.getByText(/This passage stays on the tonic/)).toBeVisible();
+
+    // ── 6. Narrow width: the Ask drawer renders with a backdrop ────────────
+    await page.setViewportSize({ width: 768, height: 900 });
+    await expect(page.locator(".studio-inspector-backdrop")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/This passage stays on the tonic/)).toBeVisible();
+    await page.screenshot({ path: `${SHOTS}/ask-06-narrow-drawer.png` });
   });
 });
