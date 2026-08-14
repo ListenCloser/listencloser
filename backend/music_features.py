@@ -631,8 +631,16 @@ def transcribe_with_engine(
     fmt: str = "wav",
     onset_threshold: float = 0.5,
     frame_threshold: float = 0.3,
+    profile: str | None = None,
 ) -> dict:
     """Transcribe audio using the configured transcription engine.
+
+    Args:
+        audio_bytes: Audio data.
+        fmt: Audio format.
+        onset_threshold: Onset threshold for engines that support it.
+        frame_threshold: Frame threshold for engines that support it.
+        profile: Transcription profile: "solo_piano" -> transkun, "general"/"auto" -> basic_pitch.
 
     Uses the global registry default engine. Durable jobs that need a
     per-job engine selection call :func:`get_transcription_engine_for_job`
@@ -644,10 +652,12 @@ def transcribe_with_engine(
     from engines.registry import get_transcription_engine
 
     engine = get_transcription_engine(
+        profile=profile,
         onset_threshold=onset_threshold,
         frame_threshold=frame_threshold,
     )
     result = engine.transcribe(audio_bytes, fmt=fmt)
+    prov = result.provenance.to_dict()
     base = {
         "midi": result.midi,
         "wav": result.wav,
@@ -658,13 +668,14 @@ def transcribe_with_engine(
         "tempo_is_placeholder": result.tempo_is_placeholder,
         "meter_is_placeholder": result.meter_is_placeholder,
         "supports_meter": result.supports_meter,
-        "provenance": result.provenance.to_dict(),
+        "provenance": prov,
     }
     return base
 
 
 def get_transcription_engine_for_job(
     name: str | None = None,
+    profile: str | None = None,
     onset_threshold: float = 0.5,
     frame_threshold: float = 0.3,
 ):
@@ -677,6 +688,7 @@ def get_transcription_engine_for_job(
 
     return get_transcription_engine(
         name=name,
+        profile=profile,
         onset_threshold=onset_threshold,
         frame_threshold=frame_threshold,
     )

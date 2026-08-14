@@ -1,0 +1,162 @@
+{
+  "engine_name": "piano_transcription",
+  "clip_id": "babyslakh_04",
+  "category": "transcription",
+  "success": true,
+  "output": {
+    "midi": "b'MThd\\x00\\x00\\x00\\x06\\x00\\x01\\x00\\x02\\x01\\x80MTrk\\x00\\x00\\x00\\x13\\x00\\xffQ\\x03\\x07\\xa1 \\x00\\xffX\\x04\\x04\\x02\\x18\\x08\\x01\\xff/\\x00MTrk\\x00\\x00\\x00\\xed\\x07\\xb0@\\x7f\\x8dM\\x90.-\\x9f\\x14.\\x00\\x82C\\xb0@\\x00\\x86\\x0f@\\x7f\\x89\\x0f@\\x00\\x84H@\\x7f\\x81d@\\x00\\r\\x90&H\\x81\\x1f\\xb0@\\x7f\\x83\\x11@\\x00\\x06\\x90&\\x00\\x81\\n\\xb0@\\x7f\\x8d\\r@\\x00\\x18\\x90.U\\x81L\\xb0@\\x7f\\x84@@\\x00\\x15\\x90&H\\x11.\\x00l\\xb0@\\x7f\\x83\\x0c@\\x00L\\x90$F\\x04&\\x00\\x82v0;\\n\\xb0@\\x7f\\x83\\x0b\\x90@@\\x007C\\x01>Dv>\\x00+>6\">\\x00\\x04A?\\x81\\x16A\\x00\\x04A9\\'C8\\x03@\\x00\\x08C\\x00\\x81^0\\x00\\x81\\x14DN\\x1cEGFD\\x00\\x01C8\\x04DH\\x03C\\x00k$\\x00\\x0c\\xb0@\\x00\\x0e\\x907\\x00\\n:Q\\x03E\\x00\\x04.Ho\\xb0@\\x7fE\\x90A\\x00\\x00D\\x001E=\\x81\\x0f\\xb0@\\x00s@\\x7f\\x82\\'@\\x00\\x11\\x902F\\x01&?\\x06.\\x00\\x042\\x00\\x00:\\x00\\x07E\\x00U&\\x00\\x01\\xff/\\x00'",
+    "notes": [
+      {
+        "pitch": 46,
+        "start": 2.2760416666666665,
+        "end": 7.46875,
+        "velocity": 45
+      },
+      {
+        "pitch": 38,
+        "start": 11.502604166666666,
+        "end": 12.239583333333332,
+        "velocity": 72
+      },
+      {
+        "pitch": 46,
+        "start": 14.634114583333332,
+        "end": 15.69921875,
+        "velocity": 85
+      },
+      {
+        "pitch": 38,
+        "start": 15.677083333333332,
+        "end": 16.459635416666664,
+        "velocity": 72
+      },
+      {
+        "pitch": 62,
+        "start": 17.475260416666664,
+        "end": 17.62890625,
+        "velocity": 68
+      },
+      {
+        "pitch": 62,
+        "start": 17.684895833333332,
+        "end": 17.729166666666664,
+        "velocity": 54
+      },
+      {
+        "pitch": 65,
+        "start": 17.734375,
+        "end": 17.9296875,
+        "velocity": 63
+      },
+      {
+        "pitch": 64,
+        "start": 17.473958333333332,
+        "end": 17.989583333333332,
+        "velocity": 64
+      },
+      {
+        "pitch": 67,
+        "start": 17.985677083333332,
+        "end": 18.0,
+        "velocity": 56
+      },
+      {
+        "pitch": 48,
+        "start": 16.946614583333332,
+        "end": 18.2890625,
+        "velocity": 59
+      },
+      {
+        "pitch": 68,
+        "start": 18.481770833333332,
+        "end": 18.609375,
+        "velocity": 78
+      },
+      {
+        "pitch": 67,
+        "start": 18.610677083333332,
+        "end": 18.619791666666664,
+        "velocity": 56
+      },
+      {
+        "pitch": 36,
+        "start": 16.454427083333332,
+        "end": 18.759114583333332,
+        "velocity": 70
+      },
+      {
+        "pitch": 55,
+        "start": 17.473958333333332,
+        "end": 18.79296875,
+        "velocity": 67
+      },
+      {
+        "pitch": 69,
+        "start": 18.518229166666664,
+        "end": 18.809895833333332,
+        "velocity": 71
+      },
+      {
+        "pitch": 65,
+        "start": 17.934895833333332,
+        "end": 19.049479166666664,
+        "velocity": 57
+      },
+      {
+        "pitch": 68,
+        "start": 18.615885416666664,
+        "end": 19.049479166666664,
+        "velocity": 72
+      },
+      {
+        "pitch": 46,
+        "start": 18.815104166666664,
+        "end": 19.864583333333332,
+        "velocity": 72
+      },
+      {
+        "pitch": 50,
+        "start": 19.85546875,
+        "end": 19.869791666666664,
+        "velocity": 70
+      },
+      {
+        "pitch": 58,
+        "start": 18.805989583333332,
+        "end": 19.869791666666664,
+        "velocity": 81
+      },
+      {
+        "pitch": 69,
+        "start": 19.11328125,
+        "end": 19.87890625,
+        "velocity": 61
+      },
+      {
+        "pitch": 38,
+        "start": 19.856770833333332,
+        "end": 19.989583333333332,
+        "velocity": 63
+      }
+    ],
+    "num_notes": 22
+  },
+  "metrics": {
+    "note_precision": 0.1364,
+    "note_recall": 0.0294,
+    "note_f1": 0.0484,
+    "onset_precision": 0.3182,
+    "onset_recall": 0.0686,
+    "onset_f1": 0.1129,
+    "predicted_count": 22,
+    "reference_count": 102,
+    "matched_count": 3,
+    "onset_matched_count": 7,
+    "excessive_count": 15,
+    "missed_count": 95
+  },
+  "runtime_s": 8.661101083038375,
+  "peak_memory_mb": 13.378161430358887,
+  "error": null,
+  "diagnostics": {}
+}

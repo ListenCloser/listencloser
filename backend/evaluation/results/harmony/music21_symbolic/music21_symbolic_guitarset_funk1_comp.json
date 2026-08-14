@@ -1,0 +1,12 @@
+{
+  "engine_name": "music21_symbolic",
+  "clip_id": "guitarset_funk1_comp",
+  "category": "harmony",
+  "success": false,
+  "output": null,
+  "metrics": null,
+  "runtime_s": 3.250082954764366e-06,
+  "peak_memory_mb": 0.00052642822265625,
+  "error": "Harmony evaluation requires reference MIDI",
+  "diagnostics": {}
+}

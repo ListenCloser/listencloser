@@ -481,13 +481,14 @@ def handle_transcribe(job: Job, client) -> list[str]:
     frame_threshold = float(job.parameters.get("frame_threshold", 0.3))
     fmt = job.parameters.get("fmt", "wav")
     engine_name = job.parameters.get("transcription_engine")
+    profile = job.parameters.get("transcription_profile")
 
     _update_progress(client, job.id, 0.25, "preparing audio")
     audio_bytes = music_features.decode_audio_to_wav(audio_bytes, fmt=fmt)
 
     _update_progress(client, job.id, 0.3, "transcribing audio")
     engine = music_features.get_transcription_engine_for_job(
-        engine_name, onset_threshold, frame_threshold
+        engine_name, onset_threshold, frame_threshold, profile=profile
     )
     result = engine.transcribe(audio_bytes, fmt="wav")
 
@@ -515,6 +516,8 @@ def handle_transcribe(job: Job, client) -> list[str]:
                 "Conservatively filtered transcription; timing is preserved rather than quantized."
             ),
             "provenance": result.provenance.to_dict(),
+            "transcription_profile": profile or "auto",
+            "routing_reason": f"profile={profile or 'auto'} -> engine={result.provenance.engine}",
             "tempo_is_placeholder": result.tempo_is_placeholder,
             "meter_is_placeholder": result.meter_is_placeholder,
             "supports_meter": result.supports_meter,

@@ -1,0 +1,50 @@
+{
+  "engine_name": "piano_transcription",
+  "clip_id": "guitarset_bn1_comp",
+  "category": "transcription",
+  "success": true,
+  "output": {
+    "midi": "b'MThd\\x00\\x00\\x00\\x06\\x00\\x01\\x00\\x02\\x01\\x80MTrk\\x00\\x00\\x00\\x13\\x00\\xffQ\\x03\\x07\\xa1 \\x00\\xffX\\x04\\x04\\x02\\x18\\x08\\x01\\xff/\\x00MTrk\\x00\\x00\\x00\\xd4\\x84O\\xb0@\\x7f\\x83E@\\x00\\x8b \\x90,=\\x04,\\x00\\x99H\\xb0@\\x7f\\x82+@\\x00\\x83\\\\@\\x7f\\x819@\\x00\\x84\\x02@\\x7f\\x81\\n@\\x00\\x81g@\\x7f=@\\x00d@\\x7f\\x81\\x03@\\x00\\x8cz@\\x7f\\x819@\\x00\\x8c.@\\x7f\\x87@@\\x00\\xa6p\\x90\\x1e5\\x08\\x1e\\x00\\x87P\\xb0@\\x7f\\x84\\x10@\\x00\\x83K\\x90&-\\x0b\\xb0@\\x7f\\x823\\x90&\\x00\\x1f\\xb0@\\x00\\xba@@\\x7f\\x81@@\\x00\\x84}@\\x7f\\x81y@\\x00\\x83\\x0c@\\x7f\\x84P@\\x00\\x83{@\\x7fw@\\x00\\x86\\x1e\\x90 ;\\x82 \\xb0@\\x7f\\x81\\x1a@\\x00\\x82x@\\x7f>\\x90 \\x00=\\xb0@\\x00\\x82Z@\\x7fk@\\x00\\x956@\\x7f\\x81n@\\x00\\x84e\\x90M-%M\\x00\\x98g\\xb0@\\x7f\\\\@\\x00\\x97\\r@\\x7fB@\\x00)@\\x7fZ@\\x00\\x01\\xff/\\x00'",
+    "notes": [
+      {
+        "pitch": 44,
+        "start": 3.234375,
+        "end": 3.239583333333333,
+        "velocity": 61
+      },
+      {
+        "pitch": 30,
+        "start": 22.46875,
+        "end": 22.479166666666664,
+        "velocity": 53
+      },
+      {
+        "pitch": 38,
+        "start": 25.03515625,
+        "end": 25.44921875,
+        "velocity": 45
+      },
+      {
+        "pitch": 32,
+        "start": 39.783854166666664,
+        "end": 40.9296875,
+        "velocity": 59
+      },
+      {
+        "pitch": 77,
+        "start": 46.27734375,
+        "end": 46.32552083333333,
+        "velocity": 45
+      }
+    ],
+    "num_notes": 5
+  },
+  "metrics": {},
+  "runtime_s": 26.464912791969255,
+  "peak_memory_mb": 42.735395431518555,
+  "error": null,
+  "diagnostics": {
+    "eligibility": "ineligible",
+    "reason": "no reference MIDI for transcription scoring"
+  }
+}

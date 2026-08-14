@@ -1,0 +1,12 @@
+{
+  "engine_name": "transkun",
+  "clip_id": "asap_bach_01",
+  "category": "transcription",
+  "success": false,
+  "output": null,
+  "metrics": null,
+  "runtime_s": 4.37488779425621e-06,
+  "peak_memory_mb": 0.00109100341796875,
+  "error": "expected str, bytes or os.PathLike object, not NoneType",
+  "diagnostics": {}
+}

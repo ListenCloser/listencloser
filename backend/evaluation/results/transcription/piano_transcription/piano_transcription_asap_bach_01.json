@@ -1,0 +1,12 @@
+{
+  "engine_name": "piano_transcription",
+  "clip_id": "asap_bach_01",
+  "category": "transcription",
+  "success": false,
+  "output": null,
+  "metrics": null,
+  "runtime_s": 5.00003807246685e-06,
+  "peak_memory_mb": 0.00115966796875,
+  "error": "expected str, bytes or os.PathLike object, not NoneType",
+  "diagnostics": {}
+}

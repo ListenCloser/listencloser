@@ -1,0 +1,112 @@
+{
+  "engine_name": "music21_symbolic",
+  "clip_id": "babyslakh_03",
+  "category": "harmony",
+  "success": true,
+  "output": {
+    "key": {
+      "tonic": "C",
+      "mode": "major",
+      "confidence": 0.7216497637456232
+    },
+    "chords": [],
+    "roman_numerals": [
+      {
+        "figure": "v5",
+        "root": "G",
+        "quality": "m",
+        "start": 16.0,
+        "end": 16.917
+      },
+      {
+        "figure": "I",
+        "root": "C",
+        "quality": "M",
+        "start": 28.0,
+        "end": 29.0
+      },
+      {
+        "figure": "v43",
+        "root": "G",
+        "quality": "m",
+        "start": 32.0,
+        "end": 32.417
+      },
+      {
+        "figure": "v4",
+        "root": "G",
+        "quality": "m",
+        "start": 36.0,
+        "end": 36.667
+      },
+      {
+        "figure": "v4",
+        "root": "G",
+        "quality": "m",
+        "start": 40.0,
+        "end": 40.667
+      },
+      {
+        "figure": "v4",
+        "root": "G",
+        "quality": "m",
+        "start": 44.0,
+        "end": 44.667
+      },
+      {
+        "figure": "i4",
+        "root": "C",
+        "quality": "m",
+        "start": 48.0,
+        "end": 48.667
+      }
+    ],
+    "cadences": [],
+    "modulations": [
+      {
+        "from_key": "G minor",
+        "to_key": "G major",
+        "position": 0.115,
+        "kind": "possible_modulation",
+        "run_length_windows": 4,
+        "duration_seconds": 0.458,
+        "window_size_seconds": 0.229
+      },
+      {
+        "from_key": "G major",
+        "to_key": "D minor",
+        "position": 0.688,
+        "kind": "possible_tonicization",
+        "run_length_windows": 2,
+        "duration_seconds": 0.229,
+        "window_size_seconds": 0.229
+      },
+      {
+        "from_key": "F major",
+        "to_key": "E minor",
+        "position": 1.375,
+        "kind": "possible_tonicization",
+        "run_length_windows": 2,
+        "duration_seconds": 0.229,
+        "window_size_seconds": 0.229
+      }
+    ],
+    "voice_leading": null,
+    "phrases": []
+  },
+  "metrics": {
+    "key_correct": null,
+    "bpm_absolute_error": null,
+    "meter_correct": null,
+    "section_precision": null,
+    "section_recall": null,
+    "section_f1": null,
+    "chord_precision": null,
+    "chord_recall": null,
+    "chord_f1": null
+  },
+  "runtime_s": 0.32681408300000037,
+  "peak_memory_mb": 5.822537422180176,
+  "error": null,
+  "diagnostics": {}
+}
