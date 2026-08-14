@@ -293,6 +293,7 @@ def _compute_transcription_metrics(output: dict[str, Any], clip: EvalClip) -> di
     if not clip.reference_midi:
         return {}
 
+    from pathlib import Path
     from evaluation.transcription_metrics import Note, compute_note_metrics
 
     ref_notes = []
@@ -302,9 +303,8 @@ def _compute_transcription_metrics(output: dict[str, Any], clip: EvalClip) -> di
         ref_notes = _midi_to_notes(ref_bytes)
 
     pred_notes = [Note.from_dict(n) for n in output.get("notes", [])]
-    ref_note_objs = [Note.from_dict(n) for n in ref_notes]
 
-    return compute_note_metrics(pred_notes, ref_note_objs).to_dict()
+    return compute_note_metrics(pred_notes, ref_notes).to_dict()
 
 
 def _compute_beat_metrics(output: dict[str, Any], clip: EvalClip) -> dict[str, Any]:
@@ -483,29 +483,32 @@ def _compute_category_aggregate(
         return {}
 
     if category == "transcription":
-        f1s = [r.metrics.get("note_f1", 0) for r in succeeded if r.metrics]
+        f1s = [v for v in (r.metrics.get("note_f1") for r in succeeded if r.metrics) if v is not None]
+        precisions = [v for v in (r.metrics.get("note_precision") for r in succeeded if r.metrics) if v is not None]
+        recalls = [v for v in (r.metrics.get("note_recall") for r in succeeded if r.metrics) if v is not None]
         return {
             "macro_note_f1": sum(f1s) / len(f1s) if f1s else 0,
-            "macro_precision": sum(r.metrics.get("precision", 0) for r in succeeded if r.metrics) / len(succeeded) if succeeded else 0,
-            "macro_recall": sum(r.metrics.get("recall", 0) for r in succeeded if r.metrics) / len(succeeded) if succeeded else 0,
+            "macro_precision": sum(precisions) / len(precisions) if precisions else 0,
+            "macro_recall": sum(recalls) / len(recalls) if recalls else 0,
         }
     elif category == "beat_tracking":
-        f_measures = [r.metrics.get("f_measure", 0) for r in succeeded if r.metrics]
+        f_measures = [v for v in (r.metrics.get("f_measure") for r in succeeded if r.metrics) if v is not None]
         return {
             "macro_f_measure": sum(f_measures) / len(f_measures) if f_measures else 0,
         }
     elif category == "harmony":
-        key_accs = [r.metrics.get("key_accuracy", 0) for r in succeeded if r.metrics]
-        chord_f1s = [r.metrics.get("chord_f1", 0) for r in succeeded if r.metrics]
+        key_accs = [v for v in (r.metrics.get("key_correct") for r in succeeded if r.metrics) if v is not None]
+        chord_f1s = [v for v in (r.metrics.get("chord_f1") for r in succeeded if r.metrics) if v is not None]
         return {
             "macro_key_accuracy": sum(key_accs) / len(key_accs) if key_accs else 0,
             "macro_chord_f1": sum(chord_f1s) / len(chord_f1s) if chord_f1s else 0,
         }
     elif category == "structure":
-        boundary_f1s = [r.metrics.get("boundary_f1", 0) for r in succeeded if r.metrics]
+        boundary_f1s = [v for v in (r.metrics.get("boundary_f1") for r in succeeded if r.metrics) if v is not None]
+        section_counts = [v for v in (r.metrics.get("sections_count") for r in succeeded if r.metrics) if v is not None]
         return {
             "macro_boundary_f1": sum(boundary_f1s) / len(boundary_f1s) if boundary_f1s else 0,
-            "avg_segments": sum(r.metrics.get("sections_count", 0) for r in succeeded if r.metrics) / len(succeeded) if succeeded else 0,
+            "avg_segments": sum(section_counts) / len(section_counts) if section_counts else 0,
         }
 
     return {}
