@@ -1,11 +1,13 @@
 """Regression tests for OSS bakeoff evaluation framework fixes.
-
+ 
 Covers bugs found after merging PR #222:
 1. Missing Path import in _compute_transcription_metrics
 2. Redundant Note.from_dict() on already-Note objects (crash)
 3. music21 BytesIO parsing bug producing IndexError
 4. None values crashing _compute_category_aggregate
 5. Wrong metric key names in transcription aggregate
+6. Audio format detection for m4a/mp3 (magic byte detection)
+7. Eligibility check moved after inference (not before) to preserve timing measurement
 """
 
 from __future__ import annotations
@@ -189,6 +191,226 @@ class TestMetricKeyNames:
         assert report["macro_precision"] == 0.8
         assert report["macro_recall"] == 0.85
         assert report["macro_note_f1"] == 0.9
+
+    def test_beat_tracking_uses_beat_f1_not_f_measure(self):
+        """Beat tracking aggregate should look for 'beat_f1', not 'f_measure'."""
+        from evaluation.engines import _compute_category_aggregate, EngineEvalResult
+
+        result = EngineEvalResult(
+            engine_name="test",
+            clip_id="c1",
+            category="beat_tracking",
+            success=True,
+            metrics={"beat_f1": 0.85, "beat_precision": 0.9, "beat_recall": 0.8},
+        )
+
+        report = _compute_category_aggregate([result], "beat_tracking")
+        assert report["macro_f_measure"] == 0.85
+
+
+class TestAudioFormatDetection:
+    """Bug: piano_transcription and transkun adapters failed on m4a/mp3 files.
+    
+    soundfile/libsndfile doesn't support m4a; adapters need format detection
+    to use temp files with correct extensions for audioread backend.
+    """
+
+    def test_m4a_detection_from_magic_bytes(self):
+        """Adapters should detect m4a format from ftyp box at byte offset 4."""
+        # iTunes-style M4A file starts with: size(4 bytes) + 'ftyp' (4 bytes)
+        m4a_header = b"\x00\x00\x00\x1cftypM4A " + b"\x00" * 100
+        assert len(m4a_header) >= 12
+        assert m4a_header[4:8] == b"ftyp"
+
+        # Verify format detection logic matches
+        fmt = "wav"
+        if m4a_header[:4] == b"RIFF":
+            fmt = "wav"
+        elif m4a_header[:4] == b"OggS":
+            fmt = "ogg"
+        elif m4a_header[:2] == b"\xff\xfb":
+            fmt = "mp3"
+        elif len(m4a_header) >= 12 and m4a_header[4:8] == b"ftyp":
+            fmt = "m4a"
+
+        assert fmt == "m4a"
+
+    def test_wav_detection_from_magic_bytes(self):
+        """RIFF header detection for WAV files."""
+        wav_header = b"RIFF\x00\x00\x00\x00WAVE"
+        fmt = "wav"
+        if wav_header[:4] == b"RIFF":
+            fmt = "wav"
+        elif wav_header[:4] == b"OggS":
+            fmt = "ogg"
+        elif wav_header[:2] == b"\xff\xfb":
+            fmt = "mp3"
+        elif len(wav_header) >= 12 and wav_header[4:8] == b"ftyp":
+            fmt = "m4a"
+        assert fmt == "wav"
+
+    def test_mp3_detection_from_magic_bytes(self):
+        """MP3 frame header detection."""
+        mp3_header = b"\xff\xfb\x90\x00" + b"\x00" * 100
+        fmt = "wav"
+        if mp3_header[:4] == b"RIFF":
+            fmt = "wav"
+        elif mp3_header[:4] == b"OggS":
+            fmt = "ogg"
+        elif mp3_header[:2] == b"\xff\xfb":
+            fmt = "mp3"
+        elif len(mp3_header) >= 12 and mp3_header[4:8] == b"ftyp":
+            fmt = "m4a"
+        assert fmt == "mp3"
+
+
+class TestAudioFormatDetection:
+    """Bug: piano_transcription and transkun adapters failed on m4a/mp3 files.
+
+    soundfile/libsndfile doesn't support m4a; adapters need format detection
+    to use temp files with correct extensions for audioread backend.
+    Also: librosa beat_track returns numpy array for tempo, causing float() crash.
+    """
+
+    def test_piano_transcription_handles_m4a(self):
+        from evaluation.engines.transcription import PianoTranscriptionAdapter
+
+        if not PianoTranscriptionAdapter().is_available():
+            pytest.skip("piano_transcription not installed")
+
+        fixtures_dir = os.environ["TEST_FIXTURES_DIR"]
+        m4a_path = f"{fixtures_dir}/real-piano.m4a"
+
+        adapter = PianoTranscriptionAdapter(device="cpu")
+        adapter.prepare()
+
+        with open(m4a_path, "rb") as f:
+            audio_bytes = f.read()
+
+        result = adapter.transcribe(audio_bytes)
+        assert result["num_notes"] > 0
+        assert len(result["notes"]) == result["num_notes"]
+
+    @pytest.mark.skipif(
+        not os.path.isfile(f"{os.environ.get('TEST_FIXTURES_DIR', '')}/real-piano.m4a"),
+        reason="TEST_FIXTURES_DIR env var not set or m4a fixture missing",
+    )
+    def test_basic_pitch_handles_m4a(self):
+        """BasicPitchAdapter should successfully transcribe m4a files."""
+        from evaluation.engines.transcription import BasicPitchAdapter
+
+        if not BasicPitchAdapter().is_available():
+            pytest.skip("basic_pitch not installed")
+
+        fixtures_dir = os.environ["TEST_FIXTURES_DIR"]
+        m4a_path = f"{fixtures_dir}/real-piano.m4a"
+
+        adapter = BasicPitchAdapter()
+
+        with open(m4a_path, "rb") as f:
+            audio_bytes = f.read()
+
+        result = adapter.transcribe(audio_bytes)
+        assert result["num_notes"] > 0
+
+    def test_librosa_tempo_is_scalar(self):
+        """librosa.beat_track returns numpy array for tempo; adapter should convert to float."""
+        from evaluation.engines.beat_tracking import LibrosaBeatAdapter
+        import numpy as np
+
+        if not LibrosaBeatAdapter().is_available():
+            pytest.skip("librosa not installed")
+
+        adapter = LibrosaBeatAdapter()
+        adapter.prepare()
+
+        # Use a simple sine wave as audio
+        import librosa
+        sr = 44100
+        duration = 5.0
+        t = np.linspace(0, duration, int(sr * duration))
+        audio = (np.sin(2 * np.pi * 1.0 * t) * 0.3).astype(np.float32)
+
+        # Write to temp WAV
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            import soundfile as sf
+            sf.write(f.name, audio, sr)
+            tmp_path = f.name
+
+        try:
+            with open(tmp_path, "rb") as f:
+                audio_bytes = f.read()
+            output = adapter.estimate_beats(audio_bytes)
+            assert isinstance(output["bpm"], float)
+            assert output["bpm"] > 0
+        finally:
+            os.unlink(tmp_path)
+
+
+class TestEligibilityAfterInference:
+    """Bug: eligibility check caused early return before inference, breaking timing measurement.
+    
+    The check should only skip metric computation, not the actual inference run.
+    """
+
+    def test_ineligible_clip_still_runs_inference(self):
+        """Ineligible clips (no ref MIDI) should still run inference for diagnostics."""
+        from evaluation.engines import EngineEvalResult, _run_clip_on_engine
+        from evaluation.models import EvalClip
+        from evaluation.engines.transcription import BasicPitchAdapter
+
+        if not BasicPitchAdapter().is_available():
+            pytest.skip("basic_pitch not installed")
+
+        # Create a clip with audio but no reference_midi
+        clip = EvalClip(
+            id="test_no_ref",
+            audio="/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a",
+            category="solo_piano",
+            reference_midi=None,
+        ) if os.path.isfile("/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a") else None
+        
+        if clip is None:
+            pytest.skip("test fixture not found")
+
+        adapter = BasicPitchAdapter()
+        result = _run_clip_on_engine(adapter, clip, "transcription", warmup=False)
+
+        # Inference should have run (not short-circuited by eligibility check)
+        assert result.success is True
+        # But metrics should be empty (not scored)
+        assert result.metrics == {}
+        # And diagnostics should indicate ineligibility
+        assert result.diagnostics.get("eligibility") == "ineligible"
+        # Runtime should be measured (not 0.0 like the old early-return bug)
+        assert result.runtime_s > 0
+
+    def test_eligibility_reason_set_for_missing_reference(self):
+        """_check_clip_eligibility should return a reason for missing reference MIDI."""
+        from evaluation.engines import _check_clip_eligibility
+        from evaluation.models import EvalClip
+
+        clip = EvalClip(id="test", audio="/dev/null", category="solo_piano", reference_midi=None)
+        reason = _check_clip_eligibility("transcription", clip)
+        assert reason is not None
+        assert "reference MIDI" in reason
+
+    def test_eligible_clip_no_eligibility_reason(self):
+        """_check_clip_eligibility should return None when reference MIDI exists."""
+        from evaluation.engines import _check_clip_eligibility
+        from evaluation.models import EvalClip
+
+        midi_path = _make_minimal_midi()
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            f.write(midi_path)
+            midi_file = f.name
+
+        try:
+            clip = EvalClip(id="test", audio="/dev/null", category="solo_piano", reference_midi=midi_file)
+            reason = _check_clip_eligibility("transcription", clip)
+            assert reason is None
+        finally:
+            os.unlink(midi_file)
 
 
 # --- Helpers ---

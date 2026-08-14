@@ -55,8 +55,18 @@ class LibrosaBeatAdapter(EngineAdapter):
         import tempfile
         import os
 
-        # librosa needs a file path for .m4a (uses audioread)
-        with tempfile.NamedTemporaryFile(suffix=".m4a", delete=False) as f:
+        # Detect audio format from magic bytes for correct temp file extension
+        fmt = "wav"
+        if audio_bytes[:4] == b"RIFF":
+            fmt = "wav"
+        elif audio_bytes[:4] == b"OggS":
+            fmt = "ogg"
+        elif audio_bytes[:2] == b"\xff\xfb":
+            fmt = "mp3"
+        elif len(audio_bytes) >= 12 and audio_bytes[4:8] == b"ftyp":
+            fmt = "m4a"
+
+        with tempfile.NamedTemporaryFile(suffix=f".{fmt}", delete=False) as f:
             f.write(audio_bytes)
             temp_path = f.name
 
@@ -68,13 +78,14 @@ class LibrosaBeatAdapter(EngineAdapter):
 
             onset_env = librosa.onset.onset_strength(y=y, sr=sr)
             tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
+            tempo_val = float(tempo.item()) if hasattr(tempo, 'item') else float(tempo)
             beats_time = librosa.frames_to_time(beats, sr=sr)
 
             # Downbeats (optional, librosa doesn't do this well)
             downbeats = None
 
             return {
-                "bpm": float(tempo),
+                "bpm": tempo_val,
                 "beats": beats_time.tolist(),
                 "downbeats": downbeats,
                 "beat_positions": list(range(1, len(beats_time) + 1)),
@@ -142,7 +153,18 @@ class BeatThisAdapter(EngineAdapter):
         if self._model is None:
             raise RuntimeError("BeatThis model not available")
 
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        # Detect audio format from magic bytes
+        fmt = "wav"
+        if audio_bytes[:4] == b"RIFF":
+            fmt = "wav"
+        elif audio_bytes[:4] == b"OggS":
+            fmt = "ogg"
+        elif audio_bytes[:2] == b"\xff\xfb":
+            fmt = "mp3"
+        elif len(audio_bytes) >= 12 and audio_bytes[4:8] == b"ftyp":
+            fmt = "m4a"
+
+        with tempfile.NamedTemporaryFile(suffix=f".{fmt}", delete=False) as f:
             f.write(audio_bytes)
             temp_path = f.name
 
@@ -224,7 +246,18 @@ class BeatNetAdapter(EngineAdapter):
         if self._model is None:
             raise RuntimeError("BeatNet model not available")
 
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        # Detect audio format from magic bytes
+        fmt = "wav"
+        if audio_bytes[:4] == b"RIFF":
+            fmt = "wav"
+        elif audio_bytes[:4] == b"OggS":
+            fmt = "ogg"
+        elif audio_bytes[:2] == b"\xff\xfb":
+            fmt = "mp3"
+        elif len(audio_bytes) >= 12 and audio_bytes[4:8] == b"ftyp":
+            fmt = "m4a"
+
+        with tempfile.NamedTemporaryFile(suffix=f".{fmt}", delete=False) as f:
             f.write(audio_bytes)
             temp_path = f.name
 

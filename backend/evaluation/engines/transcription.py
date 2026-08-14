@@ -183,13 +183,24 @@ class TranskunAdapter(EngineAdapter):
         from transkun.transcribe import readAudio, writeMidi
         import torch
 
+        # Detect audio format from content bytes
+        fmt = "wav"
+        if audio_bytes[:4] == b"RIFF":
+            fmt = "wav"
+        elif audio_bytes[:4] == b"OggS":
+            fmt = "ogg"
+        elif audio_bytes[:2] == b"\xff\xfb":
+            fmt = "mp3"
+        elif len(audio_bytes) >= 12 and audio_bytes[4:8] == b"ftyp":
+            fmt = "m4a"
+
         # Write audio to temp file for Transkun's readAudio
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=f".{fmt}", delete=False) as f:
             f.write(audio_bytes)
             temp_audio = f.name
 
         # Write MIDI to temp file
-        temp_midi = temp_audio.replace(".wav", ".mid")
+        temp_midi = temp_audio.rsplit(".", 1)[0] + ".mid"
 
         try:
             fs, audio = readAudio(temp_audio)
@@ -290,19 +301,41 @@ class PianoTranscriptionAdapter(EngineAdapter):
         import io
         import tempfile
         import numpy as np
-        import soundfile as sf
 
         if self._model is None:
             self.prepare()
         if self._model is None:
             raise RuntimeError("Piano Transcription model not available")
 
-        # PianoTranscription expects a numpy audio array, not file path
-        audio, sr = sf.read(io.BytesIO(audio_bytes))
-        if sr != sample_rate:
-            import librosa
-            audio = librosa.resample(audio, orig_sr=sr, target_sr=sample_rate)
-            sr = sample_rate
+        # Detect audio format from content bytes and write to temp file
+        # (soundfile/libsndfile doesn't support m4a; use pydub for format detection+conversion)
+        import librosa
+        import soundfile as sf
+
+        # Detect format from magic bytes
+        fmt = "wav"
+        if audio_bytes[:4] == b"RIFF":
+            fmt = "wav"
+        elif audio_bytes[:4] == b"OggS":
+            fmt = "ogg"
+        elif audio_bytes[:2] == b"\xff\xfb":
+            fmt = "mp3"
+        elif len(audio_bytes) >= 12 and audio_bytes[4:8] == b"ftyp":
+            fmt = "m4a"
+
+        # soundfile can't read m4a/mp3 directly; use librosa with audioread fallback
+        if fmt in ("wav", "ogg", "flac"):
+            audio, sr = librosa.load(io.BytesIO(audio_bytes), sr=sample_rate, mono=True)
+        else:
+            # For m4a/mp3: write to temp file and let librosa use audioread backend
+            with tempfile.NamedTemporaryFile(suffix=f".{fmt}", delete=False) as tmp:
+                tmp.write(audio_bytes)
+                tmp_path = tmp.name
+            try:
+                audio, sr = librosa.load(tmp_path, sr=sample_rate, mono=True)
+            finally:
+                import os
+                os.unlink(tmp_path)
 
         with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
             temp_midi = f.name

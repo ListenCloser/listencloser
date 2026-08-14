@@ -221,23 +221,6 @@ def _run_clip_on_engine(
 
         adapter.prepare()
 
-        # Check eligibility before running inference
-        eligibility_reason = _check_clip_eligibility(category, clip)
-        if eligibility_reason:
-            result = EngineEvalResult(
-                engine_name=adapter.engine_info.name,
-                clip_id=clip.id,
-                category=category,
-                success=True,
-                output={},
-                metrics={},
-                runtime_s=0.0,
-                peak_memory_mb=0.0,
-                error=None,
-                diagnostics={"eligibility": "ineligible", "reason": eligibility_reason},
-            )
-            return result  # Clip not scored; reported as INELIGIBLE
-
         # Warm-up run (not timed) to avoid first-clip penalty for lazy loading/JIT
         if warmup:
             try:
@@ -258,6 +241,9 @@ def _run_clip_on_engine(
                 # Warm-up failures are non-fatal
                 pass
 
+        # Check eligibility for scoring
+        eligibility_reason = _check_clip_eligibility(category, clip)
+
         # --- Measured inference run ---
         tracemalloc.start()
         t0 = time.monotonic()
@@ -266,24 +252,44 @@ def _run_clip_on_engine(
         if category == "transcription":
             audio_bytes = Path(clip.audio).read_bytes()
             output = adapter.transcribe(audio_bytes, **adapter_kwargs)
-            metrics = _compute_transcription_metrics(output, clip)
+            if eligibility_reason:
+                metrics = {}
+                diagnostics = {"eligibility": "ineligible", "reason": eligibility_reason}
+            else:
+                metrics = _compute_transcription_metrics(output, clip)
+                diagnostics = {}
 
         elif category == "beat_tracking":
             audio_bytes = Path(clip.audio).read_bytes()
             output = adapter.estimate_beats(audio_bytes, **adapter_kwargs)
-            metrics = _compute_beat_metrics(output, clip)
+            if eligibility_reason:
+                metrics = {}
+                diagnostics = {"eligibility": "ineligible", "reason": eligibility_reason}
+            else:
+                metrics = _compute_beat_metrics(output, clip)
+                diagnostics = {}
 
         elif category == "harmony":
             if not clip.reference_midi:
                 raise RuntimeError("Harmony evaluation requires reference MIDI")
             midi_bytes = Path(clip.reference_midi).read_bytes()
             output = adapter.analyze_harmony(midi_bytes, **adapter_kwargs)
-            metrics = _compute_harmony_metrics(output, clip)
+            if eligibility_reason:
+                metrics = {}
+                diagnostics = {"eligibility": "ineligible", "reason": eligibility_reason}
+            else:
+                metrics = _compute_harmony_metrics(output, clip)
+                diagnostics = {}
 
         elif category == "structure":
             audio_bytes = Path(clip.audio).read_bytes()
             output = adapter.analyze_structure(audio_bytes, **adapter_kwargs)
-            metrics = _compute_structure_metrics(output, clip)
+            if eligibility_reason:
+                metrics = {}
+                diagnostics = {"eligibility": "ineligible", "reason": eligibility_reason}
+            else:
+                metrics = _compute_structure_metrics(output, clip)
+                diagnostics = {}
 
         else:
             raise ValueError(f"Unknown category: {category}")
@@ -301,6 +307,7 @@ def _run_clip_on_engine(
             metrics=metrics,
             runtime_s=elapsed,
             peak_memory_mb=peak / (1024 * 1024),
+            diagnostics=diagnostics,
         )
 
     except Exception as e:
@@ -534,7 +541,7 @@ def _compute_category_aggregate(
             "macro_recall": sum(recalls) / len(recalls) if recalls else 0,
         }
     elif category == "beat_tracking":
-        f_measures = [v for v in (r.metrics.get("f_measure") for r in succeeded if r.metrics) if v is not None]
+        f_measures = [v for v in (r.metrics.get("beat_f1") for r in succeeded if r.metrics) if v is not None]
         return {
             "macro_f_measure": sum(f_measures) / len(f_measures) if f_measures else 0,
         }
