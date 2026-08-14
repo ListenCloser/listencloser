@@ -309,6 +309,55 @@ class TestAudioFormatDetection:
         assert result["num_notes"] > 0
         assert len(result["notes"]) == result["num_notes"]
 
+    def test_piano_transcription_model_sample_rate(self):
+        """The model is trained at 16 kHz; adapter must feed 16 kHz audio.
+
+        Regression for the zero-match bug: the adapter previously resampled
+        audio to 44.1 kHz, but the model's spectrogram hop is 160 samples/frame
+        and the post-processor assumes 100 frames/s. 44.1 kHz input stretches
+        every onset/offset by 44100/16000 = 2.756x, producing 0 note matches.
+        """
+        from evaluation.engines.transcription import PianoTranscriptionAdapter
+
+        assert PianoTranscriptionAdapter.MODEL_SAMPLE_RATE == 16000
+
+    @pytest.mark.skipif(
+        not os.path.isfile(f"{os.environ.get('TEST_FIXTURES_DIR', '')}/real-piano.m4a"),
+        reason="TEST_FIXTURES_DIR env var not set or m4a fixture missing",
+    )
+    def test_piano_transcription_output_time_aligned(self):
+        """Predicted note span must match audio duration, not be stretched 2.76x."""
+        import librosa
+        from evaluation.engines.transcription import PianoTranscriptionAdapter
+
+        if not PianoTranscriptionAdapter().is_available():
+            pytest.skip("piano_transcription not installed")
+
+        fixtures_dir = os.environ["TEST_FIXTURES_DIR"]
+        m4a_path = f"{fixtures_dir}/real-piano.m4a"
+
+        # True audio duration
+        audio, sr = librosa.load(m4a_path, sr=None, mono=True)
+        audio_duration = len(audio) / sr
+
+        adapter = PianoTranscriptionAdapter(device="cpu")
+        adapter.prepare()
+
+        with open(m4a_path, "rb") as f:
+            audio_bytes = f.read()
+
+        result = adapter.transcribe(audio_bytes)
+        assert result["num_notes"] > 0
+
+        pred_duration = max(n["end"] for n in result["notes"])
+        ratio = pred_duration / audio_duration
+        # Tolerate small model output edge effects; the sample-rate bug
+        # produced ~2.76x. If alignment regresses, this fails loudly.
+        assert abs(ratio - 1.0) < 0.3, (
+            f"predicted span {pred_duration:.2f}s vs audio {audio_duration:.2f}s "
+            f"(ratio {ratio:.2f}) - sample-rate mismatch regression"
+        )
+
     @pytest.mark.skipif(
         not os.path.isfile(f"{os.environ.get('TEST_FIXTURES_DIR', '')}/real-piano.m4a"),
         reason="TEST_FIXTURES_DIR env var not set or m4a fixture missing",

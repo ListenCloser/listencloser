@@ -297,7 +297,14 @@ class PianoTranscriptionAdapter(EngineAdapter):
             logger.warning("Piano Transcription prepare failed: %s", e)
             self._model = None
 
-    def transcribe(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
+    # The model is trained on 16 kHz audio (see config.sample_rate in
+    # piano_transcription_inference). Feeding any other sample rate produces
+    # time-scaled output: the spectrogram hop is 160 samples/frame and the
+    # post-processor assumes frames_per_second=100, so 44.1 kHz input stretches
+    # all onsets/offsets by 44100/16000 = 2.756x.
+    MODEL_SAMPLE_RATE = 16000
+
+    def transcribe(self, audio_bytes: bytes, sample_rate: int = MODEL_SAMPLE_RATE, **kwargs) -> dict[str, Any]:
         import io
         import tempfile
         import numpy as np
