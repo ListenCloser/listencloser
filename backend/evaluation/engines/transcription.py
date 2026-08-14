@@ -121,52 +121,97 @@ class TranskunAdapter(EngineAdapter):
         license="MIT",
         install_cmd="pip install transkun",
         model_size_mb=150,  # Estimated
-        requires_gpu=True,
-        notes="Transformer-based piano transcription. Uses EfficientNet backbone + Transformer decoder.",
+        requires_gpu=False,
+        python_version=">=3.9",
+        notes="Transformer-based piano transcription. Uses EfficientNet backbone + Transformer decoder. Pretrained model included.",
     )
 
     def __init__(self, device: str = "cpu", **kwargs):
         self._device = device
         self._model = None
-        self._transcriber = None
 
     def is_available(self) -> bool:
         try:
             import transkun  # noqa: F401
             import torch  # noqa: F401
+            import moduleconf  # noqa: F401
             return True
         except Exception:
             return False
 
     def prepare(self) -> None:
-        if self._transcriber is not None:
+        if self._model is not None:
             return
 
         try:
-            from transkun import PianoTranscription
-            self._transcriber = PianoTranscription(device=self._device)
+            import torch
+            import moduleconf
+            from transkun.transcribe import readAudio, writeMidi
+
+            # Load config and weights from transkun's pretrained directory
+            import pkg_resources
+            default_weight = pkg_resources.resource_filename("transkun.transcribe", "pretrained/2.0.pt")
+            default_conf = pkg_resources.resource_filename("transkun.transcribe", "pretrained/2.0.conf")
+
+            conf_manager = moduleconf.parseFromFile(default_conf)
+            ModelClass = conf_manager["Model"].module.TransKun
+            conf = conf_manager["Model"].config
+
+            checkpoint = torch.load(default_weight, map_location=self._device)
+            self._model = ModelClass(conf=conf).to(self._device)
+
+            if "best_state_dict" in checkpoint:
+                self._model.load_state_dict(checkpoint["best_state_dict"], strict=False)
+            else:
+                self._model.load_state_dict(checkpoint["state_dict"], strict=False)
+
+            self._model.eval()
         except Exception as e:
             logger.warning("Transkun prepare failed: %s", e)
-            self._transcriber = None
+            self._model = None
 
     def transcribe(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
         import io
-        import soundfile as sf
+        import os
         import tempfile
 
-        if self._transcriber is None:
+        if self._model is None:
             self.prepare()
-        if self._transcriber is None:
+        if self._model is None:
             raise RuntimeError("Transkun not available")
 
-        # Write audio to temp file
+        from transkun.transcribe import readAudio, writeMidi
+        import torch
+
+        # Write audio to temp file for Transkun's readAudio
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             f.write(audio_bytes)
-            temp_path = f.name
+            temp_audio = f.name
+
+        # Write MIDI to temp file
+        temp_midi = temp_audio.replace(".wav", ".mid")
 
         try:
-            # Transkun expects file path
-            midi_data = self._transcriber.transcribe(temp_path)
+            fs, audio = readAudio(temp_audio)
+
+            torch.set_grad_enabled(False)
+
+            # Resample if needed
+            if fs != self._model.fs:
+                try:
+                    import soxr
+                    audio = soxr.resample(audio, fs, self._model.fs)
+                except ImportError:
+                    logger.warning("soxr not installed, skipping resampling")
+
+            x = torch.from_numpy(audio).to(self._device)
+
+            notes_est = self._model.transcribe(x, stepInSecond=kwargs.get("segment_hop_size"), segmentSizeInSecond=kwargs.get("segment_size"), discardSecondHalf=False)
+
+            writeMidi(notes_est).write(temp_midi)
+
+            import pretty_midi
+            midi_data = pretty_midi.PrettyMIDI(temp_midi)
 
             notes = []
             for instrument in midi_data.instruments:
@@ -178,10 +223,7 @@ class TranskunAdapter(EngineAdapter):
                         "velocity": note.velocity,
                     })
 
-            # Get actual MIDI bytes (not fluidsynth audio)
-            midi_buf = io.BytesIO()
-            midi_data.write(midi_buf)
-            midi_bytes = midi_buf.getvalue()
+            midi_bytes = Path(temp_midi).read_bytes()
 
             return {
                 "midi": midi_bytes,
@@ -189,10 +231,11 @@ class TranskunAdapter(EngineAdapter):
                 "num_notes": len(notes),
             }
         finally:
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
+            for p in [temp_audio, temp_midi]:
+                try:
+                    os.unlink(p)
+                except Exception:
+                    pass
 
     def estimate_beats(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
         raise NotImplementedError
@@ -215,10 +258,11 @@ class PianoTranscriptionAdapter(EngineAdapter):
         category="transcription",
         repo_url="https://github.com/qiuqiangkong/piano_transcription",
         license="MIT",
-        install_cmd="pip install piano_transcription",
+        install_cmd="pip install piano-transcription-inference",
         model_size_mb=200,
-        requires_gpu=True,
-        notes="CNN-Transformer piano transcription from qiuqiangkong. High-quality piano specialist.",
+        requires_gpu=False,
+        python_version=">=3.9",
+        notes="CNN-Transformer piano transcription by Qiuqiang Kong. Checkpoint auto-downloaded on first use.",
     )
 
     def __init__(self, device: str = "cpu", **kwargs):
@@ -227,8 +271,7 @@ class PianoTranscriptionAdapter(EngineAdapter):
 
     def is_available(self) -> bool:
         try:
-            import piano_transcription  # noqa: F401
-            import torch  # noqa: F401
+            from piano_transcription_inference import PianoTranscription  # noqa: F401
             return True
         except Exception:
             return False
@@ -237,29 +280,39 @@ class PianoTranscriptionAdapter(EngineAdapter):
         if self._model is not None:
             return
         try:
-            from piano_transcription.inference import load_model
-            self._model = load_model(device=self._device)
+            from piano_transcription_inference import PianoTranscription
+            self._model = PianoTranscription(device=self._device)
         except Exception as e:
             logger.warning("Piano Transcription prepare failed: %s", e)
             self._model = None
 
     def transcribe(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
         import io
-        import soundfile as sf
         import tempfile
+        import numpy as np
+        import soundfile as sf
 
         if self._model is None:
             self.prepare()
         if self._model is None:
             raise RuntimeError("Piano Transcription model not available")
 
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            f.write(audio_bytes)
-            temp_path = f.name
+        # PianoTranscription expects a numpy audio array, not file path
+        audio, sr = sf.read(io.BytesIO(audio_bytes))
+        if sr != sample_rate:
+            import librosa
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=sample_rate)
+            sr = sample_rate
+
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            temp_midi = f.name
 
         try:
-            from piano_transcription.inference import transcribe_audio
-            midi_data = transcribe_audio(temp_path, self._model)
+            self._model.transcribe(audio, temp_midi)
+
+            import pretty_midi
+            midi_data = pretty_midi.PrettyMIDI(temp_midi)
+            midi_bytes = Path(temp_midi).read_bytes()
 
             notes = []
             for instrument in midi_data.instruments:
@@ -271,11 +324,6 @@ class PianoTranscriptionAdapter(EngineAdapter):
                         "velocity": note.velocity,
                     })
 
-            # Get actual MIDI bytes (not fluidsynth audio)
-            midi_buf = io.BytesIO()
-            midi_data.write(midi_buf)
-            midi_bytes = midi_buf.getvalue()
-
             return {
                 "midi": midi_bytes,
                 "notes": notes,
@@ -283,7 +331,7 @@ class PianoTranscriptionAdapter(EngineAdapter):
             }
         finally:
             try:
-                os.unlink(temp_path)
+                os.unlink(temp_midi)
             except Exception:
                 pass
 

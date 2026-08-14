@@ -118,8 +118,7 @@ class BeatThisAdapter(EngineAdapter):
 
     def is_available(self) -> bool:
         try:
-            import beat_this  # noqa: F401
-            import torch  # noqa: F401
+            from beat_this.inference import File2Beats  # noqa: F401
             return True
         except Exception:
             return False
@@ -128,15 +127,14 @@ class BeatThisAdapter(EngineAdapter):
         if self._model is not None:
             return
         try:
-            from beat_this import BeatThis
-            self._model = BeatThis(device=self._device)
+            from beat_this.inference import File2Beats
+            self._model = File2Beats(device=self._device)
         except Exception as e:
             logger.warning("BeatThis prepare failed: %s", e)
             self._model = None
 
     def estimate_beats(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
-        import io
-        import soundfile as sf
+        import numpy as np
         import tempfile
 
         if self._model is None:
@@ -149,12 +147,18 @@ class BeatThisAdapter(EngineAdapter):
             temp_path = f.name
 
         try:
-            beats, downbeats = self._model.predict(temp_path)
+            beats, downbeats = self._model(temp_path)
+
+            beats_time = beats.tolist() if hasattr(beats, "tolist") else list(beats)
+            downbeats_time = downbeats.tolist() if hasattr(downbeats, "tolist") else list(downbeats)
+
+            bpm = 60.0 / (beats_time[1] - beats_time[0]) if len(beats_time) > 1 else 120.0
+
             return {
-                "bpm": 60.0 / (beats[1] - beats[0]) if len(beats) > 1 else 120.0,
-                "beats": beats.tolist() if hasattr(beats, "tolist") else list(beats),
-                "downbeats": downbeats.tolist() if downbeats is not None else None,
-                "beat_positions": list(range(1, len(beats) + 1)),
+                "bpm": float(bpm),
+                "beats": beats_time,
+                "downbeats": downbeats_time if downbeats_time else None,
+                "beat_positions": list(range(1, len(beats_time) + 1)),
             }
         finally:
             try:
@@ -183,10 +187,11 @@ class BeatNetAdapter(EngineAdapter):
         category="beat_tracking",
         repo_url="https://github.com/mzsd/BeatNet",
         license="MIT",
-        install_cmd="pip install beatnet",
+        install_cmd="pip install beatnet madmom",
         model_size_mb=80,
-        requires_gpu=True,
-        notes="TCN-based beat/downbeat tracker. Good for complex rhythms.",
+        requires_gpu=False,
+        python_version=">=3.9",
+        notes="TCN-based beat/downbeat tracker. Good for complex rhythms. Requires madmom (C extension, may need system compiler).",
     )
 
     def __init__(self, device: str = "cpu", **kwargs):
@@ -195,8 +200,7 @@ class BeatNetAdapter(EngineAdapter):
 
     def is_available(self) -> bool:
         try:
-            import beatnet  # noqa: F401
-            import torch  # noqa: F401
+            from BeatNet import BeatNet  # noqa: F401
             return True
         except Exception:
             return False
@@ -205,15 +209,14 @@ class BeatNetAdapter(EngineAdapter):
         if self._model is not None:
             return
         try:
-            from beatnet import BeatNet
+            from BeatNet import BeatNet
             self._model = BeatNet(device=self._device)
         except Exception as e:
             logger.warning("BeatNet prepare failed: %s", e)
             self._model = None
 
     def estimate_beats(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
-        import io
-        import soundfile as sf
+        import os
         import tempfile
 
         if self._model is None:
@@ -226,12 +229,24 @@ class BeatNetAdapter(EngineAdapter):
             temp_path = f.name
 
         try:
-            beats, downbeats = self._model.predict(temp_path)
+            # BeatNet.predict returns (beats_times, downbeats_times, beat_conf, downbeat_conf)
+            result = self._model.predict(temp_path)
+            if len(result) == 4:
+                beats, downbeats, beat_conf, downbeat_conf = result
+            else:
+                beats, downbeats = result
+                beat_conf = downbeat_conf = None
+
+            beats_time = beats.tolist() if hasattr(beats, "tolist") else list(beats)
+            downbeats_time = downbeats.tolist() if hasattr(downbeats, "tolist") else list(downbeats)
+
+            bpm = 60.0 / (beats_time[1] - beats_time[0]) if len(beats_time) > 1 else 120.0
+
             return {
-                "bpm": 60.0 / (beats[1] - beats[0]) if len(beats) > 1 else 120.0,
-                "beats": beats.tolist() if hasattr(beats, "tolist") else list(beats),
-                "downbeats": downbeats.tolist() if downbeats is not None else None,
-                "beat_positions": list(range(1, len(beats) + 1)),
+                "bpm": float(bpm),
+                "beats": beats_time,
+                "downbeats": downbeats_time if downbeats_time else None,
+                "beat_positions": list(range(1, len(beats_time) + 1)),
             }
         finally:
             try:
