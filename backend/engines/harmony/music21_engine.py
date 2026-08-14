@@ -1,10 +1,8 @@
 """Music21 symbolic harmony engine.
 
 Wraps music21-based harmonic analysis (key, chords, Roman numerals,
-cadences, voice leading, phrases, modulations) behind the HarmonyEngine
-seam. Logic is identical to the previous ``analyze._m21_*`` helpers; only
-the entry point changed so callers route through the registry and receive
-provenance. No model swaps, no analysis-semantics changes.
+cadences, voice leading, phrases) behind the HarmonyEngine seam.
+Modulation detection was removed (custom heuristic produced false positives).
 """
 
 from __future__ import annotations
@@ -12,7 +10,6 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
-from collections import Counter
 from typing import Any
 
 import numpy as np
@@ -38,17 +35,6 @@ _QUALITY_MAP = {
     "minor sixth": "m6",
     "dominant ninth": "9",
 }
-
-_MODULATION_WINDOW_COUNT = 8
-_MIN_NOTES_PER_WINDOW = 4
-
-_KS_MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
-_KS_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
-
-_KS_MAJOR_C = _KS_MAJOR - _KS_MAJOR.mean()
-_KS_MAJOR_C = _KS_MAJOR_C / np.linalg.norm(_KS_MAJOR_C)
-_KS_MINOR_C = _KS_MINOR - _KS_MINOR.mean()
-_KS_MINOR_C = _KS_MINOR_C / np.linalg.norm(_KS_MINOR_C)
 
 
 def _m21_key(score):
@@ -416,9 +402,10 @@ class Music21HarmonyEngine(HarmonyEngine):
         """Per-sub-capability provenance.
 
         Music21 delivers key, chords, roman numerals, and voice leading via
-        its own modules. Cadence candidates and modulations are CUSTOM logic
-        that only *uses* music21's chord stream; labeling them as music21
-        outputs would mislead. ``phrases`` is deliberately unimplemented.
+        its own modules. Cadence candidates are CUSTOM logic that only *uses*
+        music21's chord stream; labeling them as music21 outputs would mislead.
+        ``phrases`` is deliberately unimplemented.
+        Modulation detection was removed (custom heuristic produced false positives).
         """
         music21 = EngineProvenance(engine="music21", library_version=_music21_version())
         cadences = EngineProvenance(
@@ -427,14 +414,6 @@ class Music21HarmonyEngine(HarmonyEngine):
             parameters={
                 "method": "roman_numeral_pattern",
                 "note": "custom adjacent-RN pattern heuristic over music21 output",
-            },
-        )
-        modulations = EngineProvenance(
-            engine="custom-rule",
-            library_version="custom",
-            parameters={
-                "method": "windowed_krumhansl-schmuckler",
-                "window_context": "overlapping windows over music21 note stream",
             },
         )
         phrases = EngineProvenance(
@@ -447,7 +426,6 @@ class Music21HarmonyEngine(HarmonyEngine):
             "chords": music21,
             "roman_numerals": music21,
             "cadences": cadences,
-            "modulations": modulations,
             "voice_leading": music21,
             "phrases": phrases,
         }
@@ -492,7 +470,7 @@ class Music21HarmonyEngine(HarmonyEngine):
             chords=_m21_chords(score),
             roman_numerals=_m21_roman_numerals(score, detected_key),
             cadences=_m21_cadences(score, detected_key),
-            modulations=_detect_modulations(score, tempo_bpm),
+            modulations=[],
             voice_leading=_m21_voice_leading(score),
             phrases=_m21_phrases(score),
             provenance=self.provenance,
