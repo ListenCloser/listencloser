@@ -132,7 +132,6 @@ class HarmonyResult:
     chords: list[dict[str, Any]]
     roman_numerals: list[dict[str, Any]]
     cadences: list[dict[str, Any]]
-    modulations: list[dict[str, Any]]
     voice_leading: dict[str, Any] | None
     phrases: list[dict[str, Any]]
     provenance: EngineProvenance
@@ -144,7 +143,6 @@ class HarmonyResult:
             "chords": self.chords,
             "roman_numerals": self.roman_numerals,
             "cadences": self.cadences,
-            "modulations": self.modulations,
             "voice_leading": self.voice_leading,
             "phrases": self.phrases,
             "provenance": self.provenance.to_dict(),
@@ -197,7 +195,7 @@ class HarmonyEngine(Protocol):
         """Symbolic harmonic analysis of a MIDI file.
 
         Returns a normalized HarmonyResult (key, chords, roman numerals,
-        cadences, modulations, voice leading, phrases) with provenance.
+        cadences, voice leading, phrases) with provenance.
         """
 
 

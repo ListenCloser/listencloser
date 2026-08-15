@@ -106,7 +106,6 @@ class TestHarmonyResult:
             chords=[],
             roman_numerals=[],
             cadences=[],
-            modulations=[],
             voice_leading=None,
             phrases=[],
             provenance=EngineProvenance(engine="music21", library_version="10.5"),
@@ -157,7 +156,6 @@ class TestMusic21HarmonyAdapter:
         assert result.chords == []
         assert result.roman_numerals == []
         assert result.cadences == []
-        assert result.modulations == []
         assert result.voice_leading is None
         assert result.phrases == []
         assert result.provenance.engine == "music21"
@@ -181,8 +179,8 @@ class TestTimingExcludesSetup:
 
     def test_runtime_excludes_prepare_and_warmup(self):
         """Prepare and warm-up sleep time must NOT be counted in inference runtime."""
-        import time
         import tempfile
+        import time
 
         class SlowAdapter:
             engine_info = type("Info", (), {

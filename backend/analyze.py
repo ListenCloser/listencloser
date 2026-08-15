@@ -3,13 +3,13 @@ MIDI harmonic analysis pipeline.
 
 WHY this module exists:
     The frontend needs structured music analysis data (key, tempo, chords,
-    cadences, modulations, voice leading) to display in the Analysis tab.
+    cadences, voice leading) to display in the Analysis tab.
     This module runs on the backend because music21 and pretty_midi are
     heavy Python libraries that can't run in the browser.
 
 WHAT we build vs what we delegate:
     Symbolic harmony (key, chords, roman numerals, cadences, voice leading,
-    modulations, phrases) is produced by the harmony engine seam
+    phrases) is produced by the harmony engine seam
     (engines.harmony.music21_engine). Melody extraction is produced by the
     melody engine seam (engines.melody.skyline_engine). Tempo/time-signature
     come from pretty_midi (MIDI metadata); rhythm stats are computed here.
@@ -37,8 +37,6 @@ import numpy as np
 import pretty_midi
 
 from engines.harmony.music21_engine import (  # noqa: F401  # legacy re-export
-    _detect_modulations,
-    _key_from_pc_vector,
     _m21_cadences,
     _m21_chords,
     _m21_key,
@@ -96,16 +94,6 @@ class CadenceResult(TypedDict):
     evidence: dict
 
 
-class ModulationResult(TypedDict):
-    from_key: str
-    to_key: str
-    position: float
-    kind: str  # "possible_tonicization" or "possible_modulation"
-    run_length_windows: int
-    duration_seconds: float
-    window_size_seconds: float
-
-
 class VoiceLeadingResult(TypedDict):
     parallel: float
     contrary: float
@@ -146,7 +134,6 @@ class AnalysisResult(TypedDict):
     chords: list[ChordResult]
     roman_numerals: list[RomanNumeralResult]
     cadences: list[CadenceResult]
-    modulations: list[ModulationResult]
     voice_leading: VoiceLeadingResult | None
     phrases: list[PhraseResult]
     rhythm: RhythmResult | None
@@ -237,7 +224,6 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         "chords": [],
         "roman_numerals": [],
         "cadences": [],
-        "modulations": [],
         "voice_leading": None,
         "phrases": [],
         "rhythm": None,
@@ -275,9 +261,12 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         )
         result["key"] = harmony.key
         result["chords"] = harmony.chords
-        result["roman_numerals"] = harmony.roman_numerals
+        # Truthfulness invariant: no chord evidence → no Roman numerals
+        if harmony.chords:
+            result["roman_numerals"] = harmony.roman_numerals
+        else:
+            result["roman_numerals"] = []
         result["cadences"] = harmony.cadences
-        result["modulations"] = harmony.modulations
         result["voice_leading"] = harmony.voice_leading
         result["phrases"] = harmony.phrases
         result["harmony_provenance"] = {
