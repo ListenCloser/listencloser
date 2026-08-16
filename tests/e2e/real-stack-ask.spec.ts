@@ -8,8 +8,10 @@ import { existsSync } from "node:fs";
  * local Supabase (no MSW). The stack is started by the `real-stack-e2e` CI
  * job; this file only drives the browser.
  *
- * The Ask endpoint does not exist on the backend yet, so ONLY the ask network
- * call is mocked via page.route — everything else (works, versions, entities,
+ * The POST /api/v1/ask endpoint exists on the backend, but a real Ask call
+ * requires a live LLM provider with valid grounding. To keep this suite
+ * deterministic without provider configuration, ONLY the ask network call is
+ * mocked via page.route — everything else (works, versions, entities,
  * insights, playback) runs against the real stack. This proves the Ask UI is
  * a real frontend surface over the real workspace, not a mock-only affordance.
  *
@@ -144,8 +146,9 @@ test.describe("contextual Ask inspector (real stack)", () => {
     test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
     test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
     await injectAuth(page);
-    // Only the Ask endpoint is mocked; the rest of the stack is real. The
-    // handler is switchable so the test can also capture the error state.
+    // Only the Ask network call is mocked (a real LLM provider isn't
+    // configured); the rest of the stack is real. The handler is switchable
+    // so the test can also capture the error state.
     failAsk = false;
     await page.route("**/api/v1/ask", (route) => {
       if (failAsk) {

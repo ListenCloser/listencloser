@@ -4,10 +4,11 @@ import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures
 /**
  * Contextual Ask inspector UI (MSW).
  *
- * The Ask endpoint does not exist on the backend yet, so the MSW handler
- * returns a typed AskResponse. This spec proves the Ask mode is a real,
- * frontend-only UI against that mock: conversation, evidence chips, safe
- * reference resolution, and inert cross-domain actions.
+ * Runs against the MSW mock for the POST /api/v1/ask endpoint so the suite is
+ * deterministic and does not require a real LLM provider. This spec proves the
+ * Ask mode is a real, frontend-only UI against that mock: conversation,
+ * evidence chips, safe reference resolution, and disabled cross-domain
+ * actions/references.
  */
 test.describe("contextual Ask inspector (MSW)", () => {
   test.beforeEach(async ({ page }) => {
@@ -83,12 +84,13 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
   });
 
-  test("domain-mismatched loop and seek actions do not change the transport", async ({ page }) => {
+  test("domain-mismatched loop and seek actions are disabled", async ({ page }) => {
     await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
 
     // Switch the playback source to the Score rendition so the active timeline
     // is notation time. The mocked suggested actions are performance-domain,
-    // so Loop passage and Jump to time must stay inert.
+    // so Loop passage and Jump to time must render disabled (not clickable
+    // no-ops), while the representation action stays enabled.
     await page.getByRole("button", { name: /Listening to:/ }).click();
     await page.getByRole("option", { name: "Score rendition", exact: true }).click();
     await expect(page.getByRole("button", { name: "Listening to: Score rendition", exact: true })).toBeVisible();
@@ -100,11 +102,12 @@ test.describe("contextual Ask inspector (MSW)", () => {
     const toggleLoop = page.getByRole("button", { name: "Toggle loop" });
     const loopPressedBefore = (await toggleLoop.getAttribute("aria-pressed")) === "true";
 
-    const posBefore = await transportPos(page);
-    await page.getByRole("button", { name: "Jump to time" }).click();
-    await expect.poll(() => transportPos(page)).toBe(posBefore);
+    await expect(page.getByRole("button", { name: "Jump to time" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Loop passage" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Open Score" })).toBeEnabled();
 
-    await page.getByRole("button", { name: "Loop passage" }).click();
+    // The disabled state is stable: no transport change happens while in it.
+    const posBefore = await transportPos(page);
     await expect.poll(() => transportPos(page)).toBe(posBefore);
     if (loopPressedBefore) {
       await expect(toggleLoop).toHaveAttribute("aria-pressed", "true");

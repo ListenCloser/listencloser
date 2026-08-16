@@ -12,8 +12,10 @@ import {
   formatReference,
   resolveReference,
   validateAction,
+  type ReferenceContext,
 } from "@/lib/ask/render";
 import { composeNoteSelection } from "@/lib/selection";
+import type { PlaybackSource } from "@/lib/stores/transport";
 import type { AskAction, AskMessage, AskReference, AskResponse } from "@/lib/ask/types";
 
 const STARTER_PROMPTS = [
@@ -34,9 +36,15 @@ function referenceLabel(ref: AskReference, insights: { id: string; claim: string
   return formatReference(ref, resolveInsight);
 }
 
-function ActionChip({ action, onClick }: { action: AskAction; onClick: (action: AskAction) => void }) {
+function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; blocked: boolean; reason?: string; onClick: (action: AskAction) => void }) {
   return (
-    <button type="button" className="ask-action-chip" onClick={() => onClick(action)}>
+    <button
+      type="button"
+      className="ask-action-chip"
+      disabled={blocked}
+      title={reason}
+      onClick={() => onClick(action)}
+    >
       {actionLabel(action)}
     </button>
   );
@@ -56,6 +64,15 @@ export default function AskPanel() {
   const activeSource = transport.activeSource;
   const scoreEntry = workspace.representations.find((entry) => entry.kind === "score");
   const pianoRollEntry = workspace.representations.find((entry) => entry.kind === "piano_roll");
+
+  const referenceContext: ReferenceContext = {
+    activeSource,
+    insights: workspace.insights,
+    bpm: timeline.bpm,
+    measureStarts: scoreEntry?.measureStarts ?? [],
+    scoreDuration: scoreEntry?.audioUrl ? transport.duration : null,
+    notes: pianoRollEntry?.notes ?? [],
+  };
 
   const runAsk = useCallback(async (question: string, context: NonNullable<ReturnType<typeof deriveAskContext>>) => {
     setPending(true);
@@ -101,14 +118,7 @@ export default function AskPanel() {
   }, [lastAsked, runAsk]);
 
   const handleReference = useCallback((ref: AskReference) => {
-    const resolution = resolveReference(ref, {
-      activeSource,
-      insights: workspace.insights,
-      bpm: timeline.bpm,
-      measureStarts: scoreEntry?.measureStarts ?? [],
-      scoreDuration: scoreEntry?.audioUrl ? transport.duration : null,
-      notes: pianoRollEntry?.notes ?? [],
-    });
+    const resolution = resolveReference(ref, referenceContext);
     switch (resolution.kind) {
       case "seek":
         seek(resolution.seconds);
@@ -125,7 +135,7 @@ export default function AskPanel() {
       case "blocked":
         break;
     }
-  }, [activeSource, pianoRollEntry, scoreEntry, seek, setActiveRepresentation, setSelection, timeline.bpm, transport.duration, workspace.insights]);
+  }, [referenceContext, seek, setActiveRepresentation, setSelection]);
 
   const handleAction = useCallback((action: AskAction) => {
     const { allowed } = validateAction(action, activeSource);
@@ -186,6 +196,8 @@ export default function AskPanel() {
             key={message.id}
             message={message}
             insights={workspace.insights}
+            referenceContext={referenceContext}
+            activeSource={activeSource}
             onReference={handleReference}
             onAction={handleAction}
           />
@@ -236,11 +248,15 @@ export default function AskPanel() {
 function AskMessageView({
   message,
   insights,
+  referenceContext,
+  activeSource,
   onReference,
   onAction,
 }: {
   message: AskMessage;
   insights: { id: string; claim: string }[];
+  referenceContext: ReferenceContext;
+  activeSource: PlaybackSource | null;
   onReference: (ref: AskReference) => void;
   onAction: (action: AskAction) => void;
 }) {
@@ -262,24 +278,39 @@ function AskMessageView({
         <div className="ask-references">
           <span className="ask-ref-label">Evidence</span>
           <div className="ask-ref-chips">
-            {response.references.map((ref, index) => (
-              <button
-                type="button"
-                className="ask-ref-chip"
-                key={`${ref.type}-${index}`}
-                onClick={() => onReference(ref)}
-              >
-                {referenceLabel(ref, insights)}
-              </button>
-            ))}
+            {response.references.map((ref, index) => {
+              const resolution = resolveReference(ref, referenceContext);
+              const blocked = resolution.kind === "blocked";
+              return (
+                <button
+                  type="button"
+                  className="ask-ref-chip"
+                  key={`${ref.type}-${index}`}
+                  disabled={blocked}
+                  title={blocked ? resolution.reason : undefined}
+                  onClick={() => onReference(ref)}
+                >
+                  {referenceLabel(ref, insights)}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
       {response.suggestedActions && response.suggestedActions.length > 0 && (
         <div className="ask-actions">
-          {response.suggestedActions.map((action, index) => (
-            <ActionChip key={`${action.type}-${index}`} action={action} onClick={onAction} />
-          ))}
+          {response.suggestedActions.map((action, index) => {
+            const { allowed, reason } = validateAction(action, activeSource);
+            return (
+              <ActionChip
+                key={`${action.type}-${index}`}
+                action={action}
+                blocked={!allowed}
+                reason={reason}
+                onClick={onAction}
+              />
+            );
+          })}
         </div>
       )}
     </div>
