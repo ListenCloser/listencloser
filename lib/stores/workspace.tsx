@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import type { Insight } from "@/lib/domain.types";
 import type { Project, Work } from "@/lib/domain.types";
 import type { RepresentationId } from "@/lib/representations";
+import type { AskMessage } from "@/lib/ask/types";
 
 export type RepresentationKind =
   | "piano_roll"
@@ -82,6 +83,7 @@ type WorkspaceState = {
   libraryCollapsed: boolean;
   inspectorCollapsed: boolean;
   inspectorMode: "analysis" | "ask";
+  askConversation: AskMessage[];
   representations: RepresentationEntry[];
   insights: Insight[];
   takes: StudioTake[];
@@ -100,6 +102,9 @@ type WorkspaceContextValue = {
   requestImport: () => void;
   toggleLibrary: () => void;
   toggleInspector: () => void;
+  setInspectorMode: (mode: "analysis" | "ask") => void;
+  appendAskMessage: (message: AskMessage) => void;
+  clearAskConversation: () => void;
   removeWork: (workId: string) => void;
   restoreWork: (work: Work) => void;
   addRepresentation: (rep: RepresentationEntry) => void;
@@ -145,6 +150,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     libraryCollapsed: false,
     inspectorCollapsed: false,
     inspectorMode: "analysis",
+    askConversation: [],
     representations: [],
     insights: [],
     takes: [],
@@ -176,6 +182,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         studioOperation: { state: "idle", label: "" },
         activeRepresentation: null,
         selection: null,
+        askConversation: [],
       };
     });
   }, []);
@@ -209,6 +216,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         studioOperation: removingActive ? { state: "idle", label: "" } : prev.studioOperation,
         activeRepresentation: removingActive ? null : prev.activeRepresentation,
         selection: removingActive ? null : prev.selection,
+        askConversation: removingActive ? [] : prev.askConversation,
         isLoadingWork: removingActive ? false : prev.isLoadingWork,
       };
     });
@@ -223,6 +231,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const toggleInspector = useCallback(() => {
     setWorkspace((prev) => ({ ...prev, inspectorCollapsed: !prev.inspectorCollapsed }));
+  }, []);
+
+  const setInspectorMode = useCallback((inspectorMode: "analysis" | "ask") => {
+    setWorkspace((prev) => ({ ...prev, inspectorMode }));
+  }, []);
+
+  const appendAskMessage = useCallback((message: AskMessage) => {
+    setWorkspace((prev) => ({ ...prev, askConversation: [...prev.askConversation, message] }));
+  }, []);
+
+  const clearAskConversation = useCallback(() => {
+    setWorkspace((prev) => ({ ...prev, askConversation: [] }));
   }, []);
 
   const addRepresentation = useCallback((rep: RepresentationEntry) => {
@@ -308,6 +328,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         requestImport,
         toggleLibrary,
         toggleInspector,
+        setInspectorMode,
+        appendAskMessage,
+        clearAskConversation,
         removeWork,
         restoreWork,
         addRepresentation,

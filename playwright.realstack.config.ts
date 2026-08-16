@@ -7,7 +7,11 @@ import { defineConfig } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["real-stack-workflow.spec.ts", "real-stack-inspector.spec.ts"],
+  testMatch: [
+    "real-stack-workflow.spec.ts",
+    "real-stack-inspector.spec.ts",
+    "real-stack-ask.spec.ts",
+  ],
   timeout: 600_000,
   fullyParallel: false,
   workers: 1,
