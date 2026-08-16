@@ -2,9 +2,17 @@ import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
+import type { AskMessage } from "@/lib/ask/types";
 
 function wrapper({ children }: { children: ReactNode }) {
   return <WorkspaceProvider>{children}</WorkspaceProvider>;
+}
+
+function askMessages(): AskMessage[] {
+  return [
+    { id: "u1", role: "user", text: "What is happening here?" },
+    { id: "a1", role: "assistant", response: { answer: "A passage.", references: [] } },
+  ];
 }
 
 describe("WorkspaceProvider", () => {
@@ -121,5 +129,77 @@ describe("WorkspaceProvider", () => {
     expect(result.current.workspace.takes).toEqual([]);
     expect(result.current.workspace.studioAction).toBeNull();
     expect(result.current.workspace.isLoadingWork).toBe(false);
+  });
+
+  it("clears the ask conversation when switching works", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    act(() => {
+      result.current.setActiveWorkId("work-a");
+      result.current.appendAskMessage(askMessages()[0]);
+      result.current.appendAskMessage(askMessages()[1]);
+    });
+    expect(result.current.workspace.askConversation).toHaveLength(2);
+
+    act(() => result.current.setActiveWorkId("work-b"));
+
+    expect(result.current.workspace.askConversation).toEqual([]);
+  });
+
+  it("clears the ask conversation when deleting the active work", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    act(() => {
+      result.current.setWorks([
+        { id: "work-a", project_id: "p", title: "A", composer: null, created_at: "", updated_at: "" },
+      ]);
+      result.current.setActiveWorkId("work-a");
+      result.current.appendAskMessage(askMessages()[0]);
+    });
+
+    act(() => result.current.removeWork("work-a"));
+
+    expect(result.current.workspace.askConversation).toEqual([]);
+  });
+
+  it("keeps the ask conversation across representation changes", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    act(() => {
+      result.current.setActiveWorkId("work-a");
+      result.current.appendAskMessage(askMessages()[0]);
+      result.current.appendAskMessage(askMessages()[1]);
+      result.current.setActiveRepresentation("score");
+      result.current.setActiveRepresentation("listen");
+    });
+
+    expect(result.current.workspace.askConversation).toHaveLength(2);
+  });
+
+  it("does not clear the ask conversation when switching inspector modes", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    act(() => {
+      result.current.setActiveWorkId("work-a");
+      result.current.appendAskMessage(askMessages()[0]);
+      result.current.setInspectorMode("ask");
+      result.current.setInspectorMode("analysis");
+    });
+
+    expect(result.current.workspace.inspectorMode).toBe("analysis");
+    expect(result.current.workspace.askConversation).toHaveLength(1);
+  });
+
+  it("appends messages in order and clears via clearAskConversation", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    act(() => {
+      result.current.appendAskMessage(askMessages()[0]);
+      result.current.appendAskMessage(askMessages()[1]);
+    });
+    expect(result.current.workspace.askConversation.map((m) => m.id)).toEqual(["u1", "a1"]);
+
+    act(() => result.current.clearAskConversation());
+    expect(result.current.workspace.askConversation).toEqual([]);
   });
 });

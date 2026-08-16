@@ -3,12 +3,12 @@ import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { RepresentationId } from "@/lib/representations";
 
 /**
- * The workspace context a future music copilot can reason about.
+ * The workspace context the Ask copilot reasons about.
  *
  * Derived — never a second source of truth — from the same existing
- * workspace/transport state that drives the rest of the app. No LLM call,
- * annotations, or user-facing UI depends on this in this PR; it is the typed
- * seam that later Ask features build on.
+ * workspace/transport state that drives the rest of the app. Sent to the
+ * POST /api/v1/ask endpoint alongside the question; the backend contracts
+ * against the same shape (see backend/ask/contracts.py).
  */
 export type AskContext = {
   workId: string;
@@ -47,3 +47,12 @@ export type AskResponse = {
   references: AskReference[];
   suggestedActions?: AskAction[];
 };
+
+/**
+ * A single message in the Ask conversation, local to the current work/session.
+ * User turns carry plain text; assistant turns carry the full typed response
+ * so references and suggested actions stay structured (never string-joined).
+ */
+export type AskMessage =
+  | { id: string; role: "user"; text: string }
+  | { id: string; role: "assistant"; response: AskResponse };
