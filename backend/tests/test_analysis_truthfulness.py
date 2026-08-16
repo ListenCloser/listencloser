@@ -12,6 +12,7 @@ import pytest
 pytest.importorskip("music21", reason="music21 not installed")
 
 import pretty_midi  # noqa: E402
+from music21 import stream  # noqa: E402
 
 from analyze import _m21_chords, _m21_key, analyze_midi  # noqa: E402
 from domain.capabilities import _transcription_defaults_pulse  # noqa: E402
@@ -142,3 +143,67 @@ class TestAnalyzeMidiNoDefaults:
         # this only asserts the contract that a None result is allowed and the
         # caller (handle_analyze) treats it as unavailable.
         assert _m21_key(_FakeScore(raises=True)) is None
+
+
+class TestNoModulationClaims:
+    def test_analysis_has_no_modulations_key(self):
+        """The modulations contract was removed from the analysis result."""
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            f.write(_midi_bytes())
+            path = f.name
+        try:
+            result = analyze_midi(path)
+        finally:
+            import os
+
+            os.unlink(path)
+        assert "modulations" not in result
+        assert "modulations" not in result["harmony_provenance"]
+
+    def test_engine_result_has_no_modulations_field(self):
+        from engines.base import HarmonyResult
+        from engines.harmony.music21_engine import Music21HarmonyEngine
+
+        engine = Music21HarmonyEngine()
+        assert "modulations" not in engine.component_provenance()
+        fields = set(HarmonyResult.__dataclass_fields__)
+        assert "modulations" not in fields
+
+
+class TestRomanNumeralsRequireChords:
+    def test_no_chords_suppresses_roman_numerals(self):
+        """Truthfulness invariant: no defensible chord evidence → no persisted
+        Roman numeral claims."""
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            f.write(_midi_bytes())
+            path = f.name
+        try:
+            result = analyze_midi(path)
+        finally:
+            import os
+
+            os.unlink(path)
+        # The canonical synthetic MIDI has no recognized chords (un-spelled
+        # clusters), so Roman numerals must be suppressed even if music21 can
+        # still produce a key.
+        assert result["chords"] == []
+        assert result["roman_numerals"] == []
+
+    def test_chords_allow_roman_numerals(self):
+        """When defensible chord evidence exists, Roman numerals persist."""
+        from music21 import chord as m21_chord
+
+        from engines.harmony.music21_engine import _m21_roman_numerals
+
+        s = stream.Score()
+        p = stream.Part()
+        m = stream.Measure()
+        c = m21_chord.Chord("C4 E4 G4")
+        c.offset = 0.0
+        c.quarterLength = 1.0
+        m.insert(c)
+        p.append(m)
+        s.insert(0, p)
+        detected = s.analyze("key")
+        rns = _m21_roman_numerals(s, detected)
+        assert isinstance(rns, list)

@@ -2,7 +2,6 @@
 
 Wraps music21-based harmonic analysis (key, chords, Roman numerals,
 cadences, voice leading, phrases) behind the HarmonyEngine seam.
-Modulation detection was removed (custom heuristic produced false positives).
 """
 
 from __future__ import annotations
@@ -11,8 +10,6 @@ import logging
 import os
 import tempfile
 from typing import Any
-
-import numpy as np
 
 from engines.base import EngineProvenance, HarmonyEngine, HarmonyResult
 
@@ -287,104 +284,6 @@ def _m21_phrases(score) -> list[dict[str, Any]]:
     return []
 
 
-def _detect_modulations(score, tempo_bpm: float | None = None) -> list[dict[str, Any]]:
-    """Detect key changes using overlapping windows with sustained-evidence gating.
-
-    A single noisy window change is NOT a modulation. Key history is run-length
-    encoded so each sustained local-key region emits at most one transition.
-    Brief changes are "possible_tonicization"; sustained ones "possible_modulation".
-    """
-    all_notes = []
-    for part in score.parts:
-        for note in part.recurse().getElementsByClass("GeneralNote"):
-            offset = float(note.offset) if note.offset is not None else 0.0
-            if hasattr(note, "pitch") and note.pitch is not None:
-                all_notes.append((offset, note.pitch.midi))
-    if len(all_notes) < 16:
-        return []
-    all_notes.sort(key=lambda x: x[0])
-
-    qpm = tempo_bpm if tempo_bpm else 120.0
-    max_offset_qn = all_notes[-1][0] if all_notes else 1.0
-    total_sec = max_offset_qn * 60.0 / qpm
-    if total_sec <= 0:
-        return []
-
-    # Overlapping windows: window_sec step half of window size.
-    window_sec = total_sec / 8.0
-    step_sec = window_sec / 2.0
-
-    key_history: list[tuple[float, str]] = []
-    t = 0.0
-    while t + window_sec <= total_sec + 1e-9:
-        t_start_qn = t * qpm / 60.0
-        t_end_qn = (t + window_sec) * qpm / 60.0
-        pitches = [p for toff, p in all_notes if t_start_qn <= toff < t_end_qn]
-        if len(pitches) >= _MIN_NOTES_PER_WINDOW:
-            pc_dist = np.zeros(12)
-            for pc, cnt in Counter(p % 12 for p in pitches).items():
-                pc_dist[pc] = cnt
-            kr = _key_from_pc_vector(pc_dist)
-            if kr is not None:
-                key_history.append((t, f"{kr['tonic']} {kr['mode']}"))
-        t += step_sec
-
-    # Run-length encode key history into (key, start_time, run_length).
-    runs: list[tuple[str, float, int]] = []
-    for kt, key in key_history:
-        if runs and runs[-1][0] == key:
-            prev_key, prev_start, prev_len = runs[-1]
-            runs[-1] = (prev_key, prev_start, prev_len + 1)
-        else:
-            runs.append((key, kt, 1))
-
-    modulations: list[dict[str, Any]] = []
-    for i in range(1, len(runs)):
-        prev_key, prev_start, prev_len = runs[i - 1]
-        new_key, new_start, new_len = runs[i]
-        if new_len >= 3:
-            kind = "possible_modulation"
-        elif new_len == 2:
-            kind = "possible_tonicization"
-        else:
-            # Single-window fluctuation: not a modulation.
-            continue
-        modulations.append(
-            {
-                "from_key": prev_key,
-                "to_key": new_key,
-                "position": round(new_start, 3),
-                "kind": kind,
-                "run_length_windows": new_len,
-                "duration_seconds": round(new_len * step_sec, 3),
-                "window_size_seconds": round(window_sec, 3),
-            }
-        )
-    return modulations
-
-
-def _key_from_pc_vector(pc: np.ndarray):
-    """Estimate key from a 12-dim pitch-class distribution.
-
-    Uses centered/normalized Krumhansl-Schmuckler profiles (cosine similarity)
-    so the score is not biased by profile magnitude. Returns None when there is
-    no pitch-class evidence, rather than fabricating a key.
-    """
-    if pc.sum() <= 0:
-        return None
-    pc_c = pc - pc.mean()
-    pc_c = pc_c / (np.linalg.norm(pc_c) + 1e-10)
-    candidates: list[tuple[str, str, float]] = []
-    for shift in range(12):
-        rolled = np.roll(pc_c, -shift)
-        candidates.append((_NOTES[shift], "major", float(np.dot(rolled, _KS_MAJOR_C))))
-        candidates.append((_NOTES[shift], "minor", float(np.dot(rolled, _KS_MINOR_C))))
-    candidates.sort(key=lambda x: x[2], reverse=True)
-    best = candidates[0]
-    confidence = round(min(max(best[2], 0.0), 1.0), 3)
-    return {"tonic": best[0], "mode": best[1], "confidence": confidence}
-
-
 class Music21HarmonyEngine(HarmonyEngine):
     ENGINE = "music21"
 
@@ -405,7 +304,6 @@ class Music21HarmonyEngine(HarmonyEngine):
         its own modules. Cadence candidates are CUSTOM logic that only *uses*
         music21's chord stream; labeling them as music21 outputs would mislead.
         ``phrases`` is deliberately unimplemented.
-        Modulation detection was removed (custom heuristic produced false positives).
         """
         music21 = EngineProvenance(engine="music21", library_version=_music21_version())
         cadences = EngineProvenance(
@@ -456,7 +354,6 @@ class Music21HarmonyEngine(HarmonyEngine):
                 chords=[],
                 roman_numerals=[],
                 cadences=[],
-                modulations=[],
                 voice_leading=None,
                 phrases=[],
                 provenance=self.provenance,
@@ -470,7 +367,6 @@ class Music21HarmonyEngine(HarmonyEngine):
             chords=_m21_chords(score),
             roman_numerals=_m21_roman_numerals(score, detected_key),
             cadences=_m21_cadences(score, detected_key),
-            modulations=[],
             voice_leading=_m21_voice_leading(score),
             phrases=_m21_phrases(score),
             provenance=self.provenance,

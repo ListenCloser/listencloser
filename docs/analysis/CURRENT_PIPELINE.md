@@ -72,7 +72,7 @@ MIDI bytes
     ↓                              ↓
 HarmonyResult                  MelodyResult
 (key, chords, RNs,             (melody features)
- cadences, modulations,
+ cadences,
  voice_leading, phrases)
     ↓                              ↓
 └─────────────────────────────────────────────────────────────┐
@@ -114,7 +114,6 @@ AnalysisResult (TypedDict)
 | Cadences | `_m21_cadences(score, key)` | music21 `roman` | **CUSTOM**: Adjacent RN pattern matching |
 | Voice Leading | `_m21_voice_leading(score)` | music21 `voiceLeading` | **CUSTOM**: Requires ≥2 melodic parts |
 | Phrases | `_m21_phrases(score)` | — | **UNIMPLEMENTED**: Returns `[]` |
-| Modulations | `_detect_modulations(score, tempo)` | — | **CUSTOM**: Windowed Krumhansl-Schmuckler |
 
 ### Provenance (L415-453) — Critical for Audit:
 ```python
@@ -123,7 +122,6 @@ component_provenance = {
     "chords": EngineProvenance(engine="music21", ...),
     "roman_numerals": EngineProvenance(engine="music21", ...),
     "cadences": EngineProvenance(engine="custom-rule", ...),  # ← CUSTOM
-    "modulations": EngineProvenance(engine="custom-rule", ...),  # ← CUSTOM
     "voice_leading": EngineProvenance(engine="music21", ...),
     "phrases": EngineProvenance(engine="custom-rule", parameters={"method": "unimplemented"}),
 }
@@ -199,10 +197,9 @@ EngineProvenance(engine="skyline", library_version=pretty_midi.__version__, para
 | Rhythm (aggregate) | `rhythm` | `heuristic` | `None` | — |
 | Melody (aggregate) | `melody` | `heuristic` | `None` | melody_provenance |
 | Voice Leading | `voice_motion_candidate` | `heuristic` | `None` | harmony_provenance["voice_leading"] |
-| Each Modulation | `modulation` | `heuristic` | `None` | harmony_provenance["modulations"] |
 
 ### Critical Observations:
-1. **Chords/RN/Cadences/Modulations** → `confidence=None` (no calibrated scores)
+1. **Chords/RN/Cadences** → `confidence=None` (no calibrated scores)
 2. **Tempo/TimeSig** → Hardcoded 0.9 confidence from MIDI metadata (often transcription defaults)
 3. **Key** → Only music21 correlation coefficient (not calibrated probability)
 4. **Provenance** → Per-component, correctly distinguishes music21 vs custom-rule
@@ -263,7 +260,7 @@ deriveAskContext(workId, representationId, currentTime, activeSource, selection,
 │                 │
 │ ├─ pretty_midi  │──→ tempo, time_sig (metadata)
 │ ├─ HarmonyEngine│──→ key, chords, RN, cadences,
-│ │  (music21)    │     modulations, voice_leading, phrases
+│ │  (music21)    │     voice_leading, phrases
 │ ├─ MelodyEngine │──→ melody features
 │ │  (skyline)    │
 │ └─ _midi_rhythm │──→ density, avg_duration

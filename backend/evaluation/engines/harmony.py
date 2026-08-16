@@ -33,7 +33,7 @@ class Music21HarmonyAdapter(EngineAdapter):
         install_cmd="pip install music21",
         model_size_mb=0,
         requires_gpu=False,
-        notes="Symbolic analysis via music21. Key, chords, RN, cadences, voice leading, modulations. Current production baseline.",
+        notes="Symbolic analysis via music21. Key, chords, RN, cadences, voice leading. Current production baseline.",
     )
 
     def __init__(self, **kwargs):
@@ -215,15 +215,11 @@ class Music21HarmonyAdapter(EngineAdapter):
         except Exception:
             pass
 
-        # Modulations (custom windowed KS)
-        modulations = _detect_modulations(score)
-
         return {
             "key": key_result,
             "chords": chords,
             "roman_numerals": roman_numerals,
             "cadences": cadences,
-            "modulations": modulations,
             "voice_leading": voice_leading,
             "phrases": [],  # Not implemented
         }
@@ -324,7 +320,6 @@ class LVChordiaAdapter(EngineAdapter):
                 "chords": chord_results,
                 "roman_numerals": [],
                 "cadences": [],
-                "modulations": [],
                 "voice_leading": None,
                 "phrases": [],
             }
@@ -376,101 +371,6 @@ def _has_melodic_content(part) -> bool:
         return len(notes) >= 4
     except Exception:
         return False
-
-
-_KS_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
-_KS_MINOR = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
-_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-
-
-def _key_from_pc_vector(pc_vec):
-    import numpy as np
-    pc = np.array(pc_vec)
-    if pc.sum() <= 0:
-        return None
-    pc_c = pc - pc.mean()
-    pc_c = pc_c / (np.linalg.norm(pc_c) + 1e-10)
-    ks_major_c = np.array(_KS_MAJOR) - np.mean(_KS_MAJOR)
-    ks_major_c = ks_major_c / np.linalg.norm(ks_major_c)
-    ks_minor_c = np.array(_KS_MINOR) - np.mean(_KS_MINOR)
-    ks_minor_c = ks_minor_c / np.linalg.norm(ks_minor_c)
-
-    candidates = []
-    for shift in range(12):
-        rolled = np.roll(pc_c, -shift)
-        candidates.append((_NOTES[shift], "major", float(np.dot(rolled, ks_major_c))))
-        candidates.append((_NOTES[shift], "minor", float(np.dot(rolled, ks_minor_c))))
-    candidates.sort(key=lambda x: x[2], reverse=True)
-    best = candidates[0]
-    return {"tonic": best[0], "mode": best[1], "confidence": round(min(max(best[2], 0.0), 1.0), 3)}
-
-
-def _detect_modulations(score, tempo_bpm: float | None = None):
-    """Detect key changes using overlapping windows."""
-    import numpy as np
-    from collections import Counter
-
-    all_notes = []
-    for part in score.parts:
-        for note in part.recurse().getElementsByClass("GeneralNote"):
-            offset = float(note.offset) if note.offset is not None else 0.0
-            if hasattr(note, "pitch") and note.pitch is not None:
-                all_notes.append((offset, note.pitch.midi))
-    if len(all_notes) < 16:
-        return []
-    all_notes.sort(key=lambda x: x[0])
-
-    qpm = tempo_bpm if tempo_bpm else 120.0
-    max_offset_qn = all_notes[-1][0] if all_notes else 1.0
-    total_sec = max_offset_qn * 60.0 / qpm
-    if total_sec <= 0:
-        return []
-
-    window_sec = total_sec / 8.0
-    step_sec = window_sec / 2.0
-
-    key_history = []
-    t = 0.0
-    while t + window_sec <= total_sec + 1e-9:
-        t_start_qn = t * qpm / 60.0
-        t_end_qn = (t + window_sec) * qpm / 60.0
-        pitches = [p for toff, p in all_notes if t_start_qn <= toff < t_end_qn]
-        if len(pitches) >= 4:
-            pc_dist = np.zeros(12)
-            for pc, cnt in Counter(p % 12 for p in pitches).items():
-                pc_dist[pc] = cnt
-            kr = _key_from_pc_vector(pc_dist)
-            if kr is not None:
-                key_history.append((t, f"{kr['tonic']} {kr['mode']}"))
-        t += step_sec
-
-    runs = []
-    for kt, k in key_history:
-        if runs and runs[-1][0] == k:
-            runs[-1] = (runs[-1][0], runs[-1][1], runs[-1][2] + 1)
-        else:
-            runs.append((k, kt, 1))
-
-    modulations = []
-    for i in range(1, len(runs)):
-        prev_key, prev_start, prev_len = runs[i - 1]
-        new_key, new_start, new_len = runs[i]
-        if new_len >= 3:
-            kind = "possible_modulation"
-        elif new_len == 2:
-            kind = "possible_tonicization"
-        else:
-            continue
-        modulations.append({
-            "from_key": prev_key,
-            "to_key": new_key,
-            "position": round(new_start, 3),
-            "kind": kind,
-            "run_length_windows": new_len,
-            "duration_seconds": round(new_len * step_sec, 3),
-            "window_size_seconds": round(window_sec, 3),
-        })
-    return modulations
 
 
 # ============================================================

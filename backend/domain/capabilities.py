@@ -820,34 +820,36 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(cid))
 
-    # Roman numerals
+    # Roman numerals — only persist when there is defensible chord evidence
     rns = analysis.get("roman_numerals", []) or []
-    rn_count = len(rns)
-    for idx, rn in enumerate(rns):
-        pct = 0.75 + 0.12 * (idx / max(rn_count, 1))
-        _update_progress(
-            client,
-            job.id,
-            pct,
-            f"storing roman numeral insight {idx + 1}/{rn_count}",
-        )
-        figure = rn.get("figure", "?")
-        start = float(rn.get("start", 0))
-        end = float(rn.get("end", 0))
-        rid = _create_insight(
-            client,
-            input_version.id,
-            "roman_numeral",
-            figure,
-            evidence={**rn, "key_confidence": key_conf},
-            span=Span(start_beat=start, end_beat=end),
-            confidence=None,
-            job=job,
-            owner_id=owner_id,
-            method="inferred",
-            engine_provenance=_hp("roman_numerals"),
-        )
-        insight_ids.append(str(rid))
+    chords = analysis.get("chords", []) or []
+    if chords and rns:
+        rn_count = len(rns)
+        for idx, rn in enumerate(rns):
+            pct = 0.75 + 0.12 * (idx / max(rn_count, 1))
+            _update_progress(
+                client,
+                job.id,
+                pct,
+                f"storing roman numeral insight {idx + 1}/{rn_count}",
+            )
+            figure = rn.get("figure", "?")
+            start = float(rn.get("start", 0))
+            end = float(rn.get("end", 0))
+            rid = _create_insight(
+                client,
+                input_version.id,
+                "roman_numeral",
+                figure,
+                evidence={**rn, "key_confidence": key_conf},
+                span=Span(start_beat=start, end_beat=end),
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="inferred",
+                engine_provenance=_hp("roman_numerals"),
+            )
+            insight_ids.append(str(rid))
 
     # Cadences
     cadences = analysis.get("cadences", []) or []
@@ -941,23 +943,6 @@ def handle_analyze(job: Job, client) -> list[str]:
             engine_provenance=_hp("voice_leading"),
         )
         insight_ids.append(str(vid))
-
-    for modulation in (analysis.get("modulations") or [])[:12]:
-        position = float(modulation.get("position", 0))
-        mid = _create_insight(
-            client,
-            input_version.id,
-            "modulation",
-            f"{modulation.get('from_key', '?')} → {modulation.get('to_key', '?')}",
-            evidence=modulation,
-            span=Span(start_seconds=position),
-            confidence=None,
-            job=job,
-            owner_id=owner_id,
-            method="heuristic",
-            engine_provenance=_hp("modulations"),
-        )
-        insight_ids.append(str(mid))
 
     _update_progress(client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)")
     # Insights are queried by input version. Job outputs only contain artifact

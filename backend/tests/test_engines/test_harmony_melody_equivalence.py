@@ -52,7 +52,6 @@ class TestHarmonyEngineEquivalence:
         assert harmony.chords == []
         assert harmony.roman_numerals == []
         assert harmony.cadences == []
-        assert harmony.modulations == []
         assert harmony.voice_leading is None
         assert harmony.phrases == []
 
@@ -93,19 +92,15 @@ class TestAnalyzeRoutesThroughEngines:
         assert hp["chords"]["engine"] == "music21"
         assert hp["roman_numerals"]["engine"] == "music21"
         assert hp["cadences"]["engine"] == "custom-rule"
-        assert hp["modulations"]["engine"] == "custom-rule"
         assert analysis["melody_provenance"]["engine"] == "skyline"
         assert analysis["key"] == {"tonic": "F", "mode": "major", "confidence": 0.813}
         assert analysis["melody"]["heuristic"] == "greedy_continuity_skyline"
 
     def test_custom_components_do_not_claim_music21(self):
-        """Cadence and modulation are custom logic; provenance must not imply
-        music21 produced them."""
+        """Cadence is custom logic; provenance must not imply music21 produced it."""
         hp = Music21HarmonyEngine().component_provenance()
         assert hp["cadences"].engine == "custom-rule"
         assert hp["cadences"].parameters["method"] == "roman_numeral_pattern"
-        assert hp["modulations"].engine == "custom-rule"
-        assert hp["modulations"].parameters["method"] == "windowed_krumhansl-schmuckler"
         assert hp["phrases"].parameters["returns_empty"] is True
 
     def test_analyze_midi_matches_engine_outputs(self):
@@ -115,7 +110,13 @@ class TestAnalyzeRoutesThroughEngines:
         melody = SkylineMelodyEngine().analyze(midi_bytes)
         assert analysis["key"] == harmony.key
         assert analysis["chords"] == harmony.chords
-        assert analysis["roman_numerals"] == harmony.roman_numerals
+        # Truthfulness invariant: the pipeline suppresses Roman numerals when
+        # there is no chord evidence, even though the engine can still derive
+        # them from the raw score.
+        if harmony.chords:
+            assert analysis["roman_numerals"] == harmony.roman_numerals
+        else:
+            assert analysis["roman_numerals"] == []
         assert analysis["melody"] == melody.melody
 
 

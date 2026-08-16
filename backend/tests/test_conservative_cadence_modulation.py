@@ -1,4 +1,4 @@
-"""Tests for cadence and modulation conservatism."""
+"""Tests for cadence conservatism."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ import pytest
 
 pytest.importorskip("music21", reason="music21 not installed")
 
-from music21 import chord, key, note, stream
+from music21 import chord, key, stream
 
-from analyze import _detect_modulations, _key_from_pc_vector, _m21_cadences
+from analyze import _m21_cadences
 
 
 def _make_score(chords: list[tuple[str, float]]):
@@ -46,46 +46,3 @@ class TestCadenceConservatism:
             assert c["type"] in ("authentic", "plagal", "half", "deceptive")
             assert "chords" in c
             assert "evidence_score" in c
-
-
-class TestModulationConservatism:
-    def test_one_window_change_is_not_modulation(self):
-        """A stable single-key piece should produce no modulation events."""
-        s = stream.Score()
-        p = stream.Part()
-        m = stream.Measure()
-        c_major_scale = ["C", "D", "E", "F", "G", "A", "B", "C5"]
-        for i, pitch in enumerate(c_major_scale * 8):
-            n = note.Note(pitch)
-            n.offset = i * 0.5
-            m.insert(n)
-        p.append(m)
-        s.insert(0, p)
-        mods = _detect_modulations(s, 120.0)
-        # A stable piece should produce no modulation/tonicization events.
-        assert len(mods) == 0
-
-    def test_modulation_has_evidence_not_confidence(self):
-        s = stream.Score()
-        p = stream.Part()
-        m = stream.Measure()
-        for i, pitch in enumerate(["C", "D", "E", "F", "G", "A", "B", "C5"] * 8):
-            n = note.Note(pitch)
-            n.offset = i * 0.5
-            m.insert(n)
-        p.append(m)
-        s.insert(0, p)
-        mods = _detect_modulations(s, 120.0)
-        for mod in mods:
-            assert mod["kind"] in ("possible_tonicization", "possible_modulation")
-            assert "run_length_windows" in mod
-            assert "duration_seconds" in mod
-            assert "confidence" not in mod
-
-
-class TestKeyFromPCVector:
-    def test_empty_vector_returns_none(self):
-        import numpy as np
-
-        result = _key_from_pc_vector(np.zeros(12))
-        assert result is None
