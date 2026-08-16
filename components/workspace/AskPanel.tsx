@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
@@ -57,10 +57,13 @@ export default function AskPanel() {
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastAsked, setLastAsked] = useState<{ question: string; context: ReturnType<typeof deriveAskContext> } | null>(null);
+  const [lastAsked, setLastAsked] = useState<{ question: string; context: NonNullable<ReturnType<typeof deriveAskContext>>; workId: string } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const askTokenRef = useRef(0);
 
   const activeWorkId = workspace.activeWorkId;
+  const activeWorkIdRef = useRef(activeWorkId);
+  activeWorkIdRef.current = activeWorkId;
   const activeSource = transport.activeSource;
   const scoreEntry = workspace.representations.find((entry) => entry.kind === "score");
   const pianoRollEntry = workspace.representations.find((entry) => entry.kind === "piano_roll");
@@ -74,21 +77,33 @@ export default function AskPanel() {
     notes: pianoRollEntry?.notes ?? [],
   };
 
-  const runAsk = useCallback(async (question: string, context: NonNullable<ReturnType<typeof deriveAskContext>>) => {
+  const runAsk = useCallback(async (question: string, context: NonNullable<ReturnType<typeof deriveAskContext>>, workId: string) => {
+    const token = ++askTokenRef.current;
     setPending(true);
     setError(null);
     try {
       const response = await askMusic({ question, context });
+      if (token !== askTokenRef.current || workId !== activeWorkIdRef.current) return;
       const assistantMessage: AskMessage = { id: makeId(), role: "assistant", response };
       appendAskMessage(assistantMessage);
       setLastAsked(null);
     } catch {
+      if (token !== askTokenRef.current || workId !== activeWorkIdRef.current) return;
       setError("Ask is not available right now. Please try again.");
     } finally {
-      setPending(false);
-      inputRef.current?.focus();
+      if (token === askTokenRef.current) {
+        setPending(false);
+        inputRef.current?.focus();
+      }
     }
   }, [appendAskMessage]);
+
+  useEffect(() => {
+    askTokenRef.current += 1;
+    setLastAsked(null);
+    setError(null);
+    setPending(false);
+  }, [activeWorkId]);
 
   const handleAsk = useCallback(async (question: string) => {
     const trimmed = question.trim();
@@ -109,12 +124,14 @@ export default function AskPanel() {
     const userMessage: AskMessage = { id: makeId(), role: "user", text: trimmed };
     appendAskMessage(userMessage);
     setDraft("");
-    setLastAsked({ question: trimmed, context });
-    void runAsk(trimmed, context);
+    setLastAsked({ question: trimmed, context, workId: activeWorkId });
+    void runAsk(trimmed, context, activeWorkId);
   }, [activeWorkId, activeSource, appendAskMessage, pending, runAsk, timeline.bpm, transport.position, workspace.activeRepresentation, workspace.insights, workspace.selection]);
 
   const retry = useCallback(() => {
-    if (lastAsked?.question && lastAsked.context) void runAsk(lastAsked.question, lastAsked.context);
+    if (lastAsked?.question && lastAsked.context && lastAsked.workId === activeWorkIdRef.current) {
+      void runAsk(lastAsked.question, lastAsked.context, lastAsked.workId);
+    }
   }, [lastAsked, runAsk]);
 
   const handleReference = useCallback((ref: AskReference) => {
