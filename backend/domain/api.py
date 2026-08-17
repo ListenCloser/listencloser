@@ -344,8 +344,7 @@ async def delete_work(
                 try:
                     sb.storage.from_(version.storage_bucket).remove([version.storage_key])
                 except Exception:
-                    logger.warning("storage_cleanup_skipped",
-                                   extra={"version_id": str(version.id)})
+                    logger.warning("storage_cleanup_skipped", extra={"version_id": str(version.id)})
             try:
                 art_repo.delete(artifact.id, owner_id)
             except Exception:

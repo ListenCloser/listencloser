@@ -182,9 +182,7 @@ class OpenAICompatibleLLMProvider:
             raise AskProviderUnavailableError("provider request failed") from exc
 
         if response.status_code >= 400:
-            raise AskProviderUnavailableError(
-                f"provider returned HTTP {response.status_code}"
-            )
+            raise AskProviderUnavailableError(f"provider returned HTTP {response.status_code}")
         try:
             body = response.json()
             content = body["choices"][0]["message"]["content"]

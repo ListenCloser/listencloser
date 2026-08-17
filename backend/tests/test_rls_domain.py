@@ -664,9 +664,9 @@ def test_workspace_state_upsert_respects_owner(user_a, user_b):
         match={"project_id": pid, "owner_id": user_a["uid"]},
         patch={"tab": "hijacked"},
     )
-    assert result_b is None or len(result_b) == 0, (
-        "RLS should block User B from updating A's workspace state"
-    )
+    assert (
+        result_b is None or len(result_b) == 0
+    ), "RLS should block User B from updating A's workspace state"
 
     # Tab should remain unchanged
     row = service.table("workspace_states").select("tab").eq("project_id", pid).single().execute()

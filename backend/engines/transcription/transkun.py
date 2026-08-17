@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from contextlib import suppress
 from typing import Any
 
 from engines.base import EngineProvenance, TranscriptionEngine, TranscriptionResult
@@ -43,13 +44,16 @@ class TranskunEngine(TranscriptionEngine):
             return
 
         try:
-            import torch
             import moduleconf
-            from transkun.transcribe import readAudio, writeMidi
-
             import pkg_resources
-            default_weight = pkg_resources.resource_filename("transkun.transcribe", "pretrained/2.0.pt")
-            default_conf = pkg_resources.resource_filename("transkun.transcribe", "pretrained/2.0.conf")
+            import torch
+
+            default_weight = pkg_resources.resource_filename(
+                "transkun.transcribe", "pretrained/2.0.pt"
+            )
+            default_conf = pkg_resources.resource_filename(
+                "transkun.transcribe", "pretrained/2.0.conf"
+            )
 
             conf_manager = moduleconf.parseFromFile(default_conf)
             ModelClass = conf_manager["Model"].module.TransKun
@@ -67,15 +71,17 @@ class TranskunEngine(TranscriptionEngine):
         except Exception as e:
             raise RuntimeError(f"Transkun prepare failed: {e}") from e
 
-    def transcribe(self, audio_bytes: bytes, fmt: str = "wav", **kwargs: Any) -> TranscriptionResult:
+    def transcribe(
+        self, audio_bytes: bytes, fmt: str = "wav", **kwargs: Any
+    ) -> TranscriptionResult:
         import io
 
         self._prepare()
         if self._model is None:
             raise RuntimeError("Transkun not available")
 
-        from transkun.transcribe import readAudio, writeMidi
         import torch
+        from transkun.transcribe import readAudio, writeMidi
 
         # Detect audio format from content bytes
         detected_fmt = fmt
@@ -106,7 +112,8 @@ class TranskunEngine(TranscriptionEngine):
                     import soxr
                 except ImportError as e:
                     raise RuntimeError(
-                        f"Transkun requires soxr for resampling (input fs={fs}, model fs={self._model.fs}). "
+                        f"Transkun requires soxr for resampling "
+                        f"(input fs={fs}, model fs={self._model.fs}). "
                         f"Install with: pip install soxr"
                     ) from e
                 audio = soxr.resample(audio, fs, self._model.fs)
@@ -123,17 +130,20 @@ class TranskunEngine(TranscriptionEngine):
             writeMidi(notes_est).write(temp_midi)
 
             import pretty_midi
+
             midi_data = pretty_midi.PrettyMIDI(temp_midi)
 
             notes = []
             for instrument in midi_data.instruments:
                 for note in instrument.notes:
-                    notes.append({
-                        "pitch": note.pitch,
-                        "start": note.start,
-                        "end": note.end,
-                        "velocity": note.velocity,
-                    })
+                    notes.append(
+                        {
+                            "pitch": note.pitch,
+                            "start": note.start,
+                            "end": note.end,
+                            "velocity": note.velocity,
+                        }
+                    )
 
             midi_bytes = io.BytesIO()
             midi_data.write(midi_bytes)
@@ -153,15 +163,14 @@ class TranskunEngine(TranscriptionEngine):
             )
         finally:
             for p in [temp_audio, temp_midi]:
-                try:
+                with suppress(Exception):
                     os.unlink(p)
-                except Exception:
-                    pass
 
 
 def _transkun_version() -> str:
     try:
         from importlib.metadata import version
+
         return version("transkun")
     except Exception:
         return "unknown"

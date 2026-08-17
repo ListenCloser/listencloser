@@ -11,11 +11,12 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from evaluation.engines import EngineInfo, EngineAdapter, EngineCategory
+from evaluation.engines import EngineAdapter, EngineInfo
 
 logger = logging.getLogger("eval.engines.transcription")
 
@@ -23,6 +24,7 @@ logger = logging.getLogger("eval.engines.transcription")
 # ============================================================
 # Basic Pitch (existing baseline - already in production)
 # ============================================================
+
 
 @dataclass
 class BasicPitchAdapter(EngineAdapter):
@@ -45,6 +47,7 @@ class BasicPitchAdapter(EngineAdapter):
     def is_available(self) -> bool:
         try:
             from basic_pitch.inference import predict  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -54,7 +57,7 @@ class BasicPitchAdapter(EngineAdapter):
 
     def transcribe(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
         import io
-        import tempfile
+
         from basic_pitch.inference import predict
 
         # Write audio to temp file (Basic Pitch needs file path)
@@ -73,12 +76,14 @@ class BasicPitchAdapter(EngineAdapter):
             notes = []
             for instrument in midi_data.instruments:
                 for note in instrument.notes:
-                    notes.append({
-                        "pitch": note.pitch,
-                        "start": note.start,
-                        "end": note.end,
-                        "velocity": note.velocity,
-                    })
+                    notes.append(
+                        {
+                            "pitch": note.pitch,
+                            "start": note.start,
+                            "end": note.end,
+                            "velocity": note.velocity,
+                        }
+                    )
 
             # Get actual MIDI bytes (not fluidsynth audio)
             midi_buf = io.BytesIO()
@@ -93,10 +98,8 @@ class BasicPitchAdapter(EngineAdapter):
                 "cleanup_report": {},
             }
         finally:
-            try:
+            with suppress(Exception):
                 os.unlink(temp_path)
-            except Exception:
-                pass
 
     def estimate_beats(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
         raise NotImplementedError("BasicPitchAdapter does not support beat tracking")
@@ -112,6 +115,7 @@ class BasicPitchAdapter(EngineAdapter):
 # Transkun
 # ============================================================
 
+
 @dataclass
 class TranskunAdapter(EngineAdapter):
     engine_info = EngineInfo(
@@ -123,7 +127,10 @@ class TranskunAdapter(EngineAdapter):
         model_size_mb=150,  # Estimated
         requires_gpu=False,
         python_version=">=3.9",
-        notes="Transformer-based piano transcription. Uses EfficientNet backbone + Transformer decoder. Pretrained model included.",
+        notes=(
+            "Transformer-based piano transcription. Uses EfficientNet backbone + "
+            "Transformer decoder. Pretrained model included."
+        ),
     )
 
     def __init__(self, device: str = "cpu", **kwargs):
@@ -132,9 +139,10 @@ class TranskunAdapter(EngineAdapter):
 
     def is_available(self) -> bool:
         try:
-            import transkun  # noqa: F401
-            import torch  # noqa: F401
             import moduleconf  # noqa: F401
+            import torch  # noqa: F401
+            import transkun  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -144,14 +152,18 @@ class TranskunAdapter(EngineAdapter):
             return
 
         try:
-            import torch
             import moduleconf
-            from transkun.transcribe import readAudio, writeMidi
 
             # Load config and weights from transkun's pretrained directory
             import pkg_resources
-            default_weight = pkg_resources.resource_filename("transkun.transcribe", "pretrained/2.0.pt")
-            default_conf = pkg_resources.resource_filename("transkun.transcribe", "pretrained/2.0.conf")
+            import torch
+
+            default_weight = pkg_resources.resource_filename(
+                "transkun.transcribe", "pretrained/2.0.pt"
+            )
+            default_conf = pkg_resources.resource_filename(
+                "transkun.transcribe", "pretrained/2.0.conf"
+            )
 
             conf_manager = moduleconf.parseFromFile(default_conf)
             ModelClass = conf_manager["Model"].module.TransKun
@@ -171,17 +183,15 @@ class TranskunAdapter(EngineAdapter):
             self._model = None
 
     def transcribe(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
-        import io
         import os
-        import tempfile
 
         if self._model is None:
             self.prepare()
         if self._model is None:
             raise RuntimeError("Transkun not available")
 
-        from transkun.transcribe import readAudio, writeMidi
         import torch
+        from transkun.transcribe import readAudio, writeMidi
 
         # Detect audio format from content bytes
         fmt = "wav"
@@ -211,28 +221,37 @@ class TranskunAdapter(EngineAdapter):
             if fs != self._model.fs:
                 try:
                     import soxr
+
                     audio = soxr.resample(audio, fs, self._model.fs)
                 except ImportError:
                     logger.warning("soxr not installed, skipping resampling")
 
             x = torch.from_numpy(audio).to(self._device)
 
-            notes_est = self._model.transcribe(x, stepInSecond=kwargs.get("segment_hop_size"), segmentSizeInSecond=kwargs.get("segment_size"), discardSecondHalf=False)
+            notes_est = self._model.transcribe(
+                x,
+                stepInSecond=kwargs.get("segment_hop_size"),
+                segmentSizeInSecond=kwargs.get("segment_size"),
+                discardSecondHalf=False,
+            )
 
             writeMidi(notes_est).write(temp_midi)
 
             import pretty_midi
+
             midi_data = pretty_midi.PrettyMIDI(temp_midi)
 
             notes = []
             for instrument in midi_data.instruments:
                 for note in instrument.notes:
-                    notes.append({
-                        "pitch": note.pitch,
-                        "start": note.start,
-                        "end": note.end,
-                        "velocity": note.velocity,
-                    })
+                    notes.append(
+                        {
+                            "pitch": note.pitch,
+                            "start": note.start,
+                            "end": note.end,
+                            "velocity": note.velocity,
+                        }
+                    )
 
             midi_bytes = Path(temp_midi).read_bytes()
 
@@ -243,10 +262,8 @@ class TranskunAdapter(EngineAdapter):
             }
         finally:
             for p in [temp_audio, temp_midi]:
-                try:
+                with suppress(Exception):
                     os.unlink(p)
-                except Exception:
-                    pass
 
     def estimate_beats(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
         raise NotImplementedError
@@ -262,6 +279,7 @@ class TranskunAdapter(EngineAdapter):
 # Piano Transcription (qiuqiangkong/piano_transcription)
 # ============================================================
 
+
 @dataclass
 class PianoTranscriptionAdapter(EngineAdapter):
     engine_info = EngineInfo(
@@ -273,7 +291,10 @@ class PianoTranscriptionAdapter(EngineAdapter):
         model_size_mb=200,
         requires_gpu=False,
         python_version=">=3.9",
-        notes="CNN-Transformer piano transcription by Qiuqiang Kong. Checkpoint auto-downloaded on first use.",
+        notes=(
+            "CNN-Transformer piano transcription by Qiuqiang Kong. "
+            "Checkpoint auto-downloaded on first use."
+        ),
     )
 
     def __init__(self, device: str = "cpu", **kwargs):
@@ -283,6 +304,7 @@ class PianoTranscriptionAdapter(EngineAdapter):
     def is_available(self) -> bool:
         try:
             from piano_transcription_inference import PianoTranscription  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -292,6 +314,7 @@ class PianoTranscriptionAdapter(EngineAdapter):
             return
         try:
             from piano_transcription_inference import PianoTranscription
+
             self._model = PianoTranscription(device=self._device)
         except Exception as e:
             logger.warning("Piano Transcription prepare failed: %s", e)
@@ -304,10 +327,10 @@ class PianoTranscriptionAdapter(EngineAdapter):
     # all onsets/offsets by 44100/16000 = 2.756x.
     MODEL_SAMPLE_RATE = 16000
 
-    def transcribe(self, audio_bytes: bytes, sample_rate: int = MODEL_SAMPLE_RATE, **kwargs) -> dict[str, Any]:
+    def transcribe(
+        self, audio_bytes: bytes, sample_rate: int = MODEL_SAMPLE_RATE, **kwargs
+    ) -> dict[str, Any]:
         import io
-        import tempfile
-        import numpy as np
 
         if self._model is None:
             self.prepare()
@@ -317,7 +340,6 @@ class PianoTranscriptionAdapter(EngineAdapter):
         # Detect audio format from content bytes and write to temp file
         # (soundfile/libsndfile doesn't support m4a; use pydub for format detection+conversion)
         import librosa
-        import soundfile as sf
 
         # Detect format from magic bytes
         fmt = "wav"
@@ -342,6 +364,7 @@ class PianoTranscriptionAdapter(EngineAdapter):
                 audio, sr = librosa.load(tmp_path, sr=sample_rate, mono=True)
             finally:
                 import os
+
                 os.unlink(tmp_path)
 
         with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
@@ -351,18 +374,21 @@ class PianoTranscriptionAdapter(EngineAdapter):
             self._model.transcribe(audio, temp_midi)
 
             import pretty_midi
+
             midi_data = pretty_midi.PrettyMIDI(temp_midi)
             midi_bytes = Path(temp_midi).read_bytes()
 
             notes = []
             for instrument in midi_data.instruments:
                 for note in instrument.notes:
-                    notes.append({
-                        "pitch": note.pitch,
-                        "start": note.start,
-                        "end": note.end,
-                        "velocity": note.velocity,
-                    })
+                    notes.append(
+                        {
+                            "pitch": note.pitch,
+                            "start": note.start,
+                            "end": note.end,
+                            "velocity": note.velocity,
+                        }
+                    )
 
             return {
                 "midi": midi_bytes,
@@ -370,10 +396,8 @@ class PianoTranscriptionAdapter(EngineAdapter):
                 "num_notes": len(notes),
             }
         finally:
-            try:
+            with suppress(Exception):
                 os.unlink(temp_midi)
-            except Exception:
-                pass
 
     def estimate_beats(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
         raise NotImplementedError
@@ -398,7 +422,9 @@ TRANSCRIPTION_ADAPTERS = {
 
 def get_transcription_adapter(name: str, **kwargs) -> EngineAdapter:
     if name not in TRANSCRIPTION_ADAPTERS:
-        raise ValueError(f"Unknown transcription adapter: {name}. Available: {list(TRANSCRIPTION_ADAPTERS)}")
+        raise ValueError(
+            f"Unknown transcription adapter: {name}. Available: {list(TRANSCRIPTION_ADAPTERS)}"
+        )
     return TRANSCRIPTION_ADAPTERS[name](**kwargs)
 
 

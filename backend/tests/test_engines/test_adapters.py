@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import os
+from contextlib import suppress
+from typing import Any
+
 import pytest
 
 from engines.base import (
@@ -183,16 +187,20 @@ class TestTimingExcludesSetup:
         import time
 
         class SlowAdapter:
-            engine_info = type("Info", (), {
-                "name": "slow_test",
-                "category": "transcription",
-                "repo_url": "",
-                "license": "",
-                "install_cmd": "",
-                "model_size_mb": 0,
-                "requires_gpu": False,
-                "notes": "",
-            })()
+            engine_info = type(
+                "Info",
+                (),
+                {
+                    "name": "slow_test",
+                    "category": "transcription",
+                    "repo_url": "",
+                    "license": "",
+                    "install_cmd": "",
+                    "model_size_mb": 0,
+                    "requires_gpu": False,
+                    "notes": "",
+                },
+            )()
 
             def __init__(self):
                 self._prepared = False
@@ -224,7 +232,9 @@ class TestTimingExcludesSetup:
 
         # Create a temp audio file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            f.write(b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x40\x1f\x00\x00\x40\x1f\x00\x00\x01\x00\x08\x00data\x00\x00\x00\x00")
+            f.write(
+                b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x40\x1f\x00\x00\x40\x1f\x00\x00\x01\x00\x08\x00data\x00\x00\x00\x00"
+            )
             temp_audio = f.name
 
         try:
@@ -239,31 +249,37 @@ class TestTimingExcludesSetup:
 
             assert result.success
             # Inference runtime should be ~0.05s (transcribe sleep), NOT ~0.15s (prepare + warmup + inference)
-            assert result.runtime_s < 0.1, f"Runtime {result.runtime_s:.3f}s should exclude prepare/warmup"
-            assert result.runtime_s > 0.03, f"Runtime {result.runtime_s:.3f}s should include actual inference"
+            assert (
+                result.runtime_s < 0.1
+            ), f"Runtime {result.runtime_s:.3f}s should exclude prepare/warmup"
+            assert (
+                result.runtime_s > 0.03
+            ), f"Runtime {result.runtime_s:.3f}s should include actual inference"
             # Peak memory should be non-negative
             assert result.peak_memory_mb >= 0
         finally:
-            try:
+            with suppress(Exception):
                 os.unlink(temp_audio)
-            except Exception:
-                pass
 
     def test_failed_prepare_returns_zero_runtime(self):
         """If prepare() fails, runtime should be 0 (not mislabel setup time as inference)."""
         import time
 
         class FailingPrepareAdapter:
-            engine_info = type("Info", (), {
-                "name": "fail_prepare",
-                "category": "transcription",
-                "repo_url": "",
-                "license": "",
-                "install_cmd": "",
-                "model_size_mb": 0,
-                "requires_gpu": False,
-                "notes": "",
-            })()
+            engine_info = type(
+                "Info",
+                (),
+                {
+                    "name": "fail_prepare",
+                    "category": "transcription",
+                    "repo_url": "",
+                    "license": "",
+                    "install_cmd": "",
+                    "model_size_mb": 0,
+                    "requires_gpu": False,
+                    "notes": "",
+                },
+            )()
 
             def is_available(self) -> bool:
                 return True

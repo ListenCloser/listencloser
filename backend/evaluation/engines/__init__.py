@@ -10,11 +10,9 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass, field
-from typing import Any, Protocol, Literal
+from typing import Any, Literal, Protocol
 
 from evaluation.corpus import EvalClip
-from evaluation.models import Reference
-
 
 # Tolerance window for structure boundary matching (seconds).
 # Follows MIREX structural segmentation convention: 0.5 second tolerance window
@@ -61,6 +59,7 @@ class _BytesJSONEncoder(json.JSONEncoder):
 @dataclass(frozen=True)
 class EngineInfo:
     """Static metadata about an OSS engine candidate."""
+
     name: str
     category: EngineCategory
     repo_url: str
@@ -75,6 +74,7 @@ class EngineInfo:
 @dataclass(frozen=True)
 class EngineEvalResult:
     """Result of evaluating one engine on one clip."""
+
     engine_name: str
     clip_id: str
     category: EngineCategory
@@ -91,6 +91,7 @@ class EngineEvalResult:
 @dataclass(frozen=True)
 class EngineAggregateReport:
     """Aggregated evaluation across a corpus for one engine."""
+
     engine_name: str
     category: EngineCategory
     engine_info: EngineInfo
@@ -106,10 +107,11 @@ class EngineAggregateReport:
 
 class EngineAdapter(Protocol):
     """Protocol for engine evaluation adapters.
-    
+
     Adapters wrap OSS engines and present a uniform interface for evaluation.
     They must NOT be used in production code paths.
     """
+
     engine_info: EngineInfo
 
     def is_available(self) -> bool:
@@ -124,7 +126,9 @@ class EngineAdapter(Protocol):
         """Transcribe audio to MIDI/notes. For transcription engines."""
         ...
 
-    def estimate_beats(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
+    def estimate_beats(
+        self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs
+    ) -> dict[str, Any]:
         """Estimate beats/downbeats. For beat tracking engines."""
         ...
 
@@ -143,8 +147,10 @@ class EngineAdapter(Protocol):
 
 def measure_resources(func):
     """Decorator to measure runtime and peak memory of a function."""
+
     def wrapper(*args, **kwargs):
         import tracemalloc
+
         tracemalloc.start()
         t0 = time.monotonic()
         try:
@@ -154,12 +160,13 @@ def measure_resources(func):
             elapsed = time.monotonic() - t0
             current, peak = tracemalloc.get_traced_memory()
             tracemalloc.stop()
-            if hasattr(result, '__dict__'):
+            if hasattr(result, "__dict__"):
                 result.runtime_s = elapsed
                 result.peak_memory_mb = peak / (1024 * 1024)
             elif isinstance(result, dict):
                 result["runtime_s"] = elapsed
                 result["peak_memory_mb"] = peak / (1024 * 1024)
+
     return wrapper
 
 
@@ -171,10 +178,8 @@ def run_engine_evaluation(
     **adapter_kwargs,
 ) -> EngineAggregateReport:
     """Run an engine adapter across a corpus and aggregate results."""
-    import os
     import json
-    import time
-    import tracemalloc
+    import os
     from pathlib import Path
 
     os.makedirs(output_dir, exist_ok=True)
@@ -199,18 +204,15 @@ def _check_clip_eligibility(category: EngineCategory, clip: EvalClip) -> str | N
     Returns None if eligible, or a reason string if ineligible.
     Ineligible clips are run for diagnostics but not scored.
     """
-    if category == "transcription":
-        if not clip.reference_midi:
-            return "no reference MIDI for transcription scoring"
+    if category == "transcription" and not clip.reference_midi:
+        return "no reference MIDI for transcription scoring"
     elif category == "beat_tracking":
         if not clip.reference.beats and clip.reference.bpm is None:
             return "no reference beats or BPM for beat scoring"
-    elif category == "harmony":
-        if not clip.reference_midi:
-            return "no reference MIDI for harmony scoring"
-    elif category == "structure":
-        if not clip.reference.sections:
-            return "no reference sections for structure scoring"
+    elif category == "harmony" and not clip.reference_midi:
+        return "no reference MIDI for harmony scoring"
+    elif category == "structure" and not clip.reference.sections:
+        return "no reference sections for structure scoring"
     return None
 
 
@@ -222,11 +224,10 @@ def _run_clip_on_engine(
     **adapter_kwargs,
 ) -> EngineEvalResult:
     """Run a single clip through the engine adapter.
-    
+
     Timing: warm-up and prepare() are NOT included in measured runtime.
     Timing starts immediately before the actual inference run.
     """
-    import os
     import time
     import tracemalloc
     from pathlib import Path
@@ -368,11 +369,13 @@ def _compute_transcription_metrics(output: dict[str, Any], clip: EvalClip) -> di
         return {}
 
     from pathlib import Path
+
     from evaluation.transcription_metrics import Note, compute_note_metrics
 
     ref_notes = []
     if clip.reference_midi:
         from evaluation.benchmark import _midi_to_notes
+
         ref_bytes = Path(clip.reference_midi).read_bytes()
         ref_notes = _midi_to_notes(ref_bytes)
 
@@ -414,7 +417,8 @@ def _compute_harmony_metrics(output: dict[str, Any], clip: EvalClip) -> dict[str
     predicted_bpm = output.get("tempo", {}).get("bpm") if output.get("tempo") else None
     predicted_meter = (
         f"{output['time_signature']['numerator']}/{output['time_signature']['denominator']}"
-        if output.get("time_signature") else None
+        if output.get("time_signature")
+        else None
     )
     predicted_sections = [
         {"start": s["position"], "end": s["position"], "label": s.get("type", s.get("kind", ""))}
@@ -448,7 +452,13 @@ def _compute_structure_metrics(output: dict[str, Any], clip: EvalClip) -> dict[s
     pred_segments = output.get("segments", [])
 
     if not ref_sections or not pred_segments:
-        return {"sections_count": len(pred_segments), "boundary_f1": 0.0, "boundary_precision": 0.0, "boundary_recall": 0.0, "tolerance_s": TOLERANCE_S}
+        return {
+            "sections_count": len(pred_segments),
+            "boundary_f1": 0.0,
+            "boundary_precision": 0.0,
+            "boundary_recall": 0.0,
+            "tolerance_s": TOLERANCE_S,
+        }
 
     # Extract all boundaries (start and end times)
     ref_boundaries: list[float] = []
@@ -466,7 +476,13 @@ def _compute_structure_metrics(output: dict[str, Any], clip: EvalClip) -> dict[s
             pred_boundaries.append(float(s["end"]))
 
     if not ref_boundaries:
-        return {"sections_count": len(pred_segments), "boundary_f1": 0.0, "boundary_precision": 0.0, "boundary_recall": 0.0, "tolerance_s": TOLERANCE_S}
+        return {
+            "sections_count": len(pred_segments),
+            "boundary_f1": 0.0,
+            "boundary_precision": 0.0,
+            "boundary_recall": 0.0,
+            "tolerance_s": TOLERANCE_S,
+        }
 
     # One-to-one matching with tolerance: greedy nearest neighbor
     ref_matched = [False] * len(ref_boundaries)
@@ -524,8 +540,12 @@ def _aggregate_results(
     """Aggregate clip-level results into engine-level report."""
     succeeded = [r for r in clip_results if r.success]
     failed = [r for r in clip_results if not r.success]
-    scored = [r for r in succeeded if not r.diagnostics.get("eligibility", "").startswith("ineligible")]
-    ineligible = [r for r in succeeded if r.diagnostics.get("eligibility", "").startswith("ineligible")]
+    scored = [
+        r for r in succeeded if not r.diagnostics.get("eligibility", "").startswith("ineligible")
+    ]
+    ineligible = [
+        r for r in succeeded if r.diagnostics.get("eligibility", "").startswith("ineligible")
+    ]
 
     # Runtime/memory: average over every clip where inference actually ran
     # (succeeded), including ineligible ones — an ineligible clip still
@@ -548,10 +568,7 @@ def _aggregate_results(
         avg_runtime_s=avg_runtime,
         avg_peak_memory_mb=avg_memory,
         aggregate_metrics=aggregate_metrics,
-        failure_cases=[
-            {"clip_id": r.clip_id, "error": r.error}
-            for r in failed
-        ],
+        failure_cases=[{"clip_id": r.clip_id, "error": r.error} for r in failed],
     )
 
 
@@ -564,29 +581,55 @@ def _compute_category_aggregate(
         return {}
 
     if category == "transcription":
-        f1s = [v for v in (r.metrics.get("note_f1") for r in succeeded if r.metrics) if v is not None]
-        precisions = [v for v in (r.metrics.get("note_precision") for r in succeeded if r.metrics) if v is not None]
-        recalls = [v for v in (r.metrics.get("note_recall") for r in succeeded if r.metrics) if v is not None]
+        f1s = [
+            v for v in (r.metrics.get("note_f1") for r in succeeded if r.metrics) if v is not None
+        ]
+        precisions = [
+            v
+            for v in (r.metrics.get("note_precision") for r in succeeded if r.metrics)
+            if v is not None
+        ]
+        recalls = [
+            v
+            for v in (r.metrics.get("note_recall") for r in succeeded if r.metrics)
+            if v is not None
+        ]
         return {
             "macro_note_f1": sum(f1s) / len(f1s) if f1s else 0,
             "macro_precision": sum(precisions) / len(precisions) if precisions else 0,
             "macro_recall": sum(recalls) / len(recalls) if recalls else 0,
         }
     elif category == "beat_tracking":
-        f_measures = [v for v in (r.metrics.get("beat_f1") for r in succeeded if r.metrics) if v is not None]
+        f_measures = [
+            v for v in (r.metrics.get("beat_f1") for r in succeeded if r.metrics) if v is not None
+        ]
         return {
             "macro_f_measure": sum(f_measures) / len(f_measures) if f_measures else 0,
         }
     elif category == "harmony":
-        key_accs = [v for v in (r.metrics.get("key_correct") for r in succeeded if r.metrics) if v is not None]
-        chord_f1s = [v for v in (r.metrics.get("chord_f1") for r in succeeded if r.metrics) if v is not None]
+        key_accs = [
+            v
+            for v in (r.metrics.get("key_correct") for r in succeeded if r.metrics)
+            if v is not None
+        ]
+        chord_f1s = [
+            v for v in (r.metrics.get("chord_f1") for r in succeeded if r.metrics) if v is not None
+        ]
         return {
             "macro_key_accuracy": sum(key_accs) / len(key_accs) if key_accs else 0,
             "macro_chord_f1": sum(chord_f1s) / len(chord_f1s) if chord_f1s else 0,
         }
     elif category == "structure":
-        boundary_f1s = [v for v in (r.metrics.get("boundary_f1") for r in succeeded if r.metrics) if v is not None]
-        section_counts = [v for v in (r.metrics.get("sections_count") for r in succeeded if r.metrics) if v is not None]
+        boundary_f1s = [
+            v
+            for v in (r.metrics.get("boundary_f1") for r in succeeded if r.metrics)
+            if v is not None
+        ]
+        section_counts = [
+            v
+            for v in (r.metrics.get("sections_count") for r in succeeded if r.metrics)
+            if v is not None
+        ]
         return {
             "macro_boundary_f1": sum(boundary_f1s) / len(boundary_f1s) if boundary_f1s else 0,
             "avg_segments": sum(section_counts) / len(section_counts) if section_counts else 0,

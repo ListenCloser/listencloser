@@ -14,10 +14,10 @@ from main import app
 from tests.fixtures.ask import (  # noqa: E402
     make_context,
     make_insight,
-    selection_context,
-    whole_work_context,
     no_selection_context,
+    selection_context,
     selection_notation_context,
+    whole_work_context,
 )
 
 __all__ = [

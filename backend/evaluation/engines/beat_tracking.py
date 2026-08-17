@@ -11,11 +11,11 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
-from evaluation.engines import EngineInfo, EngineAdapter, EngineCategory
+from evaluation.engines import EngineAdapter, EngineInfo
 
 logger = logging.getLogger("eval.engines.beat_tracking")
 
@@ -23,6 +23,7 @@ logger = logging.getLogger("eval.engines.beat_tracking")
 # ============================================================
 # Librosa (existing baseline - already in production)
 # ============================================================
+
 
 @dataclass
 class LibrosaBeatAdapter(EngineAdapter):
@@ -43,6 +44,7 @@ class LibrosaBeatAdapter(EngineAdapter):
     def is_available(self) -> bool:
         try:
             import librosa  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -50,10 +52,12 @@ class LibrosaBeatAdapter(EngineAdapter):
     def prepare(self) -> None:
         pass
 
-    def estimate_beats(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
-        import librosa
-        import tempfile
+    def estimate_beats(
+        self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs
+    ) -> dict[str, Any]:
         import os
+
+        import librosa
 
         # Detect audio format from magic bytes for correct temp file extension
         fmt = "wav"
@@ -78,7 +82,7 @@ class LibrosaBeatAdapter(EngineAdapter):
 
             onset_env = librosa.onset.onset_strength(y=y, sr=sr)
             tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
-            tempo_val = float(tempo.item()) if hasattr(tempo, 'item') else float(tempo)
+            tempo_val = float(tempo.item()) if hasattr(tempo, "item") else float(tempo)
             beats_time = librosa.frames_to_time(beats, sr=sr)
 
             # Downbeats (optional, librosa doesn't do this well)
@@ -91,10 +95,8 @@ class LibrosaBeatAdapter(EngineAdapter):
                 "beat_positions": list(range(1, len(beats_time) + 1)),
             }
         finally:
-            try:
+            with suppress(Exception):
                 os.unlink(temp_path)
-            except Exception:
-                pass
 
     def transcribe(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
         raise NotImplementedError
@@ -109,6 +111,7 @@ class LibrosaBeatAdapter(EngineAdapter):
 # ============================================================
 # Beat This
 # ============================================================
+
 
 @dataclass
 class BeatThisAdapter(EngineAdapter):
@@ -130,6 +133,7 @@ class BeatThisAdapter(EngineAdapter):
     def is_available(self) -> bool:
         try:
             from beat_this.inference import File2Beats  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -139,15 +143,15 @@ class BeatThisAdapter(EngineAdapter):
             return
         try:
             from beat_this.inference import File2Beats
+
             self._model = File2Beats(device=self._device)
         except Exception as e:
             logger.warning("BeatThis prepare failed: %s", e)
             self._model = None
 
-    def estimate_beats(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
-        import numpy as np
-        import tempfile
-
+    def estimate_beats(
+        self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs
+    ) -> dict[str, Any]:
         if self._model is None:
             self.prepare()
         if self._model is None:
@@ -183,10 +187,8 @@ class BeatThisAdapter(EngineAdapter):
                 "beat_positions": list(range(1, len(beats_time) + 1)),
             }
         finally:
-            try:
+            with suppress(Exception):
                 os.unlink(temp_path)
-            except Exception:
-                pass
 
     def transcribe(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
         raise NotImplementedError
@@ -202,6 +204,7 @@ class BeatThisAdapter(EngineAdapter):
 # BeatNet
 # ============================================================
 
+
 @dataclass
 class BeatNetAdapter(EngineAdapter):
     engine_info = EngineInfo(
@@ -213,7 +216,10 @@ class BeatNetAdapter(EngineAdapter):
         model_size_mb=80,
         requires_gpu=False,
         python_version=">=3.9",
-        notes="TCN-based beat/downbeat tracker. Good for complex rhythms. Requires madmom (C extension, may need system compiler).",
+        notes=(
+            "TCN-based beat/downbeat tracker. Good for complex rhythms. "
+            "Requires madmom (C extension, may need system compiler)."
+        ),
     )
 
     def __init__(self, device: str = "cpu", **kwargs):
@@ -223,6 +229,7 @@ class BeatNetAdapter(EngineAdapter):
     def is_available(self) -> bool:
         try:
             from BeatNet import BeatNet  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -232,14 +239,16 @@ class BeatNetAdapter(EngineAdapter):
             return
         try:
             from BeatNet import BeatNet
+
             self._model = BeatNet(device=self._device)
         except Exception as e:
             logger.warning("BeatNet prepare failed: %s", e)
             self._model = None
 
-    def estimate_beats(self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs) -> dict[str, Any]:
+    def estimate_beats(
+        self, audio_bytes: bytes, sample_rate: int = 44100, **kwargs
+    ) -> dict[str, Any]:
         import os
-        import tempfile
 
         if self._model is None:
             self.prepare()
@@ -265,10 +274,9 @@ class BeatNetAdapter(EngineAdapter):
             # BeatNet.predict returns (beats_times, downbeats_times, beat_conf, downbeat_conf)
             result = self._model.predict(temp_path)
             if len(result) == 4:
-                beats, downbeats, beat_conf, downbeat_conf = result
+                beats, downbeats, _, _ = result
             else:
                 beats, downbeats = result
-                beat_conf = downbeat_conf = None
 
             beats_time = beats.tolist() if hasattr(beats, "tolist") else list(beats)
             downbeats_time = downbeats.tolist() if hasattr(downbeats, "tolist") else list(downbeats)
@@ -282,10 +290,8 @@ class BeatNetAdapter(EngineAdapter):
                 "beat_positions": list(range(1, len(beats_time) + 1)),
             }
         finally:
-            try:
+            with suppress(Exception):
                 os.unlink(temp_path)
-            except Exception:
-                pass
 
     def transcribe(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
         raise NotImplementedError
@@ -310,7 +316,9 @@ BEAT_TRACKING_ADAPTERS = {
 
 def get_beat_tracking_adapter(name: str, **kwargs) -> EngineAdapter:
     if name not in BEAT_TRACKING_ADAPTERS:
-        raise ValueError(f"Unknown beat tracking adapter: {name}. Available: {list(BEAT_TRACKING_ADAPTERS)}")
+        raise ValueError(
+            f"Unknown beat tracking adapter: {name}. Available: {list(BEAT_TRACKING_ADAPTERS)}"
+        )
     return BEAT_TRACKING_ADAPTERS[name](**kwargs)
 
 

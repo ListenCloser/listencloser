@@ -18,7 +18,6 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -100,7 +99,11 @@ def _stats(result: dict, notes: list[dict]) -> dict:
             1
             for n in notes
             if int(n["pitch"]) >= 86
-            and all(abs(float(n["start"]) - float(m["start"])) > 0.1 or int(n["pitch"]) != int(m["pitch"]) for m in notes)
+            and all(
+                abs(float(n["start"]) - float(m["start"])) > 0.1
+                or int(n["pitch"]) != int(m["pitch"])
+                for m in notes
+            )
         ),
         "short_notes_lt_150ms": sum(1 for d in durs if d < 0.15),
         "max_polyphony": max_poly,
@@ -130,7 +133,11 @@ def main() -> None:
     except Exception as exc:
         print(f"note: could not read fixture audio duration ({exc})")
 
-    print(f"fixture: {args.fixture_audio} (duration={audio_dur:.2f}s)" if audio_dur else f"fixture: {args.fixture_audio}")
+    print(
+        f"fixture: {args.fixture_audio} (duration={audio_dur:.2f}s)"
+        if audio_dur
+        else f"fixture: {args.fixture_audio}"
+    )
     print("=" * 72)
 
     for json_path in args.result_json:

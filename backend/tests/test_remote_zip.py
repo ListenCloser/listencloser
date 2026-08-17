@@ -65,6 +65,7 @@ class TestRemoteZipParsing:
         z.members = {}
         z._range = lambda start, end: data[start : end + 1]
         import io
+
         with io.BytesIO(data) as fh:
             fh.seek(0, 2)
             total = fh.tell()
@@ -89,7 +90,7 @@ class TestRemoteZipParsing:
         z = RemoteZip.__new__(RemoteZip)
         z.url = "http://unused"
         z.members = {}
-        with io.BytesIO(data) as fh:
+        with io.BytesIO(data):
             total = len(data)
             tail = data[total - 200 :]
             eocd = tail.rfind(b"PK\x05\x06")

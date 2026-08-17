@@ -10,11 +10,11 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
-from evaluation.engines import EngineInfo, EngineAdapter, EngineCategory
+from evaluation.engines import EngineAdapter, EngineInfo
 
 logger = logging.getLogger("eval.engines.structure")
 
@@ -22,6 +22,7 @@ logger = logging.getLogger("eval.engines.structure")
 # ============================================================
 # All-In-One (existing baseline - already in production)
 # ============================================================
+
 
 @dataclass
 class AllInOneAdapter(EngineAdapter):
@@ -44,6 +45,7 @@ class AllInOneAdapter(EngineAdapter):
         try:
             import allin1  # noqa: F401
             import torch  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -53,16 +55,13 @@ class AllInOneAdapter(EngineAdapter):
             return
         try:
             from allin1 import AllInOne
+
             self._model = AllInOne(device=self._device)
         except Exception as e:
             logger.warning("AllInOne prepare failed: %s", e)
             self._model = None
 
     def analyze_structure(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
-        import io
-        import soundfile as sf
-        import tempfile
-
         if self._model is None:
             self.prepare()
         if self._model is None:
@@ -81,10 +80,8 @@ class AllInOneAdapter(EngineAdapter):
                 "segments": result.get("segments", []),
             }
         finally:
-            try:
+            with suppress(Exception):
                 os.unlink(temp_path)
-            except Exception:
-                pass
 
     def transcribe(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
         raise NotImplementedError
@@ -108,7 +105,9 @@ STRUCTURE_ADAPTERS = {
 
 def get_structure_adapter(name: str, **kwargs) -> EngineAdapter:
     if name not in STRUCTURE_ADAPTERS:
-        raise ValueError(f"Unknown structure adapter: {name}. Available: {list(STRUCTURE_ADAPTERS)}")
+        raise ValueError(
+            f"Unknown structure adapter: {name}. Available: {list(STRUCTURE_ADAPTERS)}"
+        )
     return STRUCTURE_ADAPTERS[name](**kwargs)
 
 

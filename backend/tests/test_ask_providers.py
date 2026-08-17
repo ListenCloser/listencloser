@@ -20,9 +20,7 @@ from ask.providers import (
 @pytest.mark.asyncio
 async def test_fake_provider_returns_configured_response():
     provider = FakeLLMProvider(
-        responses=[
-            {"answer": "An answer.", "references": [], "suggestedActions": []}
-        ]
+        responses=[{"answer": "An answer.", "references": [], "suggestedActions": []}]
     )
     result = await provider.complete_structured(
         system_prompt="system", user_prompt="user", response_model=AskResponse

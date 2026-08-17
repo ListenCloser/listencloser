@@ -64,9 +64,7 @@ def test_invented_note_ids_are_removed(selection_context):
 
 
 def test_valid_note_reference_is_kept(selection_context):
-    response = _response(
-        references=[AskNotesReference(type="notes", ids=["note-1", "note-2"])]
-    )
+    response = _response(references=[AskNotesReference(type="notes", ids=["note-1", "note-2"])])
     safe = sanitize_response(response, selection_context)
 
     assert len(safe.references) == 1
@@ -74,9 +72,7 @@ def test_valid_note_reference_is_kept(selection_context):
 
 
 def test_notes_reference_dropped_when_context_has_no_selection_note_ids(whole_work_context):
-    response = _response(
-        references=[AskNotesReference(type="notes", ids=["note-1"])]
-    )
+    response = _response(references=[AskNotesReference(type="notes", ids=["note-1"])])
     safe = sanitize_response(response, whole_work_context)
 
     assert safe.references == []
@@ -162,18 +158,14 @@ def test_no_selection_invented_notation_loop_dropped(no_selection_context):
 
 
 def test_cross_domain_seek_action_removed(selection_context):
-    response = _response(
-        actions=[AskSeekAction(type="seek", seconds=4.0, domain="notation")]
-    )
+    response = _response(actions=[AskSeekAction(type="seek", seconds=4.0, domain="notation")])
     safe = sanitize_response(response, selection_context)
 
     assert safe.suggestedActions is None or safe.suggestedActions == []
 
 
 def test_matching_domain_seek_action_kept(selection_context):
-    response = _response(
-        actions=[AskSeekAction(type="seek", seconds=3.0, domain="performance")]
-    )
+    response = _response(actions=[AskSeekAction(type="seek", seconds=3.0, domain="performance")])
     safe = sanitize_response(response, selection_context)
 
     assert safe.suggestedActions is not None
@@ -182,9 +174,7 @@ def test_matching_domain_seek_action_kept(selection_context):
 
 def test_seek_action_outside_selection_dropped(selection_context):
     """Seek to a time outside the selection range is dropped."""
-    response = _response(
-        actions=[AskSeekAction(type="seek", seconds=10.0, domain="performance")]
-    )
+    response = _response(actions=[AskSeekAction(type="seek", seconds=10.0, domain="performance")])
     safe = sanitize_response(response, selection_context)
 
     assert safe.suggestedActions is None or safe.suggestedActions == []
@@ -229,18 +219,14 @@ def test_notation_selection_time_reference_outside_dropped(selection_notation_co
 
 
 def test_measure_reference_with_negative_start_removed(selection_context):
-    response = _response(
-        references=[AskMeasureReference(type="measure", start=-1, end=3)]
-    )
+    response = _response(references=[AskMeasureReference(type="measure", start=-1, end=3)])
     safe = sanitize_response(response, selection_context)
 
     assert safe.references == []
 
 
 def test_measure_reference_with_reversed_range_removed(selection_context):
-    response = _response(
-        references=[AskMeasureReference(type="measure", start=5, end=3)]
-    )
+    response = _response(references=[AskMeasureReference(type="measure", start=5, end=3)])
     safe = sanitize_response(response, selection_context)
 
     assert safe.references == []
@@ -248,9 +234,7 @@ def test_measure_reference_with_reversed_range_removed(selection_context):
 
 def test_invented_measure_999_dropped(selection_context):
     """Measure 999 not in selection or insight spans is dropped."""
-    response = _response(
-        references=[AskMeasureReference(type="measure", start=999, end=1000)]
-    )
+    response = _response(references=[AskMeasureReference(type="measure", start=999, end=1000)])
     safe = sanitize_response(response, selection_context)
 
     assert safe.references == []
@@ -258,9 +242,7 @@ def test_invented_measure_999_dropped(selection_context):
 
 def test_measure_reference_within_selection_kept(selection_context):
     """Measure reference within selection measureRange is retained."""
-    response = _response(
-        references=[AskMeasureReference(type="measure", start=2, end=3)]
-    )
+    response = _response(references=[AskMeasureReference(type="measure", start=2, end=3)])
     safe = sanitize_response(response, selection_context)
 
     assert len(safe.references) == 1
@@ -269,18 +251,14 @@ def test_measure_reference_within_selection_kept(selection_context):
 def test_measure_reference_within_insight_span_kept(selection_context):
     """Measure reference within insight measure span is retained."""
     # The insight in selection_context has measure span 1-4
-    response = _response(
-        references=[AskMeasureReference(type="measure", start=1, end=4)]
-    )
+    response = _response(references=[AskMeasureReference(type="measure", start=1, end=4)])
     safe = sanitize_response(response, selection_context)
 
     assert len(safe.references) == 1
 
 
 def test_measure_reference_outside_all_grounded_dropped(selection_context):
-    response = _response(
-        references=[AskMeasureReference(type="measure", start=10, end=12)]
-    )
+    response = _response(references=[AskMeasureReference(type="measure", start=10, end=12)])
     safe = sanitize_response(response, selection_context)
 
     assert safe.references == []

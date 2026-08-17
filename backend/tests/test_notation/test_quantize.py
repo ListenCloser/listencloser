@@ -9,10 +9,10 @@ import pytest
 
 pytest.importorskip("pretty_midi", reason="pretty_midi not installed locally")
 
-import pretty_midi
+import pretty_midi  # noqa: E402
 
-from notation.grid import build_metrical_grid
-from notation.quantize import adaptive_quantize, quantize_fixed_grid
+from notation.grid import build_metrical_grid  # noqa: E402
+from notation.quantize import adaptive_quantize, quantize_fixed_grid  # noqa: E402
 
 
 def _make_midi(notes) -> bytes:

@@ -120,7 +120,7 @@ def _category_summary(results: list[dict[str, Any]], metric: str) -> dict[str, d
         if r.get("status") != "ok" or not r.get("metrics"):
             continue
         v = r["metrics"].get(metric)
-        if isinstance(v, (int, float)):
+        if isinstance(v, int | float):
             by_cat.setdefault(r["category"], []).append(float(v))
     return {
         cat: {
