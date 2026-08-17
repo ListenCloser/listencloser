@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 from engines.base import EngineProvenance, TranscriptionResult
 from engines.transcription.basic_pitch import BasicPitchEngine
 
@@ -11,14 +9,12 @@ from engines.transcription.basic_pitch import BasicPitchEngine
 class TestTranscriptionEngineSelection:
     def test_default_is_basic_pitch(self):
         from engines.registry import get_transcription_engine
-        from engines.transcription.basic_pitch import BasicPitchEngine
 
         engine = get_transcription_engine()
         assert isinstance(engine, BasicPitchEngine)
 
     def test_threshold_propagation(self):
         from engines.registry import get_transcription_engine
-        from engines.transcription.basic_pitch import BasicPitchEngine
 
         engine = get_transcription_engine(onset_threshold=0.7, frame_threshold=0.15)
         assert isinstance(engine, BasicPitchEngine)
@@ -34,11 +30,12 @@ class TestTranscriptionEngineSelection:
             get_transcription_engine("nonexistent")
 
     def test_get_transcription_engine_for_job(self):
-        from engines.transcription.basic_pitch import BasicPitchEngine
         from music_features import get_transcription_engine_for_job
 
         engine = get_transcription_engine_for_job(
-            name="basic_pitch", onset_threshold=0.6, frame_threshold=0.25,
+            name="basic_pitch",
+            onset_threshold=0.6,
+            frame_threshold=0.25,
         )
         assert isinstance(engine, BasicPitchEngine)
 
@@ -75,6 +72,7 @@ class TestTranscriptionEngineSelection:
 
     def test_unknown_profile_raises(self):
         import pytest
+
         from engines.registry import get_transcription_engine
 
         with pytest.raises(ValueError, match="Unknown transcription profile"):
@@ -101,8 +99,11 @@ class TestProductionHandler:
 
     def test_engine_result_to_dict(self):
         result = TranscriptionResult(
-            midi=b"m", wav=b"w", notes=[],
-            num_notes=0, cleanup_report={},
+            midi=b"m",
+            wav=b"w",
+            notes=[],
+            num_notes=0,
+            cleanup_report={},
             provenance=EngineProvenance(engine="test", library_version="1.0"),
         )
         d = result.to_dict()

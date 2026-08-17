@@ -68,7 +68,14 @@ def selection_context():
         ),
         visible_insights=[
             AskVisibleInsight(
-                insight=make_insight(id="insight-selection", claim="Chord: G7", start_seconds=1.0, end_seconds=5.0, start_measure=1, end_measure=4),
+                insight=make_insight(
+                    id="insight-selection",
+                    claim="Chord: G7",
+                    start_seconds=1.0,
+                    end_seconds=5.0,
+                    start_measure=1,
+                    end_measure=4,
+                ),
                 category="selection",
             ),
             AskVisibleInsight(insight=make_insight(), category="whole-work"),
@@ -82,7 +89,14 @@ def no_selection_context():
     return make_context(
         visible_insights=[
             AskVisibleInsight(
-                insight=make_insight(id="insight-key", claim="Key: C major", start_seconds=None, end_seconds=None, start_measure=None, end_measure=None),
+                insight=make_insight(
+                    id="insight-key",
+                    claim="Key: C major",
+                    start_seconds=None,
+                    end_seconds=None,
+                    start_measure=None,
+                    end_measure=None,
+                ),
                 category="whole-work",
             ),
         ]
@@ -100,7 +114,9 @@ def selection_notation_context():
         ),
         visible_insights=[
             AskVisibleInsight(
-                insight=make_insight(id="insight-notation", claim="Note: C4", start_seconds=10.0, end_seconds=20.0),
+                insight=make_insight(
+                    id="insight-notation", claim="Note: C4", start_seconds=10.0, end_seconds=20.0
+                ),
                 category="selection",
             ),
         ],

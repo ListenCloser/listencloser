@@ -146,7 +146,10 @@ def _render_markdown(payload: dict[str, Any]) -> str:
             if r.get("engine") != engine:
                 continue
             if r["status"] != "ok" or r["metrics"] is None:
-                lines.append(f"| {r['id']} | {r.get('reference_count', '-')} | {r.get('predicted_count', '-')} | - | - | - | - | - | - |")
+                lines.append(
+                    f"| {r['id']} | {r.get('reference_count', '-')} | "
+                    f"{r.get('predicted_count', '-')} | - | - | - | - | - | - |"
+                )
                 continue
             m = r["metrics"]
             lines.append(

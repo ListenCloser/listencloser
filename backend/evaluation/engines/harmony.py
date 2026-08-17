@@ -14,10 +14,9 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
-from evaluation.engines import EngineInfo, EngineAdapter, EngineCategory
+from evaluation.engines import EngineAdapter, EngineInfo
 
 logger = logging.getLogger("eval.engines.harmony")
 
@@ -25,6 +24,7 @@ logger = logging.getLogger("eval.engines.harmony")
 # ============================================================
 # Music21 Symbolic (existing baseline - already in production)
 # ============================================================
+
 
 @dataclass
 class Music21HarmonyAdapter(EngineAdapter):
@@ -36,7 +36,10 @@ class Music21HarmonyAdapter(EngineAdapter):
         install_cmd="pip install music21",
         model_size_mb=0,
         requires_gpu=False,
-        notes="Symbolic analysis via music21. Key, chords, RN, cadences, voice leading. Current production baseline.",
+        notes=(
+            "Symbolic analysis via music21. Key, chords, RN, cadences, voice "
+            "leading. Current production baseline."
+        ),
     )
 
     def __init__(self, **kwargs):
@@ -45,6 +48,7 @@ class Music21HarmonyAdapter(EngineAdapter):
     def is_available(self) -> bool:
         try:
             import music21  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -53,9 +57,7 @@ class Music21HarmonyAdapter(EngineAdapter):
         pass
 
     def analyze_harmony(self, midi_bytes: bytes, **kwargs) -> dict[str, Any]:
-        import io
-        import tempfile
-        from music21 import converter, chord, roman, voiceLeading, key
+        from music21 import converter, roman, voiceLeading
 
         # Write MIDI to temp file for music21 parsing (BytesIO triggers
         # MuseData format detection bug in music21)
@@ -91,12 +93,14 @@ class Music21HarmonyAdapter(EngineAdapter):
                 start = float(ch.getOffsetInHierarchy(score))
                 dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
                 if dur > 0:
-                    chords.append({
-                        "root": root_name,
-                        "quality": quality,
-                        "start": round(start, 3),
-                        "end": round(start + dur, 3),
-                    })
+                    chords.append(
+                        {
+                            "root": root_name,
+                            "quality": quality,
+                            "start": round(start, 3),
+                            "end": round(start + dur, 3),
+                        }
+                    )
             except Exception:
                 continue
 
@@ -114,29 +118,37 @@ class Music21HarmonyAdapter(EngineAdapter):
                         if root_p is None:
                             continue
                         root_name = root_p.name
-                        implied = str(rn.impliedQuality) if hasattr(rn, "impliedQuality") else "unknown"
+                        implied = (
+                            str(rn.impliedQuality) if hasattr(rn, "impliedQuality") else "unknown"
+                        )
                         quality = _quality_map(implied)
                         if not quality or quality == "unknown":
                             continue
                         start = float(ch.getOffsetInHierarchy(score))
                         dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
-                        roman_numerals.append({
-                            "figure": rn.figure,
-                            "root": root_name,
-                            "quality": quality,
-                            "start": round(start, 3),
-                            "end": round(start + dur, 3),
-                        })
+                        roman_numerals.append(
+                            {
+                                "figure": rn.figure,
+                                "root": root_name,
+                                "quality": quality,
+                                "start": round(start, 3),
+                                "end": round(start + dur, 3),
+                            }
+                        )
                     except Exception:
                         continue
 
         # Cadences
         cadences = []
         patterns = [
-            ("authentic", ["V", "I"]), ("plagal", ["IV", "I"]),
-            ("half", ["I", "V"]), ("deceptive", ["V", "vi"]),
-            ("authentic", ["V7", "I"]), ("authentic", ["V", "i"]),
-            ("half", ["i", "V"]), ("deceptive", ["V", "VI"]),
+            ("authentic", ["V", "I"]),
+            ("plagal", ["IV", "I"]),
+            ("half", ["I", "V"]),
+            ("deceptive", ["V", "vi"]),
+            ("authentic", ["V7", "I"]),
+            ("authentic", ["V", "i"]),
+            ("half", ["i", "V"]),
+            ("deceptive", ["V", "VI"]),
         ]
         chord_seq = []
         for part in score.parts:
@@ -164,17 +176,21 @@ class Music21HarmonyAdapter(EngineAdapter):
                         evidence_score += 0.2
                     if long_arrival:
                         evidence_score += 0.1
-                    cadences.append({
-                        "type": cad_type,
-                        "chords": pair,
-                        "position": round(off, 3),
-                        "evidence_score": round(min(evidence_score, 0.8), 3),
-                        "evidence": {
-                            "metric_position": "near_measure_boundary" if near_boundary else "mid_measure",
-                            "arrival_duration_qn": round(dur, 3),
-                            "method": "roman_numeral_pattern",
-                        },
-                    })
+                    cadences.append(
+                        {
+                            "type": cad_type,
+                            "chords": pair,
+                            "position": round(off, 3),
+                            "evidence_score": round(min(evidence_score, 0.8), 3),
+                            "evidence": {
+                                "metric_position": "near_measure_boundary"
+                                if near_boundary
+                                else "mid_measure",
+                                "arrival_duration_qn": round(dur, 3),
+                                "method": "roman_numeral_pattern",
+                            },
+                        }
+                    )
                     break
 
         # Voice leading
@@ -186,7 +202,9 @@ class Music21HarmonyAdapter(EngineAdapter):
                 for i in range(min(len(parts), 4)):
                     for j in range(i + 1, min(len(parts), 4)):
                         try:
-                            for vlq in voiceLeading.iterateAllVoiceLeadingQuartets(parts[i], parts[j]):
+                            for vlq in voiceLeading.iterateAllVoiceLeadingQuartets(
+                                parts[i], parts[j]
+                            ):
                                 motion = vlq.motionType()
                                 if "Parallel" in str(motion):
                                     parallel += 1
@@ -206,14 +224,24 @@ class Music21HarmonyAdapter(EngineAdapter):
                     if total > 2000:
                         break
                 if total > 0:
-                    p, c, o, s = (round(n / total, 3) for n in [parallel, contrary, oblique, similar])
+                    p, c, o, s = (
+                        round(n / total, 3) for n in [parallel, contrary, oblique, similar]
+                    )
                     dominant = max(
-                        ("parallel", p), ("contrary", c), ("oblique", o), ("similar", s),
+                        ("parallel", p),
+                        ("contrary", c),
+                        ("oblique", o),
+                        ("similar", s),
                         key=lambda x: x[1],
                     )
                     voice_leading = {
-                        "parallel": p, "contrary": c, "oblique": o, "similar": s,
-                        "motion_summary": f"{dominant[0]} motion dominates ({dominant[1] * 100:.0f}%)",
+                        "parallel": p,
+                        "contrary": c,
+                        "oblique": o,
+                        "similar": s,
+                        "motion_summary": (
+                            f"{dominant[0]} motion dominates ({dominant[1] * 100:.0f}%)"
+                        ),
                     }
         except Exception:
             pass
@@ -242,10 +270,18 @@ class Music21HarmonyAdapter(EngineAdapter):
 # ============================================================
 
 _QUALITY_MAP = {
-    "major": "M", "minor": "m", "diminished": "dim", "augmented": "aug",
-    "dominant seventh": "7", "major seventh": "maj7", "minor seventh": "min7",
-    "half-diminished": "m7b5", "diminished seventh": "dim7",
-    "suspended fourth": "sus4", "major sixth": "6", "minor sixth": "m6",
+    "major": "M",
+    "minor": "m",
+    "diminished": "dim",
+    "augmented": "aug",
+    "dominant seventh": "7",
+    "major seventh": "maj7",
+    "minor seventh": "min7",
+    "half-diminished": "m7b5",
+    "diminished seventh": "dim7",
+    "suspended fourth": "sus4",
+    "major sixth": "6",
+    "minor sixth": "m6",
     "dominant ninth": "9",
 }
 

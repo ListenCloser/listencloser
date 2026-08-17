@@ -8,9 +8,9 @@ import pytest
 
 pytest.importorskip("pretty_midi", reason="pretty_midi not installed locally")
 
-import pretty_midi
+import pretty_midi  # noqa: E402
 
-from music_features import _clean_midi
+from music_features import _clean_midi  # noqa: E402
 
 
 def _make_midi(notes: list[tuple[int, float, float, int]]) -> bytes:
@@ -26,18 +26,22 @@ def _make_midi(notes: list[tuple[int, float, float, int]]) -> bytes:
 
 class TestCleanup:
     def test_removes_very_short_notes(self):
-        midi = _make_midi([
-            (60, 0.0, 0.5, 80),  # kept
-            (64, 0.1, 0.11, 40),  # too short (< 0.075)
-        ])
+        midi = _make_midi(
+            [
+                (60, 0.0, 0.5, 80),  # kept
+                (64, 0.1, 0.11, 40),  # too short (< 0.075)
+            ]
+        )
         result, report = _clean_midi(midi)
         assert report["removed_short"] == 1
         assert report["kept_notes"] == 1
 
     def test_removes_low_velocity_short(self):
-        midi = _make_midi([
-            (60, 0.0, 0.1, 15),  # low vel, short dur → removed
-        ])
+        midi = _make_midi(
+            [
+                (60, 0.0, 0.1, 15),  # low vel, short dur → removed
+            ]
+        )
         result, report = _clean_midi(midi)
         assert report["removed_low_velocity"] == 1
 
@@ -47,20 +51,24 @@ class TestCleanup:
         assert report["kept_notes"] == 1
 
     def test_removes_out_of_range(self):
-        midi = _make_midi([
-            (60, 0.0, 0.5, 80),  # kept
-            (10, 0.0, 0.5, 80),  # too low
-            (120, 0.0, 0.5, 80),  # too high
-        ])
+        midi = _make_midi(
+            [
+                (60, 0.0, 0.5, 80),  # kept
+                (10, 0.0, 0.5, 80),  # too low
+                (120, 0.0, 0.5, 80),  # too high
+            ]
+        )
         result, report = _clean_midi(midi)
         assert report["removed_out_of_range"] == 2
         assert report["kept_notes"] == 1
 
     def test_merges_overlapping_same_pitch(self):
-        midi = _make_midi([
-            (60, 0.0, 0.3, 64),
-            (60, 0.25, 0.5, 80),  # overlaps
-        ])
+        midi = _make_midi(
+            [
+                (60, 0.0, 0.3, 64),
+                (60, 0.25, 0.5, 80),  # overlaps
+            ]
+        )
         result, report = _clean_midi(midi)
         assert report["merged_overlaps"] == 1
         assert report["kept_notes"] == 1

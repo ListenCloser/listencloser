@@ -1,5 +1,5 @@
 """Regression tests for OSS bakeoff evaluation framework fixes.
- 
+
 Covers bugs found after merging PR #222:
 1. Missing Path import in _compute_transcription_metrics
 2. Redundant Note.from_dict() on already-Note objects (crash)
@@ -15,8 +15,8 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from contextlib import suppress
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -27,7 +27,7 @@ class TestTranscriptionMetricsPathImport:
     def test_compute_transcription_metrics_has_reference_midi(self):
         """Function should work when clip.reference_midi exists (uses Path internally)."""
         from evaluation.engines import _compute_transcription_metrics
-        from evaluation.models import EvalClip, Reference
+        from evaluation.models import EvalClip
 
         # Create a minimal MIDI file with one note
         midi_bytes = _make_minimal_midi()
@@ -66,9 +66,9 @@ class TestNoteConversion:
 
     def test_ref_notes_not_double_wrapped(self):
         """_midi_to_notes returns Note objects; they should NOT be re-wrapped."""
+        from evaluation.benchmark import _midi_to_notes
         from evaluation.engines import _compute_transcription_metrics
         from evaluation.models import EvalClip
-        from evaluation.benchmark import _midi_to_notes
 
         midi_bytes = _make_minimal_midi()
         ref_notes = _midi_to_notes(midi_bytes)
@@ -122,8 +122,6 @@ class TestAggregateMetricsNoneHandling:
         """Aggregate computation should handle None metric values gracefully."""
         from evaluation.engines import (
             EngineEvalResult,
-            EngineInfo,
-            EngineAggregateReport,
             _compute_category_aggregate,
         )
 
@@ -142,7 +140,7 @@ class TestAggregateMetricsNoneHandling:
 
     def test_none_transcription_metrics_do_not_crash(self):
         """Same for transcription category."""
-        from evaluation.engines import _compute_category_aggregate, EngineEvalResult
+        from evaluation.engines import EngineEvalResult, _compute_category_aggregate
 
         result = EngineEvalResult(
             engine_name="test",
@@ -161,7 +159,7 @@ class TestMetricKeyNames:
 
     def test_harmony_uses_key_correct_not_key_accuracy(self):
         """Harmony aggregate should look for 'key_correct', not 'key_accuracy'."""
-        from evaluation.engines import _compute_category_aggregate, EngineEvalResult
+        from evaluation.engines import EngineEvalResult, _compute_category_aggregate
 
         result = EngineEvalResult(
             engine_name="test",
@@ -177,7 +175,7 @@ class TestMetricKeyNames:
 
     def test_transcription_uses_note_precision_not_precision(self):
         """Transcription aggregate should use note_precision, not precision."""
-        from evaluation.engines import _compute_category_aggregate, EngineEvalResult
+        from evaluation.engines import EngineEvalResult, _compute_category_aggregate
 
         result = EngineEvalResult(
             engine_name="test",
@@ -194,7 +192,7 @@ class TestMetricKeyNames:
 
     def test_beat_tracking_uses_beat_f1_not_f_measure(self):
         """Beat tracking aggregate should look for 'beat_f1', not 'f_measure'."""
-        from evaluation.engines import _compute_category_aggregate, EngineEvalResult
+        from evaluation.engines import EngineEvalResult, _compute_category_aggregate
 
         result = EngineEvalResult(
             engine_name="test",
@@ -210,62 +208,6 @@ class TestMetricKeyNames:
 
 class TestAudioFormatDetection:
     """Bug: piano_transcription and transkun adapters failed on m4a/mp3 files.
-    
-    soundfile/libsndfile doesn't support m4a; adapters need format detection
-    to use temp files with correct extensions for audioread backend.
-    """
-
-    def test_m4a_detection_from_magic_bytes(self):
-        """Adapters should detect m4a format from ftyp box at byte offset 4."""
-        # iTunes-style M4A file starts with: size(4 bytes) + 'ftyp' (4 bytes)
-        m4a_header = b"\x00\x00\x00\x1cftypM4A " + b"\x00" * 100
-        assert len(m4a_header) >= 12
-        assert m4a_header[4:8] == b"ftyp"
-
-        # Verify format detection logic matches
-        fmt = "wav"
-        if m4a_header[:4] == b"RIFF":
-            fmt = "wav"
-        elif m4a_header[:4] == b"OggS":
-            fmt = "ogg"
-        elif m4a_header[:2] == b"\xff\xfb":
-            fmt = "mp3"
-        elif len(m4a_header) >= 12 and m4a_header[4:8] == b"ftyp":
-            fmt = "m4a"
-
-        assert fmt == "m4a"
-
-    def test_wav_detection_from_magic_bytes(self):
-        """RIFF header detection for WAV files."""
-        wav_header = b"RIFF\x00\x00\x00\x00WAVE"
-        fmt = "wav"
-        if wav_header[:4] == b"RIFF":
-            fmt = "wav"
-        elif wav_header[:4] == b"OggS":
-            fmt = "ogg"
-        elif wav_header[:2] == b"\xff\xfb":
-            fmt = "mp3"
-        elif len(wav_header) >= 12 and wav_header[4:8] == b"ftyp":
-            fmt = "m4a"
-        assert fmt == "wav"
-
-    def test_mp3_detection_from_magic_bytes(self):
-        """MP3 frame header detection."""
-        mp3_header = b"\xff\xfb\x90\x00" + b"\x00" * 100
-        fmt = "wav"
-        if mp3_header[:4] == b"RIFF":
-            fmt = "wav"
-        elif mp3_header[:4] == b"OggS":
-            fmt = "ogg"
-        elif mp3_header[:2] == b"\xff\xfb":
-            fmt = "mp3"
-        elif len(mp3_header) >= 12 and mp3_header[4:8] == b"ftyp":
-            fmt = "m4a"
-        assert fmt == "mp3"
-
-
-class TestAudioFormatDetection:
-    """Bug: piano_transcription and transkun adapters failed on m4a/mp3 files.
 
     soundfile/libsndfile doesn't support m4a; adapters need format detection
     to use temp files with correct extensions for audioread backend.
@@ -276,6 +218,7 @@ class TestAudioFormatDetection:
     def _restore_modules(self):
         """Restore modules that may have been mocked by test_wrappers.py."""
         import sys
+
         saved = {}
         for mod_name in ["librosa", "soundfile", "basic_pitch", "basic_pitch.inference"]:
             if mod_name in sys.modules and isinstance(sys.modules[mod_name], MagicMock):
@@ -284,11 +227,9 @@ class TestAudioFormatDetection:
         try:
             yield
         finally:
-            for mod_name, mock_mod in saved.items():
-                try:
+            for mod_name in saved:
+                with suppress(KeyError):
                     del sys.modules[mod_name]
-                except KeyError:
-                    pass
 
     def test_piano_transcription_handles_m4a(self):
         from evaluation.engines.transcription import PianoTranscriptionAdapter
@@ -328,6 +269,7 @@ class TestAudioFormatDetection:
     def test_piano_transcription_output_time_aligned(self):
         """Predicted note span must match audio duration, not be stretched 2.76x."""
         import librosa
+
         from evaluation.engines.transcription import PianoTranscriptionAdapter
 
         if not PianoTranscriptionAdapter().is_available():
@@ -382,8 +324,9 @@ class TestAudioFormatDetection:
 
     def test_librosa_tempo_is_scalar(self):
         """librosa.beat_track returns numpy array for tempo; adapter should convert to float."""
-        from evaluation.engines.beat_tracking import LibrosaBeatAdapter
         import numpy as np
+
+        from evaluation.engines.beat_tracking import LibrosaBeatAdapter
 
         if not LibrosaBeatAdapter().is_available():
             pytest.skip("librosa not installed")
@@ -392,7 +335,6 @@ class TestAudioFormatDetection:
         adapter.prepare()
 
         # Use a simple sine wave as audio
-        import librosa
         sr = 44100
         duration = 5.0
         t = np.linspace(0, duration, int(sr * duration))
@@ -401,6 +343,7 @@ class TestAudioFormatDetection:
         # Write to temp WAV
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             import soundfile as sf
+
             sf.write(f.name, audio, sr)
             tmp_path = f.name
 
@@ -416,7 +359,7 @@ class TestAudioFormatDetection:
 
 class TestEligibilityAfterInference:
     """Bug: eligibility check caused early return before inference, breaking timing measurement.
-    
+
     The check should only skip metric computation, not the actual inference run.
     """
 
@@ -424,6 +367,7 @@ class TestEligibilityAfterInference:
     def _restore_modules(self):
         """Restore modules that may have been mocked by test_wrappers.py."""
         import sys
+
         saved = {}
         for mod_name in ["librosa", "soundfile", "basic_pitch", "basic_pitch.inference"]:
             if mod_name in sys.modules and isinstance(sys.modules[mod_name], MagicMock):
@@ -432,29 +376,31 @@ class TestEligibilityAfterInference:
         try:
             yield
         finally:
-            for mod_name, mock_mod in saved.items():
-                try:
+            for mod_name in saved:
+                with suppress(KeyError):
                     del sys.modules[mod_name]
-                except KeyError:
-                    pass
 
     def test_ineligible_clip_still_runs_inference(self):
         """Ineligible clips (no ref MIDI) should still run inference for diagnostics."""
-        from evaluation.engines import EngineEvalResult, _run_clip_on_engine
-        from evaluation.models import EvalClip
+        from evaluation.engines import _run_clip_on_engine
         from evaluation.engines.transcription import BasicPitchAdapter
+        from evaluation.models import EvalClip
 
         if not BasicPitchAdapter().is_available():
             pytest.skip("basic_pitch not installed")
 
         # Create a clip with audio but no reference_midi
-        clip = EvalClip(
-            id="test_no_ref",
-            audio="/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a",
-            category="solo_piano",
-            reference_midi=None,
-        ) if os.path.isfile("/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a") else None
-        
+        clip = (
+            EvalClip(
+                id="test_no_ref",
+                audio="/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a",
+                category="solo_piano",
+                reference_midi=None,
+            )
+            if os.path.isfile("/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a")
+            else None
+        )
+
         if clip is None:
             pytest.skip("test fixture not found")
 
@@ -491,7 +437,9 @@ class TestEligibilityAfterInference:
             midi_file = f.name
 
         try:
-            clip = EvalClip(id="test", audio="/dev/null", category="solo_piano", reference_midi=midi_file)
+            clip = EvalClip(
+                id="test", audio="/dev/null", category="solo_piano", reference_midi=midi_file
+            )
             reason = _check_clip_eligibility("transcription", clip)
             assert reason is None
         finally:
@@ -500,10 +448,10 @@ class TestEligibilityAfterInference:
 
 # --- Helpers ---
 
+
 def _make_minimal_midi() -> bytes:
     """Create a minimal MIDI file with a single C4 note for testing."""
     import struct
-    import io
 
     def _var_len(value: int) -> bytes:
         buf = bytearray()
@@ -523,7 +471,9 @@ def _make_minimal_midi() -> bytes:
     # Tempo
     track_data.extend(_var_len(0))
     track_data.extend(bytes([0xFF, 0x51, 0x03]))
-    track_data.extend(bytes([(ticks_per_beat >> 16) & 0xFF, (ticks_per_beat >> 8) & 0xFF, ticks_per_beat & 0xFF]))
+    track_data.extend(
+        bytes([(ticks_per_beat >> 16) & 0xFF, (ticks_per_beat >> 8) & 0xFF, ticks_per_beat & 0xFF])
+    )
     # Note on
     track_data.extend(_var_len(0))
     track_data.extend(bytes([0x90, 60, 64]))

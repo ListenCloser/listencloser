@@ -120,9 +120,7 @@ def contract_env(monkeypatch):
     app.dependency_overrides.pop(verify_token, None)
 
 
-def test_frontend_request_is_accepted_and_response_matches_frontend_type(
-    client, contract_env
-):
+def test_frontend_request_is_accepted_and_response_matches_frontend_type(client, contract_env):
     response = client.post("/api/v1/ask", json=FRONTEND_ASK_REQUEST, headers=AUTH_HEADER)
 
     assert response.status_code == 200
@@ -185,7 +183,9 @@ def test_oversized_selection_note_ids_rejected():
     from ask.contracts import AskRequest
 
     bad = FRONTEND_ASK_REQUEST.copy()
-    bad["context"]["selection"]["noteIds"] = [f"note-{i}" for i in range(129)]  # MAX_SELECTION_NOTE_IDS=128
+    bad["context"]["selection"]["noteIds"] = [
+        f"note-{i}" for i in range(129)
+    ]  # MAX_SELECTION_NOTE_IDS=128
     with pytest.raises(ValueError):
         AskRequest.model_validate(bad)
 
@@ -194,7 +194,9 @@ def test_oversized_insight_entity_ids_rejected():
     from ask.contracts import AskRequest
 
     bad = FRONTEND_ASK_REQUEST.copy()
-    bad["context"]["visibleInsights"][0]["insight"]["entity_ids"] = [f"eid-{i}" for i in range(65)]  # MAX_INSIGHT_ENTITY_IDS=64
+    bad["context"]["visibleInsights"][0]["insight"]["entity_ids"] = [
+        f"eid-{i}" for i in range(65)
+    ]  # MAX_INSIGHT_ENTITY_IDS=64
     with pytest.raises(ValueError):
         AskRequest.model_validate(bad)
 
@@ -212,7 +214,9 @@ def test_oversized_version_id_rejected():
     from ask.contracts import AskRequest
 
     bad = FRONTEND_ASK_REQUEST.copy()
-    bad["context"]["visibleInsights"][0]["insight"]["version_id"] = "x" * 129  # MAX_VERSION_ID_LENGTH=128
+    bad["context"]["visibleInsights"][0]["insight"]["version_id"] = (
+        "x" * 129
+    )  # MAX_VERSION_ID_LENGTH=128
     with pytest.raises(ValueError):
         AskRequest.model_validate(bad)
 

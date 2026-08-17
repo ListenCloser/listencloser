@@ -6,13 +6,11 @@ Run: python -m scripts.compare_transcription_engines
 from __future__ import annotations
 
 import io
-import os
 from pathlib import Path
 
 import pretty_midi
 
 from music_features import (
-    decode_audio_to_wav,
     transcribe_with_engine,
 )
 
@@ -86,6 +84,7 @@ def _analyze_midi(midi_bytes: bytes) -> dict:
 def _render_piano_roll(midi_bytes: bytes, out_path: Path, title: str) -> None:
     """Render piano roll as PNG."""
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -93,7 +92,13 @@ def _render_piano_roll(midi_bytes: bytes, out_path: Path, title: str) -> None:
     piano_roll = pm.get_piano_roll(fs=100)
 
     fig, ax = plt.subplots(figsize=(14, 4))
-    ax.imshow(piano_roll, aspect="auto", origin="lower", cmap="hot", extent=[0, pm.get_end_time(), 0, 128])
+    ax.imshow(
+        piano_roll,
+        aspect="auto",
+        origin="lower",
+        cmap="hot",
+        extent=[0, pm.get_end_time(), 0, 128],
+    )
     ax.set_title(title)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("MIDI Pitch")
@@ -109,6 +114,7 @@ def _synthesize_playback(midi_bytes: bytes, out_path: Path) -> bool:
         pm = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
         audio = pm.synthesize(fs=44100)
         import soundfile as sf
+
         sf.write(out_path, audio, 44100)
         return True
     except Exception as e:
@@ -117,8 +123,6 @@ def _synthesize_playback(midi_bytes: bytes, out_path: Path) -> bool:
 
 
 def main() -> None:
-    import io
-
     audio_bytes = FIXTURE_PATH.read_bytes()
     print(f"Loaded {len(audio_bytes)} bytes from {FIXTURE_PATH}")
 
@@ -194,7 +198,8 @@ table {{ border-collapse: collapse; width: 100%; }}
 td {{ vertical-align: top; padding: 10px; }}
 img {{ max-width: 100%; height: auto; border: 1px solid #ddd; }}
 .comparison-table {{ width: 100%; border-collapse: collapse; }}
-.comparison-table th, .comparison-table td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+.comparison-table th, .comparison-table td {{
+        border: 1px solid #ddd; padding: 8px; text-align: left; }}
 .comparison-table th {{ background: #f5f5f5; }}
 </style>
 </head>
@@ -211,16 +216,28 @@ img {{ max-width: 100%; height: auto; border: 1px solid #ddd; }}
 <h2>Transcription Metrics</h2>
 <table class="comparison-table">
 <tr><th>Metric</th><th>Basic Pitch</th><th>Transkun</th></tr>
-<tr><td>Engine</td><td>{results['basic_pitch']['provenance']['engine']}</td><td>{results['transkun']['provenance']['engine']}</td></tr>
-<tr><td>Profile</td><td>{results['basic_pitch']['provenance']['profile_requested']}</td><td>{results['transkun']['provenance']['profile_requested']}</td></tr>
-<tr><td>Routing</td><td>{results['basic_pitch']['provenance']['routing_reason']}</td><td>{results['transkun']['provenance']['routing_reason']}</td></tr>
-<tr><td>Raw note count</td><td>{results['basic_pitch']['stats'].get('note_count', 0)}</td><td>{results['transkun']['stats'].get('note_count', 0)}</td></tr>
-<tr><td>Pitch range</td><td>{results['basic_pitch']['stats'].get('pitch_range', 'N/A')}</td><td>{results['transkun']['stats'].get('pitch_range', 'N/A')}</td></tr>
-<tr><td>Short notes (<150ms)</td><td>{results['basic_pitch']['stats'].get('short_notes', 0)}</td><td>{results['transkun']['stats'].get('short_notes', 0)}</td></tr>
-<tr><td>High register notes (>=86)</td><td>{results['basic_pitch']['stats'].get('high_register_notes', 0)}</td><td>{results['transkun']['stats'].get('high_register_notes', 0)}</td></tr>
-<tr><td>Isolated high register notes</td><td>{results['basic_pitch']['stats'].get('isolated_high_register', 0)}</td><td>{results['transkun']['stats'].get('isolated_high_register', 0)}</td></tr>
-<tr><td>Max polyphony</td><td>{results['basic_pitch']['stats'].get('max_polyphony', 0)}</td><td>{results['transkun']['stats'].get('max_polyphony', 0)}</td></tr>
-<tr><td>Avg velocity</td><td>{results['basic_pitch']['stats'].get('avg_velocity', 0):.1f}</td><td>{results['transkun']['stats'].get('avg_velocity', 0):.1f}</td></tr>
+<tr><td>Engine</td><td>{results['basic_pitch']['provenance']['engine']}</td>
+    <td>{results['transkun']['provenance']['engine']}</td></tr>
+<tr><td>Profile</td><td>{results['basic_pitch']['provenance']['profile_requested']}</td>
+    <td>{results['transkun']['provenance']['profile_requested']}</td></tr>
+<tr><td>Routing</td><td>{results['basic_pitch']['provenance']['routing_reason']}</td>
+    <td>{results['transkun']['provenance']['routing_reason']}</td></tr>
+<tr><td>Raw note count</td><td>{results['basic_pitch']['stats'].get('note_count', 0)}</td>
+    <td>{results['transkun']['stats'].get('note_count', 0)}</td></tr>
+<tr><td>Pitch range</td><td>{results['basic_pitch']['stats'].get('pitch_range', 'N/A')}</td>
+    <td>{results['transkun']['stats'].get('pitch_range', 'N/A')}</td></tr>
+<tr><td>Short notes (<150ms)</td><td>{results['basic_pitch']['stats'].get('short_notes', 0)}</td>
+    <td>{results['transkun']['stats'].get('short_notes', 0)}</td></tr>
+<tr><td>High register notes (>=86)</td>
+    <td>{results['basic_pitch']['stats'].get('high_register_notes', 0)}</td>
+    <td>{results['transkun']['stats'].get('high_register_notes', 0)}</td></tr>
+<tr><td>Isolated high register notes</td>
+    <td>{results['basic_pitch']['stats'].get('isolated_high_register', 0)}</td>
+    <td>{results['transkun']['stats'].get('isolated_high_register', 0)}</td></tr>
+<tr><td>Max polyphony</td><td>{results['basic_pitch']['stats'].get('max_polyphony', 0)}</td>
+    <td>{results['transkun']['stats'].get('max_polyphony', 0)}</td></tr>
+<tr><td>Avg velocity</td><td>{results['basic_pitch']['stats'].get('avg_velocity', 0):.1f}</td>
+    <td>{results['transkun']['stats'].get('avg_velocity', 0):.1f}</td></tr>
 </table>
 
 <h2>Synthesized Playback</h2>

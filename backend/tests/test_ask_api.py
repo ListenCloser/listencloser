@@ -198,9 +198,7 @@ def test_insufficient_evidence_answer_accepted(
     client, override_auth, override_supabase, override_provider
 ):
     override_provider(
-        FakeLLMProvider(
-            responses=[{"answer": "I don't have enough evidence.", "references": []}]
-        )
+        FakeLLMProvider(responses=[{"answer": "I don't have enough evidence.", "references": []}])
     )
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
 
@@ -231,9 +229,7 @@ def test_invented_insight_reference_removed(
     assert response.json()["references"] == []
 
 
-def test_invented_note_id_removed(
-    client, override_auth, override_supabase, override_provider
-):
+def test_invented_note_id_removed(client, override_auth, override_supabase, override_provider):
     payload = _valid_response_payload()
     payload["references"] = [{"type": "notes", "ids": ["note-1", "ghost"]}]
     override_provider(FakeLLMProvider(responses=[payload]))
@@ -248,9 +244,7 @@ def test_invalid_representation_action_removed(
     client, override_auth, override_supabase, override_provider
 ):
     payload = _valid_response_payload()
-    payload["suggestedActions"] = [
-        {"type": "show_representation", "representationId": "harmony"}
-    ]
+    payload["suggestedActions"] = [{"type": "show_representation", "representationId": "harmony"}]
     override_provider(FakeLLMProvider(responses=[payload]))
 
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
@@ -263,9 +257,7 @@ def test_negative_time_reference_removed(
     client, override_auth, override_supabase, override_provider
 ):
     payload = _valid_response_payload()
-    payload["references"] = [
-        {"type": "time", "start": -1.0, "end": 3.0, "domain": "performance"}
-    ]
+    payload["references"] = [{"type": "time", "start": -1.0, "end": 3.0, "domain": "performance"}]
     override_provider(FakeLLMProvider(responses=[payload]))
 
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
@@ -273,13 +265,9 @@ def test_negative_time_reference_removed(
     assert response.json()["references"] == []
 
 
-def test_reversed_time_range_removed(
-    client, override_auth, override_supabase, override_provider
-):
+def test_reversed_time_range_removed(client, override_auth, override_supabase, override_provider):
     payload = _valid_response_payload()
-    payload["references"] = [
-        {"type": "time", "start": 10.0, "end": 3.0, "domain": "performance"}
-    ]
+    payload["references"] = [{"type": "time", "start": 10.0, "end": 3.0, "domain": "performance"}]
     override_provider(FakeLLMProvider(responses=[payload]))
 
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
@@ -291,9 +279,7 @@ def test_cross_domain_unsafe_action_removed(
     client, override_auth, override_supabase, override_provider
 ):
     payload = _valid_response_payload()
-    payload["suggestedActions"] = [
-        {"type": "seek", "seconds": 2.0, "domain": "notation"}
-    ]
+    payload["suggestedActions"] = [{"type": "seek", "seconds": 2.0, "domain": "notation"}]
     override_provider(FakeLLMProvider(responses=[payload]))
 
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
@@ -314,18 +300,14 @@ def test_provider_timeout_returns_sanitized_error(
 def test_missing_provider_configuration_returns_service_unavailable(
     client, override_auth, override_supabase, monkeypatch
 ):
-    monkeypatch.setattr(
-        "ask.api.build_provider", lambda settings, client=None: None
-    )
+    monkeypatch.setattr("ask.api.build_provider", lambda settings, client=None: None)
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
 
     assert response.status_code == 503
     assert "not configured" in response.json()["detail"]
 
 
-def test_oversized_question_rejected(
-    client, override_auth, override_supabase, override_provider
-):
+def test_oversized_question_rejected(client, override_auth, override_supabase, override_provider):
     override_provider(FakeLLMProvider(responses=[_valid_response_payload()]))
     response = client.post(
         "/api/v1/ask",

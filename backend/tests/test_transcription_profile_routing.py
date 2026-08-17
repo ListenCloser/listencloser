@@ -99,9 +99,10 @@ class TestTranscriptionProfileRouting:
 
     def test_handle_transcribe_uses_profile_from_job_parameters(self):
         """Verify handle_transcribe passes transcription_profile to registry."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import patch
+
         from domain.capabilities import handle_transcribe
-        from engines.base import TranscriptionResult, EngineProvenance
+        from engines.base import EngineProvenance, TranscriptionResult
 
         class _FakeEngine:
             def __init__(self, engine_name: str):
@@ -121,7 +122,6 @@ class TestTranscriptionProfileRouting:
 
         # This test verifies the parameter passing at the function boundary.
         # Full DB integration is tested in test_pipeline_smoke.py
-        from domain.capabilities import handle_transcribe
 
         with patch(
             "domain.capabilities.music_features.get_transcription_engine_for_job"
@@ -246,9 +246,10 @@ def _make_job(
     parameters=None,
     workflow_id="12345678-1234-5678-1234-567812345678",
 ):
-    from domain.capabilities import Job, Capability
-    from domain.models import JobLifecycle, JobStage
     from uuid import UUID
+
+    from domain.capabilities import Capability, Job
+    from domain.models import JobLifecycle, JobStage
 
     if parameters is None:
         parameters = {}
@@ -268,8 +269,9 @@ class TestTranskunResampling:
 
     def test_resampling_required_when_fs_differs(self):
         """If input sample rate != model sample rate, soxr must be used."""
+        from unittest.mock import MagicMock, patch
+
         from engines.transcription.transkun import TranskunEngine
-        from unittest.mock import patch, MagicMock
 
         # Create engine
         engine = TranskunEngine(device="cpu")
@@ -283,7 +285,6 @@ class TestTranskunResampling:
         import numpy as np
 
         audio = np.random.randn(44100).astype(np.float32)  # 1 second at 44.1kHz
-        fs = 44100
 
         # Should call soxr.resample
         with patch("soxr.resample") as mock_resample:
@@ -294,9 +295,11 @@ class TestTranskunResampling:
 
     def test_missing_soxr_raises_error_when_resampling_needed(self):
         """If soxr is not installed and resampling is needed, fail loudly."""
+        import importlib.util
+        from contextlib import suppress
+        from unittest.mock import MagicMock, patch
+
         from engines.transcription.transkun import TranskunEngine
-        from unittest.mock import patch, MagicMock
-        import importlib
 
         engine = TranskunEngine(device="cpu")
         mock_model = MagicMock()
@@ -305,27 +308,17 @@ class TestTranskunResampling:
 
         # Simulate soxr not being available
         with patch.dict("sys.modules", {"soxr": None}):
-            try:
-                import soxr
-            except ImportError:
-                pass
+            with suppress(ImportError):
+                import soxr  # noqa: F401
 
             # The transcribe method should raise RuntimeError if fs != model.fs
             # and soxr is not available. We test the error path logic directly.
-            try:
-                import soxr
-            except ImportError:
-                soxr_missing = True
-            else:
-                soxr_missing = False
+            soxr_missing = importlib.util.find_spec("soxr") is None
 
             if soxr_missing:
-                fs = 44100
-                model_fs = 16000
-                if fs != model_fs:
-                    # This should raise RuntimeError in the actual engine
-                    # We're testing the conceptual requirement here
-                    assert True  # Document the requirement
+                # fs != model_fs and no soxr: this should raise RuntimeError in
+                # the actual engine. We're testing the conceptual requirement.
+                assert True  # Document the requirement
 
 
 class TestUnderstandProfileWiring:

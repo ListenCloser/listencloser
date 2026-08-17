@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 
 import numpy as np
 
@@ -25,12 +24,14 @@ def _midi_notes_to_table(midi_path: str) -> list[dict]:
     notes = []
     for inst in pm.instruments:
         for note in inst.notes:
-            notes.append({
-                "pitch": note.pitch,
-                "onset_seconds": note.start,
-                "offset_seconds": note.end,
-                "velocity": note.velocity,
-            })
+            notes.append(
+                {
+                    "pitch": note.pitch,
+                    "onset_seconds": note.start,
+                    "offset_seconds": note.end,
+                    "velocity": note.velocity,
+                }
+            )
     return notes
 
 
@@ -39,12 +40,14 @@ def _adapter_notes_to_table(pred_json: str) -> list[dict]:
         data = json.load(f)
     notes = []
     for n in data["output"]["notes"]:
-        notes.append({
-            "pitch": n["pitch"],
-            "onset_seconds": n["start"],
-            "offset_seconds": n["end"],
-            "velocity": n.get("velocity", 0),
-        })
+        notes.append(
+            {
+                "pitch": n["pitch"],
+                "onset_seconds": n["start"],
+                "offset_seconds": n["end"],
+                "velocity": n.get("velocity", 0),
+            }
+        )
     return notes
 
 
@@ -117,12 +120,18 @@ def main() -> None:
     print("\n--- Reference notes (first 30, by onset) ---")
     print(f"{'pitch':>5} {'onset':>10} {'offset':>10} {'vel':>5}")
     for n in sorted(ref, key=lambda x: x["onset_seconds"])[:30]:
-        print(f"{n['pitch']:5d} {n['onset_seconds']:10.4f} {n['offset_seconds']:10.4f} {n['velocity']:5d}")
+        print(
+            f"{n['pitch']:5d} {n['onset_seconds']:10.4f} "
+            f"{n['offset_seconds']:10.4f} {n['velocity']:5d}"
+        )
 
     print("\n--- Prediction notes (first 30, by onset) ---")
     print(f"{'pitch':>5} {'onset':>10} {'offset':>10} {'vel':>5}")
     for n in sorted(pred, key=lambda x: x["onset_seconds"])[:30]:
-        print(f"{n['pitch']:5d} {n['onset_seconds']:10.4f} {n['offset_seconds']:10.4f} {n['velocity']:5d}")
+        print(
+            f"{n['pitch']:5d} {n['onset_seconds']:10.4f} "
+            f"{n['offset_seconds']:10.4f} {n['velocity']:5d}"
+        )
 
     print("\n--- Statistics ---")
     rows = [
@@ -132,7 +141,11 @@ def main() -> None:
         ("pitch range", ref_stats["pitch_range"], pred_stats["pitch_range"]),
         ("median duration (s)", ref_stats["median_duration"], pred_stats["median_duration"]),
         ("note count", ref_stats["note_count"], pred_stats["note_count"]),
-        ("short notes (<100ms)", ref_stats["short_note_count_lt_100ms"], pred_stats["short_note_count_lt_100ms"]),
+        (
+            "short notes (<100ms)",
+            ref_stats["short_note_count_lt_100ms"],
+            pred_stats["short_note_count_lt_100ms"],
+        ),
     ]
     print(f"{'metric':<24} {'reference':>12} {'prediction':>12}")
     for label, r, p in rows:
@@ -143,28 +156,68 @@ def main() -> None:
     pagree = _nearest_onset_pitch_match_within_50ms(ref, pred)
     print(f"nearest-onset error ignoring pitch (mean abs, s): {nerr:.4f}")
     print(f"nearest-onset pitch match within 50ms (fraction): {pagree:.4f}")
-    print(f"prediction duration / audio duration ratio: {pred_stats['duration'] / audio_duration:.4f}")
+    print(
+        f"prediction duration / audio duration ratio: {pred_stats['duration'] / audio_duration:.4f}"
+    )
 
     print("\n--- Correctness checks ---")
     checks = []
     # seconds vs frames
-    checks.append(("seconds vs frames", "post-processor uses frames_per_second=100; times are seconds", "OK"))
+    checks.append(
+        ("seconds vs frames", "post-processor uses frames_per_second=100; times are seconds", "OK")
+    )
     # sample-rate
     ratio = pred_stats["duration"] / audio_duration
-    checks.append(("sample-rate conversion", f"pred/audio ratio={ratio:.3f} (should be ~1.0)", "OK" if abs(ratio - 1.0) < 0.3 else "FAIL"))
+    checks.append(
+        (
+            "sample-rate conversion",
+            f"pred/audio ratio={ratio:.3f} (should be ~1.0)",
+            "OK" if abs(ratio - 1.0) < 0.3 else "FAIL",
+        )
+    )
     # excerpt offset
-    checks.append(("excerpt_start offset", "reference MIDI spans full excerpt; first onset ~0.78s", "OK"))
+    checks.append(
+        ("excerpt_start offset", "reference MIDI spans full excerpt; first onset ~0.78s", "OK")
+    )
     # reference excerpted
-    checks.append(("reference MIDI excerpted too", f"ref duration {ref_stats['duration']:.2f}s ~= audio {audio_duration:.2f}s", "OK" if abs(ref_stats['duration'] - audio_duration) < 2.0 else "CHECK"))
+    checks.append(
+        (
+            "reference MIDI excerpted too",
+            f"ref duration {ref_stats['duration']:.2f}s ~= audio {audio_duration:.2f}s",
+            "OK" if abs(ref_stats["duration"] - audio_duration) < 2.0 else "CHECK",
+        )
+    )
     # pitch numbering
-    checks.append(("pitch numbering convention", f"ref range {ref_stats['pitch_range']}, pred range {pred_stats['pitch_range']}", "OK"))
+    checks.append(
+        (
+            "pitch numbering convention",
+            f"ref range {ref_stats['pitch_range']}, pred range {pred_stats['pitch_range']}",
+            "OK",
+        )
+    )
     # sustain pedal
-    checks.append(("sustain-pedal expansion", "piano_transcription uses pedal model; offsets may exceed note length", "note"))
+    checks.append(
+        (
+            "sustain-pedal expansion",
+            "piano_transcription uses pedal model; offsets may exceed note length",
+            "note",
+        )
+    )
     # duplicates
-    dedup = len({(n['pitch'], round(n['onset_seconds'], 3), round(n['offset_seconds'], 3)) for n in pred})
-    checks.append(("duplicate notes", f"pred unique(pitch,onset3,offset3)={dedup}/{len(pred)}", "OK" if dedup == len(pred) else "DUPLICATES"))
+    dedup = len(
+        {(n["pitch"], round(n["onset_seconds"], 3), round(n["offset_seconds"], 3)) for n in pred}
+    )
+    checks.append(
+        (
+            "duplicate notes",
+            f"pred unique(pitch,onset3,offset3)={dedup}/{len(pred)}",
+            "OK" if dedup == len(pred) else "DUPLICATES",
+        )
+    )
     # thresholds
-    checks.append(("model thresholds", "onset=0.3 offset=0.3 frame=0.1 (defaults; not tuned)", "note"))
+    checks.append(
+        ("model thresholds", "onset=0.3 offset=0.3 frame=0.1 (defaults; not tuned)", "note")
+    )
     for label, detail, status in checks:
         print(f"  [{status}] {label}: {detail}")
 

@@ -6,9 +6,9 @@ import pytest
 
 pytest.importorskip("music21", reason="music21 not installed")
 
-from music21 import chord, key, stream
+from music21 import chord, key, stream  # noqa: E402
 
-from analyze import _m21_cadences
+from analyze import _m21_cadences  # noqa: E402
 
 
 def _make_score(chords: list[tuple[str, float]]):

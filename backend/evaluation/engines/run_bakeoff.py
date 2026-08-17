@@ -7,12 +7,7 @@ changing production code paths.
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import sys
-import time
-from pathlib import Path
-from typing import Any
 
 from evaluation.corpus import load_manifest
 from evaluation.engines import EngineCategory, run_engine_evaluation, write_evaluation_report
@@ -24,7 +19,10 @@ try:
         list_transcription_adapters,
     )
 except ImportError:
-    list_transcription_adapters = lambda: []
+
+    def list_transcription_adapters():
+        return []
+
 
 try:
     from evaluation.engines.beat_tracking import (
@@ -32,7 +30,10 @@ try:
         list_beat_tracking_adapters,
     )
 except ImportError:
-    list_beat_tracking_adapters = lambda: []
+
+    def list_beat_tracking_adapters():
+        return []
+
 
 try:
     from evaluation.engines.harmony import (
@@ -40,7 +41,10 @@ try:
         list_harmony_adapters,
     )
 except ImportError:
-    list_harmony_adapters = lambda: []
+
+    def list_harmony_adapters():
+        return []
+
 
 try:
     from evaluation.engines.structure import (
@@ -48,7 +52,9 @@ try:
         list_structure_adapters,
     )
 except ImportError:
-    list_structure_adapters = lambda: []
+
+    def list_structure_adapters():
+        return []
 
 
 ADAPTER_GETTERS = {
@@ -110,7 +116,10 @@ def run_category_evaluation(
             )
             reports.append(report)
             print(f"  Completed: {report.clips_succeeded}/{report.clips_total} clips")
-            print(f"  Avg runtime: {report.avg_runtime_s:.2f}s, Memory: {report.avg_peak_memory_mb:.1f}MB")
+            print(
+                f"  Avg runtime: {report.avg_runtime_s:.2f}s, "
+                f"Memory: {report.avg_peak_memory_mb:.1f}MB"
+            )
             print(f"  Aggregate: {report.aggregate_metrics}")
 
         except Exception as e:
@@ -123,15 +132,32 @@ def main():
     parser = argparse.ArgumentParser(description="OSS Music Engine Evaluation Bakeoff")
     parser.add_argument("--manifest", required=True, help="Path to corpus manifest JSON")
     parser.add_argument("--output", default="evaluation/results/bakeoff", help="Output directory")
-    parser.add_argument("--device", default="cpu", choices=["cpu", "cuda", "mps"], help="Device for GPU engines")
-    parser.add_argument("--category", choices=["transcription", "beat_tracking", "harmony", "structure", "all"], default="all")
-    parser.add_argument("--engines", nargs="+", help="Specific engine names to evaluate (default: all available)")
-    parser.add_argument("--transcription-thresholds", nargs="+", type=float, help="Onset/frame thresholds for Basic Pitch (e.g., 0.5 0.3)")
+    parser.add_argument(
+        "--device", default="cpu", choices=["cpu", "cuda", "mps"], help="Device for GPU engines"
+    )
+    parser.add_argument(
+        "--category",
+        choices=["transcription", "beat_tracking", "harmony", "structure", "all"],
+        default="all",
+    )
+    parser.add_argument(
+        "--engines", nargs="+", help="Specific engine names to evaluate (default: all available)"
+    )
+    parser.add_argument(
+        "--transcription-thresholds",
+        nargs="+",
+        type=float,
+        help="Onset/frame thresholds for Basic Pitch (e.g., 0.5 0.3)",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
 
-    categories = [args.category] if args.category != "all" else ["transcription", "beat_tracking", "harmony", "structure"]
+    categories = (
+        [args.category]
+        if args.category != "all"
+        else ["transcription", "beat_tracking", "harmony", "structure"]
+    )
 
     all_reports = []
 
@@ -142,22 +168,39 @@ def main():
             engine_names=args.engines or [],
             output_dir=args.output,
             device=args.device,
-            **(dict(onset_threshold=args.transcription_thresholds[0], frame_threshold=args.transcription_thresholds[1]) if args.transcription_thresholds else {}),
+            **(
+                dict(
+                    onset_threshold=args.transcription_thresholds[0],
+                    frame_threshold=args.transcription_thresholds[1],
+                )
+                if args.transcription_thresholds
+                else {}
+            ),
         )
         all_reports.extend(cat_reports)
 
     # Write comparative report
     report_path = os.path.join(args.output, "bakeoff_report.json")
     write_evaluation_report(all_reports, report_path)
-    print(f"\n=== Bakeoff Complete ===")
+    print("\n=== Bakeoff Complete ===")
     print(f"Report: {report_path}")
     print(f"Markdown: {report_path.replace('.json', '.md')}")
 
     # Print summary table
     print("\n=== SUMMARY ===")
     for r in all_reports:
-        status = "OK" if r.clips_succeeded == r.clips_total else "PARTIAL" if r.clips_succeeded > 0 else "FAILED"
-        print(f"  {r.engine_name:25s} | {r.category:15s} | {r.clips_succeeded:2d}/{r.clips_total:2d} | {r.avg_runtime_s:5.1f}s | {r.avg_peak_memory_mb:5.1f}MB | {status}")
+        status = (
+            "OK"
+            if r.clips_succeeded == r.clips_total
+            else "PARTIAL"
+            if r.clips_succeeded > 0
+            else "FAILED"
+        )
+        print(
+            f"  {r.engine_name:25s} | {r.category:15s} | "
+            f"{r.clips_succeeded:2d}/{r.clips_total:2d} | {r.avg_runtime_s:5.1f}s | "
+            f"{r.avg_peak_memory_mb:5.1f}MB | {status}"
+        )
 
 
 if __name__ == "__main__":

@@ -168,13 +168,9 @@ def _valid_action(action: AskAction, context: AskContext) -> bool:
 
 def sanitize_response(response: AskResponse, context: AskContext) -> AskResponse:
     """Drop ungrounded references/actions and return the safe answer."""
-    references = [
-        ref for ref in response.references if _valid_reference(ref, context)
-    ]
+    references = [ref for ref in response.references if _valid_reference(ref, context)]
     actions = [
-        action
-        for action in (response.suggestedActions or [])
-        if _valid_action(action, context)
+        action for action in (response.suggestedActions or []) if _valid_action(action, context)
     ]
     return AskResponse(
         answer=response.answer,

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Literal
-import os
 
 ClipCategory = Literal[
     "solo_piano",
@@ -52,6 +52,7 @@ class EvalClip:
     @classmethod
     def from_dict(cls, data: dict[str, Any], base_dir: str = "") -> EvalClip:
         ref_data = data.get("reference", {})
+
         # Support environment variable substitution in paths: ${VAR}/path or ${VAR}
         def resolve_path(path: str | None) -> str | None:
             if path is None:
@@ -61,7 +62,7 @@ class EvalClip:
                 end = path.find("}")
                 if end != -1:
                     env_var = path[2:end]
-                    rest = path[end+1:]
+                    rest = path[end + 1 :]
                     expanded = os.environ.get(env_var, "")
                     if expanded:
                         return expanded + rest
