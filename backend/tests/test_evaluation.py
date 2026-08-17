@@ -155,6 +155,33 @@ class TestAnalysisMetrics:
         assert m.key_correct is None
         assert m.bpm_absolute_error is None
 
+    def test_zero_chord_predictions_with_reference_score_zero(self):
+        """With reference chords but zero predictions, chord recall/F1 must be
+        0 (a real worst-case baseline), not None."""
+        ref = Reference(chords=[{"root": "C", "start": 0.0, "end": 2.0}])
+        m = compute_analysis_metrics(None, None, None, None, [], ref)
+        assert m.chord_recall == 0.0
+        assert m.chord_f1 == 0.0
+        assert m.chord_precision == 0.0
+
+    def test_chord_f1_matches_nearby_root(self):
+        """A predicted chord root within ±0.5 s of the reference root counts."""
+        ref = Reference(chords=[{"root": "C", "start": 1.0, "end": 3.0}])
+        m = compute_analysis_metrics(
+            None, None, None, None, [{"root": "C", "start": 1.2, "end": 3.2}], ref
+        )
+        assert m.chord_precision == 1.0
+        assert m.chord_recall == 1.0
+        assert m.chord_f1 == 1.0
+
+    def test_no_chord_reference_returns_none(self):
+        """Without reference chords there is nothing to score — None, not 0."""
+        ref = Reference()
+        m = compute_analysis_metrics(
+            None, None, None, None, [{"root": "C", "start": 0.0, "end": 1.0}], ref
+        )
+        assert m.chord_f1 is None
+
 
 class TestCorpus:
     def test_manifest_loading(self):
