@@ -78,10 +78,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         <h1 title={activeWork?.title}>{presentableTitle(activeWork?.title ?? "Untitled piece")}</h1>
         <p>{view.description}</p>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--s-3)" }}>
-        <TranscriptionModeToggle />
-        <button type="button" className="btn" onClick={requestImport}>Import another</button>
-      </div>
+      <button type="button" className="btn" onClick={requestImport}>Import another</button>
     </header>
 
     <div className="piece-view-tabs" role="tablist" aria-label="Workspace views">

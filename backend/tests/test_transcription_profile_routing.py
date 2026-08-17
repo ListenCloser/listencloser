@@ -445,8 +445,63 @@ class TestUnderstandProfileWiring:
             assert resp.status_code == 200
             assert job_repo.created, "a job should have been created"
             params = job_repo.created[0].parameters
-            assert "transcription_profile" not in params
+            assert params["transcription_profile"] == "auto"
             assert params["fmt"] == "m4a"
+        finally:
+            from auth_utils import verify_token
+            from main import app
+
+            app.dependency_overrides.pop(verify_token, None)
+
+    def test_understand_profile_is_part_of_idempotency_identity(self, monkeypatch):
+        """Requesting the same version with a different transcription profile
+        must create a distinct job, not return the cached one.
+
+        Regression for the bug where job/workflow/cache identity was only
+        owner+version_id, so Auto then Solo piano on the same source returned
+        the stale Auto job and Transkun never ran.
+        """
+        client, job_repo, version, owner = self._client(monkeypatch)
+        try:
+            base = {"version_id": version.id, "project_id": "00000000-0000-0000-0000-000000000020"}
+
+            auto_resp = client.post("/api/v1/workflows/understand", json=base)
+            solo_resp = client.post(
+                "/api/v1/workflows/understand", json={**base, "transcription_profile": "solo_piano"}
+            )
+
+            assert auto_resp.status_code == 200
+            assert solo_resp.status_code == 200
+            assert len(job_repo.created) == 2, "two distinct jobs should be created"
+
+            auto_job = job_repo.created[0]
+            solo_job = job_repo.created[1]
+            assert auto_job.id != solo_job.id
+            assert auto_job.parameters["transcription_profile"] == "auto"
+            assert solo_job.parameters["transcription_profile"] == "solo_piano"
+            assert auto_job.cache_key != solo_job.cache_key
+        finally:
+            from auth_utils import verify_token
+            from main import app
+
+            app.dependency_overrides.pop(verify_token, None)
+
+    def test_understand_same_profile_is_idempotent(self, monkeypatch):
+        """Re-requesting the same version with the same profile returns the
+        cached job (no duplicate)."""
+        client, job_repo, version, owner = self._client(monkeypatch)
+        try:
+            body = {
+                "version_id": version.id,
+                "project_id": "00000000-0000-0000-0000-000000000020",
+                "transcription_profile": "solo_piano",
+            }
+            first = client.post("/api/v1/workflows/understand", json=body)
+            second = client.post("/api/v1/workflows/understand", json=body)
+            assert first.status_code == 200
+            assert second.status_code == 200
+            assert first.json()["job"]["id"] == second.json()["job"]["id"]
+            assert len(job_repo.created) == 1
         finally:
             from auth_utils import verify_token
             from main import app
