@@ -190,6 +190,18 @@ describe("WorkspaceProvider", () => {
     expect(result.current.workspace.askConversation).toHaveLength(1);
   });
 
+  it("defaults the transcription profile to auto and persists a selection", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    expect(result.current.workspace.transcriptionProfile).toBe("auto");
+
+    act(() => {
+      result.current.setTranscriptionProfile("solo_piano");
+    });
+
+    expect(result.current.workspace.transcriptionProfile).toBe("solo_piano");
+  });
+
   it("appends messages in order and clears via clearAskConversation", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
 

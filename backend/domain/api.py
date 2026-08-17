@@ -6,6 +6,7 @@ import logging
 import mimetypes
 import os
 from pathlib import Path
+from typing import Literal
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -58,6 +59,19 @@ class CreateWorkBody(BaseModel):
 class UnderstandWorkflowBody(BaseModel):
     version_id: str
     project_id: str
+    transcription_profile: Literal["auto", "solo_piano"] | None = None
+
+
+def _canonical_transcription_profile(profile: str | None) -> str:
+    """Normalize the transcription profile for workflow identity.
+
+    ``None`` (omitted) and ``"auto"`` are the same request semantically (the
+    default general engine). Normalizing avoids duplicate cache entries while
+    still distinguishing ``auto`` from ``solo_piano`` so re-requesting the same
+    version with a different profile creates a distinct job rather than
+    returning a stale cached one.
+    """
+    return profile or "auto"
 
 
 class AnalyzeWorkflowBody(BaseModel):
@@ -471,10 +485,11 @@ async def create_understand_workflow(
 
     try:
         version = _require_version_in_project(sb, version_id, project_id, owner_id)
+        profile = _canonical_transcription_profile(body.transcription_profile)
 
         job_id = uuid5(
             NAMESPACE_URL,
-            f"hello-ai:understand:1.0:{owner_id}:{version_id}",
+            f"hello-ai:understand:1.0:{owner_id}:{version_id}:{profile}",
         )
         job_repo = JobRepo(sb)
         existing_job = job_repo.get(job_id, owner_id)
@@ -486,7 +501,10 @@ async def create_understand_workflow(
 
         wf_repo = WorkflowRepo(sb)
         workflow = Workflow(
-            id=uuid5(NAMESPACE_URL, f"hello-ai:understand-workflow:1.0:{owner_id}:{version_id}"),
+            id=uuid5(
+                NAMESPACE_URL,
+                f"hello-ai:understand-workflow:1.0:{owner_id}:{version_id}:{profile}",
+            ),
             project_id=project_id,
             kind=WorkflowKind.understand,
             target_version_id=version_id,
@@ -508,8 +526,11 @@ async def create_understand_workflow(
             workflow_id=workflow.id,
             capability=Capability(name="understand", version="1.0"),
             input_version_ids=[version_id],
-            parameters={"fmt": Path(version.label).suffix.lstrip(".").lower() or "wav"},
-            cache_key=f"understand:1.0:{owner_id}:{version_id}",
+            parameters={
+                "fmt": Path(version.label).suffix.lstrip(".").lower() or "wav",
+                "transcription_profile": profile,
+            },
+            cache_key=f"understand:1.0:{owner_id}:{version_id}:{profile}",
             created_by=owner_id,
         )
         try:

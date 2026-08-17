@@ -328,6 +328,187 @@ class TestTranskunResampling:
                     assert True  # Document the requirement
 
 
+class TestUnderstandProfileWiring:
+    """The understand workflow accepts transcription_profile and persists it
+    on the job so handle_transcribe can route to the piano-specialist engine."""
+
+    def _client(self, monkeypatch):
+        from types import SimpleNamespace
+        from uuid import UUID
+
+        import domain.api as api
+        from auth_utils import verify_token
+        from main import app
+
+        owner = "owner-1"
+        version = SimpleNamespace(
+            id="00000000-0000-0000-0000-000000000010",
+            label="real-piano.m4a",
+            artifact_id="00000000-0000-0000-0000-000000000011",
+        )
+        artifact = SimpleNamespace(id=version.artifact_id, work_id="00000000-0000-0000-0000-000000000012")
+        work = SimpleNamespace(
+            id=artifact.work_id,
+            project_id=UUID("00000000-0000-0000-0000-000000000020"),
+        )
+
+        class FakeVersionRepo:
+            def __init__(self, sb):
+                pass
+
+            def get(self, version_id, owner_id):
+                return version if str(version_id) == version.id else None
+
+        class FakeArtifactRepo:
+            def __init__(self, sb):
+                pass
+
+            def get(self, artifact_id, owner_id):
+                return artifact if str(artifact_id) == artifact.id else None
+
+        class FakeWorkRepo:
+            def __init__(self, sb):
+                pass
+
+            def get(self, work_id, owner_id):
+                return work if str(work_id) == work.id else None
+
+        class FakeJobRepo:
+            def __init__(self):
+                self.created = []
+                self.jobs = {}
+
+            def get(self, job_id, owner_id):
+                return self.jobs.get(str(job_id))
+
+            def create(self, job, owner_id):
+                self.jobs[str(job.id)] = job
+                self.created.append(job)
+                return job
+
+        class FakeWorkflowRepo:
+            def __init__(self):
+                self.created = []
+                self.workflows = {}
+
+            def create(self, workflow, owner_id):
+                self.workflows[str(workflow.id)] = workflow
+                self.created.append(workflow)
+                return workflow
+
+            def get(self, workflow_id, owner_id):
+                return self.workflows.get(str(workflow_id))
+
+        job_repo = FakeJobRepo()
+        workflow_repo = FakeWorkflowRepo()
+
+        monkeypatch.setattr(api, "VersionRepo", FakeVersionRepo)
+        monkeypatch.setattr(api, "ArtifactRepo", FakeArtifactRepo)
+        monkeypatch.setattr(api, "WorkRepo", FakeWorkRepo)
+        monkeypatch.setattr(api, "JobRepo", lambda sb: job_repo)
+        monkeypatch.setattr(api, "WorkflowRepo", lambda sb: workflow_repo)
+        monkeypatch.setattr(api, "get_supabase", lambda: SimpleNamespace())
+
+        app.dependency_overrides[verify_token] = lambda: SimpleNamespace(
+            user=SimpleNamespace(id=owner)
+        )
+
+        from fastapi.testclient import TestClient
+
+        return TestClient(app), job_repo, version, owner
+
+    def test_understand_persists_transcription_profile_on_job(self, monkeypatch):
+        client, job_repo, version, owner = self._client(monkeypatch)
+        try:
+            body = {
+                "version_id": version.id,
+                "project_id": "00000000-0000-0000-0000-000000000020",
+                "transcription_profile": "solo_piano",
+            }
+            resp = client.post("/api/v1/workflows/understand", json=body)
+            assert resp.status_code == 200
+            assert job_repo.created, "a job should have been created"
+            params = job_repo.created[0].parameters
+            assert params["transcription_profile"] == "solo_piano"
+            assert params["fmt"] == "m4a"
+        finally:
+            from auth_utils import verify_token
+            from main import app
+
+            app.dependency_overrides.pop(verify_token, None)
+
+    def test_understand_omits_profile_when_auto(self, monkeypatch):
+        client, job_repo, version, owner = self._client(monkeypatch)
+        try:
+            body = {"version_id": version.id, "project_id": "00000000-0000-0000-0000-000000000020"}
+            resp = client.post("/api/v1/workflows/understand", json=body)
+            assert resp.status_code == 200
+            assert job_repo.created, "a job should have been created"
+            params = job_repo.created[0].parameters
+            assert params["transcription_profile"] == "auto"
+            assert params["fmt"] == "m4a"
+        finally:
+            from auth_utils import verify_token
+            from main import app
+
+            app.dependency_overrides.pop(verify_token, None)
+
+    def test_understand_profile_is_part_of_idempotency_identity(self, monkeypatch):
+        """Requesting the same version with a different transcription profile
+        must create a distinct job, not return the cached one.
+
+        Regression for the bug where job/workflow/cache identity was only
+        owner+version_id, so Auto then Solo piano on the same source returned
+        the stale Auto job and Transkun never ran.
+        """
+        client, job_repo, version, owner = self._client(monkeypatch)
+        try:
+            base = {"version_id": version.id, "project_id": "00000000-0000-0000-0000-000000000020"}
+
+            auto_resp = client.post("/api/v1/workflows/understand", json=base)
+            solo_resp = client.post(
+                "/api/v1/workflows/understand", json={**base, "transcription_profile": "solo_piano"}
+            )
+
+            assert auto_resp.status_code == 200
+            assert solo_resp.status_code == 200
+            assert len(job_repo.created) == 2, "two distinct jobs should be created"
+
+            auto_job = job_repo.created[0]
+            solo_job = job_repo.created[1]
+            assert auto_job.id != solo_job.id
+            assert auto_job.parameters["transcription_profile"] == "auto"
+            assert solo_job.parameters["transcription_profile"] == "solo_piano"
+            assert auto_job.cache_key != solo_job.cache_key
+        finally:
+            from auth_utils import verify_token
+            from main import app
+
+            app.dependency_overrides.pop(verify_token, None)
+
+    def test_understand_same_profile_is_idempotent(self, monkeypatch):
+        """Re-requesting the same version with the same profile returns the
+        cached job (no duplicate)."""
+        client, job_repo, version, owner = self._client(monkeypatch)
+        try:
+            body = {
+                "version_id": version.id,
+                "project_id": "00000000-0000-0000-0000-000000000020",
+                "transcription_profile": "solo_piano",
+            }
+            first = client.post("/api/v1/workflows/understand", json=body)
+            second = client.post("/api/v1/workflows/understand", json=body)
+            assert first.status_code == 200
+            assert second.status_code == 200
+            assert first.json()["job"]["id"] == second.json()["job"]["id"]
+            assert len(job_repo.created) == 1
+        finally:
+            from auth_utils import verify_token
+            from main import app
+
+            app.dependency_overrides.pop(verify_token, None)
+
+
 if __name__ == "__main__":
     import pytest
 

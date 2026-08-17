@@ -82,11 +82,16 @@ export async function uploadArtifact(
 
 export async function startUnderstandWorkflow(
   versionId: string,
-  projectId: string
+  projectId: string,
+  transcriptionProfile?: string,
 ): Promise<{ workflow: Workflow; job: Job }> {
   return apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/understand", {
     method: "POST",
-    body: JSON.stringify({ version_id: versionId, project_id: projectId }),
+    body: JSON.stringify({
+      version_id: versionId,
+      project_id: projectId,
+      ...(transcriptionProfile ? { transcription_profile: transcriptionProfile } : {}),
+    }),
   });
 }
 
