@@ -6,6 +6,7 @@ that can be registered with :class:`JobWorker`.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
 import tempfile
@@ -494,6 +495,13 @@ def handle_transcribe(job: Job, client) -> list[str]:
         frame_threshold=frame_threshold,
     )
     result = engine.transcribe(audio_bytes, fmt="wav")
+
+    # Some transcription engines (e.g. Transkun) return note/MIDI data only and
+    # no synthesized audio. A zero-byte WAV would surface as a broken
+    # "Transcription" playback source in the transport, so synthesize a WAV
+    # from the produced MIDI as a guaranteed-playable fallback.
+    if not result.wav:
+        result = dataclasses.replace(result, wav=music_features.midi_to_wav(result.midi))
 
     output_ids: list[str] = []
 

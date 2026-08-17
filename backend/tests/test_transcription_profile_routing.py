@@ -346,7 +346,9 @@ class TestUnderstandProfileWiring:
             label="real-piano.m4a",
             artifact_id="00000000-0000-0000-0000-000000000011",
         )
-        artifact = SimpleNamespace(id=version.artifact_id, work_id="00000000-0000-0000-0000-000000000012")
+        artifact = SimpleNamespace(
+            id=version.artifact_id, work_id="00000000-0000-0000-0000-000000000012"
+        )
         work = SimpleNamespace(
             id=artifact.work_id,
             project_id=UUID("00000000-0000-0000-0000-000000000020"),
@@ -507,6 +509,186 @@ class TestUnderstandProfileWiring:
             from main import app
 
             app.dependency_overrides.pop(verify_token, None)
+
+
+class TestTranscriptionPlaybackWavFallback:
+    """Regression: an engine that returns only MIDI (no synthesized WAV) must
+    still produce a playable "Transcription playback" artifact. Transkun returns
+    an empty WAV; without the fallback the transport surfaces a broken 0-byte
+    source (416 / AudioContext errors in the browser)."""
+
+    def test_empty_engine_wav_is_synthesized_from_midi(self, monkeypatch):
+        import uuid as _uuid
+
+        from domain import capabilities
+        from domain.models import Capability, Job, JobLifecycle, JobStage, Version
+        from engines.base import EngineProvenance, TranscriptionResult
+
+        uploaded = {}
+
+        class _MidiOnlyEngine:
+            def transcribe(self, audio_bytes: bytes, fmt: str = "wav", **kwargs):
+                return TranscriptionResult(
+                    midi=b"real-midi-bytes",
+                    wav=b"",
+                    notes=[{"pitch": 60, "start": 0.0, "end": 0.5, "velocity": 64}],
+                    num_notes=1,
+                    cleanup_report={},
+                    provenance=EngineProvenance(engine="transkun", library_version="2.0.1"),
+                    tempo_is_placeholder=True,
+                    meter_is_placeholder=True,
+                    supports_meter=False,
+                )
+
+        def _fake_version(client, version_id):
+            return Version(
+                artifact_id=_uuid.uuid4(),
+                storage_key="key.wav",
+                storage_bucket="artifacts",
+            )
+
+        monkeypatch.setattr(
+            capabilities, "_resolve_owner_id", lambda client, workflow_id: _uuid.uuid4()
+        )
+        monkeypatch.setattr(capabilities, "_lookup_version", _fake_version)
+        monkeypatch.setattr(
+            capabilities, "_resolve_work_id", lambda client, version_id: _uuid.uuid4()
+        )
+        monkeypatch.setattr(capabilities, "download_version_bytes", lambda version, client: b"wav")
+        monkeypatch.setattr(capabilities, "_update_progress", lambda *a, **k: None)
+        monkeypatch.setattr(
+            capabilities.music_features, "decode_audio_to_wav", lambda audio, fmt: b"wav"
+        )
+        monkeypatch.setattr(
+            capabilities.music_features,
+            "get_transcription_engine_for_job",
+            lambda *a, **k: _MidiOnlyEngine(),
+        )
+
+        def _fake_upload(client, bucket, key, data, mime):
+            uploaded[key] = data
+
+        monkeypatch.setattr(capabilities, "_upload_bytes", _fake_upload)
+        monkeypatch.setattr(
+            capabilities, "_job_storage_key", lambda job, suffix: f"jobs/x/{suffix}"
+        )
+        monkeypatch.setattr(capabilities, "_create_output_version", lambda *a, **k: _uuid.uuid4())
+        monkeypatch.setattr(
+            capabilities,
+            "EntityRepo",
+            lambda client: type("R", (), {"create_many": lambda self, entities, owner_id: None})(),
+        )
+        # The synthesized WAV must be produced from the engine MIDI.
+        synthesized = {}
+
+        def _fake_midi_to_wav(midi_bytes, sr=22050):
+            synthesized["midi"] = midi_bytes
+            return b"RIFF" + b"\x00" * 100
+
+        monkeypatch.setattr(capabilities.music_features, "midi_to_wav", _fake_midi_to_wav)
+
+        job = Job(
+            id=_uuid.uuid4(),
+            workflow_id=_uuid.uuid4(),
+            capability=Capability(name="transcribe", version="1.0"),
+            input_version_ids=[_uuid.uuid4()],
+            parameters={"transcription_profile": "solo_piano"},
+            lifecycle=JobLifecycle(current=JobStage.queued),
+            provenance={},
+        )
+
+        capabilities.handle_transcribe(job, None)
+
+        assert synthesized["midi"] == b"real-midi-bytes"
+        wav_key = "jobs/x/transcribed.wav"
+        assert wav_key in uploaded
+        assert uploaded[wav_key].startswith(b"RIFF")
+        assert len(uploaded[wav_key]) > 0
+
+    def test_engine_wav_is_used_as_is_when_present(self, monkeypatch):
+        """Engines that already synthesize audio keep their WAV unchanged."""
+        import uuid as _uuid
+
+        from domain import capabilities
+        from domain.models import Capability, Job, JobLifecycle, JobStage, Version
+        from engines.base import EngineProvenance, TranscriptionResult
+
+        uploaded = {}
+        midi_to_wav_called = {"called": False}
+
+        class _WavEngine:
+            def transcribe(self, audio_bytes: bytes, fmt: str = "wav", **kwargs):
+                return TranscriptionResult(
+                    midi=b"real-midi-bytes",
+                    wav=b"RIFF-from-engine",
+                    notes=[{"pitch": 60, "start": 0.0, "end": 0.5, "velocity": 64}],
+                    num_notes=1,
+                    cleanup_report={},
+                    provenance=EngineProvenance(engine="basic_pitch", library_version="0.4.0"),
+                    tempo_is_placeholder=True,
+                    meter_is_placeholder=True,
+                    supports_meter=False,
+                )
+
+        def _fake_version(client, version_id):
+            return Version(
+                artifact_id=_uuid.uuid4(),
+                storage_key="key.wav",
+                storage_bucket="artifacts",
+            )
+
+        monkeypatch.setattr(
+            capabilities, "_resolve_owner_id", lambda client, workflow_id: _uuid.uuid4()
+        )
+        monkeypatch.setattr(capabilities, "_lookup_version", _fake_version)
+        monkeypatch.setattr(
+            capabilities, "_resolve_work_id", lambda client, version_id: _uuid.uuid4()
+        )
+        monkeypatch.setattr(capabilities, "download_version_bytes", lambda version, client: b"wav")
+        monkeypatch.setattr(capabilities, "_update_progress", lambda *a, **k: None)
+        monkeypatch.setattr(
+            capabilities.music_features, "decode_audio_to_wav", lambda audio, fmt: b"wav"
+        )
+        monkeypatch.setattr(
+            capabilities.music_features,
+            "get_transcription_engine_for_job",
+            lambda *a, **k: _WavEngine(),
+        )
+
+        def _fake_upload(client, bucket, key, data, mime):
+            uploaded[key] = data
+
+        monkeypatch.setattr(capabilities, "_upload_bytes", _fake_upload)
+        monkeypatch.setattr(
+            capabilities, "_job_storage_key", lambda job, suffix: f"jobs/x/{suffix}"
+        )
+        monkeypatch.setattr(capabilities, "_create_output_version", lambda *a, **k: _uuid.uuid4())
+        monkeypatch.setattr(
+            capabilities,
+            "EntityRepo",
+            lambda client: type("R", (), {"create_many": lambda self, entities, owner_id: None})(),
+        )
+
+        def _fail_midi_to_wav(midi_bytes, sr=22050):
+            midi_to_wav_called["called"] = True
+            raise AssertionError("midi_to_wav must not run when the engine supplies WAV")
+
+        monkeypatch.setattr(capabilities.music_features, "midi_to_wav", _fail_midi_to_wav)
+
+        job = Job(
+            id=_uuid.uuid4(),
+            workflow_id=_uuid.uuid4(),
+            capability=Capability(name="transcribe", version="1.0"),
+            input_version_ids=[_uuid.uuid4()],
+            parameters={"transcription_profile": "auto"},
+            lifecycle=JobLifecycle(current=JobStage.queued),
+            provenance={},
+        )
+
+        capabilities.handle_transcribe(job, None)
+
+        assert midi_to_wav_called["called"] is False
+        assert uploaded["jobs/x/transcribed.wav"] == b"RIFF-from-engine"
 
 
 if __name__ == "__main__":
