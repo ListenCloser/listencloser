@@ -488,7 +488,10 @@ def handle_transcribe(job: Job, client) -> list[str]:
 
     _update_progress(client, job.id, 0.3, "transcribing audio")
     engine = music_features.get_transcription_engine_for_job(
-        engine_name, onset_threshold, frame_threshold, profile=profile
+        name=engine_name,
+        profile=profile,
+        onset_threshold=onset_threshold,
+        frame_threshold=frame_threshold,
     )
     result = engine.transcribe(audio_bytes, fmt="wav")
 

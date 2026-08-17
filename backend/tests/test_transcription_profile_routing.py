@@ -62,8 +62,10 @@ class TestTranscriptionProfileRouting:
     def test_transcribe_with_engine_provenance_includes_profile(self):
         """transcribe_with_engine persists profile_requested and routing_reason in provenance."""
         import io
+
         # Use a tiny valid WAV
         import wave
+
         buf = io.BytesIO()
         with wave.open(buf, "wb") as wf:
             wf.setnchannels(1)
@@ -121,12 +123,15 @@ class TestTranscriptionProfileRouting:
         # Full DB integration is tested in test_pipeline_smoke.py
         from domain.capabilities import handle_transcribe
 
-        with patch("domain.capabilities.music_features.get_transcription_engine_for_job") as mock_get:
+        with patch(
+            "domain.capabilities.music_features.get_transcription_engine_for_job"
+        ) as mock_get:
             fake_engine = _FakeEngine("transkun")
             mock_get.return_value = fake_engine
 
             # Verify the function signature accepts transcription_profile
             import inspect
+
             sig = inspect.signature(handle_transcribe)
             assert "job" in sig.parameters
             assert "client" in sig.parameters
@@ -136,7 +141,111 @@ class TestTranscriptionProfileRouting:
             print("  handle_transcribe signature verified - profile parameter supported")
 
 
-def _make_job(input_version_id="12345678-1234-5678-1234-567812345678", parameters=None, workflow_id="12345678-1234-5678-1234-567812345678"):
+class TestHandleTranscribeCallSite:
+    """Regression: handle_transcribe must pass engine args by keyword.
+
+    PR #229 introduced a call that bound profile twice (positional + keyword),
+    raising ``TypeError: got multiple values for argument 'profile'`` on every
+    transcription job in production. This test drives the real call site and
+    asserts the engine resolver receives explicit keyword arguments.
+    """
+
+    def test_engine_resolver_called_with_keyword_args(self, monkeypatch):
+        import uuid as _uuid
+
+        from domain import capabilities
+        from domain.models import Capability, Job, JobLifecycle, JobStage, Version
+        from engines.base import EngineProvenance, TranscriptionResult
+
+        captured = {}
+
+        class _FakeEngine:
+            ENGINE = "basic_pitch"
+
+            def transcribe(self, audio_bytes: bytes, fmt: str = "wav", **kwargs):
+                return TranscriptionResult(
+                    midi=b"fake-midi",
+                    wav=b"fake-wav",
+                    notes=[{"pitch": 60, "start": 0.0, "end": 0.5, "velocity": 64}],
+                    num_notes=1,
+                    cleanup_report={},
+                    provenance=EngineProvenance(engine="basic_pitch", library_version="test"),
+                    tempo_is_placeholder=True,
+                    meter_is_placeholder=True,
+                    supports_meter=False,
+                )
+
+        def _fake_get_engine(name=None, profile=None, onset_threshold=0.5, frame_threshold=0.3):
+            captured.update(
+                name=name,
+                profile=profile,
+                onset_threshold=onset_threshold,
+                frame_threshold=frame_threshold,
+            )
+            return _FakeEngine()
+
+        def _fake_version(client, version_id):
+            return Version(
+                artifact_id=_uuid.uuid4(),
+                storage_key="key.wav",
+                storage_bucket="artifacts",
+            )
+
+        monkeypatch.setattr(
+            capabilities, "_resolve_owner_id", lambda client, workflow_id: _uuid.uuid4()
+        )
+        monkeypatch.setattr(capabilities, "_lookup_version", _fake_version)
+        monkeypatch.setattr(
+            capabilities, "_resolve_work_id", lambda client, version_id: _uuid.uuid4()
+        )
+        monkeypatch.setattr(capabilities, "download_version_bytes", lambda version, client: b"wav")
+        monkeypatch.setattr(capabilities, "_update_progress", lambda *a, **k: None)
+        monkeypatch.setattr(
+            capabilities.music_features, "decode_audio_to_wav", lambda audio, fmt: b"wav"
+        )
+        monkeypatch.setattr(
+            capabilities.music_features, "get_transcription_engine_for_job", _fake_get_engine
+        )
+        monkeypatch.setattr(
+            capabilities, "_job_storage_key", lambda job, suffix: f"jobs/x/{suffix}"
+        )
+        monkeypatch.setattr(capabilities, "_upload_bytes", lambda *a, **k: None)
+        monkeypatch.setattr(capabilities, "_create_output_version", lambda *a, **k: _uuid.uuid4())
+        monkeypatch.setattr(
+            capabilities,
+            "EntityRepo",
+            lambda client: type("R", (), {"create_many": lambda self, entities, owner_id: None})(),
+        )
+
+        job = Job(
+            id=_uuid.uuid4(),
+            workflow_id=_uuid.uuid4(),
+            capability=Capability(name="transcribe", version="1.0"),
+            input_version_ids=[_uuid.uuid4()],
+            parameters={
+                "transcription_profile": "solo_piano",
+                "onset_threshold": 0.6,
+                "frame_threshold": 0.4,
+            },
+            lifecycle=JobLifecycle(current=JobStage.queued),
+            provenance={},
+        )
+
+        capabilities.handle_transcribe(job, None)
+
+        assert captured == {
+            "name": None,
+            "profile": "solo_piano",
+            "onset_threshold": 0.6,
+            "frame_threshold": 0.4,
+        }
+
+
+def _make_job(
+    input_version_id="12345678-1234-5678-1234-567812345678",
+    parameters=None,
+    workflow_id="12345678-1234-5678-1234-567812345678",
+):
     from domain.capabilities import Job, Capability
     from domain.models import JobLifecycle, JobStage
     from uuid import UUID
@@ -172,6 +281,7 @@ class TestTranskunResampling:
 
         # Create dummy audio at 44.1kHz
         import numpy as np
+
         audio = np.random.randn(44100).astype(np.float32)  # 1 second at 44.1kHz
         fs = 44100
 
@@ -220,4 +330,5 @@ class TestTranskunResampling:
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v"])
