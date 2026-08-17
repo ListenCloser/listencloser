@@ -18,7 +18,7 @@
 ### Root cause
 `components/workspace/RepresentationStack.tsx:13` — `availableRepresentations(availability)` returns a **fresh array on every call**. The effect at `:18-21` used it as a dependency, so it re-ran on every render. When `available` was empty (empty library or during load), it called `setActiveRepresentation(null)`; `lib/stores/workspace.tsx:299-304` had **no equality guard**, so it always produced a new state object → re-render → new array → loop.
 
-### Fix (PR #233)
+### Fix (merged in PR #233)
 1. `lib/stores/workspace.tsx`: equality guard in `setActiveRepresentation` (mirrors `setActiveWorkId`).
 2. `components/workspace/RepresentationStack.tsx`: `useMemo` for `availability`/`available`.
 
@@ -65,4 +65,4 @@ Verified in browser: both worst cases 0 errors; Listen/Piano roll/Score switchin
 1. Score resize: re-render/measure after layout (or give the container a stable width at ≤1024px) to clear OSMD warnings. *Verification:* no OSMD zero-width warnings at 1024px/768px.
 2. Consider displaying measured-but-uncalibrated insights with explicit low-confidence labeling instead of "Not confidently detected" (product decision). *Verification:* tempo shows "75 BPM (uncalibrated)" rather than "Not confidently detected."
 3. Wire real LLM env vars for Ask locally to validate the real-music Ask path (per the earlier real-music-evaluation plan). *Verification:* Ask returns a real answer from the local backend.
-4. **Solo-piano transcription toggle** (added in PR #235): the import surface now has a compact `[Auto] [Solo piano]` control. *Verification:* real-stack upload with Solo piano routes to Transkun (provenance `engine: transkun`, 102 notes) and opens Piano Roll/Score; Auto remains Basic Pitch (234 notes).
+4. **Solo-piano transcription toggle** (added, merged in PR #235): the import surface now has a compact `[Auto] [Solo piano]` control. *Verification:* real-stack upload with Solo piano routes to Transkun (provenance `engine: transkun`, 102 notes) and opens Piano Roll/Score; Auto remains Basic Pitch (234 notes).

@@ -1,6 +1,6 @@
 # Production Readiness Audit
 
-> **Audit date:** 2026-08-17 · **Branch audited:** `main` (d04a776) + open PRs #232, #233
+> **Audit date:** 2026-08-17 · **Branch audited:** `main` (d04a776 → 33784d3, all fixes merged: #234, #233, #232, #235, #236)
 > **Environment:** production Supabase (`cijhpddqvvzyzfzmkdnn`), Oracle VM backend/worker via `scripts/deploy.sh`, Vercel frontend. Docker unavailable locally, so the deployed pipeline was validated against the production DB/storage with a local backend + worker + frontend.
 
 ---
@@ -24,19 +24,29 @@ TypeError: get_transcription_engine_for_job() got multiple values for argument '
 
 This means **the `transcribe` capability raises before any audio is processed** in production. The bug was introduced in PR #229 (`9e52c8c`) and is present on `main`. Locally it is masked because the audited works predate the merge and the pipeline smoke tests bypass the durable handler.
 
-**Fix (verified locally):** call with explicit keywords `name=engine_name, profile=profile, onset_threshold=onset_threshold, frame_threshold=frame_threshold`. **PR #234 open** (`fix/production-transcription-call-site`), with regression test `TestHandleTranscribeCallSite` that reproduces the exact production `TypeError` on the old code and passes with the fix.
+**Fix:** call with explicit keywords `name=engine_name, profile=profile, onset_threshold=onset_threshold, frame_threshold=frame_threshold`. **Fixed and merged in PR #234**, with regression test `TestHandleTranscribeCallSite` that reproduced the exact production `TypeError` on the old code and passes with the fix.
 
 ### P0-B — Frontend infinite render loop (now fixed in PR #233)
-Continuous `Maximum update depth exceeded` on the empty authenticated workspace (~106 errors/sec) and during every work load (~454 errors). Root cause: `RepresentationStack.tsx` produced a fresh dependency array each render and `setActiveRepresentation(null)` produced new state unconditionally. **Fixed and verified in PR #233** (0 errors in both worst-case states).
+Continuous `Maximum update depth exceeded` on the empty authenticated workspace (~106 errors/sec) and during every work load (~454 errors). Root cause: `RepresentationStack.tsx` produced a fresh dependency array each render and `setActiveRepresentation(null)` produced new state unconditionally. **Fixed and merged in PR #233** (0 errors in both worst-case states).
 
 ### P1 — Solo-piano transcription is unreachable from normal UX (new)
-The routing contract supports `transcription_profile="solo_piano"` → Transkun (the piano-specialist engine), but **no frontend/API path sets it** (`backend/CURRENT_USER_BEHAVIOR.md`). Every upload defaults to `auto`/Basic Pitch, so the piano improvement from PR #229 is effectively unused. **PR #235 open** (`feat/solo-piano-profile-ux`) adds a compact `[Auto] [Solo piano]` toggle; verified end-to-end in production: job carries `transcription_profile: solo_piano`, routes to Transkun, provenance confirms `engine: transkun`, 102 notes, Piano Roll/Score open. Auto path unchanged (basic_pitch, 234 notes).
+The routing contract supports `transcription_profile="solo_piano"` → Transkun (the piano-specialist engine), but **no frontend/API path sets it** (`backend/CURRENT_USER_BEHAVIOR.md`). Every upload defaults to `auto`/Basic Pitch, so the piano improvement from PR #229 is effectively unused. **Fixed and merged in PR #235** (`feat/solo-piano-profile-ux`): a compact `[Auto] [Solo piano]` toggle, verified end-to-end in production — job carries `transcription_profile: solo_piano`, routes to Transkun, provenance confirms `engine: transkun`, 102 notes, Piano Roll/Score open. Auto path unchanged (basic_pitch, 234 notes). The idempotency identity now includes the profile so re-requesting the same version with a different profile creates a distinct job.
 
 ---
 
-## 2. Test-suite health (blocks the deploy gate)
+## 2. Test-suite health (CI is red; the deploy-time gate is bypassed)
 
-`scripts/deploy.sh:95` runs `python3 -m pytest tests/ -x -q` as a gate before switching containers. On clean `main`, **13–16 tests fail** in this environment:
+On clean `main`, **13–16 tests fail** in the CI/canonical environment. The intended deploy-time gate in `scripts/deploy.sh:94-98` is:
+
+```bash
+if python3 -m pytest --version >/dev/null 2>&1; then
+  python3 -m pytest tests/ -x -q || { echo "pytest failed — aborting"; exit 1; }
+else
+  echo "pytest not installed — skipping (tests ran in CI)"
+fi
+```
+
+**On the deployment host, pytest is not installed, so the gate prints `pytest not installed — skipping (tests ran in CI)` and is effectively bypassed** (verified in the deploy logs). It does **not** currently abort deploys, and it provides no test protection on the host. The gate's "tests ran in CI" message is misleading because CI is red.
 
 | Failure | Root cause | Classification |
 |---|---|---|
@@ -46,7 +56,7 @@ The routing contract supports `transcription_profile="solo_piano"` → Transkun 
 | `test_engines/test_bakeoff_fixes.py`, `test_real_pipeline_contracts.py` (2) | m4a decode + mock contract assertion | env/mock |
 | `test_beat_this*`, `test_transcription_evidence*` (main-only files) | optional engine not installed + note-amplitude migration assertion | env |
 
-All of these are **pre-existing on `main`** (verified via a clean main worktree) and are not introduced by #232 or #233. However, because `deploy.sh` gates on `pytest -x`, any of these failures can abort a deploy that is otherwise correct. **Recommendation:** treat the Python test gate as informational or scoped to the changed-areas suite until the drift is re-baselined; CI (`ci.yml`) already runs the full suite per-PR.
+All of these are **pre-existing on `main`** (verified via a clean main worktree) and are not introduced by the merged PRs. **Direction (not a weakening):** make required CI genuinely green (re-baseline the drift + fix benchmark isolation), deploy the **exact tested commit/artifact**, and rely on the existing small deployment smoke/readiness gate (health + queue-heartbeat). The deploy-time full-suite `pytest -x` gate should either be removed (it is dead on the host) or replaced by a reliable check that runs in the built image where pytest exists — not left as a misleading no-op.
 
 ---
 
@@ -66,7 +76,7 @@ Backend entrypoints do not load `.env`; the `.env` (with Supabase keys and LLM v
 
 The production music21 symbolic harmony path has **no scorable chord baseline**: the adapter filters chords on `Chord.impliedQuality`, which is absent on MIDI-derived chords, so it emits **0 chords** on GuitarSet. Key accuracy is **0.8** (4/5) once music21's `E-`/`A-` spelling is normalized to `Eb`/`Ab`; one genuine key miss (SS3_solo: G minor vs Bb major). A diagnostic extraction using `Chord.quality` produces 21–156 chords/clip — the library can extract them; the adapter's quality source is the blocker.
 
-**Severity:** P2 (harmony is a secondary analysis; no production crash). **Evidence:** `evaluation/reports/harmony_feasibility.md` + `evaluation/harmony_feasibility.py` (PR #236). **User consequence:** harmonic analysis currently surfaces no chords on real audio-derived works. **Recommended fix:** a small production PR changing the adapter's chord-quality source (e.g. `Chord.quality` with root-aware fallback). **Verification:** re-run `evaluation/harmony_feasibility.py` → non-zero chord F1; production Harmony view shows chords. Out of scope for the audit itself (no candidate integrated).
+**Severity:** P2 (harmony is a secondary analysis; no production crash). **Evidence:** `evaluation/reports/harmony_feasibility.md` + `evaluation/harmony_feasibility.py` (**merged in PR #236**, which also fixed the evaluation semantics: zero-prediction chord baseline scores 0/0/0, and music21 symbolic offsets are converted to seconds before scoring). **User consequence:** harmonic analysis currently surfaces no chords on real audio-derived works. **Recommended fix:** a small production PR changing the adapter's chord-quality source (e.g. `Chord.quality` with root-aware fallback). **Verification:** re-run `evaluation/harmony_feasibility.py` → non-zero chord F1; production Harmony view shows chords. Out of scope for the audit itself (no candidate integrated).
 
 ---
 
@@ -80,13 +90,14 @@ The production music21 symbolic harmony path has **no scorable chord baseline**:
 
 ---
 
-## 5. Recommended priority order
+## 5. Recommended priority order (remaining work)
 
-1. **PR #234** — fix the P0-A transcription `TypeError` (unblocks all transcription in production). *Verification:* `TestHandleTranscribeCallSite` passes; a real `transcription_profile=solo_piano` job completes and stores `routing_reason: ... -> engine=transkun`.
-2. **PR #235** — expose the solo-piano profile through the understand workflow (P1 product gap above). *Verification:* real-stack upload with Solo piano → job `transcription_profile=solo_piano` → provenance `engine: transkun` → Piano Roll/Score open.
-3. Re-baseline the 13–16 pre-existing test failures (quantize naming, cleanup counts, benchmark isolation) so the `deploy.sh` gate is trustworthy. *Verification:* `deploy.sh` test gate passes on clean main; CI full-suite green.
-4. Wire LLM env vars through `docker-compose.yml` + `deploy-backend.yml` when Ask is ready to launch. *Verification:* Ask returns a real answer (not `503 ask_provider_unconfigured`) from the deployed backend.
-5. FRONTEND_AUDIT.md follow-ups (score resize at ≤1024px, measured-insight confidence labeling).
+P0/P1 items above are now merged (#234 transcription TypeError, #233 render loop, #235 solo-piano). Remaining backlog:
+
+1. **Re-baseline the pre-existing test failures** (quantize naming, cleanup counts, benchmark isolation) so required CI is genuinely green and the deploy-time test gate is trustworthy (per §2 direction — not a weakening). *Verification:* CI full-suite green; `deploy.sh` gate, if retained, runs in the built image where pytest exists.
+2. **Wire LLM env vars** through `docker-compose.yml` + `deploy-backend.yml` when Ask is ready to launch. *Verification:* Ask returns a real answer (not `503 ask_provider_unconfigured`) from the deployed backend.
+3. **Harmony adapter chord-quality fix** (P2, from #236): change the music21 adapter's chord-quality source (e.g. `Chord.quality`) so the symbolic harmony path emits chords and is scorable. *Verification:* `evaluation/harmony_feasibility.py` → non-zero chord F1.
+4. FRONTEND_AUDIT.md follow-ups (score resize at ≤1024px, measured-insight confidence labeling).
 
 ---
 
