@@ -37,6 +37,9 @@ supabase/.temp/
 .worktrees/
 .agent-of-empires/
 
+# Local git worktrees (never commit; stale gitlinks previously tracked)
+hello-ai-worktrees/
+
 # Committed docs audits (kept locally, not in git)
 docs/audits/
 
