@@ -57,14 +57,9 @@ def build_metrical_grid(
         )
 
     if downbeats and len(downbeats) >= 2:
-        boundaries = _snap_to_beat_grid(downbeats, beats)
-        if _spans_regular(boundaries):
-            meter = _infer_meter(beats, boundaries)
-            heuristic_confidence = 0.8 if len(boundaries) >= 3 else 0.5
-        else:
-            boundaries = []
-            meter = None
-            heuristic_confidence = 0.0
+        boundaries = list(downbeats)
+        meter = _infer_meter(beats, downbeats)
+        heuristic_confidence = 0.8 if len(boundaries) >= 3 else 0.5
     else:
         boundaries = []
         meter = None
@@ -78,52 +73,6 @@ def build_metrical_grid(
         inferred_meter=meter,
         heuristic_confidence=heuristic_confidence,
     )
-
-
-def _snap_to_beat_grid(downbeats: list[float], beats: list[float]) -> list[float]:
-    """Snap downbeat positions to the regular beat grid.
-
-    Beat trackers return jittered timestamps; a measure boundary that is not an
-    exact multiple of the beat interval (e.g. 4.02 s on a 0.5 s grid) forces the
-    quantizer into sub-tactus step sizes that music21 cannot engrave to
-    MusicXML. Meter is only claimed when boundaries land cleanly on the beat
-    grid.
-    """
-    if not downbeats:
-        return []
-    beat_sorted = sorted(float(b) for b in beats if b >= 0)
-    if len(beat_sorted) < 2:
-        return []
-    intervals = np.diff(np.asarray(beat_sorted))
-    intervals = intervals[intervals > 0]
-    if intervals.size == 0:
-        return []
-    beat_interval = float(np.median(intervals))
-    anchor = float(downbeats[0])
-
-    snapped: list[float] = []
-    for d in downbeats:
-        position = round((float(d) - anchor) / beat_interval) * beat_interval + anchor
-        if not snapped or position - snapped[-1] > beat_interval / 2:
-            snapped.append(position)
-    return snapped
-
-
-def _spans_regular(boundaries: list[float], max_ratio: float = 1.5) -> bool:
-    """Whether measure spans are consistent enough to claim a meter.
-
-    Beat trackers sometimes report downbeats that are not on a stable tactus
-    (jitter, or genuinely irregular performance). Claiming a meter from those
-    would force the adaptive quantizer into sub-tactus step sizes that music21
-    cannot engrave. Meter is only claimed when consecutive measure spans are
-    close (within ``max_ratio`` of each other).
-    """
-    if len(boundaries) < 2:
-        return False
-    spans = [b2 - b1 for b1, b2 in zip(boundaries, boundaries[1:], strict=False)]
-    if not spans or min(spans) <= 0:
-        return False
-    return max(spans) / min(spans) <= max_ratio
 
 
 def _infer_meter(beats: list[float], downbeats: list[float]) -> tuple[int, int] | None:

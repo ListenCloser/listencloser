@@ -727,7 +727,9 @@ def handle_analyze(job: Job, client) -> list[str]:
             wav_bytes = music_features.decode_audio_to_wav(
                 audio_bytes, fmt=job.parameters.get("fmt", "wav")
             )
-            beat_result = music_features.estimate_beats_with_engine(wav_bytes)
+            beat_result = music_features.estimate_beats_with_engine(
+                wav_bytes, engine_name="beat_this"
+            )
             pulse = {
                 "bpm": beat_result.get("bpm"),
                 "beats": beat_result.get("beats") or [],
