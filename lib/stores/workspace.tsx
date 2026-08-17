@@ -74,6 +74,8 @@ export type MusicalSelection = {
   };
 };
 
+export type TranscriptionProfile = "auto" | "solo_piano";
+
 type WorkspaceState = {
   project: Project | null;
   works: Work[];
@@ -91,6 +93,7 @@ type WorkspaceState = {
   studioOperation: StudioOperation;
   activeRepresentation: RepresentationId | null;
   selection: MusicalSelection | null;
+  transcriptionProfile: TranscriptionProfile;
 };
 
 type WorkspaceContextValue = {
@@ -117,6 +120,7 @@ type WorkspaceContextValue = {
   setActiveRepresentation: (representation: RepresentationId | null) => void;
   setSelection: (selection: MusicalSelection | null) => void;
   clearSelection: () => void;
+  setTranscriptionProfile: (profile: TranscriptionProfile) => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -158,6 +162,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     studioOperation: { state: "idle", label: "" },
     activeRepresentation: null,
     selection: null,
+    transcriptionProfile: "auto",
   });
 
   const setProject = useCallback((project: Project | null) => {
@@ -320,6 +325,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const setTranscriptionProfile = useCallback((transcriptionProfile: TranscriptionProfile) => {
+    setWorkspace((prev) => {
+      if (prev.transcriptionProfile === transcriptionProfile) return prev;
+      return { ...prev, transcriptionProfile };
+    });
+  }, []);
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -346,6 +358,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setActiveRepresentation,
         setSelection,
         clearSelection,
+        setTranscriptionProfile,
       }}
     >
       {children}

@@ -998,6 +998,14 @@ html,body { background:var(--bg); }
 .piece-compare-exit:hover { background:var(--panel-2); color:var(--text); }
 .piece-hearing .piece-source-menu { position:absolute; left:0; }
 
+/* ── Transcription mode toggle (Auto / Solo piano) ─────────────────────── */
+.transcription-mode { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+.transcription-mode-label { color:var(--muted); font-size:var(--fs-xs); }
+.transcription-mode-options { display:flex; gap:3px; padding:3px; border:1px solid var(--border); border-radius:var(--r-full); background:var(--panel); }
+.transcription-mode-options button { border:0; border-radius:var(--r-full); padding:4px 12px; background:transparent; color:var(--muted); font:var(--fs-xs) var(--font-sans); cursor:pointer; }
+.transcription-mode-options button:hover { background:var(--panel-2); }
+.transcription-mode-options button.active { background:#202124; color:#fff; }
+
 @media (max-width:1120px) {
   .piece-transport { grid-template-columns:auto minmax(0, 1fr) auto auto; }
   .piece-hearing { grid-column:1 / -1; grid-row:2; }

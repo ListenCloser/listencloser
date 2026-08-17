@@ -46,6 +46,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     setWorks,
     workspace,
   } = useWorkspace();
+  const transcriptionProfile = workspace.transcriptionProfile;
   const { replaceSources } = useTransport();
   const { setBpm, setTimeSignature, resetTimeline } = useTimeline();
   const [projectId, setProjectId] = useState("");
@@ -415,7 +416,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       setProcessingWorkId(artifact.work_id);
       setWorks(await listWorks(projectId));
       setStage("processing");
-      const { job } = await startUnderstandWorkflow(version.id, projectId);
+      const { job } = await startUnderstandWorkflow(version.id, projectId, transcriptionProfile);
       setActiveJobId(job.id);
       await waitForJob(job.id, (current) => {
         setMessage(understandStageLabel(current.progress));
@@ -508,7 +509,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     setError(null);
     setProgress(0);
     try {
-      const { job } = await startUnderstandWorkflow(pendingSourceVersionId, projectId);
+      const { job } = await startUnderstandWorkflow(pendingSourceVersionId, projectId, transcriptionProfile);
       setActiveJobId(job.id);
       await waitForJob(job.id, (current) => {
         setMessage(understandStageLabel(current.progress));

@@ -2,9 +2,35 @@
 
 import { useEffect, useMemo } from "react";
 import { availableRepresentations, representationById } from "@/lib/representations";
-import { useWorkspace } from "@/lib/stores/workspace";
+import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 import { presentableTitle } from "@/lib/format";
+
+function TranscriptionModeToggle() {
+  const { workspace, setTranscriptionProfile } = useWorkspace();
+  const options: { id: TranscriptionProfile; label: string }[] = [
+    { id: "auto", label: "Auto" },
+    { id: "solo_piano", label: "Solo piano" },
+  ];
+  return (
+    <div className="transcription-mode" role="group" aria-label="Transcription mode">
+      <span className="transcription-mode-label">Transcription</span>
+      <div className="transcription-mode-options">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={workspace.transcriptionProfile === option.id}
+            className={workspace.transcriptionProfile === option.id ? "active" : ""}
+            onClick={() => setTranscriptionProfile(option.id)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport, setActiveRepresentation } = useWorkspace();
@@ -52,7 +78,10 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         <h1 title={activeWork?.title}>{presentableTitle(activeWork?.title ?? "Untitled piece")}</h1>
         <p>{view.description}</p>
       </div>
-      <button type="button" className="btn" onClick={requestImport}>Import another</button>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--s-3)" }}>
+        <TranscriptionModeToggle />
+        <button type="button" className="btn" onClick={requestImport}>Import another</button>
+      </div>
     </header>
 
     <div className="piece-view-tabs" role="tablist" aria-label="Workspace views">
@@ -81,7 +110,10 @@ function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canIm
     <main className="piece-desk piece-empty">
       <h1>Start with a recording.</h1>
       <p>Upload an audio file. We will keep the original, create a playable transcription, and give you a piano roll, score, and analysis to inspect together.</p>
-      <button className="btn btn-primary" onClick={onImport} disabled={!signedIn || !canImport}>{canImport ? "Import audio" : "Preparing import…"}</button>
+      <div style={{ display: "grid", gap: "var(--s-3)", justifyContent: "center", justifyItems: "center" }}>
+        <button className="btn btn-primary" onClick={onImport} disabled={!signedIn || !canImport}>{canImport ? "Import audio" : "Preparing import…"}</button>
+        <TranscriptionModeToggle />
+      </div>
       <small>WAV, MP3, M4A, FLAC, OGG, or AAC · up to 4 MB</small>
     </main>
   );

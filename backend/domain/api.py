@@ -58,6 +58,7 @@ class CreateWorkBody(BaseModel):
 class UnderstandWorkflowBody(BaseModel):
     version_id: str
     project_id: str
+    transcription_profile: str | None = None
 
 
 class AnalyzeWorkflowBody(BaseModel):
@@ -508,7 +509,14 @@ async def create_understand_workflow(
             workflow_id=workflow.id,
             capability=Capability(name="understand", version="1.0"),
             input_version_ids=[version_id],
-            parameters={"fmt": Path(version.label).suffix.lstrip(".").lower() or "wav"},
+            parameters={
+                "fmt": Path(version.label).suffix.lstrip(".").lower() or "wav",
+                **(
+                    {"transcription_profile": body.transcription_profile}
+                    if body.transcription_profile
+                    else {}
+                ),
+            },
             cache_key=f"understand:1.0:{owner_id}:{version_id}",
             created_by=owner_id,
         )
