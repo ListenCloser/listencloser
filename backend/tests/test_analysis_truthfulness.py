@@ -4,6 +4,7 @@ confidence, and no unknown chord spam."""
 from __future__ import annotations
 
 import io
+import os
 import tempfile
 import uuid
 
@@ -207,3 +208,110 @@ class TestRomanNumeralsRequireChords:
         detected = s.analyze("key")
         rns = _m21_roman_numerals(s, detected)
         assert isinstance(rns, list)
+
+
+class TestPulseEvidence:
+    """Audio-derived pulse evidence overrides placeholders and carries provenance."""
+
+    def _midi_path(self, tempo: int = 90) -> str:
+        pm = pretty_midi.PrettyMIDI(initial_tempo=tempo)
+        pm.time_signature_changes.append(pretty_midi.TimeSignature(4, 4, 0.0))
+        inst = pretty_midi.Instrument(program=0)
+        for i in range(8):
+            inst.notes.append(
+                pretty_midi.Note(velocity=80, pitch=60, start=i * 0.5, end=i * 0.5 + 0.4)
+            )
+        pm.instruments.append(inst)
+        buf = io.BytesIO()
+        pm.write(buf)
+        f = tempfile.NamedTemporaryFile(suffix=".mid", delete=False)
+        f.write(buf.getvalue())
+        f.close()
+        return f.name
+
+    def _pulse(self) -> dict:
+        return {
+            "bpm": 120.0,
+            "beats": [i * 0.5 for i in range(16)],
+            "downbeats": [0.0, 2.0, 4.0, 6.0],
+            "provenance": {"engine": "beat_this", "library_version": "1.1.0"},
+        }
+
+    def test_audio_tempo_preferred_over_midi_metadata(self):
+        path = self._midi_path(tempo=90)
+        try:
+            result = analyze_midi(path, pulse=self._pulse())
+        finally:
+            os.unlink(path)
+        assert result["tempo"]["bpm"] == 120.0
+        assert result["tempo"]["source"] == "audio_beat_tracking"
+        # Beat engines provide no calibrated confidence — never fabricated.
+        assert result["tempo"]["confidence"] is None
+
+    def test_meter_derived_only_from_real_downbeats(self):
+        path = self._midi_path()
+        try:
+            with_downbeats = analyze_midi(path, pulse=self._pulse())
+            beat_only = analyze_midi(
+                path,
+                pulse={"bpm": 120.0, "beats": [i * 0.5 for i in range(16)], "downbeats": None},
+            )
+        finally:
+            os.unlink(path)
+        assert with_downbeats["time_signature"]["numerator"] == 4
+        assert with_downbeats["time_signature"]["source"] == "audio_beat_tracking"
+        # A beat-only pulse cannot derive a meter from audio; the MIDI-metadata
+        # fallback remains (handle_analyze suppresses it for placeholder
+        # transcripts). The audio path must not fabricate one.
+        assert beat_only["time_signature"]["source"] == "midi_metadata"
+
+    def test_beat_count_and_syncopation_from_pulse(self):
+        path = self._midi_path()
+        try:
+            result = analyze_midi(path, pulse=self._pulse())
+        finally:
+            os.unlink(path)
+        rhythm = result["rhythm"]
+        assert rhythm["beat_count"] == 16
+        assert rhythm["syncopation_available"] is True
+
+    def test_no_pulse_keeps_conservative_midi_path(self):
+        path = self._midi_path(tempo=90)
+        try:
+            result = analyze_midi(path)
+        finally:
+            os.unlink(path)
+        assert result["tempo"]["bpm"] == 90.0
+        assert result["tempo"]["source"] == "midi_metadata"
+        assert result["tempo"]["confidence"] == 0.9
+        assert result["rhythm"]["syncopation_available"] is False
+        assert result["rhythm"]["syncopation_ratio"] is None
+        assert result["pulse_provenance"] is None
+
+    def test_pulse_provenance_attached(self):
+        path = self._midi_path()
+        try:
+            result = analyze_midi(path, pulse=self._pulse())
+        finally:
+            os.unlink(path)
+        assert result["pulse_provenance"]["engine"] == "beat_this"
+
+    def test_syncopation_ratio_counts_off_beat_onsets(self):
+        pm = pretty_midi.PrettyMIDI(initial_tempo=90)
+        inst = pretty_midi.Instrument(program=0)
+        for i in range(8):
+            inst.notes.append(
+                pretty_midi.Note(velocity=80, pitch=60, start=i * 0.5 + 0.25, end=i * 0.5 + 0.4)
+            )
+        pm.instruments.append(inst)
+        buf = io.BytesIO()
+        pm.write(buf)
+        f = tempfile.NamedTemporaryFile(suffix=".mid", delete=False)
+        f.write(buf.getvalue())
+        f.close()
+        try:
+            result = analyze_midi(f.name, pulse=self._pulse())
+        finally:
+            os.unlink(f.name)
+        assert result["rhythm"]["syncopation_ratio"] == 1.0
+        assert result["rhythm"]["syncopation_available"] is True

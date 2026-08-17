@@ -25,9 +25,11 @@ class TestRegistryDefaults:
         engine = get_transcription_engine()
         assert isinstance(engine, BasicPitchEngine)
 
-    def test_default_beat_is_librosa(self):
+    def test_default_beat_is_beat_this(self):
+        from engines.beats.beat_this_engine import BeatThisEngine
+
         engine = get_beat_engine()
-        assert isinstance(engine, LibrosaBeatEngine)
+        assert isinstance(engine, BeatThisEngine)
 
     def test_default_structure_is_allin1(self):
         engine = get_structure_engine()

@@ -62,13 +62,15 @@ class KeyResult(TypedDict):
 
 class TempoResult(TypedDict):
     bpm: float
-    confidence: float
+    confidence: float | None
+    source: str
 
 
 class TimeSigResult(TypedDict):
     numerator: int
     denominator: int
-    confidence: float
+    confidence: float | None
+    source: str
 
 
 class ChordResult(TypedDict):
@@ -140,6 +142,7 @@ class AnalysisResult(TypedDict):
     melody: MelodyResult | None
     harmony_provenance: NotRequired[dict]
     melody_provenance: NotRequired[dict]
+    pulse_provenance: NotRequired[dict | None]
 
 
 # ── Harmony helpers (re-exported from the harmony engine) ───────────────────
@@ -149,14 +152,15 @@ class AnalysisResult(TypedDict):
 # ── Rhythm analysis (ISSUE-010) ────────────────────────────────────────────
 
 
-def _midi_rhythm(midi_path: str) -> RhythmResult | None:
+def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | None:
     """Analyze rhythm using pretty_midi.
 
     Reports note density and average duration (honest, well-defined stats).
-    Syncopation is NOT computed here: a raw performance MIDI has no trustworthy
-    metrical hierarchy (beat/downbeat) — pretty_midi injects a default 4/4 that
-    is an assumption, not evidence. Syncopation requires the beat/downbeat grid
-    from the audio beat tracker, which lives in a different pipeline stage.
+    Syncopation is computed ONLY against a real beat/downbeat grid supplied by
+    the audio beat tracker via ``pulse``. A raw performance MIDI has no
+    trustworthy metrical hierarchy, and pretty_midi injects a default 4/4 that
+    is an assumption, not evidence — so without ``pulse``, syncopation is
+    reported as unavailable rather than fabricated.
     """
     try:
         pm = pretty_midi.PrettyMIDI(midi_path)
@@ -168,33 +172,74 @@ def _midi_rhythm(midi_path: str) -> RhythmResult | None:
         if total_notes == 0:
             return None
 
-        tempos = pm.get_tempo_changes()[1]
-        bpm = float(np.median(tempos)) if len(tempos) > 0 else 120.0
-        beat_count = int(duration * bpm / 60.0)
+        beats = pulse.get("beats") or [] if pulse else []
+        downbeats = pulse.get("downbeats") if pulse else None
+
+        if beats:
+            beat_count = len(beats)
+        else:
+            tempos = pm.get_tempo_changes()[1]
+            bpm = float(np.median(tempos)) if len(tempos) > 0 else 120.0
+            beat_count = int(duration * bpm / 60.0)
 
         all_durations = []
+        all_onsets = []
         for inst in pm.instruments:
             if inst.is_drum:
                 continue
             for note in inst.notes:
                 all_durations.append(note.end - note.start)
+                all_onsets.append(note.start)
         avg_duration = float(np.mean(all_durations)) if all_durations else 0.0
+
+        syncopation_ratio: float | None = None
+        syncopation_available = False
+        if downbeats and beats and all_onsets:
+            syncopation_available = True
+            syncopation_ratio = _syncopation_ratio(all_onsets, beats, downbeats)
 
         return RhythmResult(
             beat_count=beat_count,
             avg_note_duration=round(avg_duration, 3),
-            syncopation_ratio=None,
+            syncopation_ratio=syncopation_ratio,
             rhythmic_density=round(total_notes / duration, 2),
-            syncopation_available=False,
+            syncopation_available=syncopation_available,
         )
     except Exception:
         return None
 
 
+def _syncopation_ratio(onsets: list[float], beats: list[float], downbeats: list[float]) -> float:
+    """Fraction of note onsets that land off the detected beat grid.
+
+    A note onset is "on the grid" when it falls within a tolerance window of a
+    detected beat (a quarter of the median inter-beat interval). Onsets that
+    land further from the beat — the off-beat fraction — are the syncopation
+    signal. This is a defensible, well-defined statistic computed only from
+    real beat/downbeat evidence; it is not a musical-judgment claim.
+    """
+    beats_sorted = np.asarray(sorted(beats), dtype=float)
+    median_interval = float(np.median(np.diff(beats_sorted))) if len(beats_sorted) > 1 else 0.0
+    if median_interval <= 0:
+        return 0.0
+    tolerance = median_interval / 4.0
+    off_beat = 0
+    for onset in onsets:
+        idx = int(np.searchsorted(beats_sorted, onset))
+        nearest = float("inf")
+        if idx < len(beats_sorted):
+            nearest = min(nearest, abs(beats_sorted[idx] - onset))
+        if idx > 0:
+            nearest = min(nearest, abs(beats_sorted[idx - 1] - onset))
+        if nearest > tolerance:
+            off_beat += 1
+    return round(off_beat / len(onsets), 3) if onsets else 0.0
+
+
 # ── Main entry point ────────────────────────────────────────────────────────
 
 
-def analyze_midi(midi_path: str) -> AnalysisResult:
+def analyze_midi(midi_path: str, pulse: dict | None = None) -> AnalysisResult:
     """
     Full symbolic analysis of a MIDI file.
 
@@ -203,6 +248,15 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
     and rhythm stats are read directly from the MIDI with pretty_midi. Engine
     provenance is attached so persistence can record how each fact was
     produced.
+
+    ``pulse`` (optional) is audio-derived beat/downbeat evidence produced by the
+    beat engine (see music_features.estimate_beats_with_engine). When supplied
+    it overrides MIDI-metadata tempo/meter (which for a transcription is only a
+    placeholder) with measured evidence:
+      ``{"bpm": float, "beats": [float], "downbeats": [float] | None,
+          "provenance": {...}}``
+    Downbeat-dependent facts (meter, syncopation) are only produced when real
+    downbeats exist; they are never fabricated from a beat-only model.
 
     Intentional behavior change vs. the pre-engine implementation (2026,
     engine-seam refactor): a harmony-engine failure no longer aborts the whole
@@ -217,6 +271,10 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
 
     pm = pretty_midi.PrettyMIDI(midi_path)
 
+    pulse = pulse or {}
+    pulse_bpm = float(pulse.get("bpm") or 0.0)
+    pulse_downbeats = pulse.get("downbeats") if pulse else None
+
     result: AnalysisResult = {
         "key": None,
         "tempo": None,
@@ -230,26 +288,53 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
         "melody": None,
         "harmony_provenance": {},
         "melody_provenance": None,
+        "pulse_provenance": pulse.get("provenance"),
     }
 
-    # Tempo from MIDI metadata
-    try:
-        _, tempos = pm.get_tempo_changes()
-        if len(tempos) > 0:
-            result["tempo"] = TempoResult(bpm=round(float(np.median(tempos)), 1), confidence=0.9)
-    except Exception:
-        pass
+    # Tempo: audio-derived BPM is measured evidence; MIDI metadata is used as a
+    # fallback when no pulse evidence exists.
+    if pulse_bpm > 0:
+        result["tempo"] = TempoResult(
+            bpm=round(pulse_bpm, 1),
+            confidence=None,
+            source="audio_beat_tracking",
+        )
+    else:
+        try:
+            _, tempos = pm.get_tempo_changes()
+            if len(tempos) > 0:
+                result["tempo"] = TempoResult(
+                    bpm=round(float(np.median(tempos)), 1),
+                    confidence=0.9,
+                    source="midi_metadata",
+                )
+        except Exception:
+            pass
 
-    # Time signature from MIDI metadata
-    try:
-        ts_changes = pm.time_signature_changes
-        if ts_changes:
-            ts = ts_changes[0]
+    # Time signature: only from a real downbeat grid. Without downbeat evidence
+    # a default 4/4 is never surfaced as a detected fact.
+    if pulse_downbeats:
+        derived = _meter_from_downbeats(pulse_downbeats, pulse.get("beats"))
+        if derived:
             result["time_signature"] = TimeSigResult(
-                numerator=int(ts.numerator), denominator=int(ts.denominator), confidence=0.9
+                numerator=derived[0],
+                denominator=derived[1],
+                confidence=None,
+                source="audio_beat_tracking",
             )
-    except Exception:
-        pass
+    else:
+        try:
+            ts_changes = pm.time_signature_changes
+            if ts_changes:
+                ts = ts_changes[0]
+                result["time_signature"] = TimeSigResult(
+                    numerator=int(ts.numerator),
+                    denominator=int(ts.denominator),
+                    confidence=0.9,
+                    source="midi_metadata",
+                )
+        except Exception:
+            pass
 
     # Harmony (music21 via the harmony engine). On any failure the result stays
     # in its conservative "no reliable evidence" state rather than fabricating
@@ -285,8 +370,47 @@ def analyze_midi(midi_path: str) -> AnalysisResult:
 
     # Rhythm — operates directly on the saved performance MIDI and remains
     # useful even when symbolic parsing fails.
-    result["rhythm"] = _midi_rhythm(midi_path)
+    result["rhythm"] = _midi_rhythm(midi_path, pulse)
 
     total_ms = round((_time.perf_counter() - t0) * 1000)
     logger.info("analyze_total", extra={"step": "total", "step_ms": total_ms})
     return result
+
+
+def _meter_from_downbeats(
+    downbeats: list[float], beats: list[float] | None
+) -> tuple[int, int] | None:
+    """Infer a simple meter (numerator, denominator) from a real downbeat grid.
+
+    Beats-per-bar is the modal number of detected beats between consecutive
+    downbeats. The denominator is fixed at 4 (the beat grid's nominal
+    quarter-note pulse); when the grid is too sparse or inconsistent to support
+    a clean meter, None is returned rather than guessing.
+    """
+    if not downbeats or len(downbeats) < 2:
+        return None
+    beats_sorted = sorted(float(b) for b in beats or [])
+    downbeats_sorted = sorted(float(d) for d in downbeats)
+    if not beats_sorted:
+        return None
+
+    beat_interval = float(np.median(np.diff(beats_sorted))) if len(beats_sorted) > 1 else 0.0
+    if beat_interval <= 0:
+        return None
+
+    beats_per_bar: list[int] = []
+    for i in range(1, len(downbeats_sorted)):
+        gap = downbeats_sorted[i] - downbeats_sorted[i - 1]
+        if gap <= 0:
+            continue
+        count = round(gap / beat_interval)
+        if 1 <= count <= 16:
+            beats_per_bar.append(count)
+    if not beats_per_bar:
+        return None
+
+    modal = max(set(beats_per_bar), key=beats_per_bar.count)
+    consistent = beats_per_bar.count(modal) >= max(1, len(beats_per_bar) * 0.6)
+    if not consistent or modal in (0, 1):
+        return None
+    return (modal, 4)

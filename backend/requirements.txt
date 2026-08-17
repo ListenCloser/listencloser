@@ -15,6 +15,8 @@ pytest==9.1.1
 pytest-asyncio>=0.23.0
 ruff==0.5.7
 librosa>=0.10.0
+beat-this==1.1.0
+torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
 music21>=10.0.0
 partitura>=1.5.0
 transkun==2.0.1

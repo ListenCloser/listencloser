@@ -100,6 +100,48 @@ def _run_analyze(sb, monkeypatch, version, workflow):
     return InsightRepo(sb).list_by_version(version.id, OWNER_ID)
 
 
+def _run_analyze_with_audio(sb, monkeypatch, version, workflow, wav_bytes=b"wav"):
+    """Run analyze with the original audio as a second input version."""
+    audio = VersionRepo(sb).create(
+        Version(
+            artifact_id=version.artifact_id,
+            storage_key=f"it/{uuid.uuid4().hex}.wav",
+            storage_bucket="artifacts",
+            metadata={},
+        ),
+        OWNER_ID,
+    )
+
+    def _download(version_obj, _client):
+        if version_obj.id == version.id:
+            return _midi_bytes()
+        return wav_bytes
+
+    monkeypatch.setattr(capabilities, "download_version_bytes", _download)
+    monkeypatch.setattr(
+        capabilities.music_features,
+        "estimate_beats_with_engine",
+        lambda _wav: {
+            "bpm": 138.0,
+            "beats": [i * 0.5 for i in range(12)],
+            "downbeats": [0.0, 2.0, 4.0, 6.0],
+            "provenance": {"engine": "beat_this", "library_version": "1.1.0"},
+        },
+    )
+    monkeypatch.setattr(
+        capabilities.music_features, "decode_audio_to_wav", lambda audio, fmt="wav": b"wav"
+    )
+    job = Job(
+        workflow_id=workflow.id,
+        capability=Capability(name="analyze", version="1.0"),
+        lifecycle=JobLifecycle(current=JobStage.running),
+        input_version_ids=[version.id, audio.id],
+    )
+    JobRepo(sb).create(job, OWNER_ID)
+    capabilities.handle_analyze(job, sb)
+    return InsightRepo(sb).list_by_version(version.id, OWNER_ID)
+
+
 def test_basic_pitch_pulse_defaults_not_surfaced(sb, monkeypatch):
     version, workflow = _seed_midi_version(sb, engine="basic_pitch")
     insights = _run_analyze(sb, monkeypatch, version, workflow)
@@ -120,3 +162,20 @@ def test_non_basic_pitch_pulse_is_surfaced(sb, monkeypatch):
     # A non-basic_pitch MIDI's explicit tempo/meter is genuine evidence.
     assert "tempo" in kinds
     assert "time_signature" in kinds
+
+
+def test_audio_pulse_overrides_placeholder_tempo(sb, monkeypatch):
+    """Audio-derived pulse evidence replaces the 120 BPM placeholder and
+    carries the beat engine's provenance."""
+    version, workflow = _seed_midi_version(sb, engine="basic_pitch")
+    insights = _run_analyze_with_audio(sb, monkeypatch, version, workflow)
+    kinds = {i.kind for i in insights}
+    assert "tempo" in kinds, "audio-measured tempo must surface"
+    tempo = next(i for i in insights if i.kind == "tempo")
+    assert tempo.evidence["bpm"] == 138.0
+    assert tempo.evidence["source"] == "audio_beat_tracking"
+    assert tempo.provenance.get("engine", {}).get("engine") == "beat_this"
+    assert "time_signature" in kinds, "downbeat-derived meter must surface"
+    ts = next(i for i in insights if i.kind == "time_signature")
+    assert ts.evidence["numerator"] == 4
+    assert ts.provenance.get("engine", {}).get("engine") == "beat_this"
