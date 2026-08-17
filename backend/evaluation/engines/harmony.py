@@ -2,7 +2,10 @@
 
 Adapters for:
 - Music21 symbolic (existing baseline)
-- lv-chordia (lv-chordia/chordia)
+
+The former lv-chordia adapter was removed: `chordia` is not on PyPI and its
+repository no longer resolves, so it could never run (see
+`evaluation/reports/harmony_feasibility.md`).
 """
 
 from __future__ import annotations
@@ -235,120 +238,6 @@ class Music21HarmonyAdapter(EngineAdapter):
 
 
 # ============================================================
-# lv-chordia
-# ============================================================
-
-@dataclass
-class LVChordiaAdapter(EngineAdapter):
-    engine_info = EngineInfo(
-        name="lv_chordia",
-        category="harmony",
-        repo_url="https://github.com/lv-chordia/chordia",
-        license="MIT",
-        install_cmd="pip install chordia",
-        model_size_mb=30,
-        requires_gpu=False,
-        notes="Chord recognition + key estimation using CNN+CRF. Works on audio directly (no MIDI required).",
-    )
-
-    def __init__(self, **kwargs):
-        self._chordia = None
-
-    def is_available(self) -> bool:
-        try:
-            import chordia  # noqa: F401
-            return True
-        except Exception:
-            return False
-
-    def prepare(self) -> None:
-        if self._chordia is not None:
-            return
-        try:
-            from chordia import ChordRecognizer
-            self._chordia = ChordRecognizer()
-        except Exception as e:
-            logger.warning("Chordia prepare failed: %s", e)
-            self._chordia = None
-
-    def analyze_harmony(self, midi_bytes: bytes, **kwargs) -> dict[str, Any]:
-        # Chordia works on audio, not MIDI. For evaluation, we'd need to
-        # render MIDI to audio first, or this adapter is audio-native.
-        # For now, we'll use pretty_midi to render to WAV and then run chordia.
-        # But this is a harmony adapter - it expects MIDI input.
-        # Let's render MIDI to audio and run chordia.
-        import io
-        import soundfile as sf
-        import pretty_midi
-        import tempfile
-
-        if self._chordia is None:
-            self.prepare()
-        if self._chordia is None:
-            raise RuntimeError("Chordia not available")
-
-        # Render MIDI to audio
-        pm = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            pm.fluidsynth(f)
-            temp_path = f.name
-
-        try:
-            chords = self._chordia.predict(temp_path)
-            # Convert chordia output to our format
-            # chordia returns: time, chord_label, confidence
-            chord_results = []
-            for t, label, conf in chords:
-                # Parse label like "C:maj" or "A:min"
-                parts = label.split(":")
-                if len(parts) == 2:
-                    root, quality = parts
-                    quality_map = {"maj": "M", "min": "m", "dim": "dim", "aug": "aug"}
-                    chord_results.append({
-                        "root": root,
-                        "quality": quality_map.get(quality, quality),
-                        "start": round(float(t), 3),
-                        "end": round(float(t) + 1.0, 3),  # Assume 1s duration
-                        "confidence": float(conf),
-                    })
-
-            # Key estimation from chords (simple heuristic)
-            key_result = self._estimate_key_from_chords(chord_results)
-
-            return {
-                "key": key_result,
-                "chords": chord_results,
-                "roman_numerals": [],
-                "cadences": [],
-                "voice_leading": None,
-                "phrases": [],
-            }
-        finally:
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
-
-    def _estimate_key_from_chords(self, chords: list[dict]) -> dict[str, Any]:
-        # Simple heuristic: most common root
-        from collections import Counter
-        roots = [c["root"] for c in chords]
-        if not roots:
-            return {"tonic": "C", "mode": "major", "confidence": 0.0}
-        most_common = Counter(roots).most_common(1)[0][0]
-        return {"tonic": most_common, "mode": "major", "confidence": 0.5}
-
-    def transcribe(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
-        raise NotImplementedError
-
-    def estimate_beats(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
-        raise NotImplementedError
-
-    def analyze_structure(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
-        raise NotImplementedError
-
-
-# ============================================================
 # Helpers
 # ============================================================
 
@@ -379,7 +268,6 @@ def _has_melodic_content(part) -> bool:
 
 HARMONY_ADAPTERS = {
     "music21_symbolic": Music21HarmonyAdapter,
-    "lv_chordia": LVChordiaAdapter,
 }
 
 
