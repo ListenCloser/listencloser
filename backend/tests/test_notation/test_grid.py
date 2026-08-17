@@ -69,3 +69,15 @@ class TestMetricalGrid:
         grid = build_metrical_grid(beats, downbeats)
         assert len(grid.measure_boundaries) >= 2
         assert all(round(b * 2) == b * 2 for b in grid.measure_boundaries)
+
+    def test_irregular_downbeats_do_not_claim_meter(self):
+        """Genuinely irregular downbeats (not on a stable tactus) must not
+        claim a meter. Claiming one would force the adaptive quantizer into
+        sub-tactus step sizes that music21 cannot engrave, crashing the score
+        pipeline on real recordings."""
+        beats = [0.0, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8, 5.6, 6.4]
+        downbeats = [0.0, 0.8, 2.4, 4.8, 5.6]
+        grid = build_metrical_grid(beats, downbeats)
+        assert grid.inferred_meter is None
+        assert grid.measure_boundaries == []
+        assert grid.heuristic_confidence == 0.0
