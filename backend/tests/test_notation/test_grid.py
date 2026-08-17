@@ -50,3 +50,22 @@ class TestMetricalGrid:
         grid = build_metrical_grid(beats)
         assert grid.global_beats()
         assert grid.inferred_meter is None
+
+    def test_jittered_downbeats_snap_to_beat_grid(self):
+        """Jittered downbeat timestamps must not create irregular measure
+        boundaries: a 4.02 s boundary on a 0.5 s beat grid forces sub-tactus
+        quantization steps that music21 cannot engrave to MusicXML."""
+        beats = [i * 0.5 for i in range(9)]
+        downbeats = [0.0, 2.0, 4.02]
+        grid = build_metrical_grid(beats, downbeats)
+        assert grid.inferred_meter == (4, 4)
+        assert grid.measure_boundaries == [0.0, 2.0, 4.0], grid.measure_boundaries
+
+    def test_irreconcilable_downbeats_still_anchor(self):
+        """Downbeats far off the beat grid still yield a bounded grid (snapped
+        to the nearest beat) rather than crashing or inventing a meter."""
+        beats = [i * 0.5 for i in range(9)]
+        downbeats = [0.0, 2.03, 4.0]
+        grid = build_metrical_grid(beats, downbeats)
+        assert len(grid.measure_boundaries) >= 2
+        assert all(round(b * 2) == b * 2 for b in grid.measure_boundaries)
