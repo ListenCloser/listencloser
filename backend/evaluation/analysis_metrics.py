@@ -87,9 +87,11 @@ def compute_analysis_metrics(
         )
 
     chord_p = chord_r = chord_f1 = None
-    if reference.chords and predicted_chords:
+    if reference.chords:
+        # There is ground truth to score against. Zero predictions is a real
+        # (worst-possible) baseline: recall and F1 are 0, not "not computable".
         ref_roots = [(c.get("root", ""), c.get("start", 0)) for c in reference.chords]
-        pred_roots = [(c.get("root", ""), c.get("start", 0)) for c in predicted_chords]
+        pred_roots = [(c.get("root", ""), c.get("start", 0)) for c in (predicted_chords or [])]
         matched_c = sum(
             1 for r in ref_roots for p in pred_roots if r[0] == p[0] and abs(r[1] - p[1]) <= 0.5
         )

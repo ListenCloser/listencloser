@@ -62,7 +62,25 @@ within ±0.5 s window; key = string match).
 - **Key accuracy: 0.8** (4/5). One genuine error (SS3_solo → music21 hears G
   minor, reference is Bb major). The other "miss" was purely a spelling issue
   (music21 `E-`/`A-` vs reference `Eb`/`Ab`), fixed by normalization.
-- **Chord precision/recall/F1: not computable (0 predicted chords).**
+- **Chord precision/recall/F1: 0.0 / 0.0 / 0.0** — the honest worst-case
+  baseline. With reference chords present but **zero** predictions, recall and
+  F1 are `0`, not "not computable" (this was an artifact of the shared metric
+  only scoring when `predicted_chords` was non-empty; fixed so reference-present
+  + zero-predictions scores `0`). Precision is undefined-equivalent to `0` here
+  (no predictions to be precise about).
+
+**Evaluation semantics (fixed):**
+- **Time domain:** GuitarSet chord annotations are in **seconds**; music21
+  reports symbolic quarter-length offsets. `evaluation/harmony_feasibility.py`
+  now converts music21 symbolic offsets to seconds via the score tempo map
+  (using the seconds-per-quarter from the MIDI) so predicted and reference
+  chords share one time domain before the ±0.5 s root match. This is applied to
+  both the (currently zero) production adapter output and the diagnostic path.
+- **Zero-prediction baseline:** the shared `compute_analysis_metrics` now scores
+  `recall=0, F1=0` when reference chords exist but no predictions are produced.
+- **Parser tests:** `parse_guitarset_harmony` has deterministic tests for
+  major/minor qualities, enharmonic (D#→Eb) normalization, `N`/no-chord
+  skipping, `key_mode`, timestamps/duration, and unknown-quality fallback.
 
 **Root cause of zero chords (real production finding):**
 `Music21HarmonyAdapter.analyze_harmony` (`evaluation/engines/harmony.py`)
@@ -143,7 +161,9 @@ the dependency cost.
 | File | Role |
 |---|---|
 | `backend/evaluation/datasets/parsers.py` | `parse_guitarset_harmony`, `build_guitarset_reference_midi` (new) |
-| `backend/evaluation/harmony_feasibility.py` | baseline scorer (new) |
-| `backend/evaluation/analysis_metrics.py` | shared chord/key metric computation |
+| `backend/evaluation/harmony_feasibility.py` | baseline scorer (new); converts symbolic→seconds, zero-prediction baseline |
+| `backend/evaluation/analysis_metrics.py` | shared chord/key metric computation (zero-prediction baseline fixed) |
 | `backend/evaluation/engines/harmony.py` | music21 adapter (unaltered) + removed dead `lv_chordia` adapter |
+| `backend/tests/test_real_audio_parsers.py` | deterministic `parse_guitarset_harmony` tests (new) |
+| `backend/tests/test_evaluation.py` | chord-metric zero-prediction + time-domain tests (new) |
 | `backend/evaluation/.cache/guitarset/annotation/*.jams` | GuitarSet ground truth |

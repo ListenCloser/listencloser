@@ -67,12 +67,50 @@ def _normalize_key_label(label: str) -> str:
     return re.sub(r"[A-G]-", _sub, label)
 
 
+def _seconds_per_quarter(score) -> float:
+    """Seconds per quarter note for a music21 score.
+
+    music21 report offsets in symbolic quarter-length units; GuitarSet chord
+    annotations are in seconds. Convert using the score's tempo (quarter notes
+    per minute) so both share the seconds time domain. Falls back to 60 BPM
+    (1.0 s/quarter) if no tempo is found.
+    """
+    qpm = score.metronomeMarkBoundaries()[0][2].number if score.metronomeMarkBoundaries() else None
+    if not qpm:
+        try:
+            qpm = float(score.flat.getElementsByClass("MetronomeMark")[0].number)
+        except Exception:
+            qpm = 60.0
+    return 60.0 / max(float(qpm), 1.0)
+
+
+def _parse_score(midi_bytes: bytes):
+    """Parse MIDI bytes into a music21 score (for tempo-aware conversion)."""
+    import os
+    import tempfile
+
+    from music21 import converter
+
+    with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+        f.write(midi_bytes)
+        temp_path = f.name
+    try:
+        return converter.parse(temp_path)
+    finally:
+        os.unlink(temp_path)
+
+
 def _diagnostic_chords(midi_bytes: bytes) -> list[dict[str, Any]]:
     """DIAGNOSTIC-ONLY chord extraction using music21's always-available
     ``ch.quality`` (the production adapter's ``impliedQuality`` is absent on
     MIDI-derived chords, so it emits zero chords). This documents what the
     same library could produce with a different extraction — it is NOT the
-    production behavior and is not used for the scored baseline."""
+    production behavior and is not used for the scored baseline.
+
+    Returns chord times in **seconds** (converted from music21's symbolic
+    quarter-length offsets via the score tempo) so they share the reference
+    time domain.
+    """
     import os
     import tempfile
 
@@ -83,6 +121,7 @@ def _diagnostic_chords(midi_bytes: bytes) -> list[dict[str, Any]]:
         temp_path = f.name
     try:
         score = converter.parse(temp_path)
+        sec_per_qn = _seconds_per_quarter(score)
     finally:
         os.unlink(temp_path)
     chords: list[dict[str, Any]] = []
@@ -91,16 +130,16 @@ def _diagnostic_chords(midi_bytes: bytes) -> list[dict[str, Any]]:
             root = ch.root()
             if root is None:
                 continue
-            start = float(ch.getOffsetInHierarchy(score))
-            dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
-            if dur <= 0:
+            start_qn = float(ch.getOffsetInHierarchy(score))
+            dur_qn = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
+            if dur_qn <= 0:
                 continue
             chords.append(
                 {
                     "root": root.name,
                     "quality": str(ch.quality),
-                    "start": round(start, 3),
-                    "end": round(start + dur, 3),
+                    "start": round(start_qn * sec_per_qn, 3),
+                    "end": round((start_qn + dur_qn) * sec_per_qn, 3),
                 }
             )
         except Exception:
@@ -134,8 +173,16 @@ def run_feasibility() -> list[dict[str, Any]]:
             predicted_key_normalized = (
                 _normalize_key_label(predicted_key) if predicted_key else None
             )
+            # Convert the adapter's symbolic (quarter-length) chord times to the
+            # seconds domain the GuitarSet reference uses.
+            sec_per_qn = _seconds_per_quarter(_parse_score(midi_bytes))
             predicted_chords = [
-                {"root": c["root"], "quality": c["quality"], "start": c["start"], "end": c["end"]}
+                {
+                    "root": c["root"],
+                    "quality": c["quality"],
+                    "start": round(float(c["start"]) * sec_per_qn, 3),
+                    "end": round(float(c["end"]) * sec_per_qn, 3),
+                }
                 for c in output.get("chords", [])
             ]
             diagnostic_chords = _diagnostic_chords(midi_bytes)
