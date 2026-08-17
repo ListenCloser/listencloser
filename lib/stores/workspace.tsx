@@ -297,10 +297,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setActiveRepresentation = useCallback((representation: RepresentationId | null) => {
-    setWorkspace((prev) => ({
-      ...prev,
-      activeRepresentation: representation,
-    }));
+    setWorkspace((prev) => {
+      if (prev.activeRepresentation === representation) return prev;
+      return {
+        ...prev,
+        activeRepresentation: representation,
+      };
+    });
   }, []);
 
   const setSelection = useCallback((selection: MusicalSelection | null) => {

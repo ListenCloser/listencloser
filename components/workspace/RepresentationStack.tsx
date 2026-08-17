@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { availableRepresentations, representationById } from "@/lib/representations";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
@@ -9,8 +9,15 @@ import { presentableTitle } from "@/lib/format";
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport, setActiveRepresentation } = useWorkspace();
   const activeWork = workspace.works.find((work) => work.id === workspace.activeWorkId);
-  const availability = deriveAvailability(workspace.representations, workspace.insights.length);
-  const available = availableRepresentations(availability);
+  // Derive availability once per representations/insights change, not per render:
+  // availableRepresentations returns a fresh array, and a fresh dependency array
+  // in the effect below would re-run it on every render (infinite loop when the
+  // workspace is empty and setActiveRepresentation(null) produces new state).
+  const availability = useMemo(
+    () => deriveAvailability(workspace.representations, workspace.insights.length),
+    [workspace.representations, workspace.insights.length],
+  );
+  const available = useMemo(() => availableRepresentations(availability), [availability]);
   const activeView = available.some((view) => view.id === workspace.activeRepresentation)
     ? workspace.activeRepresentation
     : available[0]?.id ?? null;
