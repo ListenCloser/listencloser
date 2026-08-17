@@ -118,6 +118,7 @@ def test_understand_runs_all_stages_without_browser_orchestration(monkeypatch):
         capability=Capability(name="understand", version="1.0"),
         input_version_ids=[uuid4()],
     )
+    original_audio_id = job.input_version_ids[0]
     analyzed_inputs = []
     derived_capabilities = []
 
@@ -151,5 +152,8 @@ def test_understand_runs_all_stages_without_browser_orchestration(monkeypatch):
     outputs = capabilities.handle_understand(job, MagicMock())
 
     assert outputs == [str(midi_id), str(audio_id), str(score_id)]
-    assert analyzed_inputs == [midi_id]
+    # The analyze stage receives both the transcribed MIDI and the original
+    # audio so it can measure pulse evidence (BPM/beats/downbeats) from the
+    # recording rather than relying on transcription placeholders.
+    assert analyzed_inputs == [midi_id, original_audio_id]
     assert derived_capabilities == ["analyze", "score"]

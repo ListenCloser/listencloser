@@ -694,14 +694,19 @@ def get_transcription_engine_for_job(
     )
 
 
-def estimate_beats_with_engine(wav_bytes: bytes) -> dict:
-    """Estimate beats using the configured beat engine.
+def estimate_beats_with_engine(wav_bytes: bytes, engine_name: str | None = None) -> dict:
+    """Estimate beats using a beat engine.
+
+    When ``engine_name`` is provided it overrides the configured default
+    (``BEAT_ENGINE``); otherwise the shared default engine is used. This lets
+    the Analysis path opt into a specialist beat tracker (beat_this) without
+    changing the engine used by Score/notation.
 
     Returns a dict with bpm, beats, downbeats (may be None), and provenance.
     """
     from engines.registry import get_beat_engine
 
-    engine = get_beat_engine()
+    engine = get_beat_engine(name=engine_name)
     result = engine.analyze(wav_bytes)
     return {
         "bpm": result.bpm,

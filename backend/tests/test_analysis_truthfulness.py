@@ -4,6 +4,7 @@ confidence, and no unknown chord spam."""
 from __future__ import annotations
 
 import io
+import os
 import tempfile
 import uuid
 
@@ -207,3 +208,121 @@ class TestRomanNumeralsRequireChords:
         detected = s.analyze("key")
         rns = _m21_roman_numerals(s, detected)
         assert isinstance(rns, list)
+
+
+class TestPulseEvidence:
+    """Audio-derived pulse evidence overrides placeholders and carries provenance."""
+
+    def _midi_path(self, tempo: int = 90) -> str:
+        pm = pretty_midi.PrettyMIDI(initial_tempo=tempo)
+        pm.time_signature_changes.append(pretty_midi.TimeSignature(4, 4, 0.0))
+        inst = pretty_midi.Instrument(program=0)
+        for i in range(8):
+            inst.notes.append(
+                pretty_midi.Note(velocity=80, pitch=60, start=i * 0.5, end=i * 0.5 + 0.4)
+            )
+        pm.instruments.append(inst)
+        buf = io.BytesIO()
+        pm.write(buf)
+        f = tempfile.NamedTemporaryFile(suffix=".mid", delete=False)
+        f.write(buf.getvalue())
+        f.close()
+        return f.name
+
+    def _pulse(self) -> dict:
+        return {
+            "bpm": 120.0,
+            "beats": [i * 0.5 for i in range(16)],
+            "downbeats": [0.0, 2.0, 4.0, 6.0],
+            "provenance": {"engine": "beat_this", "library_version": "1.1.0"},
+        }
+
+    def test_audio_tempo_preferred_over_midi_metadata(self):
+        path = self._midi_path(tempo=90)
+        try:
+            result = analyze_midi(path, pulse=self._pulse())
+        finally:
+            os.unlink(path)
+        assert result["tempo"]["bpm"] == 120.0
+        assert result["tempo"]["source"] == "audio_beat_tracking"
+        # Beat engines provide no calibrated confidence — never fabricated.
+        assert result["tempo"]["confidence"] is None
+
+    def test_degenerate_pulse_produces_no_tempo(self):
+        """A degenerate beat estimate must not become 120 BPM evidence."""
+        path = self._midi_path(tempo=90)
+        try:
+            no_bpm = analyze_midi(
+                path,
+                pulse={"bpm": None, "beats": [], "downbeats": None, "provenance": {}},
+            )
+            empty_pulse = analyze_midi(path, pulse={})
+        finally:
+            os.unlink(path)
+        # Even though the MIDI metadata has an explicit tempo, an attempted audio
+        # measurement that failed must leave tempo absent — never fall back to
+        # MIDI metadata or a default.
+        assert no_bpm["tempo"] is None
+        assert empty_pulse["tempo"] is None
+
+    def test_audio_pulse_leaves_time_signature_unknown(self):
+        """Beats/downbeats are evidence; a notated (N, 4) meter is not derived."""
+        path = self._midi_path()
+        try:
+            result = analyze_midi(path, pulse=self._pulse())
+        finally:
+            os.unlink(path)
+        # The MIDI metadata here has an explicit 4/4, but the audio path must not
+        # mix it in: meter stays unknown rather than claiming a notation.
+        assert result["time_signature"] is None
+
+    def test_beat_count_and_offbeat_ratio_from_pulse(self):
+        path = self._midi_path()
+        try:
+            result = analyze_midi(path, pulse=self._pulse())
+        finally:
+            os.unlink(path)
+        rhythm = result["rhythm"]
+        assert rhythm["beat_count"] == 16
+        assert rhythm["offbeat_onset_available"] is True
+
+    def test_no_pulse_keeps_conservative_midi_path(self):
+        path = self._midi_path(tempo=90)
+        try:
+            result = analyze_midi(path)
+        finally:
+            os.unlink(path)
+        assert result["tempo"]["bpm"] == 90.0
+        assert result["tempo"]["source"] == "midi_metadata"
+        assert result["tempo"]["confidence"] == 0.9
+        assert result["rhythm"]["offbeat_onset_available"] is False
+        assert result["rhythm"]["offbeat_onset_ratio"] is None
+        assert result["pulse_provenance"] is None
+
+    def test_pulse_provenance_attached(self):
+        path = self._midi_path()
+        try:
+            result = analyze_midi(path, pulse=self._pulse())
+        finally:
+            os.unlink(path)
+        assert result["pulse_provenance"]["engine"] == "beat_this"
+
+    def test_offbeat_ratio_counts_off_beat_onsets(self):
+        pm = pretty_midi.PrettyMIDI(initial_tempo=90)
+        inst = pretty_midi.Instrument(program=0)
+        for i in range(8):
+            inst.notes.append(
+                pretty_midi.Note(velocity=80, pitch=60, start=i * 0.5 + 0.25, end=i * 0.5 + 0.4)
+            )
+        pm.instruments.append(inst)
+        buf = io.BytesIO()
+        pm.write(buf)
+        f = tempfile.NamedTemporaryFile(suffix=".mid", delete=False)
+        f.write(buf.getvalue())
+        f.close()
+        try:
+            result = analyze_midi(f.name, pulse=self._pulse())
+        finally:
+            os.unlink(f.name)
+        assert result["rhythm"]["offbeat_onset_ratio"] == 1.0
+        assert result["rhythm"]["offbeat_onset_available"] is True

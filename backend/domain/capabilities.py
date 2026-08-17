@@ -448,7 +448,7 @@ def handle_understand(job: Job, client) -> list[str]:
     analyze_job = job.model_copy(
         update={
             "capability": Capability(name="analyze", version="1.0"),
-            "input_version_ids": [midi_version_id],
+            "input_version_ids": [midi_version_id, job.input_version_ids[0]],
         }
     )
     handle_analyze(analyze_job, _ProgressClient(client, 0.75, 0.15))
@@ -696,7 +696,13 @@ def _transcription_defaults_pulse(input_version: Version) -> bool:
 
 def handle_analyze(job: Job, client) -> list[str]:
     """Analyze MIDI → insights for key, tempo, time signature, chords,
-    Roman numerals, and cadences."""
+    Roman numerals, and cadences.
+
+    When the job carries a second input version (the original audio, as wired
+    by ``handle_understand``), real pulse evidence (BPM, beats, downbeats) is
+    measured from that audio and threaded into the analysis so tempo/meter/rhythm
+    reflect the recording rather than transcription placeholders.
+    """
     if not job.input_version_ids:
         raise ValueError("analyze requires at least one input version")
 
@@ -712,9 +718,30 @@ def handle_analyze(job: Job, client) -> list[str]:
         f.write(midi_bytes)
         midi_path = f.name
 
+    pulse: dict | None = None
+    if len(job.input_version_ids) > 1:
+        try:
+            _update_progress(client, job.id, 0.25, "measuring audio pulse")
+            audio_version = _lookup_version(client, job.input_version_ids[1])
+            audio_bytes = download_version_bytes(audio_version, client)
+            wav_bytes = music_features.decode_audio_to_wav(
+                audio_bytes, fmt=job.parameters.get("fmt", "wav")
+            )
+            beat_result = music_features.estimate_beats_with_engine(
+                wav_bytes, engine_name="beat_this"
+            )
+            pulse = {
+                "bpm": beat_result.get("bpm"),
+                "beats": beat_result.get("beats") or [],
+                "downbeats": beat_result.get("downbeats"),
+                "provenance": beat_result.get("provenance"),
+            }
+        except Exception:
+            logger.exception("analyze_pulse_measurement_failed")
+
     _update_progress(client, job.id, 0.3, "running analysis")
     try:
-        analysis = analyze.analyze_midi(midi_path)
+        analysis = analyze.analyze_midi(midi_path, pulse=pulse)
     finally:
         os.unlink(midi_path)
 
@@ -751,43 +778,60 @@ def handle_analyze(job: Job, client) -> list[str]:
         insight_ids.append(str(kid))
 
     # Tempo — the transcribed MIDI carries basic_pitch's 120 BPM default, not
-    # audio/beat evidence, so it is not surfaced as a detected fact there.
+    # audio/beat evidence, so without real pulse evidence it is not surfaced as
+    # a detected fact. When the audio beat tracker supplies measured BPM, that
+    # evidence overrides the placeholder. A degenerate beat estimate produces no
+    # tempo fact at all (never a fabricated 120).
     _update_progress(client, job.id, 0.50, "storing tempo insight")
     tempo_data = analysis.get("tempo") or {}
-    if tempo_data and not pulse_is_default:
+    pulse_provenance = analysis.get("pulse_provenance") or {}
+    tempo_is_measured = tempo_data.get("source") == "audio_beat_tracking"
+    if tempo_data and (not pulse_is_default or tempo_is_measured):
         bpm = float(tempo_data.get("bpm", 0))
-        tempo_conf = float(tempo_data.get("confidence", 0.0))
+        tempo_conf = tempo_data.get("confidence")
+        tempo_conf = float(tempo_conf) if tempo_conf is not None else None
         tid = _create_insight(
             client,
             input_version.id,
             "tempo",
             f"Tempo: {bpm} BPM",
-            evidence={"bpm": bpm, "source": "midi_metadata"},
+            evidence={"bpm": bpm, "source": tempo_data.get("source", "midi_metadata")},
             confidence=tempo_conf,
             job=job,
             owner_id=owner_id,
             method="detected",
+            engine_provenance=pulse_provenance or None,
         )
         insight_ids.append(str(tid))
 
-    # Time signature — no downbeat evidence is available for the transcribed
-    # MIDI, so a default 4/4 is never surfaced as a detected fact.
+    # Time signature — never inferred from beat/downbeat timestamps. A beat
+    # model gives temporal pulse and bar starts, not the notated beat unit, so
+    # the audio path leaves meter unknown (never a fabricated 4/4). Only a real
+    # MIDI file's explicit metadata meter (no audio pulse) is surfaced, and
+    # handle_analyze still suppresses the basic_pitch 4/4 placeholder.
     _update_progress(client, job.id, 0.55, "storing time signature insight")
     ts_data = analysis.get("time_signature") or {}
-    if ts_data and not pulse_is_default:
+    ts_is_measured = ts_data.get("source") == "audio_beat_tracking"
+    if ts_data and (not pulse_is_default or ts_is_measured):
         num = int(ts_data.get("numerator", 4))
         den = int(ts_data.get("denominator", 4))
-        ts_conf = float(ts_data.get("confidence", 0.0))
+        ts_conf = ts_data.get("confidence")
+        ts_conf = float(ts_conf) if ts_conf is not None else None
         tsid = _create_insight(
             client,
             input_version.id,
             "time_signature",
             f"Time Signature: {num}/{den}",
-            evidence={"numerator": num, "denominator": den, "source": "midi_metadata"},
+            evidence={
+                "numerator": num,
+                "denominator": den,
+                "source": ts_data.get("source", "midi_metadata"),
+            },
             confidence=ts_conf,
             job=job,
             owner_id=owner_id,
             method="detected",
+            engine_provenance=pulse_provenance or None,
         )
         insight_ids.append(str(tsid))
 
@@ -886,17 +930,16 @@ def handle_analyze(job: Job, client) -> list[str]:
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.
     rhythm = analysis.get("rhythm") or {}
     if rhythm:
-        sync_avail = bool(rhythm.get("syncopation_available", False))
-        sync_ratio = rhythm.get("syncopation_ratio")
-        if sync_avail and sync_ratio is not None:
+        offbeat_ratio = rhythm.get("offbeat_onset_ratio")
+        if offbeat_ratio is not None:
             claim = (
                 f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
-                f"{round(float(sync_ratio) * 100)}% off-beat on the inferred grid"
+                f"{round(float(offbeat_ratio) * 100)}% note onsets off the detected beat grid"
             )
         else:
             claim = (
                 f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
-                "syncopation unavailable (no metrical grid)"
+                "off-beat fraction unavailable (no beat grid)"
             )
         rid = _create_insight(
             client,
@@ -908,6 +951,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             job=job,
             owner_id=owner_id,
             method="heuristic",
+            engine_provenance=pulse_provenance or None,
         )
         insight_ids.append(str(rid))
 

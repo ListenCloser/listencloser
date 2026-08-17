@@ -76,8 +76,8 @@ class TestRhythmSyncopation:
             f.write(buf.getvalue())
             return f.name
 
-    def test_syncopation_unavailable_without_beat_hierarchy(self):
-        """Syncopation is not reported from raw performance MIDI."""
+    def test_syncopation_unavailable_without_beat_grid(self):
+        """The off-beat onset fraction is not reported without a beat grid."""
         import os
 
         pm = _midi([_note(60, 0.0, 0.5), _note(64, 0.25, 0.75)])
@@ -85,8 +85,8 @@ class TestRhythmSyncopation:
         try:
             result = _midi_rhythm(path)
             assert result is not None
-            assert result["syncopation_available"] is False
-            assert result["syncopation_ratio"] is None
+            assert result["offbeat_onset_available"] is False
+            assert result["offbeat_onset_ratio"] is None
             assert result["rhythmic_density"] > 0
         finally:
             os.unlink(path)
