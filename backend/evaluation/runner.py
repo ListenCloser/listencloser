@@ -78,7 +78,7 @@ def _run_clip(clip: EvalClip, output_dir: str) -> dict[str, Any]:
     beat_result = estimate_beats_with_engine(audio_bytes)
     bpm_est, beat_times = beat_result["bpm"], beat_result["beats"]
     result["beat_time_s"] = round(time.monotonic() - t0, 2)
-    result["estimated_bpm"] = round(bpm_est, 2)
+    result["estimated_bpm"] = round(bpm_est, 2) if bpm_est is not None else None
     result["estimated_beats"] = len(beat_times)
 
     # --- Beat metrics ---

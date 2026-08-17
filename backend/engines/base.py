@@ -51,7 +51,7 @@ class TranscriptionResult:
 
 @dataclass(frozen=True)
 class BeatTrackingResult:
-    bpm: float
+    bpm: float | None
     beats: list[float]
     downbeats: list[float] | None
     beat_positions: list[int] | None
@@ -59,7 +59,7 @@ class BeatTrackingResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "bpm": round(self.bpm, 3),
+            "bpm": round(self.bpm, 3) if self.bpm is not None else None,
             "beat_count": len(self.beats),
             "downbeat_count": len(self.downbeats) if self.downbeats is not None else None,
             "provenance": self.provenance.to_dict(),

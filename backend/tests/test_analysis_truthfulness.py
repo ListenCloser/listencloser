@@ -248,24 +248,35 @@ class TestPulseEvidence:
         # Beat engines provide no calibrated confidence — never fabricated.
         assert result["tempo"]["confidence"] is None
 
-    def test_meter_derived_only_from_real_downbeats(self):
-        path = self._midi_path()
+    def test_degenerate_pulse_produces_no_tempo(self):
+        """A degenerate beat estimate must not become 120 BPM evidence."""
+        path = self._midi_path(tempo=90)
         try:
-            with_downbeats = analyze_midi(path, pulse=self._pulse())
-            beat_only = analyze_midi(
+            no_bpm = analyze_midi(
                 path,
-                pulse={"bpm": 120.0, "beats": [i * 0.5 for i in range(16)], "downbeats": None},
+                pulse={"bpm": None, "beats": [], "downbeats": None, "provenance": {}},
             )
+            empty_pulse = analyze_midi(path, pulse={})
         finally:
             os.unlink(path)
-        assert with_downbeats["time_signature"]["numerator"] == 4
-        assert with_downbeats["time_signature"]["source"] == "audio_beat_tracking"
-        # A beat-only pulse cannot derive a meter from audio; the MIDI-metadata
-        # fallback remains (handle_analyze suppresses it for placeholder
-        # transcripts). The audio path must not fabricate one.
-        assert beat_only["time_signature"]["source"] == "midi_metadata"
+        # Even though the MIDI metadata has an explicit tempo, an attempted audio
+        # measurement that failed must leave tempo absent — never fall back to
+        # MIDI metadata or a default.
+        assert no_bpm["tempo"] is None
+        assert empty_pulse["tempo"] is None
 
-    def test_beat_count_and_syncopation_from_pulse(self):
+    def test_audio_pulse_leaves_time_signature_unknown(self):
+        """Beats/downbeats are evidence; a notated (N, 4) meter is not derived."""
+        path = self._midi_path()
+        try:
+            result = analyze_midi(path, pulse=self._pulse())
+        finally:
+            os.unlink(path)
+        # The MIDI metadata here has an explicit 4/4, but the audio path must not
+        # mix it in: meter stays unknown rather than claiming a notation.
+        assert result["time_signature"] is None
+
+    def test_beat_count_and_offbeat_ratio_from_pulse(self):
         path = self._midi_path()
         try:
             result = analyze_midi(path, pulse=self._pulse())
@@ -273,7 +284,7 @@ class TestPulseEvidence:
             os.unlink(path)
         rhythm = result["rhythm"]
         assert rhythm["beat_count"] == 16
-        assert rhythm["syncopation_available"] is True
+        assert rhythm["offbeat_onset_available"] is True
 
     def test_no_pulse_keeps_conservative_midi_path(self):
         path = self._midi_path(tempo=90)
@@ -284,8 +295,8 @@ class TestPulseEvidence:
         assert result["tempo"]["bpm"] == 90.0
         assert result["tempo"]["source"] == "midi_metadata"
         assert result["tempo"]["confidence"] == 0.9
-        assert result["rhythm"]["syncopation_available"] is False
-        assert result["rhythm"]["syncopation_ratio"] is None
+        assert result["rhythm"]["offbeat_onset_available"] is False
+        assert result["rhythm"]["offbeat_onset_ratio"] is None
         assert result["pulse_provenance"] is None
 
     def test_pulse_provenance_attached(self):
@@ -296,7 +307,7 @@ class TestPulseEvidence:
             os.unlink(path)
         assert result["pulse_provenance"]["engine"] == "beat_this"
 
-    def test_syncopation_ratio_counts_off_beat_onsets(self):
+    def test_offbeat_ratio_counts_off_beat_onsets(self):
         pm = pretty_midi.PrettyMIDI(initial_tempo=90)
         inst = pretty_midi.Instrument(program=0)
         for i in range(8):
@@ -313,5 +324,5 @@ class TestPulseEvidence:
             result = analyze_midi(f.name, pulse=self._pulse())
         finally:
             os.unlink(f.name)
-        assert result["rhythm"]["syncopation_ratio"] == 1.0
-        assert result["rhythm"]["syncopation_available"] is True
+        assert result["rhythm"]["offbeat_onset_ratio"] == 1.0
+        assert result["rhythm"]["offbeat_onset_available"] is True

@@ -54,16 +54,21 @@ class BeatThisEngine(BeatTrackingEngine):
         )
 
 
-def _bpm_from_beats(beats: list[float]) -> float:
-    """Median inter-beat interval → BPM. Falls back to 120 when degenerate."""
+def _bpm_from_beats(beats: list[float]) -> float | None:
+    """Median inter-beat interval → BPM.
+
+    Degenerate beat output yields no BPM evidence (None), never a fabricated
+    default tempo: fewer than two usable beats or no positive intervals means
+    the model did not produce a usable pulse.
+    """
     if len(beats) < 2:
-        return 120.0
+        return None
     import numpy as np
 
     intervals = np.diff(np.asarray(beats, dtype=float))
     intervals = intervals[intervals > 0]
     if intervals.size == 0:
-        return 120.0
+        return None
     return float(60.0 / np.median(intervals))
 
 

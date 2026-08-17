@@ -729,7 +729,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             )
             beat_result = music_features.estimate_beats_with_engine(wav_bytes)
             pulse = {
-                "bpm": float(beat_result.get("bpm") or 0.0),
+                "bpm": beat_result.get("bpm"),
                 "beats": beat_result.get("beats") or [],
                 "downbeats": beat_result.get("downbeats"),
                 "provenance": beat_result.get("provenance"),
@@ -778,7 +778,8 @@ def handle_analyze(job: Job, client) -> list[str]:
     # Tempo — the transcribed MIDI carries basic_pitch's 120 BPM default, not
     # audio/beat evidence, so without real pulse evidence it is not surfaced as
     # a detected fact. When the audio beat tracker supplies measured BPM, that
-    # evidence overrides the placeholder.
+    # evidence overrides the placeholder. A degenerate beat estimate produces no
+    # tempo fact at all (never a fabricated 120).
     _update_progress(client, job.id, 0.50, "storing tempo insight")
     tempo_data = analysis.get("tempo") or {}
     pulse_provenance = analysis.get("pulse_provenance") or {}
@@ -801,9 +802,11 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(tid))
 
-    # Time signature — no downbeat evidence is available for the transcribed
-    # MIDI, so a default 4/4 is never surfaced as a detected fact unless the
-    # audio beat tracker produced a real downbeat grid to derive a meter from.
+    # Time signature — never inferred from beat/downbeat timestamps. A beat
+    # model gives temporal pulse and bar starts, not the notated beat unit, so
+    # the audio path leaves meter unknown (never a fabricated 4/4). Only a real
+    # MIDI file's explicit metadata meter (no audio pulse) is surfaced, and
+    # handle_analyze still suppresses the basic_pitch 4/4 placeholder.
     _update_progress(client, job.id, 0.55, "storing time signature insight")
     ts_data = analysis.get("time_signature") or {}
     ts_is_measured = ts_data.get("source") == "audio_beat_tracking"
@@ -925,17 +928,16 @@ def handle_analyze(job: Job, client) -> list[str]:
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.
     rhythm = analysis.get("rhythm") or {}
     if rhythm:
-        sync_avail = bool(rhythm.get("syncopation_available", False))
-        sync_ratio = rhythm.get("syncopation_ratio")
-        if sync_avail and sync_ratio is not None:
+        offbeat_ratio = rhythm.get("offbeat_onset_ratio")
+        if offbeat_ratio is not None:
             claim = (
                 f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
-                f"{round(float(sync_ratio) * 100)}% off-beat on the inferred grid"
+                f"{round(float(offbeat_ratio) * 100)}% note onsets off the detected beat grid"
             )
         else:
             claim = (
                 f"{rhythm.get('rhythmic_density', 0)} notes/sec · "
-                "syncopation unavailable (no metrical grid)"
+                "off-beat fraction unavailable (no beat grid)"
             )
         rid = _create_insight(
             client,

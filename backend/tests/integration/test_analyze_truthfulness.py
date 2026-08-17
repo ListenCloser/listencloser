@@ -166,7 +166,8 @@ def test_non_basic_pitch_pulse_is_surfaced(sb, monkeypatch):
 
 def test_audio_pulse_overrides_placeholder_tempo(sb, monkeypatch):
     """Audio-derived pulse evidence replaces the 120 BPM placeholder and
-    carries the beat engine's provenance."""
+    carries the beat engine's provenance. The audio path does NOT infer a meter
+    from beat/downbeat timestamps, so no time-signature insight is persisted."""
     version, workflow = _seed_midi_version(sb, engine="basic_pitch")
     insights = _run_analyze_with_audio(sb, monkeypatch, version, workflow)
     kinds = {i.kind for i in insights}
@@ -175,7 +176,6 @@ def test_audio_pulse_overrides_placeholder_tempo(sb, monkeypatch):
     assert tempo.evidence["bpm"] == 138.0
     assert tempo.evidence["source"] == "audio_beat_tracking"
     assert tempo.provenance.get("engine", {}).get("engine") == "beat_this"
-    assert "time_signature" in kinds, "downbeat-derived meter must surface"
-    ts = next(i for i in insights if i.kind == "time_signature")
-    assert ts.evidence["numerator"] == 4
-    assert ts.provenance.get("engine", {}).get("engine") == "beat_this"
+    # Beats/downbeats are evidence; (N, 4) is a notation claim the pulse model
+    # does not support — meter must stay unknown.
+    assert "time_signature" not in kinds, "audio path must not persist a meter"
