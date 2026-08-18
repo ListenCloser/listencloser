@@ -92,12 +92,21 @@ test.describe("score playback following (MSW)", () => {
     await page.waitForTimeout(3000);
 
     // Check if highlight has moved (measure changed)
+    // Wait for the highlight to be visible before boundingBox — the
+    // playback highlight may have been removed and re-inserted during
+    // the measure transition (getBBox retry cycle).
+    await expect(
+      page.locator("[data-playback-highlight]"),
+    ).toBeVisible({ timeout: 10_000 });
     const highlight2 = page.locator("[data-playback-highlight]").first();
     const box2 = await highlight2.boundingBox();
     expect(box2).not.toBeNull();
 
-    // Pause
-    await page.getByRole("button", { name: "Pause", exact: true }).click();
+    // Pause — the mock audio is ~4s; it may have finished already.
+    const pauseBtn = page.getByRole("button", { name: "Pause", exact: true });
+    if (await pauseBtn.isVisible().catch(() => false)) {
+      await pauseBtn.click();
+    }
     await expect(
       page.getByRole("button", { name: "Play", exact: true }),
     ).toBeVisible();

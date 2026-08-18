@@ -17,7 +17,7 @@ type Props = {
   onSelectMeasures?: (start: number, end: number) => void;
 };
 
-function insertHighlightRect(
+export function insertHighlightRect(
   group: SVGGraphicsElement,
   dataAttr: string,
   fill: string,
@@ -25,9 +25,31 @@ function insertHighlightRect(
   stroke: string,
   strokeWidth: string,
   strokeDasharray: string,
-) {
-  const box = group.getBBox();
-  if (box.width === 0 && box.height === 0) return;
+): boolean {
+  // Guard against duplicate inserts.
+  if (group.querySelector(`[${dataAttr}]`)) return true;
+  // Force layout reflow so getBBox() returns valid geometry after DOM
+  // mutations that may have invalidated the SVG layout tree.
+  void (group as any).getBoundingClientRect?.();
+  let box = group.getBBox();
+  // getBBox() can return (0,0,0,0) before SVG layout settles.  Fall back
+  // to getBoundingClientRect() relative to the nearest SVG ancestor.
+  if (box.width === 0 && box.height === 0) {
+    const svg = group.closest("svg");
+    if (svg) {
+      const gr = group.getBoundingClientRect();
+      const sr = svg.getBoundingClientRect();
+      if (gr.width > 0 && gr.height > 0) {
+        box = {
+          x: gr.left - sr.left,
+          y: gr.top - sr.top,
+          width: gr.width,
+          height: gr.height,
+        } as DOMRect;
+      }
+    }
+  }
+  if (box.width === 0 && box.height === 0) return false;
   const NS = "http://www.w3.org/2000/svg";
   const rect = document.createElementNS(NS, "rect");
   rect.setAttribute(dataAttr, "true");
@@ -43,6 +65,7 @@ function insertHighlightRect(
   rect.setAttribute("rx", "4");
   rect.setAttribute("pointer-events", "none");
   group.insertBefore(rect, group.firstChild);
+  return true;
 }
 
 export default function SheetMusic({
@@ -61,6 +84,7 @@ export default function SheetMusic({
   const osmdRef = useRef<any>(null);
   const currentMeasureRef = useRef(-1);
   const playbackMeasureRef = useRef(-1);
+  const playbackRafRef = useRef(0);
   const anchorMeasureRef = useRef<number | null>(null);
   const [osmdReady, setOsmdReady] = useState(false);
 
@@ -146,21 +170,29 @@ export default function SheetMusic({
   }, [osmdReady, isScoreActive, measureStarts, playheadTime]);
 
   // ── Playback highlight: one overlay per staff group ───────────────────────
+  // Uses bounded requestAnimationFrame retries when getBBox() returns
+  // zero-size (SVG layout not yet settled).  Cancels stale retries on
+  // measure change, source change, rerender, and unmount.
   useEffect(() => {
     const container = containerRef.current;
     if (!osmdReady || !container) return;
 
-    container
-      .querySelectorAll("[data-playback-highlight]")
-      .forEach((n) => n.remove());
+    cancelAnimationFrame(playbackRafRef.current);
+    playbackRafRef.current = 0;
 
     if (!isScoreActive || !measureStarts || measureStarts.length === 0) {
+      container
+        .querySelectorAll("[data-playback-highlight]")
+        .forEach((n) => n.remove());
       playbackMeasureRef.current = -1;
       return;
     }
 
     const measureIdx = measureIndexAt(measureStarts, playheadTime);
     if (measureIdx < 0) {
+      container
+        .querySelectorAll("[data-playback-highlight]")
+        .forEach((n) => n.remove());
       playbackMeasureRef.current = -1;
       return;
     }
@@ -172,16 +204,75 @@ export default function SheetMusic({
     const prevIdx = playbackMeasureRef.current;
     playbackMeasureRef.current = measureIdx;
 
+    // Attempt to insert the new highlight.  If getBBox() returns zero
+    // (SVG layout not yet settled), schedule bounded retries.  Do NOT
+    // remove the previous measure's highlight until the new one lands,
+    // so the highlight is always at least partially visible.
+    let allInserted = true;
     for (const group of groups) {
-      insertHighlightRect(
-        group,
-        "data-playback-highlight",
-        "var(--score-playback)",
-        "0.14",
-        "var(--score-playback)",
-        "2",
-        "none",
-      );
+      if (!group.querySelector("[data-playback-highlight]")) {
+        const ok = insertHighlightRect(
+          group,
+          "data-playback-highlight",
+          "var(--score-playback)",
+          "0.14",
+          "var(--score-playback)",
+          "2",
+          "none",
+        );
+        if (!ok) allInserted = false;
+      }
+    }
+
+    const removeStale = () => {
+      for (const el of container.querySelectorAll(
+        "[data-playback-highlight]",
+      )) {
+        const parent = el.parentElement;
+        if (!parent || !groups.includes(parent as unknown as SVGGElement)) {
+          el.remove();
+        }
+      }
+    };
+
+    if (allInserted) {
+      removeStale();
+    } else {
+      const maxFrames = 12;
+      let frame = 0;
+      let retryTimer = 0;
+      const retry = () => {
+        if (playbackMeasureRef.current !== measureIdx || !containerRef.current)
+          return;
+        let retryAllOk = true;
+        for (const group of groups) {
+          if (!group.querySelector("[data-playback-highlight]")) {
+            const ok = insertHighlightRect(
+              group,
+              "data-playback-highlight",
+              "var(--score-playback)",
+              "0.14",
+              "var(--score-playback)",
+              "2",
+              "none",
+            );
+            if (!ok) retryAllOk = false;
+          }
+        }
+        if (retryAllOk) {
+          removeStale();
+        }
+        frame += 1;
+        if (!retryAllOk && frame < maxFrames) {
+          playbackRafRef.current = requestAnimationFrame(retry);
+          retryTimer = window.setTimeout(retry, 50);
+        }
+      };
+      playbackRafRef.current = requestAnimationFrame(retry);
+      return () => {
+        cancelAnimationFrame(playbackRafRef.current);
+        clearTimeout(retryTimer);
+      };
     }
 
     // Auto-scroll: use DOM client rects (viewport coordinates) to check
@@ -208,11 +299,20 @@ export default function SheetMusic({
     if (isScoreActive) return;
     const container = containerRef.current;
     if (!container) return;
+    cancelAnimationFrame(playbackRafRef.current);
+    playbackRafRef.current = 0;
     container
       .querySelectorAll("[data-playback-highlight]")
       .forEach((n) => n.remove());
     playbackMeasureRef.current = -1;
   }, [isScoreActive]);
+
+  // Cancel pending RAF on unmount.
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(playbackRafRef.current);
+    };
+  }, []);
 
   // ── Selection highlight: one overlay per staff group ──────────────────────
   useEffect(() => {
