@@ -3,7 +3,7 @@
  *
  * Visual language:
  * - Subtle keyboard/pitch context with faint pitch guides
- * - Stronger measure boundaries, lighter beat boundaries
+ * - Uniform beat grid (no implied meter unless backed by known data)
  * - Restrained neutral notes with velocity-based opacity
  * - Blue playhead (shared playback color)
  * - Terracotta selection (shared selection color)
@@ -186,11 +186,9 @@ export default function PianoRoll({
             />
           ))}
 
-          {/* Beat grid — measure boundaries stronger, beats lighter */}
+          {/* Beat grid — uniform temporal lines (no implied meter) */}
           {Array.from({ length: Math.floor(totalBeats) + 1 }, (_, i) => {
             const x = LABEL_W + i * PPQ;
-            const beatsPerMeasure = 4;
-            const isMeasure = i % beatsPerMeasure === 0;
             return (
               <line
                 key={i}
@@ -198,9 +196,9 @@ export default function PianoRoll({
                 y1={TOP_PAD}
                 x2={x}
                 y2={h}
-                stroke={isMeasure ? "var(--text)" : "var(--border)"}
-                strokeWidth={isMeasure ? 0.8 : 0.4}
-                strokeOpacity={isMeasure ? 0.15 : 0.4}
+                stroke="var(--border)"
+                strokeWidth={0.4}
+                strokeOpacity={0.4}
               />
             );
           })}
