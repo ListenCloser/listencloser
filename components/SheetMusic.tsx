@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { measureIndexAt, measureGroupsForIndex } from "@/lib/measure";
 
 type Props = {
   musicXml: string;
@@ -16,13 +17,32 @@ type Props = {
   onSelectMeasures?: (start: number, end: number) => void;
 };
 
-function measureIndexAt(starts: number[], time: number): number {
-  let index = 0;
-  for (let i = 0; i < starts.length; i += 1) {
-    if (starts[i] <= time) index = i;
-    else break;
-  }
-  return index;
+function insertHighlightRect(
+  group: SVGGraphicsElement,
+  dataAttr: string,
+  fill: string,
+  fillOpacity: string,
+  stroke: string,
+  strokeWidth: string,
+  strokeDasharray: string,
+) {
+  const box = group.getBBox();
+  if (box.width === 0 && box.height === 0) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const rect = document.createElementNS(NS, "rect");
+  rect.setAttribute(dataAttr, "true");
+  rect.setAttribute("x", String(box.x));
+  rect.setAttribute("y", String(box.y));
+  rect.setAttribute("width", String(box.width));
+  rect.setAttribute("height", String(box.height));
+  rect.setAttribute("fill", fill);
+  rect.setAttribute("fill-opacity", fillOpacity);
+  rect.setAttribute("stroke", stroke);
+  rect.setAttribute("stroke-width", strokeWidth);
+  rect.setAttribute("stroke-dasharray", strokeDasharray);
+  rect.setAttribute("rx", "4");
+  rect.setAttribute("pointer-events", "none");
+  group.insertBefore(rect, group.firstChild);
 }
 
 export default function SheetMusic({
@@ -40,9 +60,11 @@ export default function SheetMusic({
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<any>(null);
   const currentMeasureRef = useRef(-1);
+  const playbackMeasureRef = useRef(-1);
   const anchorMeasureRef = useRef<number | null>(null);
   const [osmdReady, setOsmdReady] = useState(false);
 
+  // ── OSMD initialization ────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || !musicXml) return;
 
@@ -66,7 +88,7 @@ export default function SheetMusic({
         drawPartAbbreviations: false,
         drawMeasureNumbers: true,
         drawTimeSignatures: true,
-        followCursor: true,
+        followCursor: false,
         autoBeam: false,
         pageFormat: "Endless",
         drawingParameters: "compacttight",
@@ -97,6 +119,7 @@ export default function SheetMusic({
     };
   }, [musicXml]);
 
+  // ── OSMD cursor: advance to the current measure ───────────────────────────
   useEffect(() => {
     const osmd = osmdRef.current;
     if (!osmdReady || !osmd?.cursor) return;
@@ -106,7 +129,10 @@ export default function SheetMusic({
       return;
     }
 
-    const target = Math.min(measureIndexAt(measureStarts, playheadTime), measureStarts.length - 1);
+    const target = Math.min(
+      Math.max(measureIndexAt(measureStarts, playheadTime), 0),
+      measureStarts.length - 1,
+    );
     if (target === currentMeasureRef.current) return;
 
     let from = currentMeasureRef.current;
@@ -119,54 +145,121 @@ export default function SheetMusic({
     currentMeasureRef.current = target;
   }, [osmdReady, isScoreActive, measureStarts, playheadTime]);
 
-  // Highlight the selected measures by inserting a translucent rect into each
-  // measure group's SVG user space (getBBox), so it tracks the engraved layout
-  // exactly regardless of CSS scaling. Re-applied on render and selection change.
+  // ── Playback highlight: one overlay per staff group ───────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!osmdReady || !container) return;
-    container.querySelectorAll("[data-selection-highlight]").forEach((node) => node.remove());
-    if (!selectedMeasures || !measureStarts || measureStarts.length === 0) return;
 
-    const NS = "http://www.w3.org/2000/svg";
-    const measures = container.querySelectorAll("g.vf-measure");
-    for (const measureEl of measures) {
-      const index = Number(measureEl.getAttribute("id")) - 1;
-      if (index < selectedMeasures.start || index > selectedMeasures.end) continue;
-      const box = (measureEl as SVGGraphicsElement).getBBox();
-      if (box.width === 0 && box.height === 0) continue;
-      const rect = document.createElementNS(NS, "rect");
-      rect.setAttribute("data-selection-highlight", "true");
-      rect.setAttribute("x", String(box.x));
-      rect.setAttribute("y", String(box.y));
-      rect.setAttribute("width", String(box.width));
-      rect.setAttribute("height", String(box.height));
-      rect.setAttribute("fill", measureApproximate ? "#bd513a" : "#bd513a");
-      rect.setAttribute("fill-opacity", measureApproximate ? "0.12" : "0.18");
-      rect.setAttribute("stroke", "#bd513a");
-      rect.setAttribute("stroke-width", "1.5");
-      rect.setAttribute("stroke-dasharray", measureApproximate ? "4 3" : "none");
-      rect.setAttribute("rx", "4");
-      rect.setAttribute("pointer-events", "none");
-      measureEl.insertBefore(rect, measureEl.firstChild);
+    container
+      .querySelectorAll("[data-playback-highlight]")
+      .forEach((n) => n.remove());
+
+    if (!isScoreActive || !measureStarts || measureStarts.length === 0) {
+      playbackMeasureRef.current = -1;
+      return;
+    }
+
+    const measureIdx = measureIndexAt(measureStarts, playheadTime);
+    if (measureIdx < 0) {
+      playbackMeasureRef.current = -1;
+      return;
+    }
+    if (measureIdx === playbackMeasureRef.current) return;
+
+    const groups = measureGroupsForIndex(container, measureIdx);
+    if (groups.length === 0) return;
+
+    const prevIdx = playbackMeasureRef.current;
+    playbackMeasureRef.current = measureIdx;
+
+    for (const group of groups) {
+      insertHighlightRect(
+        group,
+        "data-playback-highlight",
+        "var(--score-playback)",
+        "0.14",
+        "var(--score-playback)",
+        "2",
+        "none",
+      );
+    }
+
+    // Auto-scroll: use DOM client rects (viewport coordinates) to check
+    // whether the first staff group is visible.  scrollIntoView with
+    // block:"nearest" only scrolls when the element is outside the viewport.
+    const firstGroup = groups[0];
+    const cRect = container.getBoundingClientRect();
+    const mRect = firstGroup.getBoundingClientRect();
+    const margin = 48;
+    if (
+      mRect.top < cRect.top + margin ||
+      mRect.bottom > cRect.bottom - margin
+    ) {
+      const bigJump = prevIdx < 0 || Math.abs(measureIdx - prevIdx) > 1;
+      firstGroup.scrollIntoView({
+        behavior: bigJump ? "auto" : "smooth",
+        block: "nearest",
+      });
+    }
+  }, [osmdReady, isScoreActive, measureStarts, playheadTime]);
+
+  // Cleanup playback highlight when score becomes inactive or source changes.
+  useEffect(() => {
+    if (isScoreActive) return;
+    const container = containerRef.current;
+    if (!container) return;
+    container
+      .querySelectorAll("[data-playback-highlight]")
+      .forEach((n) => n.remove());
+    playbackMeasureRef.current = -1;
+  }, [isScoreActive]);
+
+  // ── Selection highlight: one overlay per staff group ──────────────────────
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!osmdReady || !container) return;
+    container
+      .querySelectorAll("[data-selection-highlight]")
+      .forEach((node) => node.remove());
+    if (!selectedMeasures || !measureStarts || measureStarts.length === 0)
+      return;
+
+    for (
+      let idx = selectedMeasures.start;
+      idx <= selectedMeasures.end;
+      idx += 1
+    ) {
+      const groups = measureGroupsForIndex(container, idx);
+      for (const group of groups) {
+        insertHighlightRect(
+          group,
+          "data-selection-highlight",
+          "#bd513a",
+          measureApproximate ? "0.12" : "0.18",
+          "#bd513a",
+          "1.5",
+          measureApproximate ? "4 3" : "none",
+        );
+      }
     }
   }, [osmdReady, selectedMeasures, measureApproximate, measureStarts]);
 
+  // ── Measure click / selection ──────────────────────────────────────────────
   function handleClick(event: React.MouseEvent<HTMLDivElement>) {
     if (!measureStarts || measureStarts.length === 0) return;
     const container = containerRef.current;
     if (!container) return;
-// Map the click to the engraved measure whose bounding box contains it,
-// avoiding the OSMD internal coordinate transform entirely.
-// ASSUMPTION: OSMD renders each measure as a <g class="vf-measure"> with an
-// `id` attribute equal to the 1-based measure index (e.g., "1", "2", ...).
-// This holds for single-part piano scores rendered with Endless page format.
-// For multi-staff/grand-staff scores, VexFlow may generate separate measure
-// elements per part/staff with different ID schemes. If that becomes a
-// supported use case, this logic will need to be updated to use OSMD's
-// `getMeasureList()` API or similar for stable measure identification.
-const measures = container.querySelectorAll("g.vf-measure");
-    for (const measureEl of measures) {
+
+    // Map the click to the engraved measure whose bounding box contains it,
+    // handling multi-staff (grand-staff) scores where multiple g.vf-measure
+    // elements share the same id — one per staff.  We check all groups and
+    // take the first whose bounding rect contains the click point.
+    const allGroups = container.querySelectorAll("g.vf-measure");
+    const seen = new Set<string>();
+    for (const measureEl of allGroups) {
+      const id = measureEl.getAttribute("id");
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
       const rect = measureEl.getBoundingClientRect();
       if (
         event.clientX >= rect.left &&
@@ -174,13 +267,19 @@ const measures = container.querySelectorAll("g.vf-measure");
         event.clientY >= rect.top &&
         event.clientY <= rect.bottom
       ) {
-        const index = Number(measureEl.getAttribute("id")) - 1;
+        const index = Number(id) - 1;
         if (index >= 0 && measureStarts[index] != null) {
           if (isScoreActive && onSeek) onSeek(measureStarts[index]);
           if (onSelectMeasures) {
             const anchor = anchorMeasureRef.current;
-            const rangeStart = event.shiftKey && anchor !== null ? Math.min(anchor, index) : index;
-            const rangeEnd = event.shiftKey && anchor !== null ? Math.max(anchor, index) : index;
+            const rangeStart =
+              event.shiftKey && anchor !== null
+                ? Math.min(anchor, index)
+                : index;
+            const rangeEnd =
+              event.shiftKey && anchor !== null
+                ? Math.max(anchor, index)
+                : index;
             onSelectMeasures(rangeStart, rangeEnd);
             anchorMeasureRef.current = index;
           }
@@ -192,7 +291,10 @@ const measures = container.querySelectorAll("g.vf-measure");
 
   if (!musicXml) {
     return (
-      <p className="muted" style={{ textAlign: "center", padding: "var(--s-4)" }}>
+      <p
+        className="muted"
+        style={{ textAlign: "center", padding: "var(--s-4)" }}
+      >
         No sheet music data available.
       </p>
     );
@@ -218,7 +320,8 @@ const measures = container.querySelectorAll("g.vf-measure");
           borderRadius: "var(--r-md)",
           padding: "var(--s-4)",
           border: "1px solid var(--border-strong)",
-          cursor: measureStarts && measureStarts.length > 0 ? "pointer" : "default",
+          cursor:
+            measureStarts && measureStarts.length > 0 ? "pointer" : "default",
         }}
       />
     </>
