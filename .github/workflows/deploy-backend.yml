@@ -32,9 +32,14 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           set -euo pipefail
+          # Steady-state deploy invariant: migration history is never mutated
+          # here. `db push` applies only genuinely pending migrations; already
+          # applied migrations stay applied. The one-time 2026-08-18 history
+          # correction for the 20260716/20260728 rename transition lives in the
+          # separate `migrate-history-correction.yml` workflow and must not be
+          # re-run during steady-state deploys.
           supabase link --project-ref cijhpddqvvzyzfzmkdnn
-          supabase migration repair --status reverted 20260716 20260728 --linked --password "$SUPABASE_DB_PASSWORD" || true
-          supabase db push --linked --password "$SUPABASE_DB_PASSWORD" --include-all
+          supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
 
   deploy:
     needs: migrate

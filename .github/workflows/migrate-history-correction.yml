@@ -1,0 +1,44 @@
+name: One-time Migration History Correction
+
+on:
+  workflow_dispatch:
+
+# ONE-TIME ONLY (2026-08-18): corrects the production migration history after
+# the 20260716/20260728 migration-file rename. Run this once, BEFORE the first
+# steady-state deploy of the reconcile branch. It self-guards: if the legacy
+# versions are no longer present in the remote history it exits as a no-op.
+#
+# After this transition DELETE this workflow. Steady-state deploys
+# (deploy-backend.yml) must never call `migration repair` or `--include-all`.
+
+concurrency:
+  group: migrate-history-correction
+  cancel-in-progress: false
+
+jobs:
+  correct-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.113.0
+      - name: One-time history correction
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          supabase link --project-ref cijhpddqvvzyzfzmkdnn
+          if supabase migration list --linked 2>/dev/null | grep -q '`20260716`\|`20260728`'; then
+            echo "Legacy history versions 20260716/20260728 present; performing one-time correction."
+            supabase migration repair --status reverted 20260716 20260728 --linked --password "$SUPABASE_DB_PASSWORD"
+            # --include-all is required exactly once here to apply the renamed
+            # files (202607160001 / 202607280001) and the reconcile migration
+            # (202608180001) which sort before the last remote migration.
+            supabase db push --linked --password "$SUPABASE_DB_PASSWORD" --include-all
+            echo "Correction applied. Verify: jobs RLS = owner select only; models absent; 35 public+storage policies."
+          else
+            echo "Legacy history versions 20260716/20260728 not present; history already corrected. No-op."
+          fi
