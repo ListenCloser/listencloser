@@ -13,8 +13,8 @@ name: Deploy Backend
 # `push: main` trigger. Until then, deploys are run manually by an owner.
 #
 # The steady-state deploy command itself is unchanged and remains safe:
-# `supabase link` + `supabase db push` only — no `migration repair`, no
-# `--include-all`. Migration history is never mutated here.
+# `supabase link` + `supabase db push` only. Migration history is never
+# mutated here and applied migrations are never force-replayed.
 
 on:
   workflow_dispatch:
