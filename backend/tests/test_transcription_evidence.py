@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FIXTURE_M4A = REPO_ROOT / "tests" / "fixtures" / "real-piano.m4a"
+MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
 
 
 def test_transcribe_preserves_model_note_events():
     pytest.importorskip("basic_pitch", reason="basic-pitch not installed")
     import music_features as mf
 
-    audio = open("../tests/fixtures/real-piano.m4a", "rb").read()  # noqa: SIM115
+    audio = FIXTURE_M4A.read_bytes()
     result = mf.transcribe_audio(audio, fmt="m4a")
 
     assert "model_note_events" in result
@@ -39,8 +45,5 @@ def test_note_entity_carries_amplitude():
 
 
 def test_migration_adds_note_amplitude():
-    import pathlib
-
-    migrations = pathlib.Path("../supabase/migrations")
-    found = any("note_amplitude" in p.read_text() for p in migrations.glob("*.sql"))
+    found = any("note_amplitude" in p.read_text() for p in MIGRATIONS_DIR.glob("*.sql"))
     assert found, "expected a migration adding the note_amplitude column"

@@ -38,7 +38,9 @@ def test_performance_cleanup_removes_only_explainable_noise():
     assert len(notes) == 1
     assert notes[0].pitch == 60
     assert notes[0].start == 0.0
-    assert notes[0].end >= 0.69
+    # The overlapping duplicate merges into the first; its end is clamped to
+    # the first note's end (0.5) by MIDI serialization of same-pitch overlaps.
+    assert notes[0].end == 0.5
     assert report == {
         "profile": "performance_conservative_v1",
         "input_notes": 5,
