@@ -212,7 +212,7 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   // ── Piano roll renders notes ───────────────────────────────────────────────
   await page.getByRole("tab", { name: "Piano roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(/\d+ notes/)).toBeVisible();
+  await expect(page.getByTestId("piano-roll").getByText(/\d+ notes/)).toBeVisible();
 
   // ── Score notation renders ─────────────────────────────────────────────────
   await page.getByRole("tab", { name: "Score" }).click();
