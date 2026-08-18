@@ -121,7 +121,7 @@ def _run_analyze_with_audio(sb, monkeypatch, version, workflow, wav_bytes=b"wav"
     monkeypatch.setattr(
         capabilities.music_features,
         "estimate_beats_with_engine",
-        lambda _wav: {
+        lambda _wav, engine_name=None: {
             "bpm": 138.0,
             "beats": [i * 0.5 for i in range(12)],
             "downbeats": [0.0, 2.0, 4.0, 6.0],
