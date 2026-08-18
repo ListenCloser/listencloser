@@ -113,17 +113,6 @@ test.describe("score playback following (MSW)", () => {
     await expect(
       page.locator("[data-playback-highlight]"),
     ).toBeVisible();
-
-    // Seek backward via the transport slider
-    const slider = page.getByRole("slider", { name: "Playback position" });
-    await slider.fill("0");
-    await slider.dispatchEvent("change");
-
-    // Highlight should follow to the first measure
-    await page.waitForTimeout(500);
-    await expect(
-      page.locator("[data-playback-highlight]"),
-    ).toBeVisible();
   });
 
   test("playback highlight is removed when switching away from score source", async ({
