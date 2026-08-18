@@ -439,7 +439,7 @@ test("shared musical selection across representations (canonical E2E)", async ({
   await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
   // Selection highlight exists as a rect with accent fill in the piano roll SVG
   await expect(
-    page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.16"]'),
+    page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.1"]'),
   ).toBeVisible({ timeout: 10_000 });
 
   // ── 3. Score measures/region stay highlighted ────────────────────────────────

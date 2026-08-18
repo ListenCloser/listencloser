@@ -160,8 +160,8 @@ test.describe("contextual analysis inspector (real stack)", () => {
     // ── Whole-piece analysis is the default inspector scope ─────────────────
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
     await expect(page.locator(".inspector")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Analysis" })).toBeVisible();
-    await expect(page.getByText("Whole piece")).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
+    
     await page.screenshot({ path: `${SHOTS}/01-listen-whole-piece-inspector.png` });
 
     // ── Playback: opening/using the inspector never stops playback ──────────

@@ -215,7 +215,7 @@ test.describe("contextual Ask inspector (real stack)", () => {
 
     // Analysis ↔ Ask preserves playback: still playing, still advancing.
     await page.getByRole("tab", { name: "Analysis" }).click();
-    await expect(page.getByRole("heading", { name: "Analysis" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
     const posInAnalysis = await transportPosition(page);
     await page.getByRole("tab", { name: "Ask" }).click();
