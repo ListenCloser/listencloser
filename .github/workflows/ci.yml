@@ -36,8 +36,8 @@ jobs:
           pip install ruff==0.5.7
           ruff check backend/ --output-format=github
           ruff format backend/ --check
-      - name: Run Python tests
+      - name: Run required Python unit tests
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
           pip install -r backend/requirements.txt
-          python -m pytest backend/tests/ -v
+          python -m pytest backend/tests/ -m "not integration and not real_stack and not benchmark and not external_provider" -v

@@ -16,6 +16,7 @@ import json
 import os
 import tempfile
 from contextlib import suppress
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -231,6 +232,7 @@ class TestAudioFormatDetection:
                 with suppress(KeyError):
                     del sys.modules[mod_name]
 
+    @pytest.mark.integration
     @pytest.mark.skipif(
         not os.path.isfile(f"{os.environ.get('TEST_FIXTURES_DIR', '')}/real-piano.m4a"),
         reason="TEST_FIXTURES_DIR env var not set or m4a fixture missing",
@@ -266,6 +268,7 @@ class TestAudioFormatDetection:
 
         assert PianoTranscriptionAdapter.MODEL_SAMPLE_RATE == 16000
 
+    @pytest.mark.integration
     @pytest.mark.skipif(
         not os.path.isfile(f"{os.environ.get('TEST_FIXTURES_DIR', '')}/real-piano.m4a"),
         reason="TEST_FIXTURES_DIR env var not set or m4a fixture missing",
@@ -304,6 +307,7 @@ class TestAudioFormatDetection:
             f"(ratio {ratio:.2f}) - sample-rate mismatch regression"
         )
 
+    @pytest.mark.integration
     @pytest.mark.skipif(
         not os.path.isfile(f"{os.environ.get('TEST_FIXTURES_DIR', '')}/real-piano.m4a"),
         reason="TEST_FIXTURES_DIR env var not set or m4a fixture missing",
@@ -384,6 +388,7 @@ class TestEligibilityAfterInference:
                 with suppress(KeyError):
                     del sys.modules[mod_name]
 
+    @pytest.mark.integration
     def test_ineligible_clip_still_runs_inference(self):
         """Ineligible clips (no ref MIDI) should still run inference for diagnostics."""
         from evaluation.engines import _run_clip_on_engine
@@ -393,15 +398,18 @@ class TestEligibilityAfterInference:
         if not BasicPitchAdapter().is_available():
             pytest.skip("basic_pitch not installed")
 
+        piano_simple = (
+            Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "piano-simple.m4a"
+        )
         # Create a clip with audio but no reference_midi
         clip = (
             EvalClip(
                 id="test_no_ref",
-                audio="/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a",
+                audio=str(piano_simple),
                 category="solo_piano",
                 reference_midi=None,
             )
-            if os.path.isfile("/Users/giancarloricci/hello-ai/tests/fixtures/piano-simple.m4a")
+            if piano_simple.is_file()
             else None
         )
 

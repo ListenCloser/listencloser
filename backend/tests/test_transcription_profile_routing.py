@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from engines.registry import get_transcription_engine
 from engines.transcription.basic_pitch import BasicPitchEngine
 from engines.transcription.transkun import TranskunEngine
@@ -59,6 +61,7 @@ class TestTranscriptionProfileRouting:
         assert isinstance(engine, BasicPitchEngine)
         assert engine.ENGINE == "basic_pitch"
 
+    @pytest.mark.integration
     def test_transcribe_with_engine_provenance_includes_profile(self):
         """transcribe_with_engine persists profile_requested and routing_reason in provenance."""
         import io

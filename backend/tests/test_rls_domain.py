@@ -22,7 +22,10 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
-pytestmark = pytest.mark.skipif(not SUPABASE_URL, reason="SUPABASE_URL not set")
+pytestmark = [
+    pytest.mark.real_stack,
+    pytest.mark.skipif(not SUPABASE_URL, reason="SUPABASE_URL not set"),
+]
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
