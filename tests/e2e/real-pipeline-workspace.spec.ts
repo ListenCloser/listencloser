@@ -23,7 +23,7 @@ test("a persisted work reopens with synchronized musical workspace views", async
   await expect(page.getByRole("option", { name: "Transcription", exact: true })).toBeVisible();
 
   // The four representations are discoverable from the tab bar.
-  await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
   await page.getByRole("tab", { name: "Piano roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible();
   await expect(page.getByText(/42 notes/)).toBeVisible();

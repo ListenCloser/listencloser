@@ -193,7 +193,7 @@ test.describe("contextual Ask inspector (real stack)", () => {
     await page.screenshot({ path: `${SHOTS}/ask-01-whole-piece.png` });
 
     // ── 2. Ask empty state scoped to a selection ───────────────────────────
-    await page.getByRole("tab", { name: "Listen" }).click();
+    await page.getByRole("tab", { name: "Waveform" }).click();
     const canvas = page.getByTestId("waveform-canvas");
     await expect(canvas).toBeVisible();
     const box = await canvas.boundingBox();

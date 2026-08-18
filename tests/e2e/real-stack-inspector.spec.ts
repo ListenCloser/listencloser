@@ -158,7 +158,7 @@ test.describe("contextual analysis inspector (real stack)", () => {
     await expect(page.getByText("Operation failed")).not.toBeVisible();
 
     // ── Whole-piece analysis is the default inspector scope ─────────────────
-    await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
     await expect(page.locator(".inspector")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Analysis" })).toBeVisible();
     await expect(page.getByText("Whole piece")).toBeVisible();
@@ -228,7 +228,7 @@ test.describe("contextual analysis inspector (real stack)", () => {
     // Select a tiny region late in the piece where the app reports no
     // selection-specific findings, proving the honest "no specific analysis"
     // state (never fabricated).
-    await page.getByRole("tab", { name: "Listen" }).click();
+    await page.getByRole("tab", { name: "Waveform" }).click();
     await expect(canvas).toBeVisible();
     const box2 = await canvas.boundingBox();
     if (box2) {
@@ -244,7 +244,7 @@ test.describe("contextual analysis inspector (real stack)", () => {
     // ── Collapse the inspector; the workspace keeps the representation ──────
     await page.getByRole("button", { name: "Hide analysis" }).click();
     await expect(page.locator(".inspector")).toHaveCount(0);
-    await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
     await page.screenshot({ path: `${SHOTS}/06-inspector-collapsed.png` });
     await page.getByRole("button", { name: "Show analysis" }).click();
     await expect(page.locator(".inspector")).toBeVisible();

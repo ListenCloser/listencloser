@@ -340,7 +340,7 @@ test("real-stack happy path: import → play → inspect → compare → reload 
 
   // ── Reload keeps persisted state ───────────────────────────────────────────
   await page.reload();
-  await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
@@ -378,7 +378,7 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   await expect(page.getByText(/Listening to:/)).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByRole("tab", { name: "Listen" })).not.toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("tab", { name: "Waveform" })).not.toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Start with a recording/i)).toBeVisible({ timeout: 30_000 });
 });
 
@@ -496,7 +496,7 @@ test("shared musical selection across representations (canonical E2E)", async ({
   }
 
   // Switch to Listen (Waveform) - selection region should be visible
-  await page.getByRole("tab", { name: "Listen" }).click();
+  await page.getByRole("tab", { name: "Waveform" }).click();
   await expect(page.getByTestId("waveform-canvas")).toBeVisible();
   // Waveform shows selection rect for the derived time range
   const canvas = page.getByTestId("waveform-canvas");
