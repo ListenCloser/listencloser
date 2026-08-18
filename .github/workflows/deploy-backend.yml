@@ -1,16 +1,23 @@
 name: Deploy Backend
 
+# TRANSITION STATE (2026-08-18):
+# Automatic backend deployment is intentionally PAUSED.
+#
+# This workflow is temporarily MANUAL-ONLY (`workflow_dispatch`) so that
+# merging the migration-history-transition PR cannot automatically run the
+# steady-state `supabase db push` before the one-time history correction
+# (`migrate-history-correction.yml`) has succeeded on the production project.
+#
+# Once the one-time correction is verified, the post-transition cleanup PR
+# (`chore(deploy): complete migration-history transition`) restores the
+# `push: main` trigger. Until then, deploys are run manually by an owner.
+#
+# The steady-state deploy command itself is unchanged and remains safe:
+# `supabase link` + `supabase db push` only. Migration history is never
+# mutated here and applied migrations are never force-replayed.
+
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'backend/Dockerfile'
-      - 'backend/docker-compose.yml'
-      - '.github/workflows/deploy-backend.yml'
-      - 'scripts/deploy.sh'
-      - 'supabase/migrations/**'
 
 concurrency:
   group: deploy-backend-${{ github.ref }}
@@ -32,9 +39,14 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           set -euo pipefail
+          # Steady-state deploy invariant: migration history is never mutated
+          # here. `db push` applies only genuinely pending migrations; already
+          # applied migrations stay applied. The one-time 2026-08-18 history
+          # correction for the 20260716/20260728 rename transition lives in the
+          # separate `migrate-history-correction.yml` workflow and must not be
+          # re-run during steady-state deploys.
           supabase link --project-ref cijhpddqvvzyzfzmkdnn
-          supabase migration repair --status reverted 20260716 20260728 --linked --password "$SUPABASE_DB_PASSWORD" || true
-          supabase db push --linked --password "$SUPABASE_DB_PASSWORD" --include-all
+          supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
 
   deploy:
     needs: migrate
