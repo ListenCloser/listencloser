@@ -68,7 +68,7 @@ test.describe("shared musical selection (MSW)", () => {
     await page.getByRole("tab", { name: "Piano roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await expect(
-      page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.16"]'),
+      page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.1"]'),
     ).toBeVisible({ timeout: 10_000 });
 
     // 3. Score measures/region stay highlighted

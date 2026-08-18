@@ -372,7 +372,7 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   // No stale transport state survives the delete: playback stopped, playhead
   // at 0:00, duration cleared, no source selected, no compare UI.
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeDisabled();
-  const times = page.locator(".piece-time span");
+  const times = page.locator(".transport-time span");
   await expect(times.nth(0)).toHaveText("0:00");
   await expect(times.nth(1)).toHaveText("0:00");
   await expect(page.getByText(/Listening to:/)).toHaveCount(0);
