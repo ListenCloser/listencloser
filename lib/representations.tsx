@@ -18,12 +18,15 @@ import SheetMusic from "@/components/SheetMusic";
 
 
 /**
- * The representation registry (Psr: "Representation").
+ * The representation registry.
  *
  * The workspace session shows exactly ONE representation at a time, selected
- * by `activeRepresentation` on the workspace store. New views (structure,
- * harmony, rhythm, …) are registered here and become reachable through the
- * same navigation without touching RepresentationStack.
+ * by `activeRepresentation` on the workspace store. New views (spectrogram,
+ * chromagram, pitch contour, structure, …) are registered here and become
+ * reachable through the same navigation without touching RepresentationStack.
+ *
+ * The id field is a stable key (may differ from the user-facing title).
+ * The title is the user-facing label shown in the tab bar.
  */
 export type RepresentationId = "listen" | "piano_roll" | "score";
 
@@ -37,7 +40,7 @@ export type RepresentationDefinition = {
   component: ComponentType;
 };
 
-function ListenView() {
+function WaveformView() {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
@@ -134,15 +137,15 @@ function ScoreView() {
 export const REPRESENTATIONS: readonly RepresentationDefinition[] = [
   {
     id: "listen",
-    title: "Listen",
-    description: "Hear your recording and its transcription — choose what you're hearing in the transport.",
+    title: "Waveform",
+    description: "Audio waveform visualization with time ruler and selection.",
     temporal: true,
     available: (availability) => availability.originalAudio,
-    component: ListenView,
+    component: WaveformView,
   },
   {
     id: "piano_roll",
-    title: "Piano roll",
+    title: "Piano Roll",
     description: "Every detected note with its timing and pitch.",
     temporal: true,
     available: (availability) => availability.performanceMidi,

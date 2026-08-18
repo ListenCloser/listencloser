@@ -23,6 +23,7 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
   }, [toggleLibrary, workspace.libraryCollapsed]);
 
   const inspectorOpen = !workspace.inspectorCollapsed;
+  const hasWork = Boolean(workspace.activeWorkId);
 
   return (
     <div className="studio-shell"
@@ -37,17 +38,33 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
       }}
     >
       <header className="studio-header">
-        <div className="studio-title">
-          <span className="brand"><span className="brand-dot" />{projectName || "Music Lab"}</span>
+        <div className="studio-header-left">
+          <span className="brand">{projectName || "Music Lab"}</span>
+        </div>
+        <div className="studio-header-right">
+          {hasWork && (
+            <button
+              type="button"
+              className={`studio-inspector-btn ${inspectorOpen ? "active" : ""}`}
+              aria-label={inspectorOpen ? "Hide analysis" : "Show analysis"}
+              aria-pressed={inspectorOpen}
+              onClick={toggleInspector}
+            >
+              Analysis
+            </button>
+          )}
+          <button className="icon-btn ghost" onClick={toggleLibrary} title={workspace.libraryCollapsed ? "Show library" : "Hide library"}>
+            {workspace.libraryCollapsed ? "▸" : "◂"}
+          </button>
         </div>
       </header>
-
-      <TransportBar />
 
       <div className="studio-workspace" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <LibraryPanel signedIn={signedIn} canImport={serviceStatus === "ready"} />
 
-        <RepresentationStack signedIn={signedIn} canImport={serviceStatus === "ready"} />
+        <div className="studio-canvas-area">
+          <RepresentationStack signedIn={signedIn} canImport={serviceStatus === "ready"} />
+        </div>
 
         {inspectorOpen && (
           <>
@@ -55,9 +72,9 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
             <div className="studio-inspector-backdrop" onClick={toggleInspector} aria-hidden="true" />
           </>
         )}
-
       </div>
 
+      <TransportBar />
     </div>
   );
 }

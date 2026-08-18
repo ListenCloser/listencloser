@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { availableRepresentations, representationById } from "@/lib/representations";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { availableRepresentations, representationById, type RepresentationId } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 import { presentableTitle } from "@/lib/format";
@@ -32,13 +32,74 @@ function TranscriptionModeToggle() {
   );
 }
 
+const PRIMARY_TAB_COUNT = 3;
+
+function MoreMenu({
+  items,
+  activeId,
+  onSelect,
+}: {
+  items: { id: string; title: string }[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="repr-more-select" ref={ref}>
+      <button
+        type="button"
+        className="repr-more-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        More <span aria-hidden="true">&#9662;</span>
+      </button>
+      {open && (
+        <div className="repr-more-menu" role="listbox">
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="option"
+              aria-selected={activeId === item.id}
+              onClick={() => {
+                onSelect(item.id);
+                setOpen(false);
+              }}
+            >
+              {item.title}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport, setActiveRepresentation } = useWorkspace();
   const activeWork = workspace.works.find((work) => work.id === workspace.activeWorkId);
-  // Derive availability once per representations/insights change, not per render:
-  // availableRepresentations returns a fresh array, and a fresh dependency array
-  // in the effect below would re-run it on every render (infinite loop when the
-  // workspace is empty and setActiveRepresentation(null) produces new state).
   const availability = useMemo(
     () => deriveAvailability(workspace.representations, workspace.insights.length),
     [workspace.representations, workspace.insights.length],
@@ -59,7 +120,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         <div className="piece-loading" role="status">
           <span className="spinner" aria-hidden="true" />
           <div className="piece-loading-copy">
-            <strong>Opening your music…</strong>
+            <strong>Opening your music</strong>
             <span>Loading the saved recording, transcription, and analysis.</span>
           </div>
         </div>
@@ -72,17 +133,17 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   if (!view) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
   const ViewComponent = view.component;
 
+  const primaryTabs = available.slice(0, PRIMARY_TAB_COUNT);
+  const overflowTabs = available.slice(PRIMARY_TAB_COUNT);
+  const activeInOverflow = overflowTabs.some((t) => t.id === activeView);
+
   return <main className="piece-desk">
     <header className="piece-desk-heading">
-      <div className="piece-desk-title">
-        <h1 title={activeWork?.title}>{presentableTitle(activeWork?.title ?? "Untitled piece")}</h1>
-        <p>{view.description}</p>
-      </div>
-      <button type="button" className="btn" onClick={requestImport}>Import another</button>
+      <h1 title={activeWork?.title}>{presentableTitle(activeWork?.title ?? "Untitled piece")}</h1>
     </header>
 
-    <div className="piece-view-tabs" role="tablist" aria-label="Workspace views">
-      {available.map((def) => (
+    <nav className="piece-view-tabs" role="tablist" aria-label="Workspace views">
+      {primaryTabs.map((def) => (
         <button
           key={def.id}
           type="button"
@@ -94,7 +155,14 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
           {def.title}
         </button>
       ))}
-    </div>
+      {overflowTabs.length > 0 && (
+        <MoreMenu
+          items={overflowTabs.map((t) => ({ id: t.id, title: t.title }))}
+          activeId={activeInOverflow ? activeView : null}
+          onSelect={(id) => setActiveRepresentation(id as RepresentationId)}
+        />
+      )}
+    </nav>
 
     <section className="piece-active-view" aria-label={view.title}>
       <ViewComponent />
@@ -108,10 +176,10 @@ function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canIm
       <h1>Start with a recording.</h1>
       <p>Upload an audio file. We will keep the original, create a playable transcription, and give you a piano roll, score, and analysis to inspect together.</p>
       <div style={{ display: "grid", gap: "var(--s-3)", justifyContent: "center", justifyItems: "center" }}>
-        <button className="btn btn-primary" onClick={onImport} disabled={!signedIn || !canImport}>{canImport ? "Import audio" : "Preparing import…"}</button>
+        <button className="btn btn-primary" onClick={onImport} disabled={!signedIn || !canImport}>{canImport ? "Import audio" : "Preparing import"}</button>
         <TranscriptionModeToggle />
       </div>
-      <small>WAV, MP3, M4A, FLAC, OGG, or AAC · up to 4 MB</small>
+      <small>WAV, MP3, M4A, FLAC, OGG, or AAC &middot; up to 4 MB</small>
     </main>
   );
 }

@@ -56,7 +56,7 @@ test.describe("shared musical selection (MSW)", () => {
   }) => {
     // Wait for workspace to load
     await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
     // 1. Select region in Waveform (Listen view). A horizontal drag defines a
     // shared selection (it does not seek), so the transport exposes the
@@ -65,10 +65,10 @@ test.describe("shared musical selection (MSW)", () => {
     await expect(page.getByRole("button", { name: "Loop selection" })).toBeVisible();
 
     // 2. Piano Roll region stays highlighted
-    await page.getByRole("tab", { name: "Piano roll" }).click();
+    await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await expect(
-      page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.16"]'),
+      page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.1"]'),
     ).toBeVisible({ timeout: 10_000 });
 
     // 3. Score measures/region stay highlighted
@@ -120,10 +120,10 @@ test.describe("shared musical selection (MSW)", () => {
       await page.mouse.click(measureBox.x + measureBox.width / 2, measureBox.y + measureBox.height / 2);
     }
 
-    await page.getByRole("tab", { name: "Listen" }).click();
+    await page.getByRole("tab", { name: "Waveform" }).click();
     await expect(page.getByTestId("waveform-canvas")).toBeVisible();
     // Selection rect should be present on waveform
-    await expect(page.locator('[data-testid="waveform"] >> canvas')).toBeVisible();
+    await expect(page.getByTestId("waveform-canvas")).toBeVisible();
   });
 
   test("score measure selection derives timeRange and highlights waveform", async ({ page }) => {
@@ -139,7 +139,7 @@ test.describe("shared musical selection (MSW)", () => {
     }
 
     // Switch to Listen (Waveform) - selection region visible
-    await page.getByRole("tab", { name: "Listen" }).click();
+    await page.getByRole("tab", { name: "Waveform" }).click();
     await expect(page.getByTestId("waveform-canvas")).toBeVisible();
     // Waveform should show a selection rect
     const canvas = page.getByTestId("waveform-canvas");

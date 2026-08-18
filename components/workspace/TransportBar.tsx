@@ -61,7 +61,7 @@ function SourceMenu({
         onClick={() => setOpen((prev) => !prev)}
       >
         <span>{triggerLabel}</span>
-        <span className="piece-caret" aria-hidden="true">▾</span>
+        <span className="piece-caret" aria-hidden="true">&#9662;</span>
       </button>
       {open && (
         <div className="piece-source-menu" role="listbox" aria-label={triggerAria}>
@@ -113,9 +113,8 @@ export default function TransportBar() {
     compareB,
     activeSide,
   } = transport;
-  const { workspace, toggleInspector } = useWorkspace();
+  const { workspace } = useWorkspace();
   const hasSource = Boolean(activeSource);
-  const hasWork = Boolean(workspace.activeWorkId);
 
   const selection = workspace.selection;
   const selectionTimeRange = selection?.timeRange ?? null;
@@ -133,11 +132,7 @@ export default function TransportBar() {
 
   const applyLoopSelection = () => {
     if (!selectionTimeRange || !hasSource) return;
-    if (!domainMatches) {
-      // Cross-domain loop would silently treat notation seconds as performance
-      // seconds (or vice versa). Disable to avoid misleading loops.
-      return;
-    }
+    if (!domainMatches) return;
     setLoop(selectionTimeRange.start, selectionTimeRange.end);
     if (!loopEnabled) toggleLoop();
   };
@@ -153,154 +148,143 @@ export default function TransportBar() {
   };
 
   return (
-    <section className="piece-transport" aria-label="Playback">
-      <div className="piece-transport-controls">
-        <button
-          type="button"
-          className="piece-play"
-          onClick={toggle}
-          aria-label={hasSource ? (isPlaying ? "Pause" : "Play") : "Import audio to enable playback"}
-          disabled={!hasSource}
-        >
-          {isPlaying ? "⏸" : "▶"}
-        </button>
-        <button type="button" className="piece-stop" onClick={stop} aria-label="Stop" disabled={!hasSource}>
-          ■
-        </button>
-      </div>
-
-      <div className="piece-timeline">
-        <div className="piece-time">
-          <span>{formatTime(position)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-        <input
-          className="piece-seek"
-          type="range"
-          aria-label="Playback position"
-          min={0}
-          max={Math.max(duration, 0.01)}
-          step={0.01}
-          value={Math.min(position, Math.max(duration, 0.01))}
-          onChange={(event) => seek(Number(event.target.value))}
-          disabled={!hasSource || duration <= 0}
-        />
-      </div>
-
-      <div className="piece-transport-controls">
-        <button
-          className={`piece-stop ${loopEnabled ? "piece-control-active" : ""}`}
-          onClick={() => {
-            if (!loopEnabled && (loopStart === null || loopEnd === null) && duration > 0) setLoop(0, duration);
-            toggleLoop();
-          }}
-          aria-label="Toggle loop"
-          disabled={!hasSource}
-        >
-          ↺
-        </button>
-        {selectionTimeRange && (
+    <footer className="transport-bar" aria-label="Playback">
+      <div className="transport-row-primary">
+        <div className="transport-playback">
           <button
-            className={`piece-stop ${loopSelectionActive ? "piece-control-active" : ""}${!domainMatches ? " piece-control-disabled" : ""}`}
-            onClick={applyLoopSelection}
-            aria-label={domainMatches ? "Loop selection" : "Loop selection (disabled: selection and source have different time domains)"}
-            aria-pressed={loopSelectionActive}
-            disabled={!hasSource || !domainMatches}
-            title={
-              domainMatches
-                ? `Loop the selected region (${selectionTimeRange.start.toFixed(1)}s – ${selectionTimeRange.end.toFixed(1)}s)`
-                : `Selection is in ${selectionDomain} time; active source is ${activeDomain} time. Loop disabled.`
-            }
+            type="button"
+            className="transport-play-btn"
+            onClick={toggle}
+            aria-label={hasSource ? (isPlaying ? "Pause" : "Play") : "Import audio to enable playback"}
+            disabled={!hasSource}
           >
-            ↻
+            {isPlaying ? (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="4" height="12" rx="1" /><rect x="9" y="1" width="4" height="12" rx="1" /></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M2.5 1.5v11l10-5.5z" /></svg>
+            )}
           </button>
-        )}
+          <span className="transport-time">{formatTime(position)}</span>
+          <input
+            className="transport-seek"
+            type="range"
+            aria-label="Playback position"
+            min={0}
+            max={Math.max(duration, 0.01)}
+            step={0.01}
+            value={Math.min(position, Math.max(duration, 0.01))}
+            onChange={(event) => seek(Number(event.target.value))}
+            disabled={!hasSource || duration <= 0}
+          />
+          <span className="transport-time transport-time-muted">{formatTime(duration)}</span>
+        </div>
+
+        <div className="transport-controls-secondary">
+          <button
+            type="button"
+            className={`transport-ctrl ${loopEnabled ? "active" : ""}`}
+            onClick={() => {
+              if (!loopEnabled && (loopStart === null || loopEnd === null) && duration > 0) setLoop(0, duration);
+              toggleLoop();
+            }}
+            aria-label="Toggle loop"
+            disabled={!hasSource}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M10 2h2v2M4 12H2v-2M11 4C9.8 5.8 8.2 7 6 7H4M3 10c1.2-1.8 2.8-3 5-3h2" /></svg>
+          </button>
+          {selectionTimeRange && (
+            <button
+              type="button"
+              className={`transport-ctrl ${loopSelectionActive ? "active" : ""}${!domainMatches ? " disabled" : ""}`}
+              onClick={applyLoopSelection}
+              aria-label={domainMatches ? "Loop selection" : "Loop selection (disabled: selection and source have different time domains)"}
+              aria-pressed={loopSelectionActive}
+              disabled={!hasSource || !domainMatches}
+              title={
+                domainMatches
+                  ? `Loop the selected region (${selectionTimeRange.start.toFixed(1)}s &ndash; ${selectionTimeRange.end.toFixed(1)}s)`
+                  : `Selection is in ${selectionDomain} time; active source is ${activeDomain} time. Loop disabled.`
+              }
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M10 2h2v2M4 12H2v-2M11 4C9.8 5.8 8.2 7 6 7H4M3 10c1.2-1.8 2.8-3 5-3h2" /><rect x="4" y="4" width="6" height="6" rx="1" strokeDasharray="2 2" /></svg>
+            </button>
+          )}
+          <button type="button" className="transport-ctrl" onClick={stop} aria-label="Stop" disabled={!hasSource}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="10" height="10" rx="1.5" /></svg>
+          </button>
+        </div>
       </div>
 
       {sources.length > 0 && (
-        <div className="piece-hearing">
-          {!compareEnabled ? (
-            <>
-              <SourceMenu
-                triggerLabel={activeSource ? activeSource.label : "No source"}
-                triggerAria={`Listening to: ${activeSource ? activeSource.label : "no source"}`}
-                options={sources.map((item) => ({ id: item.id, label: item.label }))}
-                selectedId={activeSource?.id ?? null}
-                onSelect={(id) => {
-                  const next = sources.find((item) => item.id === id);
-                  if (next) setActiveSource(next);
-                }}
-              />
-              {sources.length > 1 && (
-                <button type="button" className="piece-compare-enter" onClick={joinCompare}>
-                  Compare
-                </button>
-              )}
-              {activeSource?.role === "score" && (
-                <span
-                  className="piece-hearing-note"
-                  style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", whiteSpace: "nowrap" }}
-                  title="Original and Transcription play in performance time; the Score rendition plays in notation time."
-                >
-                  notation time
-                </span>
-              )}
-            </>
-          ) : (
-            <div className="piece-compare" role="group" aria-label="Compare playback">
-              <span className="piece-hearing-label">Compare</span>
-              {(["A", "B"] as const).map((side) => {
-                const sideSource = side === "A" ? compareA : compareB;
-                const other = side === "A" ? compareB : compareA;
-                return (
-                  <SourceMenu
-                    key={side}
-                    triggerLabel={`${side} · ${sideSource ? sideSource.label : "Choose…"}`}
-                    triggerAria={`${side}: ${sideSource ? sideSource.label : "Choose…"}`}
-                    options={sources
-                      .filter((item) => item.id !== other?.id)
-                      .map((item) => ({ id: item.id, label: item.label }))}
-                    selectedId={sideSource?.id ?? null}
-                    onSelect={(id) => {
-                      const next = sources.find((item) => item.id === id);
-                      if (next) setCompareSource(side, next);
-                    }}
-                  />
-                );
-              })}
-              <div className="piece-compare-sides" role="group" aria-label="Active compare side">
-                {(["A", "B"] as const).map((side) => (
-                  <button
-                    key={side}
-                    type="button"
-                    className={`piece-compare-chip${activeSide === side ? " active" : ""}`}
-                    aria-pressed={activeSide === side}
-                    onClick={() => setCompareSide(side)}
-                  >
-                    {side}
+        <div className="transport-row-secondary">
+          <div className="transport-hearing">
+            {!compareEnabled ? (
+              <>
+                <span className="transport-hearing-label">Listening to:</span>
+                <SourceMenu
+                  triggerLabel={activeSource ? activeSource.label : "No source"}
+                  triggerAria={`Listening to: ${activeSource ? activeSource.label : "no source"}`}
+                  options={sources.map((item) => ({ id: item.id, label: item.label }))}
+                  selectedId={activeSource?.id ?? null}
+                  onSelect={(id) => {
+                    const next = sources.find((item) => item.id === id);
+                    if (next) setActiveSource(next);
+                  }}
+                />
+                {activeSource?.role === "score" && (
+                  <span className="transport-notation-badge" title="Original and Transcription play in performance time; the Score rendition plays in notation time.">
+                    notation time
+                  </span>
+                )}
+                {sources.length > 1 && (
+                  <button type="button" className="transport-compare-btn" onClick={joinCompare}>
+                    Compare
                   </button>
-                ))}
+                )}
+              </>
+            ) : (
+              <div className="transport-compare" role="group" aria-label="Compare playback">
+                <span className="transport-hearing-label">Compare</span>
+                {(["A", "B"] as const).map((side) => {
+                  const sideSource = side === "A" ? compareA : compareB;
+                  const other = side === "A" ? compareB : compareA;
+                  return (
+                    <SourceMenu
+                      key={side}
+                      triggerLabel={`${side} \u00b7 ${sideSource ? sideSource.label : "Choose\u2026"}`}
+                      triggerAria={`${side}: ${sideSource ? sideSource.label : "Choose\u2026"}`}
+                      options={sources
+                        .filter((item) => item.id !== other?.id)
+                        .map((item) => ({ id: item.id, label: item.label }))}
+                      selectedId={sideSource?.id ?? null}
+                      onSelect={(id) => {
+                        const next = sources.find((item) => item.id === id);
+                        if (next) setCompareSource(side, next);
+                      }}
+                    />
+                  );
+                })}
+                <div className="transport-compare-sides" role="group" aria-label="Active compare side">
+                  {(["A", "B"] as const).map((side) => (
+                    <button
+                      key={side}
+                      type="button"
+                      className={`transport-compare-chip${activeSide === side ? " active" : ""}`}
+                      aria-pressed={activeSide === side}
+                      onClick={() => setCompareSide(side)}
+                    >
+                      {side}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="transport-compare-exit" aria-label="Exit compare" onClick={exitCompare}>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" /></svg>
+                </button>
               </div>
-              <button type="button" className="piece-compare-exit" aria-label="Exit compare" onClick={exitCompare}>
-                ✕
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
-
-      {hasWork && (
-        <button
-          type="button"
-          className={`piece-inspector-toggle ${workspace.inspectorCollapsed ? "" : "active"}`}
-          aria-label={workspace.inspectorCollapsed ? "Show analysis" : "Hide analysis"}
-          aria-pressed={!workspace.inspectorCollapsed}
-          onClick={toggleInspector}
-          title={workspace.inspectorCollapsed ? "Show analysis" : "Hide analysis"}
-        >
-          🔎
-        </button>
-      )}
-    </section>
+    </footer>
   );
 }

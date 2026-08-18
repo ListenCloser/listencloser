@@ -12,10 +12,10 @@ import type { Insight } from "@/lib/domain.types";
 function describeSelection(selection: MusicalSelection): string {
   if (selection.measureRange) {
     const { start, end } = selection.measureRange;
-    return `Measures ${start}–${end}`;
+    return `Measures ${start}\u2013${end}`;
   }
   if (selection.timeRange) {
-    return `${formatTime(selection.timeRange.start)}–${formatTime(selection.timeRange.end)}`;
+    return `${formatTime(selection.timeRange.start)}\u2013${formatTime(selection.timeRange.end)}`;
   }
   return "";
 }
@@ -29,18 +29,14 @@ function InsightScopeHeader({ scope, selection }: { scope: "selection" | "whole-
       </div>
     );
   }
-  return (
-    <div className="inspector-scope">
-      <span className="inspector-scope-label">Whole piece</span>
-    </div>
-  );
+  return null;
 }
 
-function renderFact(label: string, value: string) {
+function renderFact(label: string, value: string, confidence?: string) {
   return (
     <div key={label} className="inspector-fact">
-      <span className="inspector-fact-label">{label}</span>
       <strong className="inspector-fact-value">{value}</strong>
+      <span className="inspector-fact-label">{label}{confidence ? ` \u00b7 ${confidence}` : ""}</span>
     </div>
   );
 }
@@ -117,14 +113,14 @@ function renderInsightList(
 
 export default function InspectorPanel() {
   const { workspace, setInspectorMode } = useWorkspace();
-  const { transport, seek } = useTransport();
+  const { seek } = useTransport();
   const { timeline } = useTimeline();
   const mode = workspace.inspectorMode;
 
   return (
     <aside className="inspector">
       <header className="inspector-header">
-        <div className="inspector-mode-tabs" role="tablist" aria-label="Inspector mode">
+        <nav className="inspector-mode-tabs" role="tablist" aria-label="Inspector mode">
           <button
             type="button"
             role="tab"
@@ -143,12 +139,7 @@ export default function InspectorPanel() {
           >
             Ask
           </button>
-        </div>
-        {mode === "analysis" ? (
-          <h2>Analysis</h2>
-        ) : (
-          <h2>Ask</h2>
-        )}
+        </nav>
         {mode === "analysis" && (
           <InsightScopeHeader scope={workspace.selection ? "selection" : "whole-work"} selection={workspace.selection} />
         )}
@@ -192,8 +183,6 @@ function AnalysisContent({
   const claimValue = (item?: Insight) =>
     item ? item.claim.replace(/^[^:]+:\s*/, "") : "Not confidently detected";
 
-  const filteredCount = categorized.filter((c) => c.category === "unrelated").length;
-
   return (
     <div className="inspector-content">
       {!hasSelection && (
@@ -202,7 +191,7 @@ function AnalysisContent({
           <div className="inspector-facts">
             {renderFact("Key", claimValue(keyFact(confWholeWork)))}
             {renderFact("Tempo", claimValue(tempoFact(confWholeWork)))}
-            {renderFact("Time signature", claimValue(meterFact(confWholeWork)))}
+            {renderFact("Meter", claimValue(meterFact(confWholeWork)))}
           </div>
         </section>
       )}
@@ -222,16 +211,10 @@ function AnalysisContent({
       )}
 
       <section className="inspector-section">
-        <h3>Whole-piece findings</h3>
+        <h3>{hasSelection ? "Whole-piece context" : "Findings"}</h3>
         {renderInsightList(confWholeWork, seek, bpm)}
-        {confWholeWork.length === 0 && <p className="inspector-empty">No confident whole-piece findings.</p>}
+        {confWholeWork.length === 0 && <p className="inspector-empty">No analysis findings yet.</p>}
       </section>
-
-      {filteredCount > 0 && (
-        <p className="inspector-filtered-notice">
-          Some uncertain findings were omitted.
-        </p>
-      )}
     </div>
   );
 }

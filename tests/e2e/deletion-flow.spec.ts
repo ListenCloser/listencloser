@@ -30,7 +30,7 @@ test("deleting the active work clears it and leaves no stale transport state", a
   // No stale transport state: playback is disabled, the playhead is at 0:00,
   // and the previously-loaded duration is cleared rather than left behind.
   await expect(seek).toBeDisabled();
-  const times = page.locator(".piece-time span");
+  const times = page.locator(".transport-time");
   await expect(times.nth(0)).toHaveText("0:00");
   await expect(times.nth(1)).toHaveText("0:00");
 });

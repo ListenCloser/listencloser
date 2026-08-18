@@ -183,7 +183,7 @@ test.describe("contextual Ask inspector (real stack)", () => {
     await page.goto("/");
 
     await importWithRetry(page);
-    await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
+    await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
     await expect(page.getByText("Operation failed")).not.toBeVisible();
 
     // ── 1. Ask empty state over the whole piece ────────────────────────────
@@ -193,7 +193,7 @@ test.describe("contextual Ask inspector (real stack)", () => {
     await page.screenshot({ path: `${SHOTS}/ask-01-whole-piece.png` });
 
     // ── 2. Ask empty state scoped to a selection ───────────────────────────
-    await page.getByRole("tab", { name: "Listen" }).click();
+    await page.getByRole("tab", { name: "Waveform" }).click();
     const canvas = page.getByTestId("waveform-canvas");
     await expect(canvas).toBeVisible();
     const box = await canvas.boundingBox();
@@ -215,7 +215,7 @@ test.describe("contextual Ask inspector (real stack)", () => {
 
     // Analysis ↔ Ask preserves playback: still playing, still advancing.
     await page.getByRole("tab", { name: "Analysis" }).click();
-    await expect(page.getByRole("heading", { name: "Analysis" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
     const posInAnalysis = await transportPosition(page);
     await page.getByRole("tab", { name: "Ask" }).click();

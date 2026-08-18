@@ -191,7 +191,7 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   await importWithRetry(page);
 
   // ── Processing completes with no raw error surfaced ────────────────────────
-  await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
   await expect(page.getByText(/APIError|not-null|constraint|Postgres/i)).not.toBeVisible();
 
@@ -210,7 +210,7 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   await page.getByRole("button", { name: "Pause", exact: true }).click();
 
   // ── Piano roll renders notes ───────────────────────────────────────────────
-  await page.getByRole("tab", { name: "Piano roll" }).click();
+  await page.getByRole("tab", { name: "Piano Roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("piano-roll").getByText(/\d+ notes/)).toBeVisible();
 
@@ -267,7 +267,7 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
 
-  await page.getByRole("tab", { name: "Piano roll" }).click();
+  await page.getByRole("tab", { name: "Piano Roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible();
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
   const positionOnPianoRoll = await transportPosition(page);
@@ -340,8 +340,8 @@ test("real-stack happy path: import → play → inspect → compare → reload 
 
   // ── Reload keeps persisted state ───────────────────────────────────────────
   await page.reload();
-  await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Listening to:/ })).toBeVisible();
@@ -372,13 +372,13 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   // No stale transport state survives the delete: playback stopped, playhead
   // at 0:00, duration cleared, no source selected, no compare UI.
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeDisabled();
-  const times = page.locator(".piece-time span");
+  const times = page.locator(".transport-time");
   await expect(times.nth(0)).toHaveText("0:00");
   await expect(times.nth(1)).toHaveText("0:00");
   await expect(page.getByText(/Listening to:/)).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByRole("tab", { name: "Listen" })).not.toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("tab", { name: "Waveform" })).not.toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Start with a recording/i)).toBeVisible({ timeout: 30_000 });
 });
 
@@ -411,7 +411,7 @@ test("shared musical selection across representations (canonical E2E)", async ({
   await page.goto("/");
   await importWithRetry(page);
 
-  await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
 
   // Helper: waveform canvas drag-select
@@ -435,11 +435,11 @@ test("shared musical selection across representations (canonical E2E)", async ({
   await expect(page.getByRole("button", { name: "Loop selection" })).toBeVisible();
 
   // ── 2. Piano Roll region stays highlighted ───────────────────────────────────
-  await page.getByRole("tab", { name: "Piano roll" }).click();
+  await page.getByRole("tab", { name: "Piano Roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
   // Selection highlight exists as a rect with accent fill in the piano roll SVG
   await expect(
-    page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.16"]'),
+    page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.1"]'),
   ).toBeVisible({ timeout: 10_000 });
 
   // ── 3. Score measures/region stay highlighted ────────────────────────────────
@@ -496,7 +496,7 @@ test("shared musical selection across representations (canonical E2E)", async ({
   }
 
   // Switch to Listen (Waveform) - selection region should be visible
-  await page.getByRole("tab", { name: "Listen" }).click();
+  await page.getByRole("tab", { name: "Waveform" }).click();
   await expect(page.getByTestId("waveform-canvas")).toBeVisible();
   // Waveform shows selection rect for the derived time range
   const canvas = page.getByTestId("waveform-canvas");

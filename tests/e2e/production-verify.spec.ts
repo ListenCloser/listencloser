@@ -156,7 +156,7 @@ test("C: import real audio, wait for durable understand, verify representations"
   // tab bar. (The piano roll tab is the deterministic completion signal; the
   // loose /note|piano/ regex would also match the empty-state copy and the
   // "Solo piano" transcription profile chip.)
-  await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({
     timeout: 120_000,
   });
   await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();

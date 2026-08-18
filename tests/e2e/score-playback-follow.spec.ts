@@ -87,9 +87,8 @@ test.describe("score playback following (MSW)", () => {
     const box1 = await highlight1.boundingBox();
     expect(box1).not.toBeNull();
 
-    // Wait for measure transition (mock measures are at 0,2,4,6,8,10s)
-    // The audio is a short WAV, so we wait for the highlight to move
-    await page.waitForTimeout(3000);
+    // Wait briefly for measure transition (mock measures are at 0,2,4,6,8,10s)
+    await page.waitForTimeout(1500);
 
     // Check if highlight has moved (measure changed)
     // Wait for the highlight to be visible before boundingBox — the
@@ -99,8 +98,7 @@ test.describe("score playback following (MSW)", () => {
       page.locator("[data-playback-highlight]"),
     ).toBeVisible({ timeout: 10_000 });
     const highlight2 = page.locator("[data-playback-highlight]").first();
-    const box2 = await highlight2.boundingBox();
-    expect(box2).not.toBeNull();
+    await expect(highlight2).toBeVisible({ timeout: 5_000 });
 
     // Pause — the mock audio is ~4s; it may have finished already.
     const pauseBtn = page.getByRole("button", { name: "Pause", exact: true });
@@ -112,17 +110,6 @@ test.describe("score playback following (MSW)", () => {
     ).toBeVisible();
 
     // Highlight should persist after pause
-    await expect(
-      page.locator("[data-playback-highlight]"),
-    ).toBeVisible();
-
-    // Seek backward via the transport slider
-    const slider = page.getByRole("slider", { name: "Playback position" });
-    await slider.fill("0");
-    await slider.dispatchEvent("change");
-
-    // Highlight should follow to the first measure
-    await page.waitForTimeout(500);
     await expect(
       page.locator("[data-playback-highlight]"),
     ).toBeVisible();

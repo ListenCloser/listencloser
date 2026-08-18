@@ -33,7 +33,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
 
   test("Ask answers a question and renders evidence chips and suggested actions", async ({ page }) => {
     await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
     await openAsk(page);
     await expect(page.getByText("Whole piece")).toBeVisible();
@@ -57,7 +57,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByRole("button", { name: "Jump to time" })).toBeVisible();
 
     // The conversation survives a representation switch (Ask stays intact).
-    await page.getByRole("tab", { name: "Piano roll" }).click();
+    await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await openAsk(page);
     await expect(page.getByText(/This passage stays centered on the tonic/)).toBeVisible();
@@ -75,7 +75,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await page.getByRole("button", { name: "Measures 2–4" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
     // ── show_representation action opens the correct representation ────────
     await openAsk(page);
