@@ -15,6 +15,8 @@
   --accent-2: #846c31;
   --accent-soft: rgba(189,81,58,0.12);
   --accent-soft-2: rgba(132,108,49,0.12);
+  --score-playback: #5a89a8;
+  --score-playback-soft: rgba(90,137,168,0.14);
   --danger: #b63e3e;
   --danger-soft: rgba(182,62,62,0.1);
   --success: #28745b;
@@ -1026,6 +1028,7 @@ html,body { background:var(--bg); }
 .waveform { display:block; width:100%; border-radius:14px; background:var(--bg); cursor:crosshair; touch-action:none; }
 .piece-active-view .waveform { height:min(50vh, 440px); }
 [data-selection-highlight] { pointer-events:none; }
+[data-playback-highlight] { pointer-events:none; }
 
 /* ── Core workspace polish (#216) ──────────────────────────────────────── */
 .piece-loading {
