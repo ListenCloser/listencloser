@@ -222,8 +222,8 @@ describe("actionLabel", () => {
     const pianoRoll: AskAction = { type: "show_representation", representationId: "piano_roll" };
     const listen: AskAction = { type: "show_representation", representationId: "listen" };
     expect(actionLabel(score)).toBe("Open Score");
-    expect(actionLabel(pianoRoll)).toBe("Open Piano roll");
-    expect(actionLabel(listen)).toBe("Open Listen");
+    expect(actionLabel(pianoRoll)).toBe("Open Piano Roll");
+    expect(actionLabel(listen)).toBe("Open Waveform");
   });
 
   it("falls back neutrally for an unknown representation id", () => {

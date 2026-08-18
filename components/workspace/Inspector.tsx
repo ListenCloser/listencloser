@@ -32,11 +32,11 @@ function InsightScopeHeader({ scope, selection }: { scope: "selection" | "whole-
   return null;
 }
 
-function renderFact(label: string, value: string) {
+function renderFact(label: string, value: string, confidence?: string) {
   return (
     <div key={label} className="inspector-fact">
-      <span className="inspector-fact-label">{label}</span>
       <strong className="inspector-fact-value">{value}</strong>
+      <span className="inspector-fact-label">{label}{confidence ? ` \u00b7 ${confidence}` : ""}</span>
     </div>
   );
 }
@@ -120,7 +120,7 @@ export default function InspectorPanel() {
   return (
     <aside className="inspector">
       <header className="inspector-header">
-        <div className="inspector-mode-tabs" role="tablist" aria-label="Inspector mode">
+        <nav className="inspector-mode-tabs" role="tablist" aria-label="Inspector mode">
           <button
             type="button"
             role="tab"
@@ -139,7 +139,7 @@ export default function InspectorPanel() {
           >
             Ask
           </button>
-        </div>
+        </nav>
         {mode === "analysis" && (
           <InsightScopeHeader scope={workspace.selection ? "selection" : "whole-work"} selection={workspace.selection} />
         )}

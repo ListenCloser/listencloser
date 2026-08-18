@@ -39,7 +39,7 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
     >
       <header className="studio-header">
         <div className="studio-header-left">
-          <span className="brand"><span className="brand-dot" />{projectName || "Music Lab"}</span>
+          <span className="brand">{projectName || "Music Lab"}</span>
         </div>
         <div className="studio-header-right">
           {hasWork && (
@@ -50,10 +50,7 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
               aria-pressed={inspectorOpen}
               onClick={toggleInspector}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
-                <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+              Analysis
             </button>
           )}
           <button className="icon-btn ghost" onClick={toggleLibrary} title={workspace.libraryCollapsed ? "Show library" : "Hide library"}>

@@ -1,11 +1,12 @@
 /**
  * Piano roll visualization — SVG-based note display with playhead.
  *
- * UX-015 improvements:
- * - Better note styling with velocity-based opacity
- * - Improved spacing and row height
- * - Active note glow effect for clarity
- * - Footer with zoom hint
+ * Visual language:
+ * - Subtle keyboard/pitch context with faint pitch guides
+ * - Stronger measure boundaries, lighter beat boundaries
+ * - Restrained neutral notes with velocity-based opacity
+ * - Blue playhead (shared playback color)
+ * - Terracotta selection (shared selection color)
  */
 
 "use client";
@@ -18,8 +19,8 @@ type Note = { id?: string; pitch: number; start: number; end: number; velocity: 
 type TimeRange = { start: number; end: number };
 
 const PPQ = 16;
-const LABEL_W = 40;
-const TOP_PAD = 16;
+const LABEL_W = 36;
+const TOP_PAD = 14;
 
 export default function PianoRoll({
   notes,
@@ -155,38 +156,56 @@ export default function PianoRoll({
           }
         >
           {/* Left label gutter */}
-          <rect x={0} y={0} width={LABEL_W} height={h} fill="var(--panel-2)" />
+          <rect x={0} y={0} width={LABEL_W} height={h} fill="var(--panel)" />
 
-          {/* Row stripes */}
-          {rows.map((row, ri) => (
-            <rect
-              key={`stripe-${row.pitch}`}
-              x={LABEL_W}
-              y={ri * rowH + TOP_PAD}
-              width={totalPx}
-              height={rowH}
-              fill={ri % 2 === 0 ? "var(--panel-2)" : "transparent"}
-            />
-          ))}
-
-          {/* Beat grid */}
-          {Array.from({ length: Math.floor(totalBeats) + 1 }, (_, i) => {
-            const x = LABEL_W + i * PPQ;
-            const isMeasure = i % 4 === 0;
+          {/* Row stripes — alternating for pitch context */}
+          {rows.map((row, ri) => {
+            const isBlack = [1, 3, 6, 8, 10].includes(row.pitch % 12);
             return (
-              <line
-                key={i}
-                x1={x}
-                y1={0}
-                x2={x}
-                y2={h}
-                stroke={isMeasure ? "var(--border-strong)" : "var(--border)"}
-                strokeWidth={isMeasure ? 1.5 : 0.5}
+              <rect
+                key={`stripe-${row.pitch}`}
+                x={LABEL_W}
+                y={ri * rowH + TOP_PAD}
+                width={totalPx}
+                height={rowH}
+                fill={isBlack ? "var(--panel-2)" : "transparent"}
               />
             );
           })}
 
-          {/* Selected time range highlight */}
+          {/* Pitch guide lines (faint horizontal) */}
+          {rows.map((row, ri) => (
+            <line
+              key={`guide-${row.pitch}`}
+              x1={LABEL_W}
+              y1={ri * rowH + TOP_PAD + rowH}
+              x2={W}
+              y2={ri * rowH + TOP_PAD + rowH}
+              stroke="var(--border)"
+              strokeWidth={0.3}
+            />
+          ))}
+
+          {/* Beat grid — measure boundaries stronger, beats lighter */}
+          {Array.from({ length: Math.floor(totalBeats) + 1 }, (_, i) => {
+            const x = LABEL_W + i * PPQ;
+            const beatsPerMeasure = 4;
+            const isMeasure = i % beatsPerMeasure === 0;
+            return (
+              <line
+                key={i}
+                x1={x}
+                y1={TOP_PAD}
+                x2={x}
+                y2={h}
+                stroke={isMeasure ? "var(--text)" : "var(--border)"}
+                strokeWidth={isMeasure ? 0.8 : 0.4}
+                strokeOpacity={isMeasure ? 0.15 : 0.4}
+              />
+            );
+          })}
+
+          {/* Selected time range highlight (terracotta) */}
           {visibleTimeRange && (
             <rect
               x={timeToX(visibleTimeRange.start)}
@@ -194,9 +213,10 @@ export default function PianoRoll({
               width={Math.max(timeToX(visibleTimeRange.end) - timeToX(visibleTimeRange.start), 2)}
               height={h}
               fill="var(--accent)"
-              fillOpacity={0.16}
+              fillOpacity={0.1}
               stroke="var(--accent)"
-              strokeWidth={1}
+              strokeWidth={0.8}
+              strokeOpacity={0.4}
             />
           )}
 
@@ -207,37 +227,37 @@ export default function PianoRoll({
               <g key={row.pitch}>
                 <text
                   x={4}
-                  y={y + Math.min(rowH - 3, 13)}
+                  y={y + Math.min(rowH - 3, 12)}
                   fill="var(--muted)"
-                  fontSize={Math.min(11, Math.max(8, rowH - 4))}
+                  fontSize={Math.min(10, Math.max(8, rowH - 4))}
                   fontFamily="var(--font-mono)"
+                  opacity={0.7}
                 >
                   {row.label}
                 </text>
                 {row.notes.map((n, ni) => {
                   const x = LABEL_W + (n.start / 60) * bpm * PPQ;
                   const dur = n.end - n.start;
-                  const w = Math.max((dur / 60) * bpm * PPQ, 4);
+                  const w = Math.max((dur / 60) * bpm * PPQ, 3);
                   const active = playheadTime >= n.start && playheadTime <= n.end;
                   const selected = n.id ? highlightIds.has(n.id) : false;
-                  const velOpacity = 0.2 + (n.velocity / 127) * 0.6;
+                  const velOpacity = 0.15 + (n.velocity / 127) * 0.5;
                   return (
                     <rect
                       key={ni}
                       x={x}
                       y={y + 2}
                       width={w}
-                      height={Math.max(rowH - 3, 6)}
-                      rx={3}
-                      fill={selected ? "var(--accent-strong)" : "var(--accent)"}
-                      opacity={active ? 1 : selected ? 0.95 : velOpacity}
-                      style={
+                      height={Math.max(rowH - 3, 5)}
+                      rx={1}
+                      fill={
                         active
-                          ? { filter: "drop-shadow(0 0 6px var(--accent))" }
+                          ? "var(--score-playback)"
                           : selected
-                            ? { filter: "drop-shadow(0 0 4px var(--accent))" }
-                            : undefined
+                            ? "var(--accent)"
+                            : "var(--text)"
                       }
+                      opacity={active ? 0.9 : selected ? 0.7 : velOpacity}
                     >
                       <title>{row.label} @ {n.start.toFixed(2)}s · velocity {n.velocity}</title>
                     </rect>
@@ -247,7 +267,7 @@ export default function PianoRoll({
             );
           })}
 
-          {/* Playhead */}
+          {/* Playhead (blue) */}
           {playheadTime > 0 && playheadX <= W && (
             <g>
               <line
@@ -255,19 +275,19 @@ export default function PianoRoll({
                 y1={0}
                 x2={playheadX}
                 y2={h}
-                stroke="var(--accent-strong)"
-                strokeWidth={2}
+                stroke="var(--score-playback)"
+                strokeWidth={1.5}
               />
               <polygon
-                points={`${playheadX},0 ${playheadX + 7},${TOP_PAD - 5} ${playheadX},${TOP_PAD} ${playheadX - 7},${TOP_PAD - 5}`}
-                fill="var(--accent-strong)"
+                points={`${playheadX},0 ${playheadX + 5},${TOP_PAD - 4} ${playheadX},${TOP_PAD} ${playheadX - 5},${TOP_PAD - 4}`}
+                fill="var(--score-playback)"
               />
             </g>
           )}
         </svg>
       </div>
       <div className="piano-roll-footer">
-        <span className="muted">{notes.length} notes · {endTime.toFixed(1)}s</span>
+        <span className="muted">{notes.length} notes &middot; {endTime.toFixed(1)}s</span>
         {playheadTime > 0 && <span className="muted">{playheadTime.toFixed(1)}s</span>}
       </div>
     </div>
