@@ -49,6 +49,43 @@ begin
   ) then
     raise exception 'jobs owner select policy is missing';
   end if;
+  -- Canonical RLS invariant: jobs carries ONLY the owner-scoped SELECT policy.
+  -- INSERT/UPDATE are denied by default. A replay of the legacy
+  -- 202607160001_finetune_studio.sql migration re-creates these permissive
+  -- policies, so their presence proves a migration-history replay occurred.
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'jobs'
+      and policyname in ('jobs public read', 'jobs public insert', 'jobs public update')
+  ) then
+    raise exception 'permissive jobs public policies present (legacy migration replayed?)';
+  end if;
+  -- The legacy finetune migration also creates an extra index on jobs.
+  if exists (
+    select 1 from pg_indexes
+    where schemaname = 'public' and tablename = 'jobs' and indexname = 'jobs_created_at_idx'
+  ) then
+    raise exception 'jobs_created_at_idx present (legacy migration replayed?)';
+  end if;
+  -- models is not part of the canonical domain schema.
+  if to_regclass('public.models') is not null then
+    raise exception 'vestigial public.models table present';
+  end if;
+  -- Storage: no legacy permissive / manually-created anon policies.
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'storage' and tablename = 'objects' and policyname in (
+      'adapters public read', 'adapters public insert',
+      'datasets public read', 'datasets public insert',
+      'analysis public insert', 'enhanced public insert',
+      'library public insert', 'library public delete',
+      'midi public insert', 'transcriptions public insert',
+      'anon select library', 'anon insert library',
+      'anon select midi', 'anon insert midi'
+    )
+  ) then
+    raise exception 'legacy permissive/anon storage policies present';
+  end if;
   if not exists (
     select 1 from storage.buckets where id = 'artifacts' and public = false
   ) then
