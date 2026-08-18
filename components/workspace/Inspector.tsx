@@ -177,7 +177,7 @@ function AnalysisContent({
   const wholeWorkInsights = filterByCategory(categorized, "whole-work");
 
   const confident = (insights: Insight[]) =>
-    insights.filter((item) => item.confidence != null && item.confidence >= 0.5);
+    insights.filter((item) => item.confidence == null || item.confidence >= 0.5);
 
   const confSelection = confident(selectionInsights);
   const confWholeWork = confident(wholeWorkInsights);

@@ -115,7 +115,7 @@ export default function TransportBar() {
   } = transport;
   const { workspace, toggleInspector } = useWorkspace();
   const hasSource = Boolean(activeSource);
-  const hasInsights = workspace.insights.length > 0;
+  const hasWork = Boolean(workspace.activeWorkId);
 
   const selection = workspace.selection;
   const selectionTimeRange = selection?.timeRange ?? null;
@@ -289,7 +289,7 @@ export default function TransportBar() {
         </div>
       )}
 
-      {hasInsights && (
+      {hasWork && (
         <button
           type="button"
           className={`piece-inspector-toggle ${workspace.inspectorCollapsed ? "" : "active"}`}

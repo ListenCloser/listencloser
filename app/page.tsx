@@ -216,7 +216,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
             sourceUrl: midi.signed_url ?? "",
             sourceLabel: `${notes.length} detected notes`,
             confidence: null,
-            provenance: "basic-pitch transcription",
+            provenance: "transcription",
             notes,
             versionId: midi.latest_version.id,
           });
