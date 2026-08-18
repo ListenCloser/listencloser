@@ -85,7 +85,7 @@ test("score appears as a playback source and follows the transport", async ({
 
   await page.getByRole("button", { name: /Listening to:/ }).click();
   await page.getByRole("option", { name: "Score rendition", exact: true }).click();
-  await expect(page.getByText("Playing the score rendition in notation time. Click a measure to jump.")).toBeVisible();
+  await expect(page.getByText("Playing the score rendition in notation time. Click a measure to jump or select it.")).toBeVisible();
 });
 
 test("the representation changes independently of the playback source", async ({

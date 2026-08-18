@@ -67,10 +67,17 @@ test("A: signed-in production page loads with service online", async ({
   });
   await page.goto(PROD_URL);
 
-  await expect(page.getByText("Service online")).toBeVisible({
+  // The signed-in workspace renders the import button only when the session is
+  // valid and the backend service reports ready, so it doubles as the
+  // "service online" signal on the signed-in page.
+  await expect(
+    page.getByRole("main").getByRole("button", { name: "Import audio" }),
+  ).toBeVisible({
     timeout: 20_000,
   });
-  await expect(page.getByText("No project")).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.getByText("Imported works will appear here and can be reopened in later sessions."),
+  ).toBeVisible({ timeout: 10_000 });
 });
 
 test("B: backend health endpoints return ready", async ({ request }) => {
@@ -105,14 +112,25 @@ test("C: import real audio, wait for durable understand, verify representations"
     projectRef: SUPABASE_PROJECT_REF,
     sessionData: s,
   });
+
+  // The Import button renders before the first-load project setup completes;
+  // importing then surfaces "Your project is still loading". Register the
+  // create/list round-trip watcher before navigation so it catches the POST.
+  const projectSettled = page
+    .waitForResponse(
+      (resp) => resp.url().includes("/api/v1/projects") && resp.request().method() === "POST",
+      { timeout: 30_000 },
+    )
+    .catch(() => {});
   await page.goto(PROD_URL);
+  await projectSettled;
 
-  await expect(page.getByText("Service online")).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(
+    page.getByRole("main").getByRole("button", { name: "Import audio" }),
+  ).toBeVisible({ timeout: 20_000 });
 
-  const importButton = page.getByRole("complementary").getByRole("button", {
-    name: /import/i,
+  const importButton = page.getByRole("main").getByRole("button", {
+    name: "Import audio",
   });
   if (await importButton.isVisible({ timeout: 10_000 }).catch(() => false)) {
     await importButton.click();
@@ -134,9 +152,12 @@ test("C: import real audio, wait for durable understand, verify representations"
     timeout: 30_000,
   }).catch(() => {});
 
-  await expect(page.getByText(/detected notes|note|piano/i)).toBeVisible({
+  // Processing finished: the work's representations are discoverable from the
+  // tab bar. (The piano roll tab is the deterministic completion signal; the
+  // loose /note|piano/ regex would also match the empty-state copy and the
+  // "Solo piano" transcription profile chip.)
+  await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({
     timeout: 120_000,
   });
-
-  await expect(page.getByText("Service online")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
 });

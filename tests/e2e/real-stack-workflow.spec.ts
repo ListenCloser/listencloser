@@ -178,7 +178,7 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   await expect(page.getByText("Select Score rendition in the transport to hear this notation (notation time).")).toBeVisible();
   await page.getByRole("option", { name: "Score rendition", exact: true }).click();
   await expect(await listeningTo(page, "Score rendition")).toBeVisible();
-  await expect(page.getByText("Playing the score rendition in notation time. Click a measure to jump.")).toBeVisible();
+  await expect(page.getByText("Playing the score rendition in notation time. Click a measure to jump or select it.")).toBeVisible();
 
   // Playback starts and can be paused. The transport position change itself is
   // asserted deterministically via the measure click below, since headless
@@ -365,10 +365,6 @@ test("shared musical selection across representations (canonical E2E)", async ({
   await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
 
-  // Helper: get transport position
-  const transportPos = async () =>
-    Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
-
   // Helper: waveform canvas drag-select
   async function selectWaveformRegion(startFrac: number, endFrac: number) {
     const canvas = page.getByTestId("waveform-canvas");
@@ -384,9 +380,10 @@ test("shared musical selection across representations (canonical E2E)", async ({
   }
 
   // ── 1. Select region in Waveform (Listen view) ───────────────────────────────
+  // A horizontal drag defines a shared selection (it does not seek), so the
+  // transport exposes the "Loop selection" affordance for the chosen range.
   await selectWaveformRegion(0.2, 0.6);
-  const selPos1 = await transportPos();
-  expect(selPos1).toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: "Loop selection" })).toBeVisible();
 
   // ── 2. Piano Roll region stays highlighted ───────────────────────────────────
   await page.getByRole("tab", { name: "Piano roll" }).click();
