@@ -123,7 +123,7 @@ test.describe("shared musical selection (MSW)", () => {
     await page.getByRole("tab", { name: "Waveform" }).click();
     await expect(page.getByTestId("waveform-canvas")).toBeVisible();
     // Selection rect should be present on waveform
-    await expect(page.locator('[data-testid="waveform"] >> canvas')).toBeVisible();
+    await expect(page.getByTestId("waveform-canvas")).toBeVisible();
   });
 
   test("score measure selection derives timeRange and highlights waveform", async ({ page }) => {
