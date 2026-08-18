@@ -38,10 +38,6 @@ test.describe("shared musical selection (MSW)", () => {
     );
   });
 
-  async function transportPos(page: any) {
-    return Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
-  }
-
   async function dragWaveform(page: any, startFrac: number, endFrac: number) {
     const canvas = page.getByTestId("waveform-canvas");
     await expect(canvas).toBeVisible();
@@ -62,10 +58,11 @@ test.describe("shared musical selection (MSW)", () => {
     await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Listen" })).toBeVisible();
 
-    // 1. Select region in Waveform (Listen view)
+    // 1. Select region in Waveform (Listen view). A horizontal drag defines a
+    // shared selection (it does not seek), so the transport exposes the
+    // "Loop selection" affordance for the chosen range.
     await dragWaveform(page, 0.2, 0.6);
-    const pos1 = await transportPos(page);
-    expect(pos1).toBeGreaterThan(0);
+    await expect(page.getByRole("button", { name: "Loop selection" })).toBeVisible();
 
     // 2. Piano Roll region stays highlighted
     await page.getByRole("tab", { name: "Piano roll" }).click();
