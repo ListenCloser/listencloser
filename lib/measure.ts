@@ -32,24 +32,3 @@ export function measureGroupsForIndex(
     container.querySelectorAll<SVGGraphicsElement>("g.vf-measure"),
   ).filter((el) => el.getAttribute("id") === oneBased);
 }
-
-/**
- * Computes the union bounding box of all SVG elements in the given list.
- * Returns null when the list is empty or all boxes are zero-area.
- */
-export function unionBBox(elements: SVGGraphicsElement[]): DOMRect | null {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const el of elements) {
-    const box = el.getBBox();
-    if (box.width === 0 && box.height === 0) continue;
-    if (box.x < minX) minX = box.x;
-    if (box.y < minY) minY = box.y;
-    if (box.x + box.width > maxX) maxX = box.x + box.width;
-    if (box.y + box.height > maxY) maxY = box.y + box.height;
-  }
-  if (minX === Infinity) return null;
-  return new DOMRect(minX, minY, maxX - minX, maxY - minY);
-}

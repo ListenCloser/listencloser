@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { measureIndexAt, measureGroupsForIndex, unionBBox } from "@/lib/measure";
+import { measureIndexAt, measureGroupsForIndex } from "@/lib/measure";
 
 type Props = {
   musicXml: string;
@@ -16,6 +16,34 @@ type Props = {
   onSeek?: (seconds: number) => void;
   onSelectMeasures?: (start: number, end: number) => void;
 };
+
+function insertHighlightRect(
+  group: SVGGraphicsElement,
+  dataAttr: string,
+  fill: string,
+  fillOpacity: string,
+  stroke: string,
+  strokeWidth: string,
+  strokeDasharray: string,
+) {
+  const box = group.getBBox();
+  if (box.width === 0 && box.height === 0) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const rect = document.createElementNS(NS, "rect");
+  rect.setAttribute(dataAttr, "true");
+  rect.setAttribute("x", String(box.x));
+  rect.setAttribute("y", String(box.y));
+  rect.setAttribute("width", String(box.width));
+  rect.setAttribute("height", String(box.height));
+  rect.setAttribute("fill", fill);
+  rect.setAttribute("fill-opacity", fillOpacity);
+  rect.setAttribute("stroke", stroke);
+  rect.setAttribute("stroke-width", strokeWidth);
+  rect.setAttribute("stroke-dasharray", strokeDasharray);
+  rect.setAttribute("rx", "4");
+  rect.setAttribute("pointer-events", "none");
+  group.insertBefore(rect, group.firstChild);
+}
 
 export default function SheetMusic({
   musicXml,
@@ -33,7 +61,6 @@ export default function SheetMusic({
   const osmdRef = useRef<any>(null);
   const currentMeasureRef = useRef(-1);
   const playbackMeasureRef = useRef(-1);
-  const autoScrollRef = useRef(true);
   const anchorMeasureRef = useRef<number | null>(null);
   const [osmdReady, setOsmdReady] = useState(false);
 
@@ -118,7 +145,7 @@ export default function SheetMusic({
     currentMeasureRef.current = target;
   }, [osmdReady, isScoreActive, measureStarts, playheadTime]);
 
-  // ── Playback highlight: one blue overlay on the current measure ───────────
+  // ── Playback highlight: one overlay per staff group ───────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!osmdReady || !container) return;
@@ -142,35 +169,34 @@ export default function SheetMusic({
     const groups = measureGroupsForIndex(container, measureIdx);
     if (groups.length === 0) return;
 
-    const box = unionBBox(groups);
-    if (!box) return;
-
     const prevIdx = playbackMeasureRef.current;
     playbackMeasureRef.current = measureIdx;
 
-    const NS = "http://www.w3.org/2000/svg";
-    const rect = document.createElementNS(NS, "rect");
-    rect.setAttribute("data-playback-highlight", "true");
-    rect.setAttribute("x", String(box.x));
-    rect.setAttribute("y", String(box.y));
-    rect.setAttribute("width", String(box.width));
-    rect.setAttribute("height", String(box.height));
-    rect.setAttribute("fill", "var(--score-playback)");
-    rect.setAttribute("fill-opacity", "0.14");
-    rect.setAttribute("stroke", "var(--score-playback)");
-    rect.setAttribute("stroke-width", "2");
-    rect.setAttribute("rx", "4");
-    rect.setAttribute("pointer-events", "none");
-    groups[0].insertBefore(rect, groups[0].firstChild);
+    for (const group of groups) {
+      insertHighlightRect(
+        group,
+        "data-playback-highlight",
+        "var(--score-playback)",
+        "0.14",
+        "var(--score-playback)",
+        "2",
+        "none",
+      );
+    }
 
-    // Auto-scroll: only when the measure is outside the visible region.
-    if (!autoScrollRef.current) return;
+    // Auto-scroll: use DOM client rects (viewport coordinates) to check
+    // whether the first staff group is visible.  scrollIntoView with
+    // block:"nearest" only scrolls when the element is outside the viewport.
+    const firstGroup = groups[0];
     const cRect = container.getBoundingClientRect();
-    const mRect = groups[0].getBoundingClientRect();
+    const mRect = firstGroup.getBoundingClientRect();
     const margin = 48;
-    if (mRect.top < cRect.top + margin || mRect.bottom > cRect.bottom - margin) {
+    if (
+      mRect.top < cRect.top + margin ||
+      mRect.bottom > cRect.bottom - margin
+    ) {
       const bigJump = prevIdx < 0 || Math.abs(measureIdx - prevIdx) > 1;
-      groups[0].scrollIntoView({
+      firstGroup.scrollIntoView({
         behavior: bigJump ? "auto" : "smooth",
         block: "nearest",
       });
@@ -188,44 +214,33 @@ export default function SheetMusic({
     playbackMeasureRef.current = -1;
   }, [isScoreActive]);
 
-  // ── Selection highlight (existing behaviour, refactored for multi-staff) ──
+  // ── Selection highlight: one overlay per staff group ──────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!osmdReady || !container) return;
     container
       .querySelectorAll("[data-selection-highlight]")
       .forEach((node) => node.remove());
-    if (!selectedMeasures || !measureStarts || measureStarts.length === 0) return;
+    if (!selectedMeasures || !measureStarts || measureStarts.length === 0)
+      return;
 
-    const NS = "http://www.w3.org/2000/svg";
     for (
       let idx = selectedMeasures.start;
       idx <= selectedMeasures.end;
       idx += 1
     ) {
       const groups = measureGroupsForIndex(container, idx);
-      const box = unionBBox(groups);
-      if (!box) continue;
-      const rect = document.createElementNS(NS, "rect");
-      rect.setAttribute("data-selection-highlight", "true");
-      rect.setAttribute("x", String(box.x));
-      rect.setAttribute("y", String(box.y));
-      rect.setAttribute("width", String(box.width));
-      rect.setAttribute("height", String(box.height));
-      rect.setAttribute("fill", "#bd513a");
-      rect.setAttribute(
-        "fill-opacity",
-        measureApproximate ? "0.12" : "0.18",
-      );
-      rect.setAttribute("stroke", "#bd513a");
-      rect.setAttribute("stroke-width", "1.5");
-      rect.setAttribute(
-        "stroke-dasharray",
-        measureApproximate ? "4 3" : "none",
-      );
-      rect.setAttribute("rx", "4");
-      rect.setAttribute("pointer-events", "none");
-      groups[0].insertBefore(rect, groups[0].firstChild);
+      for (const group of groups) {
+        insertHighlightRect(
+          group,
+          "data-selection-highlight",
+          "#bd513a",
+          measureApproximate ? "0.12" : "0.18",
+          "#bd513a",
+          "1.5",
+          measureApproximate ? "4 3" : "none",
+        );
+      }
     }
   }, [osmdReady, selectedMeasures, measureApproximate, measureStarts]);
 
