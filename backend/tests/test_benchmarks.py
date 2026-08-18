@@ -1,7 +1,9 @@
 """Fixture-based benchmark tests for Phase 8 music-quality upgrades.
 
-Tests exercise the real transcription, analysis, and synthesis pipelines
-against the sine_a4_c5.wav fixture. Fast, deterministic, offline-safe.
+The transcribe tests run the real Basic Pitch ML model and are therefore
+reclassified as ``integration`` so the default unit suite stays offline-safe.
+Run them intentionally with: ``pytest -m integration backend/tests/test_benchmarks.py``
+The analyze/synthesize tests are pure unit tests over synthetic MIDI.
 """
 
 import io
@@ -52,6 +54,7 @@ def _sine_midi_bytes() -> bytes:
     return buf.getvalue()
 
 
+@pytest.mark.integration
 def test_transcribe_fixture_has_notes():
     try:
         import basic_pitch  # noqa: F401
@@ -65,6 +68,7 @@ def test_transcribe_fixture_has_notes():
     assert len(notes) >= 1
 
 
+@pytest.mark.integration
 def test_transcribe_detects_pitches():
     try:
         import basic_pitch  # noqa: F401
@@ -97,6 +101,7 @@ def test_synthesize_produces_audio():
     assert len(result) > 1000
 
 
+@pytest.mark.integration
 def test_transcribe_produces_midi_bytes():
     try:
         import basic_pitch  # noqa: F401
@@ -110,6 +115,7 @@ def test_transcribe_produces_midi_bytes():
     assert len(midi) > 0
 
 
+@pytest.mark.integration
 def test_transcribe_produces_wav_bytes():
     try:
         import basic_pitch  # noqa: F401

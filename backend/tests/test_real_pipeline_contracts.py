@@ -143,6 +143,13 @@ def test_understand_runs_all_stages_without_browser_orchestration(monkeypatch):
     monkeypatch.setattr(capabilities, "handle_analyze", analyze)
     monkeypatch.setattr(
         capabilities,
+        "handle_audio_structure",
+        lambda derived_job, _client: (
+            derived_capabilities.append(derived_job.capability.name) or []
+        ),
+    )
+    monkeypatch.setattr(
+        capabilities,
         "handle_score",
         lambda derived_job, _client: (
             derived_capabilities.append(derived_job.capability.name) or [str(score_id)]
@@ -156,4 +163,4 @@ def test_understand_runs_all_stages_without_browser_orchestration(monkeypatch):
     # audio so it can measure pulse evidence (BPM/beats/downbeats) from the
     # recording rather than relying on transcription placeholders.
     assert analyzed_inputs == [midi_id, original_audio_id]
-    assert derived_capabilities == ["analyze", "score"]
+    assert derived_capabilities == ["audio_structure", "analyze", "score"]

@@ -63,10 +63,13 @@ class TestCleanup:
         assert report["kept_notes"] == 1
 
     def test_merges_overlapping_same_pitch(self):
+        # The overlapping note's end is clamped to the first note's end by MIDI
+        # serialization, but it stays long enough to survive the short-note
+        # filter so the same-pitch merge is exercised.
         midi = _make_midi(
             [
-                (60, 0.0, 0.3, 64),
-                (60, 0.25, 0.5, 80),  # overlaps
+                (60, 0.0, 0.5, 64),
+                (60, 0.25, 0.75, 80),  # overlaps
             ]
         )
         result, report = _clean_midi(midi)
@@ -89,8 +92,10 @@ class TestCleanup:
             if inst.is_drum:
                 continue
             for note in inst.notes:
-                assert note.start == 0.03
-                assert note.end == 0.47
+                # MIDI tick serialization shifts times by < 0.002s; the timing
+                # must not be snapped to a musical grid.
+                assert abs(note.start - 0.03) < 0.002
+                assert abs(note.end - 0.47) < 0.002
 
     def test_drums_untouched(self):
         midi = pretty_midi.PrettyMIDI()

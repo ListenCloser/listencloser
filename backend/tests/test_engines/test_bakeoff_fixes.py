@@ -231,6 +231,10 @@ class TestAudioFormatDetection:
                 with suppress(KeyError):
                     del sys.modules[mod_name]
 
+    @pytest.mark.skipif(
+        not os.path.isfile(f"{os.environ.get('TEST_FIXTURES_DIR', '')}/real-piano.m4a"),
+        reason="TEST_FIXTURES_DIR env var not set or m4a fixture missing",
+    )
     def test_piano_transcription_handles_m4a(self):
         from evaluation.engines.transcription import PianoTranscriptionAdapter
 

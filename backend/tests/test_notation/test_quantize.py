@@ -73,18 +73,19 @@ class TestAdaptiveQuantize:
     def test_successful_run_sets_metrical_grid_mode(self):
         midi = _make_midi([(60, 0.0, 0.5), (64, 0.5, 1.0)])
         beats = [0.0, 0.5, 1.0]
-        downbeats = [0.0]
+        downbeats = [0.0, 1.0]
         grid = build_metrical_grid(beats, downbeats)
         _result_midi, report = adaptive_quantize(midi, grid)
         assert report["timing_mode"] == "metrical_grid"
         assert len(report["grid_selections"]) > 0
 
     def test_no_meter_no_grid(self):
+        """Beats alone cannot establish a meter, so timing is preserved (no grid)."""
         midi = _make_midi([(60, 0.0, 0.5)])
         beats = [0.0, 0.5]
         grid = build_metrical_grid(beats)
         _result_midi, report = adaptive_quantize(midi, grid)
-        assert report["timing_mode"] == "preserved_no_grid"
+        assert report["timing_mode"] == "preserved_no_meter"
 
     def test_all_notes_in_measure_same_grid(self):
         midi = _make_midi(
@@ -104,25 +105,32 @@ class TestAdaptiveQuantize:
         assert len(selections) == 1
 
     def test_different_measures_different_grids(self):
+        """Different measures can select different subdivision grids."""
+        # 4/4 meter (downbeats every 2.0s, beats every 0.5s).
+        # Measure 0 is quarter-note based; measure 1 is eighth-note based.
         notes = [
-            (60, 0.0, 1.0),
-            (64, 1.0, 2.0),
-            (67, 2.01, 2.25),
-            (65, 2.25, 2.50),
-            (69, 2.50, 2.75),
-            (72, 2.75, 3.0),
-            (60, 3.0, 3.25),
-            (64, 3.25, 3.50),
-            (67, 3.50, 3.75),
+            (60, 0.0, 0.5),
+            (64, 0.5, 1.0),
+            (67, 1.0, 1.5),
+            (65, 1.5, 2.0),
+            (60, 2.0, 2.25),
+            (64, 2.25, 2.5),
+            (67, 2.5, 2.75),
+            (65, 2.75, 3.0),
+            (69, 3.0, 3.25),
+            (72, 3.25, 3.5),
+            (70, 3.5, 3.75),
             (65, 3.75, 4.0),
         ]
         midi = _make_midi(notes)
-        beats = [b / 4.0 for b in range(17)]
+        beats = [b / 2.0 for b in range(9)]
         downbeats = [0.0, 2.0, 4.0]
         grid = build_metrical_grid(beats, downbeats)
         _result_midi, report = adaptive_quantize(midi, grid)
+        assert report["timing_mode"] == "metrical_grid"
         selections = report["grid_selections"]
         assert len(selections) >= 2
+        assert {s["grid_name"] for s in selections} >= {"quarter", "eighth"}
 
     def test_compound_meter_preserved(self):
         midi = _make_midi([(60, 0.0, 0.33), (64, 0.33, 0.66), (67, 0.66, 1.0)])
