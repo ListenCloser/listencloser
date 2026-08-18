@@ -20,6 +20,24 @@ def adaptive_quantize(
     midi_bytes: bytes,
     grid: MetricalGrid,
 ) -> tuple[bytes, dict[str, Any]]:
+    """Quantize note endpoints independently against their containing measure.
+
+    Two-pass design:
+
+    Pass 1 selects a grid for every trustworthy measure before mutating any note.
+    A measure's grid is chosen from the onsets of the notes that begin there (and
+    the releases that end inside it); a release that lies in a later measure is
+    never scored against the onset measure's bounded grid, so sustained notes do
+    not bias the subdivision of the measure they begin in.
+
+    Pass 2 quantizes each temporal endpoint using the grid of the measure that
+    contains it. An endpoint that lands exactly on a measure boundary is snapped
+    to that boundary. Endpoints outside a trustworthy measured region are
+    preserved rather than mapped to an unrelated measure.
+
+    The quantizer still outputs one logical note per input note (start < end, full
+    musical sustain preserved); barline ties are owned downstream.
+    """
     import io
 
     import pretty_midi
@@ -33,25 +51,45 @@ def adaptive_quantize(
     if grid.inferred_meter is None or not grid.measure_boundaries:
         return _fail_honest(midi, report, "preserved_no_meter")
 
-    measures = _collect_notes_by_measure(midi, grid)
-    selections: list[dict[str, Any]] = []
+    all_notes = _collect_all_notes(midi, grid)
+    beats_per_measure = grid.inferred_meter[0]
 
-    for m_idx, notes in enumerate(measures):
-        if not notes:
-            continue
+    # Pass 1: select a grid for every usable measure before mutating any note.
+    selections: list[dict[str, Any]] = []
+    measure_quantizers: list[Any | None] = []
+    for m_idx in range(len(grid.measure_boundaries)):
         m_start = grid.measure_boundaries[m_idx]
         m_end = measure_boundary_end(m_idx, grid.measure_boundaries, grid.beats)
-        bpm = grid.inferred_meter[0]
-        sel = _select_grid_for_measure(notes, m_start, m_end, bpm, m_idx)
+        onset_notes = [qn for qn in all_notes if _measure_index(qn.start_t, grid) == m_idx]
+        if not onset_notes:
+            measure_quantizers.append(None)
+            continue
+        sel = _select_grid_for_measure(onset_notes, m_start, m_end, beats_per_measure, m_idx)
         selections.append(sel)
-        quantize_fn = _build_quantizer_from_step(m_start, m_end, sel["step_seconds"])
-        for qn in notes:
-            new_start = quantize_fn(qn.start_t)
-            new_end = quantize_fn(qn.end_t)
-            if new_end <= new_start:
-                new_end = new_start + _min_duration(grid)
-            qn.note.start = new_start
-            qn.note.end = new_end
+        measure_quantizers.append(_build_quantizer_from_step(m_start, m_end, sel["step_seconds"]))
+
+    # Pass 2: quantize temporal endpoints independently.
+    for qn in all_notes:
+        start_midx = _measure_index(qn.start_t, grid)
+        end_midx = _measure_index(qn.end_t, grid)
+
+        new_start = qn.start_t
+        if start_midx is not None and measure_quantizers[start_midx] is not None:
+            new_start = measure_quantizers[start_midx](qn.start_t)
+
+        boundary = _snap_to_measure_boundary(qn.end_t, grid.measure_boundaries)
+        if boundary is not None:
+            new_end = boundary
+        elif end_midx is not None and measure_quantizers[end_midx] is not None:
+            new_end = measure_quantizers[end_midx](qn.end_t)
+        else:
+            new_end = qn.end_t
+
+        if new_end <= new_start:
+            new_end = new_start + _min_duration(grid)
+
+        qn.note.start = new_start
+        qn.note.end = new_end
 
     report["timing_mode"] = "metrical_grid"
     report["grid_selections"] = selections
@@ -104,16 +142,14 @@ class _QNote:
         self.end_t = float(note.end)
 
 
-def _collect_notes_by_measure(midi: Any, grid: MetricalGrid) -> list[list[_QNote]]:
-    measures: list[list[_QNote]] = [[] for _ in grid.measure_boundaries]
+def _collect_all_notes(midi: Any, grid: MetricalGrid) -> list[_QNote]:
+    notes: list[_QNote] = []
     for instrument in midi.instruments:
         if instrument.is_drum:
             continue
         for note in instrument.notes:
-            m_idx = _measure_index(note.start, grid)
-            if 0 <= m_idx < len(measures):
-                measures[m_idx].append(_QNote(note))
-    return measures
+            notes.append(_QNote(note))
+    return notes
 
 
 def _select_grid_for_measure(
@@ -143,7 +179,7 @@ def _select_grid_for_measure(
 
     for name, step in candidates:
         fn = _build_quantizer_from_step(m_start, m_end, step)
-        cost, movement, changed = _grid_cost_for_notes(notes, fn, name)
+        cost, movement, changed = _grid_cost_for_notes(notes, fn, name, m_start, m_end)
         if cost < best_cost:
             best_cost = cost
             best_name = name
@@ -180,17 +216,26 @@ def _grid_cost_for_notes(
     notes: list[_QNote],
     quantize_fn,
     grid_name: str,
+    m_start: float,
+    m_end: float,
 ) -> tuple[float, dict[str, float], int]:
     onset_errs: list[float] = []
     changed = 0
     for n in notes:
         o = quantize_fn(n.start_t)
-        e = quantize_fn(n.end_t)
-        if e <= o:
-            return float("inf"), {"avg": 0, "max": 0}, 0
-        if abs(o - n.start_t) > 1e-9 or abs(e - n.end_t) > 1e-9:
+        if abs(o - n.start_t) > 1e-9:
             changed += 1
         onset_errs.append(abs(o - n.start_t))
+        # A release is scored against this measure only when it lies inside it.
+        # Releases in a later measure (or before the measure) must not bias the
+        # onset measure's grid selection toward an incorrect subdivision.
+        if m_start < n.end_t < m_end:
+            e = quantize_fn(n.end_t)
+            if e <= o:
+                return float("inf"), {"avg": 0, "max": 0}, 0
+            if abs(e - n.end_t) > 1e-9:
+                changed += 1
+            onset_errs.append(abs(e - n.end_t))
     avg_onset = float(np.mean(onset_errs)) if onset_errs else 0.0
     max_onset = float(np.max(onset_errs)) if onset_errs else 0.0
     complexity = _complexity_penalty(grid_name, len(notes))
@@ -226,12 +271,27 @@ def _build_quantizer_from_step(m_start: float, m_end: float, step: float):
     return fn
 
 
-def _measure_index(onset: float, grid: MetricalGrid) -> int:
+def _measure_index(onset: float, grid: MetricalGrid) -> int | None:
+    """Return the measure containing ``onset``, or ``None`` when it lies outside
+    every known measure (before the first boundary or past the last inferred
+    measure). Callers must treat ``None`` as "outside a trustworthy metrical
+    region" and preserve the endpoint rather than mapping it to measure 0.
+    """
     for i, m_start in enumerate(grid.measure_boundaries):
         next_start = measure_boundary_end(i, grid.measure_boundaries, grid.beats)
         if m_start <= onset < next_start:
             return i
-    return 0
+    return None
+
+
+def _snap_to_measure_boundary(
+    value: float, boundaries: list[float], eps: float = 1e-6
+) -> float | None:
+    """Snap a value to an exact measure boundary when it lands on one."""
+    for b in boundaries:
+        if abs(value - b) <= eps:
+            return b
+    return None
 
 
 def _min_duration(grid: MetricalGrid) -> float:
