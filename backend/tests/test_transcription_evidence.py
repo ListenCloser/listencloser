@@ -11,6 +11,7 @@ FIXTURE_M4A = REPO_ROOT / "tests" / "fixtures" / "real-piano.m4a"
 MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
 
 
+@pytest.mark.integration
 def test_transcribe_preserves_model_note_events():
     pytest.importorskip("basic_pitch", reason="basic-pitch not installed")
     import music_features as mf

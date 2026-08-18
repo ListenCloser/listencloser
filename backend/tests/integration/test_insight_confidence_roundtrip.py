@@ -23,7 +23,7 @@ from domain.repositories import (
 
 OWNER_ID = "00000000-0000-4000-8000-000000000101"
 
-pytestmark = pytest.mark.integration
+pytestmark = pytest.mark.real_stack
 
 
 def _seed_version(sb) -> Version:

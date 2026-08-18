@@ -27,10 +27,17 @@ def _find_manifest() -> Path | None:
     return None
 
 
+def _skip_without_manifest() -> None:
+    pytest.skip(
+        "external handoff fixture manifest not present "
+        f"(looked in {', '.join(str(c) for c in MANIFEST_CANDIDATES)})"
+    )
+
+
 def test_fixture_manifest_valid():
     manifest_path = _find_manifest()
     if manifest_path is None:
-        pytest.skip("fixture manifest not found at any expected location")
+        _skip_without_manifest()
 
     manifest = json.loads(manifest_path.read_text())
     assert manifest["version"] == "1.0"
@@ -44,7 +51,7 @@ def test_fixture_manifest_valid():
 def test_all_fixture_ids_unique():
     manifest_path = _find_manifest()
     if manifest_path is None:
-        pytest.skip("fixture manifest not found at any expected location")
+        _skip_without_manifest()
 
     manifest = json.loads(manifest_path.read_text())
     ids = [f["id"] for f in manifest["fixtures"]]
@@ -54,7 +61,7 @@ def test_all_fixture_ids_unique():
 def test_all_fixtures_have_valid_types():
     manifest_path = _find_manifest()
     if manifest_path is None:
-        pytest.skip("fixture manifest not found at any expected location")
+        _skip_without_manifest()
 
     manifest = json.loads(manifest_path.read_text())
     for f in manifest["fixtures"]:
@@ -64,7 +71,7 @@ def test_all_fixtures_have_valid_types():
 def test_manifest_has_required_sections():
     manifest_path = _find_manifest()
     if manifest_path is None:
-        pytest.skip("fixture manifest not found at any expected location")
+        _skip_without_manifest()
 
     manifest = json.loads(manifest_path.read_text())
     for key in ("version", "fixtures"):

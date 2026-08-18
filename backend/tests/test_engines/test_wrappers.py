@@ -10,10 +10,27 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-sys.modules["basic_pitch"] = MagicMock()
-sys.modules["basic_pitch.inference"] = MagicMock()
-sys.modules["soundfile"] = MagicMock()
-sys.modules["librosa"] = MagicMock()
+_MOCKED_MODULES = ["basic_pitch", "basic_pitch.inference", "soundfile", "librosa"]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _mock_music_modules():
+    """Scope the music-module mocks to this module.
+
+    Previously the mocks were installed at module import time and leaked into
+    every other test file in the same process (replacing ``basic_pitch`` with a
+    MagicMock globally), which broke the real-model integration tests. The real
+    modules are restored after this module finishes.
+    """
+    saved = {name: sys.modules.get(name) for name in _MOCKED_MODULES}
+    for name in _MOCKED_MODULES:
+        sys.modules.pop(name, None)
+        sys.modules[name] = MagicMock()
+    yield
+    for name in _MOCKED_MODULES:
+        sys.modules.pop(name, None)
+        if saved[name] is not None:
+            sys.modules[name] = saved[name]
 
 
 class TestTranscriptionWrapper:
