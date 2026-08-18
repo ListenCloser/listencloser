@@ -1,17 +1,19 @@
 # Backend Test Tiers
 
 The backend suite is split into explicit tiers so it is obvious which tests run on
-every PR, which need real ML models, which need a live stack, and why anything is
-skipped or deselected. Tier membership is enforced with pytest markers; the default
-`addopts` deselects everything outside the required unit tier.
+every PR, which need real ML models, which need a live database, which need a real
+external provider, and why anything is skipped or deselected. Tier membership is
+enforced with pytest markers; the default `addopts` deselects everything outside the
+required unit tier.
 
 ## Tiers
 
-| Tier | Marker | Purpose | Command | Dependencies | When it runs |
+| Tier | Marker | Purpose | Command | Dependencies | Actual execution path |
 |---|---|---|---|---|---|
-| **UNIT_REQUIRED** | (none) | Deterministic, offline unit tests. No model downloads, no external services, no silent skips. | `pytest backend/tests/ -m "not integration and not real_stack and not benchmark"` | Python + `backend/requirements.txt` | Every PR (CI `ci.yml`) |
-| **INTEGRATION_ML** | `integration` | Real ML model inference (Basic Pitch, Transkun, piano-transcription) against real audio. | `pytest backend/tests/ -m integration` | `basic-pitch`, `transkun`, `pytorch`, real audio fixtures (`tests/fixtures/*.m4a`) | Intentional runs only; not part of the required unit suite |
-| **REAL_STACK** | `real_stack` | Live Supabase/Postgres or real external services (RLS policies, pipeline smoke, real LLM provider). | `pytest backend/tests/ -m real_stack` | Live Supabase (`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`) or live LLM provider env | CI `database-integration.yml` (Supabase); opt-in otherwise |
+| **UNIT_REQUIRED** | (none) | Deterministic, offline unit tests. No model downloads, no external services, no silent skips. | `pytest backend/tests/ -m "not integration and not real_stack and not benchmark and not external_provider"` | Python + `backend/requirements.txt` | Every PR (CI `ci.yml`, step "Run required Python unit tests") |
+| **INTEGRATION_ML** | `integration` | Real ML model inference (Basic Pitch, Transkun, piano-transcription) against real audio. | `pytest backend/tests/ -m integration` | `basic-pitch`, `transkun`, `pytorch`, real audio fixtures (`tests/fixtures/*.m4a`) | Intentional runs only (no CI runner); not part of the required unit suite |
+| **REAL_STACK** | `real_stack` | Live local/remote Supabase/Postgres: RLS policies, domain persistence, pipeline smoke. | `pytest backend/tests/ -m real_stack` | Live Supabase (`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY`) | CI `database-integration.yml` (starts local Supabase via `supabase start` + `supabase db reset`, then runs `-m real_stack` over the whole backend suite); opt-in locally |
+| **EXTERNAL_PROVIDER** | `external_provider` | Real external LLM/provider smoke (opt-in). Requires `ASK_REAL_PROVIDER=1` and configured `LLM_*` env. | `pytest backend/tests/ -m external_provider` | Live LLM provider (`LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL`) | Intentional/local runs only; no CI job yet (no secret-backed runner). Not part of the database `real_stack` tier |
 | **EVALUATION_BENCHMARK** | `benchmark` | Evaluation benchmark runs kept out of required unit semantics. | `pytest backend/tests/ -m benchmark` | Evaluation harness + models/fixtures | Intentional runs only |
 | **OPTIONAL_DEPENDENCY** | (skip) | Tests that skip only when a clearly named optional dependency or external artifact is absent; the skip reason names the dependency. | Same as UNIT_REQUIRED; skips surface in the run summary | Optional external artifacts (e.g. `hello-ai-autonomous-handoff` fixture manifest) | Every PR; skipped when the optional artifact is absent |
 | **LEGACY_DELETE** | n/a | Tests that no longer protect any current behavior. | n/a | n/a | Removed (none currently) |
@@ -22,12 +24,13 @@ Registered in `backend/pytest.ini`:
 
 - `integration` — real-model inference tests. Excluded from the default unit suite.
 - `real_stack` — live database/external-service tests. Excluded from the default unit suite.
+- `external_provider` — real external LLM/provider smoke. Excluded from the default unit suite.
 - `benchmark` — evaluation benchmark runs. Excluded from the default unit suite.
 
 The default `addopts` is:
 
 ```
-addopts = -m "not integration and not real_stack and not benchmark"
+addopts = -m "not integration and not real_stack and not benchmark and not external_provider"
 ```
 
 ## Current deselected tests by tier
@@ -43,12 +46,15 @@ addopts = -m "not integration and not real_stack and not benchmark"
   `test_piano_transcription_output_time_aligned`, `test_basic_pitch_handles_m4a`,
   `test_ineligible_clip_still_runs_inference`
 
-**REAL_STACK** (`-m real_stack`):
+**REAL_STACK** (`-m real_stack`, run by CI `database-integration.yml`):
 
 - `backend/tests/integration/test_analyze_truthfulness.py` (3 tests)
 - `backend/tests/integration/test_insight_confidence_roundtrip.py` (1 test)
 - `backend/tests/integration/test_pipeline_smoke.py` (1 test)
 - `backend/tests/test_rls_domain.py` (19 tests, skip if `SUPABASE_URL` unset)
+
+**EXTERNAL_PROVIDER** (`-m external_provider`):
+
 - `backend/tests/test_ask_smoke.py` (1 test, skip unless `ASK_REAL_PROVIDER=1`)
 
 ## Remaining skips in the default suite
@@ -69,21 +75,25 @@ There are no `skip`/`xfail` markers hiding genuine failures.
 
 ## Current verification snapshot
 
-Default unit suite (`-m "not integration and not real_stack and not benchmark"`):
+Default unit suite (`-m "not integration and not real_stack and not benchmark and not external_provider"`):
 
-- 484 passed, 0 skipped, 35 deselected
-- 1 failure: `test_notation/test_quantize.py::TestAdaptiveQuantize::test_sustained_cross_measure_note` —
-  a genuine production bug (sustained notes are truncated at measure boundaries), not a test-tier issue.
-  It must be fixed in the notation quantizer, not masked here.
+- 497 passed, 0 skipped, 35 deselected, 0 failed
 
-Integration suite (`-m integration`):
+Integration suite (`-m integration`, with `TEST_FIXTURES_DIR` pointing at `tests/fixtures`):
 
-- 6 passed, 4 skipped (skipif guards for `TEST_FIXTURES_DIR` / missing fixture), 0 failed
+- 10 passed, 0 skipped, 0 failed
 
-Real-stack suite (`-m real_stack`):
+Real-stack suite (`-m real_stack`) against a fresh local Supabase
+(`supabase start` + `supabase db reset`, then run the whole backend suite with `-m real_stack`):
 
-- 25 skipped when `SUPABASE_URL` / `ASK_REAL_PROVIDER` env vars are absent (they run in CI's
-  `database-integration` job, which provides a live Supabase instance)
+- 24 passed, 0 skipped, 0 failed
+- Without `SUPABASE_URL` env vars the same tests skip (they run in CI's
+  `database-integration` job, which starts a local Supabase and applies every migration
+  before running `-m real_stack` over the whole backend suite)
+
+External-provider suite (`-m external_provider`) locally without `ASK_REAL_PROVIDER`:
+
+- 1 skipped (explicitly classified as EXTERNAL_PROVIDER; not part of database CI)
 
 Note: `backend/tests/test_engines/test_wrappers.py` scopes its `basic_pitch`/`librosa`/`soundfile`
 mocks to its own module and restores the real modules afterwards. This prevents the mocks from

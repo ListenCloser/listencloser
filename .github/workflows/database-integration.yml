@@ -7,6 +7,7 @@ on:
       - 'backend/domain/**'
       - 'backend/music_features.py'
       - 'backend/tests/integration/**'
+      - 'backend/tests/test_rls_domain.py'
       - 'scripts/verify_database.sql'
       - '.github/workflows/database-integration.yml'
   push:
@@ -16,6 +17,7 @@ on:
       - 'backend/domain/**'
       - 'backend/music_features.py'
       - 'backend/tests/integration/**'
+      - 'backend/tests/test_rls_domain.py'
       - 'scripts/verify_database.sql'
 
 concurrency:
@@ -57,7 +59,7 @@ jobs:
           export SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
           export SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
           export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
-          python -m pytest backend/tests/integration -m real_stack -v
+          python -m pytest backend/tests/ -m real_stack -v
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup || true

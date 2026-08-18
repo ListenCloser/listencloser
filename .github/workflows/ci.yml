@@ -40,4 +40,4 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
           pip install -r backend/requirements.txt
-          python -m pytest backend/tests/ -m "not integration and not real_stack and not benchmark" -v
+          python -m pytest backend/tests/ -m "not integration and not real_stack and not benchmark and not external_provider" -v

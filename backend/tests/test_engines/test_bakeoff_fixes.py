@@ -399,7 +399,7 @@ class TestEligibilityAfterInference:
             pytest.skip("basic_pitch not installed")
 
         piano_simple = (
-            Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "piano-simple.m4a"
+            Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "piano-simple.m4a"
         )
         # Create a clip with audio but no reference_midi
         clip = (

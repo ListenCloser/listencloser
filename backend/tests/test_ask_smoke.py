@@ -18,7 +18,7 @@ from ask.grounding import build_grounded_prompts
 from ask.providers import build_provider
 
 pytestmark = [
-    pytest.mark.real_stack,
+    pytest.mark.external_provider,
     pytest.mark.skipif(
         os.environ.get("ASK_REAL_PROVIDER") != "1",
         reason="ASK_REAL_PROVIDER is not set to 1",
