@@ -5,8 +5,15 @@ on:
 
 # ONE-TIME ONLY (2026-08-18): corrects the production migration history after
 # the 20260716/20260728 migration-file rename. Run this once, BEFORE the first
-# steady-state deploy of the reconcile branch. It self-guards: if the legacy
-# versions are no longer present in the remote history it exits as a no-op.
+# steady-state deploy of the reconcile branch (deploy-backend.yml is
+# manual-only during the transition, so this must be run manually by an owner).
+#
+# Guard behavior (deterministic, JSON-based — no reliance on `migration list`
+# table formatting or backtick-wrapping):
+#   - both 20260716 AND 20260728 present -> run the correction
+#   - neither present                     -> clean no-op (already corrected)
+#   - exactly one present                 -> FAIL with explicit diagnostic,
+#                                            require review (do not guess)
 #
 # After this transition DELETE this workflow. Steady-state deploys
 # (deploy-backend.yml) must never call `migration repair` or `--include-all`.
@@ -31,14 +38,41 @@ jobs:
         run: |
           set -euo pipefail
           supabase link --project-ref cijhpddqvvzyzfzmkdnn
-          if supabase migration list --linked 2>/dev/null | grep -q '`20260716`\|`20260728`'; then
-            echo "Legacy history versions 20260716/20260728 present; performing one-time correction."
+
+          # Deterministic remote-history guard: query the Management API
+          # (read-only SQL) and match exact JSON version tokens, so we never
+          # depend on how `supabase migration list --linked` renders its table.
+          HISTORY_JSON="$(curl -fsS -X POST \
+            "https://api.supabase.com/v1/projects/cijhpddqvvzyzfzmkdnn/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"select version from supabase_migrations.schema_migrations order by version"}')"
+          case "$HISTORY_JSON" in
+            '['*) : ;; # expected: JSON array
+            *) echo "FATAL: unexpected Management API response: $HISTORY_JSON"; exit 1 ;;
+          esac
+
+          HAS_16='no'
+          HAS_28='no'
+          case "$HISTORY_JSON" in
+            *'"20260716"'*) HAS_16='yes' ;;
+          esac
+          case "$HISTORY_JSON" in
+            *'"20260728"'*) HAS_28='yes' ;;
+          esac
+
+          if [ "$HAS_16" = 'yes' ] && [ "$HAS_28" = 'yes' ]; then
+            echo "Legacy history versions 20260716 AND 20260728 present; performing one-time correction."
             supabase migration repair --status reverted 20260716 20260728 --linked --password "$SUPABASE_DB_PASSWORD"
             # --include-all is required exactly once here to apply the renamed
             # files (202607160001 / 202607280001) and the reconcile migration
             # (202608180001) which sort before the last remote migration.
             supabase db push --linked --password "$SUPABASE_DB_PASSWORD" --include-all
             echo "Correction applied. Verify: jobs RLS = owner select only; models absent; 35 public+storage policies."
+          elif [ "$HAS_16" = 'no' ] && [ "$HAS_28" = 'no' ]; then
+            echo "Legacy history versions 20260716/20260728 not present; history already corrected. Clean no-op."
           else
-            echo "Legacy history versions 20260716/20260728 not present; history already corrected. No-op."
+            echo "FATAL: PARTIAL legacy history state — 20260716 present: $HAS_16, 20260728 present: $HAS_28."
+            echo "History is in an unexpected partial state. Stopping without any change; require owner review."
+            exit 1
           fi
