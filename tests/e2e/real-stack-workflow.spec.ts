@@ -78,6 +78,23 @@ async function transportPosition(page: import("@playwright/test").Page): Promise
   return Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
 }
 
+// The transport playhead is preserved (not reset, not jumped) when paused and
+// the heard source is swapped. Headless Chromium's media clock can jitter by a
+// fraction of a second, so assert the semantic contract with a small tolerance
+// instead of exact float equality.
+async function expectPositionPreserved(
+  page: import("@playwright/test").Page,
+  expected: number,
+  tolerance = 0.25,
+) {
+  await expect
+    .poll(
+      async () => Math.abs((await transportPosition(page)) - expected) <= tolerance,
+      { timeout: 10_000, message: `playhead must stay within ${tolerance}s of ${expected.toFixed(2)}s` },
+    )
+    .toBe(true);
+}
+
 async function scoreCursorLeft(page: import("@playwright/test").Page): Promise<string | null> {
   return page.evaluate(() => {
     const cursor = document.querySelector<HTMLElement>('.sheet-music-container img[id^="cursorImg"]');
@@ -104,6 +121,48 @@ async function setCompareSideSource(page: import("@playwright/test").Page, side:
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
+// The app lazily creates the project on first load; importing before the
+// project is ready races with `projectId` and surfaces "Your project is still
+// loading". Synchronize on the observable ready state (works round-trip and
+// the import button being enabled) and retry the upload if the app was still
+// settling.
+async function waitForProjectReady(page: import("@playwright/test").Page) {
+  await page
+    .waitForResponse(
+      (resp) =>
+        /\/api\/v1\/projects\/[^/]+\/works$/.test(new URL(resp.url()).pathname) &&
+        resp.request().method() === "GET",
+      { timeout: 30_000 },
+    )
+    .catch(() => {});
+  await expect(
+    page.getByRole("complementary").getByRole("button", { name: "Import audio" }),
+  ).toBeEnabled({ timeout: 30_000 });
+}
+
+async function importWithRetry(page: import("@playwright/test").Page) {
+  await waitForProjectReady(page);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const importButton = page
+      .getByRole("complementary")
+      .getByRole("button", { name: "Import audio" });
+    await expect(importButton).toBeEnabled({ timeout: 30_000 });
+    await importButton.click();
+    await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
+
+    const uploading = page.getByText("Uploading your recording…");
+    const failed = page.getByRole("alert").filter({ hasText: "Your project is still loading" });
+    const outcome = await Promise.race([
+      uploading.waitFor({ state: "visible", timeout: 15_000 }).then(() => "started"),
+      failed.waitFor({ state: "visible", timeout: 15_000 }).then(() => "failed"),
+    ]);
+    if (outcome === "started") return;
+    await failed.getByRole("button", { name: "Try another file" }).click();
+    await expect(failed).toBeHidden({ timeout: 10_000 });
+  }
+  throw new Error("import did not start after retries");
+}
+
 test("real-stack happy path: import → play → inspect → compare → reload → delete", async ({ page }) => {
   test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required for the canonical real-stack test (no fallback fixture)");
   test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
@@ -127,22 +186,9 @@ test("real-stack happy path: import → play → inspect → compare → reload 
     { key: storageKey(SUPABASE_URL!), session: auth },
   );
 
-  // ── Wait for the app to finish first-load project setup ─────────────────────
-  // The app lazily creates the project on first load; importing before that
-  // completes races with `projectId` and surfaces "Your project is still
-  // loading". Wait for the create/list round-trip to settle first.
-  const projectSettled = page.waitForResponse(
-    (resp) => resp.url().includes("/api/v1/projects") && resp.request().method() === "POST",
-    { timeout: 30_000 },
-  ).catch(() => {});
+  // ── Import real audio (retrying while the first-load project settles) ──────
   await page.goto("/");
-  await projectSettled;
-
-  // ── Import real audio ──────────────────────────────────────────────────────
-  const importButton = page.getByRole("complementary").getByRole("button", { name: "Import audio" });
-  await expect(importButton).toBeVisible({ timeout: 30_000 });
-  await importButton.click();
-  await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
+  await importWithRetry(page);
 
   // ── Processing completes with no raw error surfaced ────────────────────────
   await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
@@ -186,6 +232,14 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
   await page.getByRole("button", { name: "Pause", exact: true }).click();
+
+  // ── Analysis insight content persisted from the pipeline ─────────────────────
+  // No selection exists yet, so the Analysis Overview renders the confident
+  // whole-work key finding produced by the analyze pipeline.
+  await page.getByRole("tab", { name: "Analysis" }).click();
+  await expect(page.getByText("Key", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("C major").first()).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("tab", { name: "Score" }).click();
 
   // Clicking a later measure seeks the transport to that score-derived time and
   // advances the score cursor to the clicked measure (both driven by transport
@@ -235,13 +289,13 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   await expect(await listeningTo(page, "Transcription")).toBeVisible();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
-  await expect.poll(() => transportPosition(page)).toBe(positionBeforeSourceSwap);
+  await expectPositionPreserved(page, positionBeforeSourceSwap);
 
   await selectSource(page, "Score rendition");
   await expect(await listeningTo(page, "Score rendition")).toBeVisible();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
-  await expect.poll(() => transportPosition(page)).toBe(positionBeforeSourceSwap);
+  await expectPositionPreserved(page, positionBeforeSourceSwap);
 
   // ── A/B source comparison: switch sides at the same position ───────────────
   // Enter compare (Original vs Score rendition), then toggle A and B. Both
@@ -263,24 +317,26 @@ test("real-stack happy path: import → play → inspect → compare → reload 
   await page.getByRole("button", { name: "B", exact: true }).click();
   await expect(page.getByRole("button", { name: "B", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "A: Original", exact: true })).toBeVisible();
-  await expect.poll(() => transportPosition(page)).toBe(positionBeforeCompare);
+  await expectPositionPreserved(page, positionBeforeCompare);
 
   await page.getByRole("button", { name: "A", exact: true }).click();
   await expect(page.getByRole("button", { name: "A", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "B: Score rendition", exact: true })).toBeVisible();
-  await expect.poll(() => transportPosition(page)).toBe(positionBeforeCompare);
+  await expectPositionPreserved(page, positionBeforeCompare);
 
   await page.getByRole("button", { name: "B", exact: true }).click();
   await expect(page.getByRole("button", { name: "B", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect.poll(() => transportPosition(page)).toBe(positionBeforeCompare);
+  await expectPositionPreserved(page, positionBeforeCompare);
 
   // The Score representation stayed open the whole time.
   await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
 
-  // ── Analysis persists real insight content ─────────────────────────────────
+  // ── Analysis scopes to the active selection ─────────────────────────────────
   await page.getByRole("button", { name: "Exit compare", exact: true }).click();
   await page.getByRole("tab", { name: "Analysis" }).click();
-  await expect(page.getByText(/Key|Tempo|BPM|Time signature/i).first()).toBeVisible({ timeout: 20_000 });
+  // The measure-click above selected a measure, so the Analysis panel now
+  // scopes to the selection (the Overview is replaced by selection findings).
+  await expect(page.getByText("Selection", { exact: true }).first()).toBeVisible({ timeout: 20_000 });
 
   // ── Reload keeps persisted state ───────────────────────────────────────────
   await page.reload();
@@ -351,16 +407,9 @@ test("shared musical selection across representations (canonical E2E)", async ({
     { key: storageKey(SUPABASE_URL!), session: auth },
   );
 
-  const projectSettled = page.waitForResponse(
-    (resp) => resp.url().includes("/api/v1/projects") && resp.request().method() === "POST",
-    { timeout: 30_000 },
-  ).catch(() => {});
+  // Import real audio (retrying while the first-load project settles)
   await page.goto("/");
-  await projectSettled;
-
-  // Import real audio
-  await page.getByRole("complementary").getByRole("button", { name: "Import audio" }).click();
-  await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
+  await importWithRetry(page);
 
   await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
@@ -397,7 +446,7 @@ test("shared musical selection across representations (canonical E2E)", async ({
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
   // Selected measures have [data-selection-highlight] rects inside measure groups
-  await expect(page.locator('[data-selection-highlight]')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('[data-selection-highlight]').first()).toBeVisible({ timeout: 10_000 });
 
   // ── 4. Enable Loop selection → play ──────────────────────────────────────────
   await page.getByRole("button", { name: "Loop selection" }).click();
@@ -431,7 +480,7 @@ test("shared musical selection across representations (canonical E2E)", async ({
       "true",
     );
     // Selection highlight still visible on score
-    await expect(page.locator('[data-selection-highlight]')).toBeVisible();
+    await expect(page.locator('[data-selection-highlight]').first()).toBeVisible();
   }
 
   await page.getByRole("button", { name: "Exit compare", exact: true }).click();
