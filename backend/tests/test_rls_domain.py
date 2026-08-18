@@ -61,7 +61,13 @@ def _insert_via_user(token: str, table: str, data: dict | list):
 
 
 def _update_via_user(token: str, table: str, match: dict, patch: dict):
-    """Update rows as an authenticated user; returns data or None on RLS block."""
+    """Update rows as an authenticated user; returns data or None on RLS block.
+
+    PostgREST returns an empty array ``[]`` (not an error) when the RLS
+    ``using`` clause filters a row out of an UPDATE, so callers should treat
+    ``not result`` as blocked. An INSERT ``with check`` violation, by contrast,
+    raises and surfaces as ``None``.
+    """
     try:
         client = _client_as_user(token)
         q = client.table(table).update(patch)
@@ -74,7 +80,11 @@ def _update_via_user(token: str, table: str, match: dict, patch: dict):
 
 
 def _delete_via_user(token: str, table: str, match: dict):
-    """Delete rows as an authenticated user; returns data or None on RLS block."""
+    """Delete rows as an authenticated user; returns data or None on RLS block.
+
+    Like UPDATE, a DELETE filtered out by the RLS ``using`` clause returns an
+    empty array ``[]`` rather than raising.
+    """
     try:
         client = _client_as_user(token)
         q = client.table(table).delete()
@@ -310,7 +320,7 @@ def test_cannot_update_foreign_project(user_a, user_b):
         match={"id": pid},
         patch={"name": "Hijacked"},
     )
-    assert result is None, "RLS should block UPDATE on another user's project"
+    assert not result, "RLS should block UPDATE on another user's project"
 
     # Project name unchanged
     row = service.table("projects").select("name").eq("id", pid).single().execute()
@@ -338,7 +348,7 @@ def test_cannot_update_foreign_work(user_a, user_b):
         match={"id": wid},
         patch={"title": "Hijacked-Work"},
     )
-    assert result is None, "RLS should block UPDATE on another user's work"
+    assert not result, "RLS should block UPDATE on another user's work"
 
     row = service.table("works").select("title").eq("id", wid).single().execute()
     assert row.data["title"] == "Original-Work"
@@ -363,7 +373,7 @@ def test_cannot_delete_foreign_project(user_a, user_b):
         "projects",
         match={"id": pid},
     )
-    assert result is None, "RLS should block DELETE on another user's project"
+    assert not result, "RLS should block DELETE on another user's project"
 
     # Project still exists
     row = service.table("projects").select("id").eq("id", pid).execute()
@@ -384,7 +394,7 @@ def test_cannot_delete_foreign_work(user_a, user_b):
     service.table("works").insert({"id": wid, "project_id": pid, "title": "Keep-Me"}).execute()
 
     result = _delete_via_user(user_b["token"], "works", match={"id": wid})
-    assert result is None, "RLS should block DELETE on another user's work"
+    assert not result, "RLS should block DELETE on another user's work"
 
     row = service.table("works").select("id").eq("id", wid).execute()
     assert len(row.data) == 1
@@ -560,7 +570,7 @@ def test_user_cannot_update_job(user_a):
         match={"id": jid},
         patch={"stage": "succeeded"},
     )
-    assert result is None, "RLS must block user UPDATE on jobs"
+    assert not result, "RLS must block user UPDATE on jobs"
 
     # Stage should be unchanged
     row = service.table("jobs").select("stage").eq("id", jid).single().execute()
