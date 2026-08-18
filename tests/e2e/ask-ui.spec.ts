@@ -57,7 +57,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByRole("button", { name: "Jump to time" })).toBeVisible();
 
     // The conversation survives a representation switch (Ask stays intact).
-    await page.getByRole("tab", { name: "Piano roll" }).click();
+    await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await openAsk(page);
     await expect(page.getByText(/This passage stays centered on the tonic/)).toBeVisible();

@@ -154,7 +154,7 @@ test.describe("contextual analysis inspector (real stack)", () => {
 
     // ── Import real audio and wait for processing ───────────────────────────
     await importWithRetry(page);
-    await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
+    await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
     await expect(page.getByText("Operation failed")).not.toBeVisible();
 
     // ── Whole-piece analysis is the default inspector scope ─────────────────
@@ -199,7 +199,7 @@ test.describe("contextual analysis inspector (real stack)", () => {
     await page.screenshot({ path: `${SHOTS}/02-listen-selection-inspector.png` });
 
     // ── Piano roll stays selected and inspector stays open ──────────────────
-    await page.getByRole("tab", { name: "Piano roll" }).click();
+    await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await expect(page.locator(".inspector")).toBeVisible();
     await expect(page.locator(".inspector-scope-label", { hasText: "Selection" })).toBeVisible();

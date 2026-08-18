@@ -183,7 +183,7 @@ test.describe("contextual Ask inspector (real stack)", () => {
     await page.goto("/");
 
     await importWithRetry(page);
-    await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({ timeout: 300_000 });
+    await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
     await expect(page.getByText("Operation failed")).not.toBeVisible();
 
     // ── 1. Ask empty state over the whole piece ────────────────────────────

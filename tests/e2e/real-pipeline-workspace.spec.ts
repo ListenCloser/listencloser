@@ -24,7 +24,7 @@ test("a persisted work reopens with synchronized musical workspace views", async
 
   // The four representations are discoverable from the tab bar.
   await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
-  await page.getByRole("tab", { name: "Piano roll" }).click();
+  await page.getByRole("tab", { name: "Piano Roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible();
   await expect(page.getByText(/42 notes/)).toBeVisible();
   await page.getByRole("tab", { name: "Score" }).click();
@@ -56,7 +56,7 @@ test("import starts one durable understand job and reloads the persisted work", 
   );
 
   await expect(page.getByText(/You can close this page/)).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Piano roll" })).toBeVisible({
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({
     timeout: 20_000,
   });
   await expect(page.getByRole("button", { name: /Listening to:/ })).toBeVisible({
@@ -107,7 +107,7 @@ test("the representation changes independently of the playback source", async ({
   await page.getByRole("option", { name: "Original", exact: true }).click();
   await expect(page.getByRole("button", { name: "Listening to: Original", exact: true })).toBeVisible();
 
-  await page.getByRole("tab", { name: "Piano roll" }).click();
+  await page.getByRole("tab", { name: "Piano Roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible();
   await expect(page.getByRole("button", { name: "Listening to: Original", exact: true })).toBeVisible();
 
