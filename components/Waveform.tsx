@@ -5,12 +5,12 @@ import { withAlpha } from "@/lib/color";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 
 /**
- * Waveform visualization — large horizontal canvas with time ruler,
+ * Waveform visualization — large horizontal canvas with sparse time ruler,
  * shared blue playhead, and terracotta selection.
  *
- * Decodes the original audio once and draws peaks as bars. The time axis is
- * the original audio's own timeline (performance time). A horizontal drag
- * defines a shared timeRange selection; a plain click seeks the transport.
+ * Visual language: quiet, neutral, minimal chrome. No dense numeric ruler.
+ * The waveform body uses muted text color at low opacity for a restrained
+ * appearance that matches the workspace aesthetic.
  */
 export default function Waveform({
   url,
@@ -85,7 +85,7 @@ export default function Waveform({
     [duration],
   );
 
-  // Draw time ruler — sparse labels only
+  // Draw sparse time ruler — very minimal, just subtle tick marks
   useEffect(() => {
     const canvas = rulerRef.current;
     if (!canvas || duration <= 0) return;
@@ -103,22 +103,24 @@ export default function Waveform({
     ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textAlign = "center";
 
-    // Sparse interval: aim for ~4-6 labels across the width
+    // Very sparse: aim for 3-5 labels
     const targets = [0, 15, 30, 45, 60, 90, 120, 180, 240, 300, 600];
     let interval = 60;
     for (const t of targets) {
-      if (duration / t <= 6) { interval = t; break; }
+      if (duration / t <= 5) { interval = t; break; }
     }
     if (duration > 1200) interval = 300;
 
     for (let t = 0; t <= duration; t += interval) {
       const x = (t / duration) * w;
-      ctx.globalAlpha = 0.4;
-      ctx.fillRect(x, h - 3, 1, 3);
-      ctx.globalAlpha = 0.6;
+      // Subtle tick
+      ctx.globalAlpha = 0.3;
+      ctx.fillRect(x, h - 2, 1, 2);
+      // Label
+      ctx.globalAlpha = 0.5;
       const m = Math.floor(t / 60);
       const s = Math.floor(t % 60);
-      ctx.fillText(`${m}:${s.toString().padStart(2, "0")}`, x, h - 5);
+      ctx.fillText(`${m}:${s.toString().padStart(2, "0")}`, x, h - 4);
     }
     ctx.globalAlpha = 1;
   }, [duration]);
@@ -133,7 +135,7 @@ export default function Waveform({
     const styles = getComputedStyle(document.documentElement);
     const accent = styles.getPropertyValue("--accent").trim() || "#bd513a";
     const playhead = styles.getPropertyValue("--score-playback").trim() || "#5a89a8";
-    const trace = styles.getPropertyValue("--text").trim() || "#191a1b";
+    const trace = styles.getPropertyValue("--muted").trim() || "#575a5e";
     const bg = styles.getPropertyValue("--panel").trim() || "#f4f1eb";
 
     const w = canvas.width;
@@ -141,39 +143,41 @@ export default function Waveform({
     canvasCtx.fillStyle = bg;
     canvasCtx.fillRect(0, 0, w, h);
 
+    // Draw waveform — muted, quiet, not heavy
     const peaks = peaksRef.current;
     if (peaks.length > 0) {
       const mid = h / 2;
       const barW = w / peaks.length;
       canvasCtx.fillStyle = trace;
-      canvasCtx.globalAlpha = 0.5;
+      canvasCtx.globalAlpha = 0.35;
       peaks.forEach((peak, i) => {
         const x = i * barW;
-        const topPeak = Math.max(2, (peak.max * h) / 2);
-        const bottomPeak = Math.max(2, (peak.min * h) / 2);
+        const topPeak = Math.max(1, (peak.max * h) / 2);
+        const bottomPeak = Math.max(1, (peak.min * h) / 2);
         canvasCtx.fillRect(x, mid - topPeak, Math.max(barW - 1, 1), topPeak + bottomPeak);
       });
       canvasCtx.globalAlpha = 1;
     } else if (status === "ready") {
+      // Empty state: faint center line
       canvasCtx.fillStyle = trace;
-      canvasCtx.globalAlpha = 0.3;
+      canvasCtx.globalAlpha = 0.15;
       canvasCtx.fillRect(0, h / 2 - 1, w, 2);
       canvasCtx.globalAlpha = 1;
     }
 
-    // Selection (terracotta)
+    // Selection (terracotta) — clear but not harsh
     const range = preview ?? selection?.timeRange ?? null;
     if (range && duration > 0) {
       const x1 = timeToX(range.start);
       const x2 = timeToX(range.end);
-      canvasCtx.fillStyle = withAlpha(accent, 0.18);
+      canvasCtx.fillStyle = withAlpha(accent, 0.15);
       canvasCtx.fillRect(x1, 0, Math.max(x2 - x1, 1), h);
-      canvasCtx.strokeStyle = accent;
+      canvasCtx.strokeStyle = withAlpha(accent, 0.6);
       canvasCtx.lineWidth = 1;
       canvasCtx.strokeRect(x1, 0, Math.max(x2 - x1, 1), h);
     }
 
-    // Playhead (blue) — strong
+    // Playhead (blue) — clear, not heavy
     if (position > 0 && duration > 0) {
       const x = timeToX(position);
       canvasCtx.strokeStyle = playhead;
@@ -235,16 +239,16 @@ export default function Waveform({
         ref={rulerRef}
         className="waveform-ruler"
         width={900}
-        height={18}
-        style={{ width: "100%", height: 18 }}
+        height={16}
+        style={{ width: "100%", height: 16 }}
       />
       <canvas
         ref={canvasRef}
         className="waveform"
         data-testid="waveform-canvas"
         width={900}
-        height={180}
-        style={{ height: 180 }}
+        height={220}
+        style={{ height: 220 }}
         role="slider"
         aria-label="Waveform selection"
         aria-valuetext={`${duration.toFixed(1)} seconds`}
