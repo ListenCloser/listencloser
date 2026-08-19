@@ -33,7 +33,12 @@ class TestHarmonyEngineEquivalence:
     def test_piano_synthetic_harmony_matches_golden(self):
         harmony = Music21HarmonyEngine().analyze(_read_bytes(PIANO_SYNTHETIC))
         assert harmony.key == {"tonic": "F", "mode": "major", "confidence": 0.813}
-        assert harmony.chords == []
+        assert harmony.chords == [
+            {"root": "C", "quality": "M", "start": 0.0, "end": 1.0},
+            {"root": "F", "quality": "M", "start": 1.0, "end": 2.0},
+            {"root": "C", "quality": "M", "start": 2.0, "end": 3.0},
+            {"root": "F", "quality": "M", "start": 3.0, "end": 4.0},
+        ]
         assert harmony.roman_numerals == [
             {"figure": "V", "root": "C", "quality": "M", "start": 0.0, "end": 1.0},
             {"figure": "I", "root": "F", "quality": "M", "start": 1.0, "end": 2.0},

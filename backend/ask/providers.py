@@ -182,6 +182,25 @@ class OpenAICompatibleLLMProvider:
             raise AskProviderUnavailableError("provider request failed") from exc
 
         if response.status_code >= 400:
+            # Log the error response body for diagnosis (without exposing the API key)
+            try:
+                error_body = response.json()
+                logger.warning(
+                    "ask_provider_http_error",
+                    extra={
+                        "status_code": response.status_code,
+                        "error": error_body.get("error", {}),
+                        "model": self.model,
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "ask_provider_http_error",
+                    extra={
+                        "status_code": response.status_code,
+                        "model": self.model,
+                    },
+                )
             raise AskProviderUnavailableError(f"provider returned HTTP {response.status_code}")
         try:
             body = response.json()

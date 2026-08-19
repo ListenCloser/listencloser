@@ -73,7 +73,7 @@ def _m21_chords(score) -> list[dict[str, Any]]:
                 if root is None:
                     continue
                 root_name = root.name
-                implied = str(chord.impliedQuality) if hasattr(chord, "impliedQuality") else ""
+                implied = str(chord.quality) if hasattr(chord, "quality") else ""
                 quality = _QUALITY_MAP.get(implied, implied)
                 if not quality or quality == "unknown":
                     continue
