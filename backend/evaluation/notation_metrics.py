@@ -66,7 +66,15 @@ def diagnose_musicxml(musicxml_bytes: bytes) -> NotationDiagnostics:
     notes = re.findall(r"<note[ >]", text)
     total_note_count = len(notes)
 
-    measures = re.findall(r"<measure\b", text)
+    # Count measures per part, not total. Grand-staff scores have 1 part with
+    # 2 staves; non-grand-staff scores may have multiple parts. All parts in a
+    # well-formed score have the same number of measures, so we count measures
+    # in the first <part> element only.
+    part_match = re.search(r"<part\b[^>]*>.*?</part>", text, re.DOTALL)
+    if part_match:
+        measures = re.findall(r"<measure\b", part_match.group())
+    else:
+        measures = re.findall(r"<measure\b", text)
     measure_count = len(measures)
 
     # Very short notes: 32nd / 64th / 128th / 256th
