@@ -13,6 +13,9 @@ services:
       SOUNDFONT_PATH: /usr/share/sounds/sf2/FluidR3_GM.sf2
       SENTRY_DSN_BACKEND: ${SENTRY_DSN_BACKEND:-}
       SENTRY_ENV: ${SENTRY_ENV:-production}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
       RELEASE: ${RELEASE:-development}
       WORKER_HEALTH_FILE: /app/runtime/worker-heartbeat.json
     volumes:
