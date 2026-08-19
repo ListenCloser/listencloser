@@ -45,6 +45,18 @@ export type StudioOperation = {
 };
 
 /**
+ * Analysis lifecycle state for the active work.
+ *
+ * - "idle": No analysis has been requested or completed for this work.
+ * - "analyzing": An analysis job is currently running.
+ * - "completed": Analysis has finished (even with 0 insights).
+ *
+ * This is the source of truth for the Analysis tab visibility.
+ * Do NOT infer from insights.length.
+ */
+export type AnalysisState = "idle" | "analyzing" | "completed";
+
+/**
  * Shared musical selection across representations.
  *
  * Owned by the WorkSession (not per representation). Exactly the fields that
@@ -94,6 +106,7 @@ type WorkspaceState = {
   activeRepresentation: RepresentationId | null;
   selection: MusicalSelection | null;
   transcriptionProfile: TranscriptionProfile;
+  analysisState: AnalysisState;
 };
 
 type WorkspaceContextValue = {
@@ -121,6 +134,7 @@ type WorkspaceContextValue = {
   setSelection: (selection: MusicalSelection | null) => void;
   clearSelection: () => void;
   setTranscriptionProfile: (profile: TranscriptionProfile) => void;
+  setAnalysisState: (state: AnalysisState) => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -163,6 +177,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     activeRepresentation: null,
     selection: null,
     transcriptionProfile: "auto",
+    analysisState: "idle",
   });
 
   const setProject = useCallback((project: Project | null) => {
@@ -188,6 +203,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         activeRepresentation: null,
         selection: null,
         askConversation: [],
+        analysisState: "idle",
       };
     });
   }, []);
@@ -223,6 +239,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         selection: removingActive ? null : prev.selection,
         askConversation: removingActive ? [] : prev.askConversation,
         isLoadingWork: removingActive ? false : prev.isLoadingWork,
+        analysisState: removingActive ? "idle" : prev.analysisState,
       };
     });
   }, []);
@@ -332,6 +349,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setAnalysisState = useCallback((analysisState: AnalysisState) => {
+    setWorkspace((prev) => ({ ...prev, analysisState }));
+  }, []);
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -359,6 +380,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setSelection,
         clearSelection,
         setTranscriptionProfile,
+        setAnalysisState,
       }}
     >
       {children}

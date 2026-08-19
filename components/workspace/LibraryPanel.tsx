@@ -75,7 +75,6 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
           <div className="section-label" style={{ margin: 0 }}>Your music</div>
           <div style={{ fontSize: "var(--fs-sm)", marginTop: 4 }}>{workspace.works.length} piece{workspace.works.length !== 1 ? "s" : ""}</div>
         </div>
-        <button className="icon-btn ghost" onClick={toggleLibrary} title="Collapse library">◂</button>
       </div>
 
       {signedIn && (

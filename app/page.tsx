@@ -38,6 +38,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
   const {
     replaceRepresentations,
     setActiveWorkId,
+    setAnalysisState,
     setInsights,
     setLoadingWork,
     setProject,
@@ -85,6 +86,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     if (!preserveTransport) replaceSources([]);
     setInsights([]);
     setTakes([]);
+    setAnalysisState("idle");
     try {
       let bundle = await getWorkBundle(workId);
       if (sequence !== loadSequenceRef.current) return;
@@ -96,6 +98,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       let observationIssue: JobObservationError | null = null;
       if (activeJob) {
         setActiveJobId(activeJob.id);
+        setAnalysisState("analyzing");
         setFilename(bundle.work.title);
         setStage("processing");
         setProgress(Math.round(activeJob.lifecycle.progress * 100));
@@ -258,11 +261,15 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       if (pendingTempo !== null) setBpm(pendingTempo);
       if (pendingSignature !== null) setTimeSignature(pendingSignature.numerator, pendingSignature.denominator);
       setLoadWarnings(warnings);
+
+      // Determine analysis state from job lifecycle and artifacts.
       if (observationIssue) {
+        setAnalysisState("analyzing"); // still running, just disconnected
         setProcessingWorkId(workId);
         setError(observationIssue.message);
         setStage("disconnected");
       } else if (terminalJob) {
+        setAnalysisState("completed"); // analysis attempted (failed/cancelled)
         setActiveJobId(terminalJob.id);
         setError(
           sanitizeJobError(
@@ -271,8 +278,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         );
         setStage("error");
       } else if (original?.latest_version && !midi && !score) {
-        // Source audio is safe but transcription hasn't produced artifacts yet.
-        // This is a legitimate "not yet analyzed" state, not a failure.
+        setAnalysisState("idle"); // never analyzed
         setPendingSourceVersionId(original.latest_version.id);
         setProcessingWorkId(null);
         setError(null);
@@ -280,12 +286,13 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         setLoadWarnings(warnings);
         setStage("success");
       } else if (representations.length === 0) {
-        // No playable artifacts at all — an empty work, not an error.
+        setAnalysisState("idle");
         setError(null);
         warnings.push("This work has no playable artifacts yet.");
         setLoadWarnings(warnings);
         setStage("success");
       } else {
+        setAnalysisState("completed"); // has midi/score → analysis was done
         setActiveJobId(null);
         setStage("success");
       }
@@ -658,7 +665,10 @@ function SignedOutLanding({ serviceStatus }: { serviceStatus: ServiceStatus }) {
 
   return (
     <main className="welcome-page">
-      <header className="welcome-header"><span className="brand"><span className="brand-dot" />Music Lab</span><span>{serviceStatus === "ready" ? "Processing is ready" : "Music workspace"}</span></header>
+      <header className="welcome-header">
+        <span className="brand">Music Lab</span>
+        <span>{serviceStatus === "ready" ? "Processing is ready" : "Music workspace"}</span>
+      </header>
       <section className="welcome-hero">
         <p className="piece-eyebrow">A place to listen closely</p>
         <h1>See what your music is doing.</h1>
@@ -666,7 +676,11 @@ function SignedOutLanding({ serviceStatus }: { serviceStatus: ServiceStatus }) {
         <button className="btn btn-primary" onClick={signIn}>Sign in with Google</button>
         <small>Your recordings and their transcriptions stay private to your account.</small>
       </section>
-      <section className="welcome-steps" aria-label="How Music Lab works"><div><b>01</b><span>Import audio</span></div><div><b>02</b><span>Listen & compare</span></div><div><b>03</b><span>Inspect the music</span></div></section>
+      <section className="welcome-steps" aria-label="How Music Lab works">
+        <div><b>01</b><span>Import audio</span></div>
+        <div><b>02</b><span>Listen & compare</span></div>
+        <div><b>03</b><span>Inspect the music</span></div>
+      </section>
     </main>
   );
 }

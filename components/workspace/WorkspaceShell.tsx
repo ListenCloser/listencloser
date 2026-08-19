@@ -23,10 +23,14 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
   }, [toggleLibrary, workspace.libraryCollapsed]);
 
   const inspectorOpen = !workspace.inspectorCollapsed;
-  // Show Analysis affordance only when analysis actually exists (even sparse)
-  // or when a work is actively loading.  Do not show for a loaded work that
-  // has never been analyzed.
-  const hasAnalysis = workspace.insights.length > 0 || workspace.isLoadingWork;
+  const hasWork = Boolean(workspace.activeWorkId);
+  const { analysisState } = workspace;
+
+  // Analysis button logic:
+  // - "idle": Show "Analyze" action (clickable, triggers analysis)
+  // - "analyzing": Show "Analyzing…" (non-interactive)
+  // - "completed": Show "Analysis" tab (opens inspector)
+  const showAnalysisAffordance = hasWork;
 
   return (
     <div className="studio-shell">
@@ -35,16 +39,26 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
           <span className="brand">{projectName || "Music Lab"}</span>
         </div>
         <div className="studio-header-right">
-          {hasAnalysis && (
-            <button
-              type="button"
-              className={`studio-inspector-btn${inspectorOpen ? " active" : ""}`}
-              aria-label={inspectorOpen ? "Hide analysis" : "Show analysis"}
-              aria-pressed={inspectorOpen}
-              onClick={toggleInspector}
-            >
-              Analysis
-            </button>
+          {showAnalysisAffordance && (
+            analysisState === "completed" ? (
+              <button
+                type="button"
+                className={`studio-inspector-btn${inspectorOpen ? " active" : ""}`}
+                aria-label={inspectorOpen ? "Hide analysis" : "Show analysis"}
+                aria-pressed={inspectorOpen}
+                onClick={toggleInspector}
+              >
+                Analysis
+              </button>
+            ) : analysisState === "analyzing" ? (
+              <span className="studio-analyzing-label" aria-live="polite">
+                Analyzing…
+              </span>
+            ) : (
+              <span className="studio-analyze-idle">
+                Analyze
+              </span>
+            )
           )}
           <button
             type="button"
