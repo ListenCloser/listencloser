@@ -6,14 +6,11 @@ the harmonic rhythm computation in analyze_midi.
 
 from __future__ import annotations
 
-import io
 import os
 import sys
 import tempfile
 
-import numpy as np
 import pretty_midi
-import pytest
 
 # Add backend to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -23,7 +20,6 @@ from analyze import (
     _detect_rests,
     _midi_rhythm,
 )
-
 
 # ── _compute_windowed_density ────────────────────────────────────────────────
 
@@ -79,9 +75,7 @@ class TestWindowedDensity:
         """When beats are provided, density should be beat-relative."""
         onsets = [0.0, 1.0, 2.0, 3.0, 4.0]
         beats = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]
-        result = _compute_windowed_density(
-            onsets, 5.0, window=2.0, step=1.0, beats=beats
-        )
+        result = _compute_windowed_density(onsets, 5.0, window=2.0, step=1.0, beats=beats)
         # Should return beat-relative results
         assert len(result) > 0
         for w in result:

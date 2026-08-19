@@ -86,7 +86,7 @@ class Music21HarmonyAdapter(EngineAdapter):
                 if root is None:
                     continue
                 root_name = root.name
-                implied = str(ch.impliedQuality) if hasattr(ch, "impliedQuality") else ""
+                implied = str(ch.quality) if hasattr(ch, "quality") else ""
                 quality = _quality_map(implied)
                 if not quality or quality == "unknown":
                     continue
