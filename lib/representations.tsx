@@ -115,6 +115,7 @@ function ScoreView() {
       <SheetMusic
         musicXml={entry?.musicxml ?? ""}
         playheadTime={transport.position}
+        isPlaying={transport.isPlaying}
         isScoreActive={transport.activeSource?.role === "score"}
         hasScorePlayback={transport.sources.some((source) => source.role === "score")}
         measureStarts={measureStarts}

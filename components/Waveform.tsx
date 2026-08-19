@@ -85,7 +85,7 @@ export default function Waveform({
     [duration],
   );
 
-  // Draw time ruler
+  // Draw time ruler — sparse labels only
   useEffect(() => {
     const canvas = rulerRef.current;
     if (!canvas || duration <= 0) return;
@@ -103,21 +103,22 @@ export default function Waveform({
     ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textAlign = "center";
 
-    // Determine tick interval based on duration
-    let interval = 1;
-    if (duration > 120) interval = 30;
-    else if (duration > 60) interval = 15;
-    else if (duration > 30) interval = 5;
-    else if (duration > 10) interval = 2;
+    // Sparse interval: aim for ~4-6 labels across the width
+    const targets = [0, 15, 30, 45, 60, 90, 120, 180, 240, 300, 600];
+    let interval = 60;
+    for (const t of targets) {
+      if (duration / t <= 6) { interval = t; break; }
+    }
+    if (duration > 1200) interval = 300;
 
     for (let t = 0; t <= duration; t += interval) {
       const x = (t / duration) * w;
-      ctx.globalAlpha = 0.5;
-      ctx.fillRect(x, h - 4, 1, 4);
-      ctx.globalAlpha = 0.7;
+      ctx.globalAlpha = 0.4;
+      ctx.fillRect(x, h - 3, 1, 3);
+      ctx.globalAlpha = 0.6;
       const m = Math.floor(t / 60);
       const s = Math.floor(t % 60);
-      ctx.fillText(`${m}:${s.toString().padStart(2, "0")}`, x, h - 6);
+      ctx.fillText(`${m}:${s.toString().padStart(2, "0")}`, x, h - 5);
     }
     ctx.globalAlpha = 1;
   }, [duration]);
@@ -172,11 +173,11 @@ export default function Waveform({
       canvasCtx.strokeRect(x1, 0, Math.max(x2 - x1, 1), h);
     }
 
-    // Playhead (blue)
+    // Playhead (blue) — strong
     if (position > 0 && duration > 0) {
       const x = timeToX(position);
       canvasCtx.strokeStyle = playhead;
-      canvasCtx.lineWidth = 1.5;
+      canvasCtx.lineWidth = 2;
       canvasCtx.beginPath();
       canvasCtx.moveTo(x, 0);
       canvasCtx.lineTo(x, h);
