@@ -12,13 +12,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import tempfile
-from pathlib import Path
 from typing import Any
 
 import pretty_midi
 
-from evaluation.models import CorpusManifest, EvalClip
+from evaluation.models import CorpusManifest
 from evaluation.notation_metrics import diagnose_musicxml
 
 
@@ -49,9 +47,7 @@ def evaluate_notation(
         # Compare measure counts
         gen_measures = result["structural"]["measure_count"]
         ref_measures = ref_diag["measure_count"]
-        result["measure_count_ratio"] = (
-            gen_measures / ref_measures if ref_measures > 0 else None
-        )
+        result["measure_count_ratio"] = gen_measures / ref_measures if ref_measures > 0 else None
 
         # Tie comparison
         gen_ties = result["structural"]["tie_count"]
@@ -107,9 +103,21 @@ def run_notation_evaluation(manifest_path: str, output_dir: str) -> dict[str, An
                     eval_result["clip_id"] = clip.id
                     eval_result["source_id"] = clip.source_id
                     results.append(eval_result)
-                    print(f"  Notes: {eval_result['structural']['total_note_count']} (ref: {eval_result.get('reference_structural', {}).get('total_note_count', '?')})")
-                    print(f"  Measures: {eval_result['structural']['measure_count']} (ref: {eval_result.get('reference_structural', {}).get('measure_count', '?')})")
-                    print(f"  Ties: {eval_result['structural']['tie_count']} (ref: {eval_result.get('reference_structural', {}).get('tie_count', '?')})")
+                    gen_notes = eval_result["structural"]["total_note_count"]
+                    ref_notes = eval_result.get(
+                        "reference_structural", {}
+                    ).get("total_note_count", "?")
+                    gen_meas = eval_result["structural"]["measure_count"]
+                    ref_meas = eval_result.get(
+                        "reference_structural", {}
+                    ).get("measure_count", "?")
+                    gen_ties = eval_result["structural"]["tie_count"]
+                    ref_ties = eval_result.get(
+                        "reference_structural", {}
+                    ).get("tie_count", "?")
+                    print(f"  Notes: {gen_notes} (ref: {ref_notes})")
+                    print(f"  Measures: {gen_meas} (ref: {ref_meas})")
+                    print(f"  Ties: {gen_ties} (ref: {ref_ties})")
 
         except Exception as e:
             print(f"  Error: {e}")
@@ -128,7 +136,9 @@ def run_notation_evaluation(manifest_path: str, output_dir: str) -> dict[str, An
 def main():
     parser = argparse.ArgumentParser(description="Evaluate notation quality")
     parser.add_argument("--manifest", required=True, help="Path to corpus manifest")
-    parser.add_argument("--output-dir", default="evaluation/results/notation", help="Output directory")
+    parser.add_argument(
+        "--output-dir", default="evaluation/results/notation", help="Output directory"
+    )
     args = parser.parse_args()
 
     run_notation_evaluation(args.manifest, args.output_dir)

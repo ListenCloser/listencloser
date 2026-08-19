@@ -102,16 +102,16 @@ class TestHarmonyAdapterQuality:
     def test_adapter_produces_chords_from_midi(self):
         """The adapter should produce chords from polyphonic MIDI input."""
         import io
+
         import pretty_midi
+
         from evaluation.engines.harmony import Music21HarmonyAdapter
 
         # Create a simple MIDI with a C major triad
         pm = pretty_midi.PrettyMIDI(initial_tempo=120)
         inst = pretty_midi.Instrument(program=0)
         for pitch in [60, 64, 67]:  # C4, E4, G4
-            inst.notes.append(
-                pretty_midi.Note(velocity=80, pitch=pitch, start=0.0, end=1.0)
-            )
+            inst.notes.append(pretty_midi.Note(velocity=80, pitch=pitch, start=0.0, end=1.0))
         pm.instruments.append(inst)
         buf = io.BytesIO()
         pm.write(buf)
