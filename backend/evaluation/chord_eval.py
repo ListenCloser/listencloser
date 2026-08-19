@@ -10,15 +10,14 @@ Usage:
 from __future__ import annotations
 
 import json
-import tempfile
 import os
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from evaluation.engines.harmony import Music21HarmonyAdapter
 from evaluation.datasets.parsers import parse_guitarset_harmony, parse_guitarset_jams
+from evaluation.engines.harmony import Music21HarmonyAdapter
 
 
 def _chords_to_intervals(chords: list[dict[str, Any]]) -> tuple[np.ndarray, list[str]]:
@@ -67,10 +66,7 @@ def _chords_to_intervals(chords: list[dict[str, Any]]) -> tuple[np.ndarray, list
             label = f"{root}:hdim7"
         else:
             # Fallback: use raw quality, or X for unknown
-            if quality in ("other", "unknown", ""):
-                label = "X"  # mir_eval's unknown chord label
-            else:
-                label = f"{root}:{quality}"
+            label = "X" if quality in ("other", "unknown", "") else f"{root}:{quality}"
         labels.append(label)
 
     return intervals, labels
@@ -97,9 +93,7 @@ def _merge_adjacent_identical(
     return np.array(merged_intervals), merged_labels
 
 
-def _merge_inversion_only(
-    intervals: np.ndarray, labels: list[str]
-) -> tuple[np.ndarray, list[str]]:
+def _merge_inversion_only(intervals: np.ndarray, labels: list[str]) -> tuple[np.ndarray, list[str]]:
     """Merge chords where only inversion differs (same root+quality)."""
     if len(intervals) <= 1:
         return intervals, labels
@@ -153,7 +147,7 @@ def _beat_window_chord(
 
         # Find chords overlapping this beat window
         overlapping = []
-        for j, (iv, label) in enumerate(zip(intervals, labels)):
+        for _j, (iv, label) in enumerate(zip(intervals, labels, strict=False)):
             if iv[1] > beat_start and iv[0] < beat_end:
                 # Compute overlap duration
                 overlap_start = max(iv[0], beat_start)
@@ -226,7 +220,6 @@ def evaluate_chords(
 
 def run_evaluation() -> dict[str, Any]:
     """Run chord evaluation on GuitarSet clips."""
-    from evaluation.datasets.parsers import parse_guitarset_jams
 
     guitarset_dir = Path("evaluation/.cache/guitarset")
     annotation_dir = guitarset_dir / "annotation"
@@ -287,14 +280,18 @@ def run_evaluation() -> dict[str, Any]:
         candidates["merge_inversion"]["event_count"] = len(merged_b_intervals)
 
         # C. Suppress short (< 0.1s)
-        suppressed_c_intervals, suppressed_c_labels = _suppress_short(pred_intervals, pred_labels, 0.1)
+        suppressed_c_intervals, suppressed_c_labels = _suppress_short(
+            pred_intervals, pred_labels, 0.1
+        )
         candidates["suppress_short_0.1"] = evaluate_chords(
             suppressed_c_intervals, suppressed_c_labels, ref_intervals, ref_labels
         )
         candidates["suppress_short_0.1"]["event_count"] = len(suppressed_c_intervals)
 
         # D. Suppress short (< 0.2s)
-        suppressed_d_intervals, suppressed_d_labels = _suppress_short(pred_intervals, pred_labels, 0.2)
+        suppressed_d_intervals, suppressed_d_labels = _suppress_short(
+            pred_intervals, pred_labels, 0.2
+        )
         candidates["suppress_short_0.2"] = evaluate_chords(
             suppressed_d_intervals, suppressed_d_labels, ref_intervals, ref_labels
         )
@@ -302,7 +299,9 @@ def run_evaluation() -> dict[str, Any]:
 
         # E. Merge identical + suppress short
         merged_e_intervals, merged_e_labels = _merge_adjacent_identical(pred_intervals, pred_labels)
-        suppressed_e_intervals, suppressed_e_labels = _suppress_short(merged_e_intervals, merged_e_labels, 0.1)
+        suppressed_e_intervals, suppressed_e_labels = _suppress_short(
+            merged_e_intervals, merged_e_labels, 0.1
+        )
         candidates["merge_identical+suppress_0.1"] = evaluate_chords(
             suppressed_e_intervals, suppressed_e_labels, ref_intervals, ref_labels
         )
@@ -310,7 +309,9 @@ def run_evaluation() -> dict[str, Any]:
 
         # F. Merge identical + merge inversion
         merged_f_intervals, merged_f_labels = _merge_adjacent_identical(pred_intervals, pred_labels)
-        merged_f2_intervals, merged_f2_labels = _merge_inversion_only(merged_f_intervals, merged_f_labels)
+        merged_f2_intervals, merged_f2_labels = _merge_inversion_only(
+            merged_f_intervals, merged_f_labels
+        )
         candidates["merge_identical+inversion"] = evaluate_chords(
             merged_f2_intervals, merged_f2_labels, ref_intervals, ref_labels
         )
@@ -320,15 +321,19 @@ def run_evaluation() -> dict[str, Any]:
             "clip_id": clip_id,
             "pred_count": len(pred_chords),
             "ref_count": len(ref_data["chords"]),
-            "event_count_ratio": len(pred_chords) / len(ref_data["chords"]) if ref_data["chords"] else 0,
+            "event_count_ratio": len(pred_chords) / len(ref_data["chords"])
+            if ref_data["chords"]
+            else 0,
             "baseline": baseline_scores,
             "candidates": candidates,
         }
         results.append(result_entry)
 
-        print(f"{clip_id}: pred={len(pred_chords)}, ref={len(ref_data['chords'])}, "
-              f"root={baseline_scores['root']:.3f}, majmin={baseline_scores['majmin']:.3f}, "
-              f"mirex={baseline_scores['mirex']:.3f}")
+        print(
+            f"{clip_id}: pred={len(pred_chords)}, ref={len(ref_data['chords'])}, "
+            f"root={baseline_scores['root']:.3f}, majmin={baseline_scores['majmin']:.3f}, "
+            f"mirex={baseline_scores['mirex']:.3f}"
+        )
 
     return {"clips": results}
 
@@ -357,15 +362,34 @@ if __name__ == "__main__":
         print(f"event-count ratio: {avg_ratio:.2f}")
 
         # Print candidate aggregates
-        print(f"\n=== CONSOLIDATION CANDIDATES ===")
+        print("\n=== CONSOLIDATION CANDIDATES ===")
         candidate_names = list(results["clips"][0]["candidates"].keys())
         for cand_name in candidate_names:
             avg_cand_root = sum(r["candidates"][cand_name]["root"] for r in results["clips"]) / n
-            avg_cand_majmin = sum(r["candidates"][cand_name]["majmin"] for r in results["clips"]) / n
+            avg_cand_majmin = (
+                sum(r["candidates"][cand_name]["majmin"] for r in results["clips"]) / n
+            )
             avg_cand_mirex = sum(r["candidates"][cand_name]["mirex"] for r in results["clips"]) / n
-            avg_cand_overseg = sum(r["candidates"][cand_name]["overseg"] for r in results["clips"]) / n
-            avg_cand_ratio = sum(r["candidates"][cand_name]["event_count"] / r["ref_count"] if r["ref_count"] else 0 for r in results["clips"]) / n
-            print(f"{cand_name:35} root={avg_cand_root:.3f} majmin={avg_cand_majmin:.3f} mirex={avg_cand_mirex:.3f} overseg={avg_cand_overseg:.3f} ratio={avg_cand_ratio:.2f}")
+            avg_cand_overseg = (
+                sum(r["candidates"][cand_name]["overseg"] for r in results["clips"]) / n
+            )
+            avg_cand_ratio = (
+                sum(
+                    r["candidates"][cand_name]["event_count"] / r["ref_count"]
+                    if r["ref_count"]
+                    else 0
+                    for r in results["clips"]
+                )
+                / n
+            )
+            print(
+                f"{cand_name:35} "
+                f"root={avg_cand_root:.3f} "
+                f"majmin={avg_cand_majmin:.3f} "
+                f"mirex={avg_cand_mirex:.3f} "
+                f"overseg={avg_cand_overseg:.3f} "
+                f"ratio={avg_cand_ratio:.2f}"
+            )
 
     # Save results
     output_path = "evaluation/results/harmony/chord_mir_eval.json"
