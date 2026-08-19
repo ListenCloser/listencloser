@@ -8,7 +8,6 @@ input using `Chord.quality` (always available) instead of
 from __future__ import annotations
 
 import io
-import tempfile
 
 import pytest
 
