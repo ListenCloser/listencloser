@@ -39,6 +39,11 @@ test.describe("score playback following (MSW)", () => {
       undefined,
       { timeout: 15_000 },
     );
+    // Dismiss Next.js dev overlay if present
+    await page.evaluate(() => {
+      const portal = document.querySelector("nextjs-portal");
+      if (portal) portal.remove();
+    });
   });
 
   test("playback highlight appears, advances on measure boundary, follows seek backward", async ({

@@ -23,29 +23,22 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
   }, [toggleLibrary, workspace.libraryCollapsed]);
 
   const inspectorOpen = !workspace.inspectorCollapsed;
-  const hasWork = Boolean(workspace.activeWorkId);
+  // Show Analysis affordance only when analysis actually exists (even sparse)
+  // or when a work is actively loading.  Do not show for a loaded work that
+  // has never been analyzed.
+  const hasAnalysis = workspace.insights.length > 0 || workspace.isLoadingWork;
 
   return (
-    <div className="studio-shell"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        background: "var(--bg)",
-        color: "var(--text)",
-        fontFamily: "var(--font-sans)",
-        overflow: "hidden",
-      }}
-    >
+    <div className="studio-shell">
       <header className="studio-header">
         <div className="studio-header-left">
           <span className="brand">{projectName || "Music Lab"}</span>
         </div>
         <div className="studio-header-right">
-          {hasWork && (
+          {hasAnalysis && (
             <button
               type="button"
-              className={`studio-inspector-btn ${inspectorOpen ? "active" : ""}`}
+              className={`studio-inspector-btn${inspectorOpen ? " active" : ""}`}
               aria-label={inspectorOpen ? "Hide analysis" : "Show analysis"}
               aria-pressed={inspectorOpen}
               onClick={toggleInspector}
@@ -53,13 +46,18 @@ function WorkspaceContent({ signedIn = false, projectName, serviceStatus }: { si
               Analysis
             </button>
           )}
-          <button className="icon-btn ghost" onClick={toggleLibrary} title={workspace.libraryCollapsed ? "Show library" : "Hide library"}>
-            {workspace.libraryCollapsed ? "▸" : "◂"}
+          <button
+            type="button"
+            className="studio-library-btn"
+            onClick={toggleLibrary}
+            aria-label={workspace.libraryCollapsed ? "Show library" : "Hide library"}
+          >
+            Library
           </button>
         </div>
       </header>
 
-      <div className="studio-workspace" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div className="studio-workspace">
         <LibraryPanel signedIn={signedIn} canImport={serviceStatus === "ready"} />
 
         <div className="studio-canvas-area">

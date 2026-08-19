@@ -36,6 +36,10 @@ test.describe("shared musical selection (MSW)", () => {
       undefined,
       { timeout: 15_000 },
     );
+    await page.evaluate(() => {
+      const portal = document.querySelector("nextjs-portal");
+      if (portal) portal.remove();
+    });
   });
 
   async function dragWaveform(page: any, startFrac: number, endFrac: number) {

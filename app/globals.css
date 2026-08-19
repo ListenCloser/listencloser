@@ -2,14 +2,14 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --bg: #e9e5dd;
-  --bg-subtle: #ded8ce;
-  --panel: #f4f1eb;
-  --panel-2: #e9e4db;
-  --panel-3: #d9d1c5;
-  --panel-4: #c9beaf;
-  --text: #191a1b;
-  --muted: #575a5e;
+  --bg: #f5f5f3;
+  --bg-subtle: #ededeb;
+  --panel: #ffffff;
+  --panel-2: #f8f8f6;
+  --panel-3: #eaeae8;
+  --panel-4: #dcdcd8;
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
   --accent: #a94734;
   --accent-strong: #7f3125;
   --accent-2: #846c31;
@@ -21,8 +21,8 @@
   --danger-soft: rgba(182,62,62,0.1);
   --success: #28745b;
   --success-soft: rgba(40,116,91,0.1);
-  --border: rgba(38,37,33,0.10);
-  --border-strong: rgba(38,37,33,0.18);
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.14);
   --r-sm: 2px;
   --r-md: 3px;
   --r-lg: 4px;
@@ -835,7 +835,7 @@ gradient-text {
    ════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Shell ─────────────────────────────────────────────────────────────── */
-.studio-shell { background:var(--bg) !important; }
+.studio-shell { background:var(--bg) !important; height:100vh; min-height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
 .studio-header {
@@ -856,6 +856,14 @@ gradient-text {
 }
 .studio-inspector-btn:hover { color:var(--text); }
 .studio-inspector-btn.active { color:var(--text); }
+.studio-library-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:var(--s-1) var(--s-3); border:0;
+  background:transparent; color:var(--muted); cursor:pointer;
+  font:var(--fs-xs) var(--font-sans); font-weight:var(--fw-medium);
+  transition:color var(--dur) var(--ease);
+}
+.studio-library-btn:hover { color:var(--text); }
 
 /* ── Workspace area ────────────────────────────────────────────────────── */
 .studio-workspace { display:flex; flex:1; overflow:hidden; min-height:0; }
@@ -937,16 +945,16 @@ gradient-text {
   box-shadow:none !important;
 }
 
-/* ── Transport bar (bottom, full-width, one coherent surface) ──────────── */
+/* ── Transport bar (single row) ────────────────────────────────────────── */
 .transport-bar {
-  display:flex; flex-direction:column; gap:0;
-  background:var(--bg-subtle);
+  display:flex; align-items:center;
+  background:var(--panel);
   border-top:1px solid var(--border);
   font-size:var(--fs-xs); flex-shrink:0;
 }
 .transport-row-primary {
-  display:flex; align-items:center; gap:var(--s-4);
-  padding:var(--s-3) var(--s-5);
+  display:flex; align-items:center; gap:var(--s-3);
+  padding:var(--s-2) var(--s-4); flex:1; min-width:0;
 }
 .transport-playback {
   display:flex; align-items:center; gap:var(--s-3); flex:1; min-width:0;
@@ -981,15 +989,13 @@ gradient-text {
 .transport-ctrl:hover:not(:disabled) { color:var(--text); }
 .transport-ctrl:disabled { opacity:0.3; cursor:not-allowed; }
 .transport-ctrl.active { color:var(--accent); }
-
-/* ── Transport: hearing/source row ─────────────────────────────────────── */
-.transport-row-secondary {
-  display:flex; align-items:center; gap:var(--s-3);
-  padding:var(--s-2) var(--s-5);
-  border-top:1px solid rgba(38,37,33,0.06);
+.transport-divider {
+  width:1px; height:20px; background:var(--border); flex-shrink:0;
 }
+
+/* ── Transport: hearing/source (inline with controls) ──────────────────── */
 .transport-hearing {
-  display:flex; align-items:center; gap:var(--s-2); min-width:0; flex-wrap:wrap;
+  display:flex; align-items:center; gap:var(--s-2); min-width:0;
 }
 .transport-hearing-label {
   color:var(--muted); font-size:var(--fs-xs); white-space:nowrap;
@@ -1179,6 +1185,16 @@ gradient-text {
   margin:0 0 var(--s-2); padding:0;
   color:var(--muted); font-size:var(--fs-xs);
 }
+
+/* ── Score note highlighting (playback) ────────────────────────────────── */
+.score-note-active {
+  fill: var(--score-playback) !important;
+  stroke: var(--score-playback) !important;
+  filter: drop-shadow(0 0 3px var(--score-playback-soft));
+}
+[data-score-cursor] { pointer-events:none; }
+[data-playback-highlight] { pointer-events:none; }
+[data-selection-highlight] { pointer-events:none; }
 
 /* ── Responsive: collapse side panel before shrinking canvas ───────────── */
 @media (max-width:1024px) {
