@@ -843,97 +843,33 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(tsid))
 
-    # Chords
+    # Chords — WITHHELD until a trustworthy chord engine is available.
+    # Current music21 symbolic chord detection has root=0.02, majmin=0.02
+    # on GuitarSet (see evaluation/chord_eval.py). Persisting these as
+    # product evidence would mislead users. The analysis still runs for
+    # evaluation purposes but insights are not surfaced.
     chords = analysis.get("chords", []) or []
     chord_count = len(chords)
-    for idx, ch in enumerate(chords):
-        pct = 0.60 + 0.15 * (idx / max(chord_count, 1))
-        _update_progress(
-            client,
-            job.id,
-            pct,
-            f"storing chord insight {idx + 1}/{chord_count}",
-        )
-        root = ch.get("root", "?")
-        quality = ch.get("quality", "?")
-        if root in ("?", "") or quality in ("?", "", "unknown"):
-            continue
-        start = float(ch.get("start", 0))
-        end = float(ch.get("end", 0))
-        cid = _create_insight(
-            client,
-            input_version.id,
-            "chord",
-            f"{root}:{quality}",
-            evidence={**ch, "key_confidence": key_conf},
-            span=Span(start_beat=start, end_beat=end),
-            confidence=None,
-            job=job,
-            owner_id=owner_id,
-            method="inferred",
-            engine_provenance=_hp("chords"),
-        )
-        insight_ids.append(str(cid))
+    logger.info(
+        "chords_withheld",
+        extra={"count": chord_count, "reason": "unreliable_engine"},
+    )
 
-    # Roman numerals — only persist when there is defensible chord evidence
+    # Roman numerals — WITHHELD (depends on unreliable chord stream)
     rns = analysis.get("roman_numerals", []) or []
-    chords = analysis.get("chords", []) or []
-    if chords and rns:
-        rn_count = len(rns)
-        for idx, rn in enumerate(rns):
-            pct = 0.75 + 0.12 * (idx / max(rn_count, 1))
-            _update_progress(
-                client,
-                job.id,
-                pct,
-                f"storing roman numeral insight {idx + 1}/{rn_count}",
-            )
-            figure = rn.get("figure", "?")
-            start = float(rn.get("start", 0))
-            end = float(rn.get("end", 0))
-            rid = _create_insight(
-                client,
-                input_version.id,
-                "roman_numeral",
-                figure,
-                evidence={**rn, "key_confidence": key_conf},
-                span=Span(start_beat=start, end_beat=end),
-                confidence=None,
-                job=job,
-                owner_id=owner_id,
-                method="inferred",
-                engine_provenance=_hp("roman_numerals"),
-            )
-            insight_ids.append(str(rid))
+    if rns:
+        logger.info(
+            "roman_numerals_withheld",
+            extra={"count": len(rns), "reason": "unreliable_chord_stream"},
+        )
 
-    # Cadences
+    # Cadences — WITHHELD (depends on unreliable chord stream)
     cadences = analysis.get("cadences", []) or []
-    cad_count = len(cadences)
-    for idx, cad in enumerate(cadences):
-        pct = 0.87 + 0.1 * (idx / max(cad_count, 1))
-        _update_progress(
-            client,
-            job.id,
-            pct,
-            f"storing cadence insight {idx + 1}/{cad_count}",
+    if cadences:
+        logger.info(
+            "cadences_withheld",
+            extra={"count": len(cadences), "reason": "unreliable_chord_stream"},
         )
-        cad_type = cad.get("type", "?")
-        chords_str = " → ".join(cad.get("chords", []))
-        position = float(cad.get("position", 0))
-        caid = _create_insight(
-            client,
-            input_version.id,
-            "cadence_candidate",
-            f"{cad_type}: {chords_str}",
-            evidence=cad,
-            span=Span(start_beat=position),
-            confidence=None,
-            job=job,
-            owner_id=owner_id,
-            method="heuristic",
-            engine_provenance=_hp("cadences"),
-        )
-        insight_ids.append(str(caid))
 
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.
     rhythm = analysis.get("rhythm") or {}
@@ -997,25 +933,13 @@ def handle_analyze(job: Job, client) -> list[str]:
             )
             insight_ids.append(str(rsid))
 
-    # Harmonic rhythm: chord-change activity over time (Analysis V2).
-    # This measures HOW FREQUENTLY chords change, not harmonic tension or
-    # complexity. A passage with rapid chord changes has high harmonic
-    # activity; a sustained single chord has low activity.
+    # Harmonic rhythm — WITHHELD (depends on unreliable chord stream)
     harmonic_rhythm = analysis.get("harmonic_rhythm") or []
     if harmonic_rhythm:
-        hrid = _create_insight(
-            client,
-            input_version.id,
-            "harmonic_rhythm",
-            f"Harmonic rhythm profile: {len(harmonic_rhythm)} windows",
-            evidence={"windows": harmonic_rhythm[:50], "note": "chord-change activity, not harmonic tension"},
-            confidence=None,
-            job=job,
-            owner_id=owner_id,
-            method="computed",
-            engine_provenance=_hp("chords"),
+        logger.info(
+            "harmonic_rhythm_withheld",
+            extra={"count": len(harmonic_rhythm), "reason": "unreliable_chord_stream"},
         )
-        insight_ids.append(str(hrid))
 
     melody = analysis.get("melody") or {}
     if melody:
@@ -1037,21 +961,13 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(mid))
 
+    # Voice leading — WITHHELD (depends on unreliable chord stream)
     voice_leading = analysis.get("voice_leading") or {}
     if voice_leading:
-        vid = _create_insight(
-            client,
-            input_version.id,
-            "voice_motion_candidate",
-            voice_leading.get("motion_summary", "Voice-leading summary"),
-            evidence={**voice_leading, "heuristic": True},
-            confidence=None,
-            job=job,
-            owner_id=owner_id,
-            method="heuristic",
-            engine_provenance=_hp("voice_leading"),
+        logger.info(
+            "voice_leading_withheld",
+            extra={"reason": "unreliable_chord_stream"},
         )
-        insight_ids.append(str(vid))
 
     _update_progress(client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)")
     # Insights are queried by input version. Job outputs only contain artifact
