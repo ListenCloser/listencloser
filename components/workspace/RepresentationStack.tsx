@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { availableRepresentations, representationById, type RepresentationId } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
+import { useTransport, type CompareSide, type PlaybackSource } from "@/lib/stores/transport";
 import { deriveAvailability } from "@/lib/representation-availability";
 import { presentableTitle } from "@/lib/format";
 
@@ -97,6 +98,145 @@ function MoreMenu({
   );
 }
 
+function CompareControl() {
+  const { transport, startCompare, setCompareSide, setCompareSource, exitCompare } = useTransport();
+  const {
+    sources,
+    compareEnabled,
+    compareA,
+    compareB,
+    activeSide,
+    activeSource,
+  } = transport;
+
+  const original = sources.find((item) => item.role === "original") ?? sources[0] ?? null;
+  const defaultB = sources.find((item) => item.id !== original?.id && ["transcription", "score"].includes(item.role))
+    ?? sources.find((item) => item.id !== original?.id)
+    ?? null;
+
+  const joinCompare = () => {
+    if (!original || !defaultB || original.id === defaultB.id) return;
+    startCompare(original, defaultB);
+  };
+
+  if (sources.length <= 1) return null;
+
+  if (!compareEnabled) {
+    return (
+      <button type="button" className="compare-trigger" onClick={joinCompare}>
+        Compare
+      </button>
+    );
+  }
+
+  return (
+    <div className="compare-inline" role="group" aria-label="Compare playback">
+      {(["A", "B"] as const).map((side) => {
+        const sideSource = side === "A" ? compareA : compareB;
+        const other = side === "A" ? compareB : compareA;
+        return (
+          <SourceMenuInline
+            key={side}
+            triggerLabel={`${side} \u00b7 ${sideSource ? sideSource.label : "Choose\u2026"}`}
+            triggerAria={`${side}: ${sideSource ? sideSource.label : "Choose\u2026"}`}
+            options={sources
+              .filter((item) => item.id !== other?.id)
+              .map((item) => ({ id: item.id, label: item.label }))}
+            selectedId={sideSource?.id ?? null}
+            onSelect={(id) => {
+              const next = sources.find((item) => item.id === id);
+              if (next) setCompareSource(side, next);
+            }}
+          />
+        );
+      })}
+      <div className="compare-sides" role="group" aria-label="Active compare side">
+        {(["A", "B"] as const).map((side) => (
+          <button
+            key={side}
+            type="button"
+            className={`compare-chip${activeSide === side ? " active" : ""}`}
+            aria-pressed={activeSide === side}
+            onClick={() => setCompareSide(side)}
+          >
+            {side}
+          </button>
+        ))}
+      </div>
+      <button type="button" className="compare-exit" aria-label="Exit compare" onClick={exitCompare}>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" /></svg>
+      </button>
+    </div>
+  );
+}
+
+function SourceMenuInline({
+  triggerLabel,
+  triggerAria,
+  options,
+  selectedId,
+  onSelect,
+}: {
+  triggerLabel: string;
+  triggerAria: string;
+  options: { id: string; label: string }[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="compare-source-select" ref={ref}>
+      <button
+        type="button"
+        className="compare-source-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={triggerAria}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span>{triggerLabel}</span>
+        <span className="piece-caret" aria-hidden="true">&#9662;</span>
+      </button>
+      {open && (
+        <div className="piece-source-menu" role="listbox" aria-label={triggerAria}>
+          {options.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="option"
+              aria-selected={selectedId === option.id}
+              onClick={() => {
+                onSelect(option.id);
+                setOpen(false);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport, setActiveRepresentation } = useWorkspace();
   const activeWork = workspace.works.find((work) => work.id === workspace.activeWorkId);
@@ -120,7 +260,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         <div className="piece-loading" role="status">
           <span className="spinner" aria-hidden="true" />
           <div className="piece-loading-copy">
-            <strong>Opening your music</strong>
+            <strong>Opening your workspace</strong>
             <span>Loading the saved recording, transcription, and analysis.</span>
           </div>
         </div>
@@ -142,27 +282,30 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
       <h1 title={activeWork?.title}>{presentableTitle(activeWork?.title ?? "Untitled piece")}</h1>
     </header>
 
-    <nav className="piece-view-tabs" role="tablist" aria-label="Workspace views">
-      {primaryTabs.map((def) => (
-        <button
-          key={def.id}
-          type="button"
-          role="tab"
-          aria-selected={activeView === def.id}
-          className={activeView === def.id ? "active" : ""}
-          onClick={() => setActiveRepresentation(def.id)}
-        >
-          {def.title}
-        </button>
-      ))}
-      {overflowTabs.length > 0 && (
-        <MoreMenu
-          items={overflowTabs.map((t) => ({ id: t.id, title: t.title }))}
-          activeId={activeInOverflow ? activeView : null}
-          onSelect={(id) => setActiveRepresentation(id as RepresentationId)}
-        />
-      )}
-    </nav>
+    <div className="piece-tabs-row">
+      <nav className="piece-view-tabs" role="tablist" aria-label="Workspace views">
+        {primaryTabs.map((def) => (
+          <button
+            key={def.id}
+            type="button"
+            role="tab"
+            aria-selected={activeView === def.id}
+            className={activeView === def.id ? "active" : ""}
+            onClick={() => setActiveRepresentation(def.id)}
+          >
+            {def.title}
+          </button>
+        ))}
+        {overflowTabs.length > 0 && (
+          <MoreMenu
+            items={overflowTabs.map((t) => ({ id: t.id, title: t.title }))}
+            activeId={activeInOverflow ? activeView : null}
+            onSelect={(id) => setActiveRepresentation(id as RepresentationId)}
+          />
+        )}
+      </nav>
+      <CompareControl />
+    </div>
 
     <section className="piece-active-view" aria-label={view.title}>
       <ViewComponent />

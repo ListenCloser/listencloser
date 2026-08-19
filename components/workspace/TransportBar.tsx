@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useTransport, type CompareSide, type PlaybackSource } from "@/lib/stores/transport";
+import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
 
 type PlaybackDomain = "performance" | "notation";
@@ -94,10 +94,6 @@ export default function TransportBar() {
     stop,
     toggle,
     toggleLoop,
-    startCompare,
-    setCompareSide,
-    setCompareSource,
-    exitCompare,
   } = useTransport();
   const {
     isPlaying,
@@ -108,10 +104,6 @@ export default function TransportBar() {
     loopEnd,
     activeSource,
     sources,
-    compareEnabled,
-    compareA,
-    compareB,
-    activeSide,
   } = transport;
   const { workspace } = useWorkspace();
   const hasSource = Boolean(activeSource);
@@ -135,16 +127,6 @@ export default function TransportBar() {
     if (!domainMatches) return;
     setLoop(selectionTimeRange.start, selectionTimeRange.end);
     if (!loopEnabled) toggleLoop();
-  };
-
-  const original = sources.find((item) => item.role === "original") ?? sources[0] ?? null;
-  const defaultB = sources.find((item) => item.id !== original?.id && ["transcription", "score"].includes(item.role))
-    ?? sources.find((item) => item.id !== original?.id)
-    ?? null;
-
-  const joinCompare = () => {
-    if (!original || !defaultB || original.id === defaultB.id) return;
-    startCompare(original, defaultB);
   };
 
   return (
@@ -179,7 +161,7 @@ export default function TransportBar() {
 
         <span className="transport-divider" aria-hidden="true" />
 
-        {sources.length > 0 && !compareEnabled && (
+        {sources.length > 0 && (
           <div className="transport-hearing">
             <SourceMenu
               triggerLabel={activeSource ? activeSource.label : "No source"}
@@ -191,51 +173,6 @@ export default function TransportBar() {
                 if (next) setActiveSource(next);
               }}
             />
-            {sources.length > 1 && (
-              <button type="button" className="transport-compare-btn" onClick={joinCompare}>
-                Compare
-              </button>
-            )}
-          </div>
-        )}
-
-        {compareEnabled && (
-          <div className="transport-compare" role="group" aria-label="Compare playback">
-            {(["A", "B"] as const).map((side) => {
-              const sideSource = side === "A" ? compareA : compareB;
-              const other = side === "A" ? compareB : compareA;
-              return (
-                <SourceMenu
-                  key={side}
-                  triggerLabel={`${side} \u00b7 ${sideSource ? sideSource.label : "Choose\u2026"}`}
-                  triggerAria={`${side}: ${sideSource ? sideSource.label : "Choose\u2026"}`}
-                  options={sources
-                    .filter((item) => item.id !== other?.id)
-                    .map((item) => ({ id: item.id, label: item.label }))}
-                  selectedId={sideSource?.id ?? null}
-                  onSelect={(id) => {
-                    const next = sources.find((item) => item.id === id);
-                    if (next) setCompareSource(side, next);
-                  }}
-                />
-              );
-            })}
-            <div className="transport-compare-sides" role="group" aria-label="Active compare side">
-              {(["A", "B"] as const).map((side) => (
-                <button
-                  key={side}
-                  type="button"
-                  className={`transport-compare-chip${activeSide === side ? " active" : ""}`}
-                  aria-pressed={activeSide === side}
-                  onClick={() => setCompareSide(side)}
-                >
-                  {side}
-                </button>
-              ))}
-            </div>
-            <button type="button" className="transport-compare-exit" aria-label="Exit compare" onClick={exitCompare}>
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" /></svg>
-            </button>
           </div>
         )}
 
@@ -250,9 +187,12 @@ export default function TransportBar() {
               toggleLoop();
             }}
             aria-label="Toggle loop"
+            title="Toggle loop"
             disabled={!hasSource}
           >
-            Loop
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11 2h3v3" /><path d="M14 2L10 6" /><path d="M5 14H2v-3" /><path d="M2 14l4-4" /><path d="M14 5.5A6 6 0 0 0 3.5 3.5" /><path d="M2 10.5A6 6 0 0 0 12.5 12.5" />
+            </svg>
           </button>
           {selectionTimeRange && (
             <button
@@ -268,11 +208,14 @@ export default function TransportBar() {
                   : `Selection is in ${selectionDomain} time; active source is ${activeDomain} time. Loop disabled.`
               }
             >
-              Sel
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M11 2h3v3" /><path d="M14 2L10 6" /><path d="M5 14H2v-3" /><path d="M2 14l4-4" /><path d="M14 5.5A6 6 0 0 0 3.5 3.5" /><path d="M2 10.5A6 6 0 0 0 12.5 12.5" />
+                <rect x="5" y="5" width="6" height="6" rx="1" strokeDasharray="2 2" />
+              </svg>
             </button>
           )}
-          <button type="button" className="transport-ctrl" onClick={stop} aria-label="Stop" disabled={!hasSource}>
-            Stop
+          <button type="button" className="transport-ctrl" onClick={stop} aria-label="Stop" title="Stop" disabled={!hasSource}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="10" height="10" rx="1.5" /></svg>
           </button>
         </div>
       </div>

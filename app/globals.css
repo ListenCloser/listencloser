@@ -23,6 +23,15 @@
   --success-soft: rgba(40,116,91,0.1);
   --border: rgba(0,0,0,0.08);
   --border-strong: rgba(0,0,0,0.14);
+  /* Semantic analysis colors — subtle, used only after analysis completes */
+  --color-harmony: #4a7c59;
+  --color-harmony-soft: rgba(74,124,89,0.12);
+  --color-melody: #c47a5a;
+  --color-melody-soft: rgba(196,122,90,0.12);
+  --color-rhythm: #b8963e;
+  --color-rhythm-soft: rgba(184,150,62,0.12);
+  --color-structure: #6b7da8;
+  --color-structure-soft: rgba(107,125,168,0.12);
   --r-sm: 2px;
   --r-md: 3px;
   --r-lg: 4px;
@@ -742,9 +751,9 @@ gradient-text {
 }
 
 /* ── Waveform + selection/playback highlights ───────────────────────── */
-.waveform-wrap { display:grid; gap:6px; }
+.waveform-wrap { display:grid; gap:4px; }
 .waveform { display:block; width:100%; border-radius:var(--r-sm); background:var(--bg); cursor:crosshair; touch-action:none; }
-.piece-active-view .waveform { height:min(50vh, 380px); }
+.piece-active-view .waveform { height:min(50vh, 300px); }
 [data-selection-highlight] { pointer-events:none; }
 [data-playback-highlight] { pointer-events:none; }
 
@@ -936,7 +945,7 @@ gradient-text {
   min-height:420px; padding:var(--s-3);
   border-radius:var(--r-sm); background:var(--panel-2);
 }
-.piece-active-view .piano-roll-scroll { height:380px; cursor:crosshair; }
+.piece-active-view .piano-roll-scroll { height:calc(100vh - 280px); min-height:320px; max-height:600px; cursor:crosshair; }
 .piece-active-view .sheet-music-container {
   min-height:420px; max-height:600px;
   padding:var(--s-5) !important;
@@ -1180,6 +1189,80 @@ gradient-text {
 }
 .studio-library-collapsed { width:40px; min-width:40px; }
 
+/* ── Analysis state labels ─────────────────────────────────────────────── */
+.studio-analyzing-label {
+  display:inline-flex; align-items:center; gap:var(--s-1);
+  padding:var(--s-1) var(--s-3); border:0;
+  background:transparent; color:var(--muted);
+  font:var(--fs-xs) var(--font-sans); font-weight:var(--fw-medium);
+  white-space:nowrap;
+}
+.studio-analyze-idle {
+  display:inline-flex; align-items:center;
+  padding:var(--s-1) var(--s-3); border:0;
+  background:transparent; color:var(--muted);
+  font:var(--fs-xs) var(--font-sans); font-weight:var(--fw-medium);
+}
+
+/* ── Tabs row with Compare ─────────────────────────────────────────────── */
+.piece-tabs-row {
+  display:flex; align-items:flex-end; justify-content:space-between;
+  gap:var(--s-3);
+  width:min(100%,1180px); margin:0 auto var(--s-4);
+}
+.piece-tabs-row .piece-view-tabs {
+  width:auto; margin:0; border-bottom:0;
+  flex:1; min-width:0;
+}
+/* The tabs row has its own bottom border; individual tabs underline active */
+.piece-tabs-row { border-bottom:1px solid var(--border); }
+
+/* ── Compare inline (near tabs) ────────────────────────────────────────── */
+.compare-trigger {
+  display:inline-flex; align-items:center;
+  padding:var(--s-1) var(--s-3); border:0;
+  background:transparent; color:var(--muted);
+  font:var(--fs-xs) var(--font-sans); font-weight:var(--fw-medium);
+  cursor:pointer; white-space:nowrap;
+  transition:color var(--dur) var(--ease);
+  flex-shrink:0;
+}
+.compare-trigger:hover { color:var(--text); }
+
+.compare-inline {
+  display:flex; align-items:center; gap:var(--s-2);
+  flex-shrink:0; flex-wrap:nowrap;
+}
+.compare-source-select { position:relative; min-width:0; }
+.compare-source-trigger {
+  display:inline-flex; align-items:center; gap:4px; white-space:nowrap;
+  padding:2px 0; border:0;
+  background:transparent; color:var(--text);
+  font:var(--fs-xs) var(--font-sans); cursor:pointer; min-width:0;
+  transition:color var(--dur) var(--ease);
+}
+.compare-source-trigger:hover { color:var(--accent); }
+.compare-sides {
+  display:flex; gap:2px; padding:2px;
+  border:0; border-radius:var(--r-sm);
+  background:transparent;
+}
+.compare-chip {
+  border:0; border-radius:var(--r-sm);
+  min-width:26px; padding:3px 8px;
+  background:transparent; color:var(--muted);
+  font:var(--fs-xs) var(--font-sans); cursor:pointer;
+  transition:color var(--dur) var(--ease);
+}
+.compare-chip.active { color:var(--text); font-weight:var(--fw-medium); }
+.compare-exit {
+  display:inline-flex; align-items:center; justify-content:center;
+  border:0; width:24px; height:24px;
+  background:transparent; color:var(--muted); cursor:pointer;
+  transition:color var(--dur) var(--ease);
+}
+.compare-exit:hover { color:var(--text); }
+
 /* ── Score hint (minimal, not prominent) ───────────────────────────────── */
 .sheet-music-hint {
   margin:0 0 var(--s-2); padding:0;
@@ -1221,7 +1304,8 @@ gradient-text {
   }
   .piece-desk { padding:var(--s-3) var(--s-3) var(--s-2); }
   .piece-desk-heading h1 { font-size:20px; }
-  .piece-view-tabs { margin-bottom:var(--s-2); }
+  .piece-tabs-row { flex-wrap:wrap; gap:var(--s-2); margin-bottom:var(--s-2); }
+  .piece-tabs-row .piece-view-tabs { border-bottom:1px solid var(--border); }
   .piece-view-tabs button { padding:var(--s-2) var(--s-3); }
   .piece-active-view .visualizer { height:200px; }
   .piece-active-view .piano-roll-container,
