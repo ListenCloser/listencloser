@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import type { ComponentType } from "react";
 import type { RepresentationAvailability } from "@/lib/representation-availability";
 import { useTimeline } from "@/lib/stores/timeline";
@@ -12,6 +13,7 @@ import {
   measureRangeFromTime,
   noteIdsInRange,
 } from "@/lib/selection";
+import { extractAnnotations, annotationToMeasureRange, type AnalysisAnnotation } from "@/lib/analysis-annotations";
 import Waveform from "@/components/Waveform";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
@@ -44,6 +46,11 @@ function WaveformView() {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
+  const inspectorOpen = !workspace.inspectorCollapsed;
+  const annotations = useMemo(
+    () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
+    [workspace.insights, inspectorOpen],
+  );
   if (!waveform?.audioUrl) {
     return (
       <div className="representation-body">
@@ -57,10 +64,17 @@ function WaveformView() {
         url={waveform.audioUrl}
         position={transport.position}
         selection={workspace.selection}
+        annotations={annotations}
         onSeek={seek}
         onSelect={(start, end) =>
           setSelection(composeTimeSelection(start, end, [], "waveform"))
         }
+        onAnnotationClick={(ann) => {
+          setSelection({
+            timeRange: { start: ann.startSeconds, end: ann.endSeconds, domain: "performance" },
+            provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
+          });
+        }}
       />
     </div>
   );
@@ -73,6 +87,11 @@ function PianoRollView() {
   const entry = workspace.representations.find((item) => item.kind === "piano_roll");
   const notes = entry?.notes ?? [];
   const selection = workspace.selection;
+  const inspectorOpen = !workspace.inspectorCollapsed;
+  const annotations = useMemo(
+    () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
+    [workspace.insights, inspectorOpen],
+  );
   const selectedNoteIds =
     selection?.timeRange
       ? noteIdsInRange(notes, selection.timeRange.start, selection.timeRange.end)
@@ -83,6 +102,7 @@ function PianoRollView() {
         notes={notes}
         bpm={timeline.bpm}
         playheadTime={transport.position}
+        annotations={annotations}
         onSeek={seek}
         selectionTimeRange={selection?.timeRange}
         selectedNoteIds={selection?.noteIds ?? selectedNoteIds}
@@ -92,6 +112,12 @@ function PianoRollView() {
         onSelectNotes={(ids) => {
           const composed = composeNoteSelection(notes, ids);
           if (composed) setSelection(composed);
+        }}
+        onAnnotationClick={(ann) => {
+          setSelection({
+            timeRange: { start: ann.startSeconds, end: ann.endSeconds, domain: "performance" },
+            provenance: { origin: "piano_roll", timeExact: true, measureApproximate: false },
+          });
         }}
       />
     </div>
@@ -105,6 +131,20 @@ function ScoreView() {
   const measureStarts = entry?.measureStarts ?? [];
   const scoreDuration = entry?.audioUrl ? transport.duration : null;
   const selection = workspace.selection;
+  const inspectorOpen = !workspace.inspectorCollapsed;
+  const annotations = useMemo(
+    () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
+    [workspace.insights, inspectorOpen],
+  );
+  // Derive focused annotation from selection overlap
+  const focusedAnnotationId = useMemo(() => {
+    if (!selection?.timeRange || !annotations.length) return null;
+    const { start, end } = selection.timeRange;
+    const match = annotations.find(
+      (a) => a.startSeconds < end && a.endSeconds > start,
+    );
+    return match?.id ?? null;
+  }, [selection, annotations]);
   const selectedMeasures = selection?.measureRange
     ? selection.measureRange
     : selection?.timeRange
@@ -124,12 +164,20 @@ function ScoreView() {
         measureApproximate={Boolean(
           selection?.timeRange && !selection?.measureRange,
         )}
+        annotations={annotations}
+        focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
         onSelectMeasures={(start, end) =>
           setSelection(
             composeMeasureSelection(start, end, measureStarts, scoreDuration),
           )
         }
+        onAnnotationClick={(ann) => {
+          setSelection({
+            timeRange: { start: ann.startSeconds, end: ann.endSeconds, domain: "notation" },
+            provenance: { origin: "score", timeExact: false, measureApproximate: true },
+          });
+        }}
       />
     </div>
   );

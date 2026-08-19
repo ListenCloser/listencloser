@@ -3,29 +3,32 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { withAlpha } from "@/lib/color";
 import type { MusicalSelection } from "@/lib/stores/workspace";
+import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 
 /**
  * Waveform visualization — large horizontal canvas with sparse time ruler,
- * shared blue playhead, and terracotta selection.
+ * shared blue playhead, terracotta selection, and optional analysis overlays.
  *
- * Visual language: quiet, neutral, minimal chrome. No dense numeric ruler.
- * The waveform body uses muted text color at low opacity for a restrained
- * appearance that matches the workspace aesthetic.
+ * Visual language: quiet, neutral, minimal chrome.
  */
 export default function Waveform({
   url,
   position,
   durationOverride,
   selection,
+  annotations,
   onSeek,
   onSelect,
+  onAnnotationClick,
 }: {
   url: string;
   position: number;
   durationOverride?: number | null;
   selection?: MusicalSelection | null;
+  annotations?: AnalysisAnnotation[];
   onSeek?: (time: number) => void;
   onSelect?: (start: number, end: number) => void;
+  onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rulerRef = useRef<HTMLCanvasElement>(null);
@@ -125,7 +128,7 @@ export default function Waveform({
     ctx.globalAlpha = 1;
   }, [duration]);
 
-  // Draw waveform + selection + playhead
+  // Draw waveform + annotations + selection + playhead
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -137,11 +140,24 @@ export default function Waveform({
     const playhead = styles.getPropertyValue("--score-playback").trim() || "#5a89a8";
     const trace = styles.getPropertyValue("--muted").trim() || "#575a5e";
     const bg = styles.getPropertyValue("--panel").trim() || "#f4f1eb";
+    const rhythmColor = styles.getPropertyValue("--color-rhythm").trim() || "#b8963e";
+    const harmonyColor = styles.getPropertyValue("--color-harmony").trim() || "#4a7c59";
 
     const w = canvas.width;
     const h = canvas.height;
     canvasCtx.fillStyle = bg;
     canvasCtx.fillRect(0, 0, w, h);
+
+    // Draw annotation bands (behind waveform, above background)
+    if (annotations && annotations.length > 0 && duration > 0) {
+      for (const ann of annotations) {
+        const x1 = timeToX(ann.startSeconds);
+        const x2 = timeToX(ann.endSeconds);
+        const color = ann.category === "rhythm" ? rhythmColor : harmonyColor;
+        canvasCtx.fillStyle = withAlpha(color, 0.08);
+        canvasCtx.fillRect(x1, 0, Math.max(x2 - x1, 1), h);
+      }
+    }
 
     // Draw waveform — muted, quiet, not heavy
     const peaks = peaksRef.current;
@@ -187,7 +203,7 @@ export default function Waveform({
       canvasCtx.lineTo(x, h);
       canvasCtx.stroke();
     }
-  }, [position, selection, preview, status, duration, timeToX]);
+  }, [position, selection, preview, status, duration, timeToX, annotations]);
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
@@ -226,10 +242,22 @@ export default function Waveform({
         onSelect(body.start, body.end);
       }
       setPreview(null);
-    } else if (onSeek) {
+    } else {
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
-      onSeek((x / rect.width) * duration);
+      const clickTime = (x / rect.width) * duration;
+      // Check if click is on an annotation
+      if (onAnnotationClick && annotations) {
+        for (const ann of annotations) {
+          if (clickTime >= ann.startSeconds && clickTime <= ann.endSeconds) {
+            onAnnotationClick(ann);
+            return;
+          }
+        }
+      }
+      if (onSeek) {
+        onSeek(clickTime);
+      }
     }
   }
 

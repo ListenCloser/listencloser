@@ -14,6 +14,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { pitchToName } from "@/lib/notes";
 import { withAlpha } from "@/lib/color";
+import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 
 type Note = { id?: string; pitch: number; start: number; end: number; velocity: number };
 type TimeRange = { start: number; end: number };
@@ -26,20 +27,24 @@ export default function PianoRoll({
   notes,
   bpm = 120,
   playheadTime = 0,
+  annotations,
   onSeek,
   selectionTimeRange,
   selectedNoteIds,
   onSelectRange,
   onSelectNotes,
+  onAnnotationClick,
 }: {
   notes: Note[];
   bpm?: number;
   playheadTime?: number;
+  annotations?: AnalysisAnnotation[];
   onSeek?: (seconds: number) => void;
   selectionTimeRange?: TimeRange | null;
   selectedNoteIds?: string[];
   onSelectRange?: (start: number, end: number) => void;
   onSelectNotes?: (ids: string[]) => void;
+  onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [previewRange, setPreviewRange] = useState<TimeRange | null>(null);
@@ -125,10 +130,21 @@ export default function PianoRoll({
       setPreviewRange(null);
       return;
     }
-    if (!onSeek) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = (event.clientX - rect.left) + scrollRef.current!.scrollLeft;
-    onSeek(Math.max(0, (x - LABEL_W) / (PPQ * bpm) * 60));
+    const clickTime = Math.max(0, (x - LABEL_W) / (PPQ * bpm) * 60);
+    // Check if click is on an annotation
+    if (onAnnotationClick && annotations) {
+      for (const ann of annotations) {
+        if (clickTime >= ann.startSeconds && clickTime <= ann.endSeconds) {
+          onAnnotationClick(ann);
+          return;
+        }
+      }
+    }
+    if (onSeek) {
+      onSeek(clickTime);
+    }
   }
 
   const rangeSelectedIds = visibleTimeRange
@@ -206,6 +222,28 @@ export default function PianoRoll({
               />
             );
           })}
+
+          {/* Analysis annotation bands (behind notes, above grid) */}
+          {annotations &&
+            annotations.map((ann) => {
+              const x1 = timeToX(ann.startSeconds);
+              const x2 = timeToX(ann.endSeconds);
+              const colorVar =
+                ann.category === "rhythm"
+                  ? "var(--color-rhythm)"
+                  : "var(--color-harmony)";
+              return (
+                <rect
+                  key={ann.id}
+                  x={x1}
+                  y={TOP_PAD}
+                  width={Math.max(x2 - x1, 1)}
+                  height={h - TOP_PAD}
+                  fill={colorVar}
+                  fillOpacity={0.06}
+                />
+              );
+            })}
 
           {/* Selected time range highlight (terracotta) */}
           {visibleTimeRange && (

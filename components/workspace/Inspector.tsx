@@ -45,6 +45,7 @@ function renderInsightList(
   insights: Insight[],
   onSeek: (seconds: number) => void,
   bpm: number,
+  setSelection: (selection: MusicalSelection | null) => void,
 ) {
   if (insights.length === 0) return null;
   const seekable = (item: Insight) => {
@@ -54,6 +55,13 @@ function renderInsightList(
   const seekTo = (item: Insight) => {
     const seconds = insightStartSeconds(item, bpm);
     if (seconds !== null) onSeek(seconds);
+    // Also set selection to the insight's time span for cross-representation focus
+    if (item.span.start_seconds != null && item.span.end_seconds != null) {
+      setSelection({
+        timeRange: { start: item.span.start_seconds, end: item.span.end_seconds, domain: "notation" },
+        provenance: { origin: "score", timeExact: false, measureApproximate: true },
+      });
+    }
   };
   const chords = insights.filter((item) => item.kind === "chord" && seekable(item)).slice(0, 12);
   const sections = insights.filter((item) => item.kind === "section" && seekable(item)).slice(0, 12);
@@ -112,7 +120,7 @@ function renderInsightList(
 }
 
 export default function InspectorPanel() {
-  const { workspace, setInspectorMode } = useWorkspace();
+  const { workspace, setInspectorMode, setSelection } = useWorkspace();
   const { seek } = useTransport();
   const { timeline } = useTimeline();
   const mode = workspace.inspectorMode;
@@ -146,7 +154,7 @@ export default function InspectorPanel() {
       </header>
 
       {mode === "analysis"
-        ? <AnalysisContent workspace={workspace} seek={seek} bpm={timeline.bpm} />
+        ? <AnalysisContent workspace={workspace} seek={seek} bpm={timeline.bpm} setSelection={setSelection} />
         : <div className="inspector-content ask-content"><AskPanel /></div>}
     </aside>
   );
@@ -156,10 +164,12 @@ function AnalysisContent({
   workspace,
   seek,
   bpm,
+  setSelection,
 }: {
   workspace: ReturnType<typeof useWorkspace>["workspace"];
   seek: (seconds: number) => void;
   bpm: number;
+  setSelection: (selection: MusicalSelection | null) => void;
 }) {
   const hasSelection = workspace.selection != null;
 
@@ -199,7 +209,7 @@ function AnalysisContent({
       {hasSelection && confSelection.length > 0 && (
         <section className="inspector-section">
           <h3>Selection findings</h3>
-          {renderInsightList(confSelection, seek, bpm)}
+          {renderInsightList(confSelection, seek, bpm, setSelection)}
         </section>
       )}
 
@@ -212,7 +222,7 @@ function AnalysisContent({
 
       <section className="inspector-section">
         <h3>{hasSelection ? "Whole-piece context" : "Findings"}</h3>
-        {renderInsightList(confWholeWork, seek, bpm)}
+        {renderInsightList(confWholeWork, seek, bpm, setSelection)}
         {confWholeWork.length === 0 && <p className="inspector-empty">No analysis findings yet.</p>}
       </section>
     </div>

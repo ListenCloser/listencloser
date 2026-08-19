@@ -17,6 +17,11 @@
   --accent-soft-2: rgba(132,108,49,0.12);
   --score-playback: #5a89a8;
   --score-playback-soft: rgba(90,137,168,0.14);
+  /* Semantic analysis colors — subtle, lighter than playback/selection */
+  --color-rhythm: #b8963e;
+  --color-rhythm-soft: rgba(184,150,62,0.10);
+  --color-harmony: #4a7c59;
+  --color-harmony-soft: rgba(74,124,89,0.10);
   --danger: #b63e3e;
   --danger-soft: rgba(182,62,62,0.1);
   --success: #28745b;
