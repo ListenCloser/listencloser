@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { measureIndexAt, measureGroupsForIndex } from "@/lib/measure";
+import { annotationToMeasureRange, ANNOTATION_COLORS } from "@/lib/analysis-annotations";
+import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 
 type Props = {
   musicXml: string;
@@ -14,8 +16,11 @@ type Props = {
   scoreDuration?: number | null;
   selectedMeasures?: { start: number; end: number } | null;
   measureApproximate?: boolean;
+  annotations?: AnalysisAnnotation[];
+  focusedAnnotationId?: string | null;
   onSeek?: (seconds: number) => void;
   onSelectMeasures?: (start: number, end: number) => void;
+  onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 };
 
 /**
@@ -147,8 +152,11 @@ export default function SheetMusic({
   measureStarts,
   selectedMeasures,
   measureApproximate = false,
+  annotations,
+  focusedAnnotationId,
   onSeek,
   onSelectMeasures,
+  onAnnotationClick,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<any>(null);
@@ -487,6 +495,35 @@ export default function SheetMusic({
     }
   }, [osmdReady, selectedMeasures, measureApproximate, measureStarts]);
 
+  // ── Analysis annotation overlays ──────────────────────────────────────────
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!osmdReady || !container) return;
+    container.querySelectorAll("[data-annotation-highlight]").forEach((n) => n.remove());
+    if (!annotations || annotations.length === 0 || !measureStarts || measureStarts.length === 0) return;
+
+    for (const ann of annotations) {
+      const range = annotationToMeasureRange(ann, measureStarts);
+      if (!range) continue;
+      const colors = ANNOTATION_COLORS[ann.category];
+      const isFocused = ann.id === focusedAnnotationId;
+      for (let idx = range.start; idx <= range.end; idx += 1) {
+        const groups = measureGroupsForIndex(container, idx);
+        for (const group of groups) {
+          insertHighlightRect(
+            group,
+            "data-annotation-highlight",
+            colors.fill,
+            isFocused ? "0.18" : "0.08",
+            colors.stroke,
+            isFocused ? "1.5" : "0.5",
+            "none",
+          );
+        }
+      }
+    }
+  }, [osmdReady, annotations, focusedAnnotationId, measureStarts]);
+
   // ── Click handler ──────────────────────────────────────────────────────────
   function handleClick(event: React.MouseEvent<HTMLDivElement>) {
     if (!measureStarts || measureStarts.length === 0) return;
@@ -510,6 +547,16 @@ export default function SheetMusic({
             const rangeEnd = event.shiftKey && anchor !== null ? Math.max(anchor, index) : index;
             onSelectMeasures(rangeStart, rangeEnd);
             anchorMeasureRef.current = index;
+          }
+          // Check if this measure overlaps with an annotation
+          if (onAnnotationClick && annotations) {
+            for (const ann of annotations) {
+              const range = annotationToMeasureRange(ann, measureStarts);
+              if (range && index >= range.start && index <= range.end) {
+                onAnnotationClick(ann);
+                return;
+              }
+            }
           }
         }
         return;

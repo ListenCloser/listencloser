@@ -33,6 +33,7 @@ export default function PianoRoll({
   selectedNoteIds,
   onSelectRange,
   onSelectNotes,
+  onAnnotationClick,
 }: {
   notes: Note[];
   bpm?: number;
@@ -43,6 +44,7 @@ export default function PianoRoll({
   selectedNoteIds?: string[];
   onSelectRange?: (start: number, end: number) => void;
   onSelectNotes?: (ids: string[]) => void;
+  onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [previewRange, setPreviewRange] = useState<TimeRange | null>(null);
@@ -128,10 +130,21 @@ export default function PianoRoll({
       setPreviewRange(null);
       return;
     }
-    if (!onSeek) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = (event.clientX - rect.left) + scrollRef.current!.scrollLeft;
-    onSeek(Math.max(0, (x - LABEL_W) / (PPQ * bpm) * 60));
+    const clickTime = Math.max(0, (x - LABEL_W) / (PPQ * bpm) * 60);
+    // Check if click is on an annotation
+    if (onAnnotationClick && annotations) {
+      for (const ann of annotations) {
+        if (clickTime >= ann.startSeconds && clickTime <= ann.endSeconds) {
+          onAnnotationClick(ann);
+          return;
+        }
+      }
+    }
+    if (onSeek) {
+      onSeek(clickTime);
+    }
   }
 
   const rangeSelectedIds = visibleTimeRange

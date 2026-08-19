@@ -136,3 +136,23 @@ export const ANNOTATION_COLORS: Record<AnnotationCategory, { fill: string; strok
   rhythm: { fill: "var(--color-rhythm-soft)", stroke: "var(--color-rhythm)" },
   harmony: { fill: "var(--color-harmony-soft)", stroke: "var(--color-harmony)" },
 };
+
+/**
+ * Map an annotation's time span to a measure range using existing
+ * measure_starts_seconds metadata.  Returns null when measureStarts is
+ * empty or the annotation falls outside the score.
+ */
+export function annotationToMeasureRange(
+  annotation: AnalysisAnnotation,
+  measureStarts: number[],
+): { start: number; end: number } | null {
+  if (measureStarts.length === 0) return null;
+  let start = -1;
+  let end = -1;
+  for (let i = 0; i < measureStarts.length; i += 1) {
+    if (measureStarts[i] <= annotation.startSeconds) start = i;
+    if (measureStarts[i] <= annotation.endSeconds) end = i;
+  }
+  if (start < 0 || end < 0) return null;
+  return { start, end };
+}

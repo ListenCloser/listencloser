@@ -19,6 +19,7 @@ export default function Waveform({
   annotations,
   onSeek,
   onSelect,
+  onAnnotationClick,
 }: {
   url: string;
   position: number;
@@ -27,6 +28,7 @@ export default function Waveform({
   annotations?: AnalysisAnnotation[];
   onSeek?: (time: number) => void;
   onSelect?: (start: number, end: number) => void;
+  onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rulerRef = useRef<HTMLCanvasElement>(null);
@@ -240,10 +242,22 @@ export default function Waveform({
         onSelect(body.start, body.end);
       }
       setPreview(null);
-    } else if (onSeek) {
+    } else {
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
-      onSeek((x / rect.width) * duration);
+      const clickTime = (x / rect.width) * duration;
+      // Check if click is on an annotation
+      if (onAnnotationClick && annotations) {
+        for (const ann of annotations) {
+          if (clickTime >= ann.startSeconds && clickTime <= ann.endSeconds) {
+            onAnnotationClick(ann);
+            return;
+          }
+        }
+      }
+      if (onSeek) {
+        onSeek(clickTime);
+      }
     }
   }
 
