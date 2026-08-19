@@ -14,6 +14,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { pitchToName } from "@/lib/notes";
 import { withAlpha } from "@/lib/color";
+import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 
 type Note = { id?: string; pitch: number; start: number; end: number; velocity: number };
 type TimeRange = { start: number; end: number };
@@ -26,6 +27,7 @@ export default function PianoRoll({
   notes,
   bpm = 120,
   playheadTime = 0,
+  annotations,
   onSeek,
   selectionTimeRange,
   selectedNoteIds,
@@ -35,6 +37,7 @@ export default function PianoRoll({
   notes: Note[];
   bpm?: number;
   playheadTime?: number;
+  annotations?: AnalysisAnnotation[];
   onSeek?: (seconds: number) => void;
   selectionTimeRange?: TimeRange | null;
   selectedNoteIds?: string[];
@@ -206,6 +209,28 @@ export default function PianoRoll({
               />
             );
           })}
+
+          {/* Analysis annotation bands (behind notes, above grid) */}
+          {annotations &&
+            annotations.map((ann) => {
+              const x1 = timeToX(ann.startSeconds);
+              const x2 = timeToX(ann.endSeconds);
+              const colorVar =
+                ann.category === "rhythm"
+                  ? "var(--color-rhythm)"
+                  : "var(--color-harmony)";
+              return (
+                <rect
+                  key={ann.id}
+                  x={x1}
+                  y={TOP_PAD}
+                  width={Math.max(x2 - x1, 1)}
+                  height={h - TOP_PAD}
+                  fill={colorVar}
+                  fillOpacity={0.06}
+                />
+              );
+            })}
 
           {/* Selected time range highlight (terracotta) */}
           {visibleTimeRange && (
