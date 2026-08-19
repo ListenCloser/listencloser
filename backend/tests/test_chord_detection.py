@@ -24,9 +24,7 @@ def _polyphonic_midi_bytes() -> bytes:
     inst = pretty_midi.Instrument(program=0)
     # C major triad: C4, E4, G4
     for pitch in [60, 64, 67]:
-        inst.notes.append(
-            pretty_midi.Note(velocity=80, pitch=pitch, start=0.0, end=1.0)
-        )
+        inst.notes.append(pretty_midi.Note(velocity=80, pitch=pitch, start=0.0, end=1.0))
     pm.instruments.append(inst)
     buf = io.BytesIO()
     pm.write(buf)
