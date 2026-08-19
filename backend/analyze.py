@@ -116,6 +116,10 @@ class RhythmResult(TypedDict):
     offbeat_onset_ratio: float | None
     rhythmic_density: float
     offbeat_onset_available: bool
+    # Temporal features (Analysis V2)
+    note_density_over_time: list[dict[str, float]]
+    onset_density_over_time: list[dict[str, float]]
+    rest_segments: list[dict[str, float]]
 
 
 class MelodyResult(TypedDict):
@@ -140,6 +144,7 @@ class AnalysisResult(TypedDict):
     phrases: list[PhraseResult]
     rhythm: RhythmResult | None
     melody: MelodyResult | None
+    harmonic_rhythm: NotRequired[list[dict[str, float]]]
     harmony_provenance: NotRequired[dict]
     melody_provenance: NotRequired[dict]
     pulse_provenance: NotRequired[dict | None]
@@ -195,12 +200,26 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
         if beats and all_onsets:
             offbeat_onset_ratio = _offbeat_onset_ratio(all_onsets, beats)
 
+        # Temporal features (Analysis V2): windowed density and rest detection.
+        # Prefer beat-relative aggregation when real beat evidence is available;
+        # fall back to seconds-based windows otherwise.
+        note_density = _compute_windowed_density(
+            all_onsets, duration, window=2.0, step=0.5, beats=beats or None
+        )
+        onset_density = _compute_windowed_density(
+            all_onsets, duration, window=1.0, step=0.25, beats=beats or None
+        )
+        rest_segments = _detect_rests(all_onsets, duration, min_gap=1.0)
+
         return RhythmResult(
             beat_count=beat_count,
             avg_note_duration=round(avg_duration, 3),
             offbeat_onset_ratio=offbeat_onset_ratio,
             rhythmic_density=round(total_notes / duration, 2),
             offbeat_onset_available=offbeat_onset_ratio is not None,
+            note_density_over_time=note_density,
+            onset_density_over_time=onset_density,
+            rest_segments=rest_segments,
         )
     except Exception:
         return None
@@ -231,6 +250,106 @@ def _offbeat_onset_ratio(onsets: list[float], beats: list[float]) -> float:
         if nearest > tolerance:
             off_beat += 1
     return round(off_beat / len(onsets), 3) if onsets else 0.0
+
+
+def _compute_windowed_density(
+    onsets: list[float],
+    duration: float,
+    window: float = 2.0,
+    step: float = 0.5,
+    beats: list[float] | None = None,
+) -> list[dict[str, float]]:
+    """Compute event density over time using a sliding window.
+
+    When ``beats`` is provided (real beat evidence from audio analysis),
+    density is expressed as events per beat-relative unit rather than
+    events per second. This produces musically meaningful comparisons
+    across tempo changes. Falls back to seconds-based windows when no
+    beat grid is available.
+
+    Returns a list of {start, end, density} where density = events / unit.
+    """
+    if not onsets or duration <= 0:
+        return []
+    sorted_onsets = sorted(onsets)
+    result: list[dict[str, float]] = []
+
+    if beats and len(beats) >= 2:
+        # Beat-relative: count onsets per beat window
+        sorted_beats = sorted(beats)
+        for i in range(len(sorted_beats)):
+            beat_start = sorted_beats[i]
+            beat_end = sorted_beats[min(i + int(window), len(sorted_beats) - 1)]
+            if beat_end <= beat_start:
+                continue
+            count = sum(1 for o in sorted_onsets if beat_start <= o < beat_end)
+            result.append({
+                "start": round(beat_start, 2),
+                "end": round(beat_end, 2),
+                "density": round(count, 2),
+            })
+        return result
+
+    # Seconds-based fallback
+    t = 0.0
+    while t < duration:
+        window_end = min(t + window, duration)
+        count = sum(1 for o in sorted_onsets if t <= o < window_end)
+        actual_window = window_end - t
+        result.append({
+            "start": round(t, 2),
+            "end": round(window_end, 2),
+            "density": round(count / actual_window, 2) if actual_window > 0 else 0.0,
+        })
+        t += step
+    return result
+
+
+def _detect_rests(
+    onsets: list[float],
+    duration: float,
+    min_gap: float = 1.0,
+) -> list[dict[str, float]]:
+    """Detect observed silence segments where no notes onset for min_gap seconds.
+
+    A rest_segment is an OBSERVED GAP in note onsets — it does NOT imply a
+    phrase boundary, musical rest notation, or intentional silence. It simply
+    records that no note onset events were detected in this time window.
+
+    Returns a list of {start, end, duration} for each rest segment.
+    """
+    if not onsets or duration <= 0:
+        return []
+    sorted_onsets = sorted(onsets)
+    rests: list[dict[str, float]] = []
+
+    # Check gap before first onset
+    if sorted_onsets[0] >= min_gap:
+        rests.append({
+            "start": 0.0,
+            "end": round(sorted_onsets[0], 2),
+            "duration": round(sorted_onsets[0], 2),
+        })
+
+    # Check gaps between onsets
+    for i in range(len(sorted_onsets) - 1):
+        gap = sorted_onsets[i + 1] - sorted_onsets[i]
+        if gap >= min_gap:
+            rests.append({
+                "start": round(sorted_onsets[i], 2),
+                "end": round(sorted_onsets[i + 1], 2),
+                "duration": round(gap, 2),
+            })
+
+    # Check gap after last onset
+    if duration - sorted_onsets[-1] >= min_gap:
+        rests.append({
+            "start": round(sorted_onsets[-1], 2),
+            "end": round(duration, 2),
+            "duration": round(duration - sorted_onsets[-1], 2),
+        })
+
+    return rests
 
 
 # ── Main entry point ────────────────────────────────────────────────────────
@@ -351,6 +470,15 @@ def analyze_midi(midi_path: str, pulse: dict | None = None) -> AnalysisResult:
         result["harmony_provenance"] = {
             k: v.to_dict() for k, v in harmony.component_provenance.items()
         }
+
+        # Harmonic rhythm: chord onset density over time (Analysis V2)
+        if harmony.chords:
+            chord_onsets = [c["start"] for c in harmony.chords if "start" in c]
+            if chord_onsets:
+                duration = pm.get_end_time()
+                result["harmonic_rhythm"] = _compute_windowed_density(
+                    chord_onsets, duration, window=4.0, step=1.0
+                )
     except Exception:
         logger.exception("harmony engine failed")
 
