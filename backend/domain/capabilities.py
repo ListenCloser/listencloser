@@ -997,7 +997,10 @@ def handle_analyze(job: Job, client) -> list[str]:
             )
             insight_ids.append(str(rsid))
 
-    # Harmonic rhythm: chord onset density over time (Analysis V2)
+    # Harmonic rhythm: chord-change activity over time (Analysis V2).
+    # This measures HOW FREQUENTLY chords change, not harmonic tension or
+    # complexity. A passage with rapid chord changes has high harmonic
+    # activity; a sustained single chord has low activity.
     harmonic_rhythm = analysis.get("harmonic_rhythm") or []
     if harmonic_rhythm:
         hrid = _create_insight(
@@ -1005,7 +1008,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             input_version.id,
             "harmonic_rhythm",
             f"Harmonic rhythm profile: {len(harmonic_rhythm)} windows",
-            evidence={"windows": harmonic_rhythm[:50]},
+            evidence={"windows": harmonic_rhythm[:50], "note": "chord-change activity, not harmonic tension"},
             confidence=None,
             job=job,
             owner_id=owner_id,
