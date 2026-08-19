@@ -65,4 +65,36 @@ describe("measureIndexAt", () => {
     expect(measureIndexAt(starts, 0)).toBe(0);
     expect(measureIndexAt(starts, 10)).toBe(5);
   });
+
+  it("cursor position transitions: forward playback", () => {
+    // Simulates playback advancing through measures
+    const positions = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10];
+    const expected = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5];
+    const actual = positions.map((t) => measureIndexAt(starts, t));
+    expect(actual).toEqual(expected);
+  });
+
+  it("cursor position transitions: reverse seek", () => {
+    // Simulates seeking backward
+    expect(measureIndexAt(starts, 9)).toBe(4);
+    expect(measureIndexAt(starts, 5)).toBe(2);
+    expect(measureIndexAt(starts, 1)).toBe(0);
+  });
+
+  it("cursor position transitions: pause preserves position", () => {
+    // When paused at 3.5s, cursor stays at measure 1
+    const paused = measureIndexAt(starts, 3.5);
+    expect(paused).toBe(1);
+    // Still at same position after "time passes" (no change)
+    expect(measureIndexAt(starts, 3.5)).toBe(1);
+  });
+
+  it("cursor position transitions: seek forward then backward", () => {
+    // Seek forward to measure 4
+    expect(measureIndexAt(starts, 8.5)).toBe(4);
+    // Seek backward to measure 1
+    expect(measureIndexAt(starts, 2.5)).toBe(1);
+    // Seek forward again to measure 3
+    expect(measureIndexAt(starts, 6.5)).toBe(3);
+  });
 });

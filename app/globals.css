@@ -835,7 +835,7 @@ gradient-text {
    ════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Shell ─────────────────────────────────────────────────────────────── */
-.studio-shell { background:var(--bg) !important; min-height:100dvh; display:flex; flex-direction:column; }
+.studio-shell { background:var(--bg) !important; height:100vh; min-height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
 .studio-header {
