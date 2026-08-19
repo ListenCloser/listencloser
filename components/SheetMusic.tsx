@@ -7,6 +7,7 @@ type Props = {
   musicXml: string;
   className?: string;
   playheadTime?: number;
+  isPlaying?: boolean;
   isScoreActive?: boolean;
   hasScorePlayback?: boolean;
   measureStarts?: number[];
@@ -17,6 +18,10 @@ type Props = {
   onSelectMeasures?: (start: number, end: number) => void;
 };
 
+/**
+ * Insert a highlight rect into a staff group using its own bbox.
+ * Returns true if inserted, false if bbox was zero-size.
+ */
 export function insertHighlightRect(
   group: SVGGraphicsElement,
   dataAttr: string,
@@ -26,26 +31,16 @@ export function insertHighlightRect(
   strokeWidth: string,
   strokeDasharray: string,
 ): boolean {
-  // Guard against duplicate inserts.
   if (group.querySelector(`[${dataAttr}]`)) return true;
-  // Force layout reflow so getBBox() returns valid geometry after DOM
-  // mutations that may have invalidated the SVG layout tree.
   void (group as any).getBoundingClientRect?.();
   let box = group.getBBox();
-  // getBBox() can return (0,0,0,0) before SVG layout settles.  Fall back
-  // to getBoundingClientRect() relative to the nearest SVG ancestor.
   if (box.width === 0 && box.height === 0) {
     const svg = group.closest("svg");
     if (svg) {
       const gr = group.getBoundingClientRect();
       const sr = svg.getBoundingClientRect();
       if (gr.width > 0 && gr.height > 0) {
-        box = {
-          x: gr.left - sr.left,
-          y: gr.top - sr.top,
-          width: gr.width,
-          height: gr.height,
-        } as DOMRect;
+        box = { x: gr.left - sr.left, y: gr.top - sr.top, width: gr.width, height: gr.height } as DOMRect;
       }
     }
   }
@@ -68,10 +63,85 @@ export function insertHighlightRect(
   return true;
 }
 
+interface NoteEvent {
+  startTime: number;
+  endTime: number;
+  svgGroup: SVGGElement;
+  noteheads: HTMLElement[];
+}
+
+/**
+ * Build a sorted list of note events from OSMD's graphical data model.
+ * Each entry maps a note's notation-domain time range to its SVG elements.
+ */
+function buildNoteEvents(osmd: any, measureStarts: number[]): NoteEvent[] {
+  const events: NoteEvent[] = [];
+  if (!osmd?.GraphicSheet?.MeasureList || !measureStarts.length) return events;
+
+  const measureList = osmd.GraphicSheet.MeasureList as any[][];
+  const rules = osmd.rules;
+
+  for (let mi = 0; mi < measureList.length; mi++) {
+    const measureStart = measureStarts[mi];
+    if (measureStart == null) continue;
+
+    for (const gMeasure of measureList[mi]) {
+      if (!gMeasure?.graphicalVoiceEntries) continue;
+      for (const gve of gMeasure.graphicalVoiceEntries) {
+        if (!gve?.notes) continue;
+        for (const gNote of gve.notes) {
+          try {
+            const sourceNote = gNote?.sourceNote;
+            if (!sourceNote) continue;
+
+            // Get timing from source note
+            const absTimestamp = sourceNote.ParentVoiceEntry?.ParentSourceStaffEntry?.AbsoluteTimestamp;
+            if (!absTimestamp) continue;
+
+            const noteLength = sourceNote.Length;
+            if (!noteLength) continue;
+
+            const noteStart = measureStart + absTimestamp.RealValue * (60 / (osmd.Sheet?.PlaybackSettings?.bpm || 120));
+            const noteDuration = noteLength.RealValue * (60 / (osmd.Sheet?.PlaybackSettings?.bpm || 120));
+            const noteEnd = noteStart + noteDuration;
+
+            // Get SVG elements
+            const noteheads = gNote.getNoteheadSVGs?.() ?? [];
+            if (noteheads.length === 0) continue;
+
+            events.push({ startTime: noteStart, endTime: noteEnd, svgGroup: gNote.getSVGGElement?.(), noteheads });
+          } catch {
+            // Skip notes that can't be mapped
+          }
+        }
+      }
+    }
+  }
+
+  events.sort((a, b) => a.startTime - b.startTime);
+  return events;
+}
+
+/**
+ * Find all note events that are sounding at the given time.
+ * Uses binary search since events are sorted by startTime.
+ */
+function findActiveNotes(events: NoteEvent[], time: number): NoteEvent[] {
+  const active: NoteEvent[] = [];
+  for (const evt of events) {
+    if (evt.startTime > time) break; // sorted, no need to continue
+    if (time >= evt.startTime && time < evt.endTime) {
+      active.push(evt);
+    }
+  }
+  return active;
+}
+
 export default function SheetMusic({
   musicXml,
   className,
   playheadTime = 0,
+  isPlaying = false,
   isScoreActive = false,
   hasScorePlayback = false,
   measureStarts,
@@ -85,6 +155,9 @@ export default function SheetMusic({
   const currentMeasureRef = useRef(-1);
   const playbackMeasureRef = useRef(-1);
   const playbackRafRef = useRef(0);
+  const cursorLineRef = useRef<SVGLineElement | null>(null);
+  const noteEventsRef = useRef<NoteEvent[]>([]);
+  const activeNotesRef = useRef<Set<HTMLElement>>(new Set());
   const anchorMeasureRef = useRef<number | null>(null);
   const [osmdReady, setOsmdReady] = useState(false);
 
@@ -124,7 +197,9 @@ export default function SheetMusic({
         await osmd.load(musicXml);
         if (!cancelled) {
           osmd.render();
+          // Hide the default OSMD cursor — we render our own
           osmd.cursor.show();
+          osmd.cursor.cursorElement.style.display = "none";
           setOsmdReady(true);
         }
       } catch (err) {
@@ -137,42 +212,170 @@ export default function SheetMusic({
     }
 
     render();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [musicXml]);
 
-  // ── OSMD cursor: advance to the current measure ───────────────────────────
+  // ── Build note event map after OSMD renders ────────────────────────────────
   useEffect(() => {
+    if (!osmdReady || !measureStarts?.length) {
+      noteEventsRef.current = [];
+      return;
+    }
     const osmd = osmdRef.current;
-    if (!osmdReady || !osmd?.cursor) return;
+    if (!osmd) return;
+    // Build after a tick to ensure SVG is fully laid out
+    const timer = setTimeout(() => {
+      noteEventsRef.current = buildNoteEvents(osmd, measureStarts);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [osmdReady, measureStarts]);
 
-    if (!isScoreActive || !measureStarts || measureStarts.length === 0) {
-      currentMeasureRef.current = -1;
+  // ── Continuous playback animation (cursor + note highlights) ───────────────
+  useEffect(() => {
+    const container = containerRef.current;
+    const osmd = osmdRef.current;
+    if (!osmdReady || !container || !osmd?.GraphicSheet) return;
+    if (!isScoreActive || !measureStarts?.length) {
+      // Remove cursor and note highlights
+      cursorLineRef.current?.remove();
+      cursorLineRef.current = null;
+      for (const el of activeNotesRef.current) {
+        el.classList.remove("score-note-active");
+      }
+      activeNotesRef.current.clear();
       return;
     }
 
-    const target = Math.min(
-      Math.max(measureIndexAt(measureStarts, playheadTime), 0),
-      measureStarts.length - 1,
-    );
-    if (target === currentMeasureRef.current) return;
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = container.querySelector("svg");
+    if (!svg) return;
 
-    let from = currentMeasureRef.current;
-    if (from < 0 || target < from) {
-      osmd.cursor.reset();
-      from = 0;
+    // Create cursor line if it doesn't exist
+    if (!cursorLineRef.current) {
+      const line = document.createElementNS(NS, "line");
+      line.setAttribute("data-score-cursor", "true");
+      line.setAttribute("stroke", "var(--score-playback)");
+      line.setAttribute("stroke-width", "2");
+      line.setAttribute("stroke-linecap", "round");
+      line.setAttribute("pointer-events", "none");
+      line.setAttribute("y1", "0");
+      svg.appendChild(line);
+      cursorLineRef.current = line;
     }
-    const steps = Math.max(0, target - from);
-    for (let i = 0; i < steps; i += 1) osmd.cursor.nextMeasure();
-    currentMeasureRef.current = target;
+
+    const svgEl = svg;
+
+    let rafId = 0;
+    let prevMeasureIdx = -1;
+
+    function animate() {
+      const time = playheadTime;
+      const measureIdx = measureIndexAt(measureStarts!, time);
+      if (measureIdx < 0) {
+        cursorLineRef.current!.setAttribute("visibility", "hidden");
+        rafId = requestAnimationFrame(animate);
+        return;
+      }
+
+      // ── Position cursor using OSMD's timestamp-to-X mapping ──
+      try {
+        const measureStart = measureStarts![measureIdx];
+        const offset = time - measureStart;
+        // Convert seconds to beats: beats = offset * bpm / 60
+        const bpm = osmd.Sheet?.PlaybackSettings?.bpm || 120;
+        const beatsInMeasure = offset * bpm / 60;
+        // Get the measure's absolute timestamp and add the beat offset
+        const Fraction = (osmd.GraphicSheet as any).MeasureList?.[0]?.[0]?.PositionAndShape?.AbsolutePosition
+          ? null : null; // We'll use a different approach
+        // Use OSMD's calculateXPositionFromTimestamp if available
+        const graphicSheet = osmd.GraphicSheet;
+        if (graphicSheet?.calculateXPositionFromTimestamp) {
+          // Build a Fraction-like object for the timestamp
+          const totalBeats = time * bpm / 60;
+          // OSMD Fraction: we need to construct it properly
+          // The Fraction class constructor: new Fraction(numerator, denominator)
+          // For totalBeats beats, the timestamp in whole notes is totalBeats / 4 (in 4/4)
+          // But OSMD uses its own internal Fraction. Let's try to use the iterator approach.
+          const cursor = osmd.cursor;
+          if (cursor?.iterator) {
+            // Advance cursor to the right measure
+            if (measureIdx !== prevMeasureIdx) {
+              cursor.reset();
+              for (let i = 0; i < measureIdx; i++) cursor.nextMeasure();
+              prevMeasureIdx = measureIdx;
+            }
+            // Now advance note-by-note within the measure until we pass the current time
+            const iter = cursor.iterator;
+            while (!iter.EndReached) {
+              const iterTime = measureStarts![iter.CurrentMeasureIndex] +
+                (iter.CurrentSourceTimestamp?.RealValue || 0) * 60 / bpm;
+              if (iterTime > time) break;
+              if (iter.CurrentMeasureIndex > measureIdx) break;
+              try { cursor.next(); } catch { break; }
+            }
+
+            // Position cursor at current note's X
+            const gNotes = cursor.GNotesUnderCursor();
+            if (gNotes?.length > 0) {
+              const firstNote = gNotes[0] as any;
+              const noteSvg = firstNote.getSVGGElement?.();
+              if (noteSvg) {
+                const noteRect = noteSvg.getBoundingClientRect();
+                const svgRect = svgEl.getBoundingClientRect();
+                const x = noteRect.left - svgRect.left;
+                const systemTop = 0;
+                const systemHeight = svgRect.height;
+                cursorLineRef.current!.setAttribute("x1", String(x));
+                cursorLineRef.current!.setAttribute("x2", String(x));
+                cursorLineRef.current!.setAttribute("y1", String(systemTop));
+                cursorLineRef.current!.setAttribute("y2", String(systemHeight));
+                cursorLineRef.current!.setAttribute("visibility", "visible");
+              }
+            }
+
+            // ── Highlight sounding notes ──
+            // Clear previous highlights
+            for (const el of activeNotesRef.current) {
+              el.classList.remove("score-note-active");
+            }
+            activeNotesRef.current.clear();
+
+            // Find notes at current position
+            const currentNotes = cursor.NotesUnderCursor();
+            if (currentNotes?.length > 0) {
+              for (const note of currentNotes) {
+                try {
+                  const gNote = osmd.rules?.GNote?.(note);
+                  if (gNote?.getNoteheadSVGs) {
+                    for (const nh of gNote.getNoteheadSVGs()) {
+                      nh.classList.add("score-note-active");
+                      activeNotesRef.current.add(nh);
+                    }
+                  }
+                } catch { /* skip */ }
+              }
+            }
+          }
+        }
+      } catch {
+        // Positioning failed — hide cursor
+        cursorLineRef.current?.setAttribute("visibility", "hidden");
+      }
+
+      rafId = requestAnimationFrame(animate);
+    }
+
+    rafId = requestAnimationFrame(animate);
+    return () => {
+      cancelAnimationFrame(rafId);
+      for (const el of activeNotesRef.current) {
+        el.classList.remove("score-note-active");
+      }
+      activeNotesRef.current.clear();
+    };
   }, [osmdReady, isScoreActive, measureStarts, playheadTime]);
 
-  // ── Playback highlight: one overlay per staff group ───────────────────────
-  // Uses bounded requestAnimationFrame retries when getBBox() returns
-  // zero-size (SVG layout not yet settled).  Cancels stale retries on
-  // measure change, source change, rerender, and unmount.
+  // ── Measure-level playback highlight (secondary cue) ──────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!osmdReady || !container) return;
@@ -181,18 +384,14 @@ export default function SheetMusic({
     playbackRafRef.current = 0;
 
     if (!isScoreActive || !measureStarts || measureStarts.length === 0) {
-      container
-        .querySelectorAll("[data-playback-highlight]")
-        .forEach((n) => n.remove());
+      container.querySelectorAll("[data-playback-highlight]").forEach((n) => n.remove());
       playbackMeasureRef.current = -1;
       return;
     }
 
     const measureIdx = measureIndexAt(measureStarts, playheadTime);
     if (measureIdx < 0) {
-      container
-        .querySelectorAll("[data-playback-highlight]")
-        .forEach((n) => n.remove());
+      container.querySelectorAll("[data-playback-highlight]").forEach((n) => n.remove());
       playbackMeasureRef.current = -1;
       return;
     }
@@ -204,30 +403,16 @@ export default function SheetMusic({
     const prevIdx = playbackMeasureRef.current;
     playbackMeasureRef.current = measureIdx;
 
-    // Attempt to insert the new highlight.  If getBBox() returns zero
-    // (SVG layout not yet settled), schedule bounded retries.  Do NOT
-    // remove the previous measure's highlight until the new one lands,
-    // so the highlight is always at least partially visible.
     let allInserted = true;
     for (const group of groups) {
       if (!group.querySelector("[data-playback-highlight]")) {
-        const ok = insertHighlightRect(
-          group,
-          "data-playback-highlight",
-          "var(--score-playback)",
-          "0.14",
-          "var(--score-playback)",
-          "2",
-          "none",
-        );
+        const ok = insertHighlightRect(group, "data-playback-highlight", "var(--score-playback)", "0.08", "var(--score-playback)", "1.5", "none");
         if (!ok) allInserted = false;
       }
     }
 
     const removeStale = () => {
-      for (const el of container.querySelectorAll(
-        "[data-playback-highlight]",
-      )) {
+      for (const el of container.querySelectorAll("[data-playback-highlight]")) {
         const parent = el.parentElement;
         if (!parent || !groups.includes(parent as unknown as SVGGElement)) {
           el.remove();
@@ -242,26 +427,15 @@ export default function SheetMusic({
       let frame = 0;
       let retryTimer = 0;
       const retry = () => {
-        if (playbackMeasureRef.current !== measureIdx || !containerRef.current)
-          return;
+        if (playbackMeasureRef.current !== measureIdx || !containerRef.current) return;
         let retryAllOk = true;
         for (const group of groups) {
           if (!group.querySelector("[data-playback-highlight]")) {
-            const ok = insertHighlightRect(
-              group,
-              "data-playback-highlight",
-              "var(--score-playback)",
-              "0.14",
-              "var(--score-playback)",
-              "2",
-              "none",
-            );
+            const ok = insertHighlightRect(group, "data-playback-highlight", "var(--score-playback)", "0.08", "var(--score-playback)", "1.5", "none");
             if (!ok) retryAllOk = false;
           }
         }
-        if (retryAllOk) {
-          removeStale();
-        }
+        if (retryAllOk) removeStale();
         frame += 1;
         if (!retryAllOk && frame < maxFrames) {
           playbackRafRef.current = requestAnimationFrame(retry);
@@ -269,91 +443,56 @@ export default function SheetMusic({
         }
       };
       playbackRafRef.current = requestAnimationFrame(retry);
-      return () => {
-        cancelAnimationFrame(playbackRafRef.current);
-        clearTimeout(retryTimer);
-      };
+      return () => { cancelAnimationFrame(playbackRafRef.current); clearTimeout(retryTimer); };
     }
 
-    // Auto-scroll: use DOM client rects (viewport coordinates) to check
-    // whether the first staff group is visible.  scrollIntoView with
-    // block:"nearest" only scrolls when the element is outside the viewport.
+    // Auto-scroll
     const firstGroup = groups[0];
     const cRect = container.getBoundingClientRect();
     const mRect = firstGroup.getBoundingClientRect();
     const margin = 48;
-    if (
-      mRect.top < cRect.top + margin ||
-      mRect.bottom > cRect.bottom - margin
-    ) {
+    if (mRect.top < cRect.top + margin || mRect.bottom > cRect.bottom - margin) {
       const bigJump = prevIdx < 0 || Math.abs(measureIdx - prevIdx) > 1;
-      firstGroup.scrollIntoView({
-        behavior: bigJump ? "auto" : "smooth",
-        block: "nearest",
-      });
+      firstGroup.scrollIntoView({ behavior: bigJump ? "auto" : "smooth", block: "nearest" });
     }
   }, [osmdReady, isScoreActive, measureStarts, playheadTime]);
 
-  // Cleanup playback highlight when score becomes inactive or source changes.
+  // Cleanup on source change
   useEffect(() => {
     if (isScoreActive) return;
     const container = containerRef.current;
     if (!container) return;
     cancelAnimationFrame(playbackRafRef.current);
     playbackRafRef.current = 0;
-    container
-      .querySelectorAll("[data-playback-highlight]")
-      .forEach((n) => n.remove());
+    cursorLineRef.current?.remove();
+    cursorLineRef.current = null;
+    container.querySelectorAll("[data-playback-highlight]").forEach((n) => n.remove());
     playbackMeasureRef.current = -1;
   }, [isScoreActive]);
 
-  // Cancel pending RAF on unmount.
-  useEffect(() => {
-    return () => {
-      cancelAnimationFrame(playbackRafRef.current);
-    };
-  }, []);
+  useEffect(() => { return () => { cancelAnimationFrame(playbackRafRef.current); }; }, []);
 
-  // ── Selection highlight: one overlay per staff group ──────────────────────
+  // ── Selection highlight ────────────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!osmdReady || !container) return;
-    container
-      .querySelectorAll("[data-selection-highlight]")
-      .forEach((node) => node.remove());
-    if (!selectedMeasures || !measureStarts || measureStarts.length === 0)
-      return;
+    container.querySelectorAll("[data-selection-highlight]").forEach((node) => node.remove());
+    if (!selectedMeasures || !measureStarts || measureStarts.length === 0) return;
 
-    for (
-      let idx = selectedMeasures.start;
-      idx <= selectedMeasures.end;
-      idx += 1
-    ) {
+    for (let idx = selectedMeasures.start; idx <= selectedMeasures.end; idx += 1) {
       const groups = measureGroupsForIndex(container, idx);
       for (const group of groups) {
-        insertHighlightRect(
-          group,
-          "data-selection-highlight",
-          "#bd513a",
-          measureApproximate ? "0.12" : "0.18",
-          "#bd513a",
-          "1.5",
-          measureApproximate ? "4 3" : "none",
-        );
+        insertHighlightRect(group, "data-selection-highlight", "#bd513a", measureApproximate ? "0.12" : "0.18", "#bd513a", "1.5", measureApproximate ? "4 3" : "none");
       }
     }
   }, [osmdReady, selectedMeasures, measureApproximate, measureStarts]);
 
-  // ── Measure click / selection ──────────────────────────────────────────────
+  // ── Click handler ──────────────────────────────────────────────────────────
   function handleClick(event: React.MouseEvent<HTMLDivElement>) {
     if (!measureStarts || measureStarts.length === 0) return;
     const container = containerRef.current;
     if (!container) return;
 
-    // Map the click to the engraved measure whose bounding box contains it,
-    // handling multi-staff (grand-staff) scores where multiple g.vf-measure
-    // elements share the same id — one per staff.  We check all groups and
-    // take the first whose bounding rect contains the click point.
     const allGroups = container.querySelectorAll("g.vf-measure");
     const seen = new Set<string>();
     for (const measureEl of allGroups) {
@@ -361,25 +500,14 @@ export default function SheetMusic({
       if (!id || seen.has(id)) continue;
       seen.add(id);
       const rect = measureEl.getBoundingClientRect();
-      if (
-        event.clientX >= rect.left &&
-        event.clientX <= rect.right &&
-        event.clientY >= rect.top &&
-        event.clientY <= rect.bottom
-      ) {
+      if (event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom) {
         const index = Number(id) - 1;
         if (index >= 0 && measureStarts[index] != null) {
           if (isScoreActive && onSeek) onSeek(measureStarts[index]);
           if (onSelectMeasures) {
             const anchor = anchorMeasureRef.current;
-            const rangeStart =
-              event.shiftKey && anchor !== null
-                ? Math.min(anchor, index)
-                : index;
-            const rangeEnd =
-              event.shiftKey && anchor !== null
-                ? Math.max(anchor, index)
-                : index;
+            const rangeStart = event.shiftKey && anchor !== null ? Math.min(anchor, index) : index;
+            const rangeEnd = event.shiftKey && anchor !== null ? Math.max(anchor, index) : index;
             onSelectMeasures(rangeStart, rangeEnd);
             anchorMeasureRef.current = index;
           }
@@ -390,14 +518,7 @@ export default function SheetMusic({
   }
 
   if (!musicXml) {
-    return (
-      <p
-        className="muted"
-        style={{ textAlign: "center", padding: "var(--s-4)" }}
-      >
-        No sheet music data available.
-      </p>
-    );
+    return <p className="muted" style={{ textAlign: "center", padding: "var(--s-4)" }}>No sheet music data available.</p>;
   }
 
   const hint = !hasScorePlayback
@@ -420,8 +541,7 @@ export default function SheetMusic({
           borderRadius: "var(--r-md)",
           padding: "var(--s-4)",
           border: "1px solid var(--border-strong)",
-          cursor:
-            measureStarts && measureStarts.length > 0 ? "pointer" : "default",
+          cursor: measureStarts && measureStarts.length > 0 ? "pointer" : "default",
         }}
       />
     </>

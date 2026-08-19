@@ -61,8 +61,12 @@ export default function PianoRoll({
   const minPitch = Math.min(...notes.map((n) => n.pitch));
   const maxPitch = Math.max(...notes.map((n) => n.pitch));
 
+  // Add margin above/below detected range for visual breathing room
+  const pitchLow = Math.max(0, minPitch - 4);
+  const pitchHigh = Math.min(127, maxPitch + 4);
+
   const rows: { pitch: number; label: string; notes: Note[] }[] = [];
-  for (let p = maxPitch; p >= minPitch; p--) {
+  for (let p = pitchHigh; p >= pitchLow; p--) {
     const label = pitchToName(p);
     const n = notes.filter((x) => x.pitch === p);
     rows.push({ pitch: p, label, notes: n });
