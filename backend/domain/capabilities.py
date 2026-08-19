@@ -963,6 +963,57 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(rid))
 
+        # Temporal rhythm features (Analysis V2): note density over time
+        note_density = rhythm.get("note_density_over_time") or []
+        if note_density:
+            ndid = _create_insight(
+                client,
+                input_version.id,
+                "rhythm_density",
+                f"Note density profile: {len(note_density)} windows",
+                evidence={"windows": note_density[:50]},
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="computed",
+                engine_provenance=pulse_provenance or None,
+            )
+            insight_ids.append(str(ndid))
+
+        # Rest segments
+        rests = rhythm.get("rest_segments") or []
+        if rests:
+            rsid = _create_insight(
+                client,
+                input_version.id,
+                "rhythm_rests",
+                f"{len(rests)} rest segment(s) detected",
+                evidence={"rests": rests[:20]},
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="computed",
+                engine_provenance=pulse_provenance or None,
+            )
+            insight_ids.append(str(rsid))
+
+    # Harmonic rhythm: chord onset density over time (Analysis V2)
+    harmonic_rhythm = analysis.get("harmonic_rhythm") or []
+    if harmonic_rhythm:
+        hrid = _create_insight(
+            client,
+            input_version.id,
+            "harmonic_rhythm",
+            f"Harmonic rhythm profile: {len(harmonic_rhythm)} windows",
+            evidence={"windows": harmonic_rhythm[:50]},
+            confidence=None,
+            job=job,
+            owner_id=owner_id,
+            method="computed",
+            engine_provenance=_hp("chords"),
+        )
+        insight_ids.append(str(hrid))
+
     melody = analysis.get("melody") or {}
     if melody:
         # melody['quality_score'] is a greedy-skyline candidate-margin score,
