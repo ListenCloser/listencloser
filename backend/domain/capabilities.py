@@ -1008,7 +1008,10 @@ def handle_analyze(job: Job, client) -> list[str]:
             input_version.id,
             "harmonic_rhythm",
             f"Harmonic rhythm profile: {len(harmonic_rhythm)} windows",
-            evidence={"windows": harmonic_rhythm[:50], "note": "chord-change activity, not harmonic tension"},
+            evidence={
+                "windows": harmonic_rhythm[:50],
+                "note": "chord-change activity, not harmonic tension",
+            },
             confidence=None,
             job=job,
             owner_id=owner_id,
