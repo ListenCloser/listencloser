@@ -101,6 +101,14 @@ def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
     name = name or os.environ.get("HARMONY_ENGINE", "music21")
     if name == "music21":
         return Music21HarmonyEngine()
+    if name == "lv_chordia":
+        try:
+            from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
+            return LvChordiaHarmonyEngine()
+        except ImportError:
+            raise RuntimeError(
+                "lv-chordia is not installed. Install with: pip install lv-chordia"
+            ) from None
     raise ValueError(f"Unknown harmony engine: {name}")
 
 

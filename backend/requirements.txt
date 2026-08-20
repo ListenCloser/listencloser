@@ -23,3 +23,4 @@ transkun==2.0.1
 torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
 moduleconf==0.1.4
 soxr==0.5.0.post1
+lv-chordia>=1.1.0
