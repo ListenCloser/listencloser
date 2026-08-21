@@ -14,7 +14,7 @@
 
 import type { Insight } from "@/lib/domain.types";
 
-export type AnnotationCategory = "rhythm" | "harmony";
+export type AnnotationCategory = "rhythm" | "harmony" | "theory";
 
 export interface AnalysisAnnotation {
   id: string;
@@ -36,6 +36,9 @@ function categorizeKind(kind: string): AnnotationCategory | null {
       return "rhythm";
     case "harmonic_rhythm":
       return "harmony";
+    case "roman_numeral":
+    case "harmonic_function":
+      return "theory";
     default:
       return null;
   }
@@ -81,6 +84,10 @@ function deriveLabel(insight: Insight): string {
       return "Rest";
     case "harmonic_rhythm":
       return "Chord activity";
+    case "roman_numeral":
+      return String(insight.claim || insight.evidence?.numeral || "Roman numeral");
+    case "harmonic_function":
+      return String(insight.claim || insight.evidence?.function || "Function");
     default:
       return insight.kind;
   }
@@ -135,6 +142,7 @@ export function extractRestSegments(
 export const ANNOTATION_COLORS: Record<AnnotationCategory, { fill: string; stroke: string }> = {
   rhythm: { fill: "var(--color-rhythm-soft)", stroke: "var(--color-rhythm)" },
   harmony: { fill: "var(--color-harmony-soft)", stroke: "var(--color-harmony)" },
+  theory: { fill: "var(--color-theory-soft, #e8e0f0)", stroke: "var(--color-theory, #8b5cf6)" },
 };
 
 /**
