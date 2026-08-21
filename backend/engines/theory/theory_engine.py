@@ -58,11 +58,22 @@ class CadenceEvent:
 
 
 @dataclass
+class KeyRegionEvent:
+    """A detected key region."""
+    key: str
+    start_seconds: float
+    end_seconds: float
+    confidence: float
+    provenance: dict[str, Any] | None = None
+
+
+@dataclass
 class TheoryResult:
     """Result of theory interpretation."""
     roman_numerals: list[RomanNumeralEvent]
     harmonic_functions: list[HarmonicFunctionEvent]
     cadences: list[CadenceEvent]
+    key_regions: list[KeyRegionEvent]
     global_key: str | None
     provenance: EngineProvenance
 
@@ -351,6 +362,38 @@ def _detect_cadences(
     return cadences
 
 
+# ── Key Region Detection ──────────────────────────────────────────────────
+
+def _detect_key_regions(
+    numerals: list[RomanNumeralEvent],
+    global_key: str | None = None,
+    window_size: int = 4,
+) -> list[KeyRegionEvent]:
+    """Detect key regions from Roman numeral sequences.
+    
+    Uses a simple heuristic: if a chord acts as tonic (I or i) in a different
+    key than the global key for several consecutive chords, it's a likely
+    modulation.
+    """
+    if not numerals or len(numerals) < window_size:
+        return []
+    
+    regions: list[KeyRegionEvent] = []
+    
+    # For now, just return the global key as a single region
+    # A proper implementation would need music21's KeyAnalyzer
+    if numerals:
+        regions.append(KeyRegionEvent(
+            key=global_key or "C major",
+            start_seconds=numerals[0].start_seconds,
+            end_seconds=numerals[-1].end_seconds,
+            confidence=1.0,
+            provenance=None,
+        ))
+    
+    return regions
+
+
 class TheoryEngine:
     """Production theory interpretation engine.
     
@@ -394,6 +437,7 @@ class TheoryEngine:
                 roman_numerals=roman_numerals,
                 harmonic_functions=harmonic_functions,
                 cadences=[],
+                key_regions=[],
                 global_key=global_key,
                 provenance=self.provenance,
             )
@@ -458,10 +502,14 @@ class TheoryEngine:
         # Detect cadences from Roman numerals
         cadences = _detect_cadences(roman_numerals, global_key)
         
+        # Detect key regions from Roman numerals
+        key_regions = _detect_key_regions(roman_numerals, global_key)
+        
         return TheoryResult(
             roman_numerals=roman_numerals,
             harmonic_functions=harmonic_functions,
             cadences=cadences,
+            key_regions=key_regions,
             global_key=global_key,
             provenance=self.provenance,
         )

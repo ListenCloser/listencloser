@@ -154,6 +154,23 @@ describe("extractAnnotations", () => {
     expect(result[0].label).toBe("PAC: V7 → I");
   });
 
+  it("extracts key_region as key_region category", () => {
+    const insights: Insight[] = [
+      makeInsight({
+        id: "kr1",
+        kind: "key_region",
+        claim: "Key region: C major",
+        evidence: { key: "C major", confidence: 0.9 },
+        span: { start_seconds: 0, end_seconds: 10, start_beat: null, end_beat: null, start_measure: null, end_measure: null },
+      }),
+    ];
+    const result = extractAnnotations(insights);
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe("key_region");
+    expect(result[0].kind).toBe("key_region");
+    expect(result[0].label).toBe("Key region: C major");
+  });
+
   it("preserves confidence from insight", () => {
     const insights: Insight[] = [
       makeInsight({

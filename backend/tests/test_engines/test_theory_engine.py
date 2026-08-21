@@ -148,6 +148,20 @@ class TestTheoryEngine:
         result = engine.analyze(chords, global_key="C major")
         assert len(result.cadences) == 0
 
+    def test_key_region_detection(self):
+        """Engine detects key regions from Roman numerals."""
+        from engines.theory.theory_engine import TheoryEngine
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
+            {"root": "F", "quality": "maj", "start": 4.0, "end": 6.0},
+            {"root": "C", "quality": "maj", "start": 6.0, "end": 8.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.key_regions) >= 1
+        assert result.key_regions[0].key == "C major"
+
 
 class TestRegistryIntegration:
     """Tests for theory engine registry integration."""

@@ -14,7 +14,7 @@
 
 import type { Insight } from "@/lib/domain.types";
 
-export type AnnotationCategory = "rhythm" | "harmony" | "theory" | "cadence";
+export type AnnotationCategory = "rhythm" | "harmony" | "theory" | "cadence" | "key_region";
 
 export interface AnalysisAnnotation {
   id: string;
@@ -41,6 +41,8 @@ function categorizeKind(kind: string): AnnotationCategory | null {
       return "theory";
     case "cadence":
       return "cadence";
+    case "key_region":
+      return "key_region";
     default:
       return null;
   }
@@ -92,6 +94,8 @@ function deriveLabel(insight: Insight): string {
       return String(insight.claim || insight.evidence?.function || "Function");
     case "cadence":
       return String(insight.claim || insight.evidence?.type || "Cadence");
+    case "key_region":
+      return String(insight.claim || insight.evidence?.key || "Key region");
     default:
       return insight.kind;
   }
@@ -148,6 +152,7 @@ export const ANNOTATION_COLORS: Record<AnnotationCategory, { fill: string; strok
   harmony: { fill: "var(--color-harmony-soft)", stroke: "var(--color-harmony)" },
   theory: { fill: "var(--color-theory-soft, #e8e0f0)", stroke: "var(--color-theory, #8b5cf6)" },
   cadence: { fill: "var(--color-cadence-soft, #fdf2e0)", stroke: "var(--color-cadence, #d97706)" },
+  key_region: { fill: "var(--color-key-region-soft, #e0f2fe)", stroke: "var(--color-key-region, #0284c7)" },
 };
 
 /**

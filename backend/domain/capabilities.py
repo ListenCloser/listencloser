@@ -1089,6 +1089,47 @@ def handle_analyze(job: Job, client) -> list[str]:
             },
         )
 
+    # Key regions from theory engine
+    key_regions = analysis.get("key_regions_theory", []) or []
+    if chord_engine_trusted and key_regions:
+        # Persist as key_region insights (max 10)
+        for kr in key_regions[:10]:
+            kr_key = kr.get("key", "")
+            if not kr_key:
+                continue
+            kr_conf = kr.get("confidence", 0)
+            # Only persist regions with confidence > 0.5
+            if kr_conf <= 0.5:
+                continue
+            label = f"Key region: {kr_key}"
+            krid = _create_insight(
+                client,
+                input_version.id,
+                "key_region",
+                label,
+                evidence={
+                    "key": kr_key,
+                    "start_seconds": kr.get("start"),
+                    "end_seconds": kr.get("end"),
+                    "confidence": kr_conf,
+                },
+                confidence=kr_conf,
+                job=job,
+                owner_id=owner_id,
+                method="inferred",
+                engine_provenance=theory_provenance,
+            )
+            insight_ids.append(str(krid))
+        
+        logger.info(
+            "key_regions_persisted",
+            extra={
+                "count": len(key_regions),
+                "persisted_count": min(len(key_regions), 10),
+                "engine": "theory_interpreter",
+            },
+        )
+
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.
     rhythm = analysis.get("rhythm") or {}
     if rhythm:
