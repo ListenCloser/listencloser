@@ -488,6 +488,49 @@ def analyze_midi(
                 result["harmonic_rhythm"] = _compute_windowed_density(
                     chord_onsets, duration, window=4.0, step=1.0
                 )
+        
+        # Theory interpretation: RN + function from chord timeline
+        # Only when chord engine is trusted (lv-chordia)
+        chord_provenance = result.get("harmony_provenance", {}).get("chords", {})
+        chord_engine = chord_provenance.get("engine") if chord_provenance else None
+        if chord_engine == "lv-chordia" and harmony.chords:
+            try:
+                from engines.registry import get_theory_engine
+                theory = get_theory_engine().analyze(
+                    harmony.chords,
+                    global_key=(
+                        result["key"].get("tonic") + " " + result["key"].get("mode", "major")
+                        if result.get("key") else None
+                    ),
+                )
+                # Convert TheoryResult to dicts for persistence
+                result["roman_numerals_theory"] = [
+                    {
+                        "numeral": rn.numeral,
+                        "degree": rn.degree,
+                        "quality": rn.quality,
+                        "inversion": rn.inversion,
+                        "is_secondary": rn.is_secondary,
+                        "secondary_target": rn.secondary_target,
+                        "start": rn.start_seconds,
+                        "end": rn.end_seconds,
+                        "key_context": rn.key_context,
+                    }
+                    for rn in theory.roman_numerals
+                ]
+                result["harmonic_functions"] = [
+                    {
+                        "function": f.function,
+                        "numeral": f.roman_numeral,
+                        "start": f.start_seconds,
+                        "end": f.end_seconds,
+                        "key_context": f.key_context,
+                    }
+                    for f in theory.harmonic_functions
+                ]
+                result["theory_provenance"] = theory.provenance.to_dict()
+            except Exception:
+                logger.exception("theory engine failed")
     except Exception:
         logger.exception("harmony engine failed")
 

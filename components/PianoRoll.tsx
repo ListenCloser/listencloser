@@ -228,10 +228,17 @@ export default function PianoRoll({
             annotations.map((ann) => {
               const x1 = timeToX(ann.startSeconds);
               const x2 = timeToX(ann.endSeconds);
-              const colorVar =
-                ann.category === "rhythm"
-                  ? "var(--color-rhythm)"
-                  : "var(--color-harmony)";
+              let colorVar: string;
+              switch (ann.category) {
+                case "rhythm":
+                  colorVar = "var(--color-rhythm)";
+                  break;
+                case "theory":
+                  colorVar = "var(--color-theory, #8b5cf6)";
+                  break;
+                default:
+                  colorVar = "var(--color-harmony)";
+              }
               return (
                 <rect
                   key={ann.id}

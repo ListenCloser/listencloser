@@ -946,6 +946,100 @@ def handle_analyze(job: Job, client) -> list[str]:
             extra={"count": len(rns), "reason": "pending_independent_verification"},
         )
 
+    # Theory-derived Roman numerals (from TheoryInterpreter, not music21)
+    # These are persisted when chord engine is lv-chordia
+    rns_theory = analysis.get("roman_numerals_theory", []) or []
+    theory_provenance = analysis.get("theory_provenance")
+    if chord_engine_trusted and rns_theory:
+        # Persist as RN insights (max 30 to avoid overwhelming the UI)
+        for rn in rns_theory[:30]:
+            numeral = rn.get("numeral", "")
+            if not numeral:
+                continue
+            key_ctx = rn.get("key_context", "")
+            label = f"{numeral} ({key_ctx})" if key_ctx else numeral
+            rnid = _create_insight(
+                client,
+                input_version.id,
+                "roman_numeral",
+                label,
+                evidence={
+                    "numeral": numeral,
+                    "degree": rn.get("degree"),
+                    "quality": rn.get("quality"),
+                    "inversion": rn.get("inversion"),
+                    "is_secondary": rn.get("is_secondary"),
+                    "secondary_target": rn.get("secondary_target"),
+                    "start_seconds": rn.get("start"),
+                    "end_seconds": rn.get("end"),
+                    "key_context": key_ctx,
+                },
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="inferred",
+                engine_provenance=theory_provenance,
+            )
+            insight_ids.append(str(rnid))
+        
+        logger.info(
+            "roman_numerals_persisted",
+            extra={
+                "count": len(rns_theory),
+                "persisted_count": min(len(rns_theory), 30),
+                "engine": "theory_interpreter",
+            },
+        )
+    else:
+        logger.info(
+            "roman_numerals_withheld",
+            extra={"count": len(rns_theory), "reason": "no_trusted_chords"},
+        )
+
+    # Harmonic functions (from TheoryInterpreter)
+    functions = analysis.get("harmonic_functions", []) or []
+    if chord_engine_trusted and functions:
+        # Persist as function insights (max 30)
+        for func in functions[:30]:
+            function_name = func.get("function", "")
+            numeral = func.get("numeral", "")
+            if not function_name or function_name == "AMBIGUOUS":
+                continue
+            label = f"{function_name} ({numeral})"
+            fid = _create_insight(
+                client,
+                input_version.id,
+                "harmonic_function",
+                label,
+                evidence={
+                    "function": function_name,
+                    "numeral": numeral,
+                    "start_seconds": func.get("start"),
+                    "end_seconds": func.get("end"),
+                    "key_context": func.get("key_context"),
+                },
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="inferred",
+                engine_provenance=theory_provenance,
+            )
+            insight_ids.append(str(fid))
+        
+        logger.info(
+            "harmonic_functions_persisted",
+            extra={
+                "count": len(functions),
+                "persisted_count": min(len(functions), 30),
+                "engine": "theory_interpreter",
+            },
+        )
+    else:
+        logger.info(
+            "harmonic_functions_withheld",
+            extra={"count": len(functions), "reason": "no_trusted_chords"},
+        )
+
     # Cadences — WITHHELD until independently verified against lv-chordia stream
     cadences = analysis.get("cadences", []) or []
     if cadences:

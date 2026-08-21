@@ -117,3 +117,16 @@ def get_melody_engine(name: str | None = None) -> MelodyEngine:
     if name == "skyline":
         return SkylineMelodyEngine()
     raise ValueError(f"Unknown melody engine: {name}")
+
+
+def get_theory_engine(name: str | None = None):
+    """Get the theory interpretation engine.
+    
+    This engine takes chord timeline + key context and produces
+    Roman numerals and harmonic function.
+    """
+    name = name or os.environ.get("THEORY_ENGINE", "theory_interpreter")
+    if name == "theory_interpreter":
+        from engines.theory.theory_engine import TheoryEngine
+        return TheoryEngine()
+    raise ValueError(f"Unknown theory engine: {name}")

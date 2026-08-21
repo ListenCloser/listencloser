@@ -142,6 +142,7 @@ export default function Waveform({
     const bg = styles.getPropertyValue("--panel").trim() || "#f4f1eb";
     const rhythmColor = styles.getPropertyValue("--color-rhythm").trim() || "#b8963e";
     const harmonyColor = styles.getPropertyValue("--color-harmony").trim() || "#4a7c59";
+    const theoryColor = styles.getPropertyValue("--color-theory").trim() || "#8b5cf6";
 
     const w = canvas.width;
     const h = canvas.height;
@@ -153,7 +154,17 @@ export default function Waveform({
       for (const ann of annotations) {
         const x1 = timeToX(ann.startSeconds);
         const x2 = timeToX(ann.endSeconds);
-        const color = ann.category === "rhythm" ? rhythmColor : harmonyColor;
+        let color: string;
+        switch (ann.category) {
+          case "rhythm":
+            color = rhythmColor;
+            break;
+          case "theory":
+            color = theoryColor;
+            break;
+          default:
+            color = harmonyColor;
+        }
         canvasCtx.fillStyle = withAlpha(color, 0.08);
         canvasCtx.fillRect(x1, 0, Math.max(x2 - x1, 1), h);
       }

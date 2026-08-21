@@ -103,6 +103,40 @@ describe("extractAnnotations", () => {
     expect(result).toHaveLength(0);
   });
 
+  it("extracts roman_numeral as theory category", () => {
+    const insights: Insight[] = [
+      makeInsight({
+        id: "rn1",
+        kind: "roman_numeral",
+        claim: "I (C major)",
+        evidence: { numeral: "I", degree: 1, quality: "major" },
+        span: { start_seconds: 0, end_seconds: 2, start_beat: null, end_beat: null, start_measure: null, end_measure: null },
+      }),
+    ];
+    const result = extractAnnotations(insights);
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe("theory");
+    expect(result[0].kind).toBe("roman_numeral");
+    expect(result[0].label).toBe("I (C major)");
+  });
+
+  it("extracts harmonic_function as theory category", () => {
+    const insights: Insight[] = [
+      makeInsight({
+        id: "hf1",
+        kind: "harmonic_function",
+        claim: "TONIC (I)",
+        evidence: { function: "TONIC", numeral: "I" },
+        span: { start_seconds: 0, end_seconds: 2, start_beat: null, end_beat: null, start_measure: null, end_measure: null },
+      }),
+    ];
+    const result = extractAnnotations(insights);
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe("theory");
+    expect(result[0].kind).toBe("harmonic_function");
+    expect(result[0].label).toBe("TONIC (I)");
+  });
+
   it("preserves confidence from insight", () => {
     const insights: Insight[] = [
       makeInsight({
