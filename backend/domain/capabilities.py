@@ -1040,12 +1040,53 @@ def handle_analyze(job: Job, client) -> list[str]:
             extra={"count": len(functions), "reason": "no_trusted_chords"},
         )
 
-    # Cadences — WITHHELD until independently verified against lv-chordia stream
-    cadences = analysis.get("cadences", []) or []
-    if cadences:
+    # Cadences from theory engine (not music21)
+    # Only persist when chord engine is lv-chordia
+    cadences_theory = analysis.get("cadences_theory", []) or []
+    if chord_engine_trusted and cadences_theory:
+        # Persist as cadence insights (max 10 to avoid overwhelming)
+        for cad in cadences_theory[:10]:
+            cad_type = cad.get("type", "")
+            if not cad_type:
+                continue
+            chords_str = " → ".join(cad.get("chords", []))
+            label = f"{cad_type}: {chords_str}" if chords_str else cad_type
+            cadid = _create_insight(
+                client,
+                input_version.id,
+                "cadence",
+                label,
+                evidence={
+                    "type": cad_type,
+                    "chords": cad.get("chords"),
+                    "start_seconds": cad.get("start"),
+                    "end_seconds": cad.get("end"),
+                    "key_context": cad.get("key_context"),
+                    "confidence": cad.get("confidence"),
+                },
+                confidence=cad.get("confidence"),
+                job=job,
+                owner_id=owner_id,
+                method="inferred",
+                engine_provenance=theory_provenance,
+            )
+            insight_ids.append(str(cadid))
+        
+        logger.info(
+            "cadences_persisted",
+            extra={
+                "count": len(cadences_theory),
+                "persisted_count": min(len(cadences_theory), 10),
+                "engine": "theory_interpreter",
+            },
+        )
+    else:
         logger.info(
             "cadences_withheld",
-            extra={"count": len(cadences), "reason": "pending_independent_verification"},
+            extra={
+                "count": len(cadences_theory),
+                "reason": "no_trusted_chords" if cadences_theory else "no_cadences",
+            },
         )
 
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.

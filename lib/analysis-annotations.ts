@@ -14,7 +14,7 @@
 
 import type { Insight } from "@/lib/domain.types";
 
-export type AnnotationCategory = "rhythm" | "harmony" | "theory";
+export type AnnotationCategory = "rhythm" | "harmony" | "theory" | "cadence";
 
 export interface AnalysisAnnotation {
   id: string;
@@ -39,6 +39,8 @@ function categorizeKind(kind: string): AnnotationCategory | null {
     case "roman_numeral":
     case "harmonic_function":
       return "theory";
+    case "cadence":
+      return "cadence";
     default:
       return null;
   }
@@ -88,6 +90,8 @@ function deriveLabel(insight: Insight): string {
       return String(insight.claim || insight.evidence?.numeral || "Roman numeral");
     case "harmonic_function":
       return String(insight.claim || insight.evidence?.function || "Function");
+    case "cadence":
+      return String(insight.claim || insight.evidence?.type || "Cadence");
     default:
       return insight.kind;
   }
@@ -143,6 +147,7 @@ export const ANNOTATION_COLORS: Record<AnnotationCategory, { fill: string; strok
   rhythm: { fill: "var(--color-rhythm-soft)", stroke: "var(--color-rhythm)" },
   harmony: { fill: "var(--color-harmony-soft)", stroke: "var(--color-harmony)" },
   theory: { fill: "var(--color-theory-soft, #e8e0f0)", stroke: "var(--color-theory, #8b5cf6)" },
+  cadence: { fill: "var(--color-cadence-soft, #fdf2e0)", stroke: "var(--color-cadence, #d97706)" },
 };
 
 /**

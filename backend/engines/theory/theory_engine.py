@@ -46,10 +46,23 @@ class HarmonicFunctionEvent:
 
 
 @dataclass
+class CadenceEvent:
+    """A single cadence event."""
+    type: str  # PAC, IAC, HC, PC, DC
+    chords: list[str]  # [chord_before, chord_after]
+    start_seconds: float
+    end_seconds: float
+    key_context: str
+    confidence: float
+    provenance: dict[str, Any] | None = None
+
+
+@dataclass
 class TheoryResult:
     """Result of theory interpretation."""
     roman_numerals: list[RomanNumeralEvent]
     harmonic_functions: list[HarmonicFunctionEvent]
+    cadences: list[CadenceEvent]
     global_key: str | None
     provenance: EngineProvenance
 
@@ -254,6 +267,90 @@ def _classify_function(numeral: str, key: str | None = None) -> str:
     return "AMBIGUOUS"
 
 
+# ── Cadence Detection ────────────────────────────────────────────────────
+
+CADENCE_PATTERNS = {
+    "PAC": [  # Perfect Authentic Cadence
+        ("V", "I"), ("V7", "I"), ("V", "i"), ("V7", "i"),
+        ("V65", "I"), ("V43", "I"), ("V42", "I"),
+    ],
+    "IAC": [  # Imperfect Authentic Cadence
+        ("V", "I6"), ("V7", "I6"), ("V", "i6"), ("V7", "i6"),
+    ],
+    "HC": [  # Half Cadence
+        ("I", "V"), ("i", "V"), ("IV", "V"), ("iv", "V"),
+        ("ii", "V"), ("ii6", "V"), ("ii7", "V"),
+    ],
+    "PC": [  # Plagal Cadence
+        ("IV", "I"), ("iv", "i"), ("IV", "i"), ("iv", "I"),
+    ],
+    "DC": [  # Deceptive Cadence
+        ("V", "vi"), ("V", "VI"), ("V7", "vi"), ("V7", "VI"),
+        ("V", "iv"), ("V7", "iv"),
+    ],
+}
+
+
+def _normalize_numeral(numeral: str) -> str:
+    """Normalize a Roman numeral for comparison (strip inversion, quality)."""
+    n = numeral
+    # Remove inversion figures
+    n = re.sub(r'65$|43$|42$|6$', '', n)
+    # Remove 7th suffix
+    n = re.sub(r'7$', '', n)
+    # Remove diminished/augmented markers
+    n = n.replace('o', '').replace('+', '')
+    # Remove alteration prefixes for comparison
+    n = n.lstrip('b#')
+    return n
+
+
+def _detect_cadences(
+    numerals: list[RomanNumeralEvent],
+    global_key: str | None = None,
+) -> list[CadenceEvent]:
+    """Detect cadences from a sequence of Roman numerals.
+    
+    Uses two-chord pattern matching.
+    """
+    cadences: list[CadenceEvent] = []
+    if len(numerals) < 2:
+        return cadences
+    
+    for i in range(len(numerals) - 1):
+        curr = numerals[i]
+        nxt = numerals[i + 1]
+        
+        curr_norm = _normalize_numeral(curr.numeral)
+        nxt_norm = _normalize_numeral(nxt.numeral)
+        
+        for cadence_type, patterns in CADENCE_PATTERNS.items():
+            for pattern in patterns:
+                if curr_norm == pattern[0] and nxt_norm == pattern[1]:
+                    # Confidence heuristics
+                    confidence = 0.6
+                    # Longer destination chord → more likely a cadence
+                    dest_dur = nxt.end_seconds - nxt.start_seconds
+                    if dest_dur >= 1.0:
+                        confidence += 0.15
+                    # Both chords in same key context → stronger
+                    if curr.key_context == nxt.key_context:
+                        confidence += 0.1
+                    
+                    cadences.append(CadenceEvent(
+                        type=cadence_type,
+                        chords=[curr.numeral, nxt.numeral],
+                        start_seconds=curr.start_seconds,
+                        end_seconds=nxt.end_seconds,
+                        key_context=nxt.key_context or global_key or "C major",
+                        confidence=min(confidence, 0.9),
+                        provenance=None,
+                    ))
+                    break  # Only first match per pair
+    
+    return cadences
+
+
 class TheoryEngine:
     """Production theory interpretation engine.
     
@@ -296,6 +393,7 @@ class TheoryEngine:
             return TheoryResult(
                 roman_numerals=roman_numerals,
                 harmonic_functions=harmonic_functions,
+                cadences=[],
                 global_key=global_key,
                 provenance=self.provenance,
             )
@@ -357,9 +455,13 @@ class TheoryEngine:
             )
             harmonic_functions.append(func_event)
         
+        # Detect cadences from Roman numerals
+        cadences = _detect_cadences(roman_numerals, global_key)
+        
         return TheoryResult(
             roman_numerals=roman_numerals,
             harmonic_functions=harmonic_functions,
+            cadences=cadences,
             global_key=global_key,
             provenance=self.provenance,
         )

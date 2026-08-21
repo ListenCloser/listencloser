@@ -143,6 +143,7 @@ export default function Waveform({
     const rhythmColor = styles.getPropertyValue("--color-rhythm").trim() || "#b8963e";
     const harmonyColor = styles.getPropertyValue("--color-harmony").trim() || "#4a7c59";
     const theoryColor = styles.getPropertyValue("--color-theory").trim() || "#8b5cf6";
+    const cadenceColor = styles.getPropertyValue("--color-cadence").trim() || "#d97706";
 
     const w = canvas.width;
     const h = canvas.height;
@@ -161,6 +162,9 @@ export default function Waveform({
             break;
           case "theory":
             color = theoryColor;
+            break;
+          case "cadence":
+            color = cadenceColor;
             break;
           default:
             color = harmonyColor;
