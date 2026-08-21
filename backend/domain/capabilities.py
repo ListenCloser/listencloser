@@ -898,6 +898,8 @@ def handle_analyze(job: Job, client) -> list[str]:
             root = ch.get("root", "?")
             quality = ch.get("quality", "")
             label = f"{root} {quality}".strip()
+            ch_start = ch.get("start")
+            ch_end = ch.get("end")
             cid = _create_insight(
                 client,
                 input_version.id,
@@ -906,9 +908,13 @@ def handle_analyze(job: Job, client) -> list[str]:
                 evidence={
                     "root": root,
                     "quality": quality,
-                    "start_seconds": ch.get("start"),
-                    "end_seconds": ch.get("end"),
+                    "start_seconds": ch_start,
+                    "end_seconds": ch_end,
                 },
+                span=Span(
+                    start_seconds=ch_start,
+                    end_seconds=ch_end,
+                ),
                 confidence=None,
                 job=job,
                 owner_id=owner_id,
@@ -958,6 +964,8 @@ def handle_analyze(job: Job, client) -> list[str]:
                 continue
             key_ctx = rn.get("key_context", "")
             label = f"{numeral} ({key_ctx})" if key_ctx else numeral
+            rn_start = rn.get("start")
+            rn_end = rn.get("end")
             rnid = _create_insight(
                 client,
                 input_version.id,
@@ -970,10 +978,14 @@ def handle_analyze(job: Job, client) -> list[str]:
                     "inversion": rn.get("inversion"),
                     "is_secondary": rn.get("is_secondary"),
                     "secondary_target": rn.get("secondary_target"),
-                    "start_seconds": rn.get("start"),
-                    "end_seconds": rn.get("end"),
+                    "start_seconds": rn_start,
+                    "end_seconds": rn_end,
                     "key_context": key_ctx,
                 },
+                span=Span(
+                    start_seconds=rn_start,
+                    end_seconds=rn_end,
+                ),
                 confidence=None,
                 job=job,
                 owner_id=owner_id,
@@ -1006,6 +1018,8 @@ def handle_analyze(job: Job, client) -> list[str]:
             if not function_name or function_name == "AMBIGUOUS":
                 continue
             label = f"{function_name} ({numeral})"
+            func_start = func.get("start")
+            func_end = func.get("end")
             fid = _create_insight(
                 client,
                 input_version.id,
@@ -1014,10 +1028,14 @@ def handle_analyze(job: Job, client) -> list[str]:
                 evidence={
                     "function": function_name,
                     "numeral": numeral,
-                    "start_seconds": func.get("start"),
-                    "end_seconds": func.get("end"),
+                    "start_seconds": func_start,
+                    "end_seconds": func_end,
                     "key_context": func.get("key_context"),
                 },
+                span=Span(
+                    start_seconds=func_start,
+                    end_seconds=func_end,
+                ),
                 confidence=None,
                 job=job,
                 owner_id=owner_id,
@@ -1040,93 +1058,30 @@ def handle_analyze(job: Job, client) -> list[str]:
             extra={"count": len(functions), "reason": "no_trusted_chords"},
         )
 
-    # Cadences from theory engine (not music21)
-    # Only persist when chord engine is lv-chordia
+    # Cadences — WITHHELD from product until cadence detection is validated.
+    # The current heuristic cadence detector has ~27% F1 on Mozart (DCML).
+    # Cadence detection is kept for R&D but NOT persisted as product evidence.
     cadences_theory = analysis.get("cadences_theory", []) or []
-    if chord_engine_trusted and cadences_theory:
-        # Persist as cadence insights (max 10 to avoid overwhelming)
-        for cad in cadences_theory[:10]:
-            cad_type = cad.get("type", "")
-            if not cad_type:
-                continue
-            chords_str = " → ".join(cad.get("chords", []))
-            label = f"{cad_type}: {chords_str}" if chords_str else cad_type
-            cadid = _create_insight(
-                client,
-                input_version.id,
-                "cadence",
-                label,
-                evidence={
-                    "type": cad_type,
-                    "chords": cad.get("chords"),
-                    "start_seconds": cad.get("start"),
-                    "end_seconds": cad.get("end"),
-                    "key_context": cad.get("key_context"),
-                    "confidence": cad.get("confidence"),
-                },
-                confidence=cad.get("confidence"),
-                job=job,
-                owner_id=owner_id,
-                method="inferred",
-                engine_provenance=theory_provenance,
-            )
-            insight_ids.append(str(cadid))
-        
-        logger.info(
-            "cadences_persisted",
-            extra={
-                "count": len(cadences_theory),
-                "persisted_count": min(len(cadences_theory), 10),
-                "engine": "theory_interpreter",
-            },
-        )
-    else:
+    if cadences_theory:
         logger.info(
             "cadences_withheld",
             extra={
                 "count": len(cadences_theory),
-                "reason": "no_trusted_chords" if cadences_theory else "no_cadences",
+                "reason": "unvalidated_detection",
             },
         )
 
-    # Key regions from theory engine
+    # Key regions — WITHHELD from product until a real modulation detector
+    # is validated. The current implementation returns the global key as a
+    # single whole-piece region with confidence=1.0 — this is a placeholder,
+    # not evidence of modulation analysis.
     key_regions = analysis.get("key_regions_theory", []) or []
-    if chord_engine_trusted and key_regions:
-        # Persist as key_region insights (max 10)
-        for kr in key_regions[:10]:
-            kr_key = kr.get("key", "")
-            if not kr_key:
-                continue
-            kr_conf = kr.get("confidence", 0)
-            # Only persist regions with confidence > 0.5
-            if kr_conf <= 0.5:
-                continue
-            label = f"Key region: {kr_key}"
-            krid = _create_insight(
-                client,
-                input_version.id,
-                "key_region",
-                label,
-                evidence={
-                    "key": kr_key,
-                    "start_seconds": kr.get("start"),
-                    "end_seconds": kr.get("end"),
-                    "confidence": kr_conf,
-                },
-                confidence=kr_conf,
-                job=job,
-                owner_id=owner_id,
-                method="inferred",
-                engine_provenance=theory_provenance,
-            )
-            insight_ids.append(str(krid))
-        
+    if key_regions:
         logger.info(
-            "key_regions_persisted",
+            "key_regions_withheld",
             extra={
                 "count": len(key_regions),
-                "persisted_count": min(len(key_regions), 10),
-                "engine": "theory_interpreter",
+                "reason": "placeholder_algorithm",
             },
         )
 
