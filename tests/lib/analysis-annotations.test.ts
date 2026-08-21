@@ -137,6 +137,23 @@ describe("extractAnnotations", () => {
     expect(result[0].label).toBe("TONIC (I)");
   });
 
+  it("extracts cadence as cadence category", () => {
+    const insights: Insight[] = [
+      makeInsight({
+        id: "cad1",
+        kind: "cadence",
+        claim: "PAC: V7 → I",
+        evidence: { type: "PAC", chords: ["V7", "I"], confidence: 0.85 },
+        span: { start_seconds: 0, end_seconds: 2, start_beat: null, end_beat: null, start_measure: null, end_measure: null },
+      }),
+    ];
+    const result = extractAnnotations(insights);
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe("cadence");
+    expect(result[0].kind).toBe("cadence");
+    expect(result[0].label).toBe("PAC: V7 → I");
+  });
+
   it("preserves confidence from insight", () => {
     const insights: Insight[] = [
       makeInsight({

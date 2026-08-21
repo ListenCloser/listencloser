@@ -112,6 +112,42 @@ class TestTheoryEngine:
         assert result.roman_numerals[1].numeral == "V7"
         assert result.roman_numerals[2].numeral == "I"
 
+    def test_cadence_detection(self):
+        """Engine detects cadences from Roman numeral sequences."""
+        from engines.theory.theory_engine import TheoryEngine
+        engine = TheoryEngine()
+        chords = [
+            {"root": "G", "quality": "7", "start": 0.0, "end": 2.0},
+            {"root": "C", "quality": "maj", "start": 2.0, "end": 4.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.cadences) == 1
+        assert result.cadences[0].type == "PAC"
+        assert result.cadences[0].chords == ["V7", "I"]
+
+    def test_cadence_half_cadence(self):
+        """Engine detects half cadences."""
+        from engines.theory.theory_engine import TheoryEngine
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.cadences) == 1
+        assert result.cadences[0].type == "HC"
+
+    def test_no_cadence(self):
+        """Engine returns empty when no cadence detected."""
+        from engines.theory.theory_engine import TheoryEngine
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "F", "quality": "maj", "start": 2.0, "end": 4.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.cadences) == 0
+
 
 class TestRegistryIntegration:
     """Tests for theory engine registry integration."""

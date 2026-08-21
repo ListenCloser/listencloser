@@ -528,6 +528,17 @@ def analyze_midi(
                     }
                     for f in theory.harmonic_functions
                 ]
+                result["cadences_theory"] = [
+                    {
+                        "type": c.type,
+                        "chords": c.chords,
+                        "start": c.start_seconds,
+                        "end": c.end_seconds,
+                        "key_context": c.key_context,
+                        "confidence": c.confidence,
+                    }
+                    for c in theory.cadences
+                ]
                 result["theory_provenance"] = theory.provenance.to_dict()
             except Exception:
                 logger.exception("theory engine failed")
