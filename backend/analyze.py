@@ -539,6 +539,15 @@ def analyze_midi(
                     }
                     for c in theory.cadences
                 ]
+                result["key_regions_theory"] = [
+                    {
+                        "key": kr.key,
+                        "start": kr.start_seconds,
+                        "end": kr.end_seconds,
+                        "confidence": kr.confidence,
+                    }
+                    for kr in theory.key_regions
+                ]
                 result["theory_provenance"] = theory.provenance.to_dict()
             except Exception:
                 logger.exception("theory engine failed")

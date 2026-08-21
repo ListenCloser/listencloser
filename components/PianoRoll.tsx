@@ -239,6 +239,9 @@ export default function PianoRoll({
                 case "cadence":
                   colorVar = "var(--color-cadence, #d97706)";
                   break;
+                case "key_region":
+                  colorVar = "var(--color-key-region, #0284c7)";
+                  break;
                 default:
                   colorVar = "var(--color-harmony)";
               }
