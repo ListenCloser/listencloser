@@ -92,12 +92,6 @@ describe("extractAnnotations", () => {
         claim: "Key: A minor",
         span: { start_seconds: 0, end_seconds: 30, start_beat: null, end_beat: null, start_measure: null, end_measure: null },
       }),
-      makeInsight({
-        id: "chord1",
-        kind: "chord",
-        claim: "C:maj",
-        span: { start_seconds: 0, end_seconds: 2, start_beat: 0, end_beat: 4, start_measure: null, end_measure: null },
-      }),
     ];
     const result = extractAnnotations(insights);
     expect(result).toHaveLength(0);
@@ -120,6 +114,23 @@ describe("extractAnnotations", () => {
     expect(result[0].label).toBe("I (C major)");
   });
 
+  it("extracts chord as theory category", () => {
+    const insights: Insight[] = [
+      makeInsight({
+        id: "ch1",
+        kind: "chord",
+        claim: "C maj",
+        evidence: { root: "C", quality: "maj" },
+        span: { start_seconds: 0, end_seconds: 2, start_beat: null, end_beat: null, start_measure: null, end_measure: null },
+      }),
+    ];
+    const result = extractAnnotations(insights);
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe("theory");
+    expect(result[0].kind).toBe("chord");
+    expect(result[0].label).toBe("C maj");
+  });
+
   it("extracts harmonic_function as theory category", () => {
     const insights: Insight[] = [
       makeInsight({
@@ -137,7 +148,7 @@ describe("extractAnnotations", () => {
     expect(result[0].label).toBe("TONIC (I)");
   });
 
-  it("extracts cadence as cadence category", () => {
+  it("extracts cadence as theory category", () => {
     const insights: Insight[] = [
       makeInsight({
         id: "cad1",
@@ -148,13 +159,11 @@ describe("extractAnnotations", () => {
       }),
     ];
     const result = extractAnnotations(insights);
-    expect(result).toHaveLength(1);
-    expect(result[0].category).toBe("cadence");
-    expect(result[0].kind).toBe("cadence");
-    expect(result[0].label).toBe("PAC: V7 → I");
+    // cadence kind is not mapped to any category — should be excluded
+    expect(result).toHaveLength(0);
   });
 
-  it("extracts key_region as key_region category", () => {
+  it("extracts key_region as theory category", () => {
     const insights: Insight[] = [
       makeInsight({
         id: "kr1",
@@ -165,10 +174,8 @@ describe("extractAnnotations", () => {
       }),
     ];
     const result = extractAnnotations(insights);
-    expect(result).toHaveLength(1);
-    expect(result[0].category).toBe("key_region");
-    expect(result[0].kind).toBe("key_region");
-    expect(result[0].label).toBe("Key region: C major");
+    // key_region kind is not mapped to any category — should be excluded
+    expect(result).toHaveLength(0);
   });
 
   it("preserves confidence from insight", () => {

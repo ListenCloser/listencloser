@@ -65,8 +65,10 @@ function renderInsightList(
   };
   const chords = insights.filter((item) => item.kind === "chord" && seekable(item)).slice(0, 12);
   const sections = insights.filter((item) => item.kind === "section" && seekable(item)).slice(0, 12);
+  const romanNumerals = insights.filter((item) => item.kind === "roman_numeral" && seekable(item)).slice(0, 30);
+  const harmonicFunctions = insights.filter((item) => item.kind === "harmonic_function" && seekable(item)).slice(0, 30);
   const observations = insights.filter(
-    (item) => !["key", "tempo", "time_signature", "audio_tempo", "chord", "section"].includes(item.kind),
+    (item) => !["key", "tempo", "time_signature", "audio_tempo", "chord", "section", "roman_numeral", "harmonic_function"].includes(item.kind),
   );
 
   return (
@@ -85,9 +87,33 @@ function renderInsightList(
       )}
       {chords.length > 0 && (
         <div className="inspector-block">
-          <h4>Harmonic path</h4>
+          <h4>Chords</h4>
           <div className="rn-chips">
             {chords.map((item) => (
+              <button type="button" className="rn-chip" key={item.id} onClick={() => seekTo(item)}>
+                {item.claim}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {romanNumerals.length > 0 && (
+        <div className="inspector-block">
+          <h4>Roman Numerals</h4>
+          <div className="rn-chips">
+            {romanNumerals.map((item) => (
+              <button type="button" className="rn-chip" key={item.id} onClick={() => seekTo(item)}>
+                {item.claim}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {harmonicFunctions.length > 0 && (
+        <div className="inspector-block">
+          <h4>Harmonic Function</h4>
+          <div className="rn-chips">
+            {harmonicFunctions.map((item) => (
               <button type="button" className="rn-chip" key={item.id} onClick={() => seekTo(item)}>
                 {item.claim}
               </button>
