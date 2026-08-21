@@ -332,8 +332,13 @@ class Music21HarmonyEngine(HarmonyEngine):
         self,
         midi_bytes: bytes,
         tempo_bpm: float | None = None,
+        audio_bytes: bytes | None = None,
         **kwargs: Any,
     ) -> HarmonyResult:
+        """Symbolic harmonic analysis of a MIDI file.
+
+        audio_bytes is accepted but ignored - music21 is a symbolic engine.
+        """
         from music21 import converter
 
         components = self.component_provenance()

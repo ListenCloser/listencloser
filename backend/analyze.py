@@ -355,7 +355,11 @@ def _detect_rests(
 # ── Main entry point ────────────────────────────────────────────────────────
 
 
-def analyze_midi(midi_path: str, pulse: dict | None = None) -> AnalysisResult:
+def analyze_midi(
+    midi_path: str,
+    pulse: dict | None = None,
+    audio_bytes: bytes | None = None,
+) -> AnalysisResult:
     """
     Full symbolic analysis of a MIDI file.
 
@@ -371,6 +375,10 @@ def analyze_midi(midi_path: str, pulse: dict | None = None) -> AnalysisResult:
     placeholder) with measured evidence:
       ``{"bpm": float | None, "beats": [float], "downbeats": [float] | None,
           "provenance": {...}}``
+
+    ``audio_bytes`` (optional) is WAV audio for audio-native engines (lv-chordia).
+    When supplied, the harmony engine uses audio for chord recognition instead of
+    MIDI-based analysis.
 
     Truthfulness rules for the audio path:
       - A degenerate beat estimate (bpm None / ≤ 0) produces NO tempo fact; it
@@ -449,13 +457,14 @@ def analyze_midi(midi_path: str, pulse: dict | None = None) -> AnalysisResult:
         except Exception:
             pass
 
-    # Harmony (music21 via the harmony engine). On any failure the result stays
-    # in its conservative "no reliable evidence" state rather than fabricating
-    # a key/chords.
+    # Harmony (via the configured harmony engine). On any failure the result
+    # stays in its conservative "no reliable evidence" state rather than
+    # fabricating a key/chords.
     try:
         harmony = get_harmony_engine().analyze(
             midi_bytes,
             tempo_bpm=result["tempo"]["bpm"] if result["tempo"] else None,
+            audio_bytes=audio_bytes,
         )
         result["key"] = harmony.key
         result["chords"] = harmony.chords

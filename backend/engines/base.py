@@ -190,9 +190,14 @@ class HarmonyEngine(Protocol):
         self,
         midi_bytes: bytes,
         tempo_bpm: float | None = None,
+        audio_bytes: bytes | None = None,
         **kwargs: Any,
     ) -> HarmonyResult:
-        """Symbolic harmonic analysis of a MIDI file.
+        """Harmonic analysis of music input.
+
+        Input modalities vary by engine:
+          - lv-chordia: audio-native (uses audio_bytes, ignores midi_bytes)
+          - music21: symbolic (uses midi_bytes, ignores audio_bytes)
 
         Returns a normalized HarmonyResult (key, chords, roman numerals,
         cadences, voice leading, phrases) with provenance.

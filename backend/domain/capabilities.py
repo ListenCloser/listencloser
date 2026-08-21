@@ -255,6 +255,38 @@ _NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 _ESSENTIA_UNSUPPORTED_OS = False
 
 
+def _merge_adjacent_identical_chords(chords: list[dict]) -> list[dict]:
+    """Merge consecutive identical chords into single spans.
+
+    Two adjacent chords are merged if they have the same root and quality
+    and their time ranges are contiguous (end of first == start of second
+    within floating-point tolerance).
+
+    The original temporal evidence is preserved in the merged span (start
+    of first, end of last). This is deterministic and tested.
+    """
+    if not chords:
+        return []
+
+    merged: list[dict] = []
+    current = dict(chords[0])  # copy to avoid mutating input
+
+    for ch in chords[1:]:
+        if (
+            ch.get("root") == current.get("root")
+            and ch.get("quality") == current.get("quality")
+            and abs(ch.get("start", 0) - current.get("end", 0)) < 0.05
+        ):
+            # Extend current span
+            current["end"] = ch.get("end", current.get("end"))
+        else:
+            merged.append(current)
+            current = dict(ch)
+
+    merged.append(current)
+    return merged
+
+
 def _extract_essentia(audio: np.ndarray, sr: float) -> dict | None:
     try:
         import essentia.standard as es
@@ -727,6 +759,7 @@ def handle_analyze(job: Job, client) -> list[str]:
         midi_path = f.name
 
     pulse: dict | None = None
+    wav_bytes: bytes | None = None
     if len(job.input_version_ids) > 1:
         try:
             _update_progress(client, job.id, 0.25, "measuring audio pulse")
@@ -749,7 +782,7 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     _update_progress(client, job.id, 0.3, "running analysis")
     try:
-        analysis = analyze.analyze_midi(midi_path, pulse=pulse)
+        analysis = analyze.analyze_midi(midi_path, pulse=pulse, audio_bytes=wav_bytes)
     finally:
         os.unlink(midi_path)
 
@@ -843,32 +876,82 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(tsid))
 
-    # Chords — WITHHELD until a trustworthy chord engine is available.
-    # Current music21 symbolic chord detection has root=0.02, majmin=0.02
-    # on GuitarSet (see evaluation/chord_eval.py). Persisting these as
-    # product evidence would mislead users. The analysis still runs for
-    # evaluation purposes but insights are not surfaced.
+    # Chords — engine-gated persistence.
+    # music21 symbolic chord detection (root=0.02) is unreliable and withheld.
+    # lv-chordia audio-native detection (root=0.787 on GuitarSet comp) is
+    # the trusted chord source. Only persist chords when provenance confirms
+    # they came from a validated engine.
     chords = analysis.get("chords", []) or []
-    chord_count = len(chords)
-    logger.info(
-        "chords_withheld",
-        extra={"count": chord_count, "reason": "unreliable_engine"},
-    )
+    chord_provenance = _hp("chords")
+    chord_engine = chord_provenance.get("engine") if chord_provenance else None
+    chord_engine_trusted = chord_engine == "lv-chordia"
 
-    # Roman numerals — WITHHELD (depends on unreliable chord stream)
+    if chord_engine_trusted and chords:
+        # Filter out N (no-chord) markers — these represent gaps, not chords
+        harmonic_chords = [c for c in chords if c.get("root") != "N"]
+
+        # Collapse consecutive identical chords into merged spans
+        merged_chords = _merge_adjacent_identical_chords(harmonic_chords)
+
+        # Persist as chord insights (max 20 to avoid overwhelming the UI)
+        for ch in merged_chords[:20]:
+            root = ch.get("root", "?")
+            quality = ch.get("quality", "")
+            label = f"{root} {quality}".strip()
+            cid = _create_insight(
+                client,
+                input_version.id,
+                "chord",
+                label,
+                evidence={
+                    "root": root,
+                    "quality": quality,
+                    "start_seconds": ch.get("start"),
+                    "end_seconds": ch.get("end"),
+                },
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="detected",
+                engine_provenance=chord_provenance,
+            )
+            insight_ids.append(str(cid))
+
+        logger.info(
+            "chords_persisted",
+            extra={
+                "raw_count": len(chords),
+                "harmonic_count": len(harmonic_chords),
+                "merged_count": len(merged_chords),
+                "persisted_count": min(len(merged_chords), 20),
+                "engine": chord_engine,
+            },
+        )
+    else:
+        # Chords not from a trusted engine — withhold
+        logger.info(
+            "chords_withheld",
+            extra={
+                "count": len(chords),
+                "engine": chord_engine,
+                "reason": "untrusted_engine" if chords else "no_chords",
+            },
+        )
+
+    # Roman numerals — WITHHELD until independently verified against lv-chordia stream
     rns = analysis.get("roman_numerals", []) or []
     if rns:
         logger.info(
             "roman_numerals_withheld",
-            extra={"count": len(rns), "reason": "unreliable_chord_stream"},
+            extra={"count": len(rns), "reason": "pending_independent_verification"},
         )
 
-    # Cadences — WITHHELD (depends on unreliable chord stream)
+    # Cadences — WITHHELD until independently verified against lv-chordia stream
     cadences = analysis.get("cadences", []) or []
     if cadences:
         logger.info(
             "cadences_withheld",
-            extra={"count": len(cadences), "reason": "unreliable_chord_stream"},
+            extra={"count": len(cadences), "reason": "pending_independent_verification"},
         )
 
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.
