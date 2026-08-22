@@ -993,7 +993,7 @@ def handle_analyze(job: Job, client) -> list[str]:
                 engine_provenance=theory_provenance,
             )
             insight_ids.append(str(rnid))
-        
+
         logger.info(
             "roman_numerals_persisted",
             extra={
@@ -1043,7 +1043,7 @@ def handle_analyze(job: Job, client) -> list[str]:
                 engine_provenance=theory_provenance,
             )
             insight_ids.append(str(fid))
-        
+
         logger.info(
             "harmonic_functions_persisted",
             extra={

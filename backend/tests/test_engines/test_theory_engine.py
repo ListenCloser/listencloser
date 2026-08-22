@@ -11,12 +11,14 @@ class TestTheoryEngine:
     def test_import(self):
         """Engine can be imported."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         assert engine is not None
 
     def test_provenance(self):
         """Engine reports correct provenance."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         p = engine.provenance
         assert p.engine == "theory_interpreter"
@@ -24,6 +26,7 @@ class TestTheoryEngine:
     def test_analyze_empty(self):
         """Engine handles empty input."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         result = engine.analyze([], global_key="C major")
         assert result.roman_numerals == []
@@ -32,6 +35,7 @@ class TestTheoryEngine:
     def test_analyze_chord_names(self):
         """Engine converts chord names to Roman numerals."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
@@ -47,6 +51,7 @@ class TestTheoryEngine:
     def test_analyze_minor_key(self):
         """Engine handles minor keys."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "A", "quality": "min", "start": 0.0, "end": 2.0},
@@ -62,6 +67,7 @@ class TestTheoryEngine:
     def test_harmonic_function(self):
         """Engine classifies harmonic function."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
@@ -77,6 +83,7 @@ class TestTheoryEngine:
     def test_key_detection(self):
         """Engine detects key from chord sequence."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
@@ -89,6 +96,7 @@ class TestTheoryEngine:
     def test_seventh_chords(self):
         """Engine handles seventh chords."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "G", "quality": "7", "start": 0.0, "end": 2.0},
@@ -101,6 +109,7 @@ class TestTheoryEngine:
     def test_minor_seventh_chords(self):
         """Engine handles minor seventh chords."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "D", "quality": "min7", "start": 0.0, "end": 2.0},
@@ -115,6 +124,7 @@ class TestTheoryEngine:
     def test_cadence_detection(self):
         """Engine detects cadences from Roman numeral sequences."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "G", "quality": "7", "start": 0.0, "end": 2.0},
@@ -128,6 +138,7 @@ class TestTheoryEngine:
     def test_cadence_half_cadence(self):
         """Engine detects half cadences."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
@@ -140,6 +151,7 @@ class TestTheoryEngine:
     def test_no_cadence(self):
         """Engine returns empty when no cadence detected."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
@@ -151,6 +163,7 @@ class TestTheoryEngine:
     def test_key_region_detection(self):
         """Engine detects key regions from Roman numerals."""
         from engines.theory.theory_engine import TheoryEngine
+
         engine = TheoryEngine()
         chords = [
             {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
@@ -169,6 +182,7 @@ class TestRegistryIntegration:
     def test_theory_engine_in_registry(self):
         """Theory engine can be retrieved from the registry."""
         from engines.registry import get_theory_engine
+
         engine = get_theory_engine()
         assert engine is not None
         assert hasattr(engine, "analyze")
@@ -176,5 +190,6 @@ class TestRegistryIntegration:
     def test_unknown_engine_raises(self):
         """Unknown engine names raise ValueError."""
         from engines.registry import get_theory_engine
+
         with pytest.raises(ValueError, match="Unknown theory engine"):
             get_theory_engine("nonexistent")

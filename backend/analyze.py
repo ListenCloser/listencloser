@@ -283,11 +283,13 @@ def _compute_windowed_density(
             if beat_end <= beat_start:
                 continue
             count = sum(1 for o in sorted_onsets if beat_start <= o < beat_end)
-            result.append({
-                "start": round(beat_start, 2),
-                "end": round(beat_end, 2),
-                "density": round(count, 2),
-            })
+            result.append(
+                {
+                    "start": round(beat_start, 2),
+                    "end": round(beat_end, 2),
+                    "density": round(count, 2),
+                }
+            )
         return result
 
     # Seconds-based fallback
@@ -296,11 +298,13 @@ def _compute_windowed_density(
         window_end = min(t + window, duration)
         count = sum(1 for o in sorted_onsets if t <= o < window_end)
         actual_window = window_end - t
-        result.append({
-            "start": round(t, 2),
-            "end": round(window_end, 2),
-            "density": round(count / actual_window, 2) if actual_window > 0 else 0.0,
-        })
+        result.append(
+            {
+                "start": round(t, 2),
+                "end": round(window_end, 2),
+                "density": round(count / actual_window, 2) if actual_window > 0 else 0.0,
+            }
+        )
         t += step
     return result
 
@@ -325,29 +329,35 @@ def _detect_rests(
 
     # Check gap before first onset
     if sorted_onsets[0] >= min_gap:
-        rests.append({
-            "start": 0.0,
-            "end": round(sorted_onsets[0], 2),
-            "duration": round(sorted_onsets[0], 2),
-        })
+        rests.append(
+            {
+                "start": 0.0,
+                "end": round(sorted_onsets[0], 2),
+                "duration": round(sorted_onsets[0], 2),
+            }
+        )
 
     # Check gaps between onsets
     for i in range(len(sorted_onsets) - 1):
         gap = sorted_onsets[i + 1] - sorted_onsets[i]
         if gap >= min_gap:
-            rests.append({
-                "start": round(sorted_onsets[i], 2),
-                "end": round(sorted_onsets[i + 1], 2),
-                "duration": round(gap, 2),
-            })
+            rests.append(
+                {
+                    "start": round(sorted_onsets[i], 2),
+                    "end": round(sorted_onsets[i + 1], 2),
+                    "duration": round(gap, 2),
+                }
+            )
 
     # Check gap after last onset
     if duration - sorted_onsets[-1] >= min_gap:
-        rests.append({
-            "start": round(sorted_onsets[-1], 2),
-            "end": round(duration, 2),
-            "duration": round(duration - sorted_onsets[-1], 2),
-        })
+        rests.append(
+            {
+                "start": round(sorted_onsets[-1], 2),
+                "end": round(duration, 2),
+                "duration": round(duration - sorted_onsets[-1], 2),
+            }
+        )
 
     return rests
 
@@ -488,7 +498,7 @@ def analyze_midi(
                 result["harmonic_rhythm"] = _compute_windowed_density(
                     chord_onsets, duration, window=4.0, step=1.0
                 )
-        
+
         # Theory interpretation: RN + function from chord timeline
         # Only when chord engine is trusted (lv-chordia)
         chord_provenance = result.get("harmony_provenance", {}).get("chords", {})
@@ -496,11 +506,13 @@ def analyze_midi(
         if chord_engine == "lv-chordia" and harmony.chords:
             try:
                 from engines.registry import get_theory_engine
+
                 theory = get_theory_engine().analyze(
                     harmony.chords,
                     global_key=(
                         result["key"].get("tonic") + " " + result["key"].get("mode", "major")
-                        if result.get("key") else None
+                        if result.get("key")
+                        else None
                     ),
                 )
                 # Convert TheoryResult to dicts for persistence

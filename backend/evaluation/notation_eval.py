@@ -104,17 +104,13 @@ def run_notation_evaluation(manifest_path: str, output_dir: str) -> dict[str, An
                     eval_result["source_id"] = clip.source_id
                     results.append(eval_result)
                     gen_notes = eval_result["structural"]["total_note_count"]
-                    ref_notes = eval_result.get(
-                        "reference_structural", {}
-                    ).get("total_note_count", "?")
+                    ref_notes = eval_result.get("reference_structural", {}).get(
+                        "total_note_count", "?"
+                    )
                     gen_meas = eval_result["structural"]["measure_count"]
-                    ref_meas = eval_result.get(
-                        "reference_structural", {}
-                    ).get("measure_count", "?")
+                    ref_meas = eval_result.get("reference_structural", {}).get("measure_count", "?")
                     gen_ties = eval_result["structural"]["tie_count"]
-                    ref_ties = eval_result.get(
-                        "reference_structural", {}
-                    ).get("tie_count", "?")
+                    ref_ties = eval_result.get("reference_structural", {}).get("tie_count", "?")
                     print(f"  Notes: {gen_notes} (ref: {ref_notes})")
                     print(f"  Measures: {gen_meas} (ref: {ref_meas})")
                     print(f"  Ties: {gen_ties} (ref: {ref_ties})")

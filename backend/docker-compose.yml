@@ -17,6 +17,7 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
       RELEASE: ${RELEASE:-development}
+      HARMONY_ENGINE: lv_chordia
       WORKER_HEALTH_FILE: /app/runtime/worker-heartbeat.json
     volumes:
       - worker-runtime:/app/runtime:ro
@@ -41,6 +42,7 @@ services:
       SENTRY_DSN_BACKEND: ${SENTRY_DSN_BACKEND:-}
       SENTRY_ENV: ${SENTRY_ENV:-production}
       RELEASE: ${RELEASE:-development}
+      HARMONY_ENGINE: lv_chordia
       WORKER_HEALTH_FILE: /app/runtime/worker-heartbeat.json
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
       ALLIN1_ENABLED: ${ALLIN1_ENABLED:-false}

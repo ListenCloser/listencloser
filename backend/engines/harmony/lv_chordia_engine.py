@@ -29,6 +29,7 @@ _CHORD_DICT_NAME = "submission"
 def _lv_chordia_version() -> str:
     try:
         import lv_chordia
+
         return lv_chordia.__version__
     except Exception:
         return "unknown"
@@ -88,9 +89,7 @@ class LvChordiaHarmonyEngine:
             RuntimeError: If audio_bytes is None or lv-chordia fails.
         """
         if audio_bytes is None:
-            raise RuntimeError(
-                "lv-chordia requires audio input. No audio_bytes provided."
-            )
+            raise RuntimeError("lv-chordia requires audio input. No audio_bytes provided.")
 
         # Write audio to temp file (lv-chordia requires a file path)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
@@ -100,6 +99,7 @@ class LvChordiaHarmonyEngine:
         try:
             t0 = time.perf_counter()
             from lv_chordia.chord_recognition import chord_recognition
+
             raw_results = chord_recognition(
                 audio_path=audio_path,
                 chord_dict_name=_CHORD_DICT_NAME,
@@ -118,12 +118,14 @@ class LvChordiaHarmonyEngine:
         chords = []
         for ch in raw_results:
             root, quality = _parse_chord_label(ch["chord"])
-            chords.append({
-                "root": root,
-                "quality": quality,
-                "start": round(ch["start_time"], 3),
-                "end": round(ch["end_time"], 3),
-            })
+            chords.append(
+                {
+                    "root": root,
+                    "quality": quality,
+                    "start": round(ch["start_time"], 3),
+                    "end": round(ch["end_time"], 3),
+                }
+            )
 
         # Return HarmonyResult with chords only
         # Key/RN/cadences/voice_leading are NOT produced by this engine
