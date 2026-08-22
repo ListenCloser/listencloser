@@ -185,9 +185,9 @@ test.describe("score playback following (MSW)", () => {
       );
     }
 
-    // Selection highlight should appear
+    // Selection highlight should appear (may be multiple from theory annotations)
     await expect(
-      page.locator("[data-selection-highlight]"),
+      page.locator("[data-selection-highlight]").first(),
     ).toBeVisible({ timeout: 10_000 });
 
     // Switch to Score rendition source and play
@@ -204,7 +204,7 @@ test.describe("score playback following (MSW)", () => {
       page.locator("[data-playback-highlight]"),
     ).toBeVisible({ timeout: 10_000 });
     await expect(
-      page.locator("[data-selection-highlight]"),
+      page.locator("[data-selection-highlight]").first(),
     ).toBeVisible();
 
     // They should be different elements
