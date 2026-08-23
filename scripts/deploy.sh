@@ -14,7 +14,6 @@ HEALTH_URL="${BACKEND_URL}/health/ready"
 QUEUE_HEALTH_URL="${BACKEND_URL}/health/queue"
 MAX_WAIT="${HEALTH_TIMEOUT:-120}"
 
-# --- ensure repo exists and is usable ---
 ensure_repo() {
   if [ ! -d "$REPO_DIR/.git" ]; then
     echo "[deploy] no .git found — cloning fresh"
@@ -26,15 +25,12 @@ ensure_repo() {
   fi
 
   cd "$REPO_DIR"
-
-  # ensure remote exists and points to the right URL
   if ! git remote get-url origin >/dev/null 2>&1; then
     git remote add origin "$REPO_URL"
   else
     git remote set-url origin "$REPO_URL"
   fi
 
-  # rename master -> main if needed
   local current_branch
   current_branch=$(git branch --show-current 2>/dev/null || echo "")
   if [ "$current_branch" = "master" ]; then
@@ -42,28 +38,22 @@ ensure_repo() {
     git branch -m master main
   fi
 
-  # ensure we're on main
   if [ "$(git branch --show-current 2>/dev/null)" != "main" ]; then
     echo "[deploy] switching to main"
     git checkout main 2>/dev/null || git checkout -b main origin/main
   fi
 
-  # ensure upstream tracking exists
   if ! git rev-parse --abbrev-ref @{upstream} >/dev/null 2>&1; then
     echo "[deploy] setting upstream to origin/main"
     git branch --set-upstream-to=origin/main main
   fi
 
   if [ "${DEPLOY_PREVIOUS_SHA+x}" = "x" ]; then
-    # An explicitly empty value means this is a first deployment, so there is
-    # no valid release to roll back to.
     PREV_HEAD="${DEPLOY_PREVIOUS_SHA}"
   else
     PREV_HEAD="$(git rev-parse HEAD)"
   fi
 
-  # Fetch and select the exact release requested by CI. Falling back to
-  # origin/main keeps manual recovery usable without weakening CI deploys.
   git fetch -q origin
   local target_revision="${DEPLOY_SHA:-origin/main}"
   git cat-file -e "${target_revision}^{commit}"
@@ -71,12 +61,10 @@ ensure_repo() {
   echo "[deploy] selected exact revision $(git rev-parse HEAD)"
 }
 
-# --- main ---
 echo "[deploy] starting deploy at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ensure_repo
 TARGET_HEAD="$(git rev-parse HEAD)"
 
-# --- write .env from environment (deploy workflow passes these) ---
 if [ -n "${SUPABASE_URL:-}" ] || [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   echo "[deploy] writing .env from environment"
   cat > "$REPO_DIR/backend/.env" <<ENVEOF
@@ -88,6 +76,8 @@ SENTRY_ENV=${SENTRY_ENV:-production}
 LLM_BASE_URL=${LLM_BASE_URL:-}
 LLM_API_KEY=${LLM_API_KEY:-}
 LLM_MODEL=${LLM_MODEL:-}
+OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
 HARMONY_ENGINE=lv_chordia
 RELEASE=${TARGET_HEAD}
 ENVEOF
