@@ -36,9 +36,14 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from opentelemetry.trace import Status, StatusCode
+
+from observability import get_tracer
+
 from .models import Capability, Job, JobLifecycle
 
 logger = logging.getLogger("job_worker")
+_tracer = get_tracer("hello-ai-worker")
 
 
 def _parse_datetime(val: Any) -> datetime | None:
@@ -451,11 +456,23 @@ class JobWorker:
     def _execute_job(self, job_row: dict, *, already_claimed: bool = False) -> None:
         """Claim, validate, and run a single job inside the current thread."""
         job_id: str = str(job_row["id"])
+        cap_name = job_row.get("capability_name", "")
+        cap_version = job_row.get("capability_version", "")
+        cap_key = _capability_key(cap_name, cap_version)
 
         # --- Atomic claim ---
-        if not already_claimed and not self._claim_job(job_id):
-            logger.debug("claim_lost", extra={"job_id": job_id})
-            return
+        with _tracer.start_as_current_span(
+            "job.claim",
+            attributes={
+                "job_id": job_id,
+                "job_kind": cap_key,
+            },
+        ) as claim_span:
+            if not already_claimed and not self._claim_job(job_id):
+                claim_span.set_attribute("claim.success", False)
+                logger.debug("claim_lost", extra={"job_id": job_id})
+                return
+            claim_span.set_attribute("claim.success", True)
 
         # --- Defensive cancellation check ---
         if self._check_cancelled(job_id):
@@ -535,63 +552,78 @@ class JobWorker:
         heartbeat_thread.start()
 
         # --- Execute handler ---
-        try:
-            output_vals = handler(job_obj, self.client)
+        with _tracer.start_as_current_span(
+            "job.execute",
+            attributes={
+                "job_id": job_id,
+                "job_kind": cap_key,
+                "worker_id": self._worker_id,
+                "retry_count": int(job_row.get("retry_count", 0)),
+            },
+        ) as execute_span:
+            try:
+                output_vals = handler(job_obj, self.client)
 
-            if not isinstance(output_vals, list):
-                output_vals = list(output_vals) if output_vals else []
+                if not isinstance(output_vals, list):
+                    output_vals = list(output_vals) if output_vals else []
 
-            output_version_ids = [str(oid) for oid in output_vals]
-            if self._check_cancelled(job_id):
-                logger.info(
-                    "job_cancelled_before_completion",
-                    extra={"job_id": job_id},
-                )
-                return
-            self._mark_succeeded(job_id, output_version_ids)
-            logger.info("job_succeeded", extra={"job_id": job_id})
+                output_version_ids = [str(oid) for oid in output_vals]
+                if self._check_cancelled(job_id):
+                    execute_span.set_attribute("job.cancelled", True)
+                    logger.info(
+                        "job_cancelled_before_completion",
+                        extra={"job_id": job_id},
+                    )
+                    return
+                self._mark_succeeded(job_id, output_version_ids)
+                execute_span.set_attribute("job.success", True)
+                execute_span.set_attribute("output_version_count", len(output_version_ids))
+                logger.info("job_succeeded", extra={"job_id": job_id})
 
-        except Exception as exc:
-            logger.exception("job_handler_failed", extra={"job_id": job_id})
+            except Exception as exc:
+                execute_span.set_attribute("job.success", False)
+                execute_span.record_exception(exc)
+                execute_span.set_status(Status(StatusCode.ERROR, str(exc)))
+                logger.exception("job_handler_failed", extra={"job_id": job_id})
 
-            # User-facing error text must never leak raw database exceptions
-            # (e.g. Postgres constraint details). The full traceback is already
-            # in the logs and the raw exception is preserved in error_details
-            # for diagnostics.
-            error_message = "Processing could not be completed. Retry processing."
-            error_details = {
-                "exception": str(exc),
-                "type": type(exc).__name__,
-            }
+                # User-facing error text must never leak raw database exceptions
+                # (e.g. Postgres constraint details). The full traceback is already
+                # in the logs and the raw exception is preserved in error_details
+                # for diagnostics.
+                error_message = "Processing could not be completed. Retry processing."
+                error_details = {
+                    "exception": str(exc),
+                    "type": type(exc).__name__,
+                }
 
-            retry_count = int(job_row.get("retry_count", 0)) + 1
-            max_retries = int(job_row.get("max_retries", 3))
+                retry_count = int(job_row.get("retry_count", 0)) + 1
+                max_retries = int(job_row.get("max_retries", 3))
 
-            if self._check_cancelled(job_id):
-                logger.info(
-                    "job_cancelled_after_handler_error",
-                    extra={"job_id": job_id},
-                )
-            elif retry_count <= max_retries:
-                delay = 2**retry_count
-                logger.info(
-                    "job_retry",
-                    extra={
-                        "job_id": job_id,
-                        "retry": retry_count,
-                        "max": max_retries,
-                        "delay_s": delay,
-                    },
-                )
-                time.sleep(delay)
-                self._requeue_job(job_id, retry_count, error_message, error_details)
-            else:
-                self._mark_failed(job_id, error_message, error_details)
-                logger.info("job_exhausted_retries", extra={"job_id": job_id})
+                if self._check_cancelled(job_id):
+                    logger.info(
+                        "job_cancelled_after_handler_error",
+                        extra={"job_id": job_id},
+                    )
+                elif retry_count <= max_retries:
+                    delay = 2**retry_count
+                    logger.info(
+                        "job_retry",
+                        extra={
+                            "job_id": job_id,
+                            "retry": retry_count,
+                            "max": max_retries,
+                            "delay_s": delay,
+                        },
+                    )
+                    time.sleep(delay)
+                    self._requeue_job(job_id, retry_count, error_message, error_details)
+                else:
+                    self._mark_failed(job_id, error_message, error_details)
+                    logger.info("job_exhausted_retries", extra={"job_id": job_id})
 
-        finally:
-            heartbeat_stop.set()
-            heartbeat_thread.join(timeout=5.0)
+            finally:
+                heartbeat_stop.set()
+                heartbeat_thread.join(timeout=5.0)
 
     # ------------------------------------------------------------------
     # Main loop
