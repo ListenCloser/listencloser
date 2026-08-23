@@ -39,8 +39,10 @@ from domain.repositories import (
     InsightRepo,
     VersionRepo,
 )
+from observability import get_tracer
 
 logger = logging.getLogger("capabilities")
+_tracer = get_tracer("hello-ai-engine")
 
 _STORAGE_BUCKET = "artifacts"
 
@@ -521,13 +523,22 @@ def handle_transcribe(job: Job, client) -> list[str]:
     audio_bytes = music_features.decode_audio_to_wav(audio_bytes, fmt=fmt)
 
     _update_progress(client, job.id, 0.3, "transcribing audio")
-    engine = music_features.get_transcription_engine_for_job(
-        name=engine_name,
-        profile=profile,
-        onset_threshold=onset_threshold,
-        frame_threshold=frame_threshold,
-    )
-    result = engine.transcribe(audio_bytes, fmt="wav")
+    with _tracer.start_as_current_span(
+        "transcription",
+        attributes={
+            "engine": engine_name or "auto",
+            "profile": profile or "auto",
+            "onset_threshold": onset_threshold,
+            "frame_threshold": frame_threshold,
+        },
+    ):
+        engine = music_features.get_transcription_engine_for_job(
+            name=engine_name,
+            profile=profile,
+            onset_threshold=onset_threshold,
+            frame_threshold=frame_threshold,
+        )
+        result = engine.transcribe(audio_bytes, fmt="wav")
 
     # Some transcription engines (e.g. Transkun) return note/MIDI data only and
     # no synthesized audio. A zero-byte WAV would surface as a broken
@@ -625,7 +636,8 @@ def handle_audio_structure(job: Job, client) -> list[str]:
         audio_bytes, fmt=job.parameters.get("fmt", "wav")
     )
     _update_progress(client, job.id, 0.35, "finding beats and musical form")
-    result = music_features.structure_with_engine(wav_bytes)
+    with _tracer.start_as_current_span("audio_structure", attributes={"engine": "spleeter"}):
+        result = music_features.structure_with_engine(wav_bytes)
 
     # The model remains optional until its heavyweight PyTorch/NATTEN runtime
     # is installed on the free ARM worker. Never fail an otherwise useful import
@@ -769,9 +781,13 @@ def handle_analyze(job: Job, client) -> list[str]:
             wav_bytes = music_features.decode_audio_to_wav(
                 audio_bytes, fmt=job.parameters.get("fmt", "wav")
             )
-            beat_result = music_features.estimate_beats_with_engine(
-                wav_bytes, engine_name="beat_this"
-            )
+            with _tracer.start_as_current_span(
+                "beat_analysis",
+                attributes={"engine": "beat_this"},
+            ):
+                beat_result = music_features.estimate_beats_with_engine(
+                    wav_bytes, engine_name="beat_this"
+                )
             pulse = {
                 "bpm": beat_result.get("bpm"),
                 "beats": beat_result.get("beats") or [],
@@ -782,10 +798,11 @@ def handle_analyze(job: Job, client) -> list[str]:
             logger.exception("analyze_pulse_measurement_failed")
 
     _update_progress(client, job.id, 0.3, "running analysis")
-    try:
-        analysis = analyze.analyze_midi(midi_path, pulse=pulse, audio_bytes=wav_bytes)
-    finally:
-        os.unlink(midi_path)
+    with _tracer.start_as_current_span("theory_analysis"):
+        try:
+            analysis = analyze.analyze_midi(midi_path, pulse=pulse, audio_bytes=wav_bytes)
+        finally:
+            os.unlink(midi_path)
 
     insight_ids: list[str] = []
     pulse_is_default = _transcription_defaults_pulse(input_version)
@@ -1227,14 +1244,16 @@ def handle_score(job: Job, client) -> list[str]:
             downbeats = beat_result.get("downbeats")
         except Exception:
             logger.exception("score_beat_tracking_failed")
-    notation_result = music_features.notation_with_engine(
-        midi_bytes,
-        beat_times,
-        downbeats=downbeats,
-        adaptive=True,
-        notation_ready=True,
-        piano_grand_staff=True,
-    )
+    _update_progress(client, job.id, 0.5, "creating notation")
+    with _tracer.start_as_current_span("notation", attributes={"engine": "midi2musicxml"}):
+        notation_result = music_features.notation_with_engine(
+            midi_bytes,
+            beat_times,
+            downbeats=downbeats,
+            adaptive=True,
+            notation_ready=True,
+            piano_grand_staff=True,
+        )
     notation_midi = notation_result["notation_midi"]
     notation_report = notation_result["quantization_report"]
     _update_progress(client, job.id, 0.5, "creating notation")
