@@ -636,8 +636,10 @@ def handle_audio_structure(job: Job, client) -> list[str]:
         audio_bytes, fmt=job.parameters.get("fmt", "wav")
     )
     _update_progress(client, job.id, 0.35, "finding beats and musical form")
-    with _tracer.start_as_current_span("audio_structure", attributes={"engine": "spleeter"}):
+    with _tracer.start_as_current_span("audio_structure"):
         result = music_features.structure_with_engine(wav_bytes)
+    if result is not None:
+        pass  # provenance captured via insight persistence below
 
     # The model remains optional until its heavyweight PyTorch/NATTEN runtime
     # is installed on the free ARM worker. Never fail an otherwise useful import
@@ -798,7 +800,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             logger.exception("analyze_pulse_measurement_failed")
 
     _update_progress(client, job.id, 0.3, "running analysis")
-    with _tracer.start_as_current_span("theory_analysis"):
+    with _tracer.start_as_current_span("music_analysis"):
         try:
             analysis = analyze.analyze_midi(midi_path, pulse=pulse, audio_bytes=wav_bytes)
         finally:
@@ -1245,7 +1247,7 @@ def handle_score(job: Job, client) -> list[str]:
         except Exception:
             logger.exception("score_beat_tracking_failed")
     _update_progress(client, job.id, 0.5, "creating notation")
-    with _tracer.start_as_current_span("notation", attributes={"engine": "midi2musicxml"}):
+    with _tracer.start_as_current_span("notation"):
         notation_result = music_features.notation_with_engine(
             midi_bytes,
             beat_times,
@@ -1256,7 +1258,6 @@ def handle_score(job: Job, client) -> list[str]:
         )
     notation_midi = notation_result["notation_midi"]
     notation_report = notation_result["quantization_report"]
-    _update_progress(client, job.id, 0.5, "creating notation")
     notation_key = _job_storage_key(job, "notation.mid")
     _upload_bytes(client, _STORAGE_BUCKET, notation_key, notation_midi, "audio/midi")
     notation_version_id = _create_output_version(

@@ -37,6 +37,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from observability import get_tracer
+from opentelemetry.trace import Status, StatusCode
 
 from .models import Capability, Job, JobLifecycle
 
@@ -556,6 +557,7 @@ class JobWorker:
                 "job_id": job_id,
                 "job_kind": cap_key,
                 "worker_id": self._worker_id,
+                "retry_count": int(job_row.get("retry_count", 0)),
             },
         ) as execute_span:
             try:
@@ -580,6 +582,7 @@ class JobWorker:
             except Exception as exc:
                 execute_span.set_attribute("job.success", False)
                 execute_span.record_exception(exc)
+                execute_span.set_status(Status(StatusCode.ERROR, str(exc)))
                 logger.exception("job_handler_failed", extra={"job_id": job_id})
 
                 # User-facing error text must never leak raw database exceptions
