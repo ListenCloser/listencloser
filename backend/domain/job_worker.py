@@ -36,8 +36,9 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from observability import get_tracer
 from opentelemetry.trace import Status, StatusCode
+
+from observability import get_tracer
 
 from .models import Capability, Job, JobLifecycle
 
