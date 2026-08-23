@@ -6,6 +6,7 @@ import signal
 
 from domain.capabilities import register_all_capabilities
 from domain.job_worker import JobWorker
+from observability import configure_logging, init_telemetry
 
 
 def _init_sentry() -> None:
@@ -27,10 +28,8 @@ def _init_sentry() -> None:
 
 
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+    configure_logging("hello-ai-worker")
+    init_telemetry("hello-ai-worker")
     _init_sentry()
     worker = JobWorker(max_workers=int(os.environ.get("WORKER_CONCURRENCY", "1")))
     register_all_capabilities(worker)

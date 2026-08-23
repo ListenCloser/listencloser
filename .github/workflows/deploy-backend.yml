@@ -20,7 +20,6 @@ on:
 
 concurrency:
   group: deploy-backend-${{ github.ref }}
-  # Never terminate an SSH deployment between container switch and health gate.
   cancel-in-progress: false
 
 jobs:
@@ -38,12 +37,6 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           set -euo pipefail
-          # Steady-state deploy invariant: migration history is never mutated
-          # here. `db push` applies only genuinely pending migrations; already
-          # applied migrations stay applied. The one-time 2026-08-18 history
-          # correction for the 20260716/20260728 rename transition has
-          # completed and its workflow was removed; it must not be
-          # re-introduced during steady-state deploys.
           supabase link --project-ref cijhpddqvvzyzfzmkdnn
           supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
 
@@ -60,7 +53,7 @@ jobs:
           host: ${{ secrets.ORACLE_VM_HOST }}
           username: ${{ secrets.ORACLE_VM_USER }}
           key: ${{ secrets.ORACLE_VM_SSH_KEY }}
-          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA,LLM_BASE_URL,LLM_API_KEY,LLM_MODEL
+          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA,LLM_BASE_URL,LLM_API_KEY,LLM_MODEL,OTEL_EXPORTER_OTLP_ENDPOINT,OTEL_EXPORTER_OTLP_HEADERS
           script: |
             set -euo pipefail
             if [ ! -d ~/hello-ai/.git ]; then
@@ -87,3 +80,5 @@ jobs:
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
