@@ -16,6 +16,7 @@ import numpy as np
 
 import analyze
 import music_features
+from domain.capability_policy import is_product_evidence
 from domain.models import (
     Alignment,
     AlignmentKind,
@@ -1073,30 +1074,25 @@ def handle_analyze(job: Job, client) -> list[str]:
             extra={"count": len(functions), "reason": "no_trusted_chords"},
         )
 
-    # Cadences — WITHHELD from product until cadence detection is validated.
-    # The current heuristic cadence detector has ~27% F1 on Mozart (DCML).
-    # Cadence detection is kept for R&D but NOT persisted as product evidence.
+    # Cadences — policy-gated: withheld until cadence detection is validated.
     cadences_theory = analysis.get("cadences_theory", []) or []
-    if cadences_theory:
+    if cadences_theory and not is_product_evidence("cadence"):
         logger.info(
             "cadences_withheld",
             extra={
                 "count": len(cadences_theory),
-                "reason": "unvalidated_detection",
+                "reason": "capability_policy_withheld",
             },
         )
 
-    # Key regions — WITHHELD from product until a real modulation detector
-    # is validated. The current implementation returns the global key as a
-    # single whole-piece region with confidence=1.0 — this is a placeholder,
-    # not evidence of modulation analysis.
+    # Key regions — policy-gated: withheld until a real modulation detector is validated.
     key_regions = analysis.get("key_regions_theory", []) or []
-    if key_regions:
+    if key_regions and not is_product_evidence("key_region"):
         logger.info(
             "key_regions_withheld",
             extra={
                 "count": len(key_regions),
-                "reason": "placeholder_algorithm",
+                "reason": "capability_policy_withheld",
             },
         )
 
@@ -1162,12 +1158,12 @@ def handle_analyze(job: Job, client) -> list[str]:
             )
             insight_ids.append(str(rsid))
 
-    # Harmonic rhythm — WITHHELD (depends on unreliable chord stream)
+    # Harmonic rhythm — policy-gated: withheld (depends on unreliable chord stream)
     harmonic_rhythm = analysis.get("harmonic_rhythm") or []
-    if harmonic_rhythm:
+    if harmonic_rhythm and not is_product_evidence("harmonic_rhythm"):
         logger.info(
             "harmonic_rhythm_withheld",
-            extra={"count": len(harmonic_rhythm), "reason": "unreliable_chord_stream"},
+            extra={"count": len(harmonic_rhythm), "reason": "capability_policy_withheld"},
         )
 
     melody = analysis.get("melody") or {}
@@ -1190,12 +1186,12 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(mid))
 
-    # Voice leading — WITHHELD (depends on unreliable chord stream)
+    # Voice leading — policy-gated: withheld (depends on unreliable chord stream)
     voice_leading = analysis.get("voice_leading") or {}
-    if voice_leading:
+    if voice_leading and not is_product_evidence("voice_leading"):
         logger.info(
             "voice_leading_withheld",
-            extra={"reason": "unreliable_chord_stream"},
+            extra={"reason": "capability_policy_withheld"},
         )
 
     _update_progress(client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)")

@@ -74,6 +74,62 @@
       "evaluation": {"dataset": "POP909", "metric": "f1_range", "value": "0.39-0.61"},
       "notes": "Legacy heuristic with known accompaniment contamination; do not describe it as a ground-truth melody voice."
     },
+    "time_signature": {
+      "status": "production",
+      "input": "midi",
+      "engine": "music21",
+      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "notes": "Meter/time-signature detection from MIDI via music21."
+    },
+    "audio_tempo": {
+      "status": "production",
+      "input": "audio",
+      "engine": "beat_engine",
+      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "notes": "Audio-derived tempo estimate from the beat engine."
+    },
+    "section": {
+      "status": "evaluation_only",
+      "input": "audio",
+      "engine": "allin1",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "reason": "Section detection from unvalidated audio structure engine; no trusted section evidence yet."
+    },
+    "audio_structure": {
+      "status": "evaluation_only",
+      "input": "audio",
+      "engine": "allin1",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "reason": "Whole-work structure summary from unvalidated audio structure engine."
+    },
+    "rhythm_density": {
+      "status": "production",
+      "input": "midi+beats",
+      "engine": "analysis_v2",
+      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "notes": "Note density profile over time; deterministic windowed measurement."
+    },
+    "rhythm_rests": {
+      "status": "production",
+      "input": "midi+beats",
+      "engine": "analysis_v2",
+      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "notes": "Rest segment detection; deterministic measurement."
+    },
+    "harmonic_rhythm": {
+      "status": "withheld",
+      "input": "derived",
+      "engine": "analysis_v2",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "reason": "Depends on unreliable chord stream for change-point detection."
+    },
+    "voice_leading": {
+      "status": "withheld",
+      "input": "derived",
+      "engine": "analysis_v2",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "reason": "Depends on unreliable chord stream for voice tracking."
+    },
     "structure": {
       "status": "evaluation_only",
       "input": "audio",

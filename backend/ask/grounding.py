@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import json
 
+from domain.capability_policy import is_exposed
+
 from .contracts import AskContext
 
 # ---------------------------------------------------------------------------
@@ -51,23 +53,27 @@ SYSTEM_PROMPT = (
 
 def _serialize_evidence(context: AskContext) -> dict:
     selection = context.selection
+    # Defense-in-depth: filter visible insights by Ask exposure policy.
+    # Only insights with is_exposed(kind, "ask") == True are sent to the LLM.
+    visible_insights = [
+        {
+            "id": item.insight.id,
+            "category": item.category,
+            "kind": item.insight.kind,
+            "claim": item.insight.claim,
+            "span": item.insight.span.model_dump(),
+            "entity_ids": item.insight.entity_ids,
+        }
+        for item in context.visibleInsights
+        if is_exposed(item.insight.kind, "ask")
+    ]
     evidence: dict = {
         "work_id": str(context.workId),
         "representation": context.representationId,
         "current_time_seconds": context.currentTime,
         "playback_source_id": context.playbackSourceId,
         "selection": None,
-        "visible_insights": [
-            {
-                "id": item.insight.id,
-                "category": item.category,
-                "kind": item.insight.kind,
-                "claim": item.insight.claim,
-                "span": item.insight.span.model_dump(),
-                "entity_ids": item.insight.entity_ids,
-            }
-            for item in context.visibleInsights
-        ],
+        "visible_insights": visible_insights,
     }
     if selection is not None:
         selection_data: dict = {}
