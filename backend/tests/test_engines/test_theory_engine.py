@@ -81,7 +81,7 @@ class TestTheoryEngine:
         assert result.harmonic_functions[2].function == "SUBDOMINANT"
 
     def test_key_detection(self):
-        """Engine detects key from chord sequence."""
+        """Engine withholds RN when no trusted key is provided."""
         from engines.theory.theory_engine import TheoryEngine
 
         engine = TheoryEngine()
@@ -91,7 +91,33 @@ class TestTheoryEngine:
             {"root": "F", "quality": "maj", "start": 4.0, "end": 6.0},
         ]
         result = engine.analyze(chords)
-        assert result.global_key is not None
+        # No trusted key → RN and harmonic function are withheld
+        assert result.global_key is None
+        assert result.roman_numerals == []
+        assert result.harmonic_functions == []
+
+    def test_key_source_provenance_recorded(self):
+        """Engine records key_source and key_provenance on every event."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
+        ]
+        result = engine.analyze(
+            chords,
+            global_key="C major",
+            key_source="music21_independent",
+            key_provenance={"engine": "music21", "detection": "independent_midi_path"},
+        )
+        assert len(result.roman_numerals) == 2
+        for rn in result.roman_numerals:
+            assert rn.key_source == "music21_independent"
+            assert rn.key_provenance["engine"] == "music21"
+        for f in result.harmonic_functions:
+            assert f.key_source == "music21_independent"
+            assert f.key_provenance["engine"] == "music21"
 
     def test_seventh_chords(self):
         """Engine handles seventh chords."""

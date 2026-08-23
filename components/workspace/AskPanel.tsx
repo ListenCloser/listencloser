@@ -87,9 +87,10 @@ export default function AskPanel() {
       const assistantMessage: AskMessage = { id: makeId(), role: "assistant", response };
       appendAskMessage(assistantMessage);
       setLastAsked(null);
-    } catch {
+    } catch (err) {
       if (token !== askTokenRef.current || workId !== activeWorkIdRef.current) return;
-      setError("Ask is not available right now. Please try again.");
+      const msg = err instanceof Error ? err.message : "Ask is not available right now.";
+      setError(msg.includes("not configured") ? "Ask is not configured. Contact your administrator." : "Ask is not available right now. Please try again.");
     } finally {
       if (token === askTokenRef.current) {
         setPending(false);

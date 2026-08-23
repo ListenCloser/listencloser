@@ -30,6 +30,8 @@ Pipeline:
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 import time as _time
 from typing import NotRequired, TypedDict
 
@@ -476,7 +478,6 @@ def analyze_midi(
             tempo_bpm=result["tempo"]["bpm"] if result["tempo"] else None,
             audio_bytes=audio_bytes,
         )
-        result["key"] = harmony.key
         result["chords"] = harmony.chords
         # Truthfulness invariant: no chord evidence → no Roman numerals
         if harmony.chords:
@@ -490,6 +491,62 @@ def analyze_midi(
             k: v.to_dict() for k, v in harmony.component_provenance.items()
         }
 
+        # ── Independent key detection via music21 (MIDI path) ──────────
+        # When the configured harmony engine is lv-chordia, the audio path
+        # provides chords but NOT key.  We run music21 key detection on the
+        # MIDI stream independently so that RN/function have a trusted key
+        # source.  This is always done — even when HARMONY_ENGINE=music21,
+        # music21 already provides key via its HarmonyResult.
+        chord_provenance = result.get("harmony_provenance", {}).get("chords", {})
+        chord_engine = chord_provenance.get("engine") if chord_provenance else None
+        key_source = "harmony_engine"  # default: came from the main engine
+
+        if chord_engine == "lv-chordia":
+            # lv-chordia does not detect key — run music21 independently
+            try:
+                from music21 import converter as _m21_converter
+
+                from engines.harmony.music21_engine import _m21_key
+
+                with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as _kf:
+                    _kf.write(midi_bytes)
+                    _m21_path = _kf.name
+                try:
+                    _m21_score = _m21_converter.parse(
+                        _m21_path,
+                        quantizePost=False,
+                    )
+                    independent_key = _m21_key(_m21_score)
+                finally:
+                    os.unlink(_m21_path)
+
+                if independent_key:
+                    result["key"] = independent_key
+                    key_source = "music21_independent"
+                else:
+                    # music21 could not detect key — no trusted key exists
+                    result["key"] = None
+                    key_source = "none"
+            except Exception:
+                logger.warning("independent music21 key detection failed", exc_info=True)
+                result["key"] = None
+                key_source = "none"
+        else:
+            # music21 harmony engine already provides key
+            result["key"] = harmony.key
+
+        # Record key provenance for every theory event downstream
+        key_prov = result.get("harmony_provenance", {}).get("key")
+        if chord_engine == "lv-chordia":
+            kp_ver = key_prov.get("library_version", "unknown") if key_prov else "unknown"
+            key_prov = {
+                "engine": "music21",
+                "library_version": kp_ver,
+                "detection": "independent_midi_path",
+            }
+        result["key_provenance"] = key_prov
+        result["key_source"] = key_source
+
         # Harmonic rhythm: chord onset density over time (Analysis V2)
         if harmony.chords:
             chord_onsets = [c["start"] for c in harmony.chords if "start" in c]
@@ -500,69 +557,81 @@ def analyze_midi(
                 )
 
         # Theory interpretation: RN + function from chord timeline
-        # Only when chord engine is trusted (lv-chordia)
-        chord_provenance = result.get("harmony_provenance", {}).get("chords", {})
-        chord_engine = chord_provenance.get("engine") if chord_provenance else None
+        # Requires BOTH trusted chords (lv-chordia) AND trusted key (music21).
+        # If no trusted key exists, chords are shown but RN/function are withheld.
         if chord_engine == "lv-chordia" and harmony.chords:
-            try:
-                from engines.registry import get_theory_engine
+            trusted_key_str = None
+            if result.get("key"):
+                k = result["key"]
+                trusted_key_str = k.get("tonic") + " " + k.get("mode", "major")
 
-                theory = get_theory_engine().analyze(
-                    harmony.chords,
-                    global_key=(
-                        result["key"].get("tonic") + " " + result["key"].get("mode", "major")
-                        if result.get("key")
-                        else None
-                    ),
+            if not trusted_key_str:
+                logger.info(
+                    "theory_withheld_no_trusted_key",
+                    extra={"chord_count": len(harmony.chords)},
                 )
-                # Convert TheoryResult to dicts for persistence
-                result["roman_numerals_theory"] = [
-                    {
-                        "numeral": rn.numeral,
-                        "degree": rn.degree,
-                        "quality": rn.quality,
-                        "inversion": rn.inversion,
-                        "is_secondary": rn.is_secondary,
-                        "secondary_target": rn.secondary_target,
-                        "start": rn.start_seconds,
-                        "end": rn.end_seconds,
-                        "key_context": rn.key_context,
-                    }
-                    for rn in theory.roman_numerals
-                ]
-                result["harmonic_functions"] = [
-                    {
-                        "function": f.function,
-                        "numeral": f.roman_numeral,
-                        "start": f.start_seconds,
-                        "end": f.end_seconds,
-                        "key_context": f.key_context,
-                    }
-                    for f in theory.harmonic_functions
-                ]
-                result["cadences_theory"] = [
-                    {
-                        "type": c.type,
-                        "chords": c.chords,
-                        "start": c.start_seconds,
-                        "end": c.end_seconds,
-                        "key_context": c.key_context,
-                        "confidence": c.confidence,
-                    }
-                    for c in theory.cadences
-                ]
-                result["key_regions_theory"] = [
-                    {
-                        "key": kr.key,
-                        "start": kr.start_seconds,
-                        "end": kr.end_seconds,
-                        "confidence": kr.confidence,
-                    }
-                    for kr in theory.key_regions
-                ]
-                result["theory_provenance"] = theory.provenance.to_dict()
-            except Exception:
-                logger.exception("theory engine failed")
+            else:
+                try:
+                    from engines.registry import get_theory_engine
+
+                    theory = get_theory_engine().analyze(
+                        harmony.chords,
+                        global_key=trusted_key_str,
+                        key_source=key_source,
+                        key_provenance=key_prov,
+                    )
+                    # Convert TheoryResult to dicts for persistence
+                    result["roman_numerals_theory"] = [
+                        {
+                            "numeral": rn.numeral,
+                            "degree": rn.degree,
+                            "quality": rn.quality,
+                            "inversion": rn.inversion,
+                            "is_secondary": rn.is_secondary,
+                            "secondary_target": rn.secondary_target,
+                            "start": rn.start_seconds,
+                            "end": rn.end_seconds,
+                            "key_context": rn.key_context,
+                            "key_source": rn.key_source,
+                            "key_provenance": rn.key_provenance,
+                        }
+                        for rn in theory.roman_numerals
+                    ]
+                    result["harmonic_functions"] = [
+                        {
+                            "function": f.function,
+                            "numeral": f.roman_numeral,
+                            "start": f.start_seconds,
+                            "end": f.end_seconds,
+                            "key_context": f.key_context,
+                            "key_source": f.key_source,
+                            "key_provenance": f.key_provenance,
+                        }
+                        for f in theory.harmonic_functions
+                    ]
+                    result["cadences_theory"] = [
+                        {
+                            "type": c.type,
+                            "chords": c.chords,
+                            "start": c.start_seconds,
+                            "end": c.end_seconds,
+                            "key_context": c.key_context,
+                            "confidence": c.confidence,
+                        }
+                        for c in theory.cadences
+                    ]
+                    result["key_regions_theory"] = [
+                        {
+                            "key": kr.key,
+                            "start": kr.start_seconds,
+                            "end": kr.end_seconds,
+                            "confidence": kr.confidence,
+                        }
+                        for kr in theory.key_regions
+                    ]
+                    result["theory_provenance"] = theory.provenance.to_dict()
+                except Exception:
+                    logger.exception("theory engine failed")
     except Exception:
         logger.exception("harmony engine failed")
 
