@@ -1223,6 +1223,19 @@ gradient-text {
 }
 .inspector-empty { color:var(--muted); font-size:var(--fs-xs); margin:0; line-height:1.5; }
 .inspector-filtered-notice { margin:var(--s-2) 0 0; color:var(--muted); font-size:10px; }
+/* Compact arrow-separated sequence (chords, RN, harmonic function) */
+.inspector-sequence {
+  display:flex; flex-wrap:wrap; align-items:baseline;
+  gap:0; line-height:1.6; font-size:var(--fs-xs);
+}
+.inspector-sequence-items { display:inline; white-space:nowrap; }
+.inspector-seq-btn {
+  padding:0; border:0; background:transparent; cursor:pointer;
+  color:var(--accent-strong); font:inherit; font-size:var(--fs-xs);
+  transition:color var(--dur) var(--ease);
+}
+.inspector-seq-btn:hover { color:var(--accent); text-decoration:underline; }
+.inspector-seq-arrow { color:var(--muted); user-select:none; }
 .rn-chips { display:flex; flex-wrap:wrap; gap:4px; }
 .rn-chip {
   padding:2px 6px; font-size:var(--fs-xs); font-weight:var(--fw-normal);

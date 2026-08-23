@@ -801,6 +801,8 @@ def handle_analyze(job: Job, client) -> list[str]:
     _update_progress(client, job.id, 0.45, "storing key insight")
     key_data = analysis.get("key") or {}
     key_conf = float(key_data.get("confidence", 0.0))
+    key_source = analysis.get("key_source", "harmony_engine")
+    key_provenance = analysis.get("key_provenance")
     if key_data:
         tonic = key_data.get("tonic", "?")
         mode = key_data.get("mode", "?")
@@ -809,7 +811,12 @@ def handle_analyze(job: Job, client) -> list[str]:
             input_version.id,
             "key",
             f"Key: {tonic} {mode}",
-            evidence={"tonic": tonic, "mode": mode},
+            evidence={
+                "tonic": tonic,
+                "mode": mode,
+                "key_source": key_source,
+                "key_provenance": key_provenance,
+            },
             confidence=key_conf,
             job=job,
             owner_id=owner_id,
@@ -953,7 +960,7 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
 
     # Theory-derived Roman numerals (from TheoryInterpreter, not music21)
-    # These are persisted when chord engine is lv-chordia
+    # These are persisted when chord engine is lv-chordia AND trusted key exists
     rns_theory = analysis.get("roman_numerals_theory", []) or []
     theory_provenance = analysis.get("theory_provenance")
     if chord_engine_trusted and rns_theory:
@@ -963,6 +970,8 @@ def handle_analyze(job: Job, client) -> list[str]:
             if not numeral:
                 continue
             key_ctx = rn.get("key_context", "")
+            rn_key_source = rn.get("key_source")
+            rn_key_prov = rn.get("key_provenance")
             label = f"{numeral} ({key_ctx})" if key_ctx else numeral
             rn_start = rn.get("start")
             rn_end = rn.get("end")
@@ -981,6 +990,8 @@ def handle_analyze(job: Job, client) -> list[str]:
                     "start_seconds": rn_start,
                     "end_seconds": rn_end,
                     "key_context": key_ctx,
+                    "key_source": rn_key_source,
+                    "key_provenance": rn_key_prov,
                 },
                 span=Span(
                     start_seconds=rn_start,
@@ -1017,6 +1028,8 @@ def handle_analyze(job: Job, client) -> list[str]:
             numeral = func.get("numeral", "")
             if not function_name or function_name == "AMBIGUOUS":
                 continue
+            func_key_source = func.get("key_source")
+            func_key_prov = func.get("key_provenance")
             label = f"{function_name} ({numeral})"
             func_start = func.get("start")
             func_end = func.get("end")
@@ -1031,6 +1044,8 @@ def handle_analyze(job: Job, client) -> list[str]:
                     "start_seconds": func_start,
                     "end_seconds": func_end,
                     "key_context": func.get("key_context"),
+                    "key_source": func_key_source,
+                    "key_provenance": func_key_prov,
                 },
                 span=Span(
                     start_seconds=func_start,

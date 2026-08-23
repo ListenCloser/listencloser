@@ -41,6 +41,57 @@ function renderFact(label: string, value: string, confidence?: string) {
   );
 }
 
+/** Compact arrow-separated sequence for chords, RN, and harmonic function. */
+function SequenceBlock({
+  title,
+  insights,
+  bpm,
+  onSeek,
+  setSelection,
+  dataKind,
+}: {
+  title: string;
+  insights: Insight[];
+  bpm: number;
+  onSeek: (s: number) => void;
+  setSelection: (s: MusicalSelection | null) => void;
+  dataKind?: string;
+}) {
+  if (insights.length === 0) return null;
+
+  const handleClick = (item: Insight) => {
+    const seconds = insightStartSeconds(item, bpm);
+    if (seconds !== null) onSeek(seconds);
+    if (item.span.start_seconds != null && item.span.end_seconds != null) {
+      setSelection({
+        timeRange: { start: item.span.start_seconds, end: item.span.end_seconds, domain: "notation" },
+        provenance: { origin: "score", timeExact: false, measureApproximate: true },
+      });
+    }
+  };
+
+  return (
+    <div className="inspector-block" data-kind={dataKind}>
+      <h4>{title}</h4>
+      <div className="inspector-sequence">
+        {insights.map((item, i) => (
+          <span key={item.id} className="inspector-sequence-items">
+            <button
+              type="button"
+              className="inspector-seq-btn"
+              onClick={() => handleClick(item)}
+              title={item.claim}
+            >
+              {item.claim}
+            </button>
+            {i < insights.length - 1 && <span className="inspector-seq-arrow"> \u2192 </span>}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function renderInsightList(
   insights: Insight[],
   onSeek: (seconds: number) => void,
@@ -52,21 +103,11 @@ function renderInsightList(
     const seconds = insightStartSeconds(item, bpm);
     return seconds !== null;
   };
-  const seekTo = (item: Insight) => {
-    const seconds = insightStartSeconds(item, bpm);
-    if (seconds !== null) onSeek(seconds);
-    // Also set selection to the insight's time span for cross-representation focus
-    if (item.span.start_seconds != null && item.span.end_seconds != null) {
-      setSelection({
-        timeRange: { start: item.span.start_seconds, end: item.span.end_seconds, domain: "notation" },
-        provenance: { origin: "score", timeExact: false, measureApproximate: true },
-      });
-    }
-  };
-  const chords = insights.filter((item) => item.kind === "chord" && seekable(item)).slice(0, 12);
+
   const sections = insights.filter((item) => item.kind === "section" && seekable(item)).slice(0, 12);
-  const romanNumerals = insights.filter((item) => item.kind === "roman_numeral" && seekable(item)).slice(0, 30);
-  const harmonicFunctions = insights.filter((item) => item.kind === "harmonic_function" && seekable(item)).slice(0, 30);
+  const chords = insights.filter((item) => item.kind === "chord" && seekable(item));
+  const romanNumerals = insights.filter((item) => item.kind === "roman_numeral" && seekable(item));
+  const harmonicFunctions = insights.filter((item) => item.kind === "harmonic_function" && seekable(item));
   const observations = insights.filter(
     (item) => !["key", "tempo", "time_signature", "audio_tempo", "chord", "section", "roman_numeral", "harmonic_function"].includes(item.kind),
   );
@@ -78,49 +119,40 @@ function renderInsightList(
           <h4>Form</h4>
           <div className="rn-chips">
             {sections.map((item) => (
-              <button type="button" className="rn-chip" key={item.id} onClick={() => seekTo(item)}>
+              <button type="button" className="rn-chip" key={item.id} onClick={() => {
+                const s = insightStartSeconds(item, bpm);
+                if (s !== null) onSeek(s);
+              }}>
                 {item.claim}
               </button>
             ))}
           </div>
         </div>
       )}
-      {chords.length > 0 && (
-        <div className="inspector-block">
-          <h4>Chords</h4>
-          <div className="rn-chips">
-            {chords.map((item) => (
-              <button type="button" className="rn-chip" key={item.id} onClick={() => seekTo(item)}>
-                {item.claim}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {romanNumerals.length > 0 && (
-        <div className="inspector-block">
-          <h4>Roman Numerals</h4>
-          <div className="rn-chips">
-            {romanNumerals.map((item) => (
-              <button type="button" className="rn-chip" key={item.id} onClick={() => seekTo(item)}>
-                {item.claim}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {harmonicFunctions.length > 0 && (
-        <div className="inspector-block">
-          <h4>Harmonic Function</h4>
-          <div className="rn-chips">
-            {harmonicFunctions.map((item) => (
-              <button type="button" className="rn-chip" key={item.id} onClick={() => seekTo(item)}>
-                {item.claim}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <SequenceBlock
+        title="Chords"
+        insights={chords}
+        bpm={bpm}
+        onSeek={onSeek}
+        setSelection={setSelection}
+        dataKind="harmony"
+      />
+      <SequenceBlock
+        title="Roman Numerals"
+        insights={romanNumerals}
+        bpm={bpm}
+        onSeek={onSeek}
+        setSelection={setSelection}
+        dataKind="harmony"
+      />
+      <SequenceBlock
+        title="Harmonic Function"
+        insights={harmonicFunctions}
+        bpm={bpm}
+        onSeek={onSeek}
+        setSelection={setSelection}
+        dataKind="harmony"
+      />
       {observations.length > 0 && (
         <div className="inspector-block">
           <h4>Observations</h4>

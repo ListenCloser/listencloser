@@ -9,11 +9,14 @@ This is the production version, not the offline evaluation version.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any
 
 from engines.base import EngineProvenance
+
+logger = logging.getLogger("engines.theory.theory_engine")
 
 
 @dataclass
@@ -30,6 +33,8 @@ class RomanNumeralEvent:
     start_seconds: float
     end_seconds: float
     key_context: str
+    key_source: str | None = None
+    key_provenance: dict[str, Any] | None = None
     chord_source_id: str | None = None
     provenance: dict[str, Any] | None = None
 
@@ -43,6 +48,8 @@ class HarmonicFunctionEvent:
     end_seconds: float
     roman_numeral: str
     key_context: str
+    key_source: str | None = None
+    key_provenance: dict[str, Any] | None = None
     roman_numeral_source_id: str | None = None
     provenance: dict[str, Any] | None = None
 
@@ -482,13 +489,18 @@ class TheoryEngine:
         self,
         chords: list[dict[str, Any]],
         global_key: str | None = None,
+        key_source: str | None = None,
+        key_provenance: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> TheoryResult:
         """Interpret theory from a chord timeline.
 
         Args:
             chords: List of chord events with root/quality or numeral.
-            global_key: Optional global key override.
+            global_key: Trusted key string (e.g. "C major"). When ``None``,
+                RN and harmonic-function are WITHHELD — only chords are shown.
+            key_source: How the key was detected (e.g. "music21_independent").
+            key_provenance: Provenance dict for the key detection.
 
         Returns:
             TheoryResult with Roman numerals and harmonic functions.
@@ -506,12 +518,22 @@ class TheoryEngine:
                 provenance=self.provenance,
             )
 
-        # Detect key if not provided
+        # No trusted key → withhold RN and harmonic function.
+        # Chords are still produced by the caller (lv-chordia); only the
+        # theory interpretation is suppressed.
         if not global_key:
-            if chords[0].get("root") and chords[0].get("quality"):
-                global_key = _detect_key_from_chords(chords)
-            else:
-                global_key = chords[0].get("global_key", "C major")
+            logger.info(
+                "theory_withheld_no_key",
+                extra={"chord_count": len(chords)},
+            )
+            return TheoryResult(
+                roman_numerals=[],
+                harmonic_functions=[],
+                cadences=[],
+                key_regions=[],
+                global_key=None,
+                provenance=self.provenance,
+            )
 
         key_name = global_key.split()[0] if global_key else "C"
 
@@ -542,7 +564,9 @@ class TheoryEngine:
                 secondary_target=_get_secondary_target(numeral),
                 start_seconds=start,
                 end_seconds=end,
-                key_context=global_key or "C major",
+                key_context=global_key,
+                key_source=key_source,
+                key_provenance=key_provenance,
                 chord_source_id=chord.get("id"),
                 provenance=self.provenance.to_dict(),
             )
@@ -555,7 +579,9 @@ class TheoryEngine:
                 start_seconds=start,
                 end_seconds=end,
                 roman_numeral=numeral,
-                key_context=global_key or "C major",
+                key_context=global_key,
+                key_source=key_source,
+                key_provenance=key_provenance,
                 roman_numeral_source_id=str(len(roman_numerals) - 1),
                 provenance=self.provenance.to_dict(),
             )
