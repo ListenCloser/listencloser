@@ -36,8 +36,9 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from .models import Capability, Job, JobLifecycle
 from observability import get_tracer
+
+from .models import Capability, Job, JobLifecycle
 
 logger = logging.getLogger("job_worker")
 _tracer = get_tracer("hello-ai-worker")
