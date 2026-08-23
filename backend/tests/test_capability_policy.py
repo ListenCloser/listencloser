@@ -9,7 +9,14 @@ from domain.capability_policy import (
 
 def test_registry_loads_and_has_expected_core_capabilities():
     registry = load_capability_registry()
-    assert {"key", "chord", "roman_numeral", "harmonic_function", "cadence", "key_region"} <= set(registry)
+    assert {
+        "key",
+        "chord",
+        "roman_numeral",
+        "harmonic_function",
+        "cadence",
+        "key_region",
+    } <= set(registry)
 
 
 def test_withheld_capabilities_cannot_leak_to_product_surfaces():
