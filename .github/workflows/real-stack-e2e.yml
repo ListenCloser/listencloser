@@ -116,12 +116,28 @@ jobs:
           npx playwright install chromium --with-deps
           npx playwright test --config=playwright.realstack.config.ts
 
-      - name: Upload service logs on failure
+      - name: Collect service logs on failure
         if: failure()
         run: |
+          mkdir -p /tmp/real-stack-diagnostics
+          cp /tmp/backend.log /tmp/real-stack-diagnostics/backend.log 2>/dev/null || true
+          cp /tmp/worker.log /tmp/real-stack-diagnostics/worker.log 2>/dev/null || true
+          cp /tmp/frontend.log /tmp/real-stack-diagnostics/frontend.log 2>/dev/null || true
           echo "===== backend ====="; tail -150 /tmp/backend.log || true
           echo "===== worker ====="; tail -150 /tmp/worker.log || true
           echo "===== frontend ====="; tail -150 /tmp/frontend.log || true
+
+      - name: Upload real-stack failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-stack-diagnostics-${{ github.run_attempt }}
+          path: |
+            /tmp/real-stack-diagnostics/
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Stop local Supabase
         if: always()

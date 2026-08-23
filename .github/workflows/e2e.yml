@@ -47,3 +47,13 @@ jobs:
         run: npx playwright test tests/e2e
         env:
           ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
+      - name: Upload Playwright failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-playwright-diagnostics-${{ github.run_attempt }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

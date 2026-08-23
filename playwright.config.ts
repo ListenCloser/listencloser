@@ -9,6 +9,7 @@ export default defineConfig({
     "**/domain-contract.test.ts",
   ],
   timeout: 30_000,
+  retries: process.env.CI ? 1 : 0,
   reporter: (() => {
     const list: any[] = [process.env.CI ? ["dot"] : ["list"]];
     if (process.env.ARGOS_TOKEN) {
@@ -37,6 +38,8 @@ export default defineConfig({
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",
     viewport: { width: 1180, height: 1000 },
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
     launchOptions: {
       args: ["--disable-lcd-text", "--font-render-hinting=none"],
     },
