@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from pydantic import BaseModel, Field
 
 from auth_utils import limiter, verify_token
+from domain.capability_policy import is_exposed
 from domain.models import (
     Artifact,
     ArtifactKind,
@@ -722,7 +723,10 @@ async def list_insights(
 
     try:
         repo = InsightRepo(sb)
-        return repo.list_by_version(version_id, owner_id)
+        all_insights = repo.list_by_version(version_id, owner_id)
+        # Defense-in-depth: filter by capability exposure policy even if
+        # a withheld insight was accidentally persisted.
+        return [item for item in all_insights if is_exposed(item.get("kind", ""), "inspector")]
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
