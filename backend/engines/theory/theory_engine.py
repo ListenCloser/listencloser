@@ -244,7 +244,15 @@ def _get_secondary_target(numeral: str) -> str | None:
 
 
 def _chord_name_to_numeral(chord_name: str, key: str = "C") -> str:
-    """Convert a chord name like 'F maj' to a Roman numeral relative to a key."""
+    """Convert a chord name like 'F maj' to a Roman numeral relative to a key.
+
+    This is a purpose-built adapter for lv-chordia's root+quality output.
+    music21's ``romanNumeralFromChord`` requires full pitch voicing to
+    correctly distinguish dominant-seventh from major-seventh and to detect
+    inversions — information that lv-chordia does not provide.  The custom
+    pitch-class lookup is more accurate for this specific input format and
+    avoids a heavy library dependency on the hot path.
+    """
     parts = chord_name.split()
     if not parts:
         return ""
@@ -256,7 +264,6 @@ def _chord_name_to_numeral(chord_name: str, key: str = "C") -> str:
     key_idx = _NOTE_TO_DEGREE.get(key, 0)
     degree = (root_idx - key_idx) % 12
 
-    # Determine if key is minor
     is_minor = key.endswith("minor") or key.endswith("m")
 
     if is_minor:
@@ -264,17 +271,14 @@ def _chord_name_to_numeral(chord_name: str, key: str = "C") -> str:
     else:
         numeral = _DEGREE_TO_NUMERAL_MAJOR.get(degree, f"?{degree}")
 
-    # Handle quality
     if quality.startswith("min"):
         numeral = numeral.lower()
     elif quality.startswith("dim"):
         numeral = numeral.lower() + "o"
 
-    # Handle 7th chords
     if "7" in quality:
         numeral += "7"
 
-    # Handle inversions
     if len(parts) > 2 and "/" in parts[2]:
         inversion = parts[2].split("/")[1]
         numeral += inversion
