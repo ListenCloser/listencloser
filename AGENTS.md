@@ -40,6 +40,7 @@ Do not copy, vendor, or reimplement unlicensed source code.
 - Withhold unvalidated capabilities rather than displaying plausible-looking output.
 - `unknown`, `unsupported`, `withheld`, and `failed` are different states; preserve that distinction.
 - Global key is not a local key region. A chord is not a cadence. A staff is not a voice. A voice is not automatically a melody.
+- `backend/config/capabilities.json` is the machine-readable source of truth for capability maturity and product exposure. Any PR that changes a capability from production/experimental/evaluation-only/withheld, changes its engine, or changes Inspector/annotation/Ask exposure must update that registry and its tests in the same PR.
 
 ## 4. Provenance and lineage
 
