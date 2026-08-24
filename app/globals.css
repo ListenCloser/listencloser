@@ -1184,6 +1184,13 @@ gradient-text {
 }
 .inspector-scope-label { color:var(--muted); }
 .inspector-scope-value { color:var(--text); font-weight:var(--fw-medium); }
+.inspector-scope-clear {
+  margin-left:auto; padding:2px 6px; border:0;
+  background:transparent; color:var(--muted);
+  font:var(--fs-xs) var(--font-sans); cursor:pointer;
+  transition:color var(--dur) var(--ease);
+}
+.inspector-scope-clear:hover { color:var(--accent); }
 .inspector-content {
   flex:1; overflow:auto; padding:var(--s-3) var(--s-4);
 }

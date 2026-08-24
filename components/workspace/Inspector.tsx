@@ -23,12 +23,30 @@ function describeSelection(selection: MusicalSelection): string {
   return "";
 }
 
-function InsightScopeHeader({ scope, selection }: { scope: "selection" | "whole-work"; selection: MusicalSelection | null }) {
+function InsightScopeHeader({
+  scope,
+  selection,
+  onClear,
+}: {
+  scope: "selection" | "whole-work";
+  selection: MusicalSelection | null;
+  onClear?: () => void;
+}) {
   if (scope === "selection" && selection) {
     return (
       <div className="inspector-scope">
         <span className="inspector-scope-label">Selection</span>
         <span className="inspector-scope-value">{describeSelection(selection)}</span>
+        {onClear && (
+          <button
+            type="button"
+            className="inspector-scope-clear"
+            onClick={onClear}
+            title="Clear selection"
+          >
+            Clear
+          </button>
+        )}
       </div>
     );
   }
@@ -254,7 +272,7 @@ function FindingsSection({
 }
 
 export default function InspectorPanel() {
-  const { workspace, setInspectorMode, setSelection } = useWorkspace();
+  const { workspace, setInspectorMode, setSelection, clearSelection } = useWorkspace();
   const { seek } = useTransport();
   const { timeline } = useTimeline();
   const mode = workspace.inspectorMode;
@@ -283,7 +301,11 @@ export default function InspectorPanel() {
           </button>
         </nav>
         {mode === "analysis" && (
-          <InsightScopeHeader scope={workspace.selection ? "selection" : "whole-work"} selection={workspace.selection} />
+          <InsightScopeHeader
+            scope={workspace.selection ? "selection" : "whole-work"}
+            selection={workspace.selection}
+            onClear={workspace.selection ? clearSelection : undefined}
+          />
         )}
       </header>
 
