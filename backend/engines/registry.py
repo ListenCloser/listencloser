@@ -6,7 +6,7 @@ Production defaults:
   STRUCTURE_ENGINE=allin1
   NOTATION_ENGINE=music21
   HARMONY_ENGINE=music21
-  MELODY_ENGINE=skyline
+  MELODY_ENGINE=lstom
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from engines.base import (
 )
 from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
+from engines.melody.lstom_engine import LStoMMelodyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.music21_engine import Music21NotationEngine
 from engines.structure.allin1_engine import AllInOneEngine
@@ -114,7 +115,9 @@ def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
 
 
 def get_melody_engine(name: str | None = None) -> MelodyEngine:
-    name = name or os.environ.get("MELODY_ENGINE", "skyline")
+    name = name or os.environ.get("MELODY_ENGINE", "lstom")
+    if name == "lstom":
+        return LStoMMelodyEngine()
     if name == "skyline":
         return SkylineMelodyEngine()
     raise ValueError(f"Unknown melody engine: {name}")

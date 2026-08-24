@@ -6,6 +6,7 @@ import pytest
 
 from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
+from engines.melody.lstom_engine import LStoMMelodyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.music21_engine import Music21NotationEngine
 from engines.registry import (
@@ -47,9 +48,9 @@ class TestRegistryDefaults:
         engine = get_harmony_engine()
         assert isinstance(engine, Music21HarmonyEngine)
 
-    def test_default_melody_is_skyline(self):
+    def test_default_melody_is_lstom(self):
         engine = get_melody_engine()
-        assert isinstance(engine, SkylineMelodyEngine)
+        assert isinstance(engine, LStoMMelodyEngine)
 
 
 class TestRegistryExplicitSelection:
