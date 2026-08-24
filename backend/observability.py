@@ -82,26 +82,6 @@ def configure_logging(service_name: str) -> None:
     logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
 
-def _parse_otlp_headers(raw: str) -> list[tuple[str, str]]:
-    """Parse OTEL_EXPORTER_OTLP_HEADERS into a list of (key, value) tuples.
-
-    The OTel SDK requires values to be URL-encoded, but Grafana Cloud
-    credentials often contain ``+`` and ``=`` characters that are not
-    encoded in practice.  This parser accepts both encoded and raw values
-    and URL-decodes them, matching the behaviour users expect.
-    """
-    from urllib.parse import unquote
-
-    headers: list[tuple[str, str]] = []
-    for part in raw.split(","):
-        part = part.strip()
-        if not part or "=" not in part:
-            continue
-        key, value = part.split("=", 1)
-        headers.append((key.strip(), unquote(value.strip())))
-    return headers
-
-
 def init_telemetry(service_name: str) -> bool:
     """Initialize vendor-neutral OTLP tracing when an endpoint is configured.
 
@@ -123,14 +103,8 @@ def init_telemetry(service_name: str) -> bool:
             "deployment.environment.name": os.environ.get("SENTRY_ENV", "production"),
         }
     )
-
-    # Parse headers ourselves to avoid the SDK's strict URL-encoding
-    # requirement which rejects raw Base64 tokens containing +/=.
-    raw_headers = os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "")
-    headers = _parse_otlp_headers(raw_headers) if raw_headers else None
-
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(headers=headers)))
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
     trace.set_tracer_provider(provider)
 
     # Instrument shared outbound HTTP calls (Supabase/httpx-based providers,
