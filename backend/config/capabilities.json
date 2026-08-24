@@ -69,10 +69,37 @@
     "melody": {
       "status": "experimental",
       "input": "midi",
-      "engine": "skyline",
+      "engine": "lstom",
       "exposure": {"inspector": true, "annotations": false, "ask": true},
-      "evaluation": {"dataset": "POP909", "metric": "f1_range", "value": "0.39-0.61"},
-      "notes": "Legacy heuristic with known accompaniment contamination; do not describe it as a ground-truth melody voice."
+      "evaluation": {
+        "dataset": "POP909",
+        "metric": "f1",
+        "value": 0.768,
+        "details": "LStoM BiLSTM on 91-song held-out test set (seed=42). Precision=0.720, Recall=0.839. Cross-seed CV=0.3% across 3 seeds."
+      },
+      "model": {
+        "name": "lstom_biLSTM_pop909",
+        "version": "1.0.0",
+        "architecture": "6-layer BiLSTM, 140 hidden units, 2.5M params",
+        "training_dataset": "POP909 (MIT)",
+        "training_split": "722/90/91 (seed=42)",
+        "feature_schema": "pitch, duration, pitch_dist_below, pitch_dist_above, pos_in_bar, in_scale"
+      },
+      "validated_domain": "pop/arranged symbolic MIDI",
+      "notes": "Validated on pop/arranged symbolic MIDI (POP909). Classical piano and general performance MIDI not formally validated. Model is deterministic, CPU-only (~390ms/song), 9.66MB."
+    },
+    "skyline_baseline": {
+      "status": "legacy_evaluation_baseline",
+      "input": "midi",
+      "engine": "skyline",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "evaluation": {
+        "dataset": "POP909",
+        "metric": "f1",
+        "value": 0.343,
+        "details": "Legacy skyline heuristic baseline. Retained for evaluation comparison only."
+      },
+      "notes": "DEPRECATED: Do not use for production. Skyline heuristic has 100% contamination rate on classical piano and F1=0.343 on pop/arranged music. Use lstom for all production melody extraction."
     },
     "time_signature": {
       "status": "production",

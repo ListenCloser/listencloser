@@ -1,0 +1,71 @@
+{
+  "model_version": "1.0.0",
+  "model_name": "lstom_biLSTM_pop909",
+  "sha256": "c0b78427cfc40907ae9c454ef2c598290a8885bcf31cb4f7600e6c19bcfb17a7",
+  "architecture": {
+    "type": "BiLSTM",
+    "input_dim": 6,
+    "hidden_size": 140,
+    "num_layers": 6,
+    "bidirectional": true,
+    "output_dim": 1,
+    "total_params": 2500000
+  },
+  "training": {
+    "dataset": "POP909",
+    "dataset_license": "MIT",
+    "train_split": "722 songs",
+    "val_split": "90 songs",
+    "test_split": "91 songs",
+    "split_seed": 42,
+    "training_seeds": [42, 123, 456]
+  },
+  "feature_schema": {
+    "version": "1.0.0",
+    "num_features": 6,
+    "features": [
+      "pitch",
+      "duration",
+      "pitch_dist_below",
+      "pitch_dist_above",
+      "pos_in_bar",
+      "in_scale"
+    ],
+    "notes": "Simplified inference features; pitch_dist_below/above and pos_in_bar are zeroed (model is robust to these). Duration scaled by 4 (semiquavers)."
+  },
+  "normalization": {
+    "method": "per-segment z-score",
+    "mean_axis": 1,
+    "std_axis": 1,
+    "zero_std_replacement": 1.0
+  },
+  "inference": {
+    "segment_size": 50,
+    "threshold": 0.40,
+    "min_notes": 2,
+    "padding": "truncate to multiple of segment_size"
+  },
+  "benchmark": {
+    "test_f1": 0.768,
+    "test_precision": 0.720,
+    "test_recall": 0.839,
+    "failure_rate_f1_lt_0_2": 0.0,
+    "failure_rate_f1_lt_0_3": 0.0,
+    "cross_seed_cv": 0.003,
+    "validated_domain": "pop/arranged symbolic MIDI (POP909)",
+    "unvalidated_domains": ["classical piano", "general performance MIDI"]
+  },
+  "runtime": {
+    "model_size_bytes": 10132533,
+    "inference_latency_ms": 390,
+    "peak_ram_kb": 23,
+    "cpu_only": true,
+    "deterministic": true
+  },
+  "provenance": {
+    "reference": "Kosta et al., 'A deep learning method for melody extraction from a polyphonic symbolic music representation', ISMIR 2022",
+    "original_repo": "bytedance/midi_melody_extraction",
+    "license": "MIT",
+    "training_commit": "2101bae"
+  }
+}
