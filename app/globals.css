@@ -1246,6 +1246,46 @@ gradient-text {
 }
 .rn-chip:hover { color:var(--accent); text-decoration:underline; }
 
+/* Compact overview row: Key | Tempo | Meter */
+.inspector-overview-row {
+  display:flex; gap:var(--s-3); align-items:baseline;
+  padding:var(--s-1) 0;
+}
+.inspector-overview-item {
+  display:flex; flex-direction:column; gap:1px; min-width:0;
+}
+.inspector-overview-label {
+  font-size:10px; color:var(--muted); text-transform:uppercase;
+  letter-spacing:0.04em;
+}
+.inspector-overview-value {
+  font-size:var(--fs-sm); color:var(--text); font-weight:var(--fw-medium);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* Rhythm observations */
+.inspector-rhythm-observations {
+  display:flex; flex-direction:column; gap:var(--s-1);
+}
+.inspector-rhythm-obs {
+  font-size:var(--fs-xs); color:var(--text); padding:var(--s-1) 0;
+}
+
+/* Melody section */
+.inspector-melody-items {
+  display:flex; flex-direction:column; gap:var(--s-1);
+}
+.inspector-melody-item {
+  font-size:var(--fs-xs); color:var(--text); padding:var(--s-1) 0;
+}
+.inspector-experimental-badge {
+  display:inline-block; margin-left:var(--s-1); padding:1px 5px;
+  font-size:9px; font-weight:var(--fw-medium); text-transform:uppercase;
+  letter-spacing:0.04em; color:var(--color-melody);
+  border:1px solid var(--color-melody-soft, rgba(196,122,90,0.3));
+  border-radius:var(--r-sm); vertical-align:middle;
+}
+
 /* ── Library panel ─────────────────────────────────────────────────────── */
 .studio-library {
   width:220px; flex-shrink:0; overflow:hidden;
