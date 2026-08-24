@@ -206,8 +206,7 @@ def run_evaluation():
             f"(mean {sum(lstom_ranges)/n:.1f})"
         )
         print(
-            f"  Low pitch: {min(lstom_lows)}-{max(lstom_lows)} "
-            f"(mean {sum(lstom_lows)/n:.1f})"
+            f"  Low pitch: {min(lstom_lows)}-{max(lstom_lows)} " f"(mean {sum(lstom_lows)/n:.1f})"
         )
 
     if skyline_results:
@@ -223,10 +222,7 @@ def run_evaluation():
             f"  Pitch range: {min(sky_ranges)}-{max(sky_ranges)} semitones "
             f"(mean {sum(sky_ranges)/ns:.1f})"
         )
-        print(
-            f"  Low pitch: {min(sky_lows)}-{max(sky_lows)} "
-            f"(mean {sum(sky_lows)/ns:.1f})"
-        )
+        print(f"  Low pitch: {min(sky_lows)}-{max(sky_lows)} " f"(mean {sum(sky_lows)/ns:.1f})")
 
     print(f"\n{'='*80}")
     print("NOTE: This is qualitative evaluation, NOT quantitative accuracy.")

@@ -43,15 +43,23 @@ pytestmark = pytest.mark.real_stack
 
 
 def _midi_bytes() -> bytes:
-    """A MIDI with tempo 120 and 4/4 (the basic_pitch placeholder signature)."""
+    """A MIDI with tempo 120 and 4/4 (the basic_pitch placeholder signature).
+
+    Contains 60 notes so LStoM (which requires >=50 notes) can produce melody.
+    """
     pm = pretty_midi.PrettyMIDI(initial_tempo=120)
     pm.time_signature_changes.append(
         pretty_midi.TimeSignature(numerator=4, denominator=4, time=0.0)
     )
     inst = pretty_midi.Instrument(program=0)
-    for i, pitch in enumerate([60, 64, 67, 71, 72, 67, 64, 60]):
+    import random
+
+    random.seed(42)
+    for i in range(60):
+        pitch = random.randint(60, 84)
+        start = i * 0.5
         inst.notes.append(
-            pretty_midi.Note(velocity=80, pitch=pitch, start=i * 0.5, end=i * 0.5 + 0.4)
+            pretty_midi.Note(velocity=80, pitch=pitch, start=start, end=start + 0.4)
         )
     pm.instruments.append(inst)
     buf = io.BytesIO()

@@ -60,8 +60,7 @@ def _load_metadata() -> dict:
     input_dim = meta.get("architecture", {}).get("input_dim")
     if input_dim != _EXPECTED_INPUT_DIM:
         raise RuntimeError(
-            f"LStoM input dimension mismatch: "
-            f"expected {_EXPECTED_INPUT_DIM}, got {input_dim}"
+            f"LStoM input dimension mismatch: " f"expected {_EXPECTED_INPUT_DIM}, got {input_dim}"
         )
 
     return meta
@@ -90,8 +89,14 @@ def _verify_model_checksum() -> None:
 
 
 def _load_model():
-    """Load the LStoM model from disk with metadata validation."""
+    """Load the LStoM model from disk with metadata validation.
+
+    Called once per process; verified on first load only.
+    """
     from engines.melody.lstom_models import LStoM
+
+    # Verify checksum on first load — fail loudly if model is corrupted.
+    _verify_model_checksum()
 
     meta = _load_metadata()
     arch = meta.get("architecture", {})
@@ -253,8 +258,8 @@ class LStoMMelodyEngine(MelodyEngine):
     ENGINE = "lstom"
 
     def __init__(self) -> None:
-        # Validate model on construction — fail loudly if metadata/checksum broken.
-        _verify_model_checksum()
+        # Trigger lazy model load (checksum verified on first load only).
+        _get_model()
 
     @property
     def provenance(self) -> EngineProvenance:

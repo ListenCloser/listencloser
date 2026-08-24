@@ -45,9 +45,9 @@ class TestLStoMProductionSmoke:
     def test_model_file_size(self):
         """Model file must be reasonable size (not truncated)."""
         size_mb = Path(_MODEL_PATH).stat().st_size / (1024 * 1024)
-        assert 8.0 < size_mb < 12.0, (
-            f"Model file size {size_mb:.1f}MB outside expected range (8-12MB)"
-        )
+        assert (
+            8.0 < size_mb < 12.0
+        ), f"Model file size {size_mb:.1f}MB outside expected range (8-12MB)"
 
     def test_metadata_file_exists(self):
         """Model metadata file must exist."""
@@ -128,9 +128,9 @@ class TestLStoMProductionSmoke:
         engine = LStoMMelodyEngine()
         midi_bytes = SMOKE_TEST_MIDI.read_bytes()
         result = engine.analyze(midi_bytes)
-        assert result.melody["low_pitch"] >= 48, (
-            f"Low pitch {result.melody['low_pitch']} suggests bass contamination"
-        )
+        assert (
+            result.melody["low_pitch"] >= 48
+        ), f"Low pitch {result.melody['low_pitch']} suggests bass contamination"
 
     def test_deterministic_output(self):
         """Same input must produce identical output."""
@@ -149,9 +149,7 @@ class TestLStoMProductionSmoke:
         engine = LStoMMelodyEngine()
         pm = pretty_midi.PrettyMIDI()
         inst = pretty_midi.Instrument(program=0)
-        inst.notes.append(
-            pretty_midi.Note(velocity=64, pitch=60, start=0.0, end=0.5)
-        )
+        inst.notes.append(pretty_midi.Note(velocity=64, pitch=60, start=0.0, end=0.5))
         pm.instruments.append(inst)
         buf = io.BytesIO()
         pm.write(buf)
@@ -180,6 +178,59 @@ class TestLStoMProductionSmoke:
         import torch
 
         for key, val in result.melody.items():
-            assert not isinstance(val, torch.Tensor), (
-                f"Field '{key}' is a torch.Tensor — must be JSON-serializable"
+            assert not isinstance(
+                val, torch.Tensor
+            ), f"Field '{key}' is a torch.Tensor — must be JSON-serializable"
+
+
+class TestLStoMModelLifecycle:
+    """Verify model loading lifecycle: load once, reuse cached instance."""
+
+    def test_repeated_calls_use_cached_model(self):
+        """Creating multiple engines and calling analyze reuses the same model object."""
+        from engines.melody import lstom_engine
+
+        # Reset singleton to ensure clean state
+        lstom_engine._model = None
+
+        engine1 = LStoMMelodyEngine()
+        model_first = lstom_engine._get_model()
+
+        engine2 = LStoMMelodyEngine()
+        model_second = lstom_engine._get_model()
+
+        # Same Python object — model was not reloaded
+        assert model_first is model_second, (
+            "Model was reloaded on second engine construction — should be cached singleton"
+        )
+
+        # Both engines produce identical output
+        midi_bytes = SMOKE_TEST_MIDI.read_bytes()
+        r1 = engine1.analyze(midi_bytes)
+        r2 = engine2.analyze(midi_bytes)
+        assert r1.melody["low_pitch"] == r2.melody["low_pitch"]
+        assert r1.melody["high_pitch"] == r2.melody["high_pitch"]
+
+    def test_short_input_returns_none_not_error(self):
+        """MIDI with <50 notes returns melody=None (unavailable), not an error."""
+        engine = LStoMMelodyEngine()
+        # 8-note MIDI — below the 50-note SEGMENT_SIZE threshold
+        pm = pretty_midi.PrettyMIDI()
+        inst = pretty_midi.Instrument(program=0)
+        for i in range(8):
+            inst.notes.append(
+                pretty_midi.Note(
+                    velocity=80, pitch=60 + i, start=i * 0.5, end=i * 0.5 + 0.4
+                )
             )
+        pm.instruments.append(inst)
+        buf = io.BytesIO()
+        pm.write(buf)
+
+        result = engine.analyze(buf.getvalue())
+        assert result.melody is None, (
+            "Short MIDI should return melody=None (insufficient evidence), "
+            "not an error or fallback"
+        )
+        # Provenance still valid
+        assert result.provenance.engine == "lstom"

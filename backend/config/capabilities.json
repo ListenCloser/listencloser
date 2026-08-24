@@ -89,7 +89,7 @@
       "notes": "Validated on pop/arranged symbolic MIDI (POP909). Classical piano and general performance MIDI not formally validated. Model is deterministic, CPU-only (~390ms/song), 9.66MB."
     },
     "skyline_baseline": {
-      "status": "legacy_evaluation_baseline",
+      "status": "evaluation_only",
       "input": "midi",
       "engine": "skyline",
       "exposure": {"inspector": false, "annotations": false, "ask": false},
