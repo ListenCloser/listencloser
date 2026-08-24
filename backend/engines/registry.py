@@ -114,8 +114,29 @@ def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
     raise ValueError(f"Unknown harmony engine: {name}")
 
 
-def get_melody_engine(name: str | None = None) -> MelodyEngine:
-    name = name or os.environ.get("MELODY_ENGINE", "lstom")
+def get_melody_engine(
+    name: str | None = None,
+    profile: str | None = None,
+) -> MelodyEngine:
+    """Get a melody engine.
+
+    Args:
+        name: Explicit engine name (overrides profile/env).
+        profile: Melody profile: "pop" -> lstom (validated), "classical" -> lstom (experimental),
+                 "auto" -> lstom (default). None uses env var or lstom.
+    """
+    if name is None:
+        if profile == "pop":
+            name = "lstom"
+        elif profile == "classical":
+            # Classical not formally validated; use LStoM with experimental status.
+            # Do NOT fall back to skyline — it performs substantially worse.
+            name = "lstom"
+        elif profile in ("auto", None):
+            name = os.environ.get("MELODY_ENGINE", "lstom")
+        else:
+            raise ValueError(f"Unknown melody profile: {profile}")
+
     if name == "lstom":
         return LStoMMelodyEngine()
     if name == "skyline":

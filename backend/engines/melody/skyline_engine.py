@@ -1,15 +1,15 @@
 """Symbolic melody extraction engine (pretty_midi + custom skyline heuristic).
 
-Wraps the continuity-aware skyline melody heuristic (previously
-``analyze._midi_melody`` / ``analyze._pick_melody_note``) behind the
-MelodyEngine seam. Same greedy heuristic, same output shape; only the entry
-point changed so callers route through the registry and receive provenance.
-No model swaps, no analysis-semantics changes.
+DEPRECATED: This engine is retained for evaluation baseline comparison only.
+Use LStoM (lstom_engine.py) for production melody extraction. The skyline
+heuristic has significantly lower accuracy (F1=0.343 vs F1=0.768 on POP909)
+and produces contaminated output on classical piano (100% contamination rate).
 """
 
 from __future__ import annotations
 
 import io
+import warnings
 from typing import Any
 
 import numpy as np
@@ -121,14 +121,19 @@ class SkylineMelodyEngine(MelodyEngine):
     ENGINE = "skyline"
 
     def __init__(self) -> None:
-        pass
+        warnings.warn(
+            "SkylineMelodyEngine is deprecated. Use LStoMMelodyEngine for production. "
+            "Skyline is retained only for evaluation baseline comparison.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     @property
     def provenance(self) -> EngineProvenance:
         return EngineProvenance(
             engine=self.ENGINE,
             library_version=_pretty_midi_version(),
-            parameters={"heuristic": _HEURISTIC},
+            parameters={"heuristic": _HEURISTIC, "deprecated": True},
         )
 
     def analyze(self, midi_bytes: bytes, **kwargs: Any) -> MelodyResult:

@@ -1,0 +1,66 @@
+[
+  {
+    "engine": "basic_pitch",
+    "transcription_status": "ok",
+    "transcription_ms": 4262,
+    "total_notes": 234,
+    "melody_status": "ok",
+    "melody_ms": 76,
+    "melody_eval": {
+      "status": "ok",
+      "label": "basic_pitch",
+      "low_pitch": 70,
+      "high_pitch": 93,
+      "range_semitones": 23,
+      "stepwise_ratio": 0.333,
+      "quality_score": 0.034,
+      "contamination_risk": "clean",
+      "continuity": "continuous"
+    },
+    "provenance": {
+      "engine": "lstom",
+      "library_version": "1.0.0",
+      "model": "lstom_biLSTM_pop909",
+      "parameters": {
+        "threshold": 0.4,
+        "segment_size": 50,
+        "hidden_size": 140,
+        "num_layers": 6,
+        "training_dataset": "POP909",
+        "training_split": "722/90/91 (seed=42)"
+      }
+    }
+  },
+  {
+    "engine": "transkun",
+    "transcription_status": "ok",
+    "transcription_ms": 12202,
+    "total_notes": 102,
+    "melody_status": "ok",
+    "melody_ms": 38,
+    "melody_eval": {
+      "status": "ok",
+      "label": "transkun",
+      "low_pitch": 77,
+      "high_pitch": 91,
+      "range_semitones": 14,
+      "stepwise_ratio": 0.429,
+      "quality_score": 0.098,
+      "contamination_risk": "clean",
+      "continuity": "continuous"
+    },
+    "provenance": {
+      "engine": "lstom",
+      "library_version": "1.0.0",
+      "model": "lstom_biLSTM_pop909",
+      "parameters": {
+        "threshold": 0.4,
+        "segment_size": 50,
+        "hidden_size": 140,
+        "num_layers": 6,
+        "training_dataset": "POP909",
+        "training_split": "722/90/91 (seed=42)"
+      }
+    }
+  }
+]

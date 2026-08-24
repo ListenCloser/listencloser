@@ -1187,7 +1187,7 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     melody = analysis.get("melody") or {}
     if melody:
-        # melody['quality_score'] is a greedy-skyline candidate-margin score,
+        # quality_score is a note-fraction confidence proxy from LStoM,
         # not a calibrated probability; preserved in evidence only.
         mid = _create_insight(
             client,
@@ -1200,7 +1200,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             confidence=None,
             job=job,
             owner_id=owner_id,
-            method="heuristic",
+            method=melody.get("heuristic", "lstom_biLSTM"),
             engine_provenance=melody_provenance,
         )
         insight_ids.append(str(mid))

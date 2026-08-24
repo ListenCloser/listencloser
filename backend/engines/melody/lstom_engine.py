@@ -12,7 +12,10 @@ Training data: POP909 dataset (MIT licensed)
 
 from __future__ import annotations
 
+import hashlib
 import io
+import json
+import logging
 import os
 from typing import Any
 
@@ -22,29 +25,98 @@ import torch
 
 from engines.base import EngineProvenance, MelodyEngine, MelodyResult
 
+logger = logging.getLogger(__name__)
+
 _MODEL_DIR = os.path.dirname(__file__)
 _MODEL_PATH = os.path.join(_MODEL_DIR, "lstom_model.pt")
+_METADATA_PATH = os.path.join(_MODEL_DIR, "lstom_model_metadata.json")
+
+# Expected feature schema version — bump when feature pipeline changes.
+_EXPECTED_FEATURE_VERSION = "1.0.0"
+_EXPECTED_INPUT_DIM = 6
+
+# Model version — must match lstom_model_metadata.json
 _MODEL_VERSION = "1.0.0"
 _THRESHOLD = 0.40
 _SEGMENT_SIZE = 50
-_INPUT_DIM = 6
 _HIDDEN_SIZE = 140
 _NUM_LAYERS = 6
-_BILSTM = True
+
+
+def _load_metadata() -> dict:
+    """Load and validate model metadata."""
+    with open(_METADATA_PATH) as f:
+        meta = json.load(f)
+
+    # Validate feature schema version
+    feature_version = meta.get("feature_schema", {}).get("version")
+    if feature_version != _EXPECTED_FEATURE_VERSION:
+        raise RuntimeError(
+            f"LStoM feature schema version mismatch: "
+            f"expected {_EXPECTED_FEATURE_VERSION}, got {feature_version}"
+        )
+
+    # Validate input dimension
+    input_dim = meta.get("architecture", {}).get("input_dim")
+    if input_dim != _EXPECTED_INPUT_DIM:
+        raise RuntimeError(
+            f"LStoM input dimension mismatch: " f"expected {_EXPECTED_INPUT_DIM}, got {input_dim}"
+        )
+
+    return meta
+
+
+def _verify_model_checksum() -> None:
+    """Verify the model file matches its expected SHA256 checksum."""
+    meta = _load_metadata()
+    expected_sha = meta.get("sha256")
+    if not expected_sha:
+        logger.warning("lstom_no_checksum_in_metadata")
+        return
+
+    sha256 = hashlib.sha256()
+    with open(_MODEL_PATH, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    actual_sha = sha256.hexdigest()
+
+    if actual_sha != expected_sha:
+        raise RuntimeError(
+            f"LStoM model checksum mismatch: "
+            f"expected {expected_sha}, got {actual_sha}. "
+            f"Model file may be corrupted or version mismatch."
+        )
 
 
 def _load_model():
-    """Load the LStoM model from disk."""
+    """Load the LStoM model from disk with metadata validation.
+
+    Called once per process; verified on first load only.
+    """
     from engines.melody.lstom_models import LStoM
 
+    # Verify checksum on first load — fail loudly if model is corrupted.
+    _verify_model_checksum()
+
+    meta = _load_metadata()
+    arch = meta.get("architecture", {})
+
     model = LStoM(
-        input_dim=_INPUT_DIM,
-        hidden_size=_HIDDEN_SIZE,
-        num_layers=_NUM_LAYERS,
-        bilstm=_BILSTM,
+        input_dim=arch.get("input_dim", _EXPECTED_INPUT_DIM),
+        hidden_size=arch.get("hidden_size", 140),
+        num_layers=arch.get("num_layers", 6),
+        bilstm=arch.get("bidirectional", True),
     )
     model.load_state_dict(torch.load(_MODEL_PATH, map_location="cpu"))
     model.eval()
+
+    logger.info(
+        "lstom_model_loaded",
+        extra={
+            "model_version": meta.get("model_version"),
+            "sha256_prefix": meta.get("sha256", "")[:12],
+        },
+    )
     return model
 
 
@@ -121,7 +193,7 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
         if modulo > 0:
             features = features[:, :-modulo]
 
-        # Scale features (simplified normalization)
+        # Scale features (z-score normalization)
         mean = np.mean(features, axis=1, keepdims=True)
         std = np.std(features, axis=1, keepdims=True)
         std[std == 0] = 1.0
@@ -186,7 +258,8 @@ class LStoMMelodyEngine(MelodyEngine):
     ENGINE = "lstom"
 
     def __init__(self) -> None:
-        pass
+        # Trigger lazy model load (checksum verified on first load only).
+        _get_model()
 
     @property
     def provenance(self) -> EngineProvenance:
