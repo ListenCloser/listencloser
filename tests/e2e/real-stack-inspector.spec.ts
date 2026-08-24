@@ -1,47 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { injectAuth } from "./real-stack-auth";
 
-/**
- * Real-stack Inspector test.
- *
- * Uses pre-processed work from global setup. Exercises the contextual
- * analysis inspector against the real backend + worker + local Supabase.
- */
+const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-interface SetupResult {
-  accessToken: string;
-  refreshToken: string;
-  user: Record<string, unknown>;
-  projectId: string;
-  workId: string;
-  versionId: string;
-  storageKey: string;
-}
-
-function loadSetup(): SetupResult | null {
-  const path = "/tmp/real-stack-setup.json";
-  if (!existsSync(path)) return null;
-  return JSON.parse(readFileSync(path, "utf-8"));
-}
-
-function injectAuth(page: import("@playwright/test").Page, setup: SetupResult) {
-  return page.addInitScript(
-    ({ key, session }) => {
-      window.localStorage.setItem(
-        key,
-        JSON.stringify({
-          access_token: session.accessToken,
-          token_type: "bearer",
-          expires_in: 3600,
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-          refresh_token: session.refreshToken,
-          user: session.user,
-        }),
-      );
-    },
-    { key: setup.storageKey, session: setup },
-  );
-}
+const SHOTS = "docs/pr/224";
 
 async function transportPosition(page: import("@playwright/test").Page): Promise<number> {
   return Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
@@ -52,28 +18,22 @@ async function selectSource(page: import("@playwright/test").Page, label: string
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
-const SHOTS = "docs/pr/224";
-
 test("inspect the real workspace: play → whole-piece → selection → score → collapse → drawer", async ({ page }) => {
-  const setup = loadSetup();
-  test.skip(!setup, "global setup did not produce /tmp/real-stack-setup.json");
+  test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required (no fallback fixture)");
+  test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
+  test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  await injectAuth(page, setup!);
+  await injectAuth(page);
   await page.goto("/");
-
-  // Wait for pre-processed work to load
-  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
 
-  // ── Whole-piece analysis is the default inspector scope ─────────────────
   await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
   await expect(page.locator(".inspector")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
-  
   await page.screenshot({ path: `${SHOTS}/01-listen-whole-piece-inspector.png` });
 
-  // ── Playback: opening/using the inspector never stops playback ──────────
   await selectSource(page, "Original");
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
@@ -82,7 +42,6 @@ test("inspect the real workspace: play → whole-piece → selection → score �
   await expect.poll(() => transportPosition(page), { timeout: 10_000 }).toBeGreaterThanOrEqual(posPlaying);
   await page.getByRole("button", { name: "Pause", exact: true }).click();
 
-  // ── Seek to a real insight ──────────────────────────────────────────────
   const seekable = page.locator(".inspector .inspector-observation, .inspector .rn-chip").first();
   if (await seekable.count().catch(() => 0)) {
     const beforeSeek = await transportPosition(page);
@@ -91,37 +50,30 @@ test("inspect the real workspace: play → whole-piece → selection → score �
     await expect.poll(() => transportPosition(page), { timeout: 10_000 }).toBeGreaterThan(0);
   }
 
-  // ── Select a region on the waveform → selection-scoped inspector ────────
   const canvas = page.getByTestId("waveform-canvas");
   await expect(canvas).toBeVisible();
   const box = await canvas.boundingBox();
   if (!box) throw new Error("waveform canvas not found");
-  const startX = box.x + box.width * 0.2;
-  const endX = box.x + box.width * 0.6;
-  await page.mouse.move(startX, box.y + box.height / 2);
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(endX, box.y + box.height / 2, { steps: 6 });
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height / 2, { steps: 6 });
   await page.mouse.up();
   await expect(page.locator(".inspector-scope-label", { hasText: "Selection" })).toBeVisible({ timeout: 10_000 });
   await page.screenshot({ path: `${SHOTS}/02-listen-selection-inspector.png` });
 
-  // ── Piano roll stays selected and inspector stays open ──────────────────
   await page.getByRole("tab", { name: "Piano Roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
   await expect(page.locator(".inspector")).toBeVisible();
   await expect(page.locator(".inspector-scope-label", { hasText: "Selection" })).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/03-piano-roll-selected-region-inspector.png` });
 
-  // ── Score measures stay selected and inspector stays open ───────────────
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
   await expect(page.locator(".inspector")).toBeVisible();
   await expect(page.locator(".inspector-scope-label", { hasText: "Selection" })).toBeVisible();
 
   const measures = page.locator(".sheet-music-container g.vf-measure");
-  await expect
-    .poll(async () => measures.count(), { timeout: 30_000 })
-    .toBeGreaterThan(1);
+  await expect.poll(async () => measures.count(), { timeout: 30_000 }).toBeGreaterThan(1);
   const targetMeasure = measures.nth(1);
   const targetBox = await targetMeasure.boundingBox();
   expect(targetBox).not.toBeNull();
@@ -129,21 +81,17 @@ test("inspect the real workspace: play → whole-piece → selection → score �
   await expect(page.getByText(/Measures \d+–\d+/)).toBeVisible({ timeout: 10_000 });
   await page.screenshot({ path: `${SHOTS}/04-score-selected-measures-inspector.png` });
 
-  // ── Sparse selection state ──────────────────────────────────────────────
   await page.getByRole("tab", { name: "Waveform" }).click();
   await expect(canvas).toBeVisible();
   const box2 = await canvas.boundingBox();
   if (box2) {
-    const s = box2.x + box2.width * 0.92;
-    const e = box2.x + box2.width * 0.97;
-    await page.mouse.move(s, box2.y + box2.height / 2);
+    await page.mouse.move(box2.x + box2.width * 0.92, box2.y + box2.height / 2);
     await page.mouse.down();
-    await page.mouse.move(e, box2.y + box2.height / 2, { steps: 3 });
+    await page.mouse.move(box2.x + box2.width * 0.97, box2.y + box2.height / 2, { steps: 3 });
     await page.mouse.up();
   }
   await page.screenshot({ path: `${SHOTS}/05-sparse-analysis.png` });
 
-  // ── Collapse the inspector ──────────────────────────────────────────────
   await page.getByRole("button", { name: "Hide analysis" }).click();
   await expect(page.locator(".inspector")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
@@ -151,12 +99,10 @@ test("inspect the real workspace: play → whole-piece → selection → score �
   await page.getByRole("button", { name: "Show analysis" }).click();
   await expect(page.locator(".inspector")).toBeVisible();
 
-  // ── Mid width (1024px) ──────────────────────────────────────────────────
   await page.setViewportSize({ width: 1024, height: 900 });
   await expect(page.locator(".inspector")).toBeVisible();
   await expect(page.locator(".studio-inspector-backdrop")).not.toBeVisible();
 
-  // ── Narrow width: drawer ────────────────────────────────────────────────
   await page.setViewportSize({ width: 768, height: 900 });
   await expect(page.locator(".studio-inspector-backdrop")).toBeVisible({ timeout: 10_000 });
   await page.screenshot({ path: `${SHOTS}/07-narrow-width-drawer.png` });
