@@ -16,6 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:types": "supabase gen types typescript --linked > lib/database.types.ts",
+    "api:generate": "openapi-typescript http://localhost:8000/openapi.json -o lib/api-types.ts",
+    "api:check": "openapi-typescript http://localhost:8000/openapi.json -o lib/api-types.ts --check",
     "precommit": "pre-commit run --all-files"
   },
   "dependencies": {
@@ -49,6 +51,7 @@
     "globals": "^17.7.0",
     "jsdom": "^29.1.1",
     "msw": "^2.15.0",
+    "openapi-typescript": "^7.13.0",
     "postcss": "^8.5.19",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.7.3",
