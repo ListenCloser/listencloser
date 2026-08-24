@@ -88,7 +88,7 @@ describe("Workspace session state transitions", () => {
     const { result } = renderHook(() => useSession(), { wrapper });
     const scoreSource = {
       id: "score-audio",
-      label: "Score rendition",
+      label: "Score",
       url: "data:audio/wav;base64,score",
       kind: "audio" as const,
       role: "score" as const,

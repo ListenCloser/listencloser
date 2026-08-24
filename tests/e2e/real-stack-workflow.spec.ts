@@ -122,10 +122,10 @@ test("real-stack happy path: play → inspect → compare → reload → delete"
 
   // ── Score is a distinct Listening source and plays from the notation ────────
   await openSourceSelector(page);
-  await expect(page.getByRole("option", { name: "Score rendition", exact: true })).toBeVisible();
-  await expect(page.getByText("Select Score rendition in the transport to hear this notation (notation time).")).toBeVisible();
-  await page.getByRole("option", { name: "Score rendition", exact: true }).click();
-  await expect(await listeningTo(page, "Score rendition")).toBeVisible();
+  await expect(page.getByRole("option", { name: "Score", exact: true })).toBeVisible();
+  await expect(page.getByText("Select Score in the transport to hear this notation (notation time).")).toBeVisible();
+  await page.getByRole("option", { name: "Score", exact: true }).click();
+  await expect(await listeningTo(page, "Score")).toBeVisible();
   await expect(page.getByText("Playing the score rendition in notation time. Click a measure to jump or select it.")).toBeVisible();
 
   await page.getByRole("button", { name: "Play", exact: true }).click();
@@ -180,8 +180,8 @@ test("real-stack happy path: play → inspect → compare → reload → delete"
   await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
   await expectPositionPreserved(page, positionBeforeSourceSwap);
 
-  await selectSource(page, "Score rendition");
-  await expect(await listeningTo(page, "Score rendition")).toBeVisible();
+  await selectSource(page, "Score");
+  await expect(await listeningTo(page, "Score")).toBeVisible();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
   await expectPositionPreserved(page, positionBeforeSourceSwap);
@@ -192,8 +192,8 @@ test("real-stack happy path: play → inspect → compare → reload → delete"
   await expect(page.getByRole("button", { name: "A: Original", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "B: Transcription", exact: true })).toBeVisible();
 
-  await setCompareSideSource(page, "B", "Score rendition");
-  await expect(page.getByRole("button", { name: "B: Score rendition", exact: true })).toBeVisible();
+  await setCompareSideSource(page, "B", "Score");
+  await expect(page.getByRole("button", { name: "B: Score", exact: true })).toBeVisible();
 
   const positionBeforeCompare = await transportPosition(page);
   await expect(page.getByRole("button", { name: "A", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -205,7 +205,7 @@ test("real-stack happy path: play → inspect → compare → reload → delete"
 
   await page.getByRole("button", { name: "A", exact: true }).click();
   await expect(page.getByRole("button", { name: "A", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "B: Score rendition", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "B: Score", exact: true })).toBeVisible();
   await expectPositionPreserved(page, positionBeforeCompare);
 
   await page.getByRole("button", { name: "B", exact: true }).click();
@@ -229,12 +229,12 @@ test("real-stack happy path: play → inspect → compare → reload → delete"
   await page.getByRole("button", { name: /Listening to:/ }).click();
   await expect(page.getByRole("option", { name: "Original", exact: true })).toBeVisible();
   await expect(page.getByRole("option", { name: "Transcription", exact: true })).toBeVisible();
-  await expect(page.getByRole("option", { name: "Score rendition", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Score", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Score" }).click();
-  await expect(page.getByText("Select Score rendition in the transport to hear this notation (notation time).")).toBeVisible();
-  await selectSource(page, "Score rendition");
-  await expect(await listeningTo(page, "Score rendition")).toBeVisible();
+  await expect(page.getByText("Select Score in the transport to hear this notation (notation time).")).toBeVisible();
+  await selectSource(page, "Score");
+  await expect(await listeningTo(page, "Score")).toBeVisible();
 
   await selectSource(page, "Original");
   await expect(await listeningTo(page, "Original")).toBeVisible();
@@ -309,7 +309,7 @@ test("shared musical selection across representations", async ({ page }) => {
   await expect(page.getByRole("group", { name: "Compare playback" })).toBeVisible();
 
   await page.getByRole("button", { name: "B: " }).click();
-  await page.getByRole("option", { name: "Score rendition", exact: true }).click();
+  await page.getByRole("option", { name: "Score", exact: true }).click();
 
   for (const side of ["B", "A", "B"] as const) {
     await page.getByRole("button", { name: side, exact: true }).click();
