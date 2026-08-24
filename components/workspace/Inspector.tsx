@@ -5,10 +5,12 @@ import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 import { categorizeInsights, filterByCategory, insightStartSeconds } from "@/lib/inspector/insights";
 import { isInspectorExposed, isExperimental } from "@/lib/inspector/capabilities";
+import { deriveFindings } from "@/lib/inspector/findings";
 import { formatTime } from "@/lib/format";
 import AskPanel from "./AskPanel";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
+import type { TemporalFinding } from "@/lib/inspector/findings";
 
 function describeSelection(selection: MusicalSelection): string {
   if (selection.measureRange) {
@@ -213,6 +215,44 @@ function MelodySection({ insights }: { insights: Insight[] }) {
   );
 }
 
+function FindingsSection({
+  findings,
+  onSeek,
+  setSelection,
+}: {
+  findings: TemporalFinding[];
+  onSeek: (seconds: number) => void;
+  setSelection: (s: MusicalSelection | null) => void;
+}) {
+  if (findings.length === 0) return null;
+
+  const handleClick = (finding: TemporalFinding) => {
+    onSeek(finding.startSeconds);
+    setSelection({
+      timeRange: { start: finding.startSeconds, end: finding.endSeconds, domain: "performance" },
+      provenance: { origin: null, timeExact: false, measureApproximate: true },
+    });
+  };
+
+  return (
+    <section className="inspector-section">
+      <h3>Findings</h3>
+      <div className="inspector-findings">
+        {findings.map((finding) => (
+          <button
+            key={finding.id}
+            type="button"
+            className="inspector-finding"
+            onClick={() => handleClick(finding)}
+          >
+            {finding.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function InspectorPanel() {
   const { workspace, setInspectorMode, setSelection } = useWorkspace();
   const { seek } = useTransport();
@@ -280,6 +320,9 @@ function AnalysisContent({
   const selExposed = exposed(selectionInsights);
   const wholeExposed = exposed(wholeWorkInsights);
 
+  // Derive temporal findings from exposed insights
+  const findings = deriveFindings(hasSelection ? selExposed : wholeExposed);
+
   if (hasSelection) {
     return (
       <div className="inspector-content">
@@ -290,6 +333,7 @@ function AnalysisContent({
         <HarmonySection insights={selExposed} bpm={bpm} onSeek={seek} setSelection={setSelection} />
         <RhythmSection insights={selExposed} />
         <MelodySection insights={selExposed} />
+        <FindingsSection findings={findings} onSeek={seek} setSelection={setSelection} />
         {selExposed.length === 0 && (
           <p className="inspector-empty">No analysis available for this selection.</p>
         )}
@@ -306,6 +350,7 @@ function AnalysisContent({
       <HarmonySection insights={wholeExposed} bpm={bpm} onSeek={seek} setSelection={setSelection} />
       <RhythmSection insights={wholeExposed} />
       <MelodySection insights={wholeExposed} />
+      <FindingsSection findings={findings} onSeek={seek} setSelection={setSelection} />
     </div>
   );
 }

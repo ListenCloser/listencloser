@@ -1286,6 +1286,19 @@ gradient-text {
   border-radius:var(--r-sm); vertical-align:middle;
 }
 
+/* Findings section */
+.inspector-findings {
+  display:flex; flex-direction:column; gap:var(--s-1);
+}
+.inspector-finding {
+  display:block; width:100%; padding:var(--s-2) 0;
+  border:0; border-top:1px solid var(--border);
+  background:transparent; color:var(--text);
+  text-align:left; font:inherit; font-size:var(--fs-xs);
+  cursor:pointer; transition:color var(--dur) var(--ease);
+}
+.inspector-finding:hover { color:var(--accent); text-decoration:underline; }
+
 /* ── Library panel ─────────────────────────────────────────────────────── */
 .studio-library {
   width:220px; flex-shrink:0; overflow:hidden;
