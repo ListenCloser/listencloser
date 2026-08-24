@@ -1,116 +1,50 @@
 /**
- * Frontend capability exposure policy.
+ * Frontend presentation helpers for capability exposure.
  *
- * Mirrors backend/config/capabilities.json exposure flags.
- * The Inspector must never expose insights whose kind maps to a
- * capability with inspector: false, even if the backend accidentally
- * returns them.
+ * This is NOT a second truthfulness registry. The backend
+ * (capabilities.json / capability_policy.py) is authoritative.
  *
- * This is the single source of truth for what the UI may display.
+ * These helpers exist solely to:
+ * 1. Filter insights at the presentation layer (defense-in-depth)
+ * 2. Provide UI hints (experimental badge, etc.)
+ *
+ * The backend already filters withheld capabilities before sending
+ * insights to the API. This frontend filter is a safety net, not
+ * the source of truth.
+ *
+ * To update: change backend/config/capabilities.json first,
+ * then mirror the exposure flags here.
  */
 
-type CapabilityExposure = {
-  inspector: boolean;
-  annotations: boolean;
-  ask: boolean;
-};
+/** Kinds the Inspector may display. Backend withholds all others. */
+const INSPECTOR_ALLOWED = new Set([
+  "key",
+  "chord",
+  "roman_numeral",
+  "harmonic_function",
+  "tempo",
+  "audio_tempo",
+  "time_signature",
+  "rhythm",
+  "rhythm_density",
+  "rhythm_rests",
+  "melody",
+]);
 
-type CapabilityEntry = {
-  status: "production" | "withheld" | "experimental" | "evaluation_only";
-  exposure: CapabilityExposure;
-};
+/** Kinds that are experimental (UI should show experimental badge). */
+const EXPERIMENTAL = new Set([
+  "melody",
+]);
 
-const CAPABILITIES: Record<string, CapabilityEntry> = {
-  key: {
-    status: "production",
-    exposure: { inspector: true, annotations: false, ask: true },
-  },
-  chord: {
-    status: "production",
-    exposure: { inspector: true, annotations: true, ask: true },
-  },
-  roman_numeral: {
-    status: "production",
-    exposure: { inspector: true, annotations: true, ask: true },
-  },
-  harmonic_function: {
-    status: "production",
-    exposure: { inspector: true, annotations: true, ask: true },
-  },
-  cadence: {
-    status: "withheld",
-    exposure: { inspector: false, annotations: false, ask: false },
-  },
-  key_region: {
-    status: "withheld",
-    exposure: { inspector: false, annotations: false, ask: false },
-  },
-  tempo: {
-    status: "production",
-    exposure: { inspector: true, annotations: false, ask: true },
-  },
-  rhythm: {
-    status: "production",
-    exposure: { inspector: true, annotations: true, ask: true },
-  },
-  melody: {
-    status: "experimental",
-    exposure: { inspector: true, annotations: false, ask: true },
-  },
-  time_signature: {
-    status: "production",
-    exposure: { inspector: true, annotations: false, ask: true },
-  },
-  audio_tempo: {
-    status: "production",
-    exposure: { inspector: true, annotations: false, ask: true },
-  },
-  section: {
-    status: "evaluation_only",
-    exposure: { inspector: false, annotations: false, ask: false },
-  },
-  audio_structure: {
-    status: "evaluation_only",
-    exposure: { inspector: false, annotations: false, ask: false },
-  },
-  rhythm_density: {
-    status: "production",
-    exposure: { inspector: true, annotations: false, ask: false },
-  },
-  rhythm_rests: {
-    status: "production",
-    exposure: { inspector: true, annotations: false, ask: false },
-  },
-  harmonic_rhythm: {
-    status: "withheld",
-    exposure: { inspector: false, annotations: false, ask: false },
-  },
-  voice_leading: {
-    status: "withheld",
-    exposure: { inspector: false, annotations: false, ask: false },
-  },
-  structure: {
-    status: "evaluation_only",
-    exposure: { inspector: false, annotations: false, ask: false },
-  },
-};
-
-/** Whether a capability kind is exposed in the Inspector. */
+/** Whether a capability kind is allowed in the Inspector. */
 export function isInspectorExposed(kind: string): boolean {
-  return CAPABILITIES[kind]?.exposure.inspector ?? false;
+  return INSPECTOR_ALLOWED.has(kind);
 }
 
 /** Whether a capability kind is experimental. */
 export function isExperimental(kind: string): boolean {
-  return CAPABILITIES[kind]?.status === "experimental";
-}
-
-/** Whether a capability kind is withheld. */
-export function isWithheld(kind: string): boolean {
-  return CAPABILITIES[kind]?.status === "withheld";
+  return EXPERIMENTAL.has(kind);
 }
 
 /** Kinds that may appear in the Inspector. */
-export const INSPECTOR_EXPOSED_KINDS = Object.entries(CAPABILITIES)
-  .filter(([, entry]) => entry.exposure.inspector)
-  .map(([kind]) => kind);
+export const INSPECTOR_EXPOSED_KINDS = [...INSPECTOR_ALLOWED];

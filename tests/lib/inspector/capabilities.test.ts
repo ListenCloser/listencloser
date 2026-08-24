@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { isInspectorExposed, isExperimental, isWithheld, INSPECTOR_EXPOSED_KINDS } from "@/lib/inspector/capabilities";
+import { isInspectorExposed, isExperimental, INSPECTOR_EXPOSED_KINDS } from "@/lib/inspector/capabilities";
+
+/**
+ * These tests verify the frontend presentation helpers align with the
+ * backend's authoritative capability policy (capabilities.json).
+ *
+ * The backend is the source of truth. These tests ensure the frontend
+ * does not accidentally expose withheld capabilities.
+ */
 
 describe("capabilities", () => {
   describe("isInspectorExposed", () => {
@@ -54,24 +62,6 @@ describe("capabilities", () => {
     });
   });
 
-  describe("isWithheld", () => {
-    it("returns true for withheld capabilities", () => {
-      expect(isWithheld("cadence")).toBe(true);
-      expect(isWithheld("key_region")).toBe(true);
-      expect(isWithheld("harmonic_rhythm")).toBe(true);
-      expect(isWithheld("voice_leading")).toBe(true);
-    });
-
-    it("returns false for production capabilities", () => {
-      expect(isWithheld("key")).toBe(false);
-      expect(isWithheld("chord")).toBe(false);
-    });
-
-    it("returns false for experimental capabilities", () => {
-      expect(isWithheld("melody")).toBe(false);
-    });
-  });
-
   describe("INSPECTOR_EXPOSED_KINDS", () => {
     it("includes all production inspector-exposed kinds", () => {
       expect(INSPECTOR_EXPOSED_KINDS).toContain("key");
@@ -101,6 +91,23 @@ describe("capabilities", () => {
       expect(INSPECTOR_EXPOSED_KINDS).not.toContain("section");
       expect(INSPECTOR_EXPOSED_KINDS).not.toContain("audio_structure");
       expect(INSPECTOR_EXPOSED_KINDS).not.toContain("structure");
+    });
+  });
+
+  describe("defense-in-depth: withheld kinds cannot be exposed", () => {
+    /**
+     * This test verifies the critical invariant: the frontend cannot
+     * expose a backend-filtered withheld kind. If the backend sends
+     * a withheld kind (bug), the frontend will filter it out.
+     */
+    const WITHHELD_KINDS = ["cadence", "key_region", "harmonic_rhythm", "voice_leading"];
+
+    it.each(WITHHELD_KINDS)("%s is not exposed in inspector", (kind) => {
+      expect(isInspectorExposed(kind)).toBe(false);
+    });
+
+    it.each(WITHHELD_KINDS)("%s is not in INSPECTOR_EXPOSED_KINDS", (kind) => {
+      expect(INSPECTOR_EXPOSED_KINDS).not.toContain(kind);
     });
   });
 });
