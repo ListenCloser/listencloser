@@ -93,7 +93,6 @@ class TestLStoMMelodyEngine:
 
         # LStoM should have narrower range (less contamination)
         lstom_range = r_lstom.melody["range_semitones"]
-        skyline_range = r_skyline.melody["range_semitones"]
         # LStoM range should be reasonable (not spanning entire keyboard)
         assert lstom_range <= 60, (
             f"LStoM range {lstom_range} semitones seems too wide for melody"

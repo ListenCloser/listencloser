@@ -24,7 +24,7 @@ class LStoM(nn.Module):
 
     def forward(self, x):
         device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        seq_len, batch_size = x.shape[0], x.shape[1]
+        batch_size = x.shape[1]
 
         h_t, c_t = (
             torch.zeros(self.num_layers * self.num_directions, batch_size, self.hidden_size),

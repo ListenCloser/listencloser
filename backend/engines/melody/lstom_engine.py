@@ -90,7 +90,7 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
     ``midi_input`` may be a file path or raw MIDI bytes.
     """
     try:
-        if isinstance(midi_input, (bytes, bytearray)):
+        if isinstance(midi_input, bytes | bytearray):
             pm = pretty_midi.PrettyMIDI(io.BytesIO(midi_input))
         else:
             pm = pretty_midi.PrettyMIDI(midi_input)
@@ -140,7 +140,11 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
         pred_binary = (all_preds > _THRESHOLD).astype(int)
 
         # Collect melody notes
-        melody_notes = [notes[i] for i in range(len(notes)) if i < len(pred_binary) and pred_binary[i] == 1]
+        melody_notes = [
+            notes[i]
+            for i in range(len(notes))
+            if i < len(pred_binary) and pred_binary[i] == 1
+        ]
 
         if len(melody_notes) < 2:
             return None
