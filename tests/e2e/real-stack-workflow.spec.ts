@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
-import { injectAuth } from "./real-stack-auth";
+import { injectAuth, dismissWorkspaceNotice } from "./real-stack-auth";
 
 const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -97,6 +97,7 @@ test("real-stack happy path: import → play → inspect → compare → reload"
 
   await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
+  await dismissWorkspaceNotice(page);
 
   await selectSource(page, "Original");
   await expect(await listeningTo(page, "Original")).toBeVisible();
@@ -212,6 +213,7 @@ test("shared musical selection across representations", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
+  await dismissWorkspaceNotice(page);
 
   async function selectWaveformRegion(startFrac: number, endFrac: number) {
     const canvas = page.getByTestId("waveform-canvas");
@@ -280,11 +282,12 @@ test("delete work and verify clean state", async ({ page }) => {
   await injectAuth(page);
   await page.goto("/");
   await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
+  await dismissWorkspaceNotice(page);
 
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
   await page.getByTitle("Delete work").click();
   await page.getByTitle("Click again to confirm delete").click();
-  await expect(page.getByText(/Imported works will appear here|Start with a recording/i).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Bring in a recording|Start with a recording/i).first()).toBeVisible({ timeout: 15_000 });
 
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeDisabled();
   const times = page.locator(".transport-time");
@@ -294,5 +297,5 @@ test("delete work and verify clean state", async ({ page }) => {
 
   await page.reload();
   await expect(page.getByRole("tab", { name: "Waveform" })).not.toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/Start with a recording/i)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/Bring in a recording|Start with a recording/i).first()).toBeVisible({ timeout: 30_000 });
 });

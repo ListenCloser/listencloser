@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 /**
  * Shared auth session for real-stack E2E tests.
@@ -70,4 +70,17 @@ export async function injectAuth(page: Page) {
     },
     { key: storageKey(SUPABASE_URL!), session: auth },
   );
+}
+
+/**
+ * Dismiss the "saved analysis could not be loaded" workspace notice if it
+ * appears. This notice blocks pointer events on underlying UI elements,
+ * causing Playwright click timeouts.
+ */
+export async function dismissWorkspaceNotice(page: Page) {
+  const notice = page.locator(".workspace-notice");
+  if (await notice.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await notice.getByRole("button", { name: "Dismiss notice" }).click();
+    await expect(notice).toBeHidden({ timeout: 5_000 });
+  }
 }

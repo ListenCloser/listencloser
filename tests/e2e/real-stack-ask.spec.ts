@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
-import { injectAuth } from "./real-stack-auth";
+import { injectAuth, dismissWorkspaceNotice } from "./real-stack-auth";
 
 const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -58,6 +58,7 @@ test("Ask inspects the real workspace: open → answer → switch modes → coll
   await page.goto("/");
   await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
+  await dismissWorkspaceNotice(page);
 
   await page.getByRole("tab", { name: "Ask" }).click();
   await expect(page.getByPlaceholder("Ask about this piece…")).toBeVisible();

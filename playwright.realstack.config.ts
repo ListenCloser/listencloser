@@ -5,11 +5,14 @@ import { defineConfig } from "@playwright/test";
  * local Supabase. The stack is orchestrated by the `real-stack-e2e` CI job, so
  * no `webServer` is started here — the job owns the server lifecycle.
  *
- * Global setup imports audio once via API and waits for processing, saving
- * ~15min by eliminating redundant per-test imports.
+ * Architecture:
+ *   - Each test shares a single Supabase user session via module-level state
+ *     in real-stack-auth.ts (safe because workers:1 and fullyParallel:false).
+ *   - The first test (workflow) imports audio and waits for the full pipeline.
+ *   - Subsequent tests discover the existing work through normal product behavior.
+ *   - The delete test runs last to preserve work for other tests.
  */
 export default defineConfig({
-  globalSetup: "./tests/e2e/real-stack-global-setup.ts",
   testDir: "./tests/e2e",
   testMatch: [
     "real-stack-workflow.spec.ts",

@@ -76,7 +76,7 @@ test("A: signed-in production page loads with service online", async ({
     timeout: 20_000,
   });
   await expect(
-    page.getByText("Imported works will appear here and can be reopened in later sessions."),
+    page.getByText("Bring in a recording to transcribe, explore, and analyze."),
   ).toBeVisible({ timeout: 10_000 });
 });
 
