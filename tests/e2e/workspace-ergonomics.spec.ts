@@ -63,8 +63,8 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
 
     // The mock work has insights loaded, so analysisState should be "completed"
-    // and the Analysis button should be visible
-    await expect(page.getByRole("button", { name: "Analysis" })).toBeVisible();
+    // and the Analysis button should be visible in the inspector
+    await expect(page.getByRole("button", { name: "Hide analysis" })).toBeVisible();
   });
 
   test("loop and stop are icon buttons with aria-labels", async ({ page }) => {
