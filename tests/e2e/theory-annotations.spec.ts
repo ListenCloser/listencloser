@@ -3,15 +3,11 @@ import { expect, test } from "@playwright/test";
 /**
  * Theory annotation E2E regression tests (MSW).
  *
- * Validates the fix for the P0 "nothing appears in UI" bug:
- *   - chord, roman_numeral, and harmonic_function insights must include
- *     spans so extractAnnotations() can derive start/end seconds.
- *   - The Inspector must render dedicated Chords, Roman Numerals, and
- *     Harmonic Function sections.
- *   - Clicking a theory event in the Inspector must set a selection.
- *
- * These tests would have failed BEFORE PR #277 because mock insights
- * had null spans and the annotation system skipped them.
+ * Validates the new Analysis Inspector hierarchy:
+ *   - Overview row shows Key, Tempo, Meter compactly
+ *   - Harmony section contains Chords, Roman numerals, Function sub-sections
+ *   - Clicking a chord/RN sets a selection
+ *   - Withheld capabilities (cadence, key_region) never appear
  */
 test.describe("theory annotations (MSW)", () => {
   test.beforeEach(async ({ page }) => {
@@ -54,28 +50,46 @@ test.describe("theory annotations (MSW)", () => {
     );
   });
 
-  test("Inspector shows Chords, Roman Numerals, Harmonic Function sections", async ({
+  test("Inspector shows compact overview row with Key, Tempo, Meter", async ({
     page,
   }) => {
-    // Wait for the work to load and the inspector to be visible.
     await expect(
       page.getByRole("button", { name: "Test Work" }),
     ).toBeVisible({ timeout: 20_000 });
 
-    // The inspector starts open (inspectorCollapsed: false).
-    // Verify the Analysis tab is active and the theory sections render.
     await expect(page.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
 
-    // Chords section should be visible with chord entries
+    // Overview row should show Key, Tempo, Meter labels
+    await expect(page.getByText("Key", { exact: true })).toBeVisible();
+    await expect(page.getByText("Tempo", { exact: true })).toBeVisible();
+    await expect(page.getByText("Meter", { exact: true })).toBeVisible();
+
+    // Values should be visible (use exact match to avoid matching RN buttons)
+    await expect(page.getByText("A minor", { exact: true })).toBeVisible();
+    await expect(page.getByText("112 BPM")).toBeVisible();
+    await expect(page.getByText("4/4")).toBeVisible();
+  });
+
+  test("Inspector shows Harmony section with Chords, Roman numerals, Function sub-sections", async ({
+    page,
+  }) => {
+    await expect(
+      page.getByRole("button", { name: "Test Work" }),
+    ).toBeVisible({ timeout: 20_000 });
+
+    // Harmony section heading
+    await expect(page.getByRole("heading", { name: "Harmony" })).toBeVisible();
+
+    // Chords sub-section
     await expect(page.getByRole("heading", { name: "Chords" })).toBeVisible();
     await expect(page.getByRole("button", { name: "C maj" }).first()).toBeVisible();
 
-    // Roman Numerals section should be visible with RN entries
-    await expect(page.getByRole("heading", { name: "Roman Numerals" })).toBeVisible();
+    // Roman numerals sub-section
+    await expect(page.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
     await expect(page.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
 
-    // Harmonic Function section should be visible with function entries
-    await expect(page.getByRole("heading", { name: "Harmonic Function" })).toBeVisible();
+    // Function sub-section
+    await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
     await expect(page.getByRole("button", { name: "TONIC (I)" }).first()).toBeVisible();
   });
 
@@ -98,7 +112,7 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: "Test Work" }),
     ).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.getByRole("heading", { name: "Roman Numerals" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
 
     await expect(page.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "v (A minor)", exact: true })).toBeVisible();
@@ -117,8 +131,8 @@ test.describe("theory annotations (MSW)", () => {
     await page.getByRole("button", { name: "C maj" }).first().click();
 
     // A selection scope header should appear showing the time range
-    await expect(page.getByText("Selection", { exact: true })).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("0:00–0:02")).toBeVisible();
+    await expect(page.locator(".inspector-scope-label")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("0:00\u20130:02")).toBeVisible();
   });
 
   test("no cadence or key_region insights appear", async ({ page }) => {

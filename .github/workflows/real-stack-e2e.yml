@@ -28,7 +28,7 @@ concurrency:
 jobs:
   real-stack:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
@@ -112,6 +112,7 @@ jobs:
           SUPABASE_URL: ${{ env.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKEND_URL: "http://127.0.0.1:8000"
         run: |
           npx playwright install chromium --with-deps
           npx playwright test --config=playwright.realstack.config.ts

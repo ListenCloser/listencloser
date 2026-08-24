@@ -4,10 +4,13 @@ import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 import { categorizeInsights, filterByCategory, insightStartSeconds } from "@/lib/inspector/insights";
+import { isInspectorExposed, isExperimental } from "@/lib/inspector/capabilities";
+import { deriveFindings } from "@/lib/inspector/findings";
 import { formatTime } from "@/lib/format";
 import AskPanel from "./AskPanel";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
+import type { TemporalFinding } from "@/lib/inspector/findings";
 
 function describeSelection(selection: MusicalSelection): string {
   if (selection.measureRange) {
@@ -20,28 +23,67 @@ function describeSelection(selection: MusicalSelection): string {
   return "";
 }
 
-function InsightScopeHeader({ scope, selection }: { scope: "selection" | "whole-work"; selection: MusicalSelection | null }) {
+function InsightScopeHeader({
+  scope,
+  selection,
+  onClear,
+}: {
+  scope: "selection" | "whole-work";
+  selection: MusicalSelection | null;
+  onClear?: () => void;
+}) {
   if (scope === "selection" && selection) {
     return (
       <div className="inspector-scope">
         <span className="inspector-scope-label">Selection</span>
         <span className="inspector-scope-value">{describeSelection(selection)}</span>
+        {onClear && (
+          <button
+            type="button"
+            className="inspector-scope-clear"
+            onClick={onClear}
+            title="Clear selection"
+          >
+            Clear
+          </button>
+        )}
       </div>
     );
   }
   return null;
 }
 
-function renderFact(label: string, value: string, confidence?: string) {
+function stripClaimPrefix(claim: string): string {
+  return claim.replace(/^[^:]+:\s*/, "");
+}
+
+function OverviewRow({ insights }: { insights: Insight[] }) {
+  const keyInsight = insights.find((i) => i.kind === "key");
+  const tempoInsight = insights.find((i) => i.kind === "audio_tempo") ?? insights.find((i) => i.kind === "tempo");
+  const meterInsight = insights.find((i) => i.kind === "time_signature");
+
+  const keyValue = keyInsight ? stripClaimPrefix(keyInsight.claim) : "\u2014";
+  const tempoValue = tempoInsight ? stripClaimPrefix(tempoInsight.claim) : "\u2014";
+  const meterValue = meterInsight ? stripClaimPrefix(meterInsight.claim) : "\u2014";
+
   return (
-    <div key={label} className="inspector-fact">
-      <strong className="inspector-fact-value">{value}</strong>
-      <span className="inspector-fact-label">{label}{confidence ? ` \u00b7 ${confidence}` : ""}</span>
+    <div className="inspector-overview-row">
+      <div className="inspector-overview-item">
+        <span className="inspector-overview-label">Key</span>
+        <span className="inspector-overview-value">{keyValue}</span>
+      </div>
+      <div className="inspector-overview-item">
+        <span className="inspector-overview-label">Tempo</span>
+        <span className="inspector-overview-value">{tempoValue}</span>
+      </div>
+      <div className="inspector-overview-item">
+        <span className="inspector-overview-label">Meter</span>
+        <span className="inspector-overview-value">{meterValue}</span>
+      </div>
     </div>
   );
 }
 
-/** Compact arrow-separated sequence for chords, RN, and harmonic function. */
 function SequenceBlock({
   title,
   insights,
@@ -92,93 +134,145 @@ function SequenceBlock({
   );
 }
 
-function renderInsightList(
-  insights: Insight[],
-  onSeek: (seconds: number) => void,
-  bpm: number,
-  setSelection: (selection: MusicalSelection | null) => void,
-) {
-  if (insights.length === 0) return null;
-  const seekable = (item: Insight) => {
-    const seconds = insightStartSeconds(item, bpm);
-    return seconds !== null;
-  };
+function HarmonySection({
+  insights,
+  bpm,
+  onSeek,
+  setSelection,
+}: {
+  insights: Insight[];
+  bpm: number;
+  onSeek: (s: number) => void;
+  setSelection: (s: MusicalSelection | null) => void;
+}) {
+  const chords = insights.filter((i) => i.kind === "chord" && insightStartSeconds(i, bpm) !== null);
+  const romanNumerals = insights.filter((i) => i.kind === "roman_numeral" && insightStartSeconds(i, bpm) !== null);
+  const harmonicFunctions = insights.filter((i) => i.kind === "harmonic_function" && insightStartSeconds(i, bpm) !== null);
 
-  const sections = insights.filter((item) => item.kind === "section" && seekable(item)).slice(0, 12);
-  const chords = insights.filter((item) => item.kind === "chord" && seekable(item));
-  const romanNumerals = insights.filter((item) => item.kind === "roman_numeral" && seekable(item));
-  const harmonicFunctions = insights.filter((item) => item.kind === "harmonic_function" && seekable(item));
-  const observations = insights.filter(
-    (item) => !["key", "tempo", "time_signature", "audio_tempo", "chord", "section", "roman_numeral", "harmonic_function"].includes(item.kind),
-  );
+  if (chords.length === 0 && romanNumerals.length === 0 && harmonicFunctions.length === 0) return null;
 
   return (
-    <>
-      {sections.length > 0 && (
-        <div className="inspector-block">
-          <h4>Form</h4>
-          <div className="rn-chips">
-            {sections.map((item) => (
-              <button type="button" className="rn-chip" key={item.id} onClick={() => {
-                const s = insightStartSeconds(item, bpm);
-                if (s !== null) onSeek(s);
-              }}>
-                {item.claim}
-              </button>
-            ))}
+    <section className="inspector-section">
+      <h3>Harmony</h3>
+      <SequenceBlock title="Chords" insights={chords} bpm={bpm} onSeek={onSeek} setSelection={setSelection} dataKind="harmony" />
+      <SequenceBlock title="Roman numerals" insights={romanNumerals} bpm={bpm} onSeek={onSeek} setSelection={setSelection} dataKind="harmony" />
+      <SequenceBlock title="Function" insights={harmonicFunctions} bpm={bpm} onSeek={onSeek} setSelection={setSelection} dataKind="harmony" />
+    </section>
+  );
+}
+
+function RhythmSection({ insights }: { insights: Insight[] }) {
+  const densityInsights = insights.filter((i) => i.kind === "rhythm_density");
+  const restInsights = insights.filter((i) => i.kind === "rhythm_rests");
+
+  if (densityInsights.length === 0 && restInsights.length === 0) return null;
+
+  const observations: { label: string; time: number | null }[] = [];
+
+  for (const insight of densityInsights) {
+    const windows = (insight.evidence?.windows ?? []) as { start?: number; end?: number; density?: number }[];
+    if (windows.length > 0) {
+      const maxWindow = windows.reduce((max, w) => (w.density ?? 0) > (max.density ?? 0) ? w : max, windows[0]);
+      if (maxWindow.density != null && maxWindow.start != null) {
+        observations.push({
+          label: `Peak note density at ${formatTime(maxWindow.start)}`,
+          time: maxWindow.start,
+        });
+      }
+    }
+  }
+
+  for (const insight of restInsights) {
+    const rests = (insight.evidence?.rests ?? []) as { start?: number; end?: number; duration?: number }[];
+    if (rests.length > 0) {
+      const longestRest = rests.reduce((max, r) => (r.duration ?? 0) > (max.duration ?? 0) ? r : max, rests[0]);
+      if (longestRest.start != null) {
+        observations.push({
+          label: `Rest at ${formatTime(longestRest.start)}`,
+          time: longestRest.start,
+        });
+      }
+    }
+  }
+
+  if (observations.length === 0) return null;
+
+  return (
+    <section className="inspector-section">
+      <h3>Rhythm</h3>
+      <div className="inspector-rhythm-observations">
+        {observations.map((obs, i) => (
+          <div key={i} className="inspector-rhythm-obs">
+            {obs.label}
           </div>
-        </div>
-      )}
-      <SequenceBlock
-        title="Chords"
-        insights={chords}
-        bpm={bpm}
-        onSeek={onSeek}
-        setSelection={setSelection}
-        dataKind="harmony"
-      />
-      <SequenceBlock
-        title="Roman Numerals"
-        insights={romanNumerals}
-        bpm={bpm}
-        onSeek={onSeek}
-        setSelection={setSelection}
-        dataKind="harmony"
-      />
-      <SequenceBlock
-        title="Harmonic Function"
-        insights={harmonicFunctions}
-        bpm={bpm}
-        onSeek={onSeek}
-        setSelection={setSelection}
-        dataKind="harmony"
-      />
-      {observations.length > 0 && (
-        <div className="inspector-block">
-          <h4>Observations</h4>
-          {observations.map((item) => {
-            const seconds = insightStartSeconds(item, bpm);
-            if (seconds === null) {
-              return (
-                <div className="inspector-observation-static" key={item.id}>
-                  <span>{item.claim}</span>
-                </div>
-              );
-            }
-            return (
-              <button type="button" className="inspector-observation" key={item.id} onClick={() => onSeek(seconds)}>
-                <span>{item.claim}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MelodySection({ insights }: { insights: Insight[] }) {
+  if (!isExperimental("melody")) return null;
+  const melodyInsights = insights.filter((i) => i.kind === "melody");
+  if (melodyInsights.length === 0) return null;
+
+  return (
+    <section className="inspector-section">
+      <h3>
+        Melody
+        <span className="inspector-experimental-badge">experimental</span>
+      </h3>
+      <div className="inspector-melody-items">
+        {melodyInsights.slice(0, 6).map((item) => (
+          <div key={item.id} className="inspector-melody-item">
+            {item.claim}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FindingsSection({
+  findings,
+  onSeek,
+  setSelection,
+}: {
+  findings: TemporalFinding[];
+  onSeek: (seconds: number) => void;
+  setSelection: (s: MusicalSelection | null) => void;
+}) {
+  if (findings.length === 0) return null;
+
+  const handleClick = (finding: TemporalFinding) => {
+    onSeek(finding.startSeconds);
+    setSelection({
+      timeRange: { start: finding.startSeconds, end: finding.endSeconds, domain: "performance" },
+      provenance: { origin: null, timeExact: false, measureApproximate: true },
+    });
+  };
+
+  return (
+    <section className="inspector-section">
+      <h3>Findings</h3>
+      <div className="inspector-findings">
+        {findings.map((finding) => (
+          <button
+            key={finding.id}
+            type="button"
+            className="inspector-finding"
+            onClick={() => handleClick(finding)}
+          >
+            {finding.label}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
 export default function InspectorPanel() {
-  const { workspace, setInspectorMode, setSelection } = useWorkspace();
+  const { workspace, setInspectorMode, setSelection, clearSelection } = useWorkspace();
   const { seek } = useTransport();
   const { timeline } = useTimeline();
   const mode = workspace.inspectorMode;
@@ -207,7 +301,11 @@ export default function InspectorPanel() {
           </button>
         </nav>
         {mode === "analysis" && (
-          <InsightScopeHeader scope={workspace.selection ? "selection" : "whole-work"} selection={workspace.selection} />
+          <InsightScopeHeader
+            scope={workspace.selection ? "selection" : "whole-work"}
+            selection={workspace.selection}
+            onClear={workspace.selection ? clearSelection : undefined}
+          />
         )}
       </header>
 
@@ -238,51 +336,43 @@ function AnalysisContent({
   const confident = (insights: Insight[]) =>
     insights.filter((item) => item.confidence == null || item.confidence >= 0.5);
 
-  const confSelection = confident(selectionInsights);
-  const confWholeWork = confident(wholeWorkInsights);
+  const exposed = (insights: Insight[]) =>
+    confident(insights).filter((item) => isInspectorExposed(item.kind));
 
-  const keyFact = (insights: Insight[]) =>
-    insights.find((item) => item.kind === "key");
-  const tempoFact = (insights: Insight[]) =>
-    insights.find((item) => item.kind === "audio_tempo") ?? insights.find((item) => item.kind === "tempo");
-  const meterFact = (insights: Insight[]) =>
-    insights.find((item) => item.kind === "time_signature");
+  const selExposed = exposed(selectionInsights);
+  const wholeExposed = exposed(wholeWorkInsights);
 
-  const claimValue = (item?: Insight) =>
-    item ? item.claim.replace(/^[^:]+:\s*/, "") : "Not confidently detected";
+  // Derive temporal findings from exposed insights
+  const findings = deriveFindings(hasSelection ? selExposed : wholeExposed);
+
+  if (hasSelection) {
+    return (
+      <div className="inspector-content">
+        <section className="inspector-section">
+          <h3>Selection</h3>
+          <OverviewRow insights={selExposed} />
+        </section>
+        <HarmonySection insights={selExposed} bpm={bpm} onSeek={seek} setSelection={setSelection} />
+        <RhythmSection insights={selExposed} />
+        <MelodySection insights={selExposed} />
+        <FindingsSection findings={findings} onSeek={seek} setSelection={setSelection} />
+        {selExposed.length === 0 && (
+          <p className="inspector-empty">No analysis available for this selection.</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="inspector-content">
-      {!hasSelection && (
-        <section className="inspector-section">
-          <h3>Overview</h3>
-          <div className="inspector-facts">
-            {renderFact("Key", claimValue(keyFact(confWholeWork)))}
-            {renderFact("Tempo", claimValue(tempoFact(confWholeWork)))}
-            {renderFact("Meter", claimValue(meterFact(confWholeWork)))}
-          </div>
-        </section>
-      )}
-
-      {hasSelection && confSelection.length > 0 && (
-        <section className="inspector-section">
-          <h3>Selection findings</h3>
-          {renderInsightList(confSelection, seek, bpm, setSelection)}
-        </section>
-      )}
-
-      {hasSelection && confSelection.length === 0 && (
-        <section className="inspector-section">
-          <h3>Selection</h3>
-          <p className="inspector-empty">No specific analysis is available for this selection yet.</p>
-        </section>
-      )}
-
       <section className="inspector-section">
-        <h3>{hasSelection ? "Whole-piece context" : "Findings"}</h3>
-        {renderInsightList(confWholeWork, seek, bpm, setSelection)}
-        {confWholeWork.length === 0 && <p className="inspector-empty">No analysis findings yet.</p>}
+        <h3>Analysis</h3>
+        <OverviewRow insights={wholeExposed} />
       </section>
+      <HarmonySection insights={wholeExposed} bpm={bpm} onSeek={seek} setSelection={setSelection} />
+      <RhythmSection insights={wholeExposed} />
+      <MelodySection insights={wholeExposed} />
+      <FindingsSection findings={findings} onSeek={seek} setSelection={setSelection} />
     </div>
   );
 }

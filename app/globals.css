@@ -1184,6 +1184,13 @@ gradient-text {
 }
 .inspector-scope-label { color:var(--muted); }
 .inspector-scope-value { color:var(--text); font-weight:var(--fw-medium); }
+.inspector-scope-clear {
+  margin-left:auto; padding:2px 6px; border:0;
+  background:transparent; color:var(--muted);
+  font:var(--fs-xs) var(--font-sans); cursor:pointer;
+  transition:color var(--dur) var(--ease);
+}
+.inspector-scope-clear:hover { color:var(--accent); }
 .inspector-content {
   flex:1; overflow:auto; padding:var(--s-3) var(--s-4);
 }
@@ -1245,6 +1252,59 @@ gradient-text {
   transition:color var(--dur) var(--ease);
 }
 .rn-chip:hover { color:var(--accent); text-decoration:underline; }
+
+/* Compact overview row: Key | Tempo | Meter */
+.inspector-overview-row {
+  display:flex; gap:var(--s-3); align-items:baseline;
+  padding:var(--s-1) 0;
+}
+.inspector-overview-item {
+  display:flex; flex-direction:column; gap:1px; min-width:0;
+}
+.inspector-overview-label {
+  font-size:10px; color:var(--muted); text-transform:uppercase;
+  letter-spacing:0.04em;
+}
+.inspector-overview-value {
+  font-size:var(--fs-sm); color:var(--text); font-weight:var(--fw-medium);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* Rhythm observations */
+.inspector-rhythm-observations {
+  display:flex; flex-direction:column; gap:var(--s-1);
+}
+.inspector-rhythm-obs {
+  font-size:var(--fs-xs); color:var(--text); padding:var(--s-1) 0;
+}
+
+/* Melody section */
+.inspector-melody-items {
+  display:flex; flex-direction:column; gap:var(--s-1);
+}
+.inspector-melody-item {
+  font-size:var(--fs-xs); color:var(--text); padding:var(--s-1) 0;
+}
+.inspector-experimental-badge {
+  display:inline-block; margin-left:var(--s-1); padding:1px 5px;
+  font-size:9px; font-weight:var(--fw-medium); text-transform:uppercase;
+  letter-spacing:0.04em; color:var(--color-melody);
+  border:1px solid var(--color-melody-soft, rgba(196,122,90,0.3));
+  border-radius:var(--r-sm); vertical-align:middle;
+}
+
+/* Findings section */
+.inspector-findings {
+  display:flex; flex-direction:column; gap:var(--s-1);
+}
+.inspector-finding {
+  display:block; width:100%; padding:var(--s-2) 0;
+  border:0; border-top:1px solid var(--border);
+  background:transparent; color:var(--text);
+  text-align:left; font:inherit; font-size:var(--fs-xs);
+  cursor:pointer; transition:color var(--dur) var(--ease);
+}
+.inspector-finding:hover { color:var(--accent); text-decoration:underline; }
 
 /* ── Library panel ─────────────────────────────────────────────────────── */
 .studio-library {
