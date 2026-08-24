@@ -96,9 +96,9 @@ test.describe("shared musical selection (MSW)", () => {
     await page.getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByRole("group", { name: "Compare playback" })).toBeVisible();
 
-    // Set B to Score rendition
+    // Set B to Score
     await page.getByRole("button", { name: "B: " }).click();
-    await page.getByRole("option", { name: "Score rendition", exact: true }).click();
+    await page.getByRole("option", { name: "Score", exact: true }).click();
 
     for (const side of ["B", "A", "B"] as const) {
       await page.getByRole("button", { name: side, exact: true }).click();

@@ -1,0 +1,221 @@
+"""Tests for the theory interpretation engine."""
+
+from __future__ import annotations
+
+import pytest
+
+
+class TestTheoryEngine:
+    """Tests for TheoryEngine."""
+
+    def test_import(self):
+        """Engine can be imported."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        assert engine is not None
+
+    def test_provenance(self):
+        """Engine reports correct provenance."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        p = engine.provenance
+        assert p.engine == "theory_interpreter"
+
+    def test_analyze_empty(self):
+        """Engine handles empty input."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        result = engine.analyze([], global_key="C major")
+        assert result.roman_numerals == []
+        assert result.harmonic_functions == []
+
+    def test_analyze_chord_names(self):
+        """Engine converts chord names to Roman numerals."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
+            {"root": "F", "quality": "maj", "start": 4.0, "end": 6.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.roman_numerals) == 3
+        assert result.roman_numerals[0].numeral == "I"
+        assert result.roman_numerals[1].numeral == "V"
+        assert result.roman_numerals[2].numeral == "IV"
+
+    def test_analyze_minor_key(self):
+        """Engine handles minor keys."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "A", "quality": "min", "start": 0.0, "end": 2.0},
+            {"root": "E", "quality": "maj", "start": 2.0, "end": 4.0},
+            {"root": "D", "quality": "min", "start": 4.0, "end": 6.0},
+        ]
+        result = engine.analyze(chords, global_key="A minor")
+        assert len(result.roman_numerals) == 3
+        assert result.roman_numerals[0].numeral == "i"
+        assert result.roman_numerals[1].numeral == "V"
+        assert result.roman_numerals[2].numeral == "iv"
+
+    def test_harmonic_function(self):
+        """Engine classifies harmonic function."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
+            {"root": "F", "quality": "maj", "start": 4.0, "end": 6.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.harmonic_functions) == 3
+        assert result.harmonic_functions[0].function == "TONIC"
+        assert result.harmonic_functions[1].function == "DOMINANT"
+        assert result.harmonic_functions[2].function == "SUBDOMINANT"
+
+    def test_key_detection(self):
+        """Engine withholds RN when no trusted key is provided."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
+            {"root": "F", "quality": "maj", "start": 4.0, "end": 6.0},
+        ]
+        result = engine.analyze(chords)
+        # No trusted key → RN and harmonic function are withheld
+        assert result.global_key is None
+        assert result.roman_numerals == []
+        assert result.harmonic_functions == []
+
+    def test_key_source_provenance_recorded(self):
+        """Engine records key_source and key_provenance on every event."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
+        ]
+        result = engine.analyze(
+            chords,
+            global_key="C major",
+            key_source="music21_independent",
+            key_provenance={"engine": "music21", "detection": "independent_midi_path"},
+        )
+        assert len(result.roman_numerals) == 2
+        for rn in result.roman_numerals:
+            assert rn.key_source == "music21_independent"
+            assert rn.key_provenance["engine"] == "music21"
+        for f in result.harmonic_functions:
+            assert f.key_source == "music21_independent"
+            assert f.key_provenance["engine"] == "music21"
+
+    def test_seventh_chords(self):
+        """Engine handles seventh chords."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "G", "quality": "7", "start": 0.0, "end": 2.0},
+            {"root": "C", "quality": "maj", "start": 2.0, "end": 4.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert result.roman_numerals[0].numeral == "V7"
+        assert result.roman_numerals[0].seventh is True
+
+    def test_minor_seventh_chords(self):
+        """Engine handles minor seventh chords."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "D", "quality": "min7", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "7", "start": 2.0, "end": 4.0},
+            {"root": "C", "quality": "maj", "start": 4.0, "end": 6.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert result.roman_numerals[0].numeral == "ii7"
+        assert result.roman_numerals[1].numeral == "V7"
+        assert result.roman_numerals[2].numeral == "I"
+
+    def test_cadence_detection(self):
+        """Engine detects cadences from Roman numeral sequences."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "G", "quality": "7", "start": 0.0, "end": 2.0},
+            {"root": "C", "quality": "maj", "start": 2.0, "end": 4.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.cadences) == 1
+        assert result.cadences[0].type == "PAC"
+        assert result.cadences[0].chords == ["V7", "I"]
+
+    def test_cadence_half_cadence(self):
+        """Engine detects half cadences."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.cadences) == 1
+        assert result.cadences[0].type == "HC"
+
+    def test_no_cadence(self):
+        """Engine returns empty when no cadence detected."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "F", "quality": "maj", "start": 2.0, "end": 4.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.cadences) == 0
+
+    def test_key_region_detection(self):
+        """Engine detects key regions from Roman numerals."""
+        from engines.theory.theory_engine import TheoryEngine
+
+        engine = TheoryEngine()
+        chords = [
+            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
+            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
+            {"root": "F", "quality": "maj", "start": 4.0, "end": 6.0},
+            {"root": "C", "quality": "maj", "start": 6.0, "end": 8.0},
+        ]
+        result = engine.analyze(chords, global_key="C major")
+        assert len(result.key_regions) >= 1
+        assert result.key_regions[0].key == "C major"
+
+
+class TestRegistryIntegration:
+    """Tests for theory engine registry integration."""
+
+    def test_theory_engine_in_registry(self):
+        """Theory engine can be retrieved from the registry."""
+        from engines.registry import get_theory_engine
+
+        engine = get_theory_engine()
+        assert engine is not None
+        assert hasattr(engine, "analyze")
+
+    def test_unknown_engine_raises(self):
+        """Unknown engine names raise ValueError."""
+        from engines.registry import get_theory_engine
+
+        with pytest.raises(ValueError, match="Unknown theory engine"):
+            get_theory_engine("nonexistent")

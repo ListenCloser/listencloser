@@ -51,6 +51,15 @@ function WaveformView() {
     () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
     [workspace.insights, inspectorOpen],
   );
+  const selection = workspace.selection;
+  const focusedAnnotationId = useMemo(() => {
+    if (!selection?.timeRange || !annotations.length) return null;
+    const { start, end } = selection.timeRange;
+    const match = annotations.find(
+      (a) => a.startSeconds < end && a.endSeconds > start,
+    );
+    return match?.id ?? null;
+  }, [selection, annotations]);
   if (!waveform?.audioUrl) {
     return (
       <div className="representation-body">
@@ -65,6 +74,7 @@ function WaveformView() {
         position={transport.position}
         selection={workspace.selection}
         annotations={annotations}
+        focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
         onSelect={(start, end) =>
           setSelection(composeTimeSelection(start, end, [], "waveform"))
@@ -92,6 +102,14 @@ function PianoRollView() {
     () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
     [workspace.insights, inspectorOpen],
   );
+  const focusedAnnotationId = useMemo(() => {
+    if (!selection?.timeRange || !annotations.length) return null;
+    const { start, end } = selection.timeRange;
+    const match = annotations.find(
+      (a) => a.startSeconds < end && a.endSeconds > start,
+    );
+    return match?.id ?? null;
+  }, [selection, annotations]);
   const selectedNoteIds =
     selection?.timeRange
       ? noteIdsInRange(notes, selection.timeRange.start, selection.timeRange.end)
@@ -103,6 +121,7 @@ function PianoRollView() {
         bpm={timeline.bpm}
         playheadTime={transport.position}
         annotations={annotations}
+        focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
         selectionTimeRange={selection?.timeRange}
         selectedNoteIds={selection?.noteIds ?? selectedNoteIds}

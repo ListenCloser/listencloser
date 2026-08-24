@@ -28,6 +28,7 @@ export default function PianoRoll({
   bpm = 120,
   playheadTime = 0,
   annotations,
+  focusedAnnotationId,
   onSeek,
   selectionTimeRange,
   selectedNoteIds,
@@ -39,6 +40,7 @@ export default function PianoRoll({
   bpm?: number;
   playheadTime?: number;
   annotations?: AnalysisAnnotation[];
+  focusedAnnotationId?: string | null;
   onSeek?: (seconds: number) => void;
   selectionTimeRange?: TimeRange | null;
   selectedNoteIds?: string[];
@@ -228,20 +230,41 @@ export default function PianoRoll({
             annotations.map((ann) => {
               const x1 = timeToX(ann.startSeconds);
               const x2 = timeToX(ann.endSeconds);
-              const colorVar =
-                ann.category === "rhythm"
-                  ? "var(--color-rhythm)"
-                  : "var(--color-harmony)";
+              const isFocused = ann.id === focusedAnnotationId;
+              let colorVar: string;
+              switch (ann.category) {
+                case "rhythm":
+                  colorVar = "var(--color-rhythm)";
+                  break;
+                case "theory":
+                  colorVar = "var(--color-theory, #8b5cf6)";
+                  break;
+                default:
+                  colorVar = "var(--color-harmony)";
+              }
               return (
-                <rect
-                  key={ann.id}
-                  x={x1}
-                  y={TOP_PAD}
-                  width={Math.max(x2 - x1, 1)}
-                  height={h - TOP_PAD}
-                  fill={colorVar}
-                  fillOpacity={0.06}
-                />
+                <g key={ann.id}>
+                  <rect
+                    x={x1}
+                    y={TOP_PAD}
+                    width={Math.max(x2 - x1, 1)}
+                    height={h - TOP_PAD}
+                    fill={colorVar}
+                    fillOpacity={isFocused ? 0.15 : 0.05}
+                  />
+                  {isFocused && (
+                    <rect
+                      x={x1}
+                      y={TOP_PAD}
+                      width={Math.max(x2 - x1, 1)}
+                      height={h - TOP_PAD}
+                      fill="none"
+                      stroke={colorVar}
+                      strokeWidth={1.5}
+                      strokeOpacity={0.4}
+                    />
+                  )}
+                </g>
               );
             })}
 

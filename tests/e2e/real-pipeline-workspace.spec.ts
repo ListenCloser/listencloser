@@ -30,7 +30,7 @@ test("a persisted work reopens with synchronized musical workspace views", async
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
   await page.getByRole("tab", { name: "Analysis" }).click();
-  await expect(page.getByText("A minor")).toBeVisible();
+  await expect(page.getByText("A minor").first()).toBeVisible();
   await expect(page.getByText("112 BPM")).toBeVisible();
 });
 
@@ -78,13 +78,13 @@ test("score appears as a playback source and follows the transport", async ({
 
   // A notation-derived render exists, so the score rendition is a selectable source.
   await page.getByRole("button", { name: /Listening to:/ }).click();
-  await expect(page.getByRole("option", { name: "Score rendition", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Score", exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
-  await expect(page.getByText("Select Score rendition in the transport to hear this notation (notation time).")).toBeVisible();
+  await expect(page.getByText("Select Score in the transport to hear this notation (notation time).")).toBeVisible();
 
   await page.getByRole("button", { name: /Listening to:/ }).click();
-  await page.getByRole("option", { name: "Score rendition", exact: true }).click();
+  await page.getByRole("option", { name: "Score", exact: true }).click();
   await expect(page.getByText("Playing the score rendition in notation time. Click a measure to jump or select it.")).toBeVisible();
 });
 
@@ -116,7 +116,7 @@ test("the representation changes independently of the playback source", async ({
   await expect(page.getByRole("button", { name: "Listening to: Original", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Analysis" }).click();
-  await expect(page.getByText("A minor")).toBeVisible();
+  await expect(page.getByText("A minor").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Listening to: Original", exact: true })).toBeVisible();
 });
 

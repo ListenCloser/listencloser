@@ -12,34 +12,19 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from ask.api import router as ask_router
 from auth_utils import get_supabase_client, limiter
 from domain.api import router as domain_router
+from observability import configure_logging, init_telemetry
 
-_request_id_ctx = contextvars.ContextVar("request_id", default="none")
-
-
-class _JsonFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        payload = {
-            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
-            "level": record.levelname,
-            "logger": record.name,
-            "msg": record.getMessage(),
-            "req_id": getattr(record, "req_id", "none"),
-        }
-        if record.exc_info:
-            payload["exc"] = self.formatException(record.exc_info)
-        return json.dumps(payload, ensure_ascii=False)
-
-
-_json_handler = logging.StreamHandler()
-_json_handler.setFormatter(_JsonFormatter())
-logging.basicConfig(level=logging.INFO, handlers=[_json_handler], force=True)
+configure_logging("hello-ai-api")
+init_telemetry("hello-ai-api")
 logger = logging.getLogger("backend")
+_request_id_ctx = contextvars.ContextVar("request_id", default="none")
 
 try:
     import sentry_sdk
@@ -63,13 +48,11 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create shared httpx client for LLM provider
     timeout = httpx.Timeout(30.0, connect=10.0)
     limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
     app.state.http_client = httpx.AsyncClient(timeout=timeout, limits=limits)
     logger.info("http_client_created")
     yield
-    # Shutdown: close shared httpx client
     await app.state.http_client.aclose()
     logger.info("http_client_closed")
 
@@ -87,6 +70,10 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(domain_router)
 app.include_router(ask_router)
+
+# Instrument after routes are registered so request spans include FastAPI route
+# names. Export remains a no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
+FastAPIInstrumentor.instrument_app(app)
 
 
 @app.middleware("http")

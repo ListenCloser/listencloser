@@ -12,7 +12,7 @@ describe("buildPlaybackSources", () => {
       score: ref("score"),
     });
     expect(sources.map((s) => s.role)).toEqual(["original", "transcription", "score"]);
-    expect(sources.map((s) => s.label)).toEqual(["Original", "Transcription", "Score rendition"]);
+    expect(sources.map((s) => s.label)).toEqual(["Original", "Transcription", "Score"]);
   });
 
   it("derives the Score source from the score artifact, not the transcription", () => {

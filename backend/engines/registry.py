@@ -102,6 +102,15 @@ def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
     name = name or os.environ.get("HARMONY_ENGINE", "music21")
     if name == "music21":
         return Music21HarmonyEngine()
+    if name == "lv_chordia":
+        try:
+            from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
+
+            return LvChordiaHarmonyEngine()
+        except ImportError:
+            raise RuntimeError(
+                "lv-chordia is not installed. Install with: pip install lv-chordia"
+            ) from None
     raise ValueError(f"Unknown harmony engine: {name}")
 
 
@@ -112,3 +121,17 @@ def get_melody_engine(name: str | None = None) -> MelodyEngine:
     if name == "skyline":
         return SkylineMelodyEngine()
     raise ValueError(f"Unknown melody engine: {name}")
+
+
+def get_theory_engine(name: str | None = None):
+    """Get the theory interpretation engine.
+
+    This engine takes chord timeline + key context and produces
+    Roman numerals and harmonic function.
+    """
+    name = name or os.environ.get("THEORY_ENGINE", "theory_interpreter")
+    if name == "theory_interpreter":
+        from engines.theory.theory_engine import TheoryEngine
+
+        return TheoryEngine()
+    raise ValueError(f"Unknown theory engine: {name}")

@@ -16,6 +16,7 @@ import numpy as np
 
 import analyze
 import music_features
+from domain.capability_policy import is_product_evidence
 from domain.models import (
     Alignment,
     AlignmentKind,
@@ -38,8 +39,10 @@ from domain.repositories import (
     InsightRepo,
     VersionRepo,
 )
+from observability import get_tracer
 
 logger = logging.getLogger("capabilities")
+_tracer = get_tracer("hello-ai-engine")
 
 _STORAGE_BUCKET = "artifacts"
 
@@ -253,6 +256,38 @@ _KS_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69
 _NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 _ESSENTIA_UNSUPPORTED_OS = False
+
+
+def _merge_adjacent_identical_chords(chords: list[dict]) -> list[dict]:
+    """Merge consecutive identical chords into single spans.
+
+    Two adjacent chords are merged if they have the same root and quality
+    and their time ranges are contiguous (end of first == start of second
+    within floating-point tolerance).
+
+    The original temporal evidence is preserved in the merged span (start
+    of first, end of last). This is deterministic and tested.
+    """
+    if not chords:
+        return []
+
+    merged: list[dict] = []
+    current = dict(chords[0])  # copy to avoid mutating input
+
+    for ch in chords[1:]:
+        if (
+            ch.get("root") == current.get("root")
+            and ch.get("quality") == current.get("quality")
+            and abs(ch.get("start", 0) - current.get("end", 0)) < 0.05
+        ):
+            # Extend current span
+            current["end"] = ch.get("end", current.get("end"))
+        else:
+            merged.append(current)
+            current = dict(ch)
+
+    merged.append(current)
+    return merged
 
 
 def _extract_essentia(audio: np.ndarray, sr: float) -> dict | None:
@@ -488,13 +523,22 @@ def handle_transcribe(job: Job, client) -> list[str]:
     audio_bytes = music_features.decode_audio_to_wav(audio_bytes, fmt=fmt)
 
     _update_progress(client, job.id, 0.3, "transcribing audio")
-    engine = music_features.get_transcription_engine_for_job(
-        name=engine_name,
-        profile=profile,
-        onset_threshold=onset_threshold,
-        frame_threshold=frame_threshold,
-    )
-    result = engine.transcribe(audio_bytes, fmt="wav")
+    with _tracer.start_as_current_span(
+        "transcription",
+        attributes={
+            "engine": engine_name or "auto",
+            "profile": profile or "auto",
+            "onset_threshold": onset_threshold,
+            "frame_threshold": frame_threshold,
+        },
+    ):
+        engine = music_features.get_transcription_engine_for_job(
+            name=engine_name,
+            profile=profile,
+            onset_threshold=onset_threshold,
+            frame_threshold=frame_threshold,
+        )
+        result = engine.transcribe(audio_bytes, fmt="wav")
 
     # Some transcription engines (e.g. Transkun) return note/MIDI data only and
     # no synthesized audio. A zero-byte WAV would surface as a broken
@@ -592,7 +636,10 @@ def handle_audio_structure(job: Job, client) -> list[str]:
         audio_bytes, fmt=job.parameters.get("fmt", "wav")
     )
     _update_progress(client, job.id, 0.35, "finding beats and musical form")
-    result = music_features.structure_with_engine(wav_bytes)
+    with _tracer.start_as_current_span("audio_structure"):
+        result = music_features.structure_with_engine(wav_bytes)
+    if result is not None:
+        pass  # provenance captured via insight persistence below
 
     # The model remains optional until its heavyweight PyTorch/NATTEN runtime
     # is installed on the free ARM worker. Never fail an otherwise useful import
@@ -727,6 +774,7 @@ def handle_analyze(job: Job, client) -> list[str]:
         midi_path = f.name
 
     pulse: dict | None = None
+    wav_bytes: bytes | None = None
     if len(job.input_version_ids) > 1:
         try:
             _update_progress(client, job.id, 0.25, "measuring audio pulse")
@@ -735,9 +783,13 @@ def handle_analyze(job: Job, client) -> list[str]:
             wav_bytes = music_features.decode_audio_to_wav(
                 audio_bytes, fmt=job.parameters.get("fmt", "wav")
             )
-            beat_result = music_features.estimate_beats_with_engine(
-                wav_bytes, engine_name="beat_this"
-            )
+            with _tracer.start_as_current_span(
+                "beat_analysis",
+                attributes={"engine": "beat_this"},
+            ):
+                beat_result = music_features.estimate_beats_with_engine(
+                    wav_bytes, engine_name="beat_this"
+                )
             pulse = {
                 "bpm": beat_result.get("bpm"),
                 "beats": beat_result.get("beats") or [],
@@ -748,10 +800,11 @@ def handle_analyze(job: Job, client) -> list[str]:
             logger.exception("analyze_pulse_measurement_failed")
 
     _update_progress(client, job.id, 0.3, "running analysis")
-    try:
-        analysis = analyze.analyze_midi(midi_path, pulse=pulse)
-    finally:
-        os.unlink(midi_path)
+    with _tracer.start_as_current_span("music_analysis"):
+        try:
+            analysis = analyze.analyze_midi(midi_path, pulse=pulse, audio_bytes=wav_bytes)
+        finally:
+            os.unlink(midi_path)
 
     insight_ids: list[str] = []
     pulse_is_default = _transcription_defaults_pulse(input_version)
@@ -768,6 +821,8 @@ def handle_analyze(job: Job, client) -> list[str]:
     _update_progress(client, job.id, 0.45, "storing key insight")
     key_data = analysis.get("key") or {}
     key_conf = float(key_data.get("confidence", 0.0))
+    key_source = analysis.get("key_source", "harmony_engine")
+    key_provenance = analysis.get("key_provenance")
     if key_data:
         tonic = key_data.get("tonic", "?")
         mode = key_data.get("mode", "?")
@@ -776,7 +831,12 @@ def handle_analyze(job: Job, client) -> list[str]:
             input_version.id,
             "key",
             f"Key: {tonic} {mode}",
-            evidence={"tonic": tonic, "mode": mode},
+            evidence={
+                "tonic": tonic,
+                "mode": mode,
+                "key_source": key_source,
+                "key_provenance": key_provenance,
+            },
             confidence=key_conf,
             job=job,
             owner_id=owner_id,
@@ -843,32 +903,216 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(tsid))
 
-    # Chords — WITHHELD until a trustworthy chord engine is available.
-    # Current music21 symbolic chord detection has root=0.02, majmin=0.02
-    # on GuitarSet (see evaluation/chord_eval.py). Persisting these as
-    # product evidence would mislead users. The analysis still runs for
-    # evaluation purposes but insights are not surfaced.
+    # Chords — engine-gated persistence.
+    # music21 symbolic chord detection (root=0.02) is unreliable and withheld.
+    # lv-chordia audio-native detection (root=0.787 on GuitarSet comp) is
+    # the trusted chord source. Only persist chords when provenance confirms
+    # they came from a validated engine.
     chords = analysis.get("chords", []) or []
-    chord_count = len(chords)
-    logger.info(
-        "chords_withheld",
-        extra={"count": chord_count, "reason": "unreliable_engine"},
-    )
+    chord_provenance = _hp("chords")
+    chord_engine = chord_provenance.get("engine") if chord_provenance else None
+    chord_engine_trusted = chord_engine == "lv-chordia"
 
-    # Roman numerals — WITHHELD (depends on unreliable chord stream)
+    if chord_engine_trusted and chords:
+        # Filter out N (no-chord) markers — these represent gaps, not chords
+        harmonic_chords = [c for c in chords if c.get("root") != "N"]
+
+        # Collapse consecutive identical chords into merged spans
+        merged_chords = _merge_adjacent_identical_chords(harmonic_chords)
+
+        # Persist as chord insights (max 20 to avoid overwhelming the UI)
+        for ch in merged_chords[:20]:
+            root = ch.get("root", "?")
+            quality = ch.get("quality", "")
+            label = f"{root} {quality}".strip()
+            ch_start = ch.get("start")
+            ch_end = ch.get("end")
+            cid = _create_insight(
+                client,
+                input_version.id,
+                "chord",
+                label,
+                evidence={
+                    "root": root,
+                    "quality": quality,
+                    "start_seconds": ch_start,
+                    "end_seconds": ch_end,
+                },
+                span=Span(
+                    start_seconds=ch_start,
+                    end_seconds=ch_end,
+                ),
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="detected",
+                engine_provenance=chord_provenance,
+            )
+            insight_ids.append(str(cid))
+
+        logger.info(
+            "chords_persisted",
+            extra={
+                "raw_count": len(chords),
+                "harmonic_count": len(harmonic_chords),
+                "merged_count": len(merged_chords),
+                "persisted_count": min(len(merged_chords), 20),
+                "engine": chord_engine,
+            },
+        )
+    else:
+        # Chords not from a trusted engine — withhold
+        logger.info(
+            "chords_withheld",
+            extra={
+                "count": len(chords),
+                "engine": chord_engine,
+                "reason": "untrusted_engine" if chords else "no_chords",
+            },
+        )
+
+    # Roman numerals — WITHHELD until independently verified against lv-chordia stream
     rns = analysis.get("roman_numerals", []) or []
     if rns:
         logger.info(
             "roman_numerals_withheld",
-            extra={"count": len(rns), "reason": "unreliable_chord_stream"},
+            extra={"count": len(rns), "reason": "pending_independent_verification"},
         )
 
-    # Cadences — WITHHELD (depends on unreliable chord stream)
-    cadences = analysis.get("cadences", []) or []
-    if cadences:
+    # Theory-derived Roman numerals (from TheoryInterpreter, not music21)
+    # These are persisted when chord engine is lv-chordia AND trusted key exists
+    rns_theory = analysis.get("roman_numerals_theory", []) or []
+    theory_provenance = analysis.get("theory_provenance")
+    if chord_engine_trusted and rns_theory:
+        # Persist as RN insights (max 30 to avoid overwhelming the UI)
+        for rn in rns_theory[:30]:
+            numeral = rn.get("numeral", "")
+            if not numeral:
+                continue
+            key_ctx = rn.get("key_context", "")
+            rn_key_source = rn.get("key_source")
+            rn_key_prov = rn.get("key_provenance")
+            label = f"{numeral} ({key_ctx})" if key_ctx else numeral
+            rn_start = rn.get("start")
+            rn_end = rn.get("end")
+            rnid = _create_insight(
+                client,
+                input_version.id,
+                "roman_numeral",
+                label,
+                evidence={
+                    "numeral": numeral,
+                    "degree": rn.get("degree"),
+                    "quality": rn.get("quality"),
+                    "inversion": rn.get("inversion"),
+                    "is_secondary": rn.get("is_secondary"),
+                    "secondary_target": rn.get("secondary_target"),
+                    "start_seconds": rn_start,
+                    "end_seconds": rn_end,
+                    "key_context": key_ctx,
+                    "key_source": rn_key_source,
+                    "key_provenance": rn_key_prov,
+                },
+                span=Span(
+                    start_seconds=rn_start,
+                    end_seconds=rn_end,
+                ),
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="inferred",
+                engine_provenance=theory_provenance,
+            )
+            insight_ids.append(str(rnid))
+
+        logger.info(
+            "roman_numerals_persisted",
+            extra={
+                "count": len(rns_theory),
+                "persisted_count": min(len(rns_theory), 30),
+                "engine": "theory_interpreter",
+            },
+        )
+    else:
+        logger.info(
+            "roman_numerals_withheld",
+            extra={"count": len(rns_theory), "reason": "no_trusted_chords"},
+        )
+
+    # Harmonic functions (from TheoryInterpreter)
+    functions = analysis.get("harmonic_functions", []) or []
+    if chord_engine_trusted and functions:
+        # Persist as function insights (max 30)
+        for func in functions[:30]:
+            function_name = func.get("function", "")
+            numeral = func.get("numeral", "")
+            if not function_name or function_name == "AMBIGUOUS":
+                continue
+            func_key_source = func.get("key_source")
+            func_key_prov = func.get("key_provenance")
+            label = f"{function_name} ({numeral})"
+            func_start = func.get("start")
+            func_end = func.get("end")
+            fid = _create_insight(
+                client,
+                input_version.id,
+                "harmonic_function",
+                label,
+                evidence={
+                    "function": function_name,
+                    "numeral": numeral,
+                    "start_seconds": func_start,
+                    "end_seconds": func_end,
+                    "key_context": func.get("key_context"),
+                    "key_source": func_key_source,
+                    "key_provenance": func_key_prov,
+                },
+                span=Span(
+                    start_seconds=func_start,
+                    end_seconds=func_end,
+                ),
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="inferred",
+                engine_provenance=theory_provenance,
+            )
+            insight_ids.append(str(fid))
+
+        logger.info(
+            "harmonic_functions_persisted",
+            extra={
+                "count": len(functions),
+                "persisted_count": min(len(functions), 30),
+                "engine": "theory_interpreter",
+            },
+        )
+    else:
+        logger.info(
+            "harmonic_functions_withheld",
+            extra={"count": len(functions), "reason": "no_trusted_chords"},
+        )
+
+    # Cadences — policy-gated: withheld until cadence detection is validated.
+    cadences_theory = analysis.get("cadences_theory", []) or []
+    if cadences_theory and not is_product_evidence("cadence"):
         logger.info(
             "cadences_withheld",
-            extra={"count": len(cadences), "reason": "unreliable_chord_stream"},
+            extra={
+                "count": len(cadences_theory),
+                "reason": "capability_policy_withheld",
+            },
+        )
+
+    # Key regions — policy-gated: withheld until a real modulation detector is validated.
+    key_regions = analysis.get("key_regions_theory", []) or []
+    if key_regions and not is_product_evidence("key_region"):
+        logger.info(
+            "key_regions_withheld",
+            extra={
+                "count": len(key_regions),
+                "reason": "capability_policy_withheld",
+            },
         )
 
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.
@@ -933,12 +1177,12 @@ def handle_analyze(job: Job, client) -> list[str]:
             )
             insight_ids.append(str(rsid))
 
-    # Harmonic rhythm — WITHHELD (depends on unreliable chord stream)
+    # Harmonic rhythm — policy-gated: withheld (depends on unreliable chord stream)
     harmonic_rhythm = analysis.get("harmonic_rhythm") or []
-    if harmonic_rhythm:
+    if harmonic_rhythm and not is_product_evidence("harmonic_rhythm"):
         logger.info(
             "harmonic_rhythm_withheld",
-            extra={"count": len(harmonic_rhythm), "reason": "unreliable_chord_stream"},
+            extra={"count": len(harmonic_rhythm), "reason": "capability_policy_withheld"},
         )
 
     melody = analysis.get("melody") or {}
@@ -961,12 +1205,12 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(mid))
 
-    # Voice leading — WITHHELD (depends on unreliable chord stream)
+    # Voice leading — policy-gated: withheld (depends on unreliable chord stream)
     voice_leading = analysis.get("voice_leading") or {}
-    if voice_leading:
+    if voice_leading and not is_product_evidence("voice_leading"):
         logger.info(
             "voice_leading_withheld",
-            extra={"reason": "unreliable_chord_stream"},
+            extra={"reason": "capability_policy_withheld"},
         )
 
     _update_progress(client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)")
@@ -1002,17 +1246,18 @@ def handle_score(job: Job, client) -> list[str]:
             downbeats = beat_result.get("downbeats")
         except Exception:
             logger.exception("score_beat_tracking_failed")
-    notation_result = music_features.notation_with_engine(
-        midi_bytes,
-        beat_times,
-        downbeats=downbeats,
-        adaptive=True,
-        notation_ready=True,
-        piano_grand_staff=True,
-    )
+    _update_progress(client, job.id, 0.5, "creating notation")
+    with _tracer.start_as_current_span("notation"):
+        notation_result = music_features.notation_with_engine(
+            midi_bytes,
+            beat_times,
+            downbeats=downbeats,
+            adaptive=True,
+            notation_ready=True,
+            piano_grand_staff=True,
+        )
     notation_midi = notation_result["notation_midi"]
     notation_report = notation_result["quantization_report"]
-    _update_progress(client, job.id, 0.5, "creating notation")
     notation_key = _job_storage_key(job, "notation.mid")
     _upload_bytes(client, _STORAGE_BUCKET, notation_key, notation_midi, "audio/midi")
     notation_version_id = _create_output_version(
