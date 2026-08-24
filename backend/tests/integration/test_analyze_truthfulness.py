@@ -58,9 +58,7 @@ def _midi_bytes() -> bytes:
     for i in range(60):
         pitch = random.randint(60, 84)
         start = i * 0.5
-        inst.notes.append(
-            pretty_midi.Note(velocity=80, pitch=pitch, start=start, end=start + 0.4)
-        )
+        inst.notes.append(pretty_midi.Note(velocity=80, pitch=pitch, start=start, end=start + 0.4))
     pm.instruments.append(inst)
     buf = io.BytesIO()
     pm.write(buf)

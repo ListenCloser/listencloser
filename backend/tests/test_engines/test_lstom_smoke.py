@@ -200,9 +200,9 @@ class TestLStoMModelLifecycle:
         model_second = lstom_engine._get_model()
 
         # Same Python object — model was not reloaded
-        assert model_first is model_second, (
-            "Model was reloaded on second engine construction — should be cached singleton"
-        )
+        assert (
+            model_first is model_second
+        ), "Model was reloaded on second engine construction — should be cached singleton"
 
         # Both engines produce identical output
         midi_bytes = SMOKE_TEST_MIDI.read_bytes()
@@ -219,9 +219,7 @@ class TestLStoMModelLifecycle:
         inst = pretty_midi.Instrument(program=0)
         for i in range(8):
             inst.notes.append(
-                pretty_midi.Note(
-                    velocity=80, pitch=60 + i, start=i * 0.5, end=i * 0.5 + 0.4
-                )
+                pretty_midi.Note(velocity=80, pitch=60 + i, start=i * 0.5, end=i * 0.5 + 0.4)
             )
         pm.instruments.append(inst)
         buf = io.BytesIO()
