@@ -178,6 +178,37 @@ describe("TransportProvider", () => {
     expect(result.current.transport.activeSource?.id).toBe("a");
   });
 
+  it("preserves position when switching between sources", () => {
+    const { result } = renderHook(() => useTransport(), { wrapper });
+
+    act(() => {
+      result.current.replaceSources([src("original", "orig"), src("transcription", "trans"), score], "orig");
+      result.current.seek(20);
+    });
+    expect(result.current.transport.position).toBe(20);
+
+    // Switch to Transcription
+    act(() => {
+      result.current.setActiveSource(src("transcription", "trans"));
+    });
+    expect(result.current.transport.position).toBe(20);
+    expect(result.current.transport.activeSource?.id).toBe("trans");
+
+    // Switch to Score
+    act(() => {
+      result.current.setActiveSource(score);
+    });
+    expect(result.current.transport.position).toBe(20);
+    expect(result.current.transport.activeSource?.id).toBe("score-audio");
+
+    // Switch back to Original
+    act(() => {
+      result.current.setActiveSource(src("original", "orig"));
+    });
+    expect(result.current.transport.position).toBe(20);
+    expect(result.current.transport.activeSource?.id).toBe("orig");
+  });
+
   it("falls back to the requested source when the preserved source is gone", () => {
     const { result } = renderHook(() => useTransport(), { wrapper });
 
