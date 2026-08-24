@@ -90,7 +90,7 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
     ``midi_input`` may be a file path or raw MIDI bytes.
     """
     try:
-        if isinstance(midi_input, bytes | bytearray):
+        if isinstance(midi_input, (bytes, bytearray)):  # noqa: UP038
             pm = pretty_midi.PrettyMIDI(io.BytesIO(midi_input))
         else:
             pm = pretty_midi.PrettyMIDI(midi_input)
