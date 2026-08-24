@@ -61,12 +61,12 @@ test.describe("score playback following (MSW)", () => {
       timeout: 30_000,
     });
 
-    // Switch to Score rendition source
+    // Switch to Score source
     await page
       .getByRole("button", { name: /Listening to/ })
       .click();
     await page
-      .getByRole("option", { name: "Score rendition", exact: true })
+      .getByRole("option", { name: "Score", exact: true })
       .click();
 
     // Verify hint says notation time
@@ -133,12 +133,12 @@ test.describe("score playback following (MSW)", () => {
       timeout: 30_000,
     });
 
-    // Switch to Score rendition source
+    // Switch to Score source
     await page
       .getByRole("button", { name: /Listening to/ })
       .click();
     await page
-      .getByRole("option", { name: "Score rendition", exact: true })
+      .getByRole("option", { name: "Score", exact: true })
       .click();
 
     // Play
@@ -190,12 +190,12 @@ test.describe("score playback following (MSW)", () => {
       page.locator("[data-selection-highlight]").first(),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Switch to Score rendition source and play
+    // Switch to Score source and play
     await page
       .getByRole("button", { name: /Listening to/ })
       .click();
     await page
-      .getByRole("option", { name: "Score rendition", exact: true })
+      .getByRole("option", { name: "Score", exact: true })
       .click();
     await page.getByRole("button", { name: "Play", exact: true }).click();
 

@@ -23,7 +23,7 @@ const src = (role: "original" | "transcription" | "derived", id: string) => ({
 
 const score = {
   id: "score-audio",
-  label: "Score rendition",
+  label: "Score",
   url: "data:audio/wav;base64,score",
   kind: "audio" as const,
   role: "score" as const,
@@ -196,7 +196,7 @@ describe("TransportProvider", () => {
 
 describe("TransportProvider domain-aware loop", () => {
   const perfSrc = { id: "perf", label: "Original", url: "data:audio/wav;base64,perf", kind: "audio" as const, role: "original" as const };
-  const scoreSrc = { id: "score", label: "Score rendition", url: "data:audio/wav;base64,score", kind: "audio" as const, role: "score" as const };
+  const scoreSrc = { id: "score", label: "Score", url: "data:audio/wav;base64,score", kind: "audio" as const, role: "score" as const };
 
   function wrapperWithWorkspace({ children }: { children: ReactNode }) {
     return (

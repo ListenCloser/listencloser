@@ -572,7 +572,7 @@ export default function SheetMusic({
     ? "Score playback is not available for this piece yet."
     : isScoreActive
       ? "Playing the score rendition in notation time. Click a measure to jump or select it."
-      : "Select Score rendition in the transport to hear this notation (notation time).";
+      : "Select Score in the transport to hear this notation (notation time).";
 
   return (
     <>

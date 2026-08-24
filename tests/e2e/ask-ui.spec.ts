@@ -87,13 +87,13 @@ test.describe("contextual Ask inspector (MSW)", () => {
   test("domain-mismatched loop and seek actions are disabled", async ({ page }) => {
     await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
 
-    // Switch the playback source to the Score rendition so the active timeline
+    // Switch the playback source to the Score so the active timeline
     // is notation time. The mocked suggested actions are performance-domain,
     // so Loop passage and Jump to time must render disabled (not clickable
     // no-ops), while the representation action stays enabled.
     await page.getByRole("button", { name: /Listening to:/ }).click();
-    await page.getByRole("option", { name: "Score rendition", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Listening to: Score rendition", exact: true })).toBeVisible();
+    await page.getByRole("option", { name: "Score", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Listening to: Score", exact: true })).toBeVisible();
 
     await openAsk(page);
     await page.getByRole("button", { name: "What is happening harmonically here?" }).click();
