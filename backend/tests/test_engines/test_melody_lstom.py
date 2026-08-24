@@ -17,15 +17,7 @@ from engines.melody.lstom_engine import LStoMMelodyEngine  # noqa: E402
 from engines.melody.skyline_engine import SkylineMelodyEngine  # noqa: E402
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixtures"
-REAL_PIANO_MIDI = (
-    FIXTURE_DIR.parent
-    / "evaluation"
-    / "results"
-    / "qualitative_v2"
-    / "artifacts"
-    / "real-piano"
-    / "basic_pitch_real_piano_m4a.mid"
-)
+SIMPLE_MELODY_MIDI = FIXTURE_DIR / "music_eval" / "simple_melody.mid"
 
 
 def _read_bytes(path: Path) -> bytes:
@@ -48,14 +40,14 @@ class TestLStoMMelodyEngine:
     def test_returns_melody_result(self):
         """Engine returns a MelodyResult with melody data."""
         engine = LStoMMelodyEngine()
-        result = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
+        result = engine.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
         assert result.melody is not None
         assert result.provenance.engine == "lstom"
 
     def test_melody_fields(self):
         """Melody result contains expected fields."""
         engine = LStoMMelodyEngine()
-        result = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
+        result = engine.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
         melody = result.melody
         assert "low_pitch" in melody
         assert "high_pitch" in melody
@@ -68,8 +60,8 @@ class TestLStoMMelodyEngine:
     def test_deterministic(self):
         """Same input produces same output."""
         engine = LStoMMelodyEngine()
-        r1 = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
-        r2 = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
+        r1 = engine.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
+        r2 = engine.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
         assert r1.melody["low_pitch"] == r2.melody["low_pitch"]
         assert r1.melody["high_pitch"] == r2.melody["high_pitch"]
         assert r1.melody["stepwise_ratio"] == r2.melody["stepwise_ratio"]
@@ -77,7 +69,7 @@ class TestLStoMMelodyEngine:
     def test_no_accompaniment_contamination(self):
         """LStoM stays in melodic range (no bass contamination)."""
         engine = LStoMMelodyEngine()
-        result = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
+        result = engine.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
         melody = result.melody
         # Melody should not extend into bass range (below MIDI 48 = C3)
         assert (
@@ -89,8 +81,8 @@ class TestLStoMMelodyEngine:
         lstom = LStoMMelodyEngine()
         skyline = SkylineMelodyEngine()
 
-        r_lstom = lstom.analyze(_read_bytes(REAL_PIANO_MIDI))
-        r_skyline = skyline.analyze(_read_bytes(REAL_PIANO_MIDI))
+        r_lstom = lstom.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
+        r_skyline = skyline.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
 
         # Both should produce output
         assert r_lstom.melody is not None
@@ -132,7 +124,7 @@ class TestLStoMRegression:
 
     def test_piano_synthetic_stepwise_ratio(self, engine):
         """Lock stepwise ratio on real-piano fixture."""
-        result = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
+        result = engine.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
         melody = result.melody
         # Stepwise ratio should be reasonable for pop piano
         assert (
@@ -141,7 +133,7 @@ class TestLStoMRegression:
 
     def test_piano_synthetic_pitch_range(self, engine):
         """Lock pitch range on real-piano fixture."""
-        result = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
+        result = engine.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
         melody = result.melody
         # Pitch range should be 1-2 octaves for pop melody
         assert (
@@ -150,7 +142,7 @@ class TestLStoMRegression:
 
     def test_piano_synthetic_quality_score(self, engine):
         """Lock quality score on real-piano fixture."""
-        result = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
+        result = engine.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
         melody = result.melody
         # Quality score should be between 0 and 1
         assert 0.0 <= melody["quality_score"] <= 1.0
