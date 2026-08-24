@@ -1,11 +1,21 @@
 import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
-import { injectAuth } from "./real-stack-auth";
+
+/**
+ * Real-stack workflow tests.
+ *
+ * These tests run AFTER the setup project has:
+ *   1. Created a Supabase test user
+ *   2. Imported real-piano.m4a
+ *   3. Waited for the full pipeline to complete
+ *   4. Saved browser storageState with the authenticated session
+ *
+ * Each test gets an isolated browser context with the storageState loaded,
+ * so the Supabase client finds the session in localStorage and the app
+ * auto-loads the existing work.
+ */
 
 const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 async function transportPosition(page: import("@playwright/test").Page): Promise<number> {
   return Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
@@ -49,74 +59,38 @@ async function setCompareSideSource(page: import("@playwright/test").Page, side:
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
-async function waitForProjectReady(page: import("@playwright/test").Page) {
-  await page
-    .waitForResponse(
-      (resp) =>
-        /\/api\/v1\/projects\/[^/]+\/works$/.test(new URL(resp.url()).pathname) &&
-        resp.request().method() === "GET",
-      { timeout: 30_000 },
-    )
-    .catch(() => {});
-  await expect(
-    page.getByRole("complementary").getByRole("button", { name: "Import audio" }),
-  ).toBeEnabled({ timeout: 30_000 });
-}
-
-async function importWithRetry(page: import("@playwright/test").Page) {
-  await waitForProjectReady(page);
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const importButton = page
-      .getByRole("complementary")
-      .getByRole("button", { name: "Import audio" });
-    await expect(importButton).toBeEnabled({ timeout: 30_000 });
-    await importButton.click();
-    await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
-
-    const uploading = page.getByText("Uploading your recording…");
-    const failed = page.getByRole("alert").filter({ hasText: "Your project is still loading" });
-    const outcome = await Promise.race([
-      uploading.waitFor({ state: "visible", timeout: 15_000 }).then(() => "started"),
-      failed.waitFor({ state: "visible", timeout: 15_000 }).then(() => "failed"),
-    ]);
-    if (outcome === "started") return;
-    await failed.getByRole("button", { name: "Try another file" }).click();
-    await expect(failed).toBeHidden({ timeout: 10_000 });
-  }
-  throw new Error("import did not start after retries");
-}
-
-test("real-stack happy path: import → play → inspect → compare → reload", async ({ page }) => {
+test("play → inspect → compare → reload", async ({ page }) => {
   test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required");
-  test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
-  test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
 
-  await injectAuth(page);
+  // Navigate — app should auto-load the existing work from storageState
   await page.goto("/");
-  await importWithRetry(page);
-
-  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
 
+  // Original audio plays
   await selectSource(page, "Original");
   await expect(await listeningTo(page, "Original")).toBeVisible();
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
   await page.getByRole("button", { name: "Pause", exact: true }).click();
 
+  // Transcription plays
   await selectSource(page, "Transcription");
   await expect(await listeningTo(page, "Transcription")).toBeVisible();
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
   await page.getByRole("button", { name: "Pause", exact: true }).click();
 
+  // Piano roll renders notes
   await page.getByRole("tab", { name: "Piano Roll" }).click();
   await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("piano-roll").getByText(/\d+ notes/)).toBeVisible();
 
+  // Score notation renders
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
 
+  // Score is a distinct Listening source
   await openSourceSelector(page);
   await expect(page.getByRole("option", { name: "Score rendition", exact: true })).toBeVisible();
   await page.getByRole("option", { name: "Score rendition", exact: true }).click();
@@ -126,11 +100,13 @@ test("real-stack happy path: import → play → inspect → compare → reload"
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
   await page.getByRole("button", { name: "Pause", exact: true }).click();
 
+  // Analysis insight content
   await page.getByRole("tab", { name: "Analysis" }).click();
   await expect(page.getByText("Key", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("C major").first()).toBeVisible({ timeout: 30_000 });
   await page.getByRole("tab", { name: "Score" }).click();
 
+  // Measure click seeks transport
   const beforeSeek = await transportPosition(page);
   const cursorBefore = await scoreCursorLeft(page);
   const measures = page.locator(".sheet-music-container g.vf-measure");
@@ -146,6 +122,7 @@ test("real-stack happy path: import → play → inspect → compare → reload"
     { timeout: 10_000 },
   ).toBe(true);
 
+  // Representation changes preserve playback
   await selectSource(page, "Original");
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
@@ -163,6 +140,7 @@ test("real-stack happy path: import → play → inspect → compare → reload"
   await expect(await listeningTo(page, "Original")).toBeVisible();
   await page.getByRole("button", { name: "Pause", exact: true }).click();
 
+  // Source swap preserves playhead
   const positionBeforeSourceSwap = await transportPosition(page);
   await selectSource(page, "Transcription");
   await expect(await listeningTo(page, "Transcription")).toBeVisible();
@@ -172,6 +150,7 @@ test("real-stack happy path: import → play → inspect → compare → reload"
   await expect(await listeningTo(page, "Score rendition")).toBeVisible();
   await expectPositionPreserved(page, positionBeforeSourceSwap);
 
+  // A/B comparison
   await page.getByRole("button", { name: "Compare", exact: true }).click();
   await expect(page.getByRole("group", { name: "Compare playback" })).toBeVisible();
 
@@ -187,10 +166,12 @@ test("real-stack happy path: import → play → inspect → compare → reload"
   await expectPositionPreserved(page, positionBeforeCompare);
   await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
 
+  // Analysis scopes to selection
   await page.getByRole("button", { name: "Exit compare", exact: true }).click();
   await page.getByRole("tab", { name: "Analysis" }).click();
   await expect(page.getByText("Selection", { exact: true }).first()).toBeVisible({ timeout: 20_000 });
 
+  // Reload keeps persisted state
   await page.reload();
   await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible();
@@ -205,12 +186,9 @@ test("real-stack happy path: import → play → inspect → compare → reload"
 
 test("shared musical selection across representations", async ({ page }) => {
   test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required");
-  test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
-  test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
 
-  await injectAuth(page);
   await page.goto("/");
-  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
 
   async function selectWaveformRegion(startFrac: number, endFrac: number) {
@@ -274,12 +252,9 @@ test("shared musical selection across representations", async ({ page }) => {
 
 test("delete work and verify clean state", async ({ page }) => {
   test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required");
-  test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
-  test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
 
-  await injectAuth(page);
   await page.goto("/");
-  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 60_000 });
 
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
   await page.getByTitle("Delete work").click();

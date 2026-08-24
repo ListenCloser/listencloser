@@ -1,12 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
-import { injectAuth } from "./real-stack-auth";
 
 const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
 const SHOTS = process.env.SCREENSHOT_DIR ?? "docs/pr/227";
 
 async function transportPosition(page: import("@playwright/test").Page): Promise<number> {
@@ -18,15 +13,12 @@ async function selectSource(page: import("@playwright/test").Page, label: string
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
-test("Ask inspects the real workspace: open → answer → switch modes → collapse", async ({ page }) => {
-  test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required (no fallback fixture)");
-  test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
-  test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
+test("Ask: open → answer → switch modes → collapse", async ({ page }) => {
+  test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required");
 
   let failAsk = false;
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  await injectAuth(page);
 
   await page.route("**/api/v1/ask", (route) => {
     if (failAsk) {
@@ -56,7 +48,7 @@ test("Ask inspects the real workspace: open → answer → switch modes → coll
   });
 
   await page.goto("/");
-  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Operation failed")).not.toBeVisible();
 
   await page.getByRole("tab", { name: "Ask" }).click();
