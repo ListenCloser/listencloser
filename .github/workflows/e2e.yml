@@ -24,6 +24,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            nextjs-${{ hashFiles('package-lock.json') }}-
       - run: npm ci
       - name: Install Playwright
         run: npx playwright install chromium --with-deps
@@ -42,7 +48,12 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key"
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
       - name: Wait for server
-        run: npx wait-on http://localhost:3000
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:3000 >/dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS http://localhost:3000 >/dev/null || { echo "Server not ready"; exit 1; }
       - name: Run E2E tests
         run: npx playwright test tests/e2e
         env:
