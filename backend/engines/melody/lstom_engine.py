@@ -172,10 +172,7 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
             "heuristic": "lstom_biLSTM",
             "model_version": _MODEL_VERSION,
         }
-    except Exception as exc:
-        import sys
-
-        print(f"[LStoM DEBUG] Exception: {type(exc).__name__}: {exc}", file=sys.stderr)
+    except Exception:
         return None
 
 
