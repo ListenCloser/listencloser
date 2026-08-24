@@ -1,6 +1,6 @@
 # Copyright 2022 ByteDance Ltd. and/or its affiliates
-# SPDX-License-Identifier: MIT 
-# 
+# SPDX-License-Identifier: MIT
+#
 # @Author: Katerina Kosta
 # @Date:   2021-05-21 11:48:11
 # @Last Modified by:   Katerina Kosta

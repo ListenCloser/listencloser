@@ -18,8 +18,13 @@ from engines.melody.skyline_engine import SkylineMelodyEngine  # noqa: E402
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 REAL_PIANO_MIDI = (
-    FIXTURE_DIR.parent / "evaluation" / "results" / "qualitative_v2"
-    / "artifacts" / "real-piano" / "basic_pitch_real_piano_m4a.mid"
+    FIXTURE_DIR.parent
+    / "evaluation"
+    / "results"
+    / "qualitative_v2"
+    / "artifacts"
+    / "real-piano"
+    / "basic_pitch_real_piano_m4a.mid"
 )
 
 
@@ -75,9 +80,9 @@ class TestLStoMMelodyEngine:
         result = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
         melody = result.melody
         # Melody should not extend into bass range (below MIDI 48 = C3)
-        assert melody["low_pitch"] >= 48, (
-            f"Melody low pitch {melody['low_pitch']} suggests accompaniment contamination"
-        )
+        assert (
+            melody["low_pitch"] >= 48
+        ), f"Melody low pitch {melody['low_pitch']} suggests accompaniment contamination"
 
     def test_compare_with_skyline(self):
         """LStoM produces different (cleaner) output than skyline."""
@@ -94,21 +99,21 @@ class TestLStoMMelodyEngine:
         # LStoM should have narrower range (less contamination)
         lstom_range = r_lstom.melody["range_semitones"]
         # LStoM range should be reasonable (not spanning entire keyboard)
-        assert lstom_range <= 60, (
-            f"LStoM range {lstom_range} semitones seems too wide for melody"
-        )
+        assert lstom_range <= 60, f"LStoM range {lstom_range} semitones seems too wide for melody"
 
     def test_empty_midi(self):
         """Engine handles empty/short MIDI gracefully."""
         engine = LStoMMelodyEngine()
         # Create minimal MIDI with < 2 notes
         import pretty_midi
+
         pm = pretty_midi.PrettyMIDI()
         inst = pretty_midi.Instrument(program=0)
         inst.notes.append(pretty_midi.Note(velocity=64, pitch=60, start=0.0, end=0.5))
         pm.instruments.append(inst)
 
         import io
+
         buf = io.BytesIO()
         pm.write(buf)
         midi_bytes = buf.getvalue()
@@ -130,18 +135,18 @@ class TestLStoMRegression:
         result = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
         melody = result.melody
         # Stepwise ratio should be reasonable for pop piano
-        assert 0.3 <= melody["stepwise_ratio"] <= 0.9, (
-            f"Stepwise ratio {melody['stepwise_ratio']} outside expected range"
-        )
+        assert (
+            0.3 <= melody["stepwise_ratio"] <= 0.9
+        ), f"Stepwise ratio {melody['stepwise_ratio']} outside expected range"
 
     def test_piano_synthetic_pitch_range(self, engine):
         """Lock pitch range on real-piano fixture."""
         result = engine.analyze(_read_bytes(REAL_PIANO_MIDI))
         melody = result.melody
         # Pitch range should be 1-2 octaves for pop melody
-        assert 5 <= melody["range_semitones"] <= 36, (
-            f"Range {melody['range_semitones']} semitones outside expected range"
-        )
+        assert (
+            5 <= melody["range_semitones"] <= 36
+        ), f"Range {melody['range_semitones']} semitones outside expected range"
 
     def test_piano_synthetic_quality_score(self, engine):
         """Lock quality score on real-piano fixture."""

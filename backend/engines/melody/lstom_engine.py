@@ -104,11 +104,13 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
         # Convert to feature representation
         note_dicts = []
         for note in notes:
-            note_dicts.append({
-                "pitch": note.pitch,
-                "start": note.start,
-                "duration": note.end - note.start,
-            })
+            note_dicts.append(
+                {
+                    "pitch": note.pitch,
+                    "start": note.start,
+                    "duration": note.end - note.start,
+                }
+            )
 
         features = _extract_features(note_dicts)
         if features.shape[1] < _SEGMENT_SIZE:
@@ -130,7 +132,7 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
         all_preds = []
 
         for seg_idx in range(features_scaled.shape[1] // _SEGMENT_SIZE):
-            seg = features_scaled[:, seg_idx * _SEGMENT_SIZE:(seg_idx + 1) * _SEGMENT_SIZE]
+            seg = features_scaled[:, seg_idx * _SEGMENT_SIZE : (seg_idx + 1) * _SEGMENT_SIZE]
             x = torch.tensor(seg.T.astype(np.float32)).unsqueeze(1)
             with torch.no_grad():
                 pred = model(x).squeeze().numpy()
@@ -141,9 +143,7 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
 
         # Collect melody notes
         melody_notes = [
-            notes[i]
-            for i in range(len(notes))
-            if i < len(pred_binary) and pred_binary[i] == 1
+            notes[i] for i in range(len(notes)) if i < len(pred_binary) and pred_binary[i] == 1
         ]
 
         if len(melody_notes) < 2:
