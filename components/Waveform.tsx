@@ -17,6 +17,7 @@ export default function Waveform({
   durationOverride,
   selection,
   annotations,
+  focusedAnnotationId,
   onSeek,
   onSelect,
   onAnnotationClick,
@@ -26,6 +27,7 @@ export default function Waveform({
   durationOverride?: number | null;
   selection?: MusicalSelection | null;
   annotations?: AnalysisAnnotation[];
+  focusedAnnotationId?: string | null;
   onSeek?: (time: number) => void;
   onSelect?: (start: number, end: number) => void;
   onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
@@ -154,6 +156,7 @@ export default function Waveform({
       for (const ann of annotations) {
         const x1 = timeToX(ann.startSeconds);
         const x2 = timeToX(ann.endSeconds);
+        const isFocused = ann.id === focusedAnnotationId;
         let color: string;
         switch (ann.category) {
           case "rhythm":
@@ -165,8 +168,13 @@ export default function Waveform({
           default:
             color = harmonyColor;
         }
-        canvasCtx.fillStyle = withAlpha(color, 0.08);
+        canvasCtx.fillStyle = withAlpha(color, isFocused ? 0.18 : 0.06);
         canvasCtx.fillRect(x1, 0, Math.max(x2 - x1, 1), h);
+        if (isFocused) {
+          canvasCtx.strokeStyle = withAlpha(color, 0.4);
+          canvasCtx.lineWidth = 1.5;
+          canvasCtx.strokeRect(x1, 0, Math.max(x2 - x1, 1), h);
+        }
       }
     }
 
@@ -214,7 +222,7 @@ export default function Waveform({
       canvasCtx.lineTo(x, h);
       canvasCtx.stroke();
     }
-  }, [position, selection, preview, status, duration, timeToX, annotations]);
+  }, [position, selection, preview, status, duration, timeToX, annotations, focusedAnnotationId]);
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
