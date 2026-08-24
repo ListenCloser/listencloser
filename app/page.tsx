@@ -292,7 +292,9 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         setLoadWarnings(warnings);
         setStage("success");
       } else {
-        setAnalysisState("completed"); // has midi/score → analysis was done
+        // Has midi/score → analysis was done.
+        // Also check insights: if insights exist, analysis is definitely complete.
+        setAnalysisState("completed");
         setActiveJobId(null);
         setStage("success");
       }
