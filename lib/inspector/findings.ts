@@ -42,7 +42,7 @@ import { formatTime } from "@/lib/format";
 
 export interface TemporalFinding {
   id: string;
-  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low" | "melody_large_leap" | "melody_motif";
+  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low";
   category: "rhythm" | "harmony" | "melody";
   startSeconds: number;
   endSeconds: number;
@@ -238,7 +238,9 @@ function extractRestSegments(insight: Insight): { start: number; end: number; du
 
 function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
   const findings: TemporalFinding[] = [];
-  const melodyKinds = ["melody_register_peak", "melody_register_low", "melody_large_leap"];
+  // Only include register events (trivial max/min projection)
+  // Other melody findings (interval, contour, motif) are evaluation_only
+  const melodyKinds = ["melody_register_peak", "melody_register_low"];
 
   for (const kind of melodyKinds) {
     const kindInsights = insights.filter((i) => i.kind === kind);
@@ -256,22 +258,6 @@ function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
         evidence: insight.evidence ?? {},
       });
     }
-  }
-
-  // Motif findings
-  const motifInsights = insights.filter((i) => i.kind === "melody_motif");
-  for (const insight of motifInsights) {
-    if (insight.span.start_seconds == null || insight.span.end_seconds == null) continue;
-
-    findings.push({
-      id: `melody_motif-${insight.id}`,
-      kind: "melody_motif",
-      category: "melody",
-      startSeconds: insight.span.start_seconds,
-      endSeconds: insight.span.end_seconds,
-      label: insight.claim,
-      evidence: insight.evidence ?? {},
-    });
   }
 
   return findings;

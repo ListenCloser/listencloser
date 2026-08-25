@@ -109,56 +109,56 @@
       "input": "derived",
       "engine": "lstom_interpretation",
       "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": false, "ask": true},
-      "notes": "Stepwise/leap ratio summary. Deterministic from LStoM output."
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "notes": "Stepwise/leap ratio summary. Pending jSymbolic consolidation."
     },
     "melody_large_leap": {
-      "status": "experimental",
+      "status": "evaluation_only",
       "input": "derived",
       "engine": "lstom_interpretation",
       "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "notes": "Largest melodic leap with temporal span. Deterministic from LStoM output."
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "reason": "Threshold-based heuristic (≥8 semitones) without musical validation. Needs corpus evidence."
     },
     "melody_characteristic_interval": {
       "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
       "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": false, "ask": true},
-      "notes": "Most common interval. Deterministic from LStoM output."
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "notes": "Most common interval. Pending jSymbolic consolidation."
     },
     "melody_contour_ascending": {
-      "status": "experimental",
+      "status": "evaluation_only",
       "input": "derived",
       "engine": "lstom_interpretation",
       "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "notes": "Ascending contour segment with temporal span."
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "reason": "Heuristic contour classifier with arbitrary thresholds. Needs validated contour representation."
     },
     "melody_contour_descending": {
-      "status": "experimental",
+      "status": "evaluation_only",
       "input": "derived",
       "engine": "lstom_interpretation",
       "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "notes": "Descending contour segment with temporal span."
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "reason": "Heuristic contour classifier with arbitrary thresholds. Needs validated contour representation."
     },
     "melody_contour_arch": {
-      "status": "experimental",
+      "status": "evaluation_only",
       "input": "derived",
       "engine": "lstom_interpretation",
       "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "notes": "Arch contour segment with temporal span."
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "reason": "Heuristic contour classifier with arbitrary thresholds. Needs validated contour representation."
     },
     "melody_motif": {
-      "status": "experimental",
+      "status": "evaluation_only",
       "input": "derived",
       "engine": "interval_sequence_matching",
       "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "notes": "Repeated melodic fragments detected via interval-sequence matching. Transposition-invariant."
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "reason": "Custom interval-window matcher without benchmark validation. Needs motif-annotated dataset evaluation."
     },
     "skyline_baseline": {
       "status": "evaluation_only",
