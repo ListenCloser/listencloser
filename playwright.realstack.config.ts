@@ -5,18 +5,15 @@ import { defineConfig } from "@playwright/test";
  * local Supabase. The stack is orchestrated by the `real-stack-e2e` CI job, so
  * no `webServer` is started here — the job owns the server lifecycle.
  *
- * Global setup imports audio once via API and waits for processing, saving
- * ~15min by eliminating redundant per-test imports.
+ * Architecture:
+ *   - One golden-path test imports real-piano.m4a exactly ONCE and exercises
+ *     the full user journey: import → transcription → analysis → persistence → deletion.
+ *   - No cross-test auth/session dependency required.
  */
 export default defineConfig({
-  globalSetup: "./tests/e2e/real-stack-global-setup.ts",
   testDir: "./tests/e2e",
-  testMatch: [
-    "real-stack-workflow.spec.ts",
-    "real-stack-inspector.spec.ts",
-    "real-stack-ask.spec.ts",
-  ],
-  timeout: 300_000,
+  testMatch: ["real-stack-golden.spec.ts"],
+  timeout: 600_000,
   fullyParallel: false,
   workers: 1,
   reporter: process.env.CI ? [["dot"]] : [["list"]],
@@ -24,8 +21,7 @@ export default defineConfig({
     baseURL: process.env.REAL_STACK_APP_URL || "http://localhost:3000",
     viewport: { width: 1280, height: 900 },
     trace: "retain-on-failure",
-    // Headless Chromium throttles the media clock without an audio device; keep
-    // playback advancing in real time for the playback/transport assertions.
+    screenshot: "only-on-failure",
     launchOptions: {
       args: ["--autoplay-policy=no-user-gesture-required", "--mute-audio"],
     },
