@@ -1239,6 +1239,48 @@ def handle_analyze(job: Job, client) -> list[str]:
                 extra={"count": len(melody_findings), "persisted": min(len(melody_findings), 15)},
             )
 
+        # Motif findings (repeated melodic fragments)
+        melody_motifs = analysis.get("melody_motifs") or []
+        for motif in melody_motifs[:5]:  # Cap at 5 motifs
+            claim = motif.get("claim", "")
+            occurrences = motif.get("occurrences", [])
+
+            if len(occurrences) < 2:
+                continue
+
+            # Use the first occurrence's span for the insight
+            first = occurrences[0]
+            last = occurrences[-1]
+
+            mid2 = _create_insight(
+                client,
+                input_version.id,
+                "melody_motif",
+                claim,
+                evidence={
+                    "interval_pattern": motif.get("interval_pattern", []),
+                    "length": motif.get("length"),
+                    "count": motif.get("count"),
+                    "occurrences": occurrences,
+                },
+                span=Span(
+                    start_seconds=first.get("start_seconds"),
+                    end_seconds=last.get("end_seconds"),
+                ),
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="interval_sequence_matching",
+                engine_provenance=melody_provenance,
+            )
+            insight_ids.append(str(mid2))
+
+        if melody_motifs:
+            logger.info(
+                "melody_motifs_persisted",
+                extra={"count": len(melody_motifs), "persisted": min(len(melody_motifs), 5)},
+            )
+
     # Voice leading — policy-gated: withheld (depends on unreliable chord stream)
     voice_leading = analysis.get("voice_leading") or {}
     if voice_leading and not is_product_evidence("voice_leading"):

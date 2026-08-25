@@ -152,6 +152,14 @@
       "exposure": {"inspector": true, "annotations": true, "ask": true},
       "notes": "Arch contour segment with temporal span."
     },
+    "melody_motif": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "interval_sequence_matching",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Repeated melodic fragments detected via interval-sequence matching. Transposition-invariant."
+    },
     "skyline_baseline": {
       "status": "evaluation_only",
       "input": "midi",
