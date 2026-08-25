@@ -218,10 +218,13 @@ function MelodySection({ insights, onSeek, setSelection }: {
 }) {
   if (!isExperimental("melody")) return null;
   const melodyInsights = insights.filter((i) => i.kind === "melody");
-  const melodyFindings = insights.filter((i) =>
-    i.kind.startsWith("melody_") && i.kind !== "melody" && i.span.start_seconds != null
+  // Only show validated register events (trivial max/min projection)
+  // Other melody findings (interval, contour, motif) are evaluation_only
+  const validatedFindings = insights.filter((i) =>
+    (i.kind === "melody_register_peak" || i.kind === "melody_register_low") &&
+    i.span.start_seconds != null
   );
-  if (melodyInsights.length === 0 && melodyFindings.length === 0) return null;
+  if (melodyInsights.length === 0 && validatedFindings.length === 0) return null;
 
   return (
     <section className="inspector-section">
@@ -235,7 +238,7 @@ function MelodySection({ insights, onSeek, setSelection }: {
             {item.claim}
           </div>
         ))}
-        {melodyFindings.slice(0, 5).map((item) => (
+        {validatedFindings.slice(0, 5).map((item) => (
           <div
             key={item.id}
             className="inspector-melody-item inspector-melody-finding"
