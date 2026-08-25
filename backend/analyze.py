@@ -11,7 +11,7 @@ WHAT we build vs what we delegate:
     Symbolic harmony (key, chords, roman numerals, cadences, voice leading,
     phrases) is produced by the harmony engine seam
     (engines.harmony.music21_engine). Melody extraction is produced by the
-    melody engine seam (engines.melody.skyline_engine). Tempo/time-signature
+    melody engine seam (engines.melody.lstom_engine). Tempo/time-signature
     come from pretty_midi (MIDI metadata); rhythm stats are computed here.
 
     This module is the pipeline facade: it routes through the configured
@@ -635,7 +635,7 @@ def analyze_midi(
     except Exception:
         logger.exception("harmony engine failed")
 
-    # Melody (pretty_midi + skyline heuristic via the melody engine)
+    # Melody (LStoM BiLSTM via the melody engine)
     try:
         melody = get_melody_engine().analyze(midi_bytes)
         result["melody"] = melody.melody
