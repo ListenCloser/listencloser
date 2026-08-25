@@ -280,6 +280,7 @@ test("real audio golden path", async ({ page }) => {
   await test.step("persistence", async () => {
     await page.reload();
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible({ timeout: 30_000 });
+    await dismissWorkspaceNotice(page);
     await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
