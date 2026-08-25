@@ -88,6 +88,70 @@
       "validated_domain": "pop/arranged symbolic MIDI",
       "notes": "Validated on pop/arranged symbolic MIDI (POP909). Classical piano and general performance MIDI not formally validated. Model is deterministic, CPU-only (~390ms/song), 9.66MB."
     },
+    "melody_register_peak": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Highest melody note with temporal span. Deterministic from LStoM output."
+    },
+    "melody_register_low": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Lowest melody note with temporal span. Deterministic from LStoM output."
+    },
+    "melody_interval_summary": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "notes": "Stepwise/leap ratio summary. Deterministic from LStoM output."
+    },
+    "melody_large_leap": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Largest melodic leap with temporal span. Deterministic from LStoM output."
+    },
+    "melody_characteristic_interval": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "notes": "Most common interval. Deterministic from LStoM output."
+    },
+    "melody_contour_ascending": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Ascending contour segment with temporal span."
+    },
+    "melody_contour_descending": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Descending contour segment with temporal span."
+    },
+    "melody_contour_arch": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Arch contour segment with temporal span."
+    },
     "skyline_baseline": {
       "status": "evaluation_only",
       "input": "midi",

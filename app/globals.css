@@ -1285,6 +1285,17 @@ gradient-text {
 .inspector-melody-item {
   font-size:var(--fs-xs); color:var(--text); padding:var(--s-1) 0;
 }
+.inspector-melody-finding {
+  cursor:pointer; padding:var(--s-1) var(--s-2);
+  border-radius:var(--r-sm); transition:background 0.15s;
+}
+.inspector-melody-finding:hover {
+  background:var(--surface-hover, rgba(255,255,255,0.05));
+}
+.inspector-melody-summary {
+  color:var(--text-secondary, var(--text));
+  font-style:italic;
+}
 .inspector-experimental-badge {
   display:inline-block; margin-left:var(--s-1); padding:1px 5px;
   font-size:9px; font-weight:var(--fw-medium); text-transform:uppercase;

@@ -640,6 +640,32 @@ def analyze_midi(
         melody = get_melody_engine().analyze(midi_bytes)
         result["melody"] = melody.melody
         result["melody_provenance"] = melody.provenance.to_dict()
+
+        # Derive melody interpretation findings
+        if melody.melody and melody.melody.get("notes"):
+            from engines.melody.interpretation import MelodyNote, interpret_melody
+
+            melody_notes = [
+                MelodyNote(
+                    pitch=n["pitch"],
+                    start_seconds=n["start_seconds"],
+                    end_seconds=n["end_seconds"],
+                    velocity=n.get("velocity", 80),
+                )
+                for n in melody.melody["notes"]
+            ]
+            findings = interpret_melody(melody_notes)
+            result["melody_findings"] = [
+                {
+                    "kind": f.kind,
+                    "claim": f.claim,
+                    "start_seconds": f.start_seconds,
+                    "end_seconds": f.end_seconds,
+                    "evidence": f.evidence,
+                    "note_ids": f.note_ids,
+                }
+                for f in findings
+            ]
     except Exception:
         logger.exception("melody engine failed")
 

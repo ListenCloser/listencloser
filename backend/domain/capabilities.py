@@ -1205,6 +1205,40 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(mid))
 
+        # Melody interpretation findings (temporal events)
+        melody_findings = analysis.get("melody_findings") or []
+        for finding in melody_findings[:15]:  # Cap at 15 findings
+            kind = finding.get("kind", "")
+            claim = finding.get("claim", "")
+            start = finding.get("start_seconds")
+            end = finding.get("end_seconds")
+            evidence = finding.get("evidence", {})
+
+            # Add note_ids to evidence for frontend annotation linking
+            if finding.get("note_ids"):
+                evidence["note_ids"] = finding["note_ids"]
+
+            fid = _create_insight(
+                client,
+                input_version.id,
+                kind,
+                claim,
+                evidence=evidence,
+                span=Span(start_seconds=start, end_seconds=end) if start is not None else None,
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="lstom_interpretation",
+                engine_provenance=melody_provenance,
+            )
+            insight_ids.append(str(fid))
+
+        if melody_findings:
+            logger.info(
+                "melody_findings_persisted",
+                extra={"count": len(melody_findings), "persisted": min(len(melody_findings), 15)},
+            )
+
     # Voice leading — policy-gated: withheld (depends on unreliable chord stream)
     voice_leading = analysis.get("voice_leading") or {}
     if voice_leading and not is_product_evidence("voice_leading"):
