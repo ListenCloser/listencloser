@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +30,7 @@ _MIN_CONTOUR_SEGMENT = 4
 @dataclass
 class MelodyNote:
     """A single melody note with temporal information."""
+
     pitch: int
     start_seconds: float
     end_seconds: float
@@ -41,6 +41,7 @@ class MelodyNote:
 @dataclass
 class MelodyFinding:
     """A temporal melody finding with provenance."""
+
     kind: str
     claim: str
     start_seconds: float | None = None
@@ -95,47 +96,55 @@ def interpret_melody(notes: list[MelodyNote]) -> list[MelodyFinding]:
     high_idx = pitches.index(max(pitches))
     low_idx = pitches.index(min(pitches))
 
-    findings.append(MelodyFinding(
-        kind="melody_register_peak",
-        claim=f"Highest melody note: {_pitch_name(notes[high_idx].pitch)}",
-        start_seconds=notes[high_idx].start_seconds,
-        end_seconds=notes[high_idx].end_seconds,
-        evidence={
-            "pitch": notes[high_idx].pitch,
-            "pitch_name": _pitch_name(notes[high_idx].pitch),
-            "type": "highest",
-        },
-        note_ids=[notes[high_idx].note_id] if notes[high_idx].note_id else [],
-    ))
+    findings.append(
+        MelodyFinding(
+            kind="melody_register_peak",
+            claim=f"Highest melody note: {_pitch_name(notes[high_idx].pitch)}",
+            start_seconds=notes[high_idx].start_seconds,
+            end_seconds=notes[high_idx].end_seconds,
+            evidence={
+                "pitch": notes[high_idx].pitch,
+                "pitch_name": _pitch_name(notes[high_idx].pitch),
+                "type": "highest",
+            },
+            note_ids=[notes[high_idx].note_id] if notes[high_idx].note_id else [],
+        )
+    )
 
-    findings.append(MelodyFinding(
-        kind="melody_register_low",
-        claim=f"Lowest melody note: {_pitch_name(notes[low_idx].pitch)}",
-        start_seconds=notes[low_idx].start_seconds,
-        end_seconds=notes[low_idx].end_seconds,
-        evidence={
-            "pitch": notes[low_idx].pitch,
-            "pitch_name": _pitch_name(notes[low_idx].pitch),
-            "type": "lowest",
-        },
-        note_ids=[notes[low_idx].note_id] if notes[low_idx].note_id else [],
-    ))
+    findings.append(
+        MelodyFinding(
+            kind="melody_register_low",
+            claim=f"Lowest melody note: {_pitch_name(notes[low_idx].pitch)}",
+            start_seconds=notes[low_idx].start_seconds,
+            end_seconds=notes[low_idx].end_seconds,
+            evidence={
+                "pitch": notes[low_idx].pitch,
+                "pitch_name": _pitch_name(notes[low_idx].pitch),
+                "type": "lowest",
+            },
+            note_ids=[notes[low_idx].note_id] if notes[low_idx].note_id else [],
+        )
+    )
 
     # ── Interval analysis ───────────────────────────────────────────────
     intervals = []
     for i in range(len(notes) - 1):
         interval = abs(notes[i + 1].pitch - notes[i].pitch)
-        direction = "ascending" if notes[i + 1].pitch > notes[i].pitch else (
-            "descending" if notes[i + 1].pitch < notes[i].pitch else "static"
+        direction = (
+            "ascending"
+            if notes[i + 1].pitch > notes[i].pitch
+            else ("descending" if notes[i + 1].pitch < notes[i].pitch else "static")
         )
-        intervals.append({
-            "semitones": interval,
-            "direction": direction,
-            "start_seconds": notes[i].start_seconds,
-            "end_seconds": notes[i + 1].end_seconds,
-            "from_note_id": notes[i].note_id,
-            "to_note_id": notes[i + 1].note_id,
-        })
+        intervals.append(
+            {
+                "semitones": interval,
+                "direction": direction,
+                "start_seconds": notes[i].start_seconds,
+                "end_seconds": notes[i + 1].end_seconds,
+                "from_note_id": notes[i].note_id,
+                "to_note_id": notes[i + 1].note_id,
+            }
+        )
 
     # Interval distribution
     nonzero = [iv["semitones"] for iv in intervals if iv["semitones"] > 0]
@@ -145,58 +154,65 @@ def interpret_melody(notes: list[MelodyNote]) -> list[MelodyFinding]:
         stepwise_ratio = round(stepwise_count / len(nonzero), 3)
         leap_ratio = round(leap_count / len(nonzero), 3)
 
-        findings.append(MelodyFinding(
-            kind="melody_interval_summary",
-            claim=f"{round(stepwise_ratio * 100)}% stepwise, {round(leap_ratio * 100)}% leaps",
-            evidence={
-                "stepwise_ratio": stepwise_ratio,
-                "leap_ratio": leap_ratio,
-                "total_intervals": len(nonzero),
-                "stepwise_count": stepwise_count,
-                "leap_count": leap_count,
-            },
-        ))
+        findings.append(
+            MelodyFinding(
+                kind="melody_interval_summary",
+                claim=f"{round(stepwise_ratio * 100)}% stepwise, {round(leap_ratio * 100)}% leaps",
+                evidence={
+                    "stepwise_ratio": stepwise_ratio,
+                    "leap_ratio": leap_ratio,
+                    "total_intervals": len(nonzero),
+                    "stepwise_count": stepwise_count,
+                    "leap_count": leap_count,
+                },
+            )
+        )
 
     # Largest leap
     large_leaps = [iv for iv in intervals if iv["semitones"] >= _LARGE_LEAP_THRESHOLD]
     if large_leaps:
         largest = max(large_leaps, key=lambda iv: iv["semitones"])
-        findings.append(MelodyFinding(
-            kind="melody_large_leap",
-            claim=(
-                f"Largest leap: {_interval_name(largest['semitones'])} "
-                f"({largest['direction']}) at {largest['start_seconds']:.1f}s"
-            ),
-            start_seconds=largest["start_seconds"],
-            end_seconds=largest["end_seconds"],
-            evidence={
-                "semitones": largest["semitones"],
-                "direction": largest["direction"],
-                "interval_name": _interval_name(largest["semitones"]),
-            },
-            note_ids=[nid for nid in [largest["from_note_id"], largest["to_note_id"]] if nid],
-        ))
+        findings.append(
+            MelodyFinding(
+                kind="melody_large_leap",
+                claim=(
+                    f"Largest leap: {_interval_name(largest['semitones'])} "
+                    f"({largest['direction']}) at {largest['start_seconds']:.1f}s"
+                ),
+                start_seconds=largest["start_seconds"],
+                end_seconds=largest["end_seconds"],
+                evidence={
+                    "semitones": largest["semitones"],
+                    "direction": largest["direction"],
+                    "interval_name": _interval_name(largest["semitones"]),
+                },
+                note_ids=[nid for nid in [largest["from_note_id"], largest["to_note_id"]] if nid],
+            )
+        )
 
     # Most common interval
     if nonzero:
         from collections import Counter
+
         interval_counts = Counter(nonzero)
         most_common_interval = interval_counts.most_common(1)[0]
         ic_semitones, ic_count = most_common_interval
         if ic_count >= 3:  # Only report if it appears 3+ times
-            findings.append(MelodyFinding(
-                kind="melody_characteristic_interval",
-                claim=(
-                    f"Most common interval: {_interval_name(ic_semitones)} "
-                    f"({ic_count} occurrences)"
-                ),
-                evidence={
-                    "semitones": ic_semitones,
-                    "interval_name": _interval_name(ic_semitones),
-                    "count": ic_count,
-                    "total_intervals": len(nonzero),
-                },
-            ))
+            findings.append(
+                MelodyFinding(
+                    kind="melody_characteristic_interval",
+                    claim=(
+                        f"Most common interval: {_interval_name(ic_semitones)} "
+                        f"({ic_count} occurrences)"
+                    ),
+                    evidence={
+                        "semitones": ic_semitones,
+                        "interval_name": _interval_name(ic_semitones),
+                        "count": ic_count,
+                        "total_intervals": len(nonzero),
+                    },
+                )
+            )
 
     # ── Contour segments ────────────────────────────────────────────────
     contour_segments = _detect_contour_segments(notes)
@@ -219,7 +235,7 @@ def _detect_contour_segments(notes: list[MelodyNote]) -> list[MelodyFinding]:
 
     i = 0
     while i <= len(notes) - window_size:
-        window = notes[i:i + window_size]
+        window = notes[i : i + window_size]
         pitches = [n.pitch for n in window]
 
         # Calculate contour
@@ -239,24 +255,26 @@ def _detect_contour_segments(notes: list[MelodyNote]) -> list[MelodyFinding]:
             end_note = notes[end_idx - 1]
             pitch_range = max(pitches) - min(pitches)
 
-            segments.append(MelodyFinding(
-                kind=f"melody_contour_{contour}",
-                claim=(
-                    f"{contour.capitalize()} contour: "
-                    f"{_pitch_name(min(pitches))}–{_pitch_name(max(pitches))} "
-                    f"({pitch_range} semitones)"
-                ),
-                start_seconds=start_note.start_seconds,
-                end_seconds=end_note.end_seconds,
-                evidence={
-                    "contour": contour,
-                    "start_pitch": pitches[0],
-                    "end_pitch": pitches[-1],
-                    "pitch_range": pitch_range,
-                    "note_count": len(pitches),
-                },
-                note_ids=[n.note_id for n in notes[i:end_idx] if n.note_id],
-            ))
+            segments.append(
+                MelodyFinding(
+                    kind=f"melody_contour_{contour}",
+                    claim=(
+                        f"{contour.capitalize()} contour: "
+                        f"{_pitch_name(min(pitches))}–{_pitch_name(max(pitches))} "
+                        f"({pitch_range} semitones)"
+                    ),
+                    start_seconds=start_note.start_seconds,
+                    end_seconds=end_note.end_seconds,
+                    evidence={
+                        "contour": contour,
+                        "start_pitch": pitches[0],
+                        "end_pitch": pitches[-1],
+                        "pitch_range": pitch_range,
+                        "note_count": len(pitches),
+                    },
+                    note_ids=[n.note_id for n in notes[i:end_idx] if n.note_id],
+                )
+            )
 
             i = end_idx
         else:

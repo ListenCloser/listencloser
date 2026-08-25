@@ -1,6 +1,12 @@
 """Tests for melody interpretation engine."""
 
-from engines.melody.interpretation import MelodyNote, interpret_melody, _pitch_name, _interval_name, _classify_contour
+from engines.melody.interpretation import (
+    MelodyNote,
+    _classify_contour,
+    _interval_name,
+    _pitch_name,
+    interpret_melody,
+)
 
 
 class TestPitchName:
