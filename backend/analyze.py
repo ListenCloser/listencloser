@@ -644,6 +644,7 @@ def analyze_midi(
         # Derive melody interpretation findings
         if melody.melody and melody.melody.get("notes"):
             from engines.melody.interpretation import MelodyNote, interpret_melody
+            from engines.melody.motif_discovery import MotifNote, discover_motifs
 
             melody_notes = [
                 MelodyNote(
@@ -665,6 +666,36 @@ def analyze_midi(
                     "note_ids": f.note_ids,
                 }
                 for f in findings
+            ]
+
+            # Motif discovery
+            motif_notes = [
+                MotifNote(
+                    pitch=n["pitch"],
+                    start_seconds=n["start_seconds"],
+                    end_seconds=n["end_seconds"],
+                    note_id=f"melody_{i}",
+                )
+                for i, n in enumerate(melody.melody["notes"])
+            ]
+            motifs = discover_motifs(motif_notes)
+            result["melody_motifs"] = [
+                {
+                    "interval_pattern": m.interval_pattern,
+                    "length": m.length,
+                    "count": m.count,
+                    "claim": m.claim,
+                    "occurrences": [
+                        {
+                            "start_seconds": occ.start_seconds,
+                            "end_seconds": occ.end_seconds,
+                            "start_pitch": occ.start_pitch,
+                            "note_ids": occ.note_ids,
+                        }
+                        for occ in m.occurrences
+                    ],
+                }
+                for m in motifs
             ]
     except Exception:
         logger.exception("melody engine failed")
