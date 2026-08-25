@@ -36,6 +36,7 @@ _MAX_MOTIFS = 10
 @dataclass
 class MotifNote:
     """A single melody note with temporal information."""
+
     pitch: int
     start_seconds: float
     end_seconds: float
@@ -45,6 +46,7 @@ class MotifNote:
 @dataclass
 class MotifOccurrence:
     """A single occurrence of a motif."""
+
     start_seconds: float
     end_seconds: float
     start_pitch: int
@@ -54,6 +56,7 @@ class MotifOccurrence:
 @dataclass
 class Motif:
     """A discovered motif with all its occurrences."""
+
     interval_pattern: list[int]  # Semitone intervals
     occurrences: list[MotifOccurrence]
     length: int  # Number of notes
@@ -97,7 +100,7 @@ def discover_motifs(notes: list[MotifNote]) -> list[Motif]:
 
     for length in range(min_intervals, max_intervals + 1):
         for start_idx in range(len(intervals) - length + 1):
-            pattern = tuple(intervals[start_idx:start_idx + length])
+            pattern = tuple(intervals[start_idx : start_idx + length])
             pattern_occurrences[pattern].append(start_idx)
 
     # Filter to patterns with multiple occurrences
@@ -151,9 +154,7 @@ def _deduplicate_occurrences(
             end_seconds=end_note.end_seconds,
             start_pitch=start_note.pitch,
             note_ids=[
-                notes[i].note_id
-                for i in range(idx, idx + len(pattern) + 1)
-                if notes[i].note_id
+                notes[i].note_id for i in range(idx, idx + len(pattern) + 1) if notes[i].note_id
             ],
         )
         occurrences.append(occurrence)
@@ -174,11 +175,10 @@ def _filter_subsumed(motifs: list[Motif]) -> list[Motif]:
         # Check if this motif's occurrences are already covered
         new_occurrences = []
         for occ in motif.occurrences:
-            region = (occ.start_seconds, occ.end_seconds)
             # Check if this region overlaps with any used region
             is_subsumed = False
             for used in used_regions:
-                if (occ.start_seconds >= used[0] and occ.end_seconds <= used[1]):
+                if occ.start_seconds >= used[0] and occ.end_seconds <= used[1]:
                     is_subsumed = True
                     break
             if not is_subsumed:
