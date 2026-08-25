@@ -211,10 +211,17 @@ function RhythmSection({ insights }: { insights: Insight[] }) {
   );
 }
 
-function MelodySection({ insights }: { insights: Insight[] }) {
+function MelodySection({ insights, onSeek, setSelection }: {
+  insights: Insight[];
+  onSeek: (seconds: number) => void;
+  setSelection: (s: MusicalSelection | null) => void;
+}) {
   if (!isExperimental("melody")) return null;
   const melodyInsights = insights.filter((i) => i.kind === "melody");
-  if (melodyInsights.length === 0) return null;
+  const melodyFindings = insights.filter((i) =>
+    i.kind.startsWith("melody_") && i.kind !== "melody" && i.span.start_seconds != null
+  );
+  if (melodyInsights.length === 0 && melodyFindings.length === 0) return null;
 
   return (
     <section className="inspector-section">
@@ -223,8 +230,29 @@ function MelodySection({ insights }: { insights: Insight[] }) {
         <span className="inspector-experimental-badge">experimental</span>
       </h3>
       <div className="inspector-melody-items">
-        {melodyInsights.slice(0, 6).map((item) => (
-          <div key={item.id} className="inspector-melody-item">
+        {melodyInsights.slice(0, 3).map((item) => (
+          <div key={item.id} className="inspector-melody-item inspector-melody-summary">
+            {item.claim}
+          </div>
+        ))}
+        {melodyFindings.slice(0, 5).map((item) => (
+          <div
+            key={item.id}
+            className="inspector-melody-item inspector-melody-finding"
+            onClick={() => {
+              if (item.span.start_seconds != null) {
+                onSeek(item.span.start_seconds);
+                if (item.span.end_seconds != null) {
+                  setSelection({
+                    timeRange: { start: item.span.start_seconds, end: item.span.end_seconds, domain: "performance" },
+                    provenance: { origin: null, timeExact: true, measureApproximate: false },
+                  });
+                }
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
             {item.claim}
           </div>
         ))}
@@ -354,7 +382,7 @@ function AnalysisContent({
         </section>
         <HarmonySection insights={selExposed} bpm={bpm} onSeek={seek} setSelection={setSelection} />
         <RhythmSection insights={selExposed} />
-        <MelodySection insights={selExposed} />
+        <MelodySection insights={selExposed} onSeek={seek} setSelection={setSelection} />
         <FindingsSection findings={findings} onSeek={seek} setSelection={setSelection} />
         {selExposed.length === 0 && (
           <p className="inspector-empty">No analysis available for this selection.</p>
@@ -371,7 +399,7 @@ function AnalysisContent({
       </section>
       <HarmonySection insights={wholeExposed} bpm={bpm} onSeek={seek} setSelection={setSelection} />
       <RhythmSection insights={wholeExposed} />
-      <MelodySection insights={wholeExposed} />
+      <MelodySection insights={wholeExposed} onSeek={seek} setSelection={setSelection} />
       <FindingsSection findings={findings} onSeek={seek} setSelection={setSelection} />
     </div>
   );

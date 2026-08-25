@@ -229,6 +229,7 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
         # Quality: fraction of predicted notes (confidence proxy)
         quality_score = round(len(melody_notes) / len(notes), 3)
 
+        # Return summary + note list for downstream interpretation
         return {
             "low_pitch": low,
             "high_pitch": high,
@@ -243,6 +244,15 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
             "quality_score": quality_score,
             "heuristic": "lstom_biLSTM",
             "model_version": _MODEL_VERSION,
+            "notes": [
+                {
+                    "pitch": n.pitch,
+                    "start_seconds": round(n.start, 4),
+                    "end_seconds": round(n.end, 4),
+                    "velocity": n.velocity,
+                }
+                for n in melody_notes
+            ],
         }
     except Exception:
         return None

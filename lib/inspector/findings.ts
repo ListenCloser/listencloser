@@ -42,8 +42,8 @@ import { formatTime } from "@/lib/format";
 
 export interface TemporalFinding {
   id: string;
-  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity";
-  category: "rhythm" | "harmony";
+  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low" | "melody_large_leap";
+  category: "rhythm" | "harmony" | "melody";
   startSeconds: number;
   endSeconds: number;
   label: string;
@@ -65,6 +65,9 @@ export function deriveFindings(insights: Insight[]): TemporalFinding[] {
 
   // Harmonic activity findings
   findings.push(...deriveHarmonicActivityFindings(insights));
+
+  // Melody findings
+  findings.push(...deriveMelodyFindings(insights));
 
   // Sort by time and limit
   findings.sort((a, b) => a.startSeconds - b.startSeconds);
@@ -231,4 +234,29 @@ function extractRestSegments(insight: Insight): { start: number; end: number; du
       end: r.end!,
       duration: r.duration ?? r.end! - r.start!,
     }));
+}
+
+function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
+  const findings: TemporalFinding[] = [];
+  const melodyKinds = ["melody_register_peak", "melody_register_low", "melody_large_leap"];
+
+  for (const kind of melodyKinds) {
+    const kindInsights = insights.filter((i) => i.kind === kind);
+    for (const insight of kindInsights) {
+      if (insight.span.start_seconds == null || insight.span.end_seconds == null) continue;
+
+      const category = "melody" as const;
+      findings.push({
+        id: `${kind}-${insight.id}`,
+        kind: kind as TemporalFinding["kind"],
+        category,
+        startSeconds: insight.span.start_seconds,
+        endSeconds: insight.span.end_seconds,
+        label: insight.claim,
+        evidence: insight.evidence ?? {},
+      });
+    }
+  }
+
+  return findings;
 }
