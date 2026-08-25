@@ -42,7 +42,7 @@ import { formatTime } from "@/lib/format";
 
 export interface TemporalFinding {
   id: string;
-  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low" | "melody_large_leap" | "melody_motif";
+  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low" | "melody_large_leap" | "melody_motif" | "rhythm_syncopation" | "rhythm_activity_change" | "rhythm_density_peak" | "rhythm_long_note" | "rhythm_long_rest";
   category: "rhythm" | "harmony" | "melody";
   startSeconds: number;
   endSeconds: number;
@@ -68,6 +68,9 @@ export function deriveFindings(insights: Insight[]): TemporalFinding[] {
 
   // Melody findings
   findings.push(...deriveMelodyFindings(insights));
+
+  // Rhythm interpretation findings
+  findings.push(...deriveRhythmFindings(insights));
 
   // Sort by time and limit
   findings.sort((a, b) => a.startSeconds - b.startSeconds);
@@ -272,6 +275,36 @@ function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
       label: insight.claim,
       evidence: insight.evidence ?? {},
     });
+  }
+
+  return findings;
+}
+
+function deriveRhythmFindings(insights: Insight[]): TemporalFinding[] {
+  const findings: TemporalFinding[] = [];
+  const rhythmKinds = [
+    "rhythm_syncopation",
+    "rhythm_activity_change",
+    "rhythm_density_peak",
+    "rhythm_long_note",
+    "rhythm_long_rest",
+  ];
+
+  for (const kind of rhythmKinds) {
+    const kindInsights = insights.filter((i) => i.kind === kind);
+    for (const insight of kindInsights) {
+      if (insight.span.start_seconds == null || insight.span.end_seconds == null) continue;
+
+      findings.push({
+        id: `${kind}-${insight.id}`,
+        kind: kind as TemporalFinding["kind"],
+        category: "rhythm",
+        startSeconds: insight.span.start_seconds,
+        endSeconds: insight.span.end_seconds,
+        label: insight.claim,
+        evidence: insight.evidence ?? {},
+      });
+    }
   }
 
   return findings;

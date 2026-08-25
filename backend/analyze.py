@@ -704,6 +704,44 @@ def analyze_midi(
     # useful even when symbolic parsing fails.
     result["rhythm"] = _midi_rhythm(midi_path, pulse)
 
+    # Rhythm interpretation findings
+    try:
+        rhythm_data = result.get("rhythm")
+        if rhythm_data:
+            from engines.rhythm.interpretation import RhythmNote, interpret_rhythm
+
+            # Extract notes from MIDI for rhythm analysis
+            pm = pretty_midi.PrettyMIDI(midi_path)
+            all_notes = []
+            for inst in pm.instruments:
+                if not inst.is_drum:
+                    for note in inst.notes:
+                        all_notes.append(RhythmNote(
+                            pitch=note.pitch,
+                            start_seconds=note.start,
+                            end_seconds=note.end,
+                            velocity=note.velocity,
+                        ))
+            all_notes.sort(key=lambda n: n.start_seconds)
+
+            # Get beats from pulse
+            beats = pulse.get("beats") or [] if pulse else []
+            tempo_bpm = pulse.get("bpm") if pulse else None
+
+            rhythm_findings = interpret_rhythm(all_notes, beats, tempo_bpm)
+            result["rhythm_findings"] = [
+                {
+                    "kind": f.kind,
+                    "claim": f.claim,
+                    "start_seconds": f.start_seconds,
+                    "end_seconds": f.end_seconds,
+                    "evidence": f.evidence,
+                }
+                for f in rhythm_findings
+            ]
+    except Exception:
+        logger.exception("rhythm interpretation failed")
+
     total_ms = round((_time.perf_counter() - t0) * 1000)
     logger.info("analyze_total", extra={"step": "total", "step_ms": total_ms})
     return result

@@ -1177,6 +1177,36 @@ def handle_analyze(job: Job, client) -> list[str]:
             )
             insight_ids.append(str(rsid))
 
+        # Rhythm interpretation findings (V2)
+        rhythm_findings = analysis.get("rhythm_findings") or []
+        for finding in rhythm_findings[:10]:  # Cap at 10 findings
+            kind = finding.get("kind", "")
+            claim = finding.get("claim", "")
+            start = finding.get("start_seconds")
+            end = finding.get("end_seconds")
+            evidence = finding.get("evidence", {})
+
+            fid = _create_insight(
+                client,
+                input_version.id,
+                kind,
+                claim,
+                evidence=evidence,
+                span=Span(start_seconds=start, end_seconds=end) if start is not None else None,
+                confidence=None,
+                job=job,
+                owner_id=owner_id,
+                method="rhythm_interpretation",
+                engine_provenance=pulse_provenance or None,
+            )
+            insight_ids.append(str(fid))
+
+        if rhythm_findings:
+            logger.info(
+                "rhythm_findings_persisted",
+                extra={"count": len(rhythm_findings), "persisted": min(len(rhythm_findings), 10)},
+            )
+
     # Harmonic rhythm — policy-gated: withheld (depends on unreliable chord stream)
     harmonic_rhythm = analysis.get("harmonic_rhythm") or []
     if harmonic_rhythm and not is_product_evidence("harmonic_rhythm"):

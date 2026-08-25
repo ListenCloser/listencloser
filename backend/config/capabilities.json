@@ -215,6 +215,54 @@
       "exposure": {"inspector": true, "annotations": false, "ask": false},
       "notes": "Rest segment detection; deterministic measurement."
     },
+    "rhythm_syncopation": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "rhythm_interpretation",
+      "requires": ["rhythm"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Syncopation detection: anticipation and suspension across beats."
+    },
+    "rhythm_activity_change": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "rhythm_interpretation",
+      "requires": ["rhythm"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Significant changes in rhythmic activity density."
+    },
+    "rhythm_density_peak": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "rhythm_interpretation",
+      "requires": ["rhythm"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Peak rhythmic activity region."
+    },
+    "rhythm_characteristic_duration": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "rhythm_interpretation",
+      "requires": ["rhythm"],
+      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "notes": "Most common note duration pattern."
+    },
+    "rhythm_long_note": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "rhythm_interpretation",
+      "requires": ["rhythm"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Long notes that may indicate phrase endings."
+    },
+    "rhythm_long_rest": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "rhythm_interpretation",
+      "requires": ["rhythm"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Long rests that may indicate phrase boundaries."
+    },
     "harmonic_rhythm": {
       "status": "withheld",
       "input": "derived",
