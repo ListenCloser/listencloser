@@ -1,3 +1,5 @@
+> **Authority note:** This file describes the currently shipped runtime architecture. `MASTER_SPEC.md` is authoritative for product direction, target analysis architecture, representation strategy, future evidence graph, research program, and migration triggers. Where this file describes current deployment/runtime behavior, code and this file should remain consistent; where it conflicts with future direction in the master spec, the master spec wins.
+
 # Architecture
 
 This is the runtime contract for the shipped application.
@@ -27,7 +29,7 @@ flowchart TD
     Proxy --> API["FastAPI domain API"]
     API --> Store["Supabase Postgres + private storage"]
     Worker["Durable worker"] --> Store
-    Worker --> Engines["Basic Pitch · music21 · FluidSynth"]
+    Worker --> Engines["Music analysis / transcription / rendering engines"]
     Engines --> Worker
 ```
 
@@ -38,18 +40,23 @@ through short-lived signed URLs.
 ## Durable understand workflow
 
 The API creates one workflow and one queued job. `backend/worker.py` claims the
-job and the composite `understand:1.0` capability runs three ordered stages:
+job and the composite understand capability runs ordered stages that currently
+include transcription, analysis, and notation/rendering work.
 
 | Stage | Input | Persisted output |
 |---|---|---|
-| Transcribe | original audio version | MIDI version, note entities, rendered WAV |
-| Analyze | MIDI version | insights with spans, confidence, evidence, provenance |
-| Score | MIDI version | MusicXML version |
+| Transcribe | original audio version | MIDI version, note entities, rendered audio |
+| Analyze | audio and/or MIDI version | insights with spans, evidence, provenance |
+| Score | MIDI version | MusicXML / score-derived version |
 
-Progress from the child capabilities is mapped into a single job from 0 to 1.
-The browser only polls status and reloads the persisted work graph after success.
-Users may cancel active jobs and manually retry failed or cancelled jobs. Worker
-heartbeats make queue availability observable without exposing user data.
+Exact engines and capability maturity must be read from current code and
+`backend/config/capabilities.json`; this document must not freeze old engine names
+as architecture.
+
+Progress from child capabilities is mapped into a durable job. The browser polls
+status and reloads the persisted work graph after success. Users may cancel
+active jobs and retry failed or cancelled jobs. Worker heartbeats and queue
+health make capability availability observable without exposing user data.
 
 ## Domain model
 
@@ -58,38 +65,46 @@ heartbeats make queue availability observable without exposing user data.
   audio, and MusicXML.
 - Every immutable `Version` points to a private object and records lineage and
   the producing job.
-- `Entity` holds note-level facts. `Insight` holds interpretations with evidence,
-  confidence, spans, and provenance.
+- `Entity` holds localized machine evidence. `Insight` holds user-facing or
+  derived interpretations with evidence, spans, and provenance.
+- `Alignment` maps compatible timing/version domains.
 - `Workflow` records intent. `Job` records durable execution and retry state.
 
-This model is representation-neutral: other symbolic formats, visualizations,
-specialized analyzers, and generators can be added without changing the user's
-source-of-truth work graph.
+This model is representation-neutral. The master spec describes a future Evidence
+Graph direction in which additional typed observations/relations may be added if
+current Entity/Insight structures become insufficient; do not add schema merely
+for conceptual cleanliness.
 
 ## Verification model
 
 - Python domain tests validate schemas, repositories, RLS assumptions, worker
   leases, capability registration, and composite-workflow orchestration.
-- Vitest validates frontend utilities, renderers, and shared contracts.
+- Frontend tests validate utilities, renderers, shared contracts, and interaction
+  state.
 - ESLint, TypeScript, Ruff, and production builds catch static/runtime packaging
   failures.
-- Playwright with MSW verifies authentication gates, persisted reopening,
-  import/job polling, representations, insights, and commands.
-- A deployed smoke test must additionally exercise Vercel → FastAPI → worker →
-  Supabase with a real licensed audio fixture. Mocked E2E cannot prove model or
-  infrastructure availability.
-- `database-integration.yml` boots local Supabase, applies the complete migration
-  history, and executes `scripts/verify_database.sql` against the real schema.
-- Backend deploys select an exact Git SHA, expose it from readiness, and reject a
-  release whose reported SHA differs from the requested commit.
+- Playwright with mocks verifies deterministic browser contracts and UX flows.
+- Real-stack / production smoke tests must exercise Vercel → FastAPI → worker →
+  Supabase with a real licensed audio fixture for changes that cross those
+  boundaries. Mocked E2E cannot prove model or infrastructure availability.
+- Database integration boots a fresh schema and verifies migrations/RLS against
+  the real database shape.
+- Backend deploys select an exact Git SHA and expose release identity from
+  readiness/telemetry.
+
+See `AGENT_EXECUTION_PLAYBOOK.md` for the required test ladder and definition of
+done.
 
 ## Honest limitations
 
-- Basic Pitch is strongest on isolated pitched instruments; the contracts are
-  genre-neutral, but current transcription quality is not uniform across genres.
-- Mechanical MIDI-to-MusicXML needs quantization and editing before it can be
-  treated as publication-quality notation.
-- Current analysis emphasizes tonal/harmonic material. Structure, motifs,
-  texture, timbre, and comparative analysis need evaluated implementations.
-- Commands are a thin, deterministic interface to real operations. A grounded
-  conversational agent is a future interface, not a currently claimed feature.
+- Transcription quality varies strongly by instrumentation/domain; routing and
+  evaluation matter more than pretending one AMT model is universal.
+- MIDI-to-notation remains a domain-specific transformation, not a universal
+  representation for all music.
+- Current analysis is strongest in tonal/harmonic and symbolic evidence. Timbre,
+  arrangement, source-specific groove, semantic retrieval, and general structure
+  need the Analysis V3 research program in `MASTER_SPEC.md`.
+- Style/context-aware analysis must be built from evidence and evaluated modules;
+  the system should not force Western tonal analysis onto every work.
+- A grounded conversational layer may explain and combine evidence but must not
+  become the sole detector for precise musical facts.
