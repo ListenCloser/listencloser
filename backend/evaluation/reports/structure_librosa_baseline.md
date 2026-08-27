@@ -3,10 +3,12 @@
 ## Purpose
 
 This is a deliberately small, CPU-feasible diagnostic baseline.  It uses the
-maintained `librosa` dependency already present in the worker: CENS chroma,
-cosine self-similarity recurrence, a symmetric chroma-change novelty curve, and
-`librosa.util.peak_pick`.  It returns unlabelled candidate times only.  It does
-not infer section names, repetitions, hierarchy, key regions, or confidence.
+maintained `librosa` dependency already present in the worker. Candidate times
+are driven only by a symmetric-window CENS chroma-change novelty curve and
+`librosa.util.peak_pick`. A cosine self-similarity recurrence matrix is
+computed only for diagnostic density; it does not contribute to novelty or peak
+selection. It returns unlabelled candidate times only. It does not infer
+section names, repetitions, hierarchy, key regions, or confidence.
 
 ## Provenance
 

@@ -1,9 +1,11 @@
 """Evaluation-only structural-boundary baseline built from librosa primitives.
 
 This is deliberately not a product engine.  It produces *unlabelled candidate
-boundaries* from CENS chroma, a self-similarity recurrence matrix, and novelty
-peak-picking.  Its purpose is to make a cheap, reproducible baseline available
-for a future benchmark; it must not be turned into a section-label claim.
+boundaries* by peak-picking a symmetric-window CENS-chroma novelty curve.  A
+self-similarity recurrence matrix is also computed as a diagnostic statistic,
+but does not affect the candidate times.  Its purpose is to make a cheap,
+reproducible baseline available for a future benchmark; it must not be turned
+into a section-label claim.
 """
 
 from __future__ import annotations
@@ -101,7 +103,7 @@ def propose_boundaries(
     if audio.size == 0:
         raise ValueError("audio must not be empty")
     # CENS uses a 2,048-sample analysis frame.  A shorter clip cannot provide
-    # enough temporal context for a recurrence relation, so withholding rather
+    # enough temporal context for a meaningful chroma comparison, so withholding rather
     # than producing a plausible-looking boundary is the truthful result.
     if len(audio) < 2_048:
         return StructureBaselineResult(
