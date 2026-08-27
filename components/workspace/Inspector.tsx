@@ -162,10 +162,11 @@ function HarmonySection({
 }
 
 function RhythmSection({ insights }: { insights: Insight[] }) {
+  const rhythmInsights = insights.filter((i) => i.kind === "rhythm");
   const densityInsights = insights.filter((i) => i.kind === "rhythm_density");
   const restInsights = insights.filter((i) => i.kind === "rhythm_rests");
 
-  if (densityInsights.length === 0 && restInsights.length === 0) return null;
+  if (rhythmInsights.length === 0 && densityInsights.length === 0 && restInsights.length === 0) return null;
 
   const observations: { label: string; time: number | null }[] = [];
 
@@ -192,6 +193,23 @@ function RhythmSection({ insights }: { insights: Insight[] }) {
           time: longestRest.start,
         });
       }
+    }
+  }
+
+  for (const insight of rhythmInsights) {
+    const phases = (insight.evidence?.beat_phase_distribution ?? []) as { phase_start?: number; fraction?: number }[];
+    if (phases.length === 4 && phases.every((phase) => phase.fraction != null)) {
+      const nearBeat = (phases[0].fraction ?? 0) + (phases[3].fraction ?? 0);
+      const betweenBeats = (phases[1].fraction ?? 0) + (phases[2].fraction ?? 0);
+      const label = nearBeat >= 0.6
+        ? `Most note attacks occur close to detected beats (${Math.round(nearBeat * 100)}%).`
+        : betweenBeats >= 0.6
+          ? `Many note attacks occur between detected beats (${Math.round(betweenBeats * 100)}%).`
+          : "Note attacks are distributed across detected beat intervals.";
+      observations.push({
+        label,
+        time: null,
+      });
     }
   }
 
