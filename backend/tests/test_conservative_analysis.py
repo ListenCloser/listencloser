@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pretty_midi
 
-from analyze import _m21_phrases, _midi_melody, _midi_rhythm, _pick_melody_note
+from analyze import (
+    _beat_phase_distribution,
+    _m21_phrases,
+    _midi_melody,
+    _midi_rhythm,
+    _pick_melody_note,
+)
 
 
 def _note(pitch, start, end, vel=80):
@@ -66,6 +72,11 @@ class TestMelodyHeuristic:
 
 
 class TestRhythmSyncopation:
+    def test_beat_phase_distribution_reports_measurement_not_syncopation(self):
+        result = _beat_phase_distribution([0.0, 0.24, 0.51, 0.76, 1.0], [0.0, 1.0, 2.0])
+        assert [bucket["count"] for bucket in result] == [3, 0, 1, 1]
+        assert sum(bucket["fraction"] for bucket in result) == 1.0
+
     def _write(self, pm):
         import io
         import tempfile

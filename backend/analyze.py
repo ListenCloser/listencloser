@@ -122,6 +122,7 @@ class RhythmResult(TypedDict):
     note_density_over_time: list[dict[str, float]]
     onset_density_over_time: list[dict[str, float]]
     rest_segments: list[dict[str, float]]
+    beat_phase_distribution: list[dict[str, float]]
 
 
 class MelodyResult(TypedDict):
@@ -212,6 +213,7 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
             all_onsets, duration, window=1.0, step=0.25, beats=beats or None
         )
         rest_segments = _detect_rests(all_onsets, duration, min_gap=1.0)
+        beat_phase_distribution = _beat_phase_distribution(all_onsets, beats or [])
 
         return RhythmResult(
             beat_count=beat_count,
@@ -222,6 +224,7 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
             note_density_over_time=note_density,
             onset_density_over_time=onset_density,
             rest_segments=rest_segments,
+            beat_phase_distribution=beat_phase_distribution,
         )
     except Exception:
         return None
@@ -252,6 +255,43 @@ def _offbeat_onset_ratio(onsets: list[float], beats: list[float]) -> float:
         if nearest > tolerance:
             off_beat += 1
     return round(off_beat / len(onsets), 3) if onsets else 0.0
+
+
+def _beat_phase_distribution(onsets: list[float], beats: list[float]) -> list[dict[str, float]]:
+    """Count note onsets in four equal subdivisions of observed beat intervals.
+
+    This is an exact distribution over the supplied beat grid, not a
+    syncopation or metrical-accent estimate.  We exclude onsets outside the
+    observed grid rather than extrapolating a beat that was not detected.
+    """
+    if not onsets or len(beats) < 2:
+        return []
+    grid = sorted(beats)
+    counts = [0, 0, 0, 0]
+    total = 0
+    for onset in onsets:
+        index = int(np.searchsorted(grid, onset, side="right")) - 1
+        if index < 0 or index >= len(grid) - 1:
+            continue
+        start, end = grid[index], grid[index + 1]
+        if end <= start:
+            continue
+        phase = (onset - start) / (end - start)
+        if not 0 <= phase < 1:
+            continue
+        counts[min(3, int(phase * 4))] += 1
+        total += 1
+    if total == 0:
+        return []
+    return [
+        {
+            "phase_start": index / 4,
+            "phase_end": (index + 1) / 4,
+            "count": count,
+            "fraction": round(count / total, 3),
+        }
+        for index, count in enumerate(counts)
+    ]
 
 
 def _compute_windowed_density(
