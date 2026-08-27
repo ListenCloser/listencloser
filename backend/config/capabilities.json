@@ -109,8 +109,8 @@
       "input": "derived",
       "engine": "lstom_interpretation",
       "requires": ["melody"],
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
-      "notes": "Stepwise/leap ratio summary. Pending jSymbolic consolidation."
+      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "notes": "Stepwise/leap/repeated-note ratio summary. Deterministic from LStoM output."
     },
     "melody_large_leap": {
       "status": "evaluation_only",
@@ -129,20 +129,20 @@
       "notes": "Most common interval. Pending jSymbolic consolidation."
     },
     "melody_contour_ascending": {
-      "status": "evaluation_only",
+      "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
       "requires": ["melody"],
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
-      "reason": "Heuristic contour classifier with arbitrary thresholds. Needs validated contour representation."
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Ascending contour span with ≥6 notes and >75% directional ratio. Conservative temporal finding."
     },
     "melody_contour_descending": {
-      "status": "evaluation_only",
+      "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
       "requires": ["melody"],
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
-      "reason": "Heuristic contour classifier with arbitrary thresholds. Needs validated contour representation."
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Descending contour span with ≥6 notes and >75% directional ratio. Conservative temporal finding."
     },
     "melody_contour_arch": {
       "status": "evaluation_only",
@@ -159,6 +159,22 @@
       "requires": ["melody"],
       "exposure": {"inspector": false, "annotations": false, "ask": false},
       "reason": "Custom interval-window matcher without benchmark validation. Needs motif-annotated dataset evaluation."
+    },
+    "melody_activity_dense": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Dense melodic passage detected via sliding-window note density. Deterministic measurement."
+    },
+    "melody_activity_sparse": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "lstom_interpretation",
+      "requires": ["melody"],
+      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "notes": "Sparse melodic passage detected via sliding-window note density. Deterministic measurement."
     },
     "skyline_baseline": {
       "status": "evaluation_only",

@@ -42,7 +42,8 @@ import { formatTime } from "@/lib/format";
 
 export interface TemporalFinding {
   id: string;
-  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low";
+  sourceInsightId: string;
+  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low" | "melody_contour_ascending" | "melody_contour_descending" | "melody_activity_dense" | "melody_activity_sparse";
   category: "rhythm" | "harmony" | "melody";
   startSeconds: number;
   endSeconds: number;
@@ -88,6 +89,7 @@ function deriveDensityFindings(insights: Insight[]): TemporalFinding[] {
 
     findings.push({
       id: `density-peak-${insight.id}`,
+      sourceInsightId: insight.id,
       kind: "density_peak",
       category: "rhythm",
       startSeconds: peak.start,
@@ -105,6 +107,7 @@ function deriveDensityFindings(insights: Insight[]): TemporalFinding[] {
 
     findings.push({
       id: `density-valley-${insight.id}`,
+      sourceInsightId: insight.id,
       kind: "density_valley",
       category: "rhythm",
       startSeconds: valley.start,
@@ -131,6 +134,7 @@ function deriveRestFindings(insights: Insight[]): TemporalFinding[] {
 
     findings.push({
       id: `rest-${insight.id}`,
+      sourceInsightId: insight.id,
       kind: "rest",
       category: "rhythm",
       startSeconds: longest.start,
@@ -194,6 +198,7 @@ function deriveHarmonicActivityFindings(insights: Insight[]): TemporalFinding[] 
   if (maxDensity > 0 && minDensity < Infinity && maxDensity > minDensity * 1.5) {
     findings.push({
       id: "harmonic-activity-peak",
+      sourceInsightId: sortedChords[0].id,
       kind: "harmonic_activity",
       category: "harmony",
       startSeconds: maxStart,
@@ -238,9 +243,15 @@ function extractRestSegments(insight: Insight): { start: number; end: number; du
 
 function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
   const findings: TemporalFinding[] = [];
-  // Only include register events (trivial max/min projection)
-  // Other melody findings (interval, contour, motif) are evaluation_only
-  const melodyKinds = ["melody_register_peak", "melody_register_low"];
+  // Include register events, contour spans, and activity regions
+  const melodyKinds = [
+    "melody_register_peak",
+    "melody_register_low",
+    "melody_contour_ascending",
+    "melody_contour_descending",
+    "melody_activity_dense",
+    "melody_activity_sparse",
+  ];
 
   for (const kind of melodyKinds) {
     const kindInsights = insights.filter((i) => i.kind === kind);
@@ -250,6 +261,7 @@ function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
       const category = "melody" as const;
       findings.push({
         id: `${kind}-${insight.id}`,
+        sourceInsightId: insight.id,
         kind: kind as TemporalFinding["kind"],
         category,
         startSeconds: insight.span.start_seconds,

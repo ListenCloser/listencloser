@@ -23,8 +23,8 @@ _STEPWISE_THRESHOLD = 2  # ≤ 2 semitones = stepwise
 _LEAP_THRESHOLD = 5  # ≥ 5 semitones = leap
 _LARGE_LEAP_THRESHOLD = 8  # ≥ 8 semitones = large leap
 
-# Contour segment minimum length
-_MIN_CONTOUR_SEGMENT = 4
+# Contour segment minimum length (conservative: 6 notes minimum)
+_MIN_CONTOUR_SEGMENT = 6
 
 
 @dataclass
@@ -216,8 +216,12 @@ def interpret_melody(notes: list[MelodyNote]) -> list[MelodyFinding]:
 
     # ── Contour segments ────────────────────────────────────────────────
     contour_segments = _detect_contour_segments(notes)
-    for segment in contour_segments[:5]:  # Limit to 5 segments
+    for segment in contour_segments[:3]:  # Limit to 3 segments
         findings.append(segment)
+
+    # ── Temporal melody activity ────────────────────────────────────────
+    activity_findings = _detect_melody_activity(notes)
+    findings.extend(activity_findings)
 
     return findings
 
@@ -329,3 +333,105 @@ def _classify_contour(pitches: list[int]) -> str:
         return "inverted_arch"
 
     return "mixed"
+
+
+def _detect_melody_activity(notes: list[MelodyNote]) -> list[MelodyFinding]:
+    """Detect dense and sparse melodic regions.
+
+    Uses a sliding window to identify passages with significantly higher
+    or lower note density than the piece average.
+    """
+    if len(notes) < 8:
+        return []
+
+    findings: list[MelodyFinding] = []
+    duration = notes[-1].end_seconds - notes[0].start_seconds
+    if duration <= 0:
+        return []
+
+    # Compute note density in 2-second windows with 0.5-second steps
+    window_size = 2.0
+    step = 0.5
+    densities: list[tuple[float, float, int]] = []  # (start, end, count)
+
+    t = notes[0].start_seconds
+    while t + window_size <= notes[-1].end_seconds:
+        count = sum(1 for n in notes if n.start_seconds >= t and n.start_seconds < t + window_size)
+        densities.append((t, t + window_size, count))
+        t += step
+
+    if len(densities) < 4:
+        return []
+
+    counts = [d[2] for d in densities]
+    avg_density = sum(counts) / len(counts)
+
+    if avg_density < 1:
+        return []
+
+    # Find dense region (significantly above average)
+    dense_threshold = avg_density * 1.8
+    dense_windows = [(s, e, c) for s, e, c in densities if c >= dense_threshold]
+
+    if dense_windows:
+        # Merge adjacent dense windows
+        merged = _merge_adjacent_windows(dense_windows)
+        if merged:
+            best = max(merged, key=lambda w: w[2])
+            findings.append(
+                MelodyFinding(
+                    kind="melody_activity_dense",
+                    claim=f"Dense melodic passage around {best[0]:.1f}s",
+                    start_seconds=best[0],
+                    end_seconds=best[1],
+                    evidence={
+                        "note_count": best[2],
+                        "window_duration": best[1] - best[0],
+                        "average_density": round(avg_density, 2),
+                    },
+                )
+            )
+
+    # Find sparse region (significantly below average)
+    sparse_threshold = avg_density * 0.4
+    sparse_windows = [(s, e, c) for s, e, c in densities if c <= sparse_threshold and c >= 0]
+
+    if sparse_windows:
+        merged = _merge_adjacent_windows(sparse_windows)
+        if merged:
+            best = min(merged, key=lambda w: w[2])
+            findings.append(
+                MelodyFinding(
+                    kind="melody_activity_sparse",
+                    claim=f"Sparse melodic passage around {best[0]:.1f}s",
+                    start_seconds=best[0],
+                    end_seconds=best[1],
+                    evidence={
+                        "note_count": best[2],
+                        "window_duration": best[1] - best[0],
+                        "average_density": round(avg_density, 2),
+                    },
+                )
+            )
+
+    return findings
+
+
+def _merge_adjacent_windows(
+    windows: list[tuple[float, float, int]],
+) -> list[tuple[float, float, int]]:
+    """Merge overlapping or adjacent windows."""
+    if not windows:
+        return []
+
+    sorted_windows = sorted(windows, key=lambda w: w[0])
+    merged = [sorted_windows[0]]
+
+    for start, end, count in sorted_windows[1:]:
+        prev_start, prev_end, prev_count = merged[-1]
+        if start <= prev_end + 0.5:  # Adjacent or overlapping
+            merged[-1] = (prev_start, max(prev_end, end), prev_count + count)
+        else:
+            merged.append((start, end, count))
+
+    return merged
