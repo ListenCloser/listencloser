@@ -236,13 +236,24 @@ function MelodySection({ insights, onSeek, setSelection }: {
 }) {
   if (!isExperimental("melody")) return null;
   const melodyInsights = insights.filter((i) => i.kind === "melody");
-  // Only show validated register events (trivial max/min projection)
-  // Other melody findings (interval, contour, motif) are evaluation_only
-  const validatedFindings = insights.filter((i) =>
-    (i.kind === "melody_register_peak" || i.kind === "melody_register_low") &&
-    i.span.start_seconds != null
+
+  // Interval summary (whole-piece motion profile)
+  const intervalSummary = insights.find((i) => i.kind === "melody_interval_summary");
+
+  // Temporal findings: register, contour, activity
+  const temporalKinds = [
+    "melody_register_peak",
+    "melody_register_low",
+    "melody_contour_ascending",
+    "melody_contour_descending",
+    "melody_activity_dense",
+    "melody_activity_sparse",
+  ];
+  const temporalFindings = insights.filter((i) =>
+    temporalKinds.includes(i.kind) && i.span.start_seconds != null
   );
-  if (melodyInsights.length === 0 && validatedFindings.length === 0) return null;
+
+  if (melodyInsights.length === 0 && !intervalSummary && temporalFindings.length === 0) return null;
 
   return (
     <section className="inspector-section">
@@ -256,7 +267,12 @@ function MelodySection({ insights, onSeek, setSelection }: {
             {item.claim}
           </div>
         ))}
-        {validatedFindings.slice(0, 5).map((item) => (
+        {intervalSummary && (
+          <div className="inspector-melody-item inspector-melody-summary">
+            {intervalSummary.claim}
+          </div>
+        )}
+        {temporalFindings.slice(0, 6).map((item) => (
           <div
             key={item.id}
             className="inspector-melody-item inspector-melody-finding"

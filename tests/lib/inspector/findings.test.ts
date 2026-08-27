@@ -340,4 +340,66 @@ describe("deriveFindings", () => {
       expect(findings.some((f) => f.kind === "rest")).toBe(true);
     });
   });
+
+  describe("melody findings", () => {
+    it("derives melody register findings", () => {
+      const registerPeak = insight({
+        id: "peak-1",
+        kind: "melody_register_peak",
+        claim: "Highest melody note: C6",
+        span: makeSpan(3.5, 4.0),
+        evidence: { pitch: 84, pitch_name: "C6", type: "highest" },
+      });
+
+      const findings = deriveFindings([registerPeak]);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].kind).toBe("melody_register_peak");
+      expect(findings[0].category).toBe("melody");
+      expect(findings[0].startSeconds).toBe(3.5);
+    });
+
+    it("derives melody contour findings", () => {
+      const contourAscending = insight({
+        id: "contour-1",
+        kind: "melody_contour_ascending",
+        claim: "Ascending contour: C4–G5 (19 semitones)",
+        span: makeSpan(0, 4),
+        evidence: { contour: "ascending", start_pitch: 60, end_pitch: 79, pitch_range: 19, note_count: 8 },
+      });
+
+      const findings = deriveFindings([contourAscending]);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].kind).toBe("melody_contour_ascending");
+      expect(findings[0].category).toBe("melody");
+      expect(findings[0].label).toContain("Ascending contour");
+    });
+
+    it("derives melody activity findings", () => {
+      const denseActivity = insight({
+        id: "activity-1",
+        kind: "melody_activity_dense",
+        claim: "Dense melodic passage around 1.0s",
+        span: makeSpan(0.5, 2.5),
+        evidence: { note_count: 10, window_duration: 2.0, average_density: 3.5 },
+      });
+
+      const findings = deriveFindings([denseActivity]);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].kind).toBe("melody_activity_dense");
+      expect(findings[0].category).toBe("melody");
+    });
+
+    it("includes sourceInsightId for melody findings", () => {
+      const registerLow = insight({
+        id: "low-1",
+        kind: "melody_register_low",
+        claim: "Lowest melody note: C3",
+        span: makeSpan(0, 0.5),
+        evidence: { pitch: 48, pitch_name: "C3", type: "lowest" },
+      });
+
+      const findings = deriveFindings([registerLow]);
+      expect(findings[0].sourceInsightId).toBe("low-1");
+    });
+  });
 });

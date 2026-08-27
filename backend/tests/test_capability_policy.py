@@ -70,6 +70,21 @@ def test_rhythm_subkinds_are_production_and_inspector_exposed():
         assert is_exposed(kind, "annotations"), f"{kind} should be exposed as annotations"
 
 
+def test_melody_subkinds_are_experimental_and_inspector_exposed():
+    for kind in (
+        "melody_register_peak",
+        "melody_register_low",
+        "melody_interval_summary",
+        "melody_contour_ascending",
+        "melody_contour_descending",
+        "melody_activity_dense",
+        "melody_activity_sparse",
+    ):
+        policy = capability_policy(kind)
+        assert policy["status"] == "experimental", f"{kind} should be experimental"
+        assert is_exposed(kind, "inspector"), f"{kind} should be exposed in inspector"
+
+
 def test_unknown_capability_fails_closed():
     import pytest
 

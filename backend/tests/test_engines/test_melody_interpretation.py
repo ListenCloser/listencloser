@@ -99,10 +99,42 @@ class TestInterpretMelody:
         assert "melody_large_leap" in kinds
 
     def test_contour_detection(self):
+        # Need at least 6 notes for contour detection (conservative threshold)
         notes = self._make_notes([60, 62, 64, 65, 67, 69, 71, 72])
         findings = interpret_melody(notes)
         kinds = [f.kind for f in findings]
         assert "melody_contour_ascending" in kinds
+
+    def test_melody_activity_dense(self):
+        # Create a piece with a dense passage followed by a sparse one
+        # Dense: many notes in quick succession, Sparse: few notes spread out
+        notes = []
+        # Dense section: 10 notes in 2 seconds
+        for i in range(10):
+            notes.append(MelodyNote(pitch=60 + i, start_seconds=i * 0.2, end_seconds=i * 0.2 + 0.15))
+        # Sparse section: 2 notes over 4 seconds
+        notes.append(MelodyNote(pitch=72, start_seconds=3.0, end_seconds=3.5))
+        notes.append(MelodyNote(pitch=70, start_seconds=5.0, end_seconds=5.5))
+
+        findings = interpret_melody(notes)
+        kinds = [f.kind for f in findings]
+        assert "melody_activity_dense" in kinds
+
+    def test_melody_activity_sparse(self):
+        # Create a piece with a dense section and a sparse gap
+        notes = []
+        # Dense section: 8 notes in 2 seconds
+        for i in range(8):
+            notes.append(MelodyNote(pitch=60 + i, start_seconds=i * 0.25, end_seconds=i * 0.25 + 0.2))
+        # Gap: 4 seconds of no notes
+        # Sparse section: 2 notes spread out
+        notes.append(MelodyNote(pitch=72, start_seconds=7.0, end_seconds=7.5))
+        notes.append(MelodyNote(pitch=70, start_seconds=9.0, end_seconds=9.5))
+
+        findings = interpret_melody(notes)
+        kinds = [f.kind for f in findings]
+        # Should detect sparse region in the gap
+        assert "melody_activity_sparse" in kinds
 
     def test_findings_have_provenance(self):
         notes = [

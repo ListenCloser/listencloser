@@ -44,7 +44,7 @@ export interface TemporalFinding {
   id: string;
   /** The persisted measurement this view-level finding is derived from. */
   sourceInsightId: string;
-  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low";
+  kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low" | "melody_contour_ascending" | "melody_contour_descending" | "melody_activity_dense" | "melody_activity_sparse";
   category: "rhythm" | "harmony" | "melody";
   startSeconds: number;
   endSeconds: number;
@@ -244,9 +244,15 @@ function extractRestSegments(insight: Insight): { start: number; end: number; du
 
 function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
   const findings: TemporalFinding[] = [];
-  // Only include register events (trivial max/min projection)
-  // Other melody findings (interval, contour, motif) are evaluation_only
-  const melodyKinds = ["melody_register_peak", "melody_register_low"];
+  // Include register events, contour spans, and activity regions
+  const melodyKinds = [
+    "melody_register_peak",
+    "melody_register_low",
+    "melody_contour_ascending",
+    "melody_contour_descending",
+    "melody_activity_dense",
+    "melody_activity_sparse",
+  ];
 
   for (const kind of melodyKinds) {
     const kindInsights = insights.filter((i) => i.kind === kind);

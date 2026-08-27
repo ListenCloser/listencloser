@@ -31,6 +31,11 @@ const INSPECTOR_ALLOWED = new Set([
   "melody",
   "melody_register_peak",
   "melody_register_low",
+  "melody_interval_summary",
+  "melody_contour_ascending",
+  "melody_contour_descending",
+  "melody_activity_dense",
+  "melody_activity_sparse",
 ]);
 
 /** Kinds that are experimental (UI should show experimental badge). */
