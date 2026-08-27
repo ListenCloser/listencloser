@@ -7,11 +7,12 @@ This repository is intentionally documented so implementation agents can work au
 Before changing product behavior, analysis, architecture, or infrastructure, read:
 
 1. **`MASTER_SPEC.md`** — authoritative product + architecture + roadmap source of truth.
-2. **`AGENT_EXECUTION_PLAYBOOK.md`** — required implementation, verification, PR, CI, and escalation behavior.
-3. **`RESEARCH_LANDSCAPE.md`** — MIR / foundation-model / OSS / benchmark reference for music-engine work.
-4. Relevant ADR(s) in `docs/adr/`.
-5. Relevant GitHub issue and recent PRs.
-6. **`backend/config/capabilities.json`** before exposing or changing analysis claims.
+2. **`CURRENT_STATE.md`** — current merged capability/product snapshot; verify deployed release SHA for production claims.
+3. **`AGENT_EXECUTION_PLAYBOOK.md`** — required implementation, verification, PR, CI, and escalation behavior.
+4. **`RESEARCH_LANDSCAPE.md`** — MIR / foundation-model / OSS / benchmark reference for music-engine work.
+5. Relevant ADR(s) in `docs/adr/`.
+6. Relevant GitHub issue and recent PRs.
+7. **`backend/config/capabilities.json`** before exposing or changing analysis claims.
 
 Older `PRODUCT_VISION.md`, `ROADMAP.md`, `ARCHITECTURE.md`, analysis reports, and audit documents remain useful historical/runtime context, but `MASTER_SPEC.md` wins when product direction conflicts unless a newer ADR explicitly supersedes it.
 
