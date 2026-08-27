@@ -1,3 +1,5 @@
+> **Canonical roadmap moved:** `MASTER_SPEC.md` §19–§20 is now the authoritative milestone plan and research program. This file is retained as a compact historical roadmap; where it conflicts with the master spec, the master spec wins.
+
 # Product Roadmap
 
 North star: a human-guided music workspace that can ingest musical material,
