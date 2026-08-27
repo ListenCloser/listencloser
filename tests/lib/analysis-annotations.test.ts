@@ -72,6 +72,32 @@ describe("extractAnnotations", () => {
     expect(result).toHaveLength(0);
   });
 
+  it("derives bounded rhythm annotations from compact density evidence", () => {
+    const insights: Insight[] = [
+      makeInsight({
+        id: "density",
+        kind: "rhythm_density",
+        claim: "Note density profile: 3 windows",
+        evidence: {
+          windows: [
+            { start: 0, end: 2, density: 2 },
+            { start: 2, end: 4, density: 12 },
+            { start: 4, end: 6, density: 6 },
+          ],
+        },
+        span: { start_seconds: null, end_seconds: null, start_beat: null, end_beat: null, start_measure: null, end_measure: null },
+      }),
+    ];
+
+    const result = extractAnnotations(insights);
+    expect(result).toHaveLength(2);
+    expect(result.map((annotation) => annotation.label)).toEqual([
+      expect.stringContaining("Lowest observed note-onset density"),
+      expect.stringContaining("Highest observed note-onset density"),
+    ]);
+    expect(result.map((annotation) => [annotation.startSeconds, annotation.endSeconds])).toEqual([[0, 2], [2, 4]]);
+  });
+
   it("ignores insights with end <= start", () => {
     const insights: Insight[] = [
       makeInsight({

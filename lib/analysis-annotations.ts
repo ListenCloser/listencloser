@@ -13,6 +13,7 @@
  */
 
 import type { Insight } from "@/lib/domain.types";
+import { deriveFindings } from "@/lib/inspector/findings";
 
 export type AnnotationCategory = "rhythm" | "harmony" | "theory";
 
@@ -52,6 +53,7 @@ function categorizeKind(kind: string): AnnotationCategory | null {
  */
 export function extractAnnotations(insights: Insight[]): AnalysisAnnotation[] {
   const annotations: AnalysisAnnotation[] = [];
+  const insightIdsWithSpan = new Set<string>();
 
   for (const insight of insights) {
     const category = categorizeKind(insight.kind);
@@ -68,6 +70,28 @@ export function extractAnnotations(insights: Insight[]): AnalysisAnnotation[] {
       startSeconds: start,
       endSeconds: end,
       label: deriveLabel(insight),
+      summary: insight.claim,
+      confidence: insight.confidence,
+      insight,
+    });
+    insightIdsWithSpan.add(insight.id);
+  }
+
+  // Density profiles and observed onset gaps are persisted as compact
+  // whole-piece measurements. Derive only their bounded, user-selectable
+  // extrema here so that the visualizations show the same temporal evidence
+  // as the Inspector, without painting every overlapping analysis window.
+  for (const finding of deriveFindings(insights)) {
+    if (finding.category !== "rhythm" || insightIdsWithSpan.has(finding.sourceInsightId)) continue;
+    const insight = insights.find((candidate) => candidate.id === finding.sourceInsightId);
+    if (!insight) continue;
+    annotations.push({
+      id: finding.id,
+      kind: insight.kind,
+      category: "rhythm",
+      startSeconds: finding.startSeconds,
+      endSeconds: finding.endSeconds,
+      label: finding.label,
       summary: insight.claim,
       confidence: insight.confidence,
       insight,

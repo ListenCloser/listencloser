@@ -67,6 +67,7 @@ def test_rhythm_subkinds_are_production_and_inspector_exposed():
     for kind in ("rhythm_density", "rhythm_rests"):
         assert is_product_evidence(kind), f"{kind} should be product evidence"
         assert is_exposed(kind, "inspector"), f"{kind} should be exposed in inspector"
+        assert is_exposed(kind, "annotations"), f"{kind} should be exposed as annotations"
 
 
 def test_melody_subkinds_are_experimental_and_inspector_exposed():

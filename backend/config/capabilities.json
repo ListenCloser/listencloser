@@ -221,14 +221,14 @@
       "status": "production",
       "input": "midi+beats",
       "engine": "analysis_v2",
-      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "exposure": {"inspector": true, "annotations": true, "ask": false},
       "notes": "Note density profile over time; deterministic windowed measurement."
     },
     "rhythm_rests": {
       "status": "production",
       "input": "midi+beats",
       "engine": "analysis_v2",
-      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "exposure": {"inspector": true, "annotations": true, "ask": false},
       "notes": "Rest segment detection; deterministic measurement."
     },
     "harmonic_rhythm": {
