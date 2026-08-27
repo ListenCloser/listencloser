@@ -102,7 +102,8 @@ describe("deriveFindings", () => {
       expect(peak).toBeDefined();
       expect(peak!.startSeconds).toBe(2);
       expect(peak!.endSeconds).toBe(4);
-      expect(peak!.label).toContain("Peak note density");
+      expect(peak!.label).toContain("Highest observed note-onset density");
+      expect(peak!.sourceInsightId).toBe("density-1");
     });
 
     it("derives density valley when significantly lower than peak", () => {
@@ -124,7 +125,7 @@ describe("deriveFindings", () => {
       expect(valley).toBeDefined();
       expect(valley!.startSeconds).toBe(0);
       expect(valley!.endSeconds).toBe(2);
-      expect(valley!.label).toContain("Quieter passage");
+      expect(valley!.label).toContain("Lowest observed note-onset density");
     });
 
     it("does not derive valley when density is not significantly lower", () => {
@@ -164,7 +165,7 @@ describe("deriveFindings", () => {
       expect(rest).toBeDefined();
       expect(rest!.startSeconds).toBe(4);
       expect(rest!.endSeconds).toBe(5.5);
-      expect(rest!.label).toContain("Pronounced rest");
+      expect(rest!.label).toContain("Longest observed gap in note onsets");
     });
 
     it("ignores rests shorter than 500ms", () => {

@@ -68,7 +68,7 @@ export type AnalysisState = "idle" | "analyzing" | "completed";
  * from time) is kept coarse and marked in `provenance`, never presented as an
  * exact cross-timing-domain mapping.
  */
-export type SelectionOrigin = "waveform" | "piano_roll" | "score" | null;
+export type SelectionOrigin = "waveform" | "piano_roll" | "score" | "spectrogram" | null;
 
 export type MusicalSelection = {
   timeRange?: { start: number; end: number; domain: "performance" | "notation" };
