@@ -612,6 +612,25 @@ class TestWorkerStop:
         assert len(poll_calls) >= 2
         assert worker._running is False
 
+    def test_run_recovers_orphans_that_expire_after_startup(self, worker):
+        worker._lease_duration = 0.01
+
+        def _stop_after_poll():
+            worker.stop()
+            return None
+
+        with (
+            patch.object(worker, "_recover_orphans", return_value=0) as recover,
+            patch.object(worker, "_poll_jobs", side_effect=_stop_after_poll),
+            patch(
+                "domain.job_worker.time.monotonic",
+                side_effect=[0.0, 0.0, 0.02],
+            ),
+        ):
+            worker.run()
+
+        assert recover.call_count == 2
+
     def test_stop_from_another_thread(self, worker):
         def _delayed_stop():
             import time as _time
