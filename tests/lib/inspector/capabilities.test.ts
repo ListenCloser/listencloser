@@ -26,6 +26,8 @@ describe("capabilities", () => {
 
     it("returns true for experimental capabilities with inspector exposure", () => {
       expect(isInspectorExposed("melody")).toBe(true);
+      expect(isInspectorExposed("melody_register_peak")).toBe(true);
+      expect(isInspectorExposed("melody_register_low")).toBe(true);
     });
 
     it("returns false for withheld capabilities", () => {
@@ -78,6 +80,8 @@ describe("capabilities", () => {
 
     it("includes experimental inspector-exposed kinds", () => {
       expect(INSPECTOR_EXPOSED_KINDS).toContain("melody");
+      expect(INSPECTOR_EXPOSED_KINDS).toContain("melody_register_peak");
+      expect(INSPECTOR_EXPOSED_KINDS).toContain("melody_register_low");
     });
 
     it("excludes withheld kinds", () => {

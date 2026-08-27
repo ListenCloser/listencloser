@@ -29,6 +29,8 @@ const INSPECTOR_ALLOWED = new Set([
   "rhythm_density",
   "rhythm_rests",
   "melody",
+  "melody_register_peak",
+  "melody_register_low",
 ]);
 
 /** Kinds that are experimental (UI should show experimental badge). */
