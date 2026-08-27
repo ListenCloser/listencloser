@@ -14,13 +14,13 @@
  *   - Source: rhythm_density insight evidence.windows[]
  *   - Threshold: valley density < peak density * 0.5 (significant difference)
  *   - Derivation: window with lowest non-zero density
- *   - Label: "Quieter passage around {time}"
+ *   - Label: "Lowest observed note-onset density around {time}"
  *
  * rest:
  *   - Source: rhythm_rests insight evidence.rests[]
  *   - Threshold: duration >= 0.5s (observed silence, not phrase boundary)
  *   - Derivation: longest rest segment
- *   - Label: "Pronounced rest around {time}"
+ *   - Label: "Longest observed gap in note onsets around {time}"
  *
  * harmonic_activity:
  *   - Source: chord insight spans
@@ -42,6 +42,8 @@ import { formatTime } from "@/lib/format";
 
 export interface TemporalFinding {
   id: string;
+  /** The persisted measurement this view-level finding is derived from. */
+  sourceInsightId: string;
   kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low";
   category: "rhythm" | "harmony" | "melody";
   startSeconds: number;
@@ -88,11 +90,12 @@ function deriveDensityFindings(insights: Insight[]): TemporalFinding[] {
 
     findings.push({
       id: `density-peak-${insight.id}`,
+      sourceInsightId: insight.id,
       kind: "density_peak",
       category: "rhythm",
       startSeconds: peak.start,
       endSeconds: peak.end,
-      label: `Peak note density around ${formatTime(peak.start)}`,
+      label: `Highest observed note-onset density around ${formatTime(peak.start)}`,
       evidence: { density: peak.density, windowStart: peak.start, windowEnd: peak.end },
     });
 
@@ -105,11 +108,12 @@ function deriveDensityFindings(insights: Insight[]): TemporalFinding[] {
 
     findings.push({
       id: `density-valley-${insight.id}`,
+      sourceInsightId: insight.id,
       kind: "density_valley",
       category: "rhythm",
       startSeconds: valley.start,
       endSeconds: valley.end,
-      label: `Quieter passage around ${formatTime(valley.start)}`,
+      label: `Lowest observed note-onset density around ${formatTime(valley.start)}`,
       evidence: { density: valley.density, windowStart: valley.start, windowEnd: valley.end },
     });
   }
@@ -131,11 +135,12 @@ function deriveRestFindings(insights: Insight[]): TemporalFinding[] {
 
     findings.push({
       id: `rest-${insight.id}`,
+      sourceInsightId: insight.id,
       kind: "rest",
       category: "rhythm",
       startSeconds: longest.start,
       endSeconds: longest.end,
-      label: `Pronounced rest around ${formatTime(longest.start)}`,
+      label: `Longest observed gap in note onsets around ${formatTime(longest.start)}`,
       evidence: { duration: longest.duration, start: longest.start, end: longest.end },
     });
   }
@@ -194,6 +199,7 @@ function deriveHarmonicActivityFindings(insights: Insight[]): TemporalFinding[] 
   if (maxDensity > 0 && minDensity < Infinity && maxDensity > minDensity * 1.5) {
     findings.push({
       id: "harmonic-activity-peak",
+      sourceInsightId: sortedChords[0].id,
       kind: "harmonic_activity",
       category: "harmony",
       startSeconds: maxStart,
@@ -250,6 +256,7 @@ function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
       const category = "melody" as const;
       findings.push({
         id: `${kind}-${insight.id}`,
+        sourceInsightId: insight.id,
         kind: kind as TemporalFinding["kind"],
         category,
         startSeconds: insight.span.start_seconds,
