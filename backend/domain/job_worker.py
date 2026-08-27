@@ -632,8 +632,10 @@ class JobWorker:
     def run(self) -> None:
         """Start the worker loop.  Blocks until :meth:`stop` is called.
 
-        Performs orphan recovery on startup, then polls for queued jobs
-        every ``poll_interval_sec`` and dispatches them to a thread pool.
+        Performs orphan recovery on startup and once per lease duration, then
+        polls for queued jobs every ``poll_interval_sec`` and dispatches them
+        to a thread pool. Periodic recovery prevents a later worker crash from
+        leaving queue health degraded until the next deploy or restart.
         Drains in-flight jobs on shutdown.
 
         Raises
@@ -655,6 +657,7 @@ class JobWorker:
 
         executor = ThreadPoolExecutor(max_workers=self._max_workers)
         last_heartbeat = time.monotonic()
+        last_orphan_recovery = time.monotonic()
         try:
             while self._running:
                 if self._stop_event.is_set():
@@ -677,9 +680,13 @@ class JobWorker:
 
                         future.add_done_callback(release_slot)
 
-                if time.monotonic() - last_heartbeat >= 10.0:
+                now = time.monotonic()
+                if now - last_heartbeat >= 10.0:
                     self._heartbeat_worker()
-                    last_heartbeat = time.monotonic()
+                    last_heartbeat = now
+                if now - last_orphan_recovery >= self._lease_duration:
+                    self._recover_orphans()
+                    last_orphan_recovery = now
 
                 self._stop_event.wait(self._poll_interval)
 
