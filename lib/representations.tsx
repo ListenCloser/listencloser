@@ -17,6 +17,7 @@ import { extractAnnotations, annotationToMeasureRange, type AnalysisAnnotation }
 import Waveform from "@/components/Waveform";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
+import Spectrogram from "@/components/Spectrogram";
 
 
 /**
@@ -30,7 +31,7 @@ import SheetMusic from "@/components/SheetMusic";
  * The id field is a stable key (may differ from the user-facing title).
  * The title is the user-facing label shown in the tab bar.
  */
-export type RepresentationId = "listen" | "piano_roll" | "score";
+export type RepresentationId = "listen" | "piano_roll" | "score" | "spectrogram";
 
 export type RepresentationDefinition = {
   id: RepresentationId;
@@ -143,6 +144,41 @@ function PianoRollView() {
   );
 }
 
+function SpectrogramView() {
+  const { workspace, setSelection } = useWorkspace();
+  const { transport, seek } = useTransport();
+  const waveform = workspace.representations.find((item) => item.kind === "waveform");
+  const inspectorOpen = !workspace.inspectorCollapsed;
+  const annotations = useMemo(
+    () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
+    [workspace.insights, inspectorOpen],
+  );
+  const selection = workspace.selection;
+  const focusedAnnotationId = useMemo(() => {
+    if (!selection?.timeRange || !annotations.length) return null;
+    return annotations.find((annotation) =>
+      annotation.startSeconds < selection.timeRange!.end
+      && annotation.endSeconds > selection.timeRange!.start,
+    )?.id ?? null;
+  }, [annotations, selection]);
+  if (!waveform?.audioUrl) {
+    return <div className="representation-body"><p className="muted">No audio URL provided for spectrogram.</p></div>;
+  }
+  return (
+    <div className="representation-body">
+      <Spectrogram
+        url={waveform.audioUrl}
+        position={transport.position}
+        selection={selection}
+        annotations={annotations}
+        focusedAnnotationId={focusedAnnotationId}
+        onSeek={seek}
+        onSelect={(start, end) => setSelection(composeTimeSelection(start, end, [], "spectrogram"))}
+      />
+    </div>
+  );
+}
+
 function ScoreView() {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
@@ -226,6 +262,14 @@ export const REPRESENTATIONS: readonly RepresentationDefinition[] = [
     temporal: true,
     available: (availability) => availability.score,
     component: ScoreView,
+  },
+  {
+    id: "spectrogram",
+    title: "Spectrogram",
+    description: "Frequency over performance time with shared playback and selection.",
+    temporal: true,
+    available: (availability) => availability.originalAudio,
+    component: SpectrogramView,
   },
 ];
 
