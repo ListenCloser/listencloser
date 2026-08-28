@@ -24,13 +24,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fluidsynth \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g pnpm opencode-ai supabase
-
-RUN pip3 install uv
+RUN npm install -g opencode-ai supabase
+RUN pip3 install --no-cache-dir uv==0.12.6
 
 RUN npx playwright install --with-deps chromium
 
