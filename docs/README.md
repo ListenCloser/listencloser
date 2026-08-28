@@ -9,11 +9,12 @@ This directory is the durable source of truth for product, architecture, researc
 3. **`ANALYSIS_V3_IMPLEMENTATION_PLAN.md`** — concrete Analysis V3 sequencing, bakeoff contracts, decision gates, and first implementation-agent task.
 4. **`AGENT_EXECUTION_PLAYBOOK.md`** — required autonomous implementation and verification process.
 5. **`RESEARCH_LANDSCAPE.md`** — current MIR / OSS / foundation-model / benchmark adoption reference.
-6. **`AGENTS.md`** — compact agent entry point and repository map.
-7. **ADRs (`adr/`)** — explicit architectural decisions; a newer accepted ADR may supersede a section of the master spec and must update it promptly.
-8. **`ARCHITECTURE.md`** — current shipped runtime contract.
-9. **`OPS.md`, `TEST_ENVIRONMENT.md`** — operational and testing procedures.
-10. Historical/audit/evaluation docs — supporting evidence and context, not automatically current product direction.
+6. **`PLATFORM_V3_COMPETITOR_LANDSCAPE.md`** — current low-cost hosting/compute/database/storage alternatives, migration triggers, and Platform V3 provider decisions.
+7. **`AGENTS.md`** — compact agent entry point and repository map.
+8. **ADRs (`adr/`)** — explicit architectural decisions; a newer accepted ADR may supersede a section of the master spec and must update it promptly.
+9. **`ARCHITECTURE.md`** — current shipped runtime contract.
+10. **`OPS.md`, `TEST_ENVIRONMENT.md`** — operational and testing procedures.
+11. Historical/audit/evaluation docs — supporting evidence and context, not automatically current product direction.
 
 ## Machine/runtime sources of truth
 
@@ -38,6 +39,7 @@ If docs and runtime disagree, treat the discrepancy as documentation/config drif
   - #336 — Evidence Graph ERD/contracts after concrete evidence requirements emerge.
 - UX V3 redesign: GitHub issue #328.
 - Platform V3 architecture/DevEx review: GitHub issue #329.
+  - `PLATFORM_V3_COMPETITOR_LANDSCAPE.md` — provider/free-tier comparison and migration triggers.
 - Structure remains separately evaluation-gated; consult the relevant issue/capability registry before exposure.
 
 ## Updating documentation
