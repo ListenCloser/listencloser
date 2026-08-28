@@ -40,18 +40,14 @@ def _validate_assessment(row: dict[str, Any]) -> None:
             raise ValueError(f"{name} must be a non-negative integer")
 
     if (
-        row["supported_claims"]
-        + row["contradicted_claims"]
-        + row["unsupported_claims"]
+        row["supported_claims"] + row["contradicted_claims"] + row["unsupported_claims"]
         != row["total_claims"]
     ):
         raise ValueError("claim categories must sum to total_claims")
 
     for name in ("expected_support_refs", "cited_support_refs"):
         value = row.get(name)
-        if not isinstance(value, list) or not all(
-            isinstance(item, str) for item in value
-        ):
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
             raise ValueError(f"{name} must be a list of strings")
 
     for name in ("should_abstain", "abstained", "requires_temporal_grounding"):
@@ -92,9 +88,7 @@ def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
 
     assessment_keys = _assessment_keys(items)
     if len(set(assessment_keys)) != len(assessment_keys):
-        raise ValueError(
-            "duplicate case_id/question_id assessments are not allowed per condition"
-        )
+        raise ValueError("duplicate case_id/question_id assessments are not allowed per condition")
 
     total_claims = sum(row["total_claims"] for row in items)
     supported = sum(row["supported_claims"] for row in items)
@@ -117,28 +111,17 @@ def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "num_items": len(items),
         "assessment_keys": assessment_keys,
         "total_claims": total_claims,
-        "supported_claim_rate": (
-            round(supported / total_claims, 6) if total_claims else None
-        ),
-        "contradiction_rate": (
-            round(contradicted / total_claims, 6) if total_claims else None
-        ),
-        "unsupported_claim_rate": (
-            round(unsupported / total_claims, 6) if total_claims else None
-        ),
+        "supported_claim_rate": (round(supported / total_claims, 6) if total_claims else None),
+        "contradiction_rate": (round(contradicted / total_claims, 6) if total_claims else None),
+        "unsupported_claim_rate": (round(unsupported / total_claims, 6) if total_claims else None),
         "citation_recall": (
-            round(cited_expected_count / expected_ref_count, 6)
-            if expected_ref_count
-            else None
+            round(cited_expected_count / expected_ref_count, 6) if expected_ref_count else None
         ),
         "citation_precision": (
-            round(cited_expected_count / cited_ref_count, 6)
-            if cited_ref_count
-            else None
+            round(cited_expected_count / cited_ref_count, 6) if cited_ref_count else None
         ),
         "abstention_accuracy": round(
-            sum(row["should_abstain"] == row["abstained"] for row in items)
-            / len(items),
+            sum(row["should_abstain"] == row["abstained"] for row in items) / len(items),
             6,
         ),
         "temporal_grounding_accuracy": (
@@ -219,10 +202,7 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "mean_usefulness_rating",
         "mean_specificity_rating",
     )
-    if any(
-        baseline.get(field) is None or combined.get(field) is None
-        for field in required
-    ):
+    if any(baseline.get(field) is None or combined.get(field) is None for field in required):
         return {
             "evaluable": False,
             "passes": False,
