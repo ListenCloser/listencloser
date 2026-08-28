@@ -16,7 +16,6 @@ import resource
 import subprocess
 import sys
 import time
-from importlib.metadata import version
 from pathlib import Path
 
 import pretty_midi
@@ -153,11 +152,16 @@ def main() -> None:
     mt3_root.mkdir(parents=True, exist_ok=True)
     mt3_midi = mt3_root / f"{TRACK_ID}.mid"
     mt3_log = mt3_root / "runner.log"
+    mt3_binary = Path(os.environ["MT3_INFER_BIN"]).resolve()
+    if not mt3_binary.is_file():
+        raise RuntimeError(f"MT3 runner executable missing: {mt3_binary}")
+    mt3_version = os.environ["MT3_INFER_VERSION"]
+    mt3_torch_version = os.environ["MT3_TORCH_VERSION"]
 
     started = time.perf_counter()
     process = subprocess.run(
         [
-            "mt3-infer",
+            str(mt3_binary),
             "transcribe",
             str(mix_path),
             "-o",
@@ -171,13 +175,12 @@ def main() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,
+        env=os.environ.copy(),
     )
     elapsed = time.perf_counter() - started
     mt3_log.write_text(process.stdout or "")
     if process.returncode != 0:
-        raise RuntimeError(
-            f"mt3-infer exited {process.returncode}; see {mt3_log}"
-        )
+        raise RuntimeError(f"mt3-infer exited {process.returncode}; see {mt3_log}")
     if not mt3_midi.is_file():
         raise RuntimeError("mt3-infer completed without producing MIDI")
 
@@ -188,7 +191,7 @@ def main() -> None:
         "hello_ai_sha": hello_ai_sha,
         "candidate": "mr_mt3_via_mt3_infer",
         "candidate_revision": (
-            f"mt3-infer=={version('mt3-infer')}@{MT3_INFER_SOURCE_REVISION}; backend=mr_mt3"
+            f"mt3-infer=={mt3_version}@{MT3_INFER_SOURCE_REVISION}; backend=mr_mt3"
         ),
         "model_checksum": checkpoint_hash,
         "dataset_manifest": {
@@ -201,7 +204,9 @@ def main() -> None:
             "python": sys.version.split()[0],
             "platform": platform.platform(),
             "device": "cpu",
-            "mt3_infer": version("mt3-infer"),
+            "mt3_infer": mt3_version,
+            "mt3_runner_torch": mt3_torch_version,
+            "mt3_runner_executable": str(mt3_binary),
         },
         "runner_source_revision": MT3_INFER_SOURCE_REVISION,
         "checkpoint_files": checkpoint_files,
@@ -244,6 +249,9 @@ def main() -> None:
             "runtime_seconds": mt3_run["entries"][0]["runtime_seconds"],
             "process_max_rss_mb": mt3_run["entries"][0]["process_max_rss_mb"],
             "checkpoint_combined_sha256": checkpoint_hash,
+            "runner_source_revision": MT3_INFER_SOURCE_REVISION,
+            "mt3_infer_version": mt3_version,
+            "torch_version": mt3_torch_version,
         },
     }
     (output_root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
