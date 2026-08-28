@@ -32,11 +32,7 @@ function WorkspaceContent({
   const activeWork = workspace.works.find((work) => work.id === workspace.activeWorkId) ?? null;
   const inspectorOpen = !workspace.inspectorCollapsed;
   const analysisAvailable = workspace.analysisState === "completed" && Boolean(workspace.activeWorkId);
-  const serviceLabel = serviceStatus === "ready"
-    ? "Ready"
-    : serviceStatus === "checking"
-      ? "Connecting"
-      : "Offline";
+  const serviceLabel = serviceStatus === "checking" ? "Connecting" : "Offline";
 
   return (
     <div className="studio-shell studio-shell-v3">
@@ -64,10 +60,12 @@ function WorkspaceContent({
         </div>
 
         <div className="studio-header-actions">
-          <span className={`studio-service-state studio-service-${serviceStatus}`} title={`Processing service: ${serviceLabel}`}>
-            <span className="studio-service-dot" aria-hidden="true" />
-            <span className="studio-service-label">{serviceLabel}</span>
-          </span>
+          {serviceStatus !== "ready" && (
+            <span className={`studio-service-state studio-service-${serviceStatus}`} title={`Processing service: ${serviceLabel}`}>
+              <span className="studio-service-dot" aria-hidden="true" />
+              <span className="studio-service-label">{serviceLabel}</span>
+            </span>
+          )}
           <button
             type="button"
             className="studio-mobile-action studio-library-btn"
