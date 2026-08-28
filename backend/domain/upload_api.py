@@ -9,6 +9,7 @@ canonical Work/Artifact/Version metadata graph.
 import mimetypes
 import os
 import re
+from contextlib import suppress
 from pathlib import Path, PurePosixPath
 from uuid import UUID, uuid4
 
@@ -232,7 +233,10 @@ async def finalize_upload(
     if existing:
         artifact, version = existing
         if body.work_id is not None and artifact.work_id != body.work_id:
-            raise HTTPException(status_code=409, detail="Upload was already finalized for another work")
+            raise HTTPException(
+                status_code=409,
+                detail="Upload was already finalized for another work",
+            )
         return UploadArtifactResponse(artifact=artifact, version=version)
 
     stored = _find_storage_object(sb, body.storage_key)
@@ -248,7 +252,10 @@ async def finalize_upload(
     artifact = None
     try:
         if work is None:
-            work = work_repo.create(Work(project_id=project_id, title=Path(body.filename).stem), owner_id)
+            work = work_repo.create(
+                Work(project_id=project_id, title=Path(body.filename).stem),
+                owner_id,
+            )
             created_work = True
 
         artifact = art_repo.create(
@@ -272,19 +279,13 @@ async def finalize_upload(
         )
     except Exception:
         if artifact is not None:
-            try:
+            with suppress(Exception):
                 art_repo.delete(artifact.id, owner_id)
-            except Exception:
-                pass
         if created_work and work is not None:
-            try:
+            with suppress(Exception):
                 work_repo.delete(work.id, owner_id)
-            except Exception:
-                pass
-        try:
+        with suppress(Exception):
             sb.storage.from_(_STORAGE_BUCKET).remove([body.storage_key])
-        except Exception:
-            pass
         raise
 
     return UploadArtifactResponse(artifact=artifact, version=version)
