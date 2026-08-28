@@ -1,12 +1,14 @@
-# Analysis V3 Source Separation Bakeoff
+# Analysis V3 Source Separation Feasibility Bakeoff
 
 ## Executive Decision
 
-**Recommendation: Demucs (HTDemucs) is the only operationally feasible candidate on current CPU infrastructure. BS-RoFormer requires Python 3.10+ which is incompatible with the current environment.**
+**Recommendation: keep source separation in RESEARCH. Demucs/HTDemucs is operationally runnable on the current CPU/ARM development environment, while the BS-RoFormer path evaluated here is blocked on Python 3.9. This PR does not establish separation quality or downstream MIR value, so it does not justify production adoption or a first-class source-separation architecture yet.**
 
 ## Product Question
 
-Should source separation become a first-class evidence layer for mixed music in hello-ai? Which OSS path is practical?
+Should source separation become a first-class evidence layer for mixed music in hello-ai, and which OSS path is practical enough to justify a deeper quality/downstream-value evaluation?
+
+This PR answers only the first-stage feasibility question. It does **not** answer whether separated stems improve chord, beat, melody, instrumentation, arrangement, or Breakdown quality.
 
 ## Evaluation Environment
 
@@ -15,38 +17,45 @@ Should source separation become a first-class evidence layer for mixed music in 
 - **Python**: 3.9.6
 - **Device**: CPU (no GPU)
 - **PyTorch**: 2.8.0
-- **hello-ai commit**: `78b6a39` (eval/analysis-v3-pulse-bakeoff)
+- **measurement commit**: `d0ebc88d44a7b1712e66b7dacb848b4371a11afb`
 - **Branch**: `eval/analysis-v3-separation-bakeoff`
 
 ## Candidate Matrix
 
-| Candidate | Model ID | Code License | Weight License | Stems | Python Req | Status |
+| Candidate | Model ID | Code License | Weight License | Stems | Python Compatibility | Decision |
 |---|---|---|---|---|---|---|
-| bs_roformer | lucidrains/BS-RoFormer | MIT | CC-BY-NC-SA-4.0 | 4 | >=3.10 | REVISIT |
-| demucs | facebookresearch/demucs | MIT | MIT | 4 | >=3.8 | RESEARCH |
+| bs_roformer | lucidrains/BS-RoFormer | MIT | CC-BY-NC-SA-4.0 | 4 | evaluated package path requires Python 3.10+ | REVISIT |
+| demucs | facebookresearch/demucs / HTDemucs | MIT | MIT | vocals, drums, bass, other | works on Python 3.9 | RESEARCH |
 
 ## Datasets and Licensing
 
-| Dataset | Source | License | Clips | Notes |
+| Dataset | Source | License | Clips | Role in this PR |
 |---|---|---|---|---|
-| GuitarSet | https://github.com/marl/GuitarSet | MIT | 2 | Guitar recordings |
-| BabySlakh | https://zenodo.org/records/4603870 | CC BY 4.0 | 2 | Multi-instrument |
+| GuitarSet | https://github.com/marl/GuitarSet | MIT | 2 | real-audio extraction smoke test |
+| BabySlakh | https://zenodo.org/records/4603870 | CC BY 4.0 | 2 | real multi-instrument extraction smoke test |
+
+These clips are **not** a scored source-separation benchmark in this PR.
 
 ## Methodology
 
 Evidence classes:
-- **LOCAL MEASUREMENT**: CPU latency, load time, separation feasibility
-- **QUALITATIVE PRODUCT PROBE**: Stem extraction on real music
+- **LOCAL MEASUREMENT**: install/load success, CPU latency, runtime feasibility, ability to emit the expected stem set
+- **QUALITATIVE PRODUCT PROBE**: whether real music can be passed through the candidate and returned as usable stem arrays
+- **NOT MEASURED HERE**: objective separation quality and downstream MIR improvement
 
-## BS-RoFormer (REVISIT)
+No SDR/SIR/SAR, perceptual-error score, chord-improvement score, beat-improvement score, or melody-improvement score is reported because no valid reference-scored evaluation was run.
 
-**Blocker**: BS-RoFormer 1.0.5/1.0.6 requires Python 3.10+ due to PEP 604 type hints (`tuple[int, int] | None`). The `beartype` decorator enforces this at import time.
+## BS-RoFormer — REVISIT
 
-**Decision**: REVISIT — blocked by Python version requirement.
+The evaluated BS-RoFormer package path (1.0.5/1.0.6) fails under the repo's Python 3.9 environment because package code uses Python 3.10+ union/type syntax and `beartype` evaluates it at import time.
 
-## Demucs (RESEARCH)
+This is an **operational/tooling blocker**, not evidence that the BS-RoFormer model family is poor. No model-quality comparison against Demucs was completed.
 
-### Operational Evaluation (LOCAL MEASUREMENT)
+Decision: **REVISIT**.
+
+## Demucs / HTDemucs — RESEARCH
+
+### Operational evaluation — LOCAL MEASUREMENT
 
 | Metric | Value |
 |---|---|
@@ -54,43 +63,63 @@ Evidence classes:
 | Load time | 1.07s |
 | CPU latency 10s | 3.48s |
 | CPU latency 30s | 11.23s |
-| Determinism | False* |
-| ARM feasibility | Confirmed |
+| ARM feasibility | Confirmed on Apple Silicon |
+| Output stem set | vocals, drums, bass, other |
+| License | MIT code / MIT weights as recorded by this evaluation |
 
-*determinism check failed on synthetic audio
+The synthetic determinism probe reported a mismatch. That result is not interpreted as model-quality evidence and should be investigated separately before any production integration.
 
-### Separation Evaluation (LOCAL MEASUREMENT)
+### Real-audio extraction smoke test — QUALITATIVE PRODUCT PROBE
 
-| Clip | Stems Extracted | Notes |
-|---|---|---|
-| guitarset_bn1_comp | vocals, drums, bass, other | Guitar-only clip |
-| guitarset_rock2_comp | vocals, drums, bass, other | Guitar-only clip |
-| babyslakh_01 | vocals, drums, bass, other | Multi-instrument |
-| babyslakh_02 | vocals, drums, bass, other | Multi-instrument |
+| Clip | Result |
+|---|---|
+| guitarset_bn1_comp | four expected stems emitted |
+| guitarset_rock2_comp | four expected stems emitted |
+| babyslakh_01 | four expected stems emitted |
+| babyslakh_02 | four expected stems emitted |
 
-### Licensing Findings
+This proves only that the adapter can run on representative real files and produce the expected output shape. It does **not** prove that the stems are accurate or useful to downstream analysis.
 
-| Candidate | Code License | Weight License | Commercial Use |
-|---|---|---|---|
-| demucs | MIT | MIT | ✓ |
+Decision: **RESEARCH**.
 
-### Decision: RESEARCH
+## Objective Separation Quality
 
-Demucs is operationally feasible on CPU (3.48s for 10s audio). MIT license permits commercial use. However:
-- CPU latency may be too slow for real-time use
-- Determinism needs investigation
-- Downstream MIR value not yet evaluated
-- No reference separation metrics computed
+**Not evaluated in this PR.**
+
+The repository contains metric helpers for separation experiments, but the current committed result artifacts do not contain a lawful reference-scored SDR/SIR/SAR evaluation. Those helpers therefore must not be interpreted as completed evidence.
+
+A follow-up evaluation should use isolated reference sources from a lawful dataset and a modern, appropriate metric implementation. Mean SDR alone should not determine product value; perceptual error patterns should also be inspected.
+
+## Downstream MIR Value
+
+**Not evaluated in this PR.**
+
+The downstream metric module currently contains scaffolding/placeholders. In particular, chord, beat, and melody improvement functions return no measurement. They are not evidence of downstream benefit.
+
+The follow-up gate should compare the same analysis task on:
+
+1. original mixture
+2. relevant separated stem(s)
+3. reference/ground-truth source where available
+
+High-value tests include:
+- beat/downbeat tracking on mixture vs drums stem
+- bass/melody evidence on mixture vs bass/vocal or other relevant stem
+- chord/harmony analysis on mixture vs harmonic/accompaniment stem
+- instrumentation/layer-entry evidence for Breakdown
 
 ## Architecture Recommendation
 
-**Demucs is a viable candidate for source separation. Further evaluation needed to determine downstream MIR value.**
+**Do not productionize a source-separation evidence layer from this PR.**
 
-Next steps:
-1. Compute reference separation metrics (SDR/SIR/SAR) on lawful test material
-2. Evaluate downstream MIR value (chord/beat/melody on separated stems)
-3. Assess CPU feasibility for production use
-4. Consider BS-RoFormer when Python 3.10+ is available
+What this PR establishes:
+1. HTDemucs is a viable implementation candidate for deeper evaluation on the current CPU/ARM environment.
+2. The evaluated BS-RoFormer package path is currently blocked by Python compatibility and should be revisited in a compatible isolated evaluation environment rather than dismissed on quality grounds.
+3. The central #334 question — whether separation materially improves downstream understanding — remains open.
+
+Source separation should become a first-class evidence layer only after a candidate demonstrates both:
+- acceptable separation/perceptual quality, and
+- measurable downstream or interaction value that justifies runtime/storage complexity.
 
 ## Proposed StemEvidence Contract
 
@@ -100,10 +129,10 @@ type StemEvidence = {
   engine: string
   engineVersion?: string
   stems: {
-    vocals?: { vectorRef: string; confidence?: number }
-    drums?: { vectorRef: string; confidence?: number }
-    bass?: { vectorRef: string; confidence?: number }
-    other?: { vectorRef: string; confidence?: number }
+    vocals?: { artifactRef: string }
+    drums?: { artifactRef: string }
+    bass?: { artifactRef: string }
+    other?: { artifactRef: string }
   }
   provenance: {
     parameters?: Record<string, unknown>
@@ -113,32 +142,33 @@ type StemEvidence = {
 }
 ```
 
-## Remaining Uncertainty
+Notes:
+- Stem audio is an artifact/reference, not an embedding vector; `artifactRef` is intentionally used instead of `vectorRef`.
+- Do not attach unsupported per-stem confidence values unless the selected engine actually produces a calibrated confidence.
+- #336 owns the final persistence/Evidence Graph contract.
 
-- No reference separation metrics (SDR/SIR/SAR)
-- No downstream MIR evaluation
-- CPU latency may be too slow for production
-- BS-RoFormer blocked by Python version
-- Limited evaluation corpus
+## Remaining Uncertainty / Unfinished #334 Work
 
-## What Should Happen Next
+- objective source-separation quality on lawful isolated-source references
+- perceptual error analysis beyond aggregate SDR-like metrics
+- downstream MIR value for beat/downbeat, harmony, melody/bass, and instrumentation
+- product value for isolate/loop/A-B/Breakdown workflows
+- whole-track CPU/RAM/storage cost and production scheduling implications
+- exact checkpoint checksum/version provenance
+- BS-RoFormer evaluation in a compatible isolated Python environment
 
-1. Compute reference separation metrics on lawful test material
-2. Evaluate downstream MIR value (chord/beat/melody on stems)
-3. Assess CPU feasibility for production use
-4. Consider BS-RoFormer when Python 3.10+ is available
+## Merge Interpretation
+
+This PR is mergeable only as a **first-stage feasibility harness/report**, not as completion of #334 and not as evidence to switch production routing.
+
+Use `Part of #334`, not `Closes #334`.
 
 ## Reproduction Instructions
 
 ```bash
-# Set cache directory
 export MUSIC_EVAL_CACHE_DIR=/path/to/backend/evaluation/.cache
-
-# Run all candidates
 python3 -m backend.evaluation.analysis_v3.separation.run --candidate all
-
-# Run specific candidate
 python3 -m backend.evaluation.analysis_v3.separation.run --candidate demucs
-
-# Results saved to backend/evaluation/analysis_v3/separation/results/{candidate}.json
 ```
+
+Results are written under `backend/evaluation/analysis_v3/separation/results/`.
