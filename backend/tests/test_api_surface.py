@@ -14,6 +14,8 @@ def test_domain_surface_contains_the_complete_understand_loop():
         ("/api/v1/projects", "POST"),
         ("/api/v1/projects/{project_id}/works", "GET"),
         ("/api/v1/projects/{project_id}/artifacts/upload", "POST"),
+        ("/api/v1/projects/{project_id}/artifacts/upload-intent", "POST"),
+        ("/api/v1/projects/{project_id}/artifacts/finalize-upload", "POST"),
         ("/api/v1/workflows/understand", "POST"),
         ("/api/v1/workflows/variation", "POST"),
         ("/api/v1/workflows/compare", "POST"),
@@ -37,6 +39,29 @@ def test_domain_mutations_require_authentication(client):
         client.post(
             "/api/v1/projects",
             json={"name": "unauthorized"},
+        ).status_code
+        == 401
+    )
+
+
+def test_direct_upload_lifecycle_requires_authentication(client):
+    project_id = "00000000-0000-0000-0000-000000000001"
+    descriptor = {
+        "filename": "take.wav",
+        "byte_size": 4,
+        "content_type": "audio/wav",
+    }
+    assert (
+        client.post(
+            f"/api/v1/projects/{project_id}/artifacts/upload-intent",
+            json=descriptor,
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            f"/api/v1/projects/{project_id}/artifacts/finalize-upload",
+            json={**descriptor, "storage_key": "not-authorized"},
         ).status_code
         == 401
     )

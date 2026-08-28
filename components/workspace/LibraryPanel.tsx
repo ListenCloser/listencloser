@@ -119,6 +119,14 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const importReady = canImport && Boolean(project);
   const libraryLoading = signedIn && (projectQuery.isPending || (Boolean(project) && worksQuery.isPending));
+  const importStatus = !canImport
+    ? "Audio processing is offline"
+    : projectQuery.isPending
+      ? "Preparing your library"
+      : !project
+        ? "Library unavailable"
+        : null;
+  const importStatusId = importStatus ? "library-import-status" : undefined;
 
   async function signOut() {
     await supabase?.auth.signOut();
@@ -127,9 +135,10 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
 
   async function handleDelete(workId: string) {
     if (deletingId || !project) return;
+    const deletingActiveWork = workspace.activeWorkId === workId;
     setDeletingId(workId);
     setDeleteError(null);
-    if (workspace.activeWorkId === workId) {
+    if (deletingActiveWork) {
       clearActiveSource();
       resetTimeline();
       setActiveWorkId(null);
@@ -138,6 +147,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     try {
       await deleteWorkMutation.mutateAsync(workId);
     } catch {
+      if (deletingActiveWork) setActiveWorkId(workId);
       setDeleteError("Delete failed. The recording was restored.");
     } finally {
       setDeletingId(null);
@@ -162,14 +172,17 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               className="library-import-btn"
               onClick={requestImport}
               disabled={!importReady}
-              aria-label={importReady ? "Import audio" : "Import unavailable while the library starts"}
-              title={importReady ? "Import audio" : "Import is available when your library is ready"}
+              aria-label="Import audio"
+              aria-busy={projectQuery.isPending || undefined}
+              aria-describedby={importStatusId}
+              title={importStatus ?? "Import audio"}
             >
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
                 <path d="M7.5 2v11M2 7.5h11" />
               </svg>
-              <span>Import</span>
+              <span>Import audio</span>
             </button>
+            {importStatus && <span id="library-import-status" className="library-import-status" role="status">{importStatus}</span>}
             <ImportSettings profile={workspace.transcriptionProfile} onChange={setTranscriptionProfile} />
           </>
         )}

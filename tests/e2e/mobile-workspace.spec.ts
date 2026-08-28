@@ -41,7 +41,10 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
   // Library is an explicit touch destination and its only destructive command
   // is direct rather than hidden behind a one-item overflow menu.
   await libraryTrigger.click();
+  const importButton = page.getByRole("button", { name: "Import audio", exact: true });
   const deleteButton = page.getByRole("button", { name: "Delete Test Work", exact: true });
+  await expect(importButton).toBeVisible();
+  await expectTouchHeight(importButton);
   await expect(deleteButton).toBeVisible();
   await expectTouchHeight(deleteButton);
   await page.getByRole("button", { name: "Hide library", exact: true }).click();
@@ -73,4 +76,42 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
       },
     )
     .toBe(true);
+});
+
+test("phone operation feedback cannot overflow the viewport", async ({ page }) => {
+  await openPhoneWorkspace(page);
+
+  // Exercise the production operation-layer classes directly with deliberately
+  // long content. This keeps the regression focused on layout rather than job
+  // timing and catches the former 360px card + fixed padding overflow.
+  await page.evaluate(() => {
+    const layer = document.createElement("div");
+    layer.className = "operation-layer";
+    layer.dataset.testid = "operation-layer-contract";
+    layer.innerHTML = `
+      <div class="operation-layer-inner">
+        <div class="piece-processing-card">
+          <span class="piece-processing-filename">an-extremely-long-recording-name-that-must-not-expand-the-phone-viewport.m4a</span>
+          <progress value="57" max="100"></progress>
+          <span class="piece-processing-stage">Analyzing a deliberately long stage description that should wrap safely · 57%</span>
+        </div>
+      </div>`;
+    document.body.appendChild(layer);
+  });
+
+  const layer = page.getByTestId("operation-layer-contract");
+  const card = layer.locator(".piece-processing-card");
+  await expect(card).toBeVisible();
+
+  const box = await card.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  const filenameOverflow = await layer.locator(".piece-processing-filename").evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { overflow: style.overflow, textOverflow: style.textOverflow, whiteSpace: style.whiteSpace };
+  });
+  expect(filenameOverflow).toEqual({ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
 });

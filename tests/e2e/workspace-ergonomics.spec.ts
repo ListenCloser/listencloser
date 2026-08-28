@@ -52,7 +52,9 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
     const transport = page.getByRole("contentinfo", { name: "Playback" });
-    await expect(transport.getByRole("button", { name: "Compare", exact: true })).toBeVisible();
+    const compare = transport.getByRole("button", { name: "Compare", exact: true });
+    await expect(compare).toBeVisible();
+    await expect(compare).toHaveAttribute("title", /Compare .+ with .+/);
   });
 
   test("completed analysis is visible in the persistent inspector", async ({ page }) => {
@@ -66,22 +68,31 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(inspector.getByText(/strongest global reading/i)).toBeVisible();
   });
 
-  test("loop is an explicit accessible transport control", async ({ page }) => {
+  test("loop and playback controls expose their current action", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     const loopBtn = page.getByRole("button", { name: "Toggle loop" });
     await expect(loopBtn).toBeVisible();
+    await expect(loopBtn).toHaveAttribute("aria-pressed", "false");
     await expect(loopBtn).toHaveAttribute("title", "Loop entire source");
     await expect(loopBtn.getByText("Loop", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+
+    const playBtn = page.getByRole("button", { name: "Play", exact: true });
+    await expect(playBtn).toBeVisible();
+    await expect(playBtn).toHaveAttribute("title", "Play recording");
+
+    await loopBtn.click();
+    await expect(loopBtn).toHaveAttribute("aria-pressed", "true");
+    await expect(loopBtn).toHaveAttribute("title", "Turn loop off");
   });
 
-  test("library is docked on desktop without duplicate collapse controls", async ({ page }) => {
+  test("library keeps the import action explicit on desktop", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     const library = page.locator("aside.studio-library");
     await expect(library).toBeVisible();
     await expect(library.getByRole("heading", { name: "Library" })).toBeVisible();
+    await expect(library.getByRole("button", { name: "Import audio", exact: true })).toBeVisible();
     await expect(library.locator('button[title="Collapse library"]')).toHaveCount(0);
 
     await expect(page.locator("header.studio-header").getByRole("button", { name: /library/i })).not.toBeVisible();

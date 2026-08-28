@@ -1,9 +1,9 @@
 """
 Postgres-backed durable job worker loop for hello-ai.
 
-Uses the Supabase ``jobs`` table as the backing store with an atomic
-lease mechanism to ensure exactly-once processing across multiple worker
-instances.  No Redis, no Celery — just Postgres, threads, and polling.
+Uses the Supabase ``jobs`` table as the backing store with durable leases.
+Queue execution is at-least-once across worker crashes/recovery, so handlers must
+remain replay-safe/idempotent. No Redis, no Celery — just Postgres and threads.
 
 Lifecycle::
 
@@ -97,9 +97,9 @@ def _parse_uuid_list(val: Any) -> list[UUID]:
 class JobWorker:
     """Durable Postgres-backed job worker.
 
-    Polls the ``jobs`` table for ``queued`` rows, atomically claims them
-    via an ``UPDATE … WHERE stage='queued'`` lease, and executes the
-    matching capability handler in a thread pool.
+    Claims the oldest ``queued`` row through one Postgres RPC backed by
+    ``FOR UPDATE SKIP LOCKED``, then executes the matching capability handler
+    in a thread pool. Specific-id claims remain conditional and lease-protected.
 
     Parameters
     ----------
@@ -266,6 +266,27 @@ class JobWorker:
             .execute()
         )
         return bool(result.data) if result.data is not None else False
+
+    def _claim_next_job(self) -> dict | None:
+        """Atomically claim and return the oldest queued job, if one exists.
+
+        The database function selects and updates one row under
+        ``FOR UPDATE SKIP LOCKED`` so concurrent workers do not all contend for
+        the same queue head.
+        """
+        try:
+            result = self.client.rpc(
+                "claim_next_job",
+                {
+                    "p_worker_id": self._worker_id,
+                    "p_lease_seconds": self._lease_duration,
+                },
+            ).execute()
+            if result.data:
+                return result.data[0]
+        except Exception:
+            logger.exception("claim_next_job_failed", extra={"worker_id": self._worker_id})
+        return None
 
     def _mark_running(self, job_id: str) -> bool:
         """Transition a claimed job into ``running`` state."""
@@ -687,19 +708,18 @@ class JobWorker:
 
                 with self._in_flight_lock:
                     has_capacity = len(self._in_flight) < self._max_workers
-                job_row = self._poll_jobs() if has_capacity else None
+                job_row = self._claim_next_job() if has_capacity else None
                 if job_row is not None:
                     job_id = str(job_row["id"])
-                    if self._claim_job(job_id):
+                    with self._in_flight_lock:
+                        self._in_flight.add(job_id)
+                    future = executor.submit(self._execute_job, job_row, already_claimed=True)
+
+                    def release_slot(_future, completed_job_id=job_id) -> None:
                         with self._in_flight_lock:
-                            self._in_flight.add(job_id)
-                        future = executor.submit(self._execute_job, job_row, already_claimed=True)
+                            self._in_flight.discard(completed_job_id)
 
-                        def release_slot(_future, completed_job_id=job_id) -> None:
-                            with self._in_flight_lock:
-                                self._in_flight.discard(completed_job_id)
-
-                        future.add_done_callback(release_slot)
+                    future.add_done_callback(release_slot)
 
                 now = time.monotonic()
                 if now - last_heartbeat >= 10.0:
