@@ -14,7 +14,6 @@
   --v6-control-muted: #78736a;
 }
 
-/* Shared tabs: underline for view/content switching, compact like a creative tool. */
 .ui-tab-strip {
   min-width: 0;
   min-height: 40px;
@@ -82,9 +81,6 @@
   cursor: default;
 }
 
-/* Representation and Inspector modes intentionally share one tab grammar.
- * These selectors are deliberately specific: older workspace CSS used pill
- * tabs and would otherwise win the cascade even though V6 loads last. */
 .piece-view-tabs-v3.ui-tab-strip {
   gap: 20px;
   overflow-x: auto;
@@ -157,7 +153,6 @@
   box-shadow: none;
 }
 
-/* Source selectors use a quiet control surface; the menu is the raised layer. */
 .piece-source-trigger {
   min-height: var(--v6-control-h);
   padding: 0 8px;
@@ -209,8 +204,6 @@
   color: #e3d6b7;
 }
 
-/* Draw the selected marker without generated text so it never changes the
- * option's accessible name ("Score" must stay "Score", not "Score ✓"). */
 .piece-source-menu button[aria-selected="true"]::after {
   content: "";
   position: absolute;
@@ -224,8 +217,6 @@
   transform-origin: center;
 }
 
-/* Evidence stays semantic native disclosure, but reads as a compact inspector
- * hierarchy rather than a stack of bordered cards. */
 .inspector-evidence-groups {
   margin-top: 3px;
   border-bottom: 1px solid var(--v5-line, rgba(241, 237, 228, 0.07));
@@ -239,7 +230,7 @@
 .inspector-evidence-group summary {
   min-height: 36px;
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
+  grid-template-columns: 10px minmax(0, 1fr);
   align-items: center;
   gap: 7px;
   padding: 0 2px;
@@ -279,19 +270,64 @@
   color: #ddd8ce;
 }
 
-.inspector-evidence-count {
-  min-width: 18px;
-  text-align: right;
-  color: var(--v6-control-muted);
-  font-size: 9.5px;
-  font-variant-numeric: tabular-nums;
-}
-
 .inspector-evidence-group > .inspector-evidence-body {
   padding: 2px 0 10px 17px;
 }
 
-/* Reduce visual competition in toolbar chrome. */
+.inspector-harmony-moments {
+  display: grid;
+  gap: 0;
+}
+
+.inspector-harmony-moment {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 38px minmax(42px, max-content) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 7px;
+  padding: 6px 3px;
+  border: 0;
+  border-bottom: 1px solid rgba(241, 237, 228, 0.045);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.inspector-harmony-moment:last-child {
+  border-bottom: 0;
+}
+
+.inspector-harmony-moment:hover,
+.inspector-harmony-moment:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.inspector-harmony-time {
+  color: var(--v6-control-muted);
+  font: 500 9px "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector-harmony-primary {
+  color: var(--v6-control-text-strong);
+  font-size: 11px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+.inspector-harmony-context {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--v6-control-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .representation-toolbar {
   padding-inline: 18px;
 }
@@ -300,13 +336,11 @@
   padding-inline: 6px;
 }
 
-/* Selection scope is contextual metadata, not a pill badge. */
 .inspector-scope {
   border-radius: 5px !important;
   background: transparent !important;
 }
 
-/* Row menus and source menus should feel like one menu family. */
 .library-row-menu-popover {
   padding: 4px;
   border-color: var(--v6-menu-border);
@@ -319,7 +353,6 @@
   border-radius: 5px;
 }
 
-/* Dense creative tools benefit from restrained, consistent focus treatment. */
 .piece-source-trigger:focus-visible,
 .library-row-menu-trigger:focus-visible,
 .library-row-menu-item:focus-visible,

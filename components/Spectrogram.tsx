@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getDecodedAudio } from "@/lib/audio-buffer-cache";
 import { withAlpha } from "@/lib/color";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 import type { MusicalSelection } from "@/lib/stores/workspace";
@@ -14,13 +15,17 @@ import {
 
 type Range = { start: number; end: number };
 
-const audioCache = new Map<string, AudioBuffer>();
-const CACHE_LIMIT = 3;
+const spectrogramCache = new Map<string, SpectrogramData>();
+const SPECTROGRAM_CACHE_LIMIT = 3;
 
-function cacheAudio(url: string, buffer: AudioBuffer): void {
-  audioCache.delete(url);
-  audioCache.set(url, buffer);
-  if (audioCache.size > CACHE_LIMIT) audioCache.delete(audioCache.keys().next().value as string);
+function cacheSpectrogram(url: string, data: SpectrogramData): SpectrogramData {
+  spectrogramCache.delete(url);
+  spectrogramCache.set(url, data);
+  if (spectrogramCache.size > SPECTROGRAM_CACHE_LIMIT) {
+    const oldest = spectrogramCache.keys().next().value;
+    if (oldest) spectrogramCache.delete(oldest);
+  }
+  return data;
 }
 
 function mergedSamples(buffer: AudioBuffer): Float32Array {
@@ -69,23 +74,23 @@ export default function Spectrogram({
       setStatus("loading");
       setProgress(0);
       try {
-        let buffer = audioCache.get(url);
-        if (!buffer) {
-          const response = await fetch(url);
-          if (!response.ok) throw new Error("spectrogram request failed");
-          const context = new AudioContext();
-          try {
-            buffer = await context.decodeAudioData(await response.arrayBuffer());
-          } finally {
-            void context.close();
-          }
-          cacheAudio(url, buffer);
+        const cached = spectrogramCache.get(url);
+        if (cached) {
+          cacheSpectrogram(url, cached);
+          dataRef.current = cached;
+          setDuration(cached.duration);
+          setProgress(1);
+          setStatus("ready");
+          return;
         }
+
+        const buffer = await getDecodedAudio(url);
         const result = await computeSpectrogram(mergedSamples(buffer), buffer.sampleRate, {
           onProgress: (complete, total) => {
             if (!cancelled && complete % 12 === 0) setProgress(complete / total);
           },
         });
+        cacheSpectrogram(url, result);
         if (cancelled) return;
         dataRef.current = result;
         setDuration(result.duration);
@@ -124,7 +129,6 @@ export default function Spectrogram({
         const strength = data.values[column * data.bins + row];
         const targetRow = data.bins - row - 1;
         const index = (targetRow * data.columns + column) * 4;
-        // Warm restrained sequential map, deliberately avoiding rainbow hue jumps.
         image.data[index] = Math.round(42 + strength * 0.62);
         image.data[index + 1] = Math.round(38 + strength * 0.49);
         image.data[index + 2] = Math.round(33 + strength * 0.35);
@@ -170,15 +174,19 @@ export default function Spectrogram({
       context.lineTo(x, height);
       context.stroke();
     }
-    context.fillStyle = withAlpha(muted, 0.45);
-    context.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+
+    context.fillStyle = withAlpha(muted, 0.42);
+    context.font = '500 9px "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace';
     context.textAlign = "left";
     for (const frequency of [100, 500, 1000, 5000, 10000]) {
       if (frequency > data.maxFrequency) continue;
       const y = frequencyToY(frequency, data.minFrequency, data.maxFrequency, height);
+      context.globalAlpha = 0.5;
       context.fillRect(0, y, 4, 1);
+      context.globalAlpha = 0.86;
       context.fillText(formatFrequency(frequency), 7, Math.max(10, y - 3));
     }
+    context.globalAlpha = 1;
   }, [annotations, duration, focusedAnnotationId, position, preview, selection]);
 
   const eventTime = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -214,8 +222,6 @@ export default function Spectrogram({
       setPreview(null);
       return;
     }
-    // Annotation overlays are deliberately non-interactive: a simple click
-    // always preserves this view's primary transport affordance.
     onSeek?.(eventTime(event));
   };
 
