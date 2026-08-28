@@ -7,6 +7,7 @@ import { categorizeInsights, filterByCategory, insightStartSeconds } from "@/lib
 import { isInspectorExposed, isExperimental } from "@/lib/inspector/capabilities";
 import { deriveFindings } from "@/lib/inspector/findings";
 import { formatTime } from "@/lib/format";
+import TabStrip from "@/components/ui/TabStrip";
 import AskPanel from "./AskPanel";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
@@ -352,10 +353,16 @@ export default function InspectorPanel() {
   return (
     <aside className="inspector inspector-v4">
       <header className="inspector-header">
-        <nav className="inspector-mode-tabs" role="tablist" aria-label="Inspector mode">
-          <button type="button" role="tab" aria-selected={mode === "analysis"} className={mode === "analysis" ? "active" : ""} onClick={() => setInspectorMode("analysis")}>Analysis</button>
-          <button type="button" role="tab" aria-selected={mode === "ask"} className={mode === "ask" ? "active" : ""} onClick={() => setInspectorMode("ask")}>Ask</button>
-        </nav>
+        <TabStrip
+          className="inspector-mode-tabs"
+          label="Inspector mode"
+          items={[
+            { id: "analysis", label: "Analysis" },
+            { id: "ask", label: "Ask" },
+          ]}
+          value={mode}
+          onChange={setInspectorMode}
+        />
         {mode === "analysis" && workspace.selection && (
           <div className="inspector-scope">
             <span className="inspector-scope-value">{describeSelection(workspace.selection)}</span>
