@@ -83,6 +83,14 @@ def scored_payload(assessments: list[dict]) -> dict:
     }
 
 
+def complete_assessments() -> list[dict]:
+    return [
+        row("audio_only", 1, 0, 1, usefulness=2, specificity=3),
+        row("evidence_only", 1, 0, 1, usefulness=3, specificity=3),
+        row("audio_plus_evidence", 2, 0, 0, usefulness=4, specificity=4),
+    ]
+
+
 def test_score_assessments_known_rates() -> None:
     result = score_assessments(
         [
@@ -284,12 +292,8 @@ def test_load_reference_evidence_rejects_local_inference_flag(tmp_path: Path) ->
 
 
 def test_score_assessment_file_preserves_required_provenance(tmp_path: Path) -> None:
-    assessments = [
-        row("evidence_only", 1, 0, 1, usefulness=3, specificity=3),
-        row("audio_plus_evidence", 2, 0, 0, usefulness=4, specificity=4),
-    ]
     path = tmp_path / "assessments.json"
-    path.write_text(json.dumps(scored_payload(assessments)))
+    path.write_text(json.dumps(scored_payload(complete_assessments())))
 
     result = score_assessment_file(path)
 
@@ -297,12 +301,16 @@ def test_score_assessment_file_preserves_required_provenance(tmp_path: Path) -> 
     assert result["provenance"]["model_version"] == "revision-1"
     assert result["provenance"]["model_checksum"] == "sha256:deadbeef"
     assert result["provenance"]["environment"]["hardware"] == "test-gpu"
+    assert set(result["by_condition"]) == {
+        "audio_only",
+        "evidence_only",
+        "audio_plus_evidence",
+    }
     assert result["grounded_value_gate"]["passes"] is True
 
 
 def test_score_assessment_file_rejects_missing_provenance(tmp_path: Path) -> None:
-    assessments = [row("evidence_only", 1, 0, 1)]
-    payload = scored_payload(assessments)
+    payload = scored_payload(complete_assessments())
     del payload["model_version"]
     path = tmp_path / "assessments.json"
     path.write_text(json.dumps(payload))
@@ -311,12 +319,21 @@ def test_score_assessment_file_rejects_missing_provenance(tmp_path: Path) -> Non
         score_assessment_file(path)
 
 
-def test_score_assessment_file_requires_matching_raw_response(tmp_path: Path) -> None:
-    assessments = [row("evidence_only", 1, 0, 1)]
-    payload = scored_payload(assessments)
-    payload["cases"][0]["conditions"] = {}
+def test_score_assessment_file_requires_all_three_conditions(tmp_path: Path) -> None:
+    payload = scored_payload(complete_assessments())
+    del payload["cases"][0]["conditions"]["audio_only"]
     path = tmp_path / "assessments.json"
     path.write_text(json.dumps(payload))
 
-    with pytest.raises(ValueError, match="raw response"):
+    with pytest.raises(ValueError, match="three conditions"):
+        score_assessment_file(path)
+
+
+def test_score_assessment_file_requires_matching_raw_response(tmp_path: Path) -> None:
+    payload = scored_payload(complete_assessments())
+    payload["cases"][0]["conditions"]["audio_only"]["raw_response"] = ""
+    path = tmp_path / "assessments.json"
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(ValueError, match="raw_response"):
         score_assessment_file(path)
