@@ -1,22 +1,25 @@
 # Pre-commit hooks for hello-ai.
-# Install once:  pip install pre-commit && pre-commit install
-# The backend security + contract tests run here so a bad change cannot be
-# committed locally — CI enforces the same via backend/tests/.
+# Install once: uv tool install pre-commit && pre-commit install
+# Backend hooks intentionally run through the repository's locked uv environment
+# so local and CI tool versions cannot drift.
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.5.7
-    hooks:
-      - id: ruff
-        args: [--fix]
-        files: ^backend/
-      - id: ruff-format
-        files: ^backend/
-
   - repo: local
     hooks:
+      - id: backend-ruff
+        name: backend ruff
+        entry: uv run --project backend ruff check --fix --config backend/pyproject.toml
+        language: system
+        types: [python]
+        files: ^backend/
+      - id: backend-ruff-format
+        name: backend ruff format
+        entry: uv run --project backend ruff format --config backend/pyproject.toml
+        language: system
+        types: [python]
+        files: ^backend/
       - id: backend-tests
         name: backend security + contract tests
-        entry: bash -c 'cd backend && python -m pytest tests/test_security.py tests/test_contract.py -q'
+        entry: uv run --project backend python -m pytest backend/tests/test_security.py backend/tests/test_contract.py -q
         language: system
         pass_filenames: false
         files: ^backend/

@@ -69,13 +69,14 @@ services:
     working_dir: /workspace
     user: "501:501"
     command: >
-      sh -c "pip install -r /workspace/backend/requirements.txt -q &&
-             uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "uv sync --project /workspace/backend --locked &&
+             uv run --project /workspace/backend uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
       - "8000:8000"
     volumes:
       - .:/workspace
     environment:
+      - UV_PROJECT_ENVIRONMENT=/tmp/hello-ai-backend-venv
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - MUSIC_BACKEND_URL=http://backend:8000
@@ -103,11 +104,12 @@ services:
     working_dir: /workspace
     user: "501:501"
     command: >
-      sh -c "pip install -r /workspace/backend/requirements.txt -q &&
-             python /workspace/backend/worker.py"
+      sh -c "uv sync --project /workspace/backend --locked &&
+             uv run --project /workspace/backend python /workspace/backend/worker.py"
     volumes:
       - .:/workspace
     environment:
+      - UV_PROJECT_ENVIRONMENT=/tmp/hello-ai-worker-venv
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - PYTHONPATH=/workspace/backend

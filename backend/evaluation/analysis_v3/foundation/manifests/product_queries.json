@@ -1,0 +1,41 @@
+{
+  "name": "product_queries_v1",
+  "description": "Neutral factual prompts for text-to-passage retrieval evaluation. Uses objective, descriptive language only. Subjective terms like 'epic', 'sad', 'beautiful' are excluded.",
+  "queries": [
+    {
+      "id": "solo_piano",
+      "text": "solo piano",
+      "description": "Single piano instrument, no accompaniment"
+    },
+    {
+      "id": "prominent_drums_bass",
+      "text": "prominent drums and bass",
+      "description": "Rhythm section emphasis with drums and bass guitar"
+    },
+    {
+      "id": "sparse_vocal",
+      "text": "sparse vocal passage",
+      "description": "Vocal with minimal instrumental accompaniment"
+    },
+    {
+      "id": "dense_distorted_guitars",
+      "text": "dense distorted guitars",
+      "description": "Heavy guitar distortion with dense arrangement"
+    },
+    {
+      "id": "acoustic_ensemble",
+      "text": "acoustic ensemble",
+      "description": "Multiple acoustic instruments playing together"
+    },
+    {
+      "id": "electronic_synthesizer",
+      "text": "electronic synthesizer",
+      "description": "Synthesized electronic sounds"
+    },
+    {
+      "id": "string_quartet",
+      "text": "string quartet",
+      "description": "Four string instruments: violin, viola, cello"
+    }
+  ]
+}

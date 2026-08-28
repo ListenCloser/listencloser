@@ -13,7 +13,7 @@ import {
   measureRangeFromTime,
   noteIdsInRange,
 } from "@/lib/selection";
-import { extractAnnotations, annotationToMeasureRange, type AnalysisAnnotation } from "@/lib/analysis-annotations";
+import { extractAnnotations, type AnalysisAnnotation } from "@/lib/analysis-annotations";
 import Waveform from "@/components/Waveform";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
@@ -33,6 +33,11 @@ import Spectrogram from "@/components/Spectrogram";
  */
 export type RepresentationId = "listen" | "piano_roll" | "score" | "spectrogram";
 
+export type RepresentationViewProps = {
+  /** Whether this representation is the currently visible workspace tab. */
+  active: boolean;
+};
+
 export type RepresentationDefinition = {
   id: RepresentationId;
   title: string;
@@ -40,10 +45,10 @@ export type RepresentationDefinition = {
   /** Whether this view follows the moving playhead. */
   temporal: boolean;
   available: (availability: RepresentationAvailability) => boolean;
-  component: ComponentType;
+  component: ComponentType<RepresentationViewProps>;
 };
 
-function WaveformView() {
+function WaveformView({ active }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
@@ -72,7 +77,7 @@ function WaveformView() {
     <div className="representation-body">
       <Waveform
         url={waveform.audioUrl}
-        position={transport.position}
+        position={active ? transport.position : 0}
         selection={workspace.selection}
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
@@ -91,7 +96,7 @@ function WaveformView() {
   );
 }
 
-function PianoRollView() {
+function PianoRollView({ active }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const { timeline } = useTimeline();
@@ -120,7 +125,7 @@ function PianoRollView() {
       <PianoRoll
         notes={notes}
         bpm={timeline.bpm}
-        playheadTime={transport.position}
+        playheadTime={active ? transport.position : 0}
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
@@ -144,7 +149,7 @@ function PianoRollView() {
   );
 }
 
-function SpectrogramView() {
+function SpectrogramView({ active }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
@@ -168,7 +173,7 @@ function SpectrogramView() {
     <div className="representation-body">
       <Spectrogram
         url={waveform.audioUrl}
-        position={transport.position}
+        position={active ? transport.position : 0}
         selection={selection}
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
@@ -179,7 +184,7 @@ function SpectrogramView() {
   );
 }
 
-function ScoreView() {
+function ScoreView({ active }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek, setActiveSource } = useTransport();
   const entry = workspace.representations.find((item) => item.kind === "score");
@@ -215,20 +220,20 @@ function ScoreView() {
     <div className="representation-body">
       <div className="score-playback-strip">
         {scoreSource ? (
-transport.activeSource?.role === "score" ? (
-  <span className="score-playback-state">Hearing score</span>
-) : (
-  <button type="button" className="score-playback-action" onClick={() => setActiveSource(scoreSource)}>Hear score</button>
-)
+          transport.activeSource?.role === "score" ? (
+            <span className="score-playback-state">Hearing score</span>
+          ) : (
+            <button type="button" className="score-playback-action" onClick={() => setActiveSource(scoreSource)}>Hear score</button>
+          )
         ) : (
-<span className="score-playback-state score-playback-state-muted">Notation audio is unavailable for this saved version.</span>
+          <span className="score-playback-state score-playback-state-muted">Notation audio is unavailable for this saved version.</span>
         )}
       </div>
       <SheetMusic
         musicXml={entry?.musicxml ?? ""}
-        playheadTime={transport.position}
-        isPlaying={transport.isPlaying}
-        isScoreActive
+        playheadTime={active ? transport.position : 0}
+        isPlaying={active && transport.isPlaying}
+        isScoreActive={active}
         hasScorePlayback={Boolean(scoreSource)}
         measureStarts={measureStarts}
         scoreDuration={scoreDuration}

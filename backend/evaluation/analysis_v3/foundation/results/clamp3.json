@@ -1,0 +1,57 @@
+{
+  "candidate": "clamp3",
+  "task": "cross_representation",
+  "device": "cpu",
+  "timestamp": "2026-08-28T01:42:04Z",
+  "cross_representation": {
+    "candidate": "clamp3",
+    "task": "cross_representation",
+    "num_pairs": 5,
+    "method": "real_aligned_maestro_audio_midi",
+    "results": {
+      "per_pair": [
+        {
+          "audio_id": "maestro_pair_0",
+          "symbolic_id": "maestro_pair_0",
+          "rank": 2,
+          "total_candidates": 5,
+          "matched_score": 0.04588749259710312
+        },
+        {
+          "audio_id": "maestro_pair_1",
+          "symbolic_id": "maestro_pair_1",
+          "rank": 2,
+          "total_candidates": 5,
+          "matched_score": 0.06845728307962418
+        },
+        {
+          "audio_id": "maestro_pair_2",
+          "symbolic_id": "maestro_pair_2",
+          "rank": 5,
+          "total_candidates": 5,
+          "matched_score": 0.013082518242299557
+        },
+        {
+          "audio_id": "maestro_pair_3",
+          "symbolic_id": "maestro_pair_3",
+          "rank": 4,
+          "total_candidates": 5,
+          "matched_score": 0.04588662460446358
+        },
+        {
+          "audio_id": "maestro_pair_4",
+          "symbolic_id": "maestro_pair_4",
+          "rank": 1,
+          "total_candidates": 5,
+          "matched_score": 0.05825076252222061
+        }
+      ],
+      "mean_rank": 2.8,
+      "median_rank": 2.0,
+      "mrr": 0.49000000000000005,
+      "recall_at_1": 0.2,
+      "recall_at_5": 1.0
+    },
+    "notes": "QUALITATIVE PRODUCT PROBE. Cross-modal alignment using real MAESTRO aligned audio/MIDI. Audio segments from real recording; MIDI from aligned MAESTRO MIDI."
+  }
+}
