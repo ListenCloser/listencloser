@@ -248,7 +248,9 @@ test("real audio golden path", async ({ page }) => {
     // Analysis scopes to selection
     await page.getByRole("button", { name: "Exit compare", exact: true }).click();
     await page.getByRole("tab", { name: "Analysis" }).click();
-    await expect(page.getByText("Selection", { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    const inspectorScope = page.locator("aside.inspector");
+    await expect(inspectorScope.getByRole("button", { name: "Clear selection" })).toBeVisible({ timeout: 20_000 });
+    await expect(inspectorScope.locator(".inspector-scope-value")).toHaveText(/\d+:\d{2}–\d+:\d{2}/);
 
     // Shared selection across representations
     await page.getByRole("tab", { name: "Waveform" }).click();

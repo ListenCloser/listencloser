@@ -344,7 +344,7 @@ summary:focus-visible {
   filter: drop-shadow(0 0 1px rgba(114, 169, 196, 0.18));
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 980px) {
   .transport-ctrl-labeled {
     min-width: 29px;
     padding: 0;
