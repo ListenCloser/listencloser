@@ -1,6 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-labelledby="title desc">
-  <title id="title">Music representation study</title>
-  <desc id="desc">A stylized workspace showing a waveform, piano roll, notation, and an evidence note aligned to one playhead.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640">
   <defs>
     <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#25231f"/>
@@ -18,7 +16,6 @@
 
   <rect x="20" y="20" width="920" height="600" rx="26" fill="url(#panel)" stroke="#f2eee5" stroke-opacity="0.09" filter="url(#softShadow)"/>
   <path d="M20 82h920" stroke="#f2eee5" stroke-opacity="0.07"/>
-
   <circle cx="54" cy="51" r="4" fill="#d6b56d"/>
   <text x="72" y="56" fill="#a49e92" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="1.6">ONE RECORDING · MANY VIEWS</text>
   <text x="828" y="56" fill="#777168" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">00:18.42</text>
@@ -69,20 +66,13 @@
       <path d="M20 166h228M20 176h228M20 186h228M20 196h228M20 206h228"/>
     </g>
     <g fill="#39342d">
-      <ellipse cx="62" cy="96" rx="6.5" ry="4.6" transform="rotate(-18 62 96)"/>
-      <path d="M68 95v-35" stroke="#39342d" stroke-width="2"/>
-      <ellipse cx="104" cy="83" rx="6.5" ry="4.6" transform="rotate(-18 104 83)"/>
-      <path d="M110 82v-35" stroke="#39342d" stroke-width="2"/>
-      <ellipse cx="151" cy="104" rx="6.5" ry="4.6" transform="rotate(-18 151 104)"/>
-      <path d="M157 103v-35" stroke="#39342d" stroke-width="2"/>
-      <ellipse cx="198" cy="88" rx="6.5" ry="4.6" transform="rotate(-18 198 88)"/>
-      <path d="M204 87v-35" stroke="#39342d" stroke-width="2"/>
-      <ellipse cx="82" cy="186" rx="6.5" ry="4.6" transform="rotate(-18 82 186)"/>
-      <path d="M88 185v-35" stroke="#39342d" stroke-width="2"/>
-      <ellipse cx="139" cy="173" rx="6.5" ry="4.6" transform="rotate(-18 139 173)"/>
-      <path d="M145 172v-35" stroke="#39342d" stroke-width="2"/>
-      <ellipse cx="205" cy="196" rx="6.5" ry="4.6" transform="rotate(-18 205 196)"/>
-      <path d="M211 195v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="62" cy="96" rx="6.5" ry="4.6" transform="rotate(-18 62 96)"/><path d="M68 95v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="104" cy="83" rx="6.5" ry="4.6" transform="rotate(-18 104 83)"/><path d="M110 82v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="151" cy="104" rx="6.5" ry="4.6" transform="rotate(-18 151 104)"/><path d="M157 103v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="198" cy="88" rx="6.5" ry="4.6" transform="rotate(-18 198 88)"/><path d="M204 87v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="82" cy="186" rx="6.5" ry="4.6" transform="rotate(-18 82 186)"/><path d="M88 185v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="139" cy="173" rx="6.5" ry="4.6" transform="rotate(-18 139 173)"/><path d="M145 172v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="205" cy="196" rx="6.5" ry="4.6" transform="rotate(-18 205 196)"/><path d="M211 195v-35" stroke="#39342d" stroke-width="2"/>
     </g>
     <path d="M157 48v190" stroke="#72a9c4" stroke-width="2.5" opacity="0.76"/>
   </g>
@@ -90,10 +80,10 @@
   <g transform="translate(640 410)">
     <rect width="268" height="158" rx="14" fill="#292720" stroke="#d6b56d" stroke-opacity="0.2"/>
     <circle cx="22" cy="25" r="4" fill="#d6b56d"/>
-    <text x="36" y="29" fill="#a49e92" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" letter-spacing="1.2">EVIDENCE · 00:18</text>
-    <text x="18" y="66" fill="#f0eadf" font-family="ui-sans-serif, system-ui, sans-serif" font-size="17">The phrase opens up here.</text>
-    <text x="18" y="94" fill="#918a7e" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">Higher register · lower density</text>
-    <path d="M18 122h148" stroke="#f2eee5" stroke-opacity="0.07"/>
-    <text x="18" y="143" fill="#d6b56d" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Jump to evidence →</text>
+    <text x="36" y="29" fill="#a49e92" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" letter-spacing="1.2">EXAMPLE FINDING · 00:18</text>
+    <text x="18" y="66" fill="#f0eadf" font-family="ui-sans-serif, system-ui, sans-serif" font-size="17">The texture becomes sparser here.</text>
+    <text x="18" y="94" fill="#918a7e" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12.5">Lower note density · fewer active events</text>
+    <path d="M18 122h194" stroke="#f2eee5" stroke-opacity="0.07"/>
+    <text x="18" y="143" fill="#9e978b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11.5">Supported by time-aligned evidence</text>
   </g>
 </svg>
