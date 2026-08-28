@@ -58,14 +58,17 @@ def label_ranking_average_precision(y_true: np.ndarray, y_score: np.ndarray) -> 
 
     For each positive label, LRAP is the fraction of labels scoring at least as
     high as that label that are also positive. Averaging those fractions over
-    positive labels and then over non-empty samples matches the standard LRAP
-    definition and, importantly, handles tied scores without arbitrary ordering.
+    positive labels and then over samples matches the standard LRAP definition
+    and, importantly, handles tied scores without arbitrary ordering. As in the
+    standard definition, a sample with every label relevant or irrelevant scores
+    1 because there is no incorrect relevant/irrelevant ordering to penalize.
     """
     truth, scores = _validate_matrices(y_true, y_score)
     sample_scores: list[float] = []
     for sample_truth, sample_score in zip(truth, scores, strict=True):
         positive_indices = np.flatnonzero(sample_truth)
-        if len(positive_indices) == 0:
+        if len(positive_indices) == 0 or len(positive_indices) == len(sample_truth):
+            sample_scores.append(1.0)
             continue
 
         precisions: list[float] = []
@@ -78,7 +81,7 @@ def label_ranking_average_precision(y_true: np.ndarray, y_score: np.ndarray) -> 
         sample_scores.append(float(np.mean(precisions)))
 
     if not sample_scores:
-        raise ValueError("average precision requires at least one positive label")
+        raise ValueError("LRAP requires at least one sample")
     return float(np.mean(sample_scores))
 
 
