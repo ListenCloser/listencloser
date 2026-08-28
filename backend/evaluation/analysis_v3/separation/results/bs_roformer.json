@@ -1,0 +1,24 @@
+{
+  "candidate": "bs_roformer",
+  "task": "operational",
+  "device": "cpu",
+  "timestamp": "2026-08-28T06:05:21Z",
+  "operational": {
+    "candidate": "bs_roformer",
+    "device": "cpu",
+    "python_version": "3.9.6",
+    "platform": "macOS-15.3.1-arm64-arm-64bit",
+    "arch": "arm64",
+    "model_id": "lucidrains/BS-RoFormer",
+    "code_license": "MIT",
+    "weight_license": null,
+    "num_stems": 4,
+    "supports_vocals": true,
+    "supports_drums": true,
+    "supports_bass": true,
+    "supports_other": true,
+    "install_success": true,
+    "load_success": false,
+    "load_error": "Evaluated package path is incompatible with Python 3.9 due to PEP 604 annotations evaluated by beartype. No verified compatible pretrained checkpoint was wired. Candidate is REVISIT; weight license must be recorded from the exact future checkpoint rather than inferred from the architecture repository."
+  }
+}
