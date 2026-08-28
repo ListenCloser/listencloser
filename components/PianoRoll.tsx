@@ -33,7 +33,6 @@ export default function PianoRoll({
   selectionTimeRange,
   selectedNoteIds,
   onSelectRange,
-  onSelectNotes,
   onAnnotationClick,
 }: {
   notes: Note[];

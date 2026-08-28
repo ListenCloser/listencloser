@@ -92,7 +92,6 @@ export default function SheetMusic({
   className,
   playheadTime = 0,
   isScoreActive = false,
-  hasScorePlayback = false,
   measureStarts,
   scoreDuration,
   selectedMeasures,
