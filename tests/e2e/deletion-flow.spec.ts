@@ -22,9 +22,9 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await page.getByRole("menuitem", { name: "Delete recording" }).click();
 
   // The work should disappear from the library immediately (optimistic) and
-  // show the empty state.
+  // show the V5 library empty state.
   await expect(page.getByRole("button", { name: /^Test Work\b/ })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible();
+  await expect(page.getByText("No recordings yet", { exact: true })).toBeVisible();
 
   // No stale transport state: deleting the active work removes the source
   // controls entirely rather than leaving a disabled playhead behind.

@@ -141,13 +141,10 @@ describe("WorkspaceProvider", () => {
     expect(result.current.workspace.activeRepresentation).toBe("listen");
   });
 
-  it("clears the selection when deleting the active work", () => {
+  it("clears the selection when clearing the active work", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
 
     act(() => {
-      result.current.setWorks([
-        { id: "work-a", project_id: "p", title: "A", composer: null, created_at: "", updated_at: "" },
-      ]);
       result.current.setActiveWorkId("work-a");
       result.current.setSelection({
         timeRange: { start: 1, end: 3, domain: "performance" },
@@ -155,7 +152,7 @@ describe("WorkspaceProvider", () => {
       });
     });
 
-    act(() => result.current.removeWork("work-a"));
+    act(() => result.current.setActiveWorkId(null));
 
     expect(result.current.workspace.selection).toBeNull();
   });
@@ -174,19 +171,16 @@ describe("WorkspaceProvider", () => {
     expect(result.current.workspace.studioOperation.state).toBe("idle");
   });
 
-  it("clears takes and studio state when deleting the active work", () => {
+  it("clears takes and studio state when clearing the active work", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
 
     act(() => {
-      result.current.setWorks([
-        { id: "work-a", project_id: "p", title: "A", composer: null, created_at: "", updated_at: "" },
-      ]);
       result.current.setActiveWorkId("work-a");
       result.current.setTakes([{ versionId: "v", label: "Transcription", parentVersionId: null }]);
       result.current.requestVariation("v", 1);
     });
 
-    act(() => result.current.removeWork("work-a"));
+    act(() => result.current.setActiveWorkId(null));
 
     expect(result.current.workspace.activeWorkId).toBeNull();
     expect(result.current.workspace.takes).toEqual([]);
@@ -209,18 +203,15 @@ describe("WorkspaceProvider", () => {
     expect(result.current.workspace.askConversation).toEqual([]);
   });
 
-  it("clears the ask conversation when deleting the active work", () => {
+  it("clears the ask conversation when clearing the active work", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
 
     act(() => {
-      result.current.setWorks([
-        { id: "work-a", project_id: "p", title: "A", composer: null, created_at: "", updated_at: "" },
-      ]);
       result.current.setActiveWorkId("work-a");
       result.current.appendAskMessage(askMessages()[0]);
     });
 
-    act(() => result.current.removeWork("work-a"));
+    act(() => result.current.setActiveWorkId(null));
 
     expect(result.current.workspace.askConversation).toEqual([]);
   });
