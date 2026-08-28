@@ -110,8 +110,7 @@ def check_determinism(
         return False
 
     return all(
-        np.allclose(embeddings[0], embeddings[i], atol=1e-6)
-        for i in range(1, len(embeddings))
+        np.allclose(embeddings[0], embeddings[i], atol=1e-6) for i in range(1, len(embeddings))
     )
 
 

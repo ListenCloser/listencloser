@@ -316,11 +316,15 @@ class TestMIDIExtraction:
         us_per_beat = int(60_000_000 / tempo_bpm)
         track_data.extend(_var_len(0))
         track_data.extend(bytes([0xFF, 0x51, 0x03]))
-        track_data.extend(bytes([
-            (us_per_beat >> 16) & 0xFF,
-            (us_per_beat >> 8) & 0xFF,
-            us_per_beat & 0xFF,
-        ]))
+        track_data.extend(
+            bytes(
+                [
+                    (us_per_beat >> 16) & 0xFF,
+                    (us_per_beat >> 8) & 0xFF,
+                    us_per_beat & 0xFF,
+                ]
+            )
+        )
 
         last_tick = 0
         for tick, pitch, vel, on in events:
@@ -364,7 +368,9 @@ class TestMIDIExtraction:
 
             pitches_0_5 = sorted(set(n.pitch for inst in pm_0_5.instruments for n in inst.notes))
             pitches_5_10 = sorted(set(n.pitch for inst in pm_5_10.instruments for n in inst.notes))
-            pitches_10_15 = sorted(set(n.pitch for inst in pm_10_15.instruments for n in inst.notes))
+            pitches_10_15 = sorted(
+                set(n.pitch for inst in pm_10_15.instruments for n in inst.notes)
+            )
 
             assert pitches_0_5 != pitches_5_10, (
                 f"Windows [0,5) and [5,10) should have different pitches: "
@@ -425,11 +431,11 @@ class TestMIDIExtraction:
 
             for inst in pm.instruments:
                 for note in inst.notes:
-                    assert note.start >= -0.01, (
-                        f"Note start should be >= 0 after shift, got {note.start}"
-                    )
-                    assert note.start < 5.1, (
-                        f"Note start should be < 5.0 for 5s window, got {note.start}"
-                    )
+                    assert (
+                        note.start >= -0.01
+                    ), f"Note start should be >= 0 after shift, got {note.start}"
+                    assert (
+                        note.start < 5.1
+                    ), f"Note start should be < 5.0 for 5s window, got {note.start}"
         finally:
             os.unlink(midi_path)

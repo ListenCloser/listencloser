@@ -31,9 +31,7 @@ from .metrics import (
 
 def _load_adapter(candidate: str, device: str = "cpu") -> FoundationModelAdapter:
     if candidate not in ADAPTERS:
-        raise ValueError(
-            f"Unknown candidate: {candidate}. Available: {list(ADAPTERS.keys())}"
-        )
+        raise ValueError(f"Unknown candidate: {candidate}. Available: {list(ADAPTERS.keys())}")
     return ADAPTERS[candidate](device=device)
 
 
@@ -49,7 +47,7 @@ def _resolve_path(path: str) -> str:
         end = path.find("}")
         if end != -1:
             env_var = path[2:end]
-            rest = path[end + 1:]
+            rest = path[end + 1 :]
             expanded = os.environ.get(env_var, "")
             if expanded:
                 return expanded + rest
@@ -198,27 +196,21 @@ def run_operational_evaluation(
     result["cpu_latency"] = latency_results
 
     audio_10s = generate_synthetic_audio(duration_seconds=10.0)
-    result["determinism_stable"] = check_determinism(
-        adapter, audio_10s, 24000, num_runs=3
-    )
+    result["determinism_stable"] = check_determinism(adapter, audio_10s, 24000, num_runs=3)
 
     embed_result = adapter.embed_audio(audio_10s, 24000)
     if embed_result.ok:
         result["embedding_dim_measured"] = embed_result.dimensionality
         result["temporal_measured"] = embed_result.temporal_vectors is not None
         if embed_result.temporal_vectors is not None:
-            result["temporal_vectors_shape"] = list(
-                embed_result.temporal_vectors.shape
-            )
+            result["temporal_vectors_shape"] = list(embed_result.temporal_vectors.shape)
 
     if adapter.supports_text():
         text_result = adapter.embed_text("solo piano")
         if text_result and text_result.ok:
             result["text_embedding_dim"] = text_result.dimensionality
         else:
-            result["text_embedding_error"] = (
-                text_result.error if text_result else "no result"
-            )
+            result["text_embedding_error"] = text_result.error if text_result else "no result"
 
     return result
 
@@ -262,12 +254,14 @@ def run_within_work_similarity(
     t = 0.0
     idx = 0
     while t + window_sec <= work_duration:
-        all_windows.append({
-            "idx": idx,
-            "start": t,
-            "end": t + window_sec,
-            "label": f"window_{idx:03d}_{t:.0f}s",
-        })
+        all_windows.append(
+            {
+                "idx": idx,
+                "start": t,
+                "end": t + window_sec,
+                "label": f"window_{idx:03d}_{t:.0f}s",
+            }
+        )
         t += hop_sec
         idx += 1
 
@@ -301,27 +295,29 @@ def run_within_work_similarity(
         if qlabel not in embeddings:
             continue
 
-        neighbors = retrieve_nearest_neighbors(
-            qlabel, embeddings, top_k=10
-        )
+        neighbors = retrieve_nearest_neighbors(qlabel, embeddings, top_k=10)
 
         nn_table: list[dict[str, Any]] = []
         for nid, sim in neighbors:
             nw = next((w for w in all_windows if w["label"] == nid), None)
-            nn_table.append({
-                "window": nid,
-                "start": nw["start"] if nw else None,
-                "end": nw["end"] if nw else None,
-                "similarity": round(sim, 4),
-            })
+            nn_table.append(
+                {
+                    "window": nid,
+                    "start": nw["start"] if nw else None,
+                    "end": nw["end"] if nw else None,
+                    "similarity": round(sim, 4),
+                }
+            )
 
         qdesc = query_labels[qi] if qi < len(query_labels) else f"query at {qstart}s"
-        query_results.append({
-            "query_window": qlabel,
-            "query_start": qstart,
-            "query_description": qdesc,
-            "nearest_neighbors": nn_table,
-        })
+        query_results.append(
+            {
+                "query_window": qlabel,
+                "query_start": qstart,
+                "query_description": qdesc,
+                "nearest_neighbors": nn_table,
+            }
+        )
 
     return {
         "candidate": candidate,
@@ -399,17 +395,21 @@ def run_cross_work_similarity(
         neighbors = retrieve_nearest_neighbors(query_id, embeddings, top_k=len(ids) - 1)
         nn_table = []
         for nid, sim in neighbors:
-            nn_table.append({
-                "id": nid,
-                "category": probe_meta.get(nid, {}).get("category", ""),
-                "dataset": probe_meta.get(nid, {}).get("dataset", ""),
-                "similarity": round(sim, 4),
-            })
-        cross_results.append({
-            "query": query_id,
-            "query_category": probe_meta.get(query_id, {}).get("category", ""),
-            "nearest_neighbors": nn_table,
-        })
+            nn_table.append(
+                {
+                    "id": nid,
+                    "category": probe_meta.get(nid, {}).get("category", ""),
+                    "dataset": probe_meta.get(nid, {}).get("dataset", ""),
+                    "similarity": round(sim, 4),
+                }
+            )
+        cross_results.append(
+            {
+                "query": query_id,
+                "query_category": probe_meta.get(query_id, {}).get("category", ""),
+                "nearest_neighbors": nn_table,
+            }
+        )
 
     return {
         "candidate": candidate,
@@ -491,24 +491,24 @@ def run_text_retrieval(
         similarities: list[dict[str, Any]] = []
         for audio_id, audio_emb in audio_embeddings.items():
             sim = cosine_similarity(text_emb, audio_emb)
-            probe = next(
-                p for p in diversity_manifest["probes"] if p["id"] == audio_id
+            probe = next(p for p in diversity_manifest["probes"] if p["id"] == audio_id)
+            similarities.append(
+                {
+                    "audio_id": audio_id,
+                    "category": probe["category"],
+                    "similarity": round(sim, 4),
+                }
             )
-            similarities.append({
-                "audio_id": audio_id,
-                "category": probe["category"],
-                "similarity": round(sim, 4),
-            })
         similarities.sort(key=lambda x: x["similarity"], reverse=True)
 
-        query_text = next(
-            q["text"] for q in manifest["queries"] if q["id"] == query_id
+        query_text = next(q["text"] for q in manifest["queries"] if q["id"] == query_id)
+        retrieval_results.append(
+            {
+                "query_id": query_id,
+                "query_text": query_text,
+                "ranked_results": similarities,
+            }
         )
-        retrieval_results.append({
-            "query_id": query_id,
-            "query_text": query_text,
-            "ranked_results": similarities,
-        })
 
     return {
         "candidate": candidate,
@@ -593,9 +593,7 @@ def run_cross_representation(
         return {"error": "Insufficient embeddings for cross-representation evaluation"}
 
     matched_pairs = [(pid, pid) for pid in audio_embeddings if pid in midi_embeddings]
-    cross_result = evaluate_cross_representation(
-        audio_embeddings, midi_embeddings, matched_pairs
-    )
+    cross_result = evaluate_cross_representation(audio_embeddings, midi_embeddings, matched_pairs)
 
     return {
         "candidate": candidate,
@@ -611,9 +609,7 @@ def run_cross_representation(
     }
 
 
-def _generate_midi_bytes(
-    pitches: list[int], duration: float, velocity: int = 80
-) -> bytes:
+def _generate_midi_bytes(pitches: list[int], duration: float, velocity: int = 80) -> bytes:
     import struct
 
     def _var_len(value: int) -> bytes:
@@ -643,11 +639,13 @@ def _generate_midi_bytes(
     track_data.extend(_var_len(0))
     track_data.extend(bytes([0xFF, 0x51, 0x03]))
     track_data.extend(
-        bytes([
-            (us_per_beat >> 16) & 0xFF,
-            (us_per_beat >> 8) & 0xFF,
-            us_per_beat & 0xFF,
-        ])
+        bytes(
+            [
+                (us_per_beat >> 16) & 0xFF,
+                (us_per_beat >> 8) & 0xFF,
+                us_per_beat & 0xFF,
+            ]
+        )
     )
 
     last_tick = 0
@@ -689,28 +687,20 @@ def run_candidate(
     if task in ("all", "within_work"):
         manifest_path = os.path.join(manifest_dir, "diversity_probe.json")
         if os.path.exists(manifest_path):
-            results["within_work"] = run_within_work_similarity(
-                candidate, manifest_path, device
-            )
+            results["within_work"] = run_within_work_similarity(candidate, manifest_path, device)
 
     if task in ("all", "cross_work"):
         manifest_path = os.path.join(manifest_dir, "diversity_probe.json")
         if os.path.exists(manifest_path):
-            results["cross_work"] = run_cross_work_similarity(
-                candidate, manifest_path, device
-            )
+            results["cross_work"] = run_cross_work_similarity(candidate, manifest_path, device)
 
     if task in ("all", "text_retrieval"):
         manifest_path = os.path.join(manifest_dir, "product_queries.json")
         if os.path.exists(manifest_path):
-            results["text_retrieval"] = run_text_retrieval(
-                candidate, manifest_path, device
-            )
+            results["text_retrieval"] = run_text_retrieval(candidate, manifest_path, device)
 
     if task in ("all", "cross_representation"):
-        manifest_path = os.path.join(
-            manifest_dir, "aligned_representation_probe.json"
-        )
+        manifest_path = os.path.join(manifest_dir, "aligned_representation_probe.json")
         if os.path.exists(manifest_path):
             results["cross_representation"] = run_cross_representation(
                 candidate, manifest_path, device

@@ -36,12 +36,8 @@ class CLAPAdapter(FoundationModelAdapter):
         try:
             from transformers import AutoModel, AutoProcessor
 
-            self._processor = AutoProcessor.from_pretrained(
-                self.model_id, trust_remote_code=True
-            )
-            self._model = AutoModel.from_pretrained(
-                self.model_id, trust_remote_code=True
-            )
+            self._processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
+            self._model = AutoModel.from_pretrained(self.model_id, trust_remote_code=True)
             self._model.eval()
             self._model.to(self.device)
             self._loaded = True
@@ -64,9 +60,7 @@ class CLAPAdapter(FoundationModelAdapter):
                 waveform = torch.from_numpy(audio).float().unsqueeze(0)
                 if waveform.dim() == 1:
                     waveform = waveform.unsqueeze(0)
-                resampler = torchaudio.transforms.Resample(
-                    orig_freq=sample_rate, new_freq=48000
-                )
+                resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=48000)
                 waveform = resampler(waveform).squeeze(0).numpy()
             else:
                 waveform = audio
