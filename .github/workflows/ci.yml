@@ -44,6 +44,8 @@ jobs:
         run: |
           uv run ruff check . --output-format=github
           uv run ruff format . --check
+      - name: Verify generated API contract
+        run: npm run api:check
       - name: Run required Python unit tests
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
