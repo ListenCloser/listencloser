@@ -2,7 +2,6 @@
 
 import contextvars
 import logging
-import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -18,31 +17,17 @@ from auth_utils import limiter
 from domain.api import router as domain_router
 from domain.upload_api import router as upload_router
 from health_api import router as health_router
-from observability import configure_logging, init_telemetry, record_http_request
+from observability import configure_logging, init_sentry, init_telemetry, record_http_request
 
 configure_logging("hello-ai-api")
-init_telemetry("hello-ai-api")
 logger = logging.getLogger("backend")
+init_telemetry("hello-ai-api")
+init_sentry(
+    logger,
+    default_release="backend@2.0.0",
+    include_fastapi_integrations=True,
+)
 _request_id_ctx = contextvars.ContextVar("request_id", default="none")
-
-try:
-    import sentry_sdk
-    from sentry_sdk.integrations.fastapi import FastAPIIntegration
-    from sentry_sdk.integrations.starlette import StarletteIntegration
-
-    _sentry_dsn = os.environ.get("SENTRY_DSN_BACKEND") or os.environ.get("SENTRY_DSN")
-    if _sentry_dsn:
-        sentry_sdk.init(
-            dsn=_sentry_dsn,
-            environment=os.environ.get("SENTRY_ENV", "production"),
-            integrations=[StarletteIntegration(), FastAPIIntegration()],
-            traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
-            send_default_pii=False,
-            release=os.environ.get("RELEASE", "backend@2.0.0"),
-        )
-        logger.info("sentry_initialized")
-except ImportError:
-    logger.warning("sentry_sdk_not_installed")
 
 
 @asynccontextmanager
