@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
@@ -26,48 +26,79 @@ function WorkRow({
   onDelete: () => void;
   onOpen: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   const status = isLoading
     ? "Processing"
-    : hasRepresentations
-      ? "Ready"
-      : "Saved";
-
-  const handleDelete = () => {
-    if (!confirming) {
-      setConfirming(true);
-      return;
-    }
-    onDelete();
-  };
+    : hasAnalysis
+      ? "Analyzed"
+      : hasRepresentations
+        ? "Ready"
+        : "Imported";
 
   return (
-    <div className="library-work-row">
+    <div className={`library-work-row${selected ? " selected" : ""}`}>
       <button
         type="button"
         className="library-work-btn"
         onClick={onOpen}
         aria-current={selected ? "true" : undefined}
-        disabled={isLoading && selected}
       >
-        <span className="library-work-title">{presentableTitle(work.title)}</span>
-        <span className="library-work-status">
-          <span className={`library-status-dot ${isLoading ? "processing" : hasRepresentations ? "ready" : "saved"}`} />
-          {status}
-          {hasAnalysis && <span className="library-analysis-badge">Analysis</span>}
+        <span className="library-work-leading" aria-hidden="true">
+          {isLoading ? <span className="library-row-spinner" /> : <span className="library-note-glyph">♪</span>}
+        </span>
+        <span className="library-work-copy">
+          <span className="library-work-title">{presentableTitle(work.title)}</span>
+          <span className="library-work-status">{status}</span>
         </span>
       </button>
-      <button
-        type="button"
-        className={`library-delete-btn${confirming ? " confirming" : ""}`}
-        onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-        onBlur={() => setConfirming(false)}
-        title={confirming ? "Click again to confirm delete" : "Delete work"}
-        aria-label={confirming ? "Confirm delete" : "Delete work"}
-      >
-        {confirming ? "🗑" : "×"}
-      </button>
+
+      <div className="library-row-menu" ref={menuRef}>
+        <button
+          type="button"
+          className="library-row-menu-trigger"
+          aria-label={`More actions for ${presentableTitle(work.title)}`}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <circle cx="3" cy="8" r="1.25" /><circle cx="8" cy="8" r="1.25" /><circle cx="13" cy="8" r="1.25" />
+          </svg>
+        </button>
+        {menuOpen && (
+          <div className="library-row-menu-popover" role="menu">
+            <button
+              type="button"
+              className="library-row-menu-item danger"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                onDelete();
+              }}
+            >
+              Delete recording
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -77,7 +108,6 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     workspace,
     requestImport,
     setActiveWorkId,
-    toggleLibrary,
     removeWork,
     restoreWork,
     clearSelection,
@@ -93,10 +123,10 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   }
 
   async function handleDelete(workId: string) {
+    if (deletingId) return;
     const removed = workspace.works.find((work) => work.id === workId);
     setDeletingId(workId);
     setDeleteError(null);
-    // Optimistic: the work leaves the library and workspace state immediately.
     if (workspace.activeWorkId === workId) {
       clearActiveSource();
       resetTimeline();
@@ -106,48 +136,44 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     try {
       await deleteWork(workId);
     } catch {
-      // Backend deletion failed: put the work back and let the user retry.
       if (removed) restoreWork(removed);
-      setDeleteError("That work could not be deleted. It has been restored.");
+      setDeleteError("Delete failed. The recording was restored.");
     } finally {
       setDeletingId(null);
     }
   }
 
-  if (workspace.libraryCollapsed) {
-    return (
-      <aside className="studio-library studio-library-collapsed">
-        <button className="icon-btn ghost" onClick={toggleLibrary} title="Expand library">▸</button>
-      </aside>
-    );
-  }
-
   return (
-    <aside className="studio-library">
-      <div className="library-header">
-        <div className="library-header-text">
-          <div className="section-label" style={{ margin: 0 }}>Your music</div>
-          <div className="library-count">{workspace.works.length} piece{workspace.works.length !== 1 ? "s" : ""}</div>
+    <aside className={`studio-library studio-library-v3${workspace.libraryCollapsed ? " is-collapsed" : ""}`}>
+      <div className="library-header library-header-v3">
+        <div className="library-heading-row">
+          <h2>Library</h2>
+          {workspace.works.length > 0 && <span className="library-count">{workspace.works.length}</span>}
         </div>
+        {signedIn && (
+          <button
+            type="button"
+            className="library-import-btn"
+            onClick={requestImport}
+            disabled={!canImport}
+            aria-label={canImport ? "Import audio" : "Import unavailable"}
+            title={canImport ? "Import audio" : "Processing service unavailable"}
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+              <path d="M7.5 2v11M2 7.5h11" />
+            </svg>
+            <span>Import</span>
+          </button>
+        )}
       </div>
 
-      {signedIn && (
-        <div className="library-import">
-          <button type="button" className="btn btn-primary" style={{ width: "100%" }} onClick={requestImport} disabled={!canImport}>
-            {canImport ? "Import audio" : "Import unavailable"}
-          </button>
-        </div>
-      )}
-
-      <div className="library-list">
-        {deleteError && (
-          <div role="alert" className="library-error">
-            {deleteError}
-          </div>
-        )}
+      <div className="library-list library-list-v3">
+        {deleteError && <div role="alert" className="library-error">{deleteError}</div>}
         {workspace.works.length === 0 ? (
-          <div className="library-empty">
-            <p>Bring in a recording to transcribe, explore, and analyze.</p>
+          <div className="library-empty library-empty-v3">
+            <span className="library-empty-icon" aria-hidden="true">♪</span>
+            <strong>No recordings yet</strong>
+            <p>Import audio to start a workspace.</p>
           </div>
         ) : workspace.works.map((work) => {
           const selected = workspace.activeWorkId === work.id;
@@ -162,7 +188,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               isLoading={workspace.isLoadingWork && selected}
               hasAnalysis={workspace.insights.length > 0 && selected}
               hasRepresentations={availability ? availability.availableKinds.length > 0 : false}
-              onDelete={() => handleDelete(work.id)}
+              onDelete={() => void handleDelete(work.id)}
               onOpen={() => {
                 if (!selected) clearActiveSource();
                 setActiveWorkId(work.id);
@@ -172,15 +198,11 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
         })}
       </div>
 
-      <div className="library-footer">
-        {signedIn ? (
-          <button type="button" className="btn" style={{ width: "100%" }} onClick={signOut}>
+      <div className="library-footer library-footer-v3">
+        {signedIn && (
+          <button type="button" className="library-account-action" onClick={signOut}>
             Sign out
           </button>
-        ) : (
-          <p className="library-signin-hint">
-            Sign in to create a private music workspace.
-          </p>
         )}
       </div>
     </aside>
