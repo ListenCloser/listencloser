@@ -27,9 +27,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
 
-from music21 import features, interval, stream, note
+from music21 import features, interval, note, stream
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +36,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MelodyNoteInput:
     """Input note for feature extraction."""
+
     pitch: int  # MIDI pitch
     start_seconds: float
     end_seconds: float
@@ -46,6 +46,7 @@ class MelodyNoteInput:
 @dataclass
 class MelodyFeatures:
     """Canonical melody features from music21/jSymbolic."""
+
     # Trivial projections (custom, acceptable)
     highest_pitch: int
     lowest_pitch: int
@@ -103,7 +104,9 @@ def extract_melody_features(notes: list[MelodyNoteInput]) -> MelodyFeatures | No
     for n in notes:
         m21_note = note.Note()
         m21_note.pitch.midi = n.pitch
-        m21_note.quarterLength = (n.end_seconds - n.start_seconds) * 4  # Convert to quarter lengths
+        m21_note.quarterLength = (
+            n.end_seconds - n.start_seconds
+        ) * 4  # Convert to quarter lengths
         melody_stream.append(m21_note)
 
     # Trivial projections
@@ -113,32 +116,48 @@ def extract_melody_features(notes: list[MelodyNoteInput]) -> MelodyFeatures | No
 
     # jSymbolic features
     try:
-        stepwise = features.jSymbolic.StepwiseMotionFeature(melody_stream).extract().vector[0]
+        stepwise = (
+            features.jSymbolic.StepwiseMotionFeature(melody_stream).extract().vector[0]
+        )
     except Exception:
         stepwise = 0.0
 
     try:
-        direction = features.jSymbolic.DirectionOfMotionFeature(melody_stream).extract().vector[0]
+        direction = (
+            features.jSymbolic.DirectionOfMotionFeature(melody_stream).extract().vector[0]
+        )
     except Exception:
         direction = 0.5
 
     try:
-        avg_interval = features.jSymbolic.AverageMelodicIntervalFeature(melody_stream).extract().vector[0]
+        avg_interval = (
+            features.jSymbolic.AverageMelodicIntervalFeature(melody_stream)
+            .extract()
+            .vector[0]
+        )
     except Exception:
         avg_interval = 0.0
 
     try:
-        most_common = int(features.jSymbolic.MostCommonMelodicIntervalFeature(melody_stream).extract().vector[0])
+        most_common = int(
+            features.jSymbolic.MostCommonMelodicIntervalFeature(melody_stream)
+            .extract()
+            .vector[0]
+        )
     except Exception:
         most_common = 0
 
     try:
-        repeated = features.jSymbolic.RepeatedNotesFeature(melody_stream).extract().vector[0]
+        repeated = (
+            features.jSymbolic.RepeatedNotesFeature(melody_stream).extract().vector[0]
+        )
     except Exception:
         repeated = 0.0
 
     try:
-        chromatic = features.jSymbolic.ChromaticMotionFeature(melody_stream).extract().vector[0]
+        chromatic = (
+            features.jSymbolic.ChromaticMotionFeature(melody_stream).extract().vector[0]
+        )
     except Exception:
         chromatic = 0.0
 
@@ -148,13 +167,21 @@ def extract_melody_features(notes: list[MelodyNoteInput]) -> MelodyFeatures | No
         density = 0.0
 
     try:
-        avg_duration = features.jSymbolic.AverageNoteDurationFeature(melody_stream).extract().vector[0]
+        avg_duration = (
+            features.jSymbolic.AverageNoteDurationFeature(melody_stream)
+            .extract()
+            .vector[0]
+        )
     except Exception:
         avg_duration = 0.0
 
     # Interval histogram
     try:
-        histogram = features.jSymbolic.MelodicIntervalHistogramFeature(melody_stream).extract().vector.tolist()
+        histogram = (
+            features.jSymbolic.MelodicIntervalHistogramFeature(melody_stream)
+            .extract()
+            .vector.tolist()
+        )
         # Pad or truncate to 13 bins (0-12 semitones)
         if len(histogram) < 13:
             histogram.extend([0.0] * (13 - len(histogram)))
