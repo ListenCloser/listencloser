@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import TabStrip from "@/components/ui/TabStrip";
 import { availableRepresentations, representationById } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
@@ -76,20 +77,13 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   return (
     <main className="piece-desk piece-desk-v3">
       <div className="representation-toolbar">
-        <nav className="piece-view-tabs piece-view-tabs-v3" role="tablist" aria-label="Music representation">
-          {available.map((def) => (
-            <button
-              key={def.id}
-              type="button"
-              role="tab"
-              aria-selected={activeView === def.id}
-              className={activeView === def.id ? "active" : ""}
-              onClick={() => setActiveRepresentation(def.id)}
-            >
-              {def.title}
-            </button>
-          ))}
-        </nav>
+        <TabStrip
+          className="piece-view-tabs piece-view-tabs-v3"
+          label="Music representation"
+          items={available.map((def) => ({ id: def.id, label: def.title }))}
+          value={activeView}
+          onChange={setActiveRepresentation}
+        />
       </div>
 
       <section className="piece-active-view piece-active-view-v3" aria-label={view.title}>
