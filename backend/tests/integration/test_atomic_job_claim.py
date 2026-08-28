@@ -54,11 +54,11 @@ def test_atomic_job_claim_skips_locked_queue_head() -> None:
         """,
     )
     try:
+
         def claim(worker_id: str) -> str | None:
             rows = _psql(
                 db_url,
-                "select id::text from public.claim_next_job("
-                f"'{worker_id}', 30.0);",
+                "select id::text from public.claim_next_job(" f"'{worker_id}', 30.0);",
             )
             return rows[0] if rows else None
 
