@@ -19,11 +19,6 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    env:
-      MUSIC_EVAL_CACHE_DIR: ${{ runner.temp }}/music-eval-cache
-      MT3_CHECKPOINT_DIR: ${{ runner.temp }}/mt3-checkpoints
-      MULTITRACK_SMOKE_OUTPUT: ${{ github.workspace }}/smoke-output
-      HELLO_AI_MEASUREMENT_SHA: 7057c1c247fb2770fee5f5e418479cbf69bd4619
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -49,6 +44,10 @@ jobs:
       - name: Run one-track 30-second BabySlakh exploratory smoke
         env:
           PYTHONPATH: backend
+          MUSIC_EVAL_CACHE_DIR: ${{ runner.temp }}/music-eval-cache
+          MT3_CHECKPOINT_DIR: ${{ runner.temp }}/mt3-checkpoints
+          MULTITRACK_SMOKE_OUTPUT: ${{ github.workspace }}/smoke-output
+          HELLO_AI_MEASUREMENT_SHA: 7057c1c247fb2770fee5f5e418479cbf69bd4619
         run: |
           backend/.venv/bin/python backend/evaluation/analysis_v3/multitrack_transcription/exploratory_babyslakh_smoke.py
 
