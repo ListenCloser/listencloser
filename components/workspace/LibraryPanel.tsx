@@ -137,7 +137,11 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   }
 
   return (
-    <aside className={`studio-library studio-library-v3${workspace.libraryCollapsed ? " is-collapsed" : ""}`}>
+    <aside
+      className={`studio-library studio-library-v3${workspace.libraryCollapsed ? " is-collapsed" : ""}`}
+      aria-hidden={workspace.libraryCollapsed}
+      inert={workspace.libraryCollapsed}
+    >
       <div className="library-header library-header-v3">
         <div className="library-heading-row">
           <h2>Library</h2>
