@@ -1,0 +1,38 @@
+name: Execute PR 343 repair safely
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.event.pull_request.number == 343 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: design/product-ui-polish-v4
+      - name: Reuse and complete the verified repair script
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/fix-pr343-e2e.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(workflow) if line.strip() == 'run: |') + 1
+          block = []
+          for line in workflow[start:]:
+              if line and not line.startswith('          '):
+                  break
+              block.append(line[10:] if line.startswith('          ') else '')
+          script = '\n'.join(block) + '\n'
+          needle = 'stale = ['
+          extra = '''path = root / "real-stack-golden.spec.ts"\ntext = path.read_text().replace(\n    'page.getByText(/Listening to:/)',\n    'page.getByRole("button", { name: /Playback source:/ })',\n)\npath.write_text(text)\n\nstale = ['''
+          if needle not in script:
+              raise SystemExit('repair validation marker not found')
+          script = script.replace(needle, extra, 1)
+          Path('/tmp/repair.sh').write_text(script)
+          PY
+          bash /tmp/repair.sh
