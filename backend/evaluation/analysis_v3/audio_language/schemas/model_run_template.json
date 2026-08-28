@@ -4,7 +4,7 @@
   "hello_ai_sha": "<required>",
   "model": "<candidate>",
   "model_version": "<immutable upstream revision>",
-  "model_checksum": "<required when obtainable>",
+  "model_checksum": "<required when obtainable; null only if genuinely unobtainable>",
   "code_license": "<required>",
   "weight_license": "<required>",
   "environment": {
