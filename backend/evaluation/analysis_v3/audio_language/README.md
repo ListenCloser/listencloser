@@ -1,71 +1,65 @@
-# Analysis V3: Audio-Language Grounded QA
+# Analysis V3 Audio-Language Evaluation
 
-Evaluation-only work for #339. Nothing here registers a production model, changes `capabilities.json`, changes Ask routing, adds a GPU service, or persists model prose as musical fact.
+Issue: #339  
+Parent: #327
 
-## Product question
+This directory is evaluation-only. It does **not** register an audio-language model in production, change Ask routing, add a GPU service, or persist model prose as factual `Insight` evidence.
 
-Does raw audio add enough value to hello-ai's existing evidence-grounded Ask architecture to justify a separate audio-language semantic layer?
+## Decision boundary
 
-The comparison is deliberately:
+The question is not whether one audio-language model can replace specialized MIR. The question is whether raw audio adds enough grounded semantic value to hello-ai's existing evidence-driven Ask path to justify a separate research/semantic-hypothesis layer.
 
-1. `audio_only`
-2. `evidence_only`
-3. `audio_plus_evidence`
+The evaluation therefore keeps two different test families separate:
 
-The important gate is **audio+evidence vs evidence-only**, not whether a model can produce fluent music prose from raw audio.
+1. **Exact / relational probes** (`manifests/task_probes.json`)
+   - tempo, key, instrument presence, structure boundary, pitch direction;
+   - MUSE-style before/after, same/different, relative pitch/rhythm/timbre;
+   - scored with task-standard numeric/categorical metrics against case-provided ground truth.
+2. **Grounded explanation benchmark** (`manifests/grounded_qa.json`)
+   - compares `audio_only`, `evidence_only`, and `audio_plus_evidence` on the exact same case/question coverage;
+   - human/manual claim-level annotation for support, contradiction, unsupported claims, evidence citations, abstention, temporal grounding, usefulness, and specificity;
+   - never uses semantic usefulness ratings as a substitute for exact MIR accuracy.
 
-## Current trust boundary
+## Trust gate
 
-Production Ask already treats the LLM as an explainer over supplied evidence rather than a source of detected facts. This evaluation preserves that rule. Exact beat, pitch, chord, section, or other localized facts remain owned by evaluated specialized evidence unless an audio-language model separately clears a matched-task benchmark.
+`audio_plus_evidence` only passes the grounded-value gate when it:
 
-## First-round candidates
+- evaluates the same case/question pairs as `evidence_only`;
+- uses the same expected support references, abstention target, and temporal-grounding requirement for each compared pair;
+- improves supported-claim rate and human-rated usefulness;
+- does not worsen contradiction or unsupported-claim rate;
+- does not worsen citation recall/precision when evidence citations are expected;
+- does not worsen abstention accuracy;
+- does not worsen temporal-grounding accuracy;
+- does not worsen specificity.
 
-- Music Flamingo — `nvidia/music-flamingo-2601-hf`
-- Audio Flamingo 3 — `nvidia/audio-flamingo-3-hf`
-- Qwen2.5-Omni — `Qwen/Qwen2.5-Omni-7B`
-- LLark — reference only; the official repository releases no trained checkpoint
+There is deliberately no weighted composite that can hide a hallucination regression behind more fluent prose.
 
-Candidate/checkpoint metadata, licenses, model-file hashes where available, and benchmark references are recorded in `results/reference_evidence.json`.
+## Reproducibility
 
-## Evidence classes in this stage
-
-- `REFERENCE_AND_OPERATIONAL_METADATA`: official model cards/repos; no hello-ai inference.
-- `REFERENCE_BENCHMARK`: CMI-Bench and MUSE conclusions; no hello-ai inference.
-- future `LOCAL_MODEL_MEASUREMENT`: only after an actual checkpoint run with exact model/version/hardware/audio/prompt provenance.
-
-Do not relabel reference evidence as a local benchmark result.
-
-## Required-CI-safe commands
-
-From repository root:
+The required-CI path is checkpoint-free:
 
 ```bash
 uv run --project backend python -m backend.evaluation.analysis_v3.audio_language.run --task reference
-uv run --project backend pytest -q backend/tests/test_analysis_v3_audio_language.py
+uv run --project backend pytest backend/tests/test_analysis_v3_audio_language.py
 ```
 
-These commands do not import or download any audio-language checkpoint.
+A future real checkpoint run starts from `schemas/model_run_template.json` and must retain:
 
-## Scoring a future model run
+- hello-ai SHA;
+- exact model/checkpoint revision and checksum when obtainable;
+- code and weight licenses separately;
+- hardware / Python / Torch / Transformers versions;
+- peak RAM/VRAM and latency observations;
+- deterministic generation settings and repeat information;
+- rights-safe source dataset/item IDs, exact spans, and audio checksums;
+- verbatim raw responses for all three conditions;
+- blinded/manual annotation provenance.
 
-A model-run artifact must first be manually annotated at claim level. Then:
+The scorer rejects incomplete provenance, missing raw responses, duplicate raw cases, incomplete three-condition coverage, or assessments that do not exactly cover the retained responses.
 
-```bash
-uv run --project backend python -m backend.evaluation.analysis_v3.audio_language.run \
-  --task score \
-  --assessments /path/to/annotated_assessments.json
-```
+## Current stage
 
-Each assessment records supported, contradicted, and unsupported claims; expected/cited evidence refs; abstention behavior; temporal-grounding correctness where applicable; and 1-5 human usefulness/specificity ratings.
+This PR records upstream/reference evidence and evaluation contracts only. It performs no local Music Flamingo / Audio Flamingo 3 / Qwen2.5-Omni inference and makes no `ADOPT` claim.
 
-`grounded_value_gate` intentionally avoids a weighted magic score. `audio_plus_evidence` passes only if it improves supported-claim rate and usefulness without worsening contradiction, unsupported claims, citation quality, abstention, temporal grounding, or specificity relative to `evidence_only`.
-
-## Non-goals
-
-- no raw model prose promoted to `Insight`
-- no exact MIR authority from fluent answers
-- no checkpoint downloads in CI
-- no production dependency or topology changes
-- no self-grading by the evaluated model
-- no retraining LLark
-- no claim that this stage completes #339
+The next #339 gate is an isolated rights-safe Music Flamingo research run if a legitimate GPU environment is available. If it is not available, record that blocker rather than changing production topology or inventing results.
