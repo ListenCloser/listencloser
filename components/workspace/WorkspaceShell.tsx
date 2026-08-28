@@ -85,7 +85,11 @@ function WorkspaceContent({
 
         {analysisAvailable && (
           <>
-            <aside className={`studio-inspector studio-inspector-v3${inspectorOpen ? " is-open" : ""}`}>
+            <aside
+              className={`studio-inspector studio-inspector-v3${inspectorOpen ? " is-open" : ""}`}
+              aria-hidden={!inspectorOpen}
+              inert={!inspectorOpen}
+            >
               <InspectorPanel />
             </aside>
             {inspectorOpen && (
