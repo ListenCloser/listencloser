@@ -22,8 +22,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Report npm audit findings
+      - name: Test safe remediation
         run: |
+          set -euo pipefail
+          npm install --package-lock-only --ignore-scripts --save-exact next@15.5.24
+          npm install --package-lock-only --ignore-scripts --save-dev --save-exact eslint-config-next@15.5.24
+          npm audit fix --package-lock-only --ignore-scripts || true
+          echo '===== proposed package diff ====='
+          git diff -- package.json package-lock.json
+          echo '===== post-fix audit ====='
           npm audit --json > /tmp/npm-audit.json || true
           node - <<'NODE'
           const fs = require('fs');
