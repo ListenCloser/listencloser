@@ -21,8 +21,18 @@
 
 .transport-source-zone,
 .transport-compare-zone,
+.transport-compare-active,
+.transport-compare-side,
 .piece-source-select {
   overflow: visible;
+}
+
+.transport-compare-side {
+  position: relative;
+}
+
+.transport-compare-side:has(.piece-source-trigger[aria-expanded="true"]) {
+  z-index: 2;
 }
 
 .piece-source-select {
