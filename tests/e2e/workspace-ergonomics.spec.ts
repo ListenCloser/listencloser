@@ -3,10 +3,10 @@ import { expect, test } from "@playwright/test";
 /**
  * Workspace ergonomics (MSW).
  *
- * Tests the analysis state transitions and the new layout structure:
+ * Tests the analysis state transitions and the layout structure:
  * - Compare is integrated into the transport
  * - Completed analysis is visible in the persistent inspector
- * - Loop is an accessible icon button; play/pause is the primary transport action
+ * - Loop is explicit and accessible; play/pause is the primary transport action
  * - Library stays docked on desktop without duplicate collapse controls
  */
 test.describe("workspace ergonomics (MSW)", () => {
@@ -58,22 +58,21 @@ test.describe("workspace ergonomics (MSW)", () => {
   test("completed analysis is visible in the persistent inspector", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    // Desktop analysis is a stable dock, not a show/hide control. The mock work
-    // already has insights loaded, so its selected Analysis tab and overview
-    // are the durable completed-state signals.
     const inspector = page.locator("aside.inspector");
     await expect(inspector).toBeVisible();
     await expect(inspector.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
-    await expect(inspector.getByRole("heading", { name: "At a glance" })).toBeVisible();
+    await expect(inspector.getByRole("heading", { name: "Overview" })).toBeVisible();
     await expect(inspector.getByText("A minor", { exact: true })).toBeVisible();
+    await expect(inspector.getByText(/strongest global reading/i)).toBeVisible();
   });
 
-  test("loop is an accessible icon control", async ({ page }) => {
+  test("loop is an explicit accessible transport control", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     const loopBtn = page.getByRole("button", { name: "Toggle loop" });
     await expect(loopBtn).toBeVisible();
-    await expect(loopBtn).toHaveAttribute("title", "Loop");
+    await expect(loopBtn).toHaveAttribute("title", "Loop entire source");
+    await expect(loopBtn.getByText("Loop", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Play", exact: true })).toBeVisible();
   });
 
@@ -85,7 +84,6 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(library.getByRole("heading", { name: "Library" })).toBeVisible();
     await expect(library.locator('button[title="Collapse library"]')).toHaveCount(0);
 
-    // The header control is mobile-only and should not duplicate the docked desktop navigation.
     await expect(page.locator("header.studio-header").getByRole("button", { name: /library/i })).not.toBeVisible();
   });
 
@@ -94,10 +92,8 @@ test.describe("workspace ergonomics (MSW)", () => {
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
 
-    // The redesigned roll uses the workspace canvas instead of a nested vertical scroller.
     const box = await page.getByTestId("piano-roll").boundingBox();
     expect(box).not.toBeNull();
-    // Should be at least 320px tall (our min-height)
     expect(box!.height).toBeGreaterThanOrEqual(320);
   });
 
@@ -105,7 +101,6 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
-    // Waveform ruler should be visible
     const ruler = page.locator(".waveform-ruler");
     await expect(ruler).toBeVisible();
   });
