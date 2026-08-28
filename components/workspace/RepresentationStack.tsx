@@ -3,32 +3,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { availableRepresentations, representationById, type RepresentationId } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
-import { useTransport, type CompareSide, type PlaybackSource } from "@/lib/stores/transport";
 import { deriveAvailability } from "@/lib/representation-availability";
-import { presentableTitle } from "@/lib/format";
 
 function TranscriptionModeToggle() {
   const { workspace, setTranscriptionProfile } = useWorkspace();
-  const options: { id: TranscriptionProfile; label: string }[] = [
-    { id: "auto", label: "Auto" },
-    { id: "solo_piano", label: "Solo piano" },
+  const options: { id: TranscriptionProfile; label: string; description: string }[] = [
+    { id: "auto", label: "Auto", description: "Best default for most recordings" },
+    { id: "solo_piano", label: "Solo piano", description: "Prefer piano-specific transcription" },
   ];
   return (
     <div className="transcription-mode" role="group" aria-label="Transcription mode">
-      <span className="transcription-mode-label">Transcription</span>
-      <div className="transcription-mode-options">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            aria-pressed={workspace.transcriptionProfile === option.id}
-            className={workspace.transcriptionProfile === option.id ? "active" : ""}
-            onClick={() => setTranscriptionProfile(option.id)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          aria-pressed={workspace.transcriptionProfile === option.id}
+          className={workspace.transcriptionProfile === option.id ? "active" : ""}
+          onClick={() => setTranscriptionProfile(option.id)}
+          title={option.description}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -69,21 +65,24 @@ function MoreMenu({
     <div className="repr-more-select" ref={ref}>
       <button
         type="button"
-        className="repr-more-trigger"
-        aria-haspopup="listbox"
+        className={`repr-more-trigger${activeId ? " active" : ""}`}
+        aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
       >
-        More <span aria-hidden="true">&#9662;</span>
+        More
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+          <path d="m3 4.5 3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       {open && (
-        <div className="repr-more-menu" role="listbox">
+        <div className="repr-more-menu" role="menu">
           {items.map((item) => (
             <button
               key={item.id}
               type="button"
-              role="option"
-              aria-selected={activeId === item.id}
+              role="menuitemradio"
+              aria-checked={activeId === item.id}
               onClick={() => {
                 onSelect(item.id);
                 setOpen(false);
@@ -98,148 +97,32 @@ function MoreMenu({
   );
 }
 
-function CompareControl() {
-  const { transport, startCompare, setCompareSide, setCompareSource, exitCompare } = useTransport();
-  const {
-    sources,
-    compareEnabled,
-    compareA,
-    compareB,
-    activeSide,
-    activeSource,
-  } = transport;
-
-  const original = sources.find((item) => item.role === "original") ?? sources[0] ?? null;
-  const defaultB = sources.find((item) => item.id !== original?.id && ["transcription", "score"].includes(item.role))
-    ?? sources.find((item) => item.id !== original?.id)
-    ?? null;
-
-  const joinCompare = () => {
-    if (!original || !defaultB || original.id === defaultB.id) return;
-    startCompare(original, defaultB);
-  };
-
-  if (sources.length <= 1) return null;
-
-  if (!compareEnabled) {
-    return (
-      <button type="button" className="compare-trigger" onClick={joinCompare}>
-        Compare
-      </button>
-    );
-  }
-
+function WorkspaceLoadingSkeleton() {
   return (
-    <div className="compare-inline" role="group" aria-label="Compare playback">
-      {(["A", "B"] as const).map((side) => {
-        const sideSource = side === "A" ? compareA : compareB;
-        const other = side === "A" ? compareB : compareA;
-        return (
-          <SourceMenuInline
-            key={side}
-            triggerLabel={`${side} \u00b7 ${sideSource ? sideSource.label : "Choose\u2026"}`}
-            triggerAria={`${side}: ${sideSource ? sideSource.label : "Choose\u2026"}`}
-            options={sources
-              .filter((item) => item.id !== other?.id)
-              .map((item) => ({ id: item.id, label: item.label }))}
-            selectedId={sideSource?.id ?? null}
-            onSelect={(id) => {
-              const next = sources.find((item) => item.id === id);
-              if (next) setCompareSource(side, next);
-            }}
-          />
-        );
-      })}
-      <div className="compare-sides" role="group" aria-label="Active compare side">
-        {(["A", "B"] as const).map((side) => (
-          <button
-            key={side}
-            type="button"
-            className={`compare-chip${activeSide === side ? " active" : ""}`}
-            aria-pressed={activeSide === side}
-            onClick={() => setCompareSide(side)}
-          >
-            {side}
-          </button>
-        ))}
+    <main className="piece-desk piece-loading-shell" aria-busy="true" aria-label="Opening recording">
+      <div className="representation-toolbar representation-toolbar-loading" aria-hidden="true">
+        <span className="loading-pill loading-pill-wide" />
+        <span className="loading-pill" />
+        <span className="loading-pill" />
       </div>
-      <button type="button" className="compare-exit" aria-label="Exit compare" onClick={exitCompare}>
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" /></svg>
-      </button>
-    </div>
-  );
-}
-
-function SourceMenuInline({
-  triggerLabel,
-  triggerAria,
-  options,
-  selectedId,
-  onSelect,
-}: {
-  triggerLabel: string;
-  triggerAria: string;
-  options: { id: string; label: string }[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div className="compare-source-select" ref={ref}>
-      <button
-        type="button"
-        className="compare-source-trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={triggerAria}
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        <span>{triggerLabel}</span>
-        <span className="piece-caret" aria-hidden="true">&#9662;</span>
-      </button>
-      {open && (
-        <div className="piece-source-menu" role="listbox" aria-label={triggerAria}>
-          {options.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="option"
-              aria-selected={selectedId === option.id}
-              onClick={() => {
-                onSelect(option.id);
-                setOpen(false);
-              }}
-            >
-              {option.label}
-            </button>
+      <div className="piece-loading-canvas" role="status">
+        <div className="piece-loading-header">
+          <span className="loading-line loading-line-title" />
+          <span className="loading-line loading-line-meta" />
+        </div>
+        <div className="piece-loading-visual" aria-hidden="true">
+          {Array.from({ length: 7 }).map((_, row) => (
+            <span key={row} style={{ "--loading-row": row } as React.CSSProperties} />
           ))}
         </div>
-      )}
-    </div>
+        <span className="sr-only">Opening the saved recording and its analysis.</span>
+      </div>
+    </main>
   );
 }
 
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport, setActiveRepresentation } = useWorkspace();
-  const activeWork = workspace.works.find((work) => work.id === workspace.activeWorkId);
   const availability = useMemo(
     () => deriveAvailability(workspace.representations, workspace.insights.length),
     [workspace.representations, workspace.insights.length],
@@ -254,19 +137,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
 
-  if (workspace.isLoadingWork) {
-    return (
-      <main className="piece-desk">
-        <div className="piece-loading" role="status">
-          <span className="spinner" aria-hidden="true" />
-          <div className="piece-loading-copy">
-            <strong>Opening your workspace</strong>
-            <span>Loading the saved recording, transcription, and analysis.</span>
-          </div>
-        </div>
-      </main>
-    );
-  }
+  if (workspace.isLoadingWork) return <WorkspaceLoadingSkeleton />;
   if (!available.length) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
 
   const view = representationById(activeView ?? available[0].id);
@@ -275,54 +146,62 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 
   const primaryTabs = available.slice(0, PRIMARY_TAB_COUNT);
   const overflowTabs = available.slice(PRIMARY_TAB_COUNT);
-  const activeInOverflow = overflowTabs.some((t) => t.id === activeView);
+  const activeInOverflow = overflowTabs.some((tab) => tab.id === activeView);
 
-  return <main className="piece-desk">
-    <header className="piece-desk-heading">
-      <h1 title={activeWork?.title}>{presentableTitle(activeWork?.title ?? "Untitled piece")}</h1>
-    </header>
+  return (
+    <main className="piece-desk piece-desk-v3">
+      <div className="representation-toolbar">
+        <nav className="piece-view-tabs piece-view-tabs-v3" role="tablist" aria-label="Music representation">
+          {primaryTabs.map((def) => (
+            <button
+              key={def.id}
+              type="button"
+              role="tab"
+              aria-selected={activeView === def.id}
+              className={activeView === def.id ? "active" : ""}
+              onClick={() => setActiveRepresentation(def.id)}
+            >
+              {def.title}
+            </button>
+          ))}
+          {overflowTabs.length > 0 && (
+            <MoreMenu
+              items={overflowTabs.map((tab) => ({ id: tab.id, title: tab.title }))}
+              activeId={activeInOverflow ? activeView : null}
+              onSelect={(id) => setActiveRepresentation(id as RepresentationId)}
+            />
+          )}
+        </nav>
+      </div>
 
-    <div className="piece-tabs-row">
-      <nav className="piece-view-tabs" role="tablist" aria-label="Workspace views">
-        {primaryTabs.map((def) => (
-          <button
-            key={def.id}
-            type="button"
-            role="tab"
-            aria-selected={activeView === def.id}
-            className={activeView === def.id ? "active" : ""}
-            onClick={() => setActiveRepresentation(def.id)}
-          >
-            {def.title}
-          </button>
-        ))}
-        {overflowTabs.length > 0 && (
-          <MoreMenu
-            items={overflowTabs.map((t) => ({ id: t.id, title: t.title }))}
-            activeId={activeInOverflow ? activeView : null}
-            onSelect={(id) => setActiveRepresentation(id as RepresentationId)}
-          />
-        )}
-      </nav>
-      <CompareControl />
-    </div>
-
-    <section className="piece-active-view" aria-label={view.title}>
-      <ViewComponent />
-    </section>
-  </main>;
+      <section className="piece-active-view piece-active-view-v3" aria-label={view.title}>
+        <ViewComponent />
+      </section>
+    </main>
+  );
 }
 
 function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canImport: boolean; onImport: () => void }) {
   return (
-    <main className="piece-desk piece-empty">
-      <h1>Start with a recording.</h1>
-      <p>Upload an audio file. We will keep the original, create a playable transcription, and give you a piano roll, score, and analysis to inspect together.</p>
-      <div style={{ display: "grid", gap: "var(--s-3)", justifyContent: "center", justifyItems: "center" }}>
-        <button className="btn btn-primary" onClick={onImport} disabled={!signedIn || !canImport}>{canImport ? "Import audio" : "Preparing import"}</button>
-        <TranscriptionModeToggle />
+    <main className="piece-desk piece-empty piece-empty-v3">
+      <div className="empty-desk-art" aria-hidden="true">
+        <span className="empty-staff-line" /><span className="empty-staff-line" /><span className="empty-staff-line" /><span className="empty-staff-line" /><span className="empty-staff-line" />
+        <span className="empty-note empty-note-one">♪</span>
+        <span className="empty-note empty-note-two">♫</span>
       </div>
-      <small>WAV, MP3, M4A, FLAC, OGG, or AAC &middot; up to 4 MB</small>
+      <div className="empty-desk-copy">
+        <span className="piece-eyebrow">New workspace</span>
+        <h1>Bring in a recording.</h1>
+        <p>Listen, transcribe, inspect notation, and understand the music without leaving the same workspace.</p>
+        <button className="btn btn-primary empty-import-primary" onClick={onImport} disabled={!signedIn || !canImport}>
+          {canImport ? "Import audio" : "Preparing import"}
+        </button>
+        <details className="transcription-settings">
+          <summary>Transcription settings</summary>
+          <TranscriptionModeToggle />
+        </details>
+        <small>WAV, MP3, M4A, FLAC, OGG, AAC · up to 4 MB</small>
+      </div>
     </main>
   );
 }
