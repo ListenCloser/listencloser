@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
 
-test("deleting the active work clears it and leaves no stale transport state", async ({ page }) => {
+async function openWorkspace(page: Page) {
   await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
   await page.goto("/");
   await page.waitForFunction(
@@ -9,14 +9,12 @@ test("deleting the active work clears it and leaves no stale transport state", a
     undefined,
     { timeout: 15_000 },
   );
-
   await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
+}
 
-  // The work must be open and playable first: an enabled seek slider proves a
-  // real source and a non-zero duration were loaded (it is disabled whenever
-  // there is no source or no duration).
-  const seek = page.getByRole("slider", { name: "Playback position" });
-  await expect(seek).toBeEnabled({ timeout: 20_000 });
+test("deleting the active work clears it and leaves no stale transport state", async ({ page }) => {
+  await openWorkspace(page);
 
   // Delete is a direct row action. A one-command overflow menu added friction
   // on desktop and was effectively hidden behind hover on touch devices.
@@ -32,4 +30,37 @@ test("deleting the active work clears it and leaves no stale transport state", a
   // controls entirely rather than leaving a disabled playhead behind.
   await expect(page.getByRole("slider", { name: "Playback position" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Playback source:/ })).toHaveCount(0);
+});
+
+test("failed active-work deletion restores the selected workspace and playback", async ({ page }) => {
+  await openWorkspace(page);
+
+  // Fail only the DELETE request at the browser fetch boundary. Successful
+  // GETs still flow through MSW, so the restored active work must genuinely
+  // reload its bundle and playback sources rather than merely reappearing in
+  // the optimistic works cache.
+  await page.evaluate(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "DELETE" && String(input).includes("/api/v1/works/mock-work-1")) {
+        return new Response(JSON.stringify({ error: "forced delete failure" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(input, init);
+    };
+  });
+
+  await page.getByRole("button", { name: "Delete Test Work" }).click();
+
+  await expect(page.getByRole("alert")).toHaveText("Delete failed. The recording was restored.");
+  const restoredWork = page.getByRole("button", { name: /^Test Work\b/ });
+  await expect(restoredWork).toBeVisible();
+  await expect(restoredWork).toHaveAttribute("aria-current", "true");
+
+  // Restoring the row alone is not enough. The local workspace transaction
+  // must also roll back so HomeContent reloads the work and rebuilds transport.
+  await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
+  await expect(page.getByRole("button", { name: /Playback source:/ })).toBeVisible();
 });
