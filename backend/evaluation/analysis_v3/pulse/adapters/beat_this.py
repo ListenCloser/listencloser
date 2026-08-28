@@ -81,5 +81,9 @@ class BeatThisAdapter(PulseAdapter):
             supports_tempo=True,
             supports_meter=False,
             supports_local_tempo=False,
-            notes="CNN-based beat/downbeat tracker from INRIA.",
+            notes=(
+                "CNN-based beat/downbeat tracker from INRIA. "
+                "Tempo is derived from median inter-beat interval, "
+                "not an independently predicted tempo output."
+            ),
         )

@@ -97,7 +97,11 @@ class BeatNetAdapter(PulseAdapter):
             supports_beats=True,
             supports_downbeats=True,
             supports_tempo=True,
-            supports_meter=True,
-            supports_local_tempo=True,
-            notes="Joint beat/downbeat/tempo/meter tracker.",
+            supports_meter=False,
+            supports_local_tempo=False,
+            notes=(
+                "Joint beat/downbeat/tempo tracker. "
+                "Meter extraction not implemented in current adapter. "
+                "Blocked by madmom/numpy compatibility issue."
+            ),
         )

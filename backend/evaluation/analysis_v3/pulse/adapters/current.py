@@ -1,6 +1,13 @@
-"""Current production baseline adapter using librosa."""
+"""Current production baseline adapter using the exact hello-ai implementation.
+
+Uses backend/music_features.estimate_beat_grid() which is the actual production path.
+"""
 
 from __future__ import annotations
+
+import io
+import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -13,12 +20,19 @@ class CurrentBaselineAdapter(PulseAdapter):
 
     def __init__(self, device: str = "cpu"):
         super().__init__(device)
-        self._engine = None
 
     def load(self) -> None:
         if self._loaded:
             return
         try:
+            # Navigate up to backend/ directory where music_features.py lives
+            backend_dir = str(Path(__file__).resolve().parent.parent.parent.parent.parent)
+            if backend_dir not in sys.path:
+                sys.path.insert(0, backend_dir)
+
+            from music_features import estimate_beat_grid
+
+            self._estimate_beat_grid = estimate_beat_grid
             self._loaded = True
         except Exception as e:
             raise RuntimeError(f"Failed to load current baseline: {e}") from e
@@ -31,16 +45,19 @@ class CurrentBaselineAdapter(PulseAdapter):
         if not self._loaded:
             return PulseResult(error="Engine not loaded")
         try:
-            import librosa
+            import soundfile as sf
 
-            tempo, beat_frames = librosa.beat.beat_track(y=audio, sr=sample_rate)
-            beats = librosa.frames_to_time(beat_frames, sr=sample_rate).tolist()
+            buf = io.BytesIO()
+            sf.write(buf, audio, sample_rate, format="WAV")
+            wav_bytes = buf.getvalue()
+
+            bpm, beats = self._estimate_beat_grid(wav_bytes)
 
             return PulseResult(
                 beats=beats,
                 downbeats=[],
                 beat_positions=[],
-                tempo_bpm=float(tempo) if tempo is not None else None,
+                tempo_bpm=bpm,
             )
         except Exception as e:
             return PulseResult(error=str(e))
@@ -57,5 +74,9 @@ class CurrentBaselineAdapter(PulseAdapter):
             supports_tempo=True,
             supports_meter=False,
             supports_local_tempo=False,
-            notes="Current production baseline. Spectral onset + dynamic programming.",
+            notes=(
+                "Current production baseline. "
+                "Uses backend/music_features.estimate_beat_grid() "
+                "which calls librosa.beat.beat_track with trim=False."
+            ),
         )

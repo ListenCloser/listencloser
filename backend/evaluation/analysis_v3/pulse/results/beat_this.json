@@ -2,7 +2,7 @@
   "candidate": "beat_this",
   "task": "all",
   "device": "cpu",
-  "timestamp": "2026-08-28T03:20:45Z",
+  "timestamp": "2026-08-28T03:41:41Z",
   "operational": {
     "candidate": "beat_this",
     "device": "cpu",
@@ -18,14 +18,14 @@
     "supports_meter": false,
     "install_success": true,
     "load_success": true,
-    "load_time_seconds": 0.81,
+    "load_time_seconds": 0.72,
     "cpu_latency_10s": {
-      "latency_seconds": 0.12298708400000002,
+      "latency_seconds": 0.11774541700000007,
       "audio_duration_seconds": 10.0,
       "error": null
     },
     "cpu_latency_30s": {
-      "latency_seconds": 0.8962496670000002,
+      "latency_seconds": 0.900709875,
       "audio_duration_seconds": 30.0,
       "error": null
     },
@@ -34,10 +34,10 @@
   "beat": {
     "candidate": "beat_this",
     "task": "beat",
-    "num_clips": 8,
+    "num_clips": 10,
     "results": [
       {
-        "id": "guitarset_bn1_comp",
+        "id": "00_BN1-129-Eb_comp",
         "beat_f1": {
           "precision": 1.0,
           "recall": 0.8125,
@@ -68,69 +68,7 @@
         "latency_seconds": null
       },
       {
-        "id": "guitarset_rock2_comp",
-        "beat_f1": {
-          "precision": 0.9846,
-          "recall": 1.0,
-          "f1": 0.9922,
-          "matched": 64,
-          "predicted": 65,
-          "reference": 64
-        },
-        "downbeat_f1": {
-          "precision": 0.9412,
-          "recall": 1.0,
-          "f1": 0.9697,
-          "matched": 16,
-          "predicted": 17,
-          "reference": 16
-        },
-        "tempo": {
-          "absolute_error": 0.86,
-          "relative_error_pct": 0.6,
-          "is_correct": true,
-          "is_octave_error": false,
-          "is_half_double_error": false,
-          "predicted_bpm": 142.86,
-          "reference_bpm": 142.0
-        },
-        "predicted_beats": 65,
-        "predicted_downbeats": 17,
-        "latency_seconds": null
-      },
-      {
-        "id": "guitarset_jazz1_comp",
-        "beat_f1": {
-          "precision": 1.0,
-          "recall": 0.75,
-          "f1": 0.8571,
-          "matched": 36,
-          "predicted": 36,
-          "reference": 48
-        },
-        "downbeat_f1": {
-          "precision": 0.8462,
-          "recall": 0.9167,
-          "f1": 0.88,
-          "matched": 11,
-          "predicted": 13,
-          "reference": 12
-        },
-        "tempo": {
-          "absolute_error": 5.0,
-          "relative_error_pct": 3.85,
-          "is_correct": true,
-          "is_octave_error": false,
-          "is_half_double_error": false,
-          "predicted_bpm": 125.0,
-          "reference_bpm": 130.0
-        },
-        "predicted_beats": 36,
-        "predicted_downbeats": 13,
-        "latency_seconds": null
-      },
-      {
-        "id": "guitarset_funk1_comp",
+        "id": "00_Funk1-114-Ab_comp",
         "beat_f1": {
           "precision": 1.0,
           "recall": 1.0,
@@ -161,7 +99,69 @@
         "latency_seconds": null
       },
       {
-        "id": "guitarset_ss3_solo",
+        "id": "00_Jazz1-130-D_comp",
+        "beat_f1": {
+          "precision": 1.0,
+          "recall": 0.75,
+          "f1": 0.8571,
+          "matched": 36,
+          "predicted": 36,
+          "reference": 48
+        },
+        "downbeat_f1": {
+          "precision": 0.8462,
+          "recall": 0.9167,
+          "f1": 0.88,
+          "matched": 11,
+          "predicted": 13,
+          "reference": 12
+        },
+        "tempo": {
+          "absolute_error": 5.0,
+          "relative_error_pct": 3.85,
+          "is_correct": true,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 125.0,
+          "reference_bpm": 130.0
+        },
+        "predicted_beats": 36,
+        "predicted_downbeats": 13,
+        "latency_seconds": null
+      },
+      {
+        "id": "00_Rock2-142-D_comp",
+        "beat_f1": {
+          "precision": 0.9846,
+          "recall": 1.0,
+          "f1": 0.9922,
+          "matched": 64,
+          "predicted": 65,
+          "reference": 64
+        },
+        "downbeat_f1": {
+          "precision": 0.9412,
+          "recall": 1.0,
+          "f1": 0.9697,
+          "matched": 16,
+          "predicted": 17,
+          "reference": 16
+        },
+        "tempo": {
+          "absolute_error": 0.86,
+          "relative_error_pct": 0.6,
+          "is_correct": true,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 142.86,
+          "reference_bpm": 142.0
+        },
+        "predicted_beats": 65,
+        "predicted_downbeats": 17,
+        "latency_seconds": null
+      },
+      {
+        "id": "00_SS3-84-Bb_solo",
         "beat_f1": {
           "precision": 0.9385,
           "recall": 0.9531,
@@ -192,30 +192,158 @@
         "latency_seconds": null
       },
       {
-        "id": "babyslakh_01",
-        "beat_f1": null,
-        "downbeat_f1": null,
-        "tempo": null,
-        "predicted_beats": 308,
-        "predicted_downbeats": 83,
+        "id": "MIDI-Unprocessed_049_PIANO049_MID--AUDIO-split_07-06-17_Piano-e_2-06_wav--2",
+        "beat_f1": {
+          "precision": 0.997,
+          "recall": 0.0688,
+          "f1": 0.1287,
+          "matched": 674,
+          "predicted": 676,
+          "reference": 9795
+        },
+        "downbeat_f1": {
+          "precision": 0.9941,
+          "recall": 0.1372,
+          "f1": 0.2411,
+          "matched": 336,
+          "predicted": 338,
+          "reference": 2449
+        },
+        "tempo": {
+          "absolute_error": 1789.57,
+          "relative_error_pct": 93.21,
+          "is_correct": false,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 130.43,
+          "reference_bpm": 1920.0
+        },
+        "predicted_beats": 676,
+        "predicted_downbeats": 338,
         "latency_seconds": null
       },
       {
-        "id": "babyslakh_02",
-        "beat_f1": null,
-        "downbeat_f1": null,
-        "tempo": null,
-        "predicted_beats": 363,
-        "predicted_downbeats": 91,
+        "id": "MIDI-Unprocessed_04_R1_2011_MID--AUDIO_R1-D2_03_Track03_wav",
+        "beat_f1": {
+          "precision": 1.0,
+          "recall": 0.2125,
+          "f1": 0.3506,
+          "matched": 708,
+          "predicted": 708,
+          "reference": 3331
+        },
+        "downbeat_f1": {
+          "precision": 0.3579,
+          "recall": 0.1164,
+          "f1": 0.1757,
+          "matched": 97,
+          "predicted": 271,
+          "reference": 833
+        },
+        "tempo": {
+          "absolute_error": 524.94,
+          "relative_error_pct": 78.61,
+          "is_correct": false,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 142.86,
+          "reference_bpm": 667.8
+        },
+        "predicted_beats": 708,
+        "predicted_downbeats": 271,
         "latency_seconds": null
       },
       {
-        "id": "babyslakh_03",
-        "beat_f1": null,
-        "downbeat_f1": null,
-        "tempo": null,
-        "predicted_beats": 535,
-        "predicted_downbeats": 136,
+        "id": "MIDI-Unprocessed_08_R1_2008_01-05_ORIG_MID--AUDIO_08_R1_2008_wav--2",
+        "beat_f1": {
+          "precision": 1.0,
+          "recall": 0.188,
+          "f1": 0.3165,
+          "matched": 584,
+          "predicted": 584,
+          "reference": 3106
+        },
+        "downbeat_f1": {
+          "precision": 0.3911,
+          "recall": 0.1248,
+          "f1": 0.1893,
+          "matched": 97,
+          "predicted": 248,
+          "reference": 777
+        },
+        "tempo": {
+          "absolute_error": 486.34,
+          "relative_error_pct": 78.1,
+          "is_correct": false,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 136.36,
+          "reference_bpm": 622.7
+        },
+        "predicted_beats": 584,
+        "predicted_downbeats": 248,
+        "latency_seconds": null
+      },
+      {
+        "id": "MIDI-Unprocessed_09_R3_2008_01-07_ORIG_MID--AUDIO_09_R3_2008_wav--1",
+        "beat_f1": {
+          "precision": 0.7738,
+          "recall": 0.1592,
+          "f1": 0.2641,
+          "matched": 171,
+          "predicted": 221,
+          "reference": 1074
+        },
+        "downbeat_f1": {
+          "precision": 0.2584,
+          "recall": 0.0855,
+          "f1": 0.1285,
+          "matched": 23,
+          "predicted": 89,
+          "reference": 269
+        },
+        "tempo": {
+          "absolute_error": 230.35,
+          "relative_error_pct": 74.48,
+          "is_correct": false,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 78.95,
+          "reference_bpm": 309.3
+        },
+        "predicted_beats": 221,
+        "predicted_downbeats": 89,
+        "latency_seconds": null
+      },
+      {
+        "id": "MIDI-Unprocessed_09_R3_2008_01-07_ORIG_MID--AUDIO_09_R3_2008_wav--2",
+        "beat_f1": {
+          "precision": 1.0,
+          "recall": 0.0976,
+          "f1": 0.1778,
+          "matched": 146,
+          "predicted": 146,
+          "reference": 1496
+        },
+        "downbeat_f1": {
+          "precision": 0.8267,
+          "recall": 0.1658,
+          "f1": 0.2762,
+          "matched": 62,
+          "predicted": 75,
+          "reference": 374
+        },
+        "tempo": {
+          "absolute_error": 1218.94,
+          "relative_error_pct": 89.94,
+          "is_correct": false,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 136.36,
+          "reference_bpm": 1355.3
+        },
+        "predicted_beats": 146,
+        "predicted_downbeats": 75,
         "latency_seconds": null
       }
     ]

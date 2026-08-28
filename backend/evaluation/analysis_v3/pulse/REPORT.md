@@ -2,9 +2,9 @@
 
 ## Executive Decision
 
-**Recommendation: Beat This becomes the preferred beat/downbeat evidence engine. Current librosa baseline remains as lightweight fallback. Meter remains separate/experimental.**
+**Recommendation: Beat This is a strong leading candidate for future production promotion. Broader annotated evaluation required before switching defaults.**
 
-Beat This materially improves beat tracking over the current librosa baseline (F1=0.94 vs 0.30) with acceptable runtime (0.12s for 10s audio). It also provides downbeat detection, which the current baseline lacks.
+Beat This materially outperforms the exact production baseline on GuitarSet (beat F1=0.94 vs 0.30, downbeat F1=0.86, tempo error=1.87 vs 17.19 BPM). However, the scored corpus is limited to 5 GuitarSet clips. Generalization to other styles (piano, electronic, Latin, etc.) remains unevaluated.
 
 ## Product Question
 
@@ -13,8 +13,9 @@ Which OSS system should provide beat positions, downbeat positions, tempo, and m
 ## Existing Production Baseline
 
 - **Engine**: librosa (via `backend/engines/beats/librosa_engine.py`)
-- **Function**: `librosa.beat.beat_track()`
-- **Output**: beats, tempo (BPM)
+- **Function**: `music_features.estimate_beat_grid(wav_bytes)` → `librosa.beat.beat_track(y=audio, sr=sr, trim=False)`
+- **Preprocessing**: `soundfile.read()` → mono float32
+- **Output**: beats (seconds), tempo (BPM from librosa)
 - **Downbeats**: Not supported
 - **Meter**: Not supported
 - **Production default**: `BEAT_ENGINE=librosa` in `backend/engines/registry.py`
@@ -26,74 +27,90 @@ Which OSS system should provide beat positions, downbeat positions, tempo, and m
 - **Python**: 3.9.6
 - **Device**: CPU (no GPU)
 - **PyTorch**: 2.8.0
-- **hello-ai commit**: `eb4c85430f7e45c3c27316338c5e8b6e6db3a58a`
+- **mir_eval**: 0.8.2
+- **hello-ai commit**: `05b5641f775d1d3bd28682ba2eb688337fca0669`
 - **Branch**: `eval/analysis-v3-pulse-bakeoff`
 
 ## Candidate Matrix
 
 | Candidate | Engine | Code License | Checkpoint License | Supports Beats | Supports Downbeats | Supports Tempo | Supports Meter |
 |---|---|---|---|---|---|---|---|
-| current | librosa | ISC | N/A | ✓ | ✗ | ✓ | ✗ |
-| beat_this | beat_this | MIT | MIT | ✓ | ✓ | ✓ | ✗ |
-| beatnet | BeatNet+mommom | MIT | MIT | ✓ | ✓ | ✓ | ✓ |
+| current | librosa | ISC | N/A | ✓ | ✗ | ✓ (derived) | ✗ |
+| beat_this | beat_this | MIT | MIT | ✓ | ✓ | ✓ (derived) | ✗ |
+| beatnet | BeatNet+mommom | MIT | MIT | ✓ | ✓ | ✓ | ✗ (blocked) |
 
 ## Datasets and Licensing
 
-| Dataset | Source | License | Clips | Annotations |
-|---|---|---|---|---|
-| GuitarSet | https://github.com/marl/GuitarSet | MIT | 5 | beats, downbeats, tempo |
-| BabySlakh | https://zenodo.org/records/4603870 | CC BY 4.0 | 3 | none |
+| Dataset | Source | License | Tracks | Annotations | Notes |
+|---|---|---|---|---|---|
+| GuitarSet | https://github.com/marl/GuitarSet | MIT | 5 | beats, downbeats, tempo | Guitar comping/solo styles |
+| MAESTRO | https://magenta.tensorflow.org/datasets/maestro | CC BY-NC-SA 4.0 | 5 | MIDI-derived beats | Not suitable for beat evaluation (derived annotations) |
+
+**Note**: MAESTRO beat annotations are derived from MIDI onset density, not ground-truth beat annotations. They are not suitable for beat evaluation and are excluded from scored results.
 
 ## Methodology
 
 Evidence classes:
-- **LOCAL MEASUREMENT**: CPU latency, load time, beat F1, tempo error measured on this machine
-- **QUALITATIVE PRODUCT PROBE**: Downbeat detection, meter inference
+- **LOCAL MEASUREMENT**: CPU latency, load time, beat F1, downbeat F1, tempo error measured on this machine
+- **QUALITATIVE PRODUCT PROBE**: Downbeat detection quality
 
 Metrics:
-- Beat F1 with 70ms tolerance (standard MIREX convention)
-- Tempo absolute error (BPM)
+- Beat F1 using `mir_eval.beat.f_measure` with 70ms tolerance (standard MIREX convention)
+- Downbeat F1 using `mir_eval.beat.f_measure` with 70ms tolerance
+- Tempo absolute error (BPM) - derived from median inter-beat interval for Beat This
 - Tempo relative error (%)
 - Octave/half-double error detection
 
-## Beat Metrics (LOCAL MEASUREMENT)
+## Beat Metrics (LOCAL MEASUREMENT — GuitarSet only)
 
 | Candidate | Mean Beat F1 | Clips Scored | Notes |
 |---|---|---|---|
-| current (librosa) | 0.30 | 5 | Poor on guitar comping, decent on solo |
-| beat_this | 0.94 | 5 | Strong across all styles |
+| current (librosa) | 0.30 | 5 | Poor on guitar comping |
+| beat_this | 0.94 | 5 | Strong across GuitarSet styles |
 
 Per-clip results:
 
 | Clip | current F1 | beat_this F1 | current Matched | beat_this Matched |
 |---|---|---|---|---|
 | guitarset_bn1_comp | 0.00 | 0.90 | 0/48 | 39/48 |
-| guitarset_rock2_comp | 0.32 | 0.99 | 17/64 | 64/64 |
-| guitarset_jazz1_comp | 0.15 | 0.86 | 7/48 | 36/48 |
-| guitarset_funk1_comp | 0.34 | 1.00 | 18/48 | 48/48 |
-| guitarset_ss3_solo | 0.70 | 0.95 | 44/64 | 61/64 |
+| guitarset_rock2_comp | 0.31 | 0.99 | 17/64 | 64/64 |
+| guitarset_jazz1_comp | 0.16 | 0.86 | 7/48 | 36/48 |
+| guitarset_funk1_comp | 0.36 | 1.00 | 18/48 | 48/48 |
+| guitarset_ss3_solo | 0.69 | 0.95 | 44/64 | 61/64 |
 
 **Observation**: librosa struggles with guitar comping (especially bossa nova and jazz), while Beat This achieves near-perfect tracking on funk and rock.
 
-## Downbeat Metrics (LOCAL MEASUREMENT)
+## Downbeat Metrics (LOCAL MEASUREMENT — GuitarSet only)
 
-| Candidate | Supports Downbeats | Notes |
-|---|---|---|
-| current (librosa) | ✗ | Not supported |
-| beat_this | ✓ | Provides downbeat positions |
+| Candidate | Mean Downbeat F1 | Clips Scored | Notes |
+|---|---|---|---|
+| current (librosa) | N/A | 0 | Not supported |
+| beat_this | 0.86 | 5 | Strong downbeat detection |
 
-Beat This downbeat detection is available but not scored here due to limited reference downbeat annotations. Qualitative inspection shows reasonable downbeat placement on GuitarSet clips.
+Per-clip downbeat results:
 
-## Tempo Metrics (LOCAL MEASUREMENT)
+| Clip | beat_this Downbeat F1 | Matched | Predicted | Reference |
+|---|---|---|---|---|
+| guitarset_bn1_comp | 0.96 | 12 | 13 | 12 |
+| guitarset_rock2_comp | 1.00 | 12 | 12 | 12 |
+| guitarset_jazz1_comp | 0.88 | 11 | 13 | 12 |
+| guitarset_funk1_comp | 1.00 | 12 | 12 | 12 |
+| guitarset_ss3_solo | 0.49 | 13 | 37 | 16 |
+
+**Observation**: Beat This downbeat detection is strong on comping styles but less accurate on solo guitar (ss3_solo has many false positive downbeats).
+
+## Tempo Metrics (LOCAL MEASUREMENT — GuitarSet only)
+
+**Note**: Beat This does not independently predict tempo. BPM is derived from median inter-beat interval.
 
 | Candidate | Mean Tempo Error | Clips Scored | Notes |
 |---|---|---|---|
 | current (librosa) | 17.19 BPM | 5 | Large errors on rock/funk |
-| beat_this | 1.87 BPM | 5 | Consistent accuracy |
+| beat_this (derived) | 1.87 BPM | 5 | Consistent accuracy |
 
 Per-clip tempo results:
 
-| Clip | Reference BPM | current Error | beat_this Error |
+| Clip | Reference BPM | current Error | beat_this Error (derived) |
 |---|---|---|---|
 | guitarset_bn1_comp | 129.0 | 0.2 BPM | 1.4 BPM |
 | guitarset_rock2_comp | 142.0 | 46.3 BPM | 0.9 BPM |
@@ -101,7 +118,7 @@ Per-clip tempo results:
 | guitarset_funk1_comp | 114.0 | 38.0 BPM | 1.4 BPM |
 | guitarset_ss3_solo | 84.0 | 0.7 BPM | 0.7 BPM |
 
-**Observation**: librosa has catastrophic tempo errors on rock and funk (likely octave/half-time errors), while Beat This maintains consistent accuracy.
+**Observation**: librosa has catastrophic tempo errors on rock and funk (likely octave/half-time errors), while Beat This derived tempo maintains consistent accuracy.
 
 ## Meter Metrics
 
@@ -109,23 +126,25 @@ Per-clip tempo results:
 |---|---|---|
 | current (librosa) | ✗ | Not supported |
 | beat_this | ✗ | Not supported |
-| beatnet | ✓ | Blocked by numpy compatibility |
+| beatnet | ✗ | Blocked by madmom/numpy compatibility |
 
 ## Difficult-Case Probes (QUALITATIVE PRODUCT PROBE)
 
 Based on GuitarSet evaluation:
-- **Bossa nova comping**: librosa fails completely (F1=0.0), Beat This strong (F1=0.90)
-- **Rock comping**: librosa poor (F1=0.32), Beat This excellent (F1=0.99)
-- **Jazz comping**: librosa poor (F1=0.15), Beat This strong (F1=0.86)
-- **Funk comping**: librosa poor (F1=0.34), Beat This perfect (F1=1.00)
-- **Guitar solo**: librosa decent (F1=0.70), Beat This strong (F1=0.95)
+- **Bossa nova comping**: librosa F1=0.00, beat_this F1=0.90
+- **Rock comping**: librosa F1=0.31, beat_this F1=0.99
+- **Jazz comping**: librosa F1=0.16, beat_this F1=0.86
+- **Funk comping**: librosa F1=0.36, beat_this F1=1.00
+- **Guitar solo**: librosa F1=0.69, beat_this F1=0.95
+
+**Note**: These results are specific to guitar comping/solo styles. Generalization to other styles (piano, electronic, Latin, etc.) is not evaluated.
 
 ## Operational Evaluation (LOCAL MEASUREMENT)
 
 | Metric | current (librosa) | beat_this |
 |---|---|---|
 | Install success | Yes | Yes |
-| Load time | 0.0s | 0.81s |
+| Load time | 0.01s | 0.72s |
 | CPU latency 10s | N/A* | 0.12s |
 | CPU latency 30s | N/A* | 0.90s |
 | Determinism | False** | True |
@@ -145,15 +164,15 @@ Based on GuitarSet evaluation:
 ## Failure Analysis
 
 - **current (librosa)**: Poor beat tracking on guitar comping styles (bossa nova, jazz, funk). Large tempo errors on rock/funk (likely octave errors).
-- **beat_this**: Minor beat count differences on some clips (39 vs 48 on bossa nova), but high F1 due to tolerance.
-- **beatnet**: Blocked by numpy compatibility issue with madmom dependency. Marked as REVISIT.
+- **beat_this**: Minor beat count differences on some clips (39 vs 48 on bossa nova), but high F1 due to tolerance. Downbeat detection less accurate on solo guitar.
+- **beatnet**: Blocked by madmom/numpy compatibility issue. Marked as REVISIT.
 
 ## Per-Candidate Decisions
 
 | Candidate | Decision | Rationale |
 |---|---|---|
 | current (librosa) | RESEARCH | Poor beat tracking quality on guitar styles. Non-trivial tempo errors. |
-| beat_this | ADOPT | Strong beat tracking (F1=0.94), accurate tempo (1.87 BPM error), MIT license, CPU feasible. |
+| beat_this | RESEARCH | Strong leading candidate for future production promotion. Beat F1=0.94, downbeat F1=0.86, tempo error=1.87 BPM on GuitarSet. MIT license. CPU feasible. Broader annotated evaluation required before switching defaults. |
 | beatnet | REVISIT | Blocked by madmom/numpy compatibility issue. |
 
 ## Product Implications
@@ -161,7 +180,7 @@ Based on GuitarSet evaluation:
 Beat This provides:
 - Beat positions for beat/bar grid, looping, section navigation
 - Downbeat positions for bar-phase alignment
-- Accurate tempo for groove analysis
+- Accurate derived tempo for groove analysis
 - Strong performance on guitar-based styles (bossa nova, rock, jazz, funk)
 
 This supports downstream:
@@ -174,14 +193,15 @@ This supports downstream:
 
 ## Architecture Recommendation
 
-**Beat This becomes preferred beat/downbeat evidence engine. Existing librosa remains lightweight fallback. Meter remains separate/experimental.**
+**Beat This is a strong leading candidate for future production promotion. Broader annotated evaluation required before switching defaults.**
 
 Rationale:
-1. Beat This F1=0.94 vs librosa F1=0.30 on GuitarSet
-2. Beat This tempo error=1.87 BPM vs librosa 17.19 BPM
-3. Beat This provides downbeat detection (librosa does not)
+1. Beat This F1=0.94 vs librosa F1=0.30 on GuitarSet (5 clips)
+2. Beat This downbeat F1=0.86 (librosa does not support downbeats)
+3. Beat This derived tempo error=1.87 BPM vs librosa 17.19 BPM
 4. Beat This MIT license permits commercial use
 5. Beat This CPU latency 0.12s for 10s audio is production-feasible
+6. **Limitation**: Results are specific to guitar comping/solo styles. Generalization to other styles is not evaluated.
 
 ## Proposed PulseEvidence Contract
 
@@ -230,14 +250,14 @@ This contract is proposed for Architecture #336. Do not create DB tables or migr
 ## Remaining Uncertainty
 
 - Limited evaluation corpus (5 GuitarSet clips with beat annotations)
-- No downbeat reference annotations for scoring
-- No meter reference annotations for scoring
-- BeatNet blocked by compatibility issue
 - No evaluation on non-guitar styles (piano, electronic, Latin, etc.)
+- No evaluation on compound meter or unusual time signatures
+- BeatNet blocked by compatibility issue
+- No reference downstream MIR contextualization
 
 ## What Should Happen Next
 
-1. Evaluate Beat This on broader corpus (MAESTRO, Ballroom, RWC, etc.)
+1. Evaluate Beat This on broader corpus (Ballroom, Hainsworth, SMC, etc.)
 2. Score downbeat detection where annotations exist
 3. Investigate BeatNet compatibility fix or alternative
 4. Design production integration for Beat This as beat/downbeat engine

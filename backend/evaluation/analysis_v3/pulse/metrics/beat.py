@@ -1,9 +1,12 @@
-"""Beat and downbeat evaluation metrics."""
+"""Beat and downbeat evaluation metrics using canonical mir_eval."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
+import mir_eval.beat
+import numpy as np
 
 
 @dataclass(frozen=True)
@@ -31,7 +34,7 @@ def match_timestamps(
     reference: list[float],
     tolerance: float = 0.07,
 ) -> tuple[int, list[float], list[float]]:
-    """Greedy timestamp matching.
+    """Greedy timestamp matching for debugging/diagnostics.
 
     Returns (matched_count, unmatched_pred, unmatched_ref).
     """
@@ -57,7 +60,10 @@ def compute_beat_f1(
     reference: list[float],
     tolerance: float = 0.07,
 ) -> BeatF1Result:
-    """Compute beat F-measure with standard tolerance."""
+    """Compute beat F-measure using canonical mir_eval.beat.f_measure.
+
+    Uses the standard MIREX convention with 70ms tolerance.
+    """
     if not reference:
         return BeatF1Result(
             precision=0.0,
@@ -77,10 +83,17 @@ def compute_beat_f1(
             reference=len(reference),
         )
 
+    pred_arr = np.array(sorted(predicted))
+    ref_arr = np.array(sorted(reference))
+
+    try:
+        f1 = mir_eval.beat.f_measure(ref_arr, pred_arr, f_measure_threshold=tolerance)
+    except Exception:
+        f1 = 0.0
+
     matched, _, _ = match_timestamps(predicted, reference, tolerance)
     p = matched / len(predicted) if predicted else 0.0
     r = matched / len(reference) if reference else 0.0
-    f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0.0
 
     return BeatF1Result(
         precision=p,
@@ -97,5 +110,5 @@ def compute_downbeat_f1(
     reference: list[float],
     tolerance: float = 0.07,
 ) -> BeatF1Result:
-    """Compute downbeat F-measure with standard tolerance."""
+    """Compute downbeat F-measure using canonical mir_eval.beat.f_measure."""
     return compute_beat_f1(predicted, reference, tolerance)
