@@ -1,0 +1,21 @@
+name: Resolve V5 main drift v3
+
+on:
+  push:
+    branches:
+      - design/v5-visual-language-cleanup
+    paths:
+      - .github/workflows/resolve-v5-main-v3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: design/v5-visual-language-cleanup
+          fetch-depth: 0
+      - run: bash .github/scripts/resolve-v5-main.sh
