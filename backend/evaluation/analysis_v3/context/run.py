@@ -151,7 +151,9 @@ def _text_embeddings(
     return labels, np.stack(vectors)
 
 
-def _embed_audio(adapter: CLAPAdapter, audio: np.ndarray, sample_rate: int) -> np.ndarray:
+def _embed_audio(
+    adapter: CLAPAdapter, audio: np.ndarray, sample_rate: int
+) -> np.ndarray:
     result = adapter.embed_audio(audio, sample_rate)
     if not result.ok or result.vector is None:
         raise RuntimeError(f"Failed to embed audio: {result.error}")
@@ -218,7 +220,8 @@ def run_zero_shot_probe(
             clip_result["taxonomies"][taxonomy_name] = {
                 "expected": expected,
                 "ranked": [
-                    {"label": label, "score": round(score, 6)} for label, score in ranking
+                    {"label": label, "score": round(score, 6)}
+                    for label, score in ranking
                 ],
                 "scored": bool(expected),
             }
@@ -290,7 +293,9 @@ def run_zero_shot_probe(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analysis V3 context evidence evaluation")
+    parser = argparse.ArgumentParser(
+        description="Analysis V3 context evidence evaluation"
+    )
     parser.add_argument("--task", choices=["prior", "zero-shot"], default="prior")
     parser.add_argument("--device", choices=["cpu", "cuda", "mps"], default="cpu")
     parser.add_argument("--manifest", type=Path, default=None)
