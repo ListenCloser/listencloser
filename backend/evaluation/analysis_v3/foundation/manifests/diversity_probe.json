@@ -1,90 +1,134 @@
 {
-  "name": "diversity_probe_v1",
-  "description": "Diversity probe for cross-work similarity evaluation. Uses synthetic audio spanning different musical organizations. These are evaluation diversity probes, not product genre classes.",
-  "selection_rule": "Deterministic synthetic audio generation with fixed seeds. Each probe represents a materially different musical organization: sparse/acoustic-like, dense/produced-like, rhythm-forward, groove-heavy, jazz/improprovisatory, expressive/classical, and culturally distinct patterns.",
-  "license": "Generated synthetic audio - no copyright restrictions",
+  "name": "diversity_probe_v2",
+  "description": "Diversity probe using real rights-safe music from established research corpora. These are evaluation diversity probes, not product genre classes.",
+  "selection_rule": "Deterministic selection from cached evaluation datasets. Each probe represents a materially different musical organization from real recordings.",
+  "corpora": {
+    "guitarset": {
+      "source": "https://zenodo.org/records/3371780",
+      "version": "GuitarSet (Zenodo record 3371780)",
+      "license": "CC BY 4.0",
+      "split": "test (fold 0)",
+      "redistribution": "do not commit audio; use cached copy"
+    },
+    "maestro": {
+      "source": "https://magenta.tensorflow.org/datasets/maestro",
+      "version": "v3.0.0",
+      "license": "CC BY-NC-SA 4.0",
+      "split": "test",
+      "redistribution": "do not commit audio; use cached copy"
+    },
+    "babyslakh": {
+      "source": "https://zenodo.org/records/4603870",
+      "version": "BabySlakh (first 20 Slakh tracks)",
+      "license": "CC BY 4.0",
+      "split": "fixed 20-track subset",
+      "redistribution": "do not commit audio; use cached copy"
+    }
+  },
   "probes": [
     {
-      "id": "sparse_acoustic",
-      "description": "Sparse acoustic-like: simple melody with minimal harmonics",
-      "category": "sparse_acoustic",
-      "frequency_hz": 261.63,
-      "harmonics": [1.0, 2.0],
-      "amplitudes": [0.7, 0.3],
-      "duration_seconds": 10.0,
-      "onset_pattern": "legato",
-      "seed": 42
+      "id": "guitarset_bossa_nova",
+      "dataset": "guitarset",
+      "source_id": "00_BN1-129-Eb_comp",
+      "audio_path": "${MUSIC_EVAL_CACHE_DIR}/guitarset/audio/00_BN1-129-Eb_comp_mic.wav",
+      "license": "CC BY 4.0",
+      "category": "guitar_accomp",
+      "description": "Guitar comping over bossa nova changes",
+      "excerpt_start": 0.0,
+      "excerpt_end": 20.0,
+      "sample_rate": 44100
     },
     {
-      "id": "dense_produced",
-      "description": "Dense produced-like: rich harmonics with layered frequencies",
-      "category": "dense_produced",
-      "frequency_hz": 440.0,
-      "harmonics": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-      "amplitudes": [0.4, 0.3, 0.15, 0.08, 0.05, 0.02],
-      "duration_seconds": 10.0,
-      "onset_pattern": "sustained",
-      "seed": 43
+      "id": "guitarset_rock",
+      "dataset": "guitarset",
+      "source_id": "00_Rock2-142-D_comp",
+      "audio_path": "${MUSIC_EVAL_CACHE_DIR}/guitarset/audio/00_Rock2-142-D_comp_mic.wav",
+      "license": "CC BY 4.0",
+      "category": "guitar_accomp",
+      "description": "Guitar comping over rock groove",
+      "excerpt_start": 0.0,
+      "excerpt_end": 20.0,
+      "sample_rate": 44100
     },
     {
-      "id": "rhythm_forward",
-      "description": "Rhythm-forward: percussive envelope with strong transients",
-      "category": "rhythm_forward",
-      "frequency_hz": 110.0,
-      "harmonics": [1.0, 3.0, 5.0],
-      "amplitudes": [0.6, 0.3, 0.1],
-      "duration_seconds": 10.0,
-      "onset_pattern": "percussive",
-      "seed": 44
+      "id": "guitarset_jazz",
+      "dataset": "guitarset",
+      "source_id": "00_Jazz1-130-D_comp",
+      "audio_path": "${MUSIC_EVAL_CACHE_DIR}/guitarset/audio/00_Jazz1-130-D_comp_mic.wav",
+      "license": "CC BY 4.0",
+      "category": "guitar_accomp",
+      "description": "Guitar comping over jazz changes",
+      "excerpt_start": 0.0,
+      "excerpt_end": 20.0,
+      "sample_rate": 44100
     },
     {
-      "id": "groove_heavy",
-      "description": "Groove-heavy: syncopated pattern with bass emphasis",
-      "category": "groove_heavy",
-      "frequency_hz": 82.41,
-      "harmonics": [1.0, 2.0, 4.0],
-      "amplitudes": [0.5, 0.35, 0.15],
-      "duration_seconds": 10.0,
-      "onset_pattern": "syncopated",
-      "seed": 45
+      "id": "maestro_classical_01",
+      "dataset": "maestro",
+      "source_id": "2004/MIDI-Unprocessed_SMF_17_R1_2004_03-06_ORIG_MID--AUDIO_20_R2_2004_12_Track12_wav--1",
+      "audio_path": "${MUSIC_EVAL_CACHE_DIR}/maestro/audio/MIDI-Unprocessed_SMF_17_R1_2004_03-06_ORIG_MID--AUDIO_20_R2_2004_12_Track12_wav--1.wav",
+      "midi_path": "${MUSIC_EVAL_CACHE_DIR}/maestro/midi/MIDI-Unprocessed_SMF_17_R1_2004_03-06_ORIG_MID--AUDIO_20_R2_2004_12_Track12_wav--1.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "category": "solo_piano",
+      "description": "Classical piano performance",
+      "excerpt_start": 30.0,
+      "excerpt_end": 55.0,
+      "sample_rate": 48000
     },
     {
-      "id": "jazz_improvisatory",
-      "description": "Jazz/improvisatory-like: complex harmonic series with vibrato",
-      "category": "jazz_improvisatory",
-      "frequency_hz": 329.63,
-      "harmonics": [1.0, 2.0, 3.0, 5.0, 7.0],
-      "amplitudes": [0.35, 0.25, 0.2, 0.12, 0.08],
-      "duration_seconds": 10.0,
-      "onset_pattern": "vibrato",
-      "seed": 46
+      "id": "maestro_classical_02",
+      "dataset": "maestro",
+      "source_id": "2008/MIDI-Unprocessed_09_R3_2008_01-07_ORIG_MID--AUDIO_09_R3_2008_wav--2",
+      "audio_path": "${MUSIC_EVAL_CACHE_DIR}/maestro/audio/MIDI-Unprocessed_09_R3_2008_01-07_ORIG_MID--AUDIO_09_R3_2008_wav--2.wav",
+      "midi_path": "${MUSIC_EVAL_CACHE_DIR}/maestro/midi/MIDI-Unprocessed_09_R3_2008_01-07_ORIG_MID--AUDIO_09_R3_2008_wav--2.midi",
+      "license": "CC BY-NC-SA 4.0",
+      "category": "solo_piano",
+      "description": "Classical piano performance",
+      "excerpt_start": 10.0,
+      "excerpt_end": 35.0,
+      "sample_rate": 48000
     },
     {
-      "id": "expressive_classical",
-      "description": "Expressive/classical: smooth legato with dynamic envelope",
-      "category": "expressive_classical",
-      "frequency_hz": 523.25,
-      "harmonics": [1.0, 2.0, 3.0],
-      "amplitudes": [0.5, 0.3, 0.2],
-      "duration_seconds": 10.0,
-      "onset_pattern": "crescendo",
-      "seed": 47
+      "id": "babyslakh_full_mix_01",
+      "dataset": "babyslakh",
+      "source_id": "Track00001",
+      "audio_path": "${MUSIC_EVAL_CACHE_DIR}/babyslakh/extracted/Track00001/mix.wav",
+      "license": "CC BY 4.0",
+      "category": "full_mix",
+      "description": "Multi-instrument mixture",
+      "excerpt_start": 0.0,
+      "excerpt_end": 20.0,
+      "sample_rate": 16000
     },
     {
-      "id": "culturally_distinct",
-      "description": "Culturally distinct: non-Western scale-like pattern with microtonal hints",
-      "category": "culturally_distinct",
-      "frequency_hz": 293.66,
-      "harmonics": [1.0, 1.5, 2.0, 2.5, 3.0],
-      "amplitudes": [0.4, 0.25, 0.2, 0.1, 0.05],
-      "duration_seconds": 10.0,
-      "onset_pattern": "ornamented",
-      "seed": 48
+      "id": "babyslakh_full_mix_02",
+      "dataset": "babyslakh",
+      "source_id": "Track00002",
+      "audio_path": "${MUSIC_EVAL_CACHE_DIR}/babyslakh/extracted/Track00002/mix.wav",
+      "license": "CC BY 4.0",
+      "category": "full_mix",
+      "description": "Multi-instrument mixture",
+      "excerpt_start": 0.0,
+      "excerpt_end": 20.0,
+      "sample_rate": 16000
     }
   ],
-  "windowing": {
+  "within_work": {
+    "description": "Within-work retrieval probe using MAESTRO piano. One long recording sliced into overlapping windows.",
+    "work_id": "maestro_long_recording",
+    "audio_path": "${MUSIC_EVAL_CACHE_DIR}/maestro/audio/MIDI-Unprocessed_049_PIANO049_MID--AUDIO-split_07-06-17_Piano-e_2-06_wav--2.wav",
+    "midi_path": "${MUSIC_EVAL_CACHE_DIR}/maestro/midi/MIDI-Unprocessed_049_PIANO049_MID--AUDIO-split_07-06-17_Piano-e_2-06_wav--2.midi",
+    "license": "CC BY-NC-SA 4.0",
+    "sample_rate": 48000,
     "window_seconds": 10.0,
     "hop_seconds": 5.0,
-    "description": "Fixed 10s windows with 5s hop for within-work segment similarity"
+    "query_windows": [0, 60, 120, 180, 240],
+    "description_windows": [
+      "opening passage",
+      "early section",
+      "middle section",
+      "later section",
+      "closing section"
+    ]
   }
 }

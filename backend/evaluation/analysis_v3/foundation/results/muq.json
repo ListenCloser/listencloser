@@ -2,12 +2,13 @@
   "candidate": "muq",
   "task": "all",
   "device": "cpu",
-  "timestamp": "2026-08-28T00:39:45Z",
+  "timestamp": "2026-08-28T01:16:55Z",
   "operational": {
     "candidate": "muq",
     "device": "cpu",
     "python_version": "3.9.6",
     "platform": "macOS-15.3.1-arm64-arm-64bit",
+    "arch": "arm64",
     "model_id": "OpenMuQ/MuQ-large-msd-iter",
     "code_license": "MIT",
     "weight_license": "CC-BY-NC-4.0",
@@ -19,16 +20,18 @@
     "supports_symbolic": false,
     "install_success": true,
     "load_success": true,
-    "load_time_seconds": 3.13,
-    "cpu_latency_10s": {
-      "latency_seconds": 1.234312770999999,
-      "audio_duration_seconds": 10.0,
-      "error": null
-    },
-    "cpu_latency_30s": {
-      "latency_seconds": 2.8074913954999996,
-      "audio_duration_seconds": 30.0,
-      "error": null
+    "load_time_seconds": 3.65,
+    "cpu_latency": {
+      "10s": {
+        "latency_seconds": 0.78899775,
+        "audio_duration_seconds": 10.0,
+        "error": null
+      },
+      "30s": {
+        "latency_seconds": 2.4523675420000046,
+        "audio_duration_seconds": 30.0,
+        "error": null
+      }
     },
     "determinism_stable": true,
     "embedding_dim_measured": 1024,
@@ -41,212 +44,350 @@
   "within_work": {
     "candidate": "muq",
     "task": "within_work_similarity",
-    "num_probes": 7,
-    "similarity_matrix": {
-      "ids": [
-        "culturally_distinct",
-        "dense_produced",
-        "expressive_classical",
-        "groove_heavy",
-        "jazz_improvisatory",
-        "rhythm_forward",
-        "sparse_acoustic"
-      ],
-      "values": [
-        [
-          1.0,
-          0.7398,
-          0.8876,
-          0.8243,
-          0.7056,
-          0.8349,
-          0.7319
-        ],
-        [
-          0.7398,
-          1.0,
-          0.6926,
-          0.6783,
-          0.8334,
-          0.8666,
-          0.8078
-        ],
-        [
-          0.8876,
-          0.6926,
-          1.0,
-          0.7781,
-          0.7028,
-          0.7621,
-          0.6851
-        ],
-        [
-          0.8243,
-          0.6783,
-          0.7781,
-          1.0,
-          0.6851,
-          0.7572,
-          0.7037
-        ],
-        [
-          0.7056,
-          0.8334,
-          0.7028,
-          0.6851,
-          1.0,
-          0.7695,
-          0.7236
-        ],
-        [
-          0.8349,
-          0.8666,
-          0.7621,
-          0.7572,
-          0.7695,
-          1.0,
-          0.7977
-        ],
-        [
-          0.7319,
-          0.8078,
-          0.6851,
-          0.7037,
-          0.7236,
-          0.7977,
-          1.0
-        ]
-      ]
-    },
+    "work_id": "maestro_long_recording",
+    "work_duration_seconds": 307.1,
+    "num_windows": 60,
+    "num_embeddings": 60,
+    "window_seconds": 10.0,
+    "hop_seconds": 5.0,
     "per_query_results": [
       {
-        "query": "culturally_distinct",
-        "category": "culturally_distinct",
+        "query_window": "window_000_0s",
+        "query_start": 0,
+        "query_description": "opening passage",
         "nearest_neighbors": [
           {
-            "id": "expressive_classical",
-            "similarity": 0.8876
+            "window": "window_036_180s",
+            "start": 180.0,
+            "end": 190.0,
+            "similarity": 0.9627
           },
           {
-            "id": "rhythm_forward",
-            "similarity": 0.8349
+            "window": "window_021_105s",
+            "start": 105.0,
+            "end": 115.0,
+            "similarity": 0.9199
           },
           {
-            "id": "groove_heavy",
-            "similarity": 0.8243
+            "window": "window_009_45s",
+            "start": 45.0,
+            "end": 55.0,
+            "similarity": 0.9122
+          },
+          {
+            "window": "window_001_5s",
+            "start": 5.0,
+            "end": 15.0,
+            "similarity": 0.9067
+          },
+          {
+            "window": "window_008_40s",
+            "start": 40.0,
+            "end": 50.0,
+            "similarity": 0.9058
+          },
+          {
+            "window": "window_020_100s",
+            "start": 100.0,
+            "end": 110.0,
+            "similarity": 0.9056
+          },
+          {
+            "window": "window_004_20s",
+            "start": 20.0,
+            "end": 30.0,
+            "similarity": 0.8954
+          },
+          {
+            "window": "window_051_255s",
+            "start": 255.0,
+            "end": 265.0,
+            "similarity": 0.8813
+          },
+          {
+            "window": "window_022_110s",
+            "start": 110.0,
+            "end": 120.0,
+            "similarity": 0.8754
+          },
+          {
+            "window": "window_056_280s",
+            "start": 280.0,
+            "end": 290.0,
+            "similarity": 0.8701
           }
         ]
       },
       {
-        "query": "dense_produced",
-        "category": "dense_produced",
+        "query_window": "window_012_60s",
+        "query_start": 60,
+        "query_description": "early section",
         "nearest_neighbors": [
           {
-            "id": "rhythm_forward",
-            "similarity": 0.8666
+            "window": "window_013_65s",
+            "start": 65.0,
+            "end": 75.0,
+            "similarity": 0.9062
           },
           {
-            "id": "jazz_improvisatory",
-            "similarity": 0.8334
+            "window": "window_041_205s",
+            "start": 205.0,
+            "end": 215.0,
+            "similarity": 0.8902
           },
           {
-            "id": "sparse_acoustic",
-            "similarity": 0.8078
+            "window": "window_040_200s",
+            "start": 200.0,
+            "end": 210.0,
+            "similarity": 0.8783
+          },
+          {
+            "window": "window_042_210s",
+            "start": 210.0,
+            "end": 220.0,
+            "similarity": 0.8718
+          },
+          {
+            "window": "window_043_215s",
+            "start": 215.0,
+            "end": 225.0,
+            "similarity": 0.8569
+          },
+          {
+            "window": "window_017_85s",
+            "start": 85.0,
+            "end": 95.0,
+            "similarity": 0.8303
+          },
+          {
+            "window": "window_044_220s",
+            "start": 220.0,
+            "end": 230.0,
+            "similarity": 0.8298
+          },
+          {
+            "window": "window_048_240s",
+            "start": 240.0,
+            "end": 250.0,
+            "similarity": 0.8151
+          },
+          {
+            "window": "window_015_75s",
+            "start": 75.0,
+            "end": 85.0,
+            "similarity": 0.8103
+          },
+          {
+            "window": "window_016_80s",
+            "start": 80.0,
+            "end": 90.0,
+            "similarity": 0.8055
           }
         ]
       },
       {
-        "query": "expressive_classical",
-        "category": "expressive_classical",
+        "query_window": "window_024_120s",
+        "query_start": 120,
+        "query_description": "middle section",
         "nearest_neighbors": [
           {
-            "id": "culturally_distinct",
-            "similarity": 0.8876
+            "window": "window_023_115s",
+            "start": 115.0,
+            "end": 125.0,
+            "similarity": 0.8657
           },
           {
-            "id": "groove_heavy",
-            "similarity": 0.7781
+            "window": "window_025_125s",
+            "start": 125.0,
+            "end": 135.0,
+            "similarity": 0.8233
           },
           {
-            "id": "rhythm_forward",
-            "similarity": 0.7621
+            "window": "window_047_235s",
+            "start": 235.0,
+            "end": 245.0,
+            "similarity": 0.8178
+          },
+          {
+            "window": "window_015_75s",
+            "start": 75.0,
+            "end": 85.0,
+            "similarity": 0.8113
+          },
+          {
+            "window": "window_052_260s",
+            "start": 260.0,
+            "end": 270.0,
+            "similarity": 0.8042
+          },
+          {
+            "window": "window_005_25s",
+            "start": 25.0,
+            "end": 35.0,
+            "similarity": 0.8038
+          },
+          {
+            "window": "window_016_80s",
+            "start": 80.0,
+            "end": 90.0,
+            "similarity": 0.803
+          },
+          {
+            "window": "window_048_240s",
+            "start": 240.0,
+            "end": 250.0,
+            "similarity": 0.8029
+          },
+          {
+            "window": "window_006_30s",
+            "start": 30.0,
+            "end": 40.0,
+            "similarity": 0.7948
+          },
+          {
+            "window": "window_051_255s",
+            "start": 255.0,
+            "end": 265.0,
+            "similarity": 0.7917
           }
         ]
       },
       {
-        "query": "groove_heavy",
-        "category": "groove_heavy",
+        "query_window": "window_036_180s",
+        "query_start": 180,
+        "query_description": "later section",
         "nearest_neighbors": [
           {
-            "id": "culturally_distinct",
-            "similarity": 0.8243
+            "window": "window_000_0s",
+            "start": 0.0,
+            "end": 10.0,
+            "similarity": 0.9627
           },
           {
-            "id": "expressive_classical",
-            "similarity": 0.7781
+            "window": "window_021_105s",
+            "start": 105.0,
+            "end": 115.0,
+            "similarity": 0.9248
           },
           {
-            "id": "rhythm_forward",
-            "similarity": 0.7572
+            "window": "window_009_45s",
+            "start": 45.0,
+            "end": 55.0,
+            "similarity": 0.9238
+          },
+          {
+            "window": "window_001_5s",
+            "start": 5.0,
+            "end": 15.0,
+            "similarity": 0.9107
+          },
+          {
+            "window": "window_020_100s",
+            "start": 100.0,
+            "end": 110.0,
+            "similarity": 0.8958
+          },
+          {
+            "window": "window_022_110s",
+            "start": 110.0,
+            "end": 120.0,
+            "similarity": 0.8923
+          },
+          {
+            "window": "window_002_10s",
+            "start": 10.0,
+            "end": 20.0,
+            "similarity": 0.8894
+          },
+          {
+            "window": "window_008_40s",
+            "start": 40.0,
+            "end": 50.0,
+            "similarity": 0.8815
+          },
+          {
+            "window": "window_004_20s",
+            "start": 20.0,
+            "end": 30.0,
+            "similarity": 0.8752
+          },
+          {
+            "window": "window_051_255s",
+            "start": 255.0,
+            "end": 265.0,
+            "similarity": 0.8713
           }
         ]
       },
       {
-        "query": "jazz_improvisatory",
-        "category": "jazz_improvisatory",
+        "query_window": "window_048_240s",
+        "query_start": 240,
+        "query_description": "closing section",
         "nearest_neighbors": [
           {
-            "id": "dense_produced",
-            "similarity": 0.8334
+            "window": "window_017_85s",
+            "start": 85.0,
+            "end": 95.0,
+            "similarity": 0.937
           },
           {
-            "id": "rhythm_forward",
-            "similarity": 0.7695
+            "window": "window_047_235s",
+            "start": 235.0,
+            "end": 245.0,
+            "similarity": 0.9312
           },
           {
-            "id": "sparse_acoustic",
-            "similarity": 0.7236
-          }
-        ]
-      },
-      {
-        "query": "rhythm_forward",
-        "category": "rhythm_forward",
-        "nearest_neighbors": [
-          {
-            "id": "dense_produced",
-            "similarity": 0.8666
+            "window": "window_016_80s",
+            "start": 80.0,
+            "end": 90.0,
+            "similarity": 0.9152
           },
           {
-            "id": "culturally_distinct",
-            "similarity": 0.8349
+            "window": "window_015_75s",
+            "start": 75.0,
+            "end": 85.0,
+            "similarity": 0.8987
           },
           {
-            "id": "sparse_acoustic",
-            "similarity": 0.7977
-          }
-        ]
-      },
-      {
-        "query": "sparse_acoustic",
-        "category": "sparse_acoustic",
-        "nearest_neighbors": [
-          {
-            "id": "dense_produced",
-            "similarity": 0.8078
+            "window": "window_046_230s",
+            "start": 230.0,
+            "end": 240.0,
+            "similarity": 0.874
           },
           {
-            "id": "rhythm_forward",
-            "similarity": 0.7977
+            "window": "window_043_215s",
+            "start": 215.0,
+            "end": 225.0,
+            "similarity": 0.8716
           },
           {
-            "id": "culturally_distinct",
-            "similarity": 0.7319
+            "window": "window_049_245s",
+            "start": 245.0,
+            "end": 255.0,
+            "similarity": 0.8642
+          },
+          {
+            "window": "window_014_70s",
+            "start": 70.0,
+            "end": 80.0,
+            "similarity": 0.8461
+          },
+          {
+            "window": "window_044_220s",
+            "start": 220.0,
+            "end": 230.0,
+            "similarity": 0.8438
+          },
+          {
+            "window": "window_042_210s",
+            "start": 210.0,
+            "end": 220.0,
+            "similarity": 0.8229
           }
         ]
       }
     ],
-    "notes": "Qualitative product probe. Similarity reflects embedding space structure, not musical accuracy."
+    "notes": "QUALITATIVE PRODUCT PROBE. Within-work segment retrieval from one real musical work. No objective ground truth; inspect nearest-neighbor tables for musical plausibility."
   },
   "cross_work": {
     "candidate": "muq",
@@ -254,335 +395,377 @@
     "num_probes": 7,
     "similarity_matrix": {
       "ids": [
-        "culturally_distinct",
-        "dense_produced",
-        "expressive_classical",
-        "groove_heavy",
-        "jazz_improvisatory",
-        "rhythm_forward",
-        "sparse_acoustic"
+        "babyslakh_full_mix_01",
+        "babyslakh_full_mix_02",
+        "guitarset_bossa_nova",
+        "guitarset_jazz",
+        "guitarset_rock",
+        "maestro_classical_01",
+        "maestro_classical_02"
       ],
       "values": [
         [
           1.0,
-          0.7398,
-          0.8876,
-          0.8243,
-          0.7056,
-          0.8349,
-          0.7319
+          0.5179,
+          0.3777,
+          0.3954,
+          0.3739,
+          0.4035,
+          0.4477
         ],
         [
-          0.7398,
+          0.5179,
           1.0,
-          0.6926,
-          0.6783,
-          0.8334,
-          0.8666,
-          0.8078
+          0.1559,
+          0.1481,
+          0.157,
+          0.2071,
+          0.2797
         ],
         [
-          0.8876,
-          0.6926,
+          0.3777,
+          0.1559,
           1.0,
-          0.7781,
-          0.7028,
-          0.7621,
-          0.6851
+          0.8597,
+          0.7664,
+          0.4252,
+          0.4929
         ],
         [
-          0.8243,
-          0.6783,
-          0.7781,
+          0.3954,
+          0.1481,
+          0.8597,
           1.0,
-          0.6851,
-          0.7572,
-          0.7037
+          0.8145,
+          0.4633,
+          0.4971
         ],
         [
-          0.7056,
-          0.8334,
-          0.7028,
-          0.6851,
+          0.3739,
+          0.157,
+          0.7664,
+          0.8145,
           1.0,
-          0.7695,
-          0.7236
+          0.3785,
+          0.4457
         ],
         [
-          0.8349,
-          0.8666,
-          0.7621,
-          0.7572,
-          0.7695,
+          0.4035,
+          0.2071,
+          0.4252,
+          0.4633,
+          0.3785,
           1.0,
-          0.7977
+          0.7517
         ],
         [
-          0.7319,
-          0.8078,
-          0.6851,
-          0.7037,
-          0.7236,
-          0.7977,
+          0.4477,
+          0.2797,
+          0.4929,
+          0.4971,
+          0.4457,
+          0.7517,
           1.0
         ]
       ]
     },
     "per_query_results": [
       {
-        "query": "culturally_distinct",
-        "query_category": "culturally_distinct",
+        "query": "babyslakh_full_mix_01",
+        "query_category": "full_mix",
         "nearest_neighbors": [
           {
-            "id": "expressive_classical",
-            "category": "expressive_classical",
-            "similarity": 0.8876
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.5179
           },
           {
-            "id": "rhythm_forward",
-            "category": "rhythm_forward",
-            "similarity": 0.8349
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.4477
           },
           {
-            "id": "groove_heavy",
-            "category": "groove_heavy",
-            "similarity": 0.8243
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.4035
           },
           {
-            "id": "dense_produced",
-            "category": "dense_produced",
-            "similarity": 0.7398
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.3954
           },
           {
-            "id": "sparse_acoustic",
-            "category": "sparse_acoustic",
-            "similarity": 0.7319
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.3777
           },
           {
-            "id": "jazz_improvisatory",
-            "category": "jazz_improvisatory",
-            "similarity": 0.7056
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.3739
           }
         ]
       },
       {
-        "query": "dense_produced",
-        "query_category": "dense_produced",
+        "query": "babyslakh_full_mix_02",
+        "query_category": "full_mix",
         "nearest_neighbors": [
           {
-            "id": "rhythm_forward",
-            "category": "rhythm_forward",
-            "similarity": 0.8666
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.5179
           },
           {
-            "id": "jazz_improvisatory",
-            "category": "jazz_improvisatory",
-            "similarity": 0.8334
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.2797
           },
           {
-            "id": "sparse_acoustic",
-            "category": "sparse_acoustic",
-            "similarity": 0.8078
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.2071
           },
           {
-            "id": "culturally_distinct",
-            "category": "culturally_distinct",
-            "similarity": 0.7398
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.157
           },
           {
-            "id": "expressive_classical",
-            "category": "expressive_classical",
-            "similarity": 0.6926
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.1559
           },
           {
-            "id": "groove_heavy",
-            "category": "groove_heavy",
-            "similarity": 0.6783
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.1481
           }
         ]
       },
       {
-        "query": "expressive_classical",
-        "query_category": "expressive_classical",
+        "query": "guitarset_bossa_nova",
+        "query_category": "guitar_accomp",
         "nearest_neighbors": [
           {
-            "id": "culturally_distinct",
-            "category": "culturally_distinct",
-            "similarity": 0.8876
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8597
           },
           {
-            "id": "groove_heavy",
-            "category": "groove_heavy",
-            "similarity": 0.7781
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.7664
           },
           {
-            "id": "rhythm_forward",
-            "category": "rhythm_forward",
-            "similarity": 0.7621
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.4929
           },
           {
-            "id": "jazz_improvisatory",
-            "category": "jazz_improvisatory",
-            "similarity": 0.7028
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.4252
           },
           {
-            "id": "dense_produced",
-            "category": "dense_produced",
-            "similarity": 0.6926
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.3777
           },
           {
-            "id": "sparse_acoustic",
-            "category": "sparse_acoustic",
-            "similarity": 0.6851
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.1559
           }
         ]
       },
       {
-        "query": "groove_heavy",
-        "query_category": "groove_heavy",
+        "query": "guitarset_jazz",
+        "query_category": "guitar_accomp",
         "nearest_neighbors": [
           {
-            "id": "culturally_distinct",
-            "category": "culturally_distinct",
-            "similarity": 0.8243
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8597
           },
           {
-            "id": "expressive_classical",
-            "category": "expressive_classical",
-            "similarity": 0.7781
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8145
           },
           {
-            "id": "rhythm_forward",
-            "category": "rhythm_forward",
-            "similarity": 0.7572
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.4971
           },
           {
-            "id": "sparse_acoustic",
-            "category": "sparse_acoustic",
-            "similarity": 0.7037
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.4633
           },
           {
-            "id": "jazz_improvisatory",
-            "category": "jazz_improvisatory",
-            "similarity": 0.6851
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.3954
           },
           {
-            "id": "dense_produced",
-            "category": "dense_produced",
-            "similarity": 0.6783
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.1481
           }
         ]
       },
       {
-        "query": "jazz_improvisatory",
-        "query_category": "jazz_improvisatory",
+        "query": "guitarset_rock",
+        "query_category": "guitar_accomp",
         "nearest_neighbors": [
           {
-            "id": "dense_produced",
-            "category": "dense_produced",
-            "similarity": 0.8334
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8145
           },
           {
-            "id": "rhythm_forward",
-            "category": "rhythm_forward",
-            "similarity": 0.7695
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.7664
           },
           {
-            "id": "sparse_acoustic",
-            "category": "sparse_acoustic",
-            "similarity": 0.7236
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.4457
           },
           {
-            "id": "culturally_distinct",
-            "category": "culturally_distinct",
-            "similarity": 0.7056
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.3785
           },
           {
-            "id": "expressive_classical",
-            "category": "expressive_classical",
-            "similarity": 0.7028
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.3739
           },
           {
-            "id": "groove_heavy",
-            "category": "groove_heavy",
-            "similarity": 0.6851
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.157
           }
         ]
       },
       {
-        "query": "rhythm_forward",
-        "query_category": "rhythm_forward",
+        "query": "maestro_classical_01",
+        "query_category": "solo_piano",
         "nearest_neighbors": [
           {
-            "id": "dense_produced",
-            "category": "dense_produced",
-            "similarity": 0.8666
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.7517
           },
           {
-            "id": "culturally_distinct",
-            "category": "culturally_distinct",
-            "similarity": 0.8349
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.4633
           },
           {
-            "id": "sparse_acoustic",
-            "category": "sparse_acoustic",
-            "similarity": 0.7977
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.4252
           },
           {
-            "id": "jazz_improvisatory",
-            "category": "jazz_improvisatory",
-            "similarity": 0.7695
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.4035
           },
           {
-            "id": "expressive_classical",
-            "category": "expressive_classical",
-            "similarity": 0.7621
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.3785
           },
           {
-            "id": "groove_heavy",
-            "category": "groove_heavy",
-            "similarity": 0.7572
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.2071
           }
         ]
       },
       {
-        "query": "sparse_acoustic",
-        "query_category": "sparse_acoustic",
+        "query": "maestro_classical_02",
+        "query_category": "solo_piano",
         "nearest_neighbors": [
           {
-            "id": "dense_produced",
-            "category": "dense_produced",
-            "similarity": 0.8078
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.7517
           },
           {
-            "id": "rhythm_forward",
-            "category": "rhythm_forward",
-            "similarity": 0.7977
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.4971
           },
           {
-            "id": "culturally_distinct",
-            "category": "culturally_distinct",
-            "similarity": 0.7319
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.4929
           },
           {
-            "id": "jazz_improvisatory",
-            "category": "jazz_improvisatory",
-            "similarity": 0.7236
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.4477
           },
           {
-            "id": "groove_heavy",
-            "category": "groove_heavy",
-            "similarity": 0.7037
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.4457
           },
           {
-            "id": "expressive_classical",
-            "category": "expressive_classical",
-            "similarity": 0.6851
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.2797
           }
         ]
       }
     ],
-    "notes": "Qualitative product probe. Different musical organizations should ideally show distinct clustering."
+    "notes": "QUALITATIVE PRODUCT PROBE. Cross-work similarity using real music from established corpora. Inspect ranking behavior; do not interpret absolute cosine ranges as quality."
   },
   "text_retrieval": {
     "candidate": "muq",

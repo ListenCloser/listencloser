@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import platform
 import time
 from dataclasses import dataclass, field
@@ -13,6 +14,10 @@ import numpy as np
 @dataclass
 class RuntimeMetrics:
     latency_seconds: float | None = None
+    latency_min: float | None = None
+    latency_max: float | None = None
+    latency_p95: float | None = None
+    num_runs: int = 0
     peak_ram_mb: float | None = None
     peak_vram_mb: float | None = None
     audio_duration_seconds: float | None = None
@@ -48,11 +53,20 @@ def measure_embedding_latency(
     adapter: Any,
     audio: np.ndarray,
     sample_rate: int,
-    num_runs: int = 3,
+    num_runs: int = 5,
+    warmup_runs: int = 1,
 ) -> RuntimeMetrics:
-    latencies: list[float] = []
+    """Measure embedding latency with warm-up and multiple runs.
+
+    Returns median latency. Also records min/max for spread analysis.
+    """
     errors: list[str] = []
 
+    for _ in range(warmup_runs):
+        with contextlib.suppress(Exception):
+            adapter.embed_audio(audio, sample_rate)
+
+    latencies: list[float] = []
     for _ in range(num_runs):
         try:
             t0 = time.monotonic()
@@ -67,6 +81,10 @@ def measure_embedding_latency(
 
     return RuntimeMetrics(
         latency_seconds=float(np.median(latencies)) if latencies else None,
+        latency_min=float(np.min(latencies)) if latencies else None,
+        latency_max=float(np.max(latencies)) if latencies else None,
+        latency_p95=float(np.percentile(latencies, 95)) if latencies else None,
+        num_runs=len(latencies),
         audio_duration_seconds=len(audio) / sample_rate,
         device=adapter.device,
         python_version=platform.python_version(),

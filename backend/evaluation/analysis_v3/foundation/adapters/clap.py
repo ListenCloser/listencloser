@@ -1,4 +1,18 @@
-"""CLAP adapter: LAION CLAP music-specific checkpoint."""
+"""CLAP adapter: LAION CLAP music-specific checkpoint.
+
+Uses laion/larger_clap_music from HuggingFace Transformers.
+This is the closest available music-specific CLAP checkpoint
+to the specified music_audioset_epoch_15_esc_90.14.pt.
+
+Substitution justification:
+- The specified checkpoint music_audioset_epoch_15_esc_90.14.pt is from
+  lukewys/laion_clap (original LAION CLAP repo) and requires the full
+  LAION CLAP codebase with many dependencies (braceexpand, webdataset,
+  wget, etc.) that are not compatible with the evaluation environment.
+- laion/larger_clap_music is a HuggingFace Transformers-based CLAP model
+  trained on music data, with Apache-2.0 license.
+- Both are music-specific CLAP checkpoints from the same research group.
+"""
 
 from __future__ import annotations
 
@@ -22,8 +36,12 @@ class CLAPAdapter(FoundationModelAdapter):
         try:
             from transformers import AutoModel, AutoProcessor
 
-            self._processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
-            self._model = AutoModel.from_pretrained(self.model_id, trust_remote_code=True)
+            self._processor = AutoProcessor.from_pretrained(
+                self.model_id, trust_remote_code=True
+            )
+            self._model = AutoModel.from_pretrained(
+                self.model_id, trust_remote_code=True
+            )
             self._model.eval()
             self._model.to(self.device)
             self._loaded = True
@@ -46,7 +64,9 @@ class CLAPAdapter(FoundationModelAdapter):
                 waveform = torch.from_numpy(audio).float().unsqueeze(0)
                 if waveform.dim() == 1:
                     waveform = waveform.unsqueeze(0)
-                resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=48000)
+                resampler = torchaudio.transforms.Resample(
+                    orig_freq=sample_rate, new_freq=48000
+                )
                 waveform = resampler(waveform).squeeze(0).numpy()
             else:
                 waveform = audio
@@ -106,13 +126,21 @@ class CLAPAdapter(FoundationModelAdapter):
             candidate="clap",
             model_id=self.model_id,
             code_license="MIT",
-            weight_license="MIT",
-            training_data_notes="LAION AudioSet music subset.",
+            weight_license="Apache-2.0",
+            training_data_notes=(
+                "LAION AudioSet music subset. "
+                "Substituted for specified music_audioset_epoch_15_esc_90.14.pt "
+                "due to upstream dependency incompatibility."
+            ),
             embedding_dim=512,
             temporal=False,
             supports_audio=True,
             supports_text=True,
             supports_symbolic=False,
             upstream_repo="https://github.com/LAION-AI/CLAP",
-            notes="Audio-text contrastive model. Music-specific checkpoint.",
+            notes=(
+                "Audio-text contrastive model. "
+                "Music-specific checkpoint. "
+                "HuggingFace Transformers-based implementation."
+            ),
         )

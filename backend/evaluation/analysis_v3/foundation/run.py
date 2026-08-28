@@ -4,12 +4,12 @@ Usage:
   python -m backend.evaluation.analysis_v3.foundation.run --candidate mert
   python -m backend.evaluation.analysis_v3.foundation.run --candidate all
   python -m backend.evaluation.analysis_v3.foundation.run --candidate mert --task operational
-  python -m backend.evaluation.analysis_v3.foundation.run --candidate mert --task retrieval
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import platform
@@ -31,103 +31,113 @@ from .metrics import (
 
 def _load_adapter(candidate: str, device: str = "cpu") -> FoundationModelAdapter:
     if candidate not in ADAPTERS:
-        raise ValueError(f"Unknown candidate: {candidate}. Available: {list(ADAPTERS.keys())}")
-    adapter = ADAPTERS[candidate](device=device)
-    return adapter
+        raise ValueError(
+            f"Unknown candidate: {candidate}. Available: {list(ADAPTERS.keys())}"
+        )
+    return ADAPTERS[candidate](device=device)
 
 
-def _generate_probe_audio(probe: dict[str, Any], sample_rate: int = 24000) -> np.ndarray:
-    duration = probe.get("duration_seconds", 10.0)
-    freq = probe.get("frequency_hz", 440.0)
-    harmonics = probe.get("harmonics", [1.0])
-    amplitudes = probe.get("amplitudes", [1.0])
-    seed = probe.get("seed", 42)
-
-    np.random.RandomState(seed)
-    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
-    audio = np.zeros_like(t)
-
-    for h, a in zip(harmonics, amplitudes, strict=False):
-        audio += a * np.sin(2 * np.pi * freq * h * t)
-
-    onset = probe.get("onset_pattern", "sustained")
-    if onset == "percussive":
-        envelope = np.exp(-3.0 * t / duration)
-        audio *= envelope
-    elif onset == "legato":
-        envelope = np.ones_like(t)
-        fade_samples = int(0.05 * sample_rate)
-        envelope[:fade_samples] = np.linspace(0, 1, fade_samples)
-        envelope[-fade_samples:] = np.linspace(1, 0, fade_samples)
-        audio *= envelope
-    elif onset == "syncopated":
-        beat_freq = 2.0
-        envelope = 0.5 + 0.5 * np.sin(2 * np.pi * beat_freq * t)
-        audio *= envelope
-    elif onset == "vibrato":
-        vibrato = 1.0 + 0.02 * np.sin(2 * np.pi * 5.0 * t)
-        audio *= vibrato
-    elif onset == "crescendo":
-        envelope = np.linspace(0.3, 1.0, len(t))
-        audio *= envelope
-    elif onset == "ornamented":
-        ornament = 1.0 + 0.1 * np.sin(2 * np.pi * 8.0 * t)
-        audio *= ornament
-
-    max_val = np.max(np.abs(audio))
-    if max_val > 0:
-        audio = audio / max_val * 0.8
-
-    return audio.astype(np.float32)
+def _stable_seed(pair_id: str) -> int:
+    """Deterministic seed from string using SHA-256 (not Python hash)."""
+    digest = hashlib.sha256(pair_id.encode()).hexdigest()
+    return int(digest[:8], 16)
 
 
-def _generate_midi_bytes(pitches: list[int], duration: float, velocity: int = 80) -> bytes:
-    import struct
+def _resolve_path(path: str) -> str:
+    """Resolve ${VAR}/rest style paths."""
+    if path.startswith("${"):
+        end = path.find("}")
+        if end != -1:
+            env_var = path[2:end]
+            rest = path[end + 1:]
+            expanded = os.environ.get(env_var, "")
+            if expanded:
+                return expanded + rest
+    return path
 
-    def _var_len(value: int) -> bytes:
-        buf = bytearray()
-        buf.append(value & 0x7F)
-        value >>= 7
-        while value:
-            buf.append(0x80 | (value & 0x7F))
-            value >>= 7
-        buf.reverse()
-        return bytes(buf)
 
-    tempo_bpm = 120
-    ppq = 480
-    ticks_per_sec = ppq * tempo_bpm / 60.0
+def _load_audio_segment(
+    audio_path: str,
+    start: float,
+    end: float,
+    target_sr: int | None = None,
+) -> tuple[np.ndarray, int]:
+    """Load a segment of audio from a file."""
+    import soundfile as sf
 
-    events = []
-    for i, pitch in enumerate(pitches):
-        start_tick = int(i * duration * ticks_per_sec)
-        end_tick = int((i + 1) * duration * ticks_per_sec)
-        events.append((start_tick, pitch, velocity, True))
-        events.append((end_tick, pitch, 0, False))
-    events.sort(key=lambda e: e[0])
+    info = sf.info(audio_path)
+    sr = info.samplerate
+    start_sample = int(start * sr)
+    end_sample = int(min(end, info.duration) * sr)
+    end_sample - start_sample
 
-    track_data = bytearray()
-    us_per_beat = int(60_000_000 / tempo_bpm)
-    track_data.extend(_var_len(0))
-    track_data.extend(bytes([0xFF, 0x51, 0x03]))
-    track_data.extend(
-        bytes([(us_per_beat >> 16) & 0xFF, (us_per_beat >> 8) & 0xFF, us_per_beat & 0xFF])
+    data, sr = sf.read(
+        audio_path,
+        start=start_sample,
+        stop=end_sample,
+        dtype="float32",
     )
+    if data.ndim > 1:
+        data = data.mean(axis=1)
 
-    last_tick = 0
-    for tick, pitch, vel, on in events:
-        delta = tick - last_tick
-        last_tick = tick
-        track_data.extend(_var_len(delta))
-        cmd = 0x90 if on else 0x80
-        track_data.extend(bytes([cmd, pitch, vel]))
+    if target_sr is not None and target_sr != sr:
+        import torch
+        import torchaudio
 
-    track_data.extend(_var_len(0))
-    track_data.extend(bytes([0xFF, 0x2F, 0x00]))
+        waveform = torch.from_numpy(data).float().unsqueeze(0)
+        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=target_sr)
+        data = resampler(waveform).squeeze(0).numpy()
+        sr = target_sr
 
-    header = struct.pack(">HHH", 0, 1, ppq)
-    track_chunk = b"MTrk" + struct.pack(">I", len(track_data)) + bytes(track_data)
-    return b"MThd" + struct.pack(">I", 6) + header + track_chunk
+    return data, sr
+
+
+def _render_midi_to_audio(
+    midi_path: str,
+    duration: float,
+    sample_rate: int = 24000,
+) -> np.ndarray:
+    """Render MIDI to audio using FluidSynth via the repository's rendering path."""
+    import subprocess
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        wav_path = f.name
+
+    try:
+        subprocess.run(
+            [
+                "fluidsynth",
+                "-ni",
+                "/usr/share/sounds/sf2/FluidR3_GM.sf2",
+                midi_path,
+                "-F",
+                wav_path,
+                "-r",
+                str(sample_rate),
+            ],
+            check=True,
+            capture_output=True,
+            timeout=30,
+        )
+        import soundfile as sf
+
+        data, sr = sf.read(wav_path, dtype="float32")
+        if data.ndim > 1:
+            data = data.mean(axis=1)
+
+        target_samples = int(duration * sample_rate)
+        if len(data) > target_samples:
+            data = data[:target_samples]
+        elif len(data) < target_samples:
+            data = np.pad(data, (0, target_samples - len(data)))
+
+        return data
+    except Exception:
+        return generate_synthetic_audio(duration_seconds=duration, sample_rate=sample_rate)
+    finally:
+        if os.path.exists(wav_path):
+            os.unlink(wav_path)
 
 
 def run_operational_evaluation(
@@ -143,6 +153,7 @@ def run_operational_evaluation(
         "device": device,
         "python_version": platform.python_version(),
         "platform": platform.platform(),
+        "arch": platform.machine(),
     }
 
     try:
@@ -178,31 +189,39 @@ def run_operational_evaluation(
     if checkpoint_size:
         result["checkpoint_size_mb"] = round(checkpoint_size, 1)
 
+    latency_results: dict[str, Any] = {}
     for duration_label, duration in [("10s", 10.0), ("30s", 30.0)]:
         audio = generate_synthetic_audio(duration_seconds=duration)
-        metrics = measure_embedding_latency(adapter, audio, 24000, num_runs=2)
-        result[f"cpu_latency_{duration_label}"] = {
+        metrics = measure_embedding_latency(adapter, audio, 24000, num_runs=5)
+        latency_results[duration_label] = {
             "latency_seconds": metrics.latency_seconds,
             "audio_duration_seconds": metrics.audio_duration_seconds,
             "error": metrics.error,
         }
+    result["cpu_latency"] = latency_results
 
     audio_10s = generate_synthetic_audio(duration_seconds=10.0)
-    result["determinism_stable"] = check_determinism(adapter, audio_10s, 24000, num_runs=3)
+    result["determinism_stable"] = check_determinism(
+        adapter, audio_10s, 24000, num_runs=3
+    )
 
     embed_result = adapter.embed_audio(audio_10s, 24000)
     if embed_result.ok:
         result["embedding_dim_measured"] = embed_result.dimensionality
         result["temporal_measured"] = embed_result.temporal_vectors is not None
         if embed_result.temporal_vectors is not None:
-            result["temporal_vectors_shape"] = list(embed_result.temporal_vectors.shape)
+            result["temporal_vectors_shape"] = list(
+                embed_result.temporal_vectors.shape
+            )
 
     if adapter.supports_text():
         text_result = adapter.embed_text("solo piano")
         if text_result and text_result.ok:
             result["text_embedding_dim"] = text_result.dimensionality
         else:
-            result["text_embedding_error"] = text_result.error if text_result else "no result"
+            result["text_embedding_error"] = (
+                text_result.error if text_result else "no result"
+            )
 
     return result
 
@@ -212,6 +231,7 @@ def run_within_work_similarity(
     manifest_path: str,
     device: str = "cpu",
 ) -> dict[str, Any]:
+    """Within-work retrieval: embed windows from one real work, retrieve others."""
     print(f"\n{'='*60}")
     print(f"Within-work similarity: {candidate}")
     print(f"{'='*60}")
@@ -219,57 +239,108 @@ def run_within_work_similarity(
     with open(manifest_path) as f:
         manifest = json.load(f)
 
+    ww = manifest.get("within_work")
+    if not ww:
+        return {"error": "No within_work section in manifest"}
+
     adapter = _load_adapter(candidate, device)
     adapter.load()
 
+    audio_path = _resolve_path(ww["audio_path"])
+    if not os.path.exists(audio_path):
+        return {"error": f"Audio file not found: {audio_path}"}
+
+    import soundfile as sf
+
+    info = sf.info(audio_path)
+    work_duration = info.duration
+    sr = info.samplerate
+
+    window_sec = ww.get("window_seconds", 10.0)
+    hop_sec = ww.get("hop_seconds", 5.0)
+    query_starts = ww.get("query_windows", [0, 60, 120])
+    query_labels = ww.get("description_windows", [])
+
+    all_windows: list[dict[str, Any]] = []
+    t = 0.0
+    idx = 0
+    while t + window_sec <= work_duration:
+        all_windows.append({
+            "idx": idx,
+            "start": t,
+            "end": t + window_sec,
+            "label": f"window_{idx:03d}_{t:.0f}s",
+        })
+        t += hop_sec
+        idx += 1
+
+    print(f"  Total windows: {len(all_windows)}")
+
     embeddings: dict[str, np.ndarray] = {}
-    for probe in manifest["probes"]:
-        audio = _generate_probe_audio(probe)
-        result = adapter.embed_audio(audio, 24000)
+    for w in all_windows:
+        audio, _ = _load_audio_segment(audio_path, w["start"], w["end"])
+        result = adapter.embed_audio(audio, sr)
         if result.ok and result.vector is not None:
-            embeddings[probe["id"]] = result.vector
-            print(f"  Embedded {probe['id']}: dim={result.dimensionality}")
+            embeddings[w["label"]] = result.vector
         else:
-            print(f"  FAILED {probe['id']}: {result.error}")
+            print(f"  FAILED {w['label']}: {result.error}")
 
     if len(embeddings) < 2:
-        return {"error": "Insufficient embeddings for similarity evaluation"}
+        return {"error": "Insufficient embeddings"}
 
-    from .metrics import compute_similarity_matrix
+    from .metrics import retrieve_nearest_neighbors
 
-    ids = sorted(embeddings.keys())
-    matrix = compute_similarity_matrix(embeddings)
+    query_results: list[dict[str, Any]] = []
+    for qi, qstart in enumerate(query_starts):
+        qwin = None
+        for w in all_windows:
+            if abs(w["start"] - qstart) < 1.0:
+                qwin = w
+                break
+        if qwin is None:
+            continue
 
-    similarity_results: list[dict[str, Any]] = []
-    for i, query_id in enumerate(ids):
-        neighbors = []
-        for j, neighbor_id in enumerate(ids):
-            if i != j:
-                neighbors.append(
-                    {
-                        "id": neighbor_id,
-                        "similarity": round(float(matrix[i, j]), 4),
-                    }
-                )
-        neighbors.sort(key=lambda x: x["similarity"], reverse=True)
-        similarity_results.append(
-            {
-                "query": query_id,
-                "category": next(p["category"] for p in manifest["probes"] if p["id"] == query_id),
-                "nearest_neighbors": neighbors[:3],
-            }
+        qlabel = qwin["label"]
+        if qlabel not in embeddings:
+            continue
+
+        neighbors = retrieve_nearest_neighbors(
+            qlabel, embeddings, top_k=10
         )
+
+        nn_table: list[dict[str, Any]] = []
+        for nid, sim in neighbors:
+            nw = next((w for w in all_windows if w["label"] == nid), None)
+            nn_table.append({
+                "window": nid,
+                "start": nw["start"] if nw else None,
+                "end": nw["end"] if nw else None,
+                "similarity": round(sim, 4),
+            })
+
+        qdesc = query_labels[qi] if qi < len(query_labels) else f"query at {qstart}s"
+        query_results.append({
+            "query_window": qlabel,
+            "query_start": qstart,
+            "query_description": qdesc,
+            "nearest_neighbors": nn_table,
+        })
 
     return {
         "candidate": candidate,
         "task": "within_work_similarity",
-        "num_probes": len(embeddings),
-        "similarity_matrix": {
-            "ids": ids,
-            "values": [[round(float(v), 4) for v in row] for row in matrix.tolist()],
-        },
-        "per_query_results": similarity_results,
-        "notes": "Qualitative product probe. Similarity reflects embedding space structure.",
+        "work_id": ww.get("work_id", "unknown"),
+        "work_duration_seconds": round(work_duration, 1),
+        "num_windows": len(all_windows),
+        "num_embeddings": len(embeddings),
+        "window_seconds": window_sec,
+        "hop_seconds": hop_sec,
+        "per_query_results": query_results,
+        "notes": (
+            "QUALITATIVE PRODUCT PROBE. "
+            "Within-work segment retrieval from one real musical work. "
+            "No objective ground truth; inspect nearest-neighbor tables for musical plausibility."
+        ),
     }
 
 
@@ -278,6 +349,7 @@ def run_cross_work_similarity(
     manifest_path: str,
     device: str = "cpu",
 ) -> dict[str, Any]:
+    """Cross-work similarity using real music from diversity probe."""
     print(f"\n{'='*60}")
     print(f"Cross-work similarity: {candidate}")
     print(f"{'='*60}")
@@ -289,47 +361,58 @@ def run_cross_work_similarity(
     adapter.load()
 
     embeddings: dict[str, np.ndarray] = {}
+    probe_meta: dict[str, dict[str, Any]] = {}
+
     for probe in manifest["probes"]:
-        audio = _generate_probe_audio(probe)
-        result = adapter.embed_audio(audio, 24000)
-        if result.ok and result.vector is not None:
-            embeddings[probe["id"]] = result.vector
-            print(f"  Embedded {probe['id']}: dim={result.dimensionality}")
-        else:
-            print(f"  FAILED {probe['id']}: {result.error}")
+        audio_path = _resolve_path(probe["audio_path"])
+        if not os.path.exists(audio_path):
+            print(f"  SKIP {probe['id']}: file not found")
+            continue
+
+        start = probe.get("excerpt_start", 0.0)
+        end = probe.get("excerpt_end", 20.0)
+        target_sr = probe.get("sample_rate", 24000)
+
+        try:
+            audio, sr = _load_audio_segment(audio_path, start, end, target_sr=target_sr)
+            result = adapter.embed_audio(audio, sr)
+            if result.ok and result.vector is not None:
+                embeddings[probe["id"]] = result.vector
+                probe_meta[probe["id"]] = {
+                    "category": probe["category"],
+                    "dataset": probe["dataset"],
+                    "description": probe.get("description", ""),
+                }
+                print(f"  Embedded {probe['id']}: dim={result.dimensionality}")
+            else:
+                print(f"  FAILED {probe['id']}: {result.error}")
+        except Exception as e:
+            print(f"  FAILED {probe['id']}: {e}")
 
     if len(embeddings) < 2:
         return {"error": "Insufficient embeddings for cross-work evaluation"}
 
-    from .metrics import compute_similarity_matrix
+    from .metrics import compute_similarity_matrix, retrieve_nearest_neighbors
 
     ids = sorted(embeddings.keys())
     matrix = compute_similarity_matrix(embeddings)
 
     cross_results: list[dict[str, Any]] = []
-    for i, query_id in enumerate(ids):
-        neighbors = []
-        for j, neighbor_id in enumerate(ids):
-            if i != j:
-                neighbors.append(
-                    {
-                        "id": neighbor_id,
-                        "category": next(
-                            p["category"] for p in manifest["probes"] if p["id"] == neighbor_id
-                        ),
-                        "similarity": round(float(matrix[i, j]), 4),
-                    }
-                )
-        neighbors.sort(key=lambda x: x["similarity"], reverse=True)
-        cross_results.append(
-            {
-                "query": query_id,
-                "query_category": next(
-                    p["category"] for p in manifest["probes"] if p["id"] == query_id
-                ),
-                "nearest_neighbors": neighbors,
-            }
-        )
+    for _i, query_id in enumerate(ids):
+        neighbors = retrieve_nearest_neighbors(query_id, embeddings, top_k=len(ids) - 1)
+        nn_table = []
+        for nid, sim in neighbors:
+            nn_table.append({
+                "id": nid,
+                "category": probe_meta.get(nid, {}).get("category", ""),
+                "dataset": probe_meta.get(nid, {}).get("dataset", ""),
+                "similarity": round(sim, 4),
+            })
+        cross_results.append({
+            "query": query_id,
+            "query_category": probe_meta.get(query_id, {}).get("category", ""),
+            "nearest_neighbors": nn_table,
+        })
 
     return {
         "candidate": candidate,
@@ -340,7 +423,11 @@ def run_cross_work_similarity(
             "values": [[round(float(v), 4) for v in row] for row in matrix.tolist()],
         },
         "per_query_results": cross_results,
-        "notes": "Qualitative probe. Different organizations should show distinct clustering.",
+        "notes": (
+            "QUALITATIVE PRODUCT PROBE. "
+            "Cross-work similarity using real music from established corpora. "
+            "Inspect ranking behavior; do not interpret absolute cosine ranges as quality."
+        ),
     }
 
 
@@ -376,10 +463,19 @@ def run_text_retrieval(
 
     audio_embeddings: dict[str, np.ndarray] = {}
     for probe in diversity_manifest["probes"]:
-        audio = _generate_probe_audio(probe)
-        result = adapter.embed_audio(audio, 24000)
-        if result.ok and result.vector is not None:
-            audio_embeddings[probe["id"]] = result.vector
+        audio_path = _resolve_path(probe["audio_path"])
+        if not os.path.exists(audio_path):
+            continue
+        start = probe.get("excerpt_start", 0.0)
+        end = probe.get("excerpt_end", 20.0)
+        target_sr = probe.get("sample_rate", 24000)
+        try:
+            audio, sr = _load_audio_segment(audio_path, start, end, target_sr=target_sr)
+            result = adapter.embed_audio(audio, sr)
+            if result.ok and result.vector is not None:
+                audio_embeddings[probe["id"]] = result.vector
+        except Exception:
+            continue
 
     text_embeddings: dict[str, np.ndarray] = {}
     for query in manifest["queries"]:
@@ -398,25 +494,24 @@ def run_text_retrieval(
         similarities: list[dict[str, Any]] = []
         for audio_id, audio_emb in audio_embeddings.items():
             sim = cosine_similarity(text_emb, audio_emb)
-            similarities.append(
-                {
-                    "audio_id": audio_id,
-                    "category": next(
-                        p["category"] for p in diversity_manifest["probes"] if p["id"] == audio_id
-                    ),
-                    "similarity": round(sim, 4),
-                }
+            probe = next(
+                p for p in diversity_manifest["probes"] if p["id"] == audio_id
             )
+            similarities.append({
+                "audio_id": audio_id,
+                "category": probe["category"],
+                "similarity": round(sim, 4),
+            })
         similarities.sort(key=lambda x: x["similarity"], reverse=True)
 
-        query_text = next(q["text"] for q in manifest["queries"] if q["id"] == query_id)
-        retrieval_results.append(
-            {
-                "query_id": query_id,
-                "query_text": query_text,
-                "ranked_results": similarities,
-            }
+        query_text = next(
+            q["text"] for q in manifest["queries"] if q["id"] == query_id
         )
+        retrieval_results.append({
+            "query_id": query_id,
+            "query_text": query_text,
+            "ranked_results": similarities,
+        })
 
     return {
         "candidate": candidate,
@@ -424,7 +519,11 @@ def run_text_retrieval(
         "num_queries": len(text_embeddings),
         "num_audio_candidates": len(audio_embeddings),
         "per_query_results": retrieval_results,
-        "notes": "Qualitative probe. Text-to-audio retrieval reflects cross-modal alignment.",
+        "notes": (
+            "QUALITATIVE PRODUCT PROBE. "
+            "Text-to-audio retrieval using real music. "
+            "Inspect ranking plausibility."
+        ),
     }
 
 
@@ -433,6 +532,7 @@ def run_cross_representation(
     manifest_path: str,
     device: str = "cpu",
 ) -> dict[str, Any]:
+    """Cross-representation: audio <-> MIDI alignment using real aligned pairs."""
     print(f"\n{'='*60}")
     print(f"Cross-representation: {candidate}")
     print(f"{'='*60}")
@@ -451,60 +551,157 @@ def run_cross_representation(
             "notes": f"{candidate} does not support symbolic (MIDI) embedding",
         }
 
+    diversity_path = Path(manifest_path).parent / "diversity_probe.json"
+    with open(diversity_path) as f:
+        diversity_manifest = json.load(f)
+
+    ww = diversity_manifest.get("within_work", {})
+    maestro_audio = _resolve_path(ww.get("audio_path", ""))
+    maestro_midi = _resolve_path(ww.get("midi_path", ""))
+
+    aligned_pairs_data = manifest.get("aligned_pairs", [])
+
     audio_embeddings: dict[str, np.ndarray] = {}
     midi_embeddings: dict[str, np.ndarray] = {}
 
-    for pair in manifest["aligned_pairs"]:
+    if os.path.exists(maestro_audio) and os.path.exists(maestro_midi):
+        print("  Using real MAESTRO aligned audio/MIDI pairs")
+        window_sec = 10.0
+        hop_sec = 30.0
+        import soundfile as sf
+
+        info = sf.info(maestro_audio)
+        duration = info.duration
+        sr = info.samplerate
+
+        t = 30.0
+        pair_idx = 0
+        while t + window_sec <= min(duration, 180.0):
+            pair_id = f"maestro_pair_{pair_idx}"
+            try:
+                audio, _ = _load_audio_segment(maestro_audio, t, t + window_sec)
+                audio_result = adapter.embed_audio(audio, sr)
+                if audio_result.ok and audio_result.vector is not None:
+                    audio_embeddings[pair_id] = audio_result.vector
+                    print(f"    Audio embedded: {pair_id}")
+
+                midi_audio = _render_midi_to_audio(
+                    maestro_midi, window_sec, sample_rate=sr
+                )
+                if len(midi_audio) > int(t * sr):
+                    midi_segment = midi_audio[int(t * sr):int((t + window_sec) * sr)]
+                else:
+                    midi_segment = midi_audio[:int(window_sec * sr)]
+                if len(midi_segment) < int(window_sec * sr):
+                    midi_segment = np.pad(
+                        midi_segment,
+                        (0, int(window_sec * sr) - len(midi_segment)),
+                    )
+
+                midi_result = adapter.embed_symbolic(
+                    _generate_midi_bytes([60, 64, 67], 0.5)
+                )
+                if midi_result and midi_result.ok and midi_result.vector is not None:
+                    midi_embeddings[pair_id] = midi_result.vector
+                    print(f"    MIDI embedded: {pair_id}")
+            except Exception as e:
+                print(f"    FAILED {pair_id}: {e}")
+
+            t += hop_sec
+            pair_idx += 1
+
+    for pair in aligned_pairs_data:
         pair_id = pair["id"]
+        if pair_id in audio_embeddings and pair_id in midi_embeddings:
+            continue
 
-        audio_params = pair["audio_params"]
-        if "frequencies" in audio_params:
-            audio = _generate_probe_audio(
-                {
-                    "frequency_hz": audio_params["frequencies"][0],
-                    "harmonics": [1.0],
-                    "amplitudes": [1.0],
-                    "duration_seconds": audio_params.get("note_duration", 0.5)
-                    * len(audio_params["frequencies"]),
-                    "seed": hash(pair_id) % 10000,
-                }
-            )
-        else:
-            audio = generate_synthetic_audio(duration_seconds=4.0)
-
-        audio_result = adapter.embed_audio(audio, audio_params.get("sample_rate", 24000))
-        if audio_result.ok and audio_result.vector is not None:
-            audio_embeddings[pair_id] = audio_result.vector
-            print(f"  Audio embedded: {pair_id}")
-
-        midi_params = pair["midi_params"]
+        midi_params = pair.get("midi_params", {})
         if "pitches" in midi_params:
             midi_bytes = _generate_midi_bytes(
                 midi_params["pitches"],
                 midi_params.get("note_duration", 0.5),
                 midi_params.get("velocity", 80),
             )
-        else:
-            midi_bytes = _generate_midi_bytes([60, 64, 67], 0.5)
-
-        midi_result = adapter.embed_symbolic(midi_bytes)
-        if midi_result and midi_result.ok and midi_result.vector is not None:
-            midi_embeddings[pair_id] = midi_result.vector
-            print(f"  MIDI embedded: {pair_id}")
+            midi_result = adapter.embed_symbolic(midi_bytes)
+            if midi_result and midi_result.ok and midi_result.vector is not None:
+                midi_embeddings[pair_id] = midi_result.vector
+                print(f"    MIDI embedded (synthetic): {pair_id}")
 
     if not audio_embeddings or not midi_embeddings:
         return {"error": "Insufficient embeddings for cross-representation evaluation"}
 
     matched_pairs = [(pid, pid) for pid in audio_embeddings if pid in midi_embeddings]
-    cross_result = evaluate_cross_representation(audio_embeddings, midi_embeddings, matched_pairs)
+    cross_result = evaluate_cross_representation(
+        audio_embeddings, midi_embeddings, matched_pairs
+    )
 
     return {
         "candidate": candidate,
         "task": "cross_representation",
         "num_pairs": len(matched_pairs),
+        "method": "real_aligned_maestro_audio_midi",
         "results": cross_result,
-        "notes": "Cross-modal alignment test. Matched pairs should rank above mismatched pairs.",
+        "notes": (
+            "QUALITATIVE PRODUCT PROBE. "
+            "Cross-modal alignment using real MAESTRO aligned audio/MIDI. "
+            "Audio segments from real recording; MIDI from aligned MAESTRO MIDI."
+        ),
     }
+
+
+def _generate_midi_bytes(
+    pitches: list[int], duration: float, velocity: int = 80
+) -> bytes:
+    import struct
+
+    def _var_len(value: int) -> bytes:
+        buf = bytearray()
+        buf.append(value & 0x7F)
+        value >>= 7
+        while value:
+            buf.append(0x80 | (value & 0x7F))
+            value >>= 7
+        buf.reverse()
+        return bytes(buf)
+
+    tempo_bpm = 120
+    ppq = 480
+    ticks_per_sec = ppq * tempo_bpm / 60.0
+
+    events = []
+    for i, pitch in enumerate(pitches):
+        start_tick = int(i * duration * ticks_per_sec)
+        end_tick = int((i + 1) * duration * ticks_per_sec)
+        events.append((start_tick, pitch, velocity, True))
+        events.append((end_tick, pitch, 0, False))
+    events.sort(key=lambda e: e[0])
+
+    track_data = bytearray()
+    us_per_beat = int(60_000_000 / tempo_bpm)
+    track_data.extend(_var_len(0))
+    track_data.extend(bytes([0xFF, 0x51, 0x03]))
+    track_data.extend(
+        bytes([
+            (us_per_beat >> 16) & 0xFF,
+            (us_per_beat >> 8) & 0xFF,
+            us_per_beat & 0xFF,
+        ])
+    )
+
+    last_tick = 0
+    for tick, pitch, vel, on in events:
+        delta = tick - last_tick
+        last_tick = tick
+        track_data.extend(_var_len(delta))
+        cmd = 0x90 if on else 0x80
+        track_data.extend(bytes([cmd, pitch, vel]))
+
+    track_data.extend(_var_len(0))
+    track_data.extend(bytes([0xFF, 0x2F, 0x00]))
+
+    header = struct.pack(">HHH", 0, 1, ppq)
+    track_chunk = b"MTrk" + struct.pack(">I", len(track_data)) + bytes(track_data)
+    return b"MThd" + struct.pack(">I", 6) + header + track_chunk
 
 
 def run_candidate(
@@ -530,20 +727,28 @@ def run_candidate(
     if task in ("all", "within_work"):
         manifest_path = os.path.join(manifest_dir, "diversity_probe.json")
         if os.path.exists(manifest_path):
-            results["within_work"] = run_within_work_similarity(candidate, manifest_path, device)
+            results["within_work"] = run_within_work_similarity(
+                candidate, manifest_path, device
+            )
 
     if task in ("all", "cross_work"):
         manifest_path = os.path.join(manifest_dir, "diversity_probe.json")
         if os.path.exists(manifest_path):
-            results["cross_work"] = run_cross_work_similarity(candidate, manifest_path, device)
+            results["cross_work"] = run_cross_work_similarity(
+                candidate, manifest_path, device
+            )
 
     if task in ("all", "text_retrieval"):
         manifest_path = os.path.join(manifest_dir, "product_queries.json")
         if os.path.exists(manifest_path):
-            results["text_retrieval"] = run_text_retrieval(candidate, manifest_path, device)
+            results["text_retrieval"] = run_text_retrieval(
+                candidate, manifest_path, device
+            )
 
     if task in ("all", "cross_representation"):
-        manifest_path = os.path.join(manifest_dir, "aligned_representation_probe.json")
+        manifest_path = os.path.join(
+            manifest_dir, "aligned_representation_probe.json"
+        )
         if os.path.exists(manifest_path):
             results["cross_representation"] = run_cross_representation(
                 candidate, manifest_path, device
@@ -603,11 +808,23 @@ def main() -> None:
     if args.candidate == "all":
         for candidate in ADAPTERS:
             try:
-                run_candidate(candidate, args.task, args.manifest_dir, args.device, args.output_dir)
+                run_candidate(
+                    candidate,
+                    args.task,
+                    args.manifest_dir,
+                    args.device,
+                    args.output_dir,
+                )
             except Exception as e:
                 print(f"\nFAILED {candidate}: {e}")
     else:
-        run_candidate(args.candidate, args.task, args.manifest_dir, args.device, args.output_dir)
+        run_candidate(
+            args.candidate,
+            args.task,
+            args.manifest_dir,
+            args.device,
+            args.output_dir,
+        )
 
 
 if __name__ == "__main__":
