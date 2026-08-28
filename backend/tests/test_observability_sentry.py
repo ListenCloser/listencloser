@@ -56,13 +56,9 @@ def test_worker_sentry_does_not_import_api_framework_integrations(monkeypatch):
     monkeypatch.setattr(sentry_sdk, "init", lambda **_kwargs: None)
 
     original_import = builtins.__import__
-    forbidden = (
-        "sentry_sdk.integrations.fastapi",
-        "sentry_sdk.integrations.starlette",
-    )
 
     def guarded_import(name, *args, **kwargs):
-        if name in forbidden:
+        if name.startswith("sentry_sdk.integrations."):
             raise AssertionError(f"worker unexpectedly imported {name}")
         return original_import(name, *args, **kwargs)
 
@@ -89,9 +85,6 @@ def test_init_sentry_preserves_api_integrations_and_default_release(monkeypatch)
     assert kwargs["traces_sample_rate"] == 0.1
     assert kwargs["send_default_pii"] is False
     assert kwargs["release"] == "backend@2.0.0"
-    assert any(
-        isinstance(item, StarletteIntegration) for item in kwargs["integrations"]
-    )
-    assert any(
-        isinstance(item, FastAPIIntegration) for item in kwargs["integrations"]
-    )
+    integration_types = {item.__class__ for item in kwargs["integrations"]}
+    assert StarletteIntegration in integration_types
+    assert FastAPIIntegration in integration_types
