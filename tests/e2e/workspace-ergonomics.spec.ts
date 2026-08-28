@@ -6,6 +6,7 @@ import { expect, test } from "@playwright/test";
  * Tests the analysis state transitions and the layout structure:
  * - Compare is integrated into the transport
  * - Completed analysis is presented as an evidence-grounded Breakdown
+ * - Breakdown actions are gated by live capabilities
  * - Loop is explicit and accessible; play/pause is the primary transport action
  * - Library stays docked on desktop without duplicate collapse controls
  */
@@ -67,6 +68,41 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(inspector.getByRole("heading", { name: "Context" })).toBeVisible();
     await expect(inspector.getByText("A minor", { exact: true })).toBeVisible();
     await expect(inspector.getByRole("heading", { name: "Overview" })).toHaveCount(0);
+  });
+
+  test("Breakdown finding actions reflect live playback, representation, and Ask capabilities", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
+
+    const inspector = page.locator("aside.inspector");
+    const density = inspector.locator("article.inspector-breakdown-finding").filter({
+      hasText: "Note-onset activity is densest in this passage.",
+    });
+    await expect(density).toBeVisible({ timeout: 20_000 });
+    await expect(density.getByRole("button", { name: /^Loop / })).toBeVisible({ timeout: 20_000 });
+    await expect(density.getByRole("button", { name: "Ask about this finding" })).toHaveCount(0);
+    await expect(density.getByRole("button", { name: "Show waveform" })).toHaveCount(0);
+    await expect(density.getByRole("button", { name: /Compare/i })).toHaveCount(0);
+
+    await density.getByRole("button", { name: /^Loop / }).click();
+    await expect(page.getByRole("button", { name: "Toggle loop" })).toHaveAttribute("aria-pressed", "true");
+    await expect(inspector.getByRole("heading", { name: "About this selection" })).toBeVisible();
+    await inspector.getByRole("button", { name: "Clear selection" }).click();
+
+    const melody = inspector.locator("article.inspector-breakdown-finding").filter({
+      hasText: "The detected melody reaches its highest register here.",
+    });
+    await expect(melody).toBeVisible();
+    await expect(melody.getByRole("button", { name: "Show piano roll" })).toBeVisible();
+    await expect(melody.getByRole("button", { name: "Ask about this finding" })).toBeVisible();
+    await expect(melody.getByRole("button", { name: /Compare/i })).toHaveCount(0);
+
+    await melody.getByRole("button", { name: "Show piano roll" }).click();
+    await expect(page.getByRole("tab", { name: "Piano Roll", selected: true })).toBeVisible();
+    await expect(melody.getByRole("button", { name: "Show piano roll" })).toHaveCount(0);
+
+    await melody.getByRole("button", { name: "Ask about this finding" }).click();
+    await expect(inspector.getByRole("tab", { name: "Ask", selected: true })).toBeVisible();
+    await expect(inspector.getByPlaceholder("Ask a question about this selection…")).toBeVisible();
   });
 
   test("loop and playback controls expose their current action", async ({ page }) => {
