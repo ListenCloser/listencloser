@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Wait for the risk-relevant PR workflows before the protected build turns green.
+"""Wait for risk-relevant PR workflows and classify production deploy scope.
 
 `main` branch protection intentionally requires one stable context named `build`.
-This script makes that context an aggregate gate without duplicating heavyweight
-work inside build.yml: it inspects the PR diff, determines which independent
-workflows are relevant, then waits for their latest run on the exact PR head SHA.
+For pull requests this script makes that context an aggregate gate without
+duplicating heavyweight work inside build.yml: it inspects the PR diff,
+determines which independent workflows are relevant, then waits for their
+latest run on the exact PR head SHA.
+
+Production Smoke also reuses the path predicates here to decide whether a main
+push should wait for an exact Vercel deployment, an exact backend release, or
+only run non-mutating health checks.
 """
 
 from __future__ import annotations
@@ -26,14 +31,25 @@ ALWAYS_REQUIRED = {
     "Secrets scan (Gitleaks)",
 }
 
-TERMINAL_FAILURES = {
-    "action_required",
-    "cancelled",
-    "failure",
-    "startup_failure",
-    "stale",
-    "timed_out",
+FRONTEND_DEPLOY_FILES = {
+    ".vercelignore",
+    "instrumentation-client.ts",
+    "instrumentation.ts",
+    "next.config.mjs",
+    "package-lock.json",
+    "package.json",
+    "postcss.config.mjs",
+    "proxy.ts",
+    "tsconfig.json",
+    "vercel.json",
 }
+
+FRONTEND_DEPLOY_PREFIXES = (
+    "app/",
+    "components/",
+    "lib/",
+    "public/",
+)
 
 
 def _is_docs_only(path: str) -> bool:
@@ -88,6 +104,34 @@ def _needs_backend_image(path: str) -> bool:
         ".github/workflows/deploy-backend.yml",
         "scripts/deploy.sh",
     }
+
+
+def _needs_backend_deploy(path: str) -> bool:
+    """Match deploy-backend.yml's production push path contract."""
+    return (
+        _is_backend_runtime(path)
+        or path.startswith("supabase/migrations/")
+        or path
+        in {
+            ".github/workflows/deploy-backend.yml",
+            "scripts/deploy.sh",
+        }
+    )
+
+
+def _needs_frontend_deploy(path: str) -> bool:
+    """Return whether a path can change the deployed Vercel application bundle."""
+    return path.startswith(FRONTEND_DEPLOY_PREFIXES) or path in FRONTEND_DEPLOY_FILES
+
+
+def production_components(paths: Iterable[str]) -> set[str]:
+    files = tuple(paths)
+    components: set[str] = set()
+    if any(_needs_frontend_deploy(path) for path in files):
+        components.add("frontend")
+    if any(_needs_backend_deploy(path) for path in files):
+        components.add("backend")
+    return components
 
 
 def required_workflows(paths: Iterable[str]) -> set[str]:
@@ -201,6 +245,20 @@ def _self_test() -> None:
     deploy = required_workflows(["scripts/deploy.sh"])
     assert deploy == ALWAYS_REQUIRED | {"CI", "E2E", "Backend Image"}
 
+    assert production_components(["README.md"]) == set()
+    assert production_components(["docs/PLATFORM.md"]) == set()
+    assert production_components(["backend/evaluation/foo.py"]) == set()
+    assert production_components(["backend/tests/test_worker.py"]) == set()
+    assert production_components(["components/workspace/Inspector.tsx"]) == {"frontend"}
+    assert production_components(["app/api/health/live/route.ts"]) == {"frontend"}
+    assert production_components(["vercel.json"]) == {"frontend"}
+    assert production_components(["backend/domain/job_worker.py"]) == {"backend"}
+    assert production_components(["supabase/migrations/20260828.sql"]) == {"backend"}
+    assert production_components(["scripts/deploy.sh"]) == {"backend"}
+    assert production_components(
+        ["components/workspace/Inspector.tsx", "backend/domain/job_worker.py"]
+    ) == {"frontend", "backend"}
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -211,11 +269,22 @@ def main() -> int:
     parser.add_argument("--timeout-seconds", type=int, default=1500)
     parser.add_argument("--poll-seconds", type=int, default=10)
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument(
+        "--production-scope",
+        action="store_true",
+        help="read changed paths from stdin and print frontend/backend deploy scope",
+    )
     args = parser.parse_args()
 
     _self_test()
     if args.self_test:
         print("merge evidence matcher self-test passed")
+        return 0
+
+    if args.production_scope:
+        paths = [line.strip() for line in sys.stdin if line.strip()]
+        for component in sorted(production_components(paths)):
+            print(component)
         return 0
 
     if not args.repo or not args.pr or not args.sha or not args.token:
