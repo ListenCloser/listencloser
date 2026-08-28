@@ -1,0 +1,105 @@
+{
+  "name": "aligned_representation_probe_v1",
+  "description": "Cross-representation consistency probe for CLaMP3. Tests whether matched audio/MIDI/score representations rank above mismatched passages. Uses synthetic aligned pairs.",
+  "selection_rule": "Deterministic synthetic generation of aligned audio, MIDI, and score-like representations from the same musical content.",
+  "license": "Generated synthetic data - no copyright restrictions",
+  "aligned_pairs": [
+    {
+      "id": "pair_c_major_scale",
+      "description": "C major scale ascending",
+      "audio_params": {
+        "frequencies": [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25],
+        "note_duration": 0.5,
+        "sample_rate": 24000
+      },
+      "midi_params": {
+        "pitches": [60, 62, 64, 65, 67, 69, 71, 72],
+        "note_duration": 0.5,
+        "velocity": 80
+      }
+    },
+    {
+      "id": "pair_g_major_arpeggio",
+      "description": "G major arpeggio",
+      "audio_params": {
+        "frequencies": [196.00, 246.94, 293.66, 392.00],
+        "note_duration": 0.75,
+        "sample_rate": 24000
+      },
+      "midi_params": {
+        "pitches": [55, 59, 62, 67],
+        "note_duration": 0.75,
+        "velocity": 80
+      }
+    },
+    {
+      "id": "pair_chord_progression",
+      "description": "I-IV-V-I chord progression in C",
+      "audio_params": {
+        "chords": [
+          [261.63, 329.63, 392.00],
+          [349.23, 440.00, 523.25],
+          [392.00, 493.88, 587.33],
+          [261.63, 329.63, 392.00]
+        ],
+        "chord_duration": 1.0,
+        "sample_rate": 24000
+      },
+      "midi_params": {
+        "chords": [
+          [60, 64, 67],
+          [65, 69, 72],
+          [67, 71, 74],
+          [60, 64, 67]
+        ],
+        "chord_duration": 1.0,
+        "velocity": 80
+      }
+    },
+    {
+      "id": "pair_melody_phrase",
+      "description": "Simple melody phrase: C-D-E-F-G",
+      "audio_params": {
+        "frequencies": [261.63, 293.66, 329.63, 349.23, 392.00],
+        "note_duration": 0.4,
+        "sample_rate": 24000
+      },
+      "midi_params": {
+        "pitches": [60, 62, 64, 65, 67],
+        "note_duration": 0.4,
+        "velocity": 80
+      }
+    },
+    {
+      "id": "pair_bass_line",
+      "description": "Walking bass line: C-E-G-A",
+      "audio_params": {
+        "frequencies": [65.41, 82.41, 98.00, 110.00],
+        "note_duration": 0.5,
+        "sample_rate": 24000
+      },
+      "midi_params": {
+        "pitches": [36, 40, 43, 45],
+        "note_duration": 0.5,
+        "velocity": 80
+      }
+    }
+  ],
+  "mismatch_pairs": [
+    {
+      "description": "Audio from pair_c_major_scale with MIDI from pair_g_major_arpeggio",
+      "audio_ref": "pair_c_major_scale",
+      "midi_ref": "pair_g_major_arpeggio"
+    },
+    {
+      "description": "Audio from pair_chord_progression with MIDI from pair_melody_phrase",
+      "audio_ref": "pair_chord_progression",
+      "midi_ref": "pair_melody_phrase"
+    },
+    {
+      "description": "Audio from pair_bass_line with MIDI from pair_c_major_scale",
+      "audio_ref": "pair_bass_line",
+      "midi_ref": "pair_c_major_scale"
+    }
+  ]
+}

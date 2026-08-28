@@ -1,0 +1,90 @@
+{
+  "name": "diversity_probe_v1",
+  "description": "Diversity probe for cross-work similarity evaluation. Uses synthetic audio spanning different musical organizations. These are evaluation diversity probes, not product genre classes.",
+  "selection_rule": "Deterministic synthetic audio generation with fixed seeds. Each probe represents a materially different musical organization: sparse/acoustic-like, dense/produced-like, rhythm-forward, groove-heavy, jazz/improprovisatory, expressive/classical, and culturally distinct patterns.",
+  "license": "Generated synthetic audio - no copyright restrictions",
+  "probes": [
+    {
+      "id": "sparse_acoustic",
+      "description": "Sparse acoustic-like: simple melody with minimal harmonics",
+      "category": "sparse_acoustic",
+      "frequency_hz": 261.63,
+      "harmonics": [1.0, 2.0],
+      "amplitudes": [0.7, 0.3],
+      "duration_seconds": 10.0,
+      "onset_pattern": "legato",
+      "seed": 42
+    },
+    {
+      "id": "dense_produced",
+      "description": "Dense produced-like: rich harmonics with layered frequencies",
+      "category": "dense_produced",
+      "frequency_hz": 440.0,
+      "harmonics": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+      "amplitudes": [0.4, 0.3, 0.15, 0.08, 0.05, 0.02],
+      "duration_seconds": 10.0,
+      "onset_pattern": "sustained",
+      "seed": 43
+    },
+    {
+      "id": "rhythm_forward",
+      "description": "Rhythm-forward: percussive envelope with strong transients",
+      "category": "rhythm_forward",
+      "frequency_hz": 110.0,
+      "harmonics": [1.0, 3.0, 5.0],
+      "amplitudes": [0.6, 0.3, 0.1],
+      "duration_seconds": 10.0,
+      "onset_pattern": "percussive",
+      "seed": 44
+    },
+    {
+      "id": "groove_heavy",
+      "description": "Groove-heavy: syncopated pattern with bass emphasis",
+      "category": "groove_heavy",
+      "frequency_hz": 82.41,
+      "harmonics": [1.0, 2.0, 4.0],
+      "amplitudes": [0.5, 0.35, 0.15],
+      "duration_seconds": 10.0,
+      "onset_pattern": "syncopated",
+      "seed": 45
+    },
+    {
+      "id": "jazz_improvisatory",
+      "description": "Jazz/improvisatory-like: complex harmonic series with vibrato",
+      "category": "jazz_improvisatory",
+      "frequency_hz": 329.63,
+      "harmonics": [1.0, 2.0, 3.0, 5.0, 7.0],
+      "amplitudes": [0.35, 0.25, 0.2, 0.12, 0.08],
+      "duration_seconds": 10.0,
+      "onset_pattern": "vibrato",
+      "seed": 46
+    },
+    {
+      "id": "expressive_classical",
+      "description": "Expressive/classical: smooth legato with dynamic envelope",
+      "category": "expressive_classical",
+      "frequency_hz": 523.25,
+      "harmonics": [1.0, 2.0, 3.0],
+      "amplitudes": [0.5, 0.3, 0.2],
+      "duration_seconds": 10.0,
+      "onset_pattern": "crescendo",
+      "seed": 47
+    },
+    {
+      "id": "culturally_distinct",
+      "description": "Culturally distinct: non-Western scale-like pattern with microtonal hints",
+      "category": "culturally_distinct",
+      "frequency_hz": 293.66,
+      "harmonics": [1.0, 1.5, 2.0, 2.5, 3.0],
+      "amplitudes": [0.4, 0.25, 0.2, 0.1, 0.05],
+      "duration_seconds": 10.0,
+      "onset_pattern": "ornamented",
+      "seed": 48
+    }
+  ],
+  "windowing": {
+    "window_seconds": 10.0,
+    "hop_seconds": 5.0,
+    "description": "Fixed 10s windows with 5s hop for within-work segment similarity"
+  }
+}

@@ -1,0 +1,599 @@
+{
+  "candidate": "musicfm",
+  "task": "all",
+  "device": "cpu",
+  "timestamp": "2026-08-28T00:40:16Z",
+  "operational": {
+    "candidate": "musicfm",
+    "device": "cpu",
+    "python_version": "3.9.6",
+    "platform": "macOS-15.3.1-arm64-arm-64bit",
+    "model_id": "minzwon/MusicFM",
+    "code_license": "MIT",
+    "weight_license": "CC-BY-NC-SA-4.0",
+    "training_data_notes": "FMA dataset; weights are non-commercial per upstream.",
+    "embedding_dim": 1024,
+    "temporal": true,
+    "supports_audio": true,
+    "supports_text": false,
+    "supports_symbolic": false,
+    "install_success": true,
+    "load_success": true,
+    "load_time_seconds": 2.11,
+    "cpu_latency_10s": {
+      "latency_seconds": 0.6903590000000008,
+      "audio_duration_seconds": 10.0,
+      "error": null
+    },
+    "cpu_latency_30s": {
+      "latency_seconds": 2.553265812500001,
+      "audio_duration_seconds": 30.0,
+      "error": null
+    },
+    "determinism_stable": true,
+    "embedding_dim_measured": 1024,
+    "temporal_measured": true,
+    "temporal_vectors_shape": [
+      250,
+      1024
+    ]
+  },
+  "within_work": {
+    "candidate": "musicfm",
+    "task": "within_work_similarity",
+    "num_probes": 7,
+    "similarity_matrix": {
+      "ids": [
+        "culturally_distinct",
+        "dense_produced",
+        "expressive_classical",
+        "groove_heavy",
+        "jazz_improvisatory",
+        "rhythm_forward",
+        "sparse_acoustic"
+      ],
+      "values": [
+        [
+          1.0,
+          0.5671,
+          0.6402,
+          0.3904,
+          0.6064,
+          0.4933,
+          0.6629
+        ],
+        [
+          0.5671,
+          1.0,
+          0.5165,
+          0.4553,
+          0.5699,
+          0.5928,
+          0.4479
+        ],
+        [
+          0.6402,
+          0.5165,
+          1.0,
+          0.4033,
+          0.7497,
+          0.5838,
+          0.7433
+        ],
+        [
+          0.3904,
+          0.4553,
+          0.4033,
+          1.0,
+          0.4475,
+          0.6851,
+          0.4264
+        ],
+        [
+          0.6064,
+          0.5699,
+          0.7497,
+          0.4475,
+          1.0,
+          0.5992,
+          0.5856
+        ],
+        [
+          0.4933,
+          0.5928,
+          0.5838,
+          0.6851,
+          0.5992,
+          1.0,
+          0.6337
+        ],
+        [
+          0.6629,
+          0.4479,
+          0.7433,
+          0.4264,
+          0.5856,
+          0.6337,
+          1.0
+        ]
+      ]
+    },
+    "per_query_results": [
+      {
+        "query": "culturally_distinct",
+        "category": "culturally_distinct",
+        "nearest_neighbors": [
+          {
+            "id": "sparse_acoustic",
+            "similarity": 0.6629
+          },
+          {
+            "id": "expressive_classical",
+            "similarity": 0.6402
+          },
+          {
+            "id": "jazz_improvisatory",
+            "similarity": 0.6064
+          }
+        ]
+      },
+      {
+        "query": "dense_produced",
+        "category": "dense_produced",
+        "nearest_neighbors": [
+          {
+            "id": "rhythm_forward",
+            "similarity": 0.5928
+          },
+          {
+            "id": "jazz_improvisatory",
+            "similarity": 0.5699
+          },
+          {
+            "id": "culturally_distinct",
+            "similarity": 0.5671
+          }
+        ]
+      },
+      {
+        "query": "expressive_classical",
+        "category": "expressive_classical",
+        "nearest_neighbors": [
+          {
+            "id": "jazz_improvisatory",
+            "similarity": 0.7497
+          },
+          {
+            "id": "sparse_acoustic",
+            "similarity": 0.7433
+          },
+          {
+            "id": "culturally_distinct",
+            "similarity": 0.6402
+          }
+        ]
+      },
+      {
+        "query": "groove_heavy",
+        "category": "groove_heavy",
+        "nearest_neighbors": [
+          {
+            "id": "rhythm_forward",
+            "similarity": 0.6851
+          },
+          {
+            "id": "dense_produced",
+            "similarity": 0.4553
+          },
+          {
+            "id": "jazz_improvisatory",
+            "similarity": 0.4475
+          }
+        ]
+      },
+      {
+        "query": "jazz_improvisatory",
+        "category": "jazz_improvisatory",
+        "nearest_neighbors": [
+          {
+            "id": "expressive_classical",
+            "similarity": 0.7497
+          },
+          {
+            "id": "culturally_distinct",
+            "similarity": 0.6064
+          },
+          {
+            "id": "rhythm_forward",
+            "similarity": 0.5992
+          }
+        ]
+      },
+      {
+        "query": "rhythm_forward",
+        "category": "rhythm_forward",
+        "nearest_neighbors": [
+          {
+            "id": "groove_heavy",
+            "similarity": 0.6851
+          },
+          {
+            "id": "sparse_acoustic",
+            "similarity": 0.6337
+          },
+          {
+            "id": "jazz_improvisatory",
+            "similarity": 0.5992
+          }
+        ]
+      },
+      {
+        "query": "sparse_acoustic",
+        "category": "sparse_acoustic",
+        "nearest_neighbors": [
+          {
+            "id": "expressive_classical",
+            "similarity": 0.7433
+          },
+          {
+            "id": "culturally_distinct",
+            "similarity": 0.6629
+          },
+          {
+            "id": "rhythm_forward",
+            "similarity": 0.6337
+          }
+        ]
+      }
+    ],
+    "notes": "Qualitative product probe. Similarity reflects embedding space structure, not musical accuracy."
+  },
+  "cross_work": {
+    "candidate": "musicfm",
+    "task": "cross_work_similarity",
+    "num_probes": 7,
+    "similarity_matrix": {
+      "ids": [
+        "culturally_distinct",
+        "dense_produced",
+        "expressive_classical",
+        "groove_heavy",
+        "jazz_improvisatory",
+        "rhythm_forward",
+        "sparse_acoustic"
+      ],
+      "values": [
+        [
+          1.0,
+          0.5671,
+          0.6402,
+          0.3904,
+          0.6064,
+          0.4933,
+          0.6629
+        ],
+        [
+          0.5671,
+          1.0,
+          0.5165,
+          0.4553,
+          0.5699,
+          0.5928,
+          0.4479
+        ],
+        [
+          0.6402,
+          0.5165,
+          1.0,
+          0.4033,
+          0.7497,
+          0.5838,
+          0.7433
+        ],
+        [
+          0.3904,
+          0.4553,
+          0.4033,
+          1.0,
+          0.4475,
+          0.6851,
+          0.4264
+        ],
+        [
+          0.6064,
+          0.5699,
+          0.7497,
+          0.4475,
+          1.0,
+          0.5992,
+          0.5856
+        ],
+        [
+          0.4933,
+          0.5928,
+          0.5838,
+          0.6851,
+          0.5992,
+          1.0,
+          0.6337
+        ],
+        [
+          0.6629,
+          0.4479,
+          0.7433,
+          0.4264,
+          0.5856,
+          0.6337,
+          1.0
+        ]
+      ]
+    },
+    "per_query_results": [
+      {
+        "query": "culturally_distinct",
+        "query_category": "culturally_distinct",
+        "nearest_neighbors": [
+          {
+            "id": "sparse_acoustic",
+            "category": "sparse_acoustic",
+            "similarity": 0.6629
+          },
+          {
+            "id": "expressive_classical",
+            "category": "expressive_classical",
+            "similarity": 0.6402
+          },
+          {
+            "id": "jazz_improvisatory",
+            "category": "jazz_improvisatory",
+            "similarity": 0.6064
+          },
+          {
+            "id": "dense_produced",
+            "category": "dense_produced",
+            "similarity": 0.5671
+          },
+          {
+            "id": "rhythm_forward",
+            "category": "rhythm_forward",
+            "similarity": 0.4933
+          },
+          {
+            "id": "groove_heavy",
+            "category": "groove_heavy",
+            "similarity": 0.3904
+          }
+        ]
+      },
+      {
+        "query": "dense_produced",
+        "query_category": "dense_produced",
+        "nearest_neighbors": [
+          {
+            "id": "rhythm_forward",
+            "category": "rhythm_forward",
+            "similarity": 0.5928
+          },
+          {
+            "id": "jazz_improvisatory",
+            "category": "jazz_improvisatory",
+            "similarity": 0.5699
+          },
+          {
+            "id": "culturally_distinct",
+            "category": "culturally_distinct",
+            "similarity": 0.5671
+          },
+          {
+            "id": "expressive_classical",
+            "category": "expressive_classical",
+            "similarity": 0.5165
+          },
+          {
+            "id": "groove_heavy",
+            "category": "groove_heavy",
+            "similarity": 0.4553
+          },
+          {
+            "id": "sparse_acoustic",
+            "category": "sparse_acoustic",
+            "similarity": 0.4479
+          }
+        ]
+      },
+      {
+        "query": "expressive_classical",
+        "query_category": "expressive_classical",
+        "nearest_neighbors": [
+          {
+            "id": "jazz_improvisatory",
+            "category": "jazz_improvisatory",
+            "similarity": 0.7497
+          },
+          {
+            "id": "sparse_acoustic",
+            "category": "sparse_acoustic",
+            "similarity": 0.7433
+          },
+          {
+            "id": "culturally_distinct",
+            "category": "culturally_distinct",
+            "similarity": 0.6402
+          },
+          {
+            "id": "rhythm_forward",
+            "category": "rhythm_forward",
+            "similarity": 0.5838
+          },
+          {
+            "id": "dense_produced",
+            "category": "dense_produced",
+            "similarity": 0.5165
+          },
+          {
+            "id": "groove_heavy",
+            "category": "groove_heavy",
+            "similarity": 0.4033
+          }
+        ]
+      },
+      {
+        "query": "groove_heavy",
+        "query_category": "groove_heavy",
+        "nearest_neighbors": [
+          {
+            "id": "rhythm_forward",
+            "category": "rhythm_forward",
+            "similarity": 0.6851
+          },
+          {
+            "id": "dense_produced",
+            "category": "dense_produced",
+            "similarity": 0.4553
+          },
+          {
+            "id": "jazz_improvisatory",
+            "category": "jazz_improvisatory",
+            "similarity": 0.4475
+          },
+          {
+            "id": "sparse_acoustic",
+            "category": "sparse_acoustic",
+            "similarity": 0.4264
+          },
+          {
+            "id": "expressive_classical",
+            "category": "expressive_classical",
+            "similarity": 0.4033
+          },
+          {
+            "id": "culturally_distinct",
+            "category": "culturally_distinct",
+            "similarity": 0.3904
+          }
+        ]
+      },
+      {
+        "query": "jazz_improvisatory",
+        "query_category": "jazz_improvisatory",
+        "nearest_neighbors": [
+          {
+            "id": "expressive_classical",
+            "category": "expressive_classical",
+            "similarity": 0.7497
+          },
+          {
+            "id": "culturally_distinct",
+            "category": "culturally_distinct",
+            "similarity": 0.6064
+          },
+          {
+            "id": "rhythm_forward",
+            "category": "rhythm_forward",
+            "similarity": 0.5992
+          },
+          {
+            "id": "sparse_acoustic",
+            "category": "sparse_acoustic",
+            "similarity": 0.5856
+          },
+          {
+            "id": "dense_produced",
+            "category": "dense_produced",
+            "similarity": 0.5699
+          },
+          {
+            "id": "groove_heavy",
+            "category": "groove_heavy",
+            "similarity": 0.4475
+          }
+        ]
+      },
+      {
+        "query": "rhythm_forward",
+        "query_category": "rhythm_forward",
+        "nearest_neighbors": [
+          {
+            "id": "groove_heavy",
+            "category": "groove_heavy",
+            "similarity": 0.6851
+          },
+          {
+            "id": "sparse_acoustic",
+            "category": "sparse_acoustic",
+            "similarity": 0.6337
+          },
+          {
+            "id": "jazz_improvisatory",
+            "category": "jazz_improvisatory",
+            "similarity": 0.5992
+          },
+          {
+            "id": "dense_produced",
+            "category": "dense_produced",
+            "similarity": 0.5928
+          },
+          {
+            "id": "expressive_classical",
+            "category": "expressive_classical",
+            "similarity": 0.5838
+          },
+          {
+            "id": "culturally_distinct",
+            "category": "culturally_distinct",
+            "similarity": 0.4933
+          }
+        ]
+      },
+      {
+        "query": "sparse_acoustic",
+        "query_category": "sparse_acoustic",
+        "nearest_neighbors": [
+          {
+            "id": "expressive_classical",
+            "category": "expressive_classical",
+            "similarity": 0.7433
+          },
+          {
+            "id": "culturally_distinct",
+            "category": "culturally_distinct",
+            "similarity": 0.6629
+          },
+          {
+            "id": "rhythm_forward",
+            "category": "rhythm_forward",
+            "similarity": 0.6337
+          },
+          {
+            "id": "jazz_improvisatory",
+            "category": "jazz_improvisatory",
+            "similarity": 0.5856
+          },
+          {
+            "id": "dense_produced",
+            "category": "dense_produced",
+            "similarity": 0.4479
+          },
+          {
+            "id": "groove_heavy",
+            "category": "groove_heavy",
+            "similarity": 0.4264
+          }
+        ]
+      }
+    ],
+    "notes": "Qualitative product probe. Different musical organizations should ideally show distinct clustering."
+  },
+  "text_retrieval": {
+    "candidate": "musicfm",
+    "task": "text_retrieval",
+    "status": "unsupported",
+    "notes": "musicfm does not support text embedding"
+  },
+  "cross_representation": {
+    "candidate": "musicfm",
+    "task": "cross_representation",
+    "status": "unsupported",
+    "notes": "musicfm does not support symbolic (MIDI) embedding"
+  }
+}
