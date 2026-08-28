@@ -25,12 +25,14 @@
 
 .ui-tab {
   position: relative;
+  flex: 0 0 auto;
   min-width: max-content;
   min-height: 40px;
   padding: 0 1px;
   border: 0;
   border-radius: 0;
   background: transparent;
+  box-shadow: none;
   color: var(--v6-control-muted);
   font-size: 10.75px;
   font-weight: 560;
@@ -56,10 +58,13 @@
 
 .ui-tab:hover:not(:disabled) {
   color: #cbc6bc;
+  background: transparent;
 }
 
 .ui-tab[data-state="active"] {
   color: var(--v6-control-text-strong);
+  background: transparent;
+  box-shadow: none;
 }
 
 .ui-tab[data-state="active"]::after {
@@ -77,7 +82,9 @@
   cursor: default;
 }
 
-/* Representation and Inspector modes intentionally share one tab grammar. */
+/* Representation and Inspector modes intentionally share one tab grammar.
+ * These selectors are deliberately specific: older workspace CSS used pill
+ * tabs and would otherwise win the cascade even though V6 loads last. */
 .piece-view-tabs-v3.ui-tab-strip {
   gap: 20px;
   overflow-x: auto;
@@ -88,14 +95,66 @@
   display: none;
 }
 
+.piece-view-tabs-v3.ui-tab-strip > .ui-tab {
+  width: auto;
+  min-width: max-content;
+  height: 100%;
+  padding: 0 1px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.piece-view-tabs-v3.ui-tab-strip > .ui-tab:hover,
+.piece-view-tabs-v3.ui-tab-strip > .ui-tab.active {
+  background: transparent;
+  box-shadow: none;
+}
+
+.piece-view-tabs-v3.ui-tab-strip > .ui-tab.active::after,
+.piece-view-tabs-v3.ui-tab-strip > .ui-tab[data-state="active"]::after {
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  width: auto;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--v5-accent, var(--accent));
+  transform: scaleX(1);
+  opacity: 1;
+}
+
 .inspector-mode-tabs.ui-tab-strip {
   height: 43px;
   min-height: 43px;
   gap: 17px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
-.inspector-mode-tabs.ui-tab-strip .ui-tab {
+.inspector-mode-tabs.ui-tab-strip > .ui-tab {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: max-content;
   min-height: 43px;
+  padding: 0 1px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--v6-control-muted);
+  font-size: 10.75px;
+}
+
+.inspector-mode-tabs.ui-tab-strip > .ui-tab:hover {
+  background: transparent;
+  color: #cbc6bc;
+}
+
+.inspector-mode-tabs.ui-tab-strip > .ui-tab.active,
+.inspector-mode-tabs.ui-tab-strip > .ui-tab[data-state="active"] {
+  background: transparent;
+  color: var(--v6-control-text-strong);
+  box-shadow: none;
 }
 
 /* Source selectors use a quiet control surface; the menu is the raised layer. */
