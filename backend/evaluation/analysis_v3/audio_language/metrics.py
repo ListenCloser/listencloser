@@ -49,7 +49,9 @@ def _validate_assessment(row: dict[str, Any]) -> None:
 
     for name in ("expected_support_refs", "cited_support_refs"):
         value = row.get(name)
-        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        if not isinstance(value, list) or not all(
+            isinstance(item, str) for item in value
+        ):
             raise ValueError(f"{name} must be a list of strings")
 
     for name in ("should_abstain", "abstained", "requires_temporal_grounding"):
@@ -90,7 +92,9 @@ def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
 
     assessment_keys = _assessment_keys(items)
     if len(set(assessment_keys)) != len(assessment_keys):
-        raise ValueError("duplicate case_id/question_id assessments are not allowed per condition")
+        raise ValueError(
+            "duplicate case_id/question_id assessments are not allowed per condition"
+        )
 
     total_claims = sum(row["total_claims"] for row in items)
     supported = sum(row["supported_claims"] for row in items)
@@ -162,7 +166,11 @@ def score_by_condition(rows: Iterable[dict[str, Any]]) -> dict[str, dict[str, An
 
 
 def _not_worse(
-    baseline: dict[str, Any], combined: dict[str, Any], field: str, *, higher_is_better: bool
+    baseline: dict[str, Any],
+    combined: dict[str, Any],
+    field: str,
+    *,
+    higher_is_better: bool,
 ) -> bool:
     left = baseline.get(field)
     right = combined.get(field)
@@ -206,7 +214,9 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "mean_usefulness_rating",
         "mean_specificity_rating",
     )
-    if any(baseline.get(field) is None or combined.get(field) is None for field in required):
+    if any(
+        baseline.get(field) is None or combined.get(field) is None for field in required
+    ):
         return {
             "evaluable": False,
             "passes": False,
