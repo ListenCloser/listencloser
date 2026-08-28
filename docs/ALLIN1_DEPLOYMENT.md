@@ -1,18 +1,33 @@
-# All-In-One audio structure — archived research deployment notes
+# All-In-One audio structure deployment
 
-> **Do not enable this in production.** The current capability registry marks `section`, `audio_structure`, and `structure` as `evaluation_only`, with no Inspector/annotation/Ask exposure. This file is retained only as historical research/runtime notes. Any future structure engine must pass the current Analysis V3 evaluation process and receive an explicit production decision before dependencies or flags are added to the production worker image.
+This enables the optional structure stage in the durable `understand` workflow.
+It writes seconds-based evidence on the original-audio version:
 
-The historical experiment wrote seconds-based hypotheses such as recording tempo, beat/downbeat anchors, and labelled functional sections (`intro`, `verse`, `chorus`, `bridge`, and so on). Those section labels were model hypotheses, not trusted product evidence, and the current architecture does not expose them.
+- recording tempo;
+- beat/downbeat anchors;
+- labelled functional sections (`intro`, `verse`, `chorus`, `bridge`, and so
+  on).
 
-## Why this remains isolated
+The symbolic MIDI analysis remains separate. A section label is an audio-model
+hypothesis, not a claim about the score or an assertion that every genre has
+verse/chorus form.
 
-All-In-One requires PyTorch, NATTEN, and `madmom`, in addition to model weights. It must not be added blindly to the API/worker production image or locked backend dependency set: compatible NATTEN builds are platform and PyTorch-version specific, and a failed optional research-model installation must never make imports, transcription, FastAPI, or the durable worker unavailable.
+## Why this is a worker-only dependency
 
-The production capability registry is authoritative. An environment variable or importable package is **not** permission to expose a capability.
+All-In-One requires PyTorch, NATTEN, and `madmom`, in addition to model
+weights. It must not be added blindly to the API image or to the normal
+requirements file: a compatible NATTEN build is platform and PyTorch-version
+specific. A failed optional-model installation should never make imports,
+transcription, or the FastAPI API unavailable.
 
-## Historical disposable-runner recipe
+The code ships disabled (`ALLIN1_ENABLED=false`). The structure stage becomes
+active only after the worker image has been built with a compatible runtime.
 
-For research reproduction only, use a disposable environment rather than mutating Oracle production:
+## Oracle worker handoff
+
+On a disposable copy of the worker image, install the upstream dependencies in
+this order, using a PyTorch/NATTEN pairing compatible with the Oracle ARM
+architecture:
 
 ```bash
 pip install torch
@@ -20,18 +35,32 @@ pip install git+https://github.com/CPJKU/madmom
 pip install allin1
 ```
 
-Select a PyTorch/NATTEN pairing compatible with the test machine and explicitly record versions/checkpoints. Do not rely on unpinned latest dependencies or infer Oracle ARM compatibility from an x86 research run.
+Then rebuild/restart only the `worker` service with:
 
-A minimal research smoke is:
+```env
+ALLIN1_ENABLED=true
+ALLIN1_MODEL=harmonix-all
+ALLIN1_DEVICE=cpu
+```
+
+The upstream project documents its required NATTEN installation separately;
+select its CPU-compatible backend for the no-GPU Oracle VM. Do not use a CUDA
+wheel or rely on an unpinned latest pairing.
+
+## Smoke check
+
+Before enabling the flag in the production compose environment:
 
 ```bash
 python - <<'PY'
 import allin1
-result = allin1.analyze("/path/to/a/licensed-decoded.wav", device="cpu")
+result = allin1.analyze("/path/to/a/decoded.wav", device="cpu")
 print(result.bpm, len(result.beats), len(result.downbeats), len(result.segments))
 PY
 ```
 
-This only proves that the research dependency can execute. It does **not** establish section-label accuracy, genre generalization, product value, licensing suitability, latency viability, or production readiness.
-
-Before reconsidering production use, benchmark a current structure candidate on lawful labelled data, compare it against the current evaluation baseline, record licensing/runtime provenance, and update `backend/config/capabilities.json` only after the evidence supports an explicit status change.
+Run one real import after deployment. A successful work should receive an
+`audio_structure` summary, `audio_tempo`, and seekable `section` insights on
+the original-audio version. If the model is unavailable, the workflow remains
+successful but no structural claims are persisted; this is intentional and
+honest.
