@@ -1,0 +1,34 @@
+/* Workspace interaction layering.
+ *
+ * The desktop Library / Canvas / Inspector live in one grid row while transport
+ * menus intentionally open upward into that row. Constrain the workspace to a
+ * lower stacking context so source/compare popovers remain clickable over the
+ * docked Inspector instead of painting underneath it.
+ */
+
+.studio-workspace-v3 {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+}
+
+.transport-bar-v3 {
+  position: relative;
+  z-index: 100;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.transport-source-zone,
+.transport-compare-zone,
+.piece-source-select {
+  overflow: visible;
+}
+
+.piece-source-select {
+  position: relative;
+}
+
+.piece-source-menu {
+  z-index: 120;
+}
