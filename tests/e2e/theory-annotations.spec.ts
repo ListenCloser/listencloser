@@ -128,10 +128,10 @@ test.describe("theory annotations (MSW)", () => {
     const moments = harmony.locator(".inspector-harmony-moment");
     await expect(moments).toHaveCount(6);
 
-    await expect(moments.filter({ hasText: "I (A minor)" }).first()).toBeVisible();
-    await expect(moments.filter({ hasText: /\bv \(A minor\)/ })).toBeVisible();
-    await expect(moments.filter({ hasText: /\biv \(A minor\)/ })).toBeVisible();
-    await expect(moments.filter({ hasText: "V7 (A minor)" })).toBeVisible();
+    await expect(moments.filter({ hasText: "C maj" }).first().locator(".inspector-harmony-context")).toContainText("I (A minor)");
+    await expect(moments.filter({ hasText: "G min" }).locator(".inspector-harmony-context")).toContainText("v (A minor)");
+    await expect(moments.filter({ hasText: "F maj" }).locator(".inspector-harmony-context")).toContainText("iv (A minor)");
+    await expect(moments.filter({ hasText: "G7" }).locator(".inspector-harmony-context")).toContainText("V7 (A minor)");
   });
 
   test("Clicking a harmonic moment sets selection", async ({ page }) => {
