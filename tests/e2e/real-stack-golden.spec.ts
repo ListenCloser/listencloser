@@ -34,13 +34,6 @@ async function expectPositionPreserved(
     .toBe(true);
 }
 
-async function scoreCursorLeft(page: import("@playwright/test").Page): Promise<string | null> {
-  return page.evaluate(() => {
-    const cursor = document.querySelector<HTMLElement>('.sheet-music-container img[id^="cursorImg"]');
-    return cursor ? cursor.style.left : null;
-  });
-}
-
 async function openSourceSelector(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: /Playback source:/ }).click();
 }
@@ -178,10 +171,10 @@ test("real audio golden path", async ({ page }) => {
 
   // ── Annotations and Inspector ────────────────────────────────────────
   await test.step("annotations and inspector", async () => {
-    // Score measure click seeks transport (best-effort — headless click
-    // targeting on SVG measures can be flaky). Capture the cursor before the
-    // click: when the seek succeeds, the cursor update is the same state
-    // transition and should not be expected to move a second time afterward.
+    // Score measure click owns two contracts: it seeks the active score
+    // timeline and creates the shared measure selection. The visible playback
+    // cursor is driven by playback-follow state, so selection should not be
+    // coupled to OSMD's legacy hidden cursor element.
     await page.getByRole("tab", { name: "Score" }).click();
     const measures = page.locator(".sheet-music-container g.vf-measure");
     const measureCount = await measures.count();
@@ -190,16 +183,14 @@ test("real audio golden path", async ({ page }) => {
     const targetBox = await targetMeasure.boundingBox();
     expect(targetBox).not.toBeNull();
     const beforeSeek = await transportPosition(page);
-    const cursorBeforeSeek = await scoreCursorLeft(page);
     await page.mouse.click(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2);
-    const afterSeek = await transportPosition(page);
-    const seekWorked = Math.abs(afterSeek - beforeSeek) > 0.1;
-    if (seekWorked && cursorBeforeSeek !== null) {
-      await expect.poll(
-        async () => (await scoreCursorLeft(page)) !== cursorBeforeSeek,
-        { timeout: 10_000 },
-      ).toBe(true);
-    }
+    await expect
+      .poll(
+        async () => Math.abs((await transportPosition(page)) - beforeSeek) > 0.1,
+        { timeout: 10_000, message: "score measure click should seek the active score timeline" },
+      )
+      .toBe(true);
+    await expect(page.locator("[data-selection-highlight]").first()).toBeVisible({ timeout: 10_000 });
 
     // Representation changes preserve playback
     await selectSource(page, "Original");
