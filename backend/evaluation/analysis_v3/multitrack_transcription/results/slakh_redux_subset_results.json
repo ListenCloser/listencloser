@@ -1,0 +1,325 @@
+{
+  "evaluation_id": "analysis_v3_multitrack_slakh_redux_5x30s_2026-08-28",
+  "evidence_class": "LOCAL_MEASUREMENT",
+  "scope": "five deterministic 30-second Slakh2100-redux test excerpts; research decision only",
+  "adoption_eligible": false,
+  "hello_ai_measurement_sha": "7057c1c247fb2770fee5f5e418479cbf69bd4619",
+  "dataset": {
+    "name": "slakh2100-redux-selective-mirror-5x30s",
+    "split": "test",
+    "track_ids": [
+      "Track01876",
+      "Track01877",
+      "Track01878",
+      "Track01880",
+      "Track01881"
+    ],
+    "segment_start_seconds": 0.0,
+    "segment_duration_seconds": 30.0,
+    "license": "CC BY 4.0",
+    "upstream": "https://zenodo.org/records/4599666",
+    "acquisition_mirror": "J1mmymm/MIMuT_Data_v2",
+    "mirror_revision": "bb320faf307f5d24aeced0e60f9445ff0abce205",
+    "manifest_sha256": "7ad55174f83f2f0097898624a269e1ff25899183f18dac9dd7da38005c971b99",
+    "ground_truth": "active per-source MIDI/SXX.mid marked midi_saved=true",
+    "entries": {
+      "Track01876": {
+        "mix_sha256": "b7f3a32155a14e7a2e8ea3c8d46e4fd924384d28f20de214945302004a236d9a",
+        "reference_midi_count": 12,
+        "reference_midi_sha256": {
+          "Track01876/MIDI/S00.mid": "cebbf27f4b8a2d39c95935ba101ff59679fb9c5e4e1bae59f58e6ef6ce794981",
+          "Track01876/MIDI/S01.mid": "0fd7a5d0490bbfe98e65b1eba108e7d433e81f00bdeb7deac44f8121c813a171",
+          "Track01876/MIDI/S02.mid": "921b66ae69a45381f1b4f2765b0cd4ffbbdeee26d9f18d874e9d701140180701",
+          "Track01876/MIDI/S03.mid": "3a073641e3a3fc178c9fed50c3d3c5da2b21f16a7af7b777247e23a0d6214c3a",
+          "Track01876/MIDI/S04.mid": "1b3f009af2a5a77ad82794575821b79317efaaf4cece1bf0ad492c3c03df100f",
+          "Track01876/MIDI/S05.mid": "ca6acb4c7063a0e6bd2b11b809a63a61e42f0029423dec57ccd27ff6ead30c78",
+          "Track01876/MIDI/S06.mid": "2000376b9040607b24892918b79dfc6ff0096f6bd25d0e98b091a48826c930459",
+          "Track01876/MIDI/S07.mid": "0751f6a3cae050cb2a4e7ccac214360d556d285017e99aa6da0da87c2cfc0f8f",
+          "Track01876/MIDI/S08.mid": "ca54a841937832506240457b5e21c5c57647e95d4b1c58e2ee75e79332ad77f9",
+          "Track01876/MIDI/S09.mid": "a29f53846e8c9dafd1a60ef4cb664c77c33f2240ecd8ecca7a0cb95a57328d4e",
+          "Track01876/MIDI/S10.mid": "f523a19061f6222b5b6a1a8fb591c2a01c5fa1c4fdc9ca7c37cebc134c56a9be",
+          "Track01876/MIDI/S11.mid": "8bbae29a25ac78a55701c72bdfc79027e976296513f85de976708306fb8b1439"
+        }
+      },
+      "Track01877": {
+        "mix_sha256": "620b8311257035325e334845d86b4640845a316c2d2218f268026fa7b4cd31f2",
+        "reference_midi_count": 3,
+        "reference_midi_sha256": {
+          "Track01877/MIDI/S00.mid": "8383f524b68dca89173939417eb87e8ae0b2cbca0036e118e1d626c4e198a568",
+          "Track01877/MIDI/S01.mid": "be496515f45b52c94ed32a9cf63bd17bbe717991141323f96d71d58e8c26007d",
+          "Track01877/MIDI/S02.mid": "ed1626655f1003e15eecc15bc8ee6f71a7c111d212f2ea7019193c736d90a3db"
+        }
+      },
+      "Track01878": {
+        "mix_sha256": "f9fdc36d00c030197c7eca481c0624e95a479232c50bb759e4d3d0ba0b6257dd",
+        "reference_midi_count": 6,
+        "reference_midi_sha256": {
+          "Track01878/MIDI/S00.mid": "df4c99dd37593e0548e5ccfe7f084131c71a1bbd86f1c9351719534c8f433242",
+          "Track01878/MIDI/S01.mid": "b2671a4f27623f4151e9332a223520639884463e726507c28b9317158b646a94",
+          "Track01878/MIDI/S02.mid": "17662ff4939895a17891850d44d854cf2fb12815dbc2491bf7a84922c7c86d25",
+          "Track01878/MIDI/S03.mid": "fd1a1a4e50cdd79544cd82cbd32bc0fa2df9d44b53b3e2ecee95084982e54f6b",
+          "Track01878/MIDI/S04.mid": "410fac0cf53fe3f8a49ced74902ce4e0cd7657613f23189afdd21f480b8c2d7a",
+          "Track01878/MIDI/S05.mid": "fbd27447de553b0f44e0be0d94ce581f4f5d57fa08c33a29c943d81a3781815e"
+        }
+      },
+      "Track01880": {
+        "mix_sha256": "d87f8e0b61ba3fe8fa7b342cdceea01fcd6631608d08076699244bdefaedcf9b",
+        "reference_midi_count": 6,
+        "reference_midi_sha256": {
+          "Track01880/MIDI/S00.mid": "182c77435273549552105274354e4b6c5cacd4bc37111dd8c796415c7b85b34a",
+          "Track01880/MIDI/S01.mid": "04639a33d8ee6d4dd6b033e80f86b934b878e441f6144710f46085556083cab7",
+          "Track01880/MIDI/S02.mid": "9e13f8ac61454952430f593152354868120495375910c7bbedb8de2ce06f2fc0",
+          "Track01880/MIDI/S03.mid": "560f41d9c6297fd17b169411631a1ca99dbb9f3333fa72f69532917012b5d4a3",
+          "Track01880/MIDI/S04.mid": "e6cc9a34e3ab375e230d3d7bd56aafdf6699268871754935766b363db9529a45",
+          "Track01880/MIDI/S05.mid": "76ffc827cf649baea8486e7c2de8edb5d8f3bca1ed5c7dcb4f22ee11ed54538a"
+        }
+      },
+      "Track01881": {
+        "mix_sha256": "226381436c64c1ebcc2a9c52d06695ce2995934d41715673718513286dcf26e4",
+        "reference_midi_count": 6,
+        "reference_midi_sha256": {
+          "Track01881/MIDI/S00.mid": "da65defc8141fa06610498d18c638197aa98bd983dc746aa9fd386338e062f37",
+          "Track01881/MIDI/S01.mid": "30d1aa63fdbb14a8600cd220cd315d76ac58b6ebc0f11c5dbf73a0b75ce5151f",
+          "Track01881/MIDI/S02.mid": "39c69c434bd81f4a90843b16c942857c22e72f92fc91edb9d6ae397565527de7",
+          "Track01881/MIDI/S03.mid": "cde4323a01d931cb2d06f1be50ac98f88193bbd318794ce11f6c1f2663633444",
+          "Track01881/MIDI/S04.mid": "e3d3fd4d9cf961208b0afad8fc5af19fed86d87daaa35db0d42b4b09cfa43755",
+          "Track01881/MIDI/S05.mid": "062ade38a30bf9e6b6a8d9343554a08d8548da217a7ee0e61d99ee1108830d069"
+        }
+      }
+    }
+  },
+  "metrics": {
+    "library": "mir_eval",
+    "version": "0.8.2",
+    "matching": "maximum bipartite assignment",
+    "onset_tolerance_seconds": 0.05,
+    "pitch_tolerance_cents": 50,
+    "offset_tolerance": "max(0.05 s, 20% of reference-note duration)"
+  },
+  "basic_pitch": {
+    "role": "existing production flat-note baseline",
+    "decision": "ADOPT_EXISTING_BASELINE",
+    "instrument_program_output": "unsupported; program-aware scores are not interpreted",
+    "macro": {
+      "onset_flat_f1": 0.3871,
+      "note_flat_f1": 0.1397
+    },
+    "tracks": {
+      "Track01876": {
+        "reference_notes": 364,
+        "predicted_notes": 297,
+        "onset_flat_f1": 0.2988,
+        "note_flat_f1": 0.1183,
+        "runtime_seconds": 24.948
+      },
+      "Track01877": {
+        "reference_notes": 136,
+        "predicted_notes": 172,
+        "onset_flat_f1": 0.6883,
+        "note_flat_f1": 0.2662,
+        "runtime_seconds": 1.824
+      },
+      "Track01878": {
+        "reference_notes": 164,
+        "predicted_notes": 147,
+        "onset_flat_f1": 0.2701,
+        "note_flat_f1": 0.0836,
+        "runtime_seconds": 1.457
+      },
+      "Track01880": {
+        "reference_notes": 651,
+        "predicted_notes": 170,
+        "onset_flat_f1": 0.2363,
+        "note_flat_f1": 0.1389,
+        "runtime_seconds": 1.78
+      },
+      "Track01881": {
+        "reference_notes": 565,
+        "predicted_notes": 399,
+        "onset_flat_f1": 0.4419,
+        "note_flat_f1": 0.0913,
+        "runtime_seconds": 1.544
+      }
+    },
+    "runtime_note": "first track includes model-load/cold-start cost; median of remaining four tracks = 1.6620 s"
+  },
+  "mr_mt3": {
+    "decision": "RESEARCH",
+    "runner": "mt3-infer 0.2.0",
+    "runner_revision": "2d20ee5bb6ca727968bd23c6100fd2a35154166b",
+    "checkpoint_sha256": "b8a3807ed265059abd25ad7f68142c06c35e8f6144dcaa45bd55946a3745398f",
+    "checkpoint_bytes": 183672643,
+    "code_license": "MIT",
+    "weight_license": "MIT metadata on gudgud1014/MR-MT3",
+    "environment": "GitHub ubuntu-24.04 CPU; isolated torch 2.6.0+cpu",
+    "macro": {
+      "onset_flat_f1": 0.3366,
+      "note_flat_f1_program_preserving": 0.0977,
+      "onset_program_family_f1": 0.3147,
+      "onset_program_exact_f1": 0.2286,
+      "note_program_exact_f1": 0.0512,
+      "instrument_detection_exact_f1": 0.3875,
+      "instrument_detection_family_f1": 0.9113
+    },
+    "tracks": {
+      "Track01876": {
+        "reference_notes": 364,
+        "predicted_notes": 300,
+        "onset_flat_f1": 0.1473,
+        "note_flat_f1": 0.056,
+        "onset_program_family_f1": 0.106,
+        "onset_program_exact_f1": 0.0383,
+        "note_program_exact_f1": 0.0236,
+        "instrument_detection_exact_f1": 0.5714,
+        "instrument_detection_family_f1": 1.0,
+        "reference_source_count": 12,
+        "runtime_seconds_stock_cli_process": 100.871,
+        "process_max_rss_mb": 824.88
+      },
+      "Track01877": {
+        "reference_notes": 136,
+        "predicted_notes": 127,
+        "onset_flat_f1": 0.4867,
+        "note_flat_f1": 0.1369,
+        "onset_program_family_f1": 0.4867,
+        "onset_program_exact_f1": 0.4791,
+        "note_program_exact_f1": 0.1369,
+        "instrument_detection_exact_f1": 0.2857,
+        "instrument_detection_family_f1": 0.8,
+        "reference_source_count": 3,
+        "runtime_seconds_stock_cli_process": 26.303,
+        "process_max_rss_mb": 817.12
+      },
+      "Track01878": {
+        "reference_notes": 164,
+        "predicted_notes": 128,
+        "onset_flat_f1": 0.5411,
+        "note_flat_f1": 0.1918,
+        "onset_program_family_f1": 0.5137,
+        "onset_program_exact_f1": 0.274,
+        "note_program_exact_f1": 0.0342,
+        "instrument_detection_exact_f1": 0.3333,
+        "instrument_detection_family_f1": 0.8333,
+        "reference_source_count": 6,
+        "runtime_seconds_stock_cli_process": 44.677,
+        "process_max_rss_mb": 833.06
+      },
+      "Track01880": {
+        "reference_notes": 651,
+        "predicted_notes": 534,
+        "onset_flat_f1": 0.1992,
+        "note_flat_f1": 0.0557,
+        "onset_program_family_f1": 0.1857,
+        "onset_program_exact_f1": 0.1772,
+        "note_program_exact_f1": 0.0371,
+        "instrument_detection_exact_f1": 0.2857,
+        "instrument_detection_family_f1": 0.9231,
+        "reference_source_count": 6,
+        "runtime_seconds_stock_cli_process": 127.813,
+        "process_max_rss_mb": 831.92
+      },
+      "Track01881": {
+        "reference_notes": 565,
+        "predicted_notes": 594,
+        "onset_flat_f1": 0.3089,
+        "note_flat_f1": 0.0483,
+        "onset_program_family_f1": 0.2813,
+        "onset_program_exact_f1": 0.1743,
+        "note_program_exact_f1": 0.0242,
+        "instrument_detection_exact_f1": 0.4615,
+        "instrument_detection_family_f1": 1.0,
+        "reference_source_count": 6,
+        "runtime_seconds_stock_cli_process": 155.202,
+        "process_max_rss_mb": 863.05
+      }
+    },
+    "operational_note": "stock CLI launches a fresh process/model per track; runtime is wrapper execution cost, not warm batched inference"
+  },
+  "serializer_validity": {
+    "upstream_bug": "mt3-infer 0.2.0 MR-MT3 decode retains note.program in NoteSequence but its stock MIDI serializer collapses all pitched notes to channel 0 without program_change",
+    "stock_run": {
+      "workflow_run_id": 33213511319,
+      "head_sha": "4f380d51fa74e67e9c67bb8e5952a749083621f5",
+      "artifact_digest": "sha256:517b4d6ea7a9f97238e5aa91f0f66a6d53c4830aa75da1530aa8dbb6a0aec2fa"
+    },
+    "patched_run": {
+      "workflow_run_id": 33215520514,
+      "head_sha": "cf100d2dd1338dbe3819994fa9a695d63bd79320",
+      "artifact_digest": "sha256:3ef40d72007bd80b85a2d3817d29b00738bcf6fdc7cc8c242ca531c4b128963e"
+    },
+    "patch": {
+      "upstream_adapter_path": "/home/runner/work/_temp/mt3-venv/lib/python3.11/site-packages/mt3_infer/adapters/mr_mt3.py",
+      "upstream_commit": "2d20ee5bb6ca727968bd23c6100fd2a35154166b",
+      "before_sha256": "5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef",
+      "after_sha256": "c024fc59dbacbf61d8bf15fc4886beba353b345f4f04592f8c5cbc3fb24ccb05",
+      "patch_scope": "decode() MIDI channel/program serialization only",
+      "program_strategy": "unique pitched MIDI channel per predicted program; channel 9 reserved for drums"
+    },
+    "equivalence": {
+      "Track01876": {
+        "predicted_note_count_equal": true,
+        "raw_note_event_sequence_equal_ignoring_channel": true,
+        "stock_onset_flat_f1": 0.1473,
+        "patched_onset_flat_f1": 0.1473,
+        "stock_note_flat_f1": 0.056,
+        "patched_note_flat_f1": 0.056,
+        "normalized_note_event_sha256_stock": "3aed73eba47357d1ac3986e7268f894a071891f816bd04f0b2677c5be58d7cbc",
+        "normalized_note_event_sha256_patched": "3aed73eba47357d1ac3986e7268f894a071891f816bd04f0b2677c5be58d7cbc"
+      },
+      "Track01877": {
+        "predicted_note_count_equal": true,
+        "raw_note_event_sequence_equal_ignoring_channel": true,
+        "stock_onset_flat_f1": 0.4867,
+        "patched_onset_flat_f1": 0.4867,
+        "stock_note_flat_f1": 0.1369,
+        "patched_note_flat_f1": 0.1369,
+        "normalized_note_event_sha256_stock": "bc49053c95c8ea9e2a1144815d434c933d1ba368b2eba1b66515956acaa0d525",
+        "normalized_note_event_sha256_patched": "bc49053c95c8ea9e2a1144815d434c933d1ba368b2eba1b66515956acaa0d525"
+      },
+      "Track01878": {
+        "predicted_note_count_equal": true,
+        "raw_note_event_sequence_equal_ignoring_channel": true,
+        "stock_onset_flat_f1": 0.5411,
+        "patched_onset_flat_f1": 0.5411,
+        "stock_note_flat_f1": 0.1575,
+        "patched_note_flat_f1": 0.1918,
+        "normalized_note_event_sha256_stock": "3baa1afb62d6c3f385ac1176fbf02a09978db43ae753cf81fabefba900a3f194",
+        "normalized_note_event_sha256_patched": "3baa1afb62d6c3f385ac1176fbf02a09978db43ae753cf81fabefba900a3f194"
+      },
+      "Track01880": {
+        "predicted_note_count_equal": true,
+        "raw_note_event_sequence_equal_ignoring_channel": true,
+        "stock_onset_flat_f1": 0.1992,
+        "patched_onset_flat_f1": 0.1992,
+        "stock_note_flat_f1": 0.0557,
+        "patched_note_flat_f1": 0.0557,
+        "normalized_note_event_sha256_stock": "1fedf2358e78ffd694727ba57f04a6f94373fc49a18848679725c48162769f4f",
+        "normalized_note_event_sha256_patched": "1fedf2358e78ffd694727ba57f04a6f94373fc49a18848679725c48162769f4f"
+      },
+      "Track01881": {
+        "predicted_note_count_equal": true,
+        "raw_note_event_sequence_equal_ignoring_channel": true,
+        "stock_onset_flat_f1": 0.3089,
+        "patched_onset_flat_f1": 0.3089,
+        "stock_note_flat_f1": 0.0466,
+        "patched_note_flat_f1": 0.0483,
+        "normalized_note_event_sha256_stock": "d661c4a90d0098ec502d1a4973e15425b1c867816635f1a1e782cbfcaa36eb97",
+        "normalized_note_event_sha256_patched": "d661c4a90d0098ec502d1a4973e15425b1c867816635f1a1e782cbfcaa36eb97"
+      }
+    },
+    "conclusion": "All raw note-on/off events are byte-semantically identical ignoring channel/program assignment and all per-track flat onset F1 values/predicted counts are identical. Offset-aware flat F1 differs on two tracks because unique channels disambiguate overlapping same-pitch note-offs; patched program-aware scores are therefore accepted, while stock program-aware scores are invalid."
+  },
+  "decision": {
+    "mr_mt3": "RESEARCH",
+    "architecture": "Do not replace Basic Pitch globally. MR-MT3 shows coarse instrument-family presence signal but weaker flat/note recovery and low exact program-attributed note quality; retain only as an optional research path pending broader evaluation.",
+    "production_change": false,
+    "issue_337_status": "research question materially advanced; broader data or a stronger permissive candidate would be required before production integration"
+  },
+  "limitations": [
+    "Only five fixed 30-second test excerpts.",
+    "Subset is deterministic but not representative enough for production adoption.",
+    "Published MR-MT3 Slakh numbers use a different grouped-stem/bass-correction protocol and are not directly comparable.",
+    "MR-MT3 runtime uses process-per-track stock CLI and overstates warm-model latency.",
+    "No downstream harmony/bass/melody product task was separately scored in this stage."
+  ]
+}
