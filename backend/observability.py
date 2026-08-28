@@ -104,14 +104,18 @@ def init_sentry(
 
     try:
         import sentry_sdk
-        from sentry_sdk.integrations.fastapi import FastAPIIntegration
-        from sentry_sdk.integrations.starlette import StarletteIntegration
     except ImportError:
         logger.warning("sentry_sdk_not_installed")
         return False
 
     integrations = None
     if include_fastapi_integrations:
+        try:
+            from sentry_sdk.integrations.fastapi import FastAPIIntegration
+            from sentry_sdk.integrations.starlette import StarletteIntegration
+        except ImportError:
+            logger.warning("sentry_fastapi_integrations_not_installed")
+            return False
         integrations = [StarletteIntegration(), FastAPIIntegration()]
 
     sentry_sdk.init(
