@@ -24,11 +24,12 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
   await openPhoneWorkspace(page);
 
   // Compact layout starts on the music itself, not with desktop side panels
-  // covering a narrow canvas.
+  // covering a narrow canvas. The Inspector stays mounted for state/performance
+  // continuity but is visually staged until explicitly opened.
   const libraryTrigger = page.getByRole("button", { name: "Show library" });
   await expect(libraryTrigger).toBeVisible();
   await expect(page.getByRole("button", { name: "Show analysis" })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("tab", { name: "Analysis" })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Analysis" })).not.toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await expectTouchHeight(libraryTrigger);
