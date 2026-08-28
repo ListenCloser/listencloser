@@ -4,18 +4,21 @@
 
 ## Decision
 
-**Keep the current Basic Pitch path as the production flat-note baseline. Keep MR-MT3 at `RESEARCH` as a possible optional multi-instrument evidence path; do not adopt it as a default or replacement.**
+**Keep Basic Pitch as the production baseline for now. Keep MR-MT3 at `RESEARCH` as a leading optional multi-instrument evidence path; do not adopt it yet.**
 
-The five-excerpt result does not show a general note-transcription win for MR-MT3, and its exact program-attributed note quality is still weak. It does show a potentially useful coarse instrument-family presence signal worth retaining for future research.
+The decisive finding is two-part:
+
+1. MR-MT3's **decoded model events** materially outperform the production Basic Pitch baseline on this five-excerpt Slakh2100-redux subset.
+2. The pinned `mt3-infer 0.2.0` stock MIDI serializer corrupts that evidence by collapsing all pitched programs onto one channel, so stock-CLI MIDI scores dramatically understate MR-MT3 quality.
 
 Candidate decisions:
 
 | candidate | decision | reason |
 | --- | --- | --- |
-| hello-ai Basic Pitch | **ADOPT (existing baseline)** | already deployed, much cheaper, stronger macro flat-note recovery on this subset; program attribution unsupported |
-| MR-MT3 | **RESEARCH** | meaningful instrument-family detection signal, but weaker flat/note recovery, low exact program-attributed note F1, high current CPU wrapper cost |
-| Magenta MT3 | **REVISIT** | Apache-2.0 code, but external checkpoint licensing remains unresolved and legacy T5X/JAX stack adds friction |
-| YourMT3+ | **RESEARCH reference** | potentially stronger quality reference, but official code is GPL-3.0 and is not the clean permissive production-candidate slot |
+| hello-ai Basic Pitch | **ADOPT (existing baseline)** | deployed, fast after cold start, simple flat-note evidence; no instrument attribution |
+| MR-MT3 | **RESEARCH** | strong decoder-level onset/program evidence on this small subset, but sample too small, duration/program-note quality weaker, and current CPU wrapper is operationally poor |
+| Magenta MT3 | **REVISIT** | Apache-2.0 code, but legacy T5X/JAX stack and external checkpoint-license ambiguity add friction |
+| YourMT3+ | **RESEARCH reference** | quality/reference candidate, but official code is GPL-3.0 |
 | MuScriptor | **research reference only** | released weights are CC BY-NC 4.0 |
 
 No candidate changes production routing in this PR.
@@ -24,31 +27,23 @@ No candidate changes production routing in this PR.
 
 Dataset: **Slakh2100-redux**, test split, CC BY 4.0.
 
-Measured fixed subset:
+Fixed subset: `Track01876`, `Track01877`, `Track01878`, `Track01880`, `Track01881`, first 30 seconds of each. Ground truth is active per-source `MIDI/SXX.mid` marked `midi_saved: true`, not `all_src.mid`.
 
-- `Track01876`
-- `Track01877`
-- `Track01878`
-- `Track01880`
-- `Track01881`
+The run used a selective Hugging Face acquisition mirror pinned to immutable revision `bb320faf307f5d24aeced0e60f9445ff0abce205`. Upstream identity/license remain Zenodo 4599666 / CC BY 4.0. Cropped mixes and reference MIDIs are SHA-256 recorded in `results/slakh_redux_subset_results.json`.
 
-Each excerpt is the first 30 seconds. Ground truth is assembled from active per-source `MIDI/SXX.mid` files marked `midi_saved: true` in `metadata.yaml`, not `all_src.mid`.
+Hello-ai measurement SHA: `7057c1c247fb2770fee5f5e418479cbf69bd4619`.
 
-The full Redux release is a large monolithic archive, so the run used a selective Hugging Face acquisition mirror pinned to immutable revision `bb320faf307f5d24aeced0e60f9445ff0abce205`. The mirror preserves the Redux directory/metadata contract; upstream identity/license remain Zenodo 4599666 / CC BY 4.0. Every cropped mix and reference MIDI is checksummed in `results/slakh_redux_subset_results.json`.
-
-Hello-ai measurement/code SHA: `7057c1c247fb2770fee5f5e418479cbf69bd4619`.
-
-MR-MT3 runner/checkpoint:
+MR-MT3 provenance:
 
 - `mt3-infer 0.2.0`
 - runner revision `2d20ee5bb6ca727968bd23c6100fd2a35154166b`
-- isolated CPU `torch 2.6.0+cpu`
+- CPU `torch 2.6.0+cpu` in an isolated environment
 - checkpoint SHA-256 `b8a3807ed265059abd25ad7f68142c06c35e8f6144dcaa45bd55946a3745398f`
 - checkpoint bytes `183672643`
-- runner/code license MIT
+- code license MIT
 - weight repository metadata MIT
 
-The hello-ai backend environment remained independently pinned to `torch 2.6.0+cpu` throughout the clean runs.
+The production hello-ai environment remained independently pinned during candidate execution.
 
 ## Metrics
 
@@ -56,115 +51,131 @@ Canonical note matching uses `mir_eval 0.8.2` maximum bipartite assignment:
 
 - onset tolerance: 50 ms
 - pitch tolerance: 50 cents
-- offset-aware tolerance: `max(50 ms, 20% of reference-note duration)`
-- explicit drum label: `128`
+- offset tolerance: `max(50 ms, 20% of reference-note duration)`
+- drums: reserved label `128`
 
 No weighted composite is used.
 
-### Macro result
+### Canonical macro result
 
-| metric | Basic Pitch | MR-MT3 |
+MR-MT3 values below come from decoded `NoteSequence` events captured **before MIDI serialization**.
+
+| metric | Basic Pitch | MR-MT3 decoder evidence |
 | --- | ---: | ---: |
-| flat onset F1 | **0.3871** | 0.3366 |
-| flat onset+offset F1 | **0.1397** | 0.0977* |
-| GM-family onset F1 | N/A | 0.3147 |
-| exact-program onset F1 | N/A | 0.2286 |
-| exact-program onset+offset F1 | N/A | 0.0512 |
+| flat onset F1 | 0.3871 | **0.7898** |
+| flat onset+offset F1 | 0.1397 | **0.2415** |
+| GM-family onset F1 | N/A | **0.7550** |
+| exact-program onset F1 | N/A | **0.4999** |
+| exact-program onset+offset F1 | N/A | 0.1211 |
 | exact-program detection F1 | N/A | 0.3875 |
 | GM-family detection F1 | N/A | **0.9113** |
 
-`*` Program-preserving serialization; see the validity section below.
-
-Basic Pitch does not provide instrument-program or drum attribution. Its generated MIDI may contain default program values required by the file format, but those are **not evidence** and are therefore not interpreted in the comparison.
+Basic Pitch has no program/drum attribution. Default MIDI program values are not interpreted as evidence.
 
 ### Flat onset F1 by excerpt
 
-| track | Basic Pitch | MR-MT3 |
+| track | Basic Pitch | MR-MT3 decoder |
 | --- | ---: | ---: |
-| Track01876 | **0.2988** | 0.1473 |
-| Track01877 | **0.6883** | 0.4867 |
-| Track01878 | 0.2701 | **0.5411** |
-| Track01880 | **0.2363** | 0.1992 |
-| Track01881 | **0.4419** | 0.3089 |
+| Track01876 | 0.2988 | **0.6804** |
+| Track01877 | 0.6883 | **0.9582** |
+| Track01878 | 0.2701 | **0.7603** |
+| Track01880 | 0.2363 | **0.6700** |
+| Track01881 | 0.4419 | **0.8801** |
 
-The distribution matters: MR-MT3 has a real win on one excerpt but is not consistently stronger.
+MR-MT3 wins flat onset F1 on all five excerpts at the decoder boundary. That is a much stronger and more consistent signal than the stock serialized MIDI suggested.
 
 ### MR-MT3 instrument-aware result by excerpt
 
 | track | GM-family onset F1 | exact-program onset F1 | exact-program note F1 | family detection F1 |
 | --- | ---: | ---: | ---: | ---: |
-| Track01876 | 0.1060 | 0.0383 | 0.0236 | 1.0000 |
-| Track01877 | 0.4867 | 0.4791 | 0.1369 | 0.8000 |
-| Track01878 | 0.5137 | 0.2740 | 0.0342 | 0.8333 |
-| Track01880 | 0.1857 | 0.1772 | 0.0371 | 0.9231 |
-| Track01881 | 0.2813 | 0.1743 | 0.0242 | 1.0000 |
+| Track01876 | 0.6068 | 0.3741 | 0.1473 | 1.0000 |
+| Track01877 | 0.9582 | 0.8517 | 0.2890 | 0.8000 |
+| Track01878 | 0.7397 | 0.3288 | 0.0411 | 0.8333 |
+| Track01880 | 0.6042 | 0.4996 | 0.0489 | 0.9231 |
+| Track01881 | 0.8663 | 0.4452 | 0.0794 | 1.0000 |
 
-Interpretation: MR-MT3 often identifies the **presence of broad instrument families**, but assigning the correct notes to exact programs remains far less reliable. That is not strong enough for a trustworthy instrument-aware score/piano-roll representation today.
+Interpretation: broad-family and program-attributed **onset** evidence is promising. Exact program-attributed note-with-offset F1 remains much weaker, so this does not justify a trusted instrument-aware notation path yet.
 
-## Serializer validity finding
+## Upstream serializer validity finding
 
-The evaluation discovered an upstream runner issue that materially affects any naïve instrument benchmark.
+Pinned `mt3-infer 0.2.0` decodes MR-MT3 token streams into a `NoteSequence` containing `Note.program` and `is_drum`. Its final `mido.MidiFile` serializer then:
 
-In pinned `mt3-infer 0.2.0`, the MR-MT3 codec/state decoder retains `Note.program` and `is_drum`. The stock adapter's final `mido.MidiFile` serialization then discards `Note.program`: all pitched notes are emitted on channel 0 and no `program_change` messages are written. Stock-CLI exact-program/family results are therefore **not valid model-attribution scores**.
+- emits every pitched note on channel 0;
+- emits no `program_change` messages;
+- reserves only channel 9 for drums.
 
-A throwaway research run patched **only that final serializer**:
+This does not merely erase instrument labels. Overlapping same-pitch notes from different decoded programs become ambiguous on the same MIDI channel, so downstream MIDI parsing can merge/truncate note identities and corrupt even instrument-agnostic onset/offset evidence.
 
-- same model/checkpoint
-- same preprocessing
-- same forward generation
-- same codec and event decoder
-- same note event ordering
-- same pitch/velocity/timing conversion
-- each already-decoded pitched program assigned a unique non-drum MIDI channel
-- channel 9 reserved for drums
-- `program_change` messages emitted at time zero
+### Diagnostic stock serializer
 
-Patch provenance:
+Stock workflow run `33213511319`, head `4f380d51fa74e67e9c67bb8e5952a749083621f5`:
 
-- upstream adapter SHA-256 before patch: `5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef`
-- patched adapter SHA-256: `c024fc59dbacbf61d8bf15fc4886beba353b345f4f04592f8c5cbc3fb24ccb05`
-- stock workflow run: `33213511319`, head `4f380d51fa74e67e9c67bb8e5952a749083621f5`
-- patched workflow run: `33215520514`, head `cf100d2dd1338dbe3819994fa9a695d63bd79320`
+- onset F1 `0.3366`
+- onset+offset F1 `0.0905`
+- family onset F1 `0.2561`
+- exact-program onset F1 `0.2091`
 
-Independent artifact comparison established, for **all five tracks**:
+These values describe the **wrapper's MIDI artifact**, not canonical MR-MT3 model quality.
 
-1. identical manifest bytes;
-2. identical predicted note counts;
-3. identical flat onset F1;
-4. identical complete raw note-on/note-off event sequence when channel is ignored;
-5. identical normalized note-event SHA-256 when channel/program assignment is omitted.
+### Intermediate program-channel patch
 
-Offset-aware flat F1 changes on `Track01878` and `Track01881`. This is expected: separate channels disambiguate overlapping same-pitch notes that the stock channel-0 serializer makes ambiguous to MIDI parsers. Because the raw note-event sequence is otherwise identical, the patched program-aware metrics are accepted as evidence of the already-decoded MR-MT3 output. Stock program-aware metrics are quarantined.
+A throwaway run changed only final MIDI channel/program serialization. It proved that program information exists in the decoder and improved detection, but still forced decoded notes through MIDI channel semantics. It is retained as diagnostic provenance, not the canonical measurement.
 
-The patch is **not** proposed as production code. It exists only as evaluation provenance.
+Patched workflow run `33215520514`, head `cf100d2dd1338dbe3819994fa9a695d63bd79320`:
+
+- onset F1 `0.3366`
+- onset+offset F1 `0.0977`
+- family onset F1 `0.3147`
+- exact-program onset F1 `0.2286`
+
+### Decoder-sidecar calibration — canonical
+
+A final controlled run instrumented the pinned adapter immediately after `decode_and_combine_predictions` and before stock MIDI serialization. It writes only a JSON sidecar containing each decoded pitch, start/end time, velocity, program, drum flag, and decoder invalid/dropped counts; the stock serializer itself is left unchanged.
+
+Provenance:
+
+- workflow run `33218294887`
+- head `edfc29a01334db61ceaf6d7dfcde0080cbfd185b`
+- artifact SHA-256 `484581f59d444cfbbc1333da128f8ecb663aa4d0bc0d819a64b72ce8d0818dc8`
+- adapter SHA-256 before instrumentation `5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef`
+- instrumented adapter SHA-256 `c395b4895e4f4da721c6494beb289962f787d19c443b76ef07dead4e0634d1fd`
+- stock MIDI serializer unchanged
+
+The locked hello-ai environment serialized sidecar events into one stream per decoded program solely for the frozen scorer. Independent verification found:
+
+- decoded/persisted note counts are one-to-one on every track;
+- pitch/program/drum identity is one-to-one;
+- maximum sidecar→evaluator-MIDI start/end quantization is ~1.1 ms, well below the 50 ms tolerance.
+
+Therefore the decoder-sidecar result is the canonical MR-MT3 model-quality evidence for this PR.
 
 ## Operational result
 
-Basic Pitch on the GitHub CPU runner:
+Basic Pitch on GitHub CPU:
 
-- first excerpt: ~25 s including cold/model-load cost
-- remaining four: ~1.5–1.8 s each
+- first excerpt ~25 s including cold/model-load cost;
+- remaining excerpts ~1.5–1.8 s each.
 
 MR-MT3 through the stock process-per-track CLI:
 
-- per-excerpt wall time: ~26–155 s
-- median: ~101 s in the patched run
-- peak RSS: ~817–863 MB
-- checkpoint download excluded from per-track wall times after prefetch in the patched run
+- roughly 26–155 s per excerpt;
+- ~817–863 MB RSS;
+- checkpoint prefetch separated from per-track wall time in the controlled runs.
 
-This strongly overstates what a persistent warm MR-MT3 service might cost because the CLI reloads the model for each track. It nevertheless demonstrates that the current wrapper shape is not suitable for the Oracle CPU production path as-is. Warm/batched runtime would need separate evaluation before any integration.
+This is wrapper execution cost, not a warm/batched model latency claim. A persistent service could be substantially different, but that must be measured rather than assumed.
 
 ## Product/architecture interpretation
 
-The useful signal is narrower than "multi-track transcription works":
+The corrected evidence changes the product hypothesis:
 
-- Basic Pitch remains better as the cheap generic note-recovery baseline on this small mixed-music subset.
-- MR-MT3 may add coarse **instrument-family presence** evidence.
-- Exact program-attributed note quality is too low for a trusted instrument-aware notation/piano-roll layer.
-- The result does not justify making symbolic transcription central to all analysis.
-- If revisited, multi-track AMT should remain an optional evidence producer attached to a Work/version and consumed selectively by arrangement, bass/melody, comparison, or representation features.
+- Basic Pitch remains the production default because it is already integrated and operationally cheap after load.
+- MR-MT3 is now a **leading research candidate** for optional instrument-aware symbolic evidence; it is not merely a tagging aid.
+- Decoder-level onset/program evidence may be useful for arrangement, instrument-aware piano roll, bass/melody extraction, comparison, and selective downstream analysis.
+- Weak exact-program duration quality still cautions against treating its output as authoritative notation.
+- A production adapter must consume/persist decoded events losslessly; the current stock `mt3-infer` MIDI output is unsuitable.
+- Symbolic transcription remains one evidence family, not the universal substrate.
 
-A future payload should remain under the #336 canonical evidence envelope:
+Proposed payload remains under the #336 evidence envelope:
 
 ```ts
 type MultiTrackNotePayload = {
@@ -184,30 +195,26 @@ type MultiTrackNotePayload = {
 type MultiTrackNoteEvidence = Evidence<MultiTrackNotePayload>
 ```
 
-An evaluated neural detector without calibrated probabilities should not invent `confidence`; #336 trust semantics remain authoritative.
+An evaluated neural detector without calibrated probabilities must not invent `confidence`.
 
-## Limitations
+## Limitations / promotion gate
 
-- only five fixed 30-second excerpts;
-- deterministic subset, not a representative production benchmark;
-- published MR-MT3 Slakh results use a different grouped-stem/bass-correction protocol and are not directly comparable;
-- no local YourMT3 or legacy MT3 quality run;
-- no downstream harmony/bass/melody task was separately rescored using the multi-track output;
-- MR-MT3 warm/batched CPU runtime was not measured;
-- selective mirror is pinned and file-hashed, but the authoritative dataset remains the upstream Redux release.
+No new engine is adopted because:
 
-These limitations prevent an `ADOPT` decision for a new engine. They do not invalidate the narrower conclusion that the currently practical permissive candidate is **research-only**, not a default replacement.
+- only five fixed 30-second Slakh excerpts were scored;
+- synthetic-mixture performance may not generalize to recorded/produced music;
+- published MR-MT3 scores use different preprocessing/evaluation and are not directly comparable;
+- no local YourMT3 or legacy MT3 quality run was completed;
+- warm/batched MR-MT3 runtime is unmeasured;
+- downstream harmony/bass/melody/arrangement improvements were not separately scored;
+- production would require a validated lossless decoder-level adapter.
+
+Promotion requires broader quality evidence, realistic operational measurements, and downstream product value—not just this strong small-subset F1.
 
 ## Verification
 
-The original harness code head `7057c1c247fb2770fee5f5e418479cbf69bd4619` passed Ruff/format, generated API-contract verification, 17/17 dedicated tests, the required Python suite (`756 passed, 13 skipped, 37 deselected`), Build, E2E, Real-stack E2E, Backend Image, CodeQL, Dependency Review, and Gitleaks.
+The original evaluator head `7057c1c247fb2770fee5f5e418479cbf69bd4619` passed Ruff/format, generated API-contract verification, 17 dedicated tests, the required Python suite (`756 passed, 13 skipped, 37 deselected`), Build, E2E, Real-stack E2E, Backend Image, CodeQL, Dependency Review, and Gitleaks.
 
-The measured stage adds:
-
-- `results/slakh_redux_subset_results.json`
-- deterministic result-fixture trust-boundary tests
-- documentation only otherwise
-
-Fresh CI on the final measured PR head is required before merge.
+The measured stage adds machine-readable evidence, decoder/serializer provenance, documentation, and deterministic result-fixture tests. Fresh CI on the final synchronized PR head is required before merge.
 
 Part of #337. Parent #327. Schema consumer #336. Product consumer #340.
