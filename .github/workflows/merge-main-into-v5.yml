@@ -32,53 +32,112 @@ jobs:
           set -e
 
           if [ "$merge_status" -ne 0 ]; then
-            # Start from main's representation-lifecycle and current golden-path
-            # contracts, then reapply the V5 behavior that intentionally differs.
-            git checkout --theirs lib/representations.tsx tests/e2e/real-stack-golden.spec.ts
+            unresolved="$(git diff --name-only --diff-filter=U)"
+            echo "Unresolved paths: $unresolved"
+            if [ "$unresolved" != "lib/representations.tsx" ]; then
+              echo "Unexpected merge conflicts; refusing to guess."
+              exit 1
+            fi
+
+            # #345 owns representation lifetime/caching. Start from its registry
+            # contract, then reapply V5's notation-derived Score source and
+            # measure-aware duration/follow behavior.
+            git checkout --theirs lib/representations.tsx
 
             python3 - <<'PY'
           from pathlib import Path
 
-          representations = Path("lib/representations.tsx")
-          text = representations.read_text()
-          text = text.replace(
-              '  const { transport, seek } = useTransport();\n  const entry = workspace.representations.find((item) => item.kind === "score");\n  const measureStarts = entry?.measureStarts ?? [];\n  const scoreDuration = entry?.audioUrl ? transport.duration : null;',
-              '  const { transport, seek, setActiveSource } = useTransport();\n  const entry = workspace.representations.find((item) => item.kind === "score");\n  const measureStarts = entry?.measureStarts ?? [];\n  const scoreSource = transport.sources.find((source) => source.role === "score") ?? null;\n  const finalMeasureSpan = measureStarts.length > 1\n    ? measureStarts[measureStarts.length - 1] - measureStarts[measureStarts.length - 2]\n    : 2;\n  const scoreDuration = measureStarts.length > 0\n    ? Math.max(transport.duration || 0, measureStarts[measureStarts.length - 1] + Math.max(finalMeasureSpan, 0.25))\n    : (transport.duration || null);',
-              1,
-          )
-          needle = '    <div className="representation-body">\n      <SheetMusic\n        musicXml={entry?.musicxml ?? ""}\n'
-          replacement = '''    <div className="representation-body">\n      <div className="score-playback-strip">\n        {scoreSource ? (\n          transport.activeSource?.role === "score" ? (\n            <span className="score-playback-state">Hearing score</span>\n          ) : (\n            <button type="button" className="score-playback-action" onClick={() => setActiveSource(scoreSource)}>Hear score</button>\n          )\n        ) : (\n          <span className="score-playback-state score-playback-state-muted">Notation audio is unavailable for this saved version.</span>\n        )}\n      </div>\n      <SheetMusic\n        musicXml={entry?.musicxml ?? ""}\n'''
-          if needle not in text:
-              raise SystemExit("score SheetMusic insertion point not found")
-          text = text.replace(needle, replacement, 1)
-          text = text.replace(
-              '        isScoreActive={active && transport.activeSource?.role === "score"}\n        hasScorePlayback={transport.sources.some((source) => source.role === "score")}',
-              '        isScoreActive={active}\n        hasScorePlayback={Boolean(scoreSource)}',
-              1,
-          )
-          representations.write_text(text)
+          path = Path("lib/representations.tsx")
+          text = path.read_text()
 
-          golden = Path("tests/e2e/real-stack-golden.spec.ts")
-          text = golden.read_text()
-          old = '    await expect(page.getByText("Selection", { exact: true }).first()).toBeVisible({ timeout: 20_000 });'
-          new = '''    const inspectorScope = page.locator("aside.inspector");\n    await expect(inspectorScope.getByRole("button", { name: "Clear selection" })).toBeVisible({ timeout: 20_000 });\n    await expect(inspectorScope.locator(".inspector-scope-value")).toHaveText(/\\d+:\\d{2}–\\d+:\\d{2}/);'''
-          if old not in text:
-              raise SystemExit("stale selection assertion not found")
-          golden.write_text(text.replace(old, new, 1))
+          old_setup = '''  const { transport, seek } = useTransport();
+          const entry = workspace.representations.find((item) => item.kind === "score");
+          const measureStarts = entry?.measureStarts ?? [];
+          const scoreDuration = entry?.audioUrl ? transport.duration : null;'''
+          new_setup = '''  const { transport, seek, setActiveSource } = useTransport();
+          const entry = workspace.representations.find((item) => item.kind === "score");
+          const measureStarts = entry?.measureStarts ?? [];
+          const scoreSource = transport.sources.find((source) => source.role === "score") ?? null;
+          const finalMeasureSpan = measureStarts.length > 1
+            ? measureStarts[measureStarts.length - 1] - measureStarts[measureStarts.length - 2]
+            : 2;
+          const scoreDuration = measureStarts.length > 0
+            ? Math.max(transport.duration || 0, measureStarts[measureStarts.length - 1] + Math.max(finalMeasureSpan, 0.25))
+            : (transport.duration || null);'''
+          if old_setup not in text:
+              raise SystemExit("score setup contract not found")
+          text = text.replace(old_setup, new_setup, 1)
+
+          old_render = '''    <div className="representation-body">
+                <SheetMusic
+                  musicXml={entry?.musicxml ?? ""}'''
+          new_render = '''    <div className="representation-body">
+                <div className="score-playback-strip">
+                  {scoreSource ? (
+                    transport.activeSource?.role === "score" ? (
+                      <span className="score-playback-state">Hearing score</span>
+                    ) : (
+                      <button type="button" className="score-playback-action" onClick={() => setActiveSource(scoreSource)}>Hear score</button>
+                    )
+                  ) : (
+                    <span className="score-playback-state score-playback-state-muted">Notation audio is unavailable for this saved version.</span>
+                  )}
+                </div>
+                <SheetMusic
+                  musicXml={entry?.musicxml ?? ""}'''
+          if old_render not in text:
+              # Main currently uses two-space component indentation; keep a
+              # second exact form so formatting changes don't weaken semantics.
+              old_render = '''    <div className="representation-body">
+                <SheetMusic
+                  musicXml={entry?.musicxml ?? ""}'''
+          if old_render not in text:
+              old_render = '''    <div className="representation-body">
+              <SheetMusic
+                musicXml={entry?.musicxml ?? ""}'''
+              new_render = new_render.replace("                ", "              ").replace("                  ", "                ")
+          if old_render not in text:
+              old_render = '''    <div className="representation-body">
+      <SheetMusic
+        musicXml={entry?.musicxml ?? ""}'''
+              new_render = '''    <div className="representation-body">
+      <div className="score-playback-strip">
+        {scoreSource ? (
+          transport.activeSource?.role === "score" ? (
+            <span className="score-playback-state">Hearing score</span>
+          ) : (
+            <button type="button" className="score-playback-action" onClick={() => setActiveSource(scoreSource)}>Hear score</button>
+          )
+        ) : (
+          <span className="score-playback-state score-playback-state-muted">Notation audio is unavailable for this saved version.</span>
+        )}
+      </div>
+      <SheetMusic
+        musicXml={entry?.musicxml ?? ""}'''
+          if old_render not in text:
+              raise SystemExit("score render insertion point not found")
+          text = text.replace(old_render, new_render, 1)
+
+          old_props = '''        isScoreActive={active && transport.activeSource?.role === "score"}
+                  hasScorePlayback={transport.sources.some((source) => source.role === "score")}'''
+          new_props = '''        isScoreActive={active}
+                  hasScorePlayback={Boolean(scoreSource)}'''
+          if old_props not in text:
+              old_props = '''        isScoreActive={active && transport.activeSource?.role === "score"}
+        hasScorePlayback={transport.sources.some((source) => source.role === "score")}'''
+              new_props = '''        isScoreActive={active}
+        hasScorePlayback={Boolean(scoreSource)}'''
+          if old_props not in text:
+              raise SystemExit("score active/source props not found")
+          text = text.replace(old_props, new_props, 1)
+
+          path.write_text(text)
           PY
-
-            git add lib/representations.tsx tests/e2e/real-stack-golden.spec.ts
+            git add lib/representations.tsx
           fi
 
-          # The helper is one-shot and must never be part of the final PR diff.
           git rm .github/workflows/merge-main-into-v5.yml
           git add -A
           git diff --cached --check
-
-          if git diff --cached --quiet && [ "$merge_status" -eq 0 ]; then
-            echo "main already merged cleanly"
-            exit 0
-          fi
-
           git commit --no-edit || git commit -m "merge: reconcile V5 with current main"
           git push origin HEAD:design/v5-visual-language-cleanup
