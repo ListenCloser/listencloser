@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import main
+import health_api
 
 
 def test_health_live(client):
@@ -20,7 +20,7 @@ def test_health_ready(client):
 
 
 def test_queue_health_degrades_without_supabase(client, monkeypatch):
-    monkeypatch.setattr(main, "get_supabase_client", lambda: None)
+    monkeypatch.setattr(health_api, "get_supabase_client", lambda: None)
 
     response = client.get("/health/queue")
 
@@ -48,7 +48,7 @@ def test_queue_health_reports_worker_and_active_jobs(client, monkeypatch):
     )
     supabase = MagicMock()
     supabase.table.side_effect = lambda name: jobs if name == "jobs" else workers
-    monkeypatch.setattr(main, "get_supabase_client", lambda: supabase)
+    monkeypatch.setattr(health_api, "get_supabase_client", lambda: supabase)
 
     response = client.get("/health/queue")
 
