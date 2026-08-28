@@ -46,6 +46,8 @@ async function openSourceSelector(page: import("@playwright/test").Page) {
 }
 
 async function selectSource(page: import("@playwright/test").Page, label: string) {
+  const selected = page.getByRole("button", { name: `Playback source: ${label}`, exact: true });
+  if (await selected.isVisible().catch(() => false)) return;
   await openSourceSelector(page);
   await page.getByRole("option", { name: label, exact: true }).click();
 }
@@ -55,7 +57,9 @@ async function listeningTo(page: import("@playwright/test").Page, label: string)
 }
 
 async function setCompareSideSource(page: import("@playwright/test").Page, side: "A" | "B", label: string) {
-  await page.getByRole("button", { name: `${side} compare source`, exact: true }).click();
+  const trigger = page.getByRole("button", { name: `${side} compare source`, exact: true });
+  if ((await trigger.textContent())?.trim() === label) return;
+  await trigger.click();
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
@@ -175,7 +179,9 @@ test("real audio golden path", async ({ page }) => {
   // ── Annotations and Inspector ────────────────────────────────────────
   await test.step("annotations and inspector", async () => {
     // Score measure click seeks transport (best-effort — headless click
-    // targeting on SVG measures can be flaky)
+    // targeting on SVG measures can be flaky). Capture the cursor before the
+    // click: when the seek succeeds, the cursor update is the same state
+    // transition and should not be expected to move a second time afterward.
     await page.getByRole("tab", { name: "Score" }).click();
     const measures = page.locator(".sheet-music-container g.vf-measure");
     const measureCount = await measures.count();
@@ -184,14 +190,13 @@ test("real audio golden path", async ({ page }) => {
     const targetBox = await targetMeasure.boundingBox();
     expect(targetBox).not.toBeNull();
     const beforeSeek = await transportPosition(page);
+    const cursorBeforeSeek = await scoreCursorLeft(page);
     await page.mouse.click(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2);
-    // Seek may not register in headless — verify only if it did
     const afterSeek = await transportPosition(page);
     const seekWorked = Math.abs(afterSeek - beforeSeek) > 0.1;
-    if (seekWorked) {
-      const cursorBefore = await scoreCursorLeft(page);
+    if (seekWorked && cursorBeforeSeek !== null) {
       await expect.poll(
-        async () => (await scoreCursorLeft(page)) !== cursorBefore,
+        async () => (await scoreCursorLeft(page)) !== cursorBeforeSeek,
         { timeout: 10_000 },
       ).toBe(true);
     }
@@ -235,7 +240,8 @@ test("real audio golden path", async ({ page }) => {
     await page.getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByRole("group", { name: "Compare playback sources" })).toBeVisible();
 
-    // Use Transcription for B side since Score may not be available
+    // Use Transcription for B side since Score may not be available.
+    // The helper is idempotent because compare already defaults B to it.
     await setCompareSideSource(page, "B", "Transcription");
     await expect(page.getByRole("button", { name: "B compare source", exact: true })).toContainText("Transcription");
 
@@ -268,12 +274,11 @@ test("real audio golden path", async ({ page }) => {
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('[data-selection-highlight]').first()).toBeVisible({ timeout: 10_000 });
 
-    // Inspector visibility
-    await expect(page.locator(".inspector")).toBeVisible();
-    await page.getByRole("button", { name: "Hide analysis" }).click();
-    await expect(page.locator(".inspector")).toHaveCount(0);
-    await page.getByRole("button", { name: "Show analysis" }).click();
-    await expect(page.locator(".inspector")).toBeVisible();
+    // Desktop Inspector is a persistent dock. Verify its selected analysis
+    // mode instead of stale show/hide controls that intentionally no longer exist.
+    const inspector = page.locator("aside.inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
   });
 
   // ── Persistence ──────────────────────────────────────────────────────
