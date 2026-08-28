@@ -100,62 +100,61 @@ function AnalysisOverview({
       <p className="inspector-summary">{summaryParts.join(" ")}</p>
       {items.length > 0 && (
         <dl className="inspector-meta-line" aria-label="Analysis metadata">
-{items.map((item) => (
-  <div className="inspector-meta-item" key={item.label}>
-    <dt>{item.label}</dt>
-    <dd>{item.value}</dd>
-  </div>
-))}
+          {items.map((item) => (
+            <div className="inspector-meta-item" key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
         </dl>
       )}
     </section>
   );
 }
 
-function SequenceBlock({
-  title,
-  insights,
-  bpm,
-  onSeek,
-  setSelection,
-}: {
-  title: string;
-  insights: Insight[];
-  bpm: number;
-  onSeek: (seconds: number) => void;
-  setSelection: (selection: MusicalSelection | null) => void;
-}) {
-  if (insights.length === 0) return null;
+type HarmonyMoment = {
+  id: string;
+  start: number;
+  end: number | null;
+  chord: string | null;
+  roman: string | null;
+  harmonicFunction: string | null;
+};
 
-  const handleClick = (item: Insight) => {
-    const seconds = insightStartSeconds(item, bpm);
-    if (seconds !== null) onSeek(seconds);
-    if (item.span.start_seconds != null && item.span.end_seconds != null) {
-      setSelection({
-        timeRange: { start: item.span.start_seconds, end: item.span.end_seconds, domain: "notation" },
-        provenance: { origin: "score", timeExact: false, measureApproximate: true },
-      });
+function harmonyMoments(insights: Insight[], bpm: number): HarmonyMoment[] {
+  const harmonicKinds = new Set(["chord", "roman_numeral", "harmonic_function"]);
+  const temporal = insights
+    .filter((item) => harmonicKinds.has(item.kind))
+    .map((item) => ({ item, start: insightStartSeconds(item, bpm) }))
+    .filter((entry): entry is { item: Insight; start: number } => entry.start !== null)
+    .sort((a, b) => a.start - b.start);
+
+  const moments: HarmonyMoment[] = [];
+  for (const { item, start } of temporal) {
+    // These three insight families are parallel descriptions of the same
+    // harmonic event. Their persisted timestamps can differ by a few ms, so
+    // fold near-identical starts into one event rather than three sequences.
+    let moment = moments.find((candidate) => Math.abs(candidate.start - start) <= 0.12);
+    if (!moment) {
+      moment = {
+        id: item.id,
+        start,
+        end: item.span.end_seconds,
+        chord: null,
+        roman: null,
+        harmonicFunction: null,
+      };
+      moments.push(moment);
+    } else if (item.span.end_seconds != null) {
+      moment.end = moment.end == null ? item.span.end_seconds : Math.max(moment.end, item.span.end_seconds);
     }
-  };
 
-  return (
-    <div className="inspector-block">
-      <h4>{title}</h4>
-      <div className="inspector-sequence">
-        {insights.map((item) => (
-          <button
-            type="button"
-            className="inspector-seq-btn"
-            key={item.id}
-            onClick={() => handleClick(item)}
-            title={normalizeMusicText(item.claim)}
-          >
-            {normalizeMusicText(item.claim)}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+    const value = normalizeMusicText(stripClaimPrefix(item.claim));
+    if (item.kind === "chord") moment.chord = value;
+    if (item.kind === "roman_numeral") moment.roman = value;
+    if (item.kind === "harmonic_function") moment.harmonicFunction = value;
+  }
+  return moments;
 }
 
 function HarmonyEvidence({
@@ -169,17 +168,40 @@ function HarmonyEvidence({
   onSeek: (seconds: number) => void;
   setSelection: (selection: MusicalSelection | null) => void;
 }) {
-  const chords = insights.filter((item) => item.kind === "chord" && insightStartSeconds(item, bpm) !== null);
-  const romanNumerals = insights.filter((item) => item.kind === "roman_numeral" && insightStartSeconds(item, bpm) !== null);
-  const harmonicFunctions = insights.filter((item) => item.kind === "harmonic_function" && insightStartSeconds(item, bpm) !== null);
+  const moments = harmonyMoments(insights, bpm);
+  if (moments.length === 0) return null;
 
-  if (chords.length === 0 && romanNumerals.length === 0 && harmonicFunctions.length === 0) return null;
+  const handleClick = (moment: HarmonyMoment) => {
+    onSeek(moment.start);
+    if (moment.end != null && moment.end > moment.start) {
+      setSelection({
+        timeRange: { start: moment.start, end: moment.end, domain: "notation" },
+        provenance: { origin: "score", timeExact: false, measureApproximate: true },
+      });
+    }
+  };
 
   return (
-    <div className="inspector-evidence-body">
-      <SequenceBlock title="Chords" insights={chords} bpm={bpm} onSeek={onSeek} setSelection={setSelection} />
-      <SequenceBlock title="Roman numerals" insights={romanNumerals} bpm={bpm} onSeek={onSeek} setSelection={setSelection} />
-      <SequenceBlock title="Function" insights={harmonicFunctions} bpm={bpm} onSeek={onSeek} setSelection={setSelection} />
+    <div className="inspector-evidence-body inspector-harmony-moments">
+      {moments.map((moment) => {
+        const primary = moment.chord ?? moment.roman ?? moment.harmonicFunction ?? "Harmony";
+        const context = [moment.roman, moment.harmonicFunction]
+          .filter((value): value is string => Boolean(value) && value !== primary)
+          .filter((value, index, values) => values.indexOf(value) === index);
+        return (
+          <button
+            type="button"
+            className="inspector-harmony-moment"
+            key={`${moment.id}-${moment.start}`}
+            onClick={() => handleClick(moment)}
+            title={[primary, ...context].join(" · ")}
+          >
+            <span className="inspector-harmony-time">{formatTime(moment.start)}</span>
+            <span className="inspector-harmony-primary">{primary}</span>
+            {context.length > 0 && <span className="inspector-harmony-context">{context.join(" · ")}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -289,14 +311,10 @@ function MelodyEvidence({ insights, onSeek, setSelection }: {
   );
 }
 
-function EvidenceDisclosure({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  if (count === 0 || !children) return null;
+function EvidenceDisclosure({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <details className="inspector-evidence-group">
-      <summary>
-        <span>{title}</span>
-        <span className="inspector-evidence-count">{count}</span>
-      </summary>
+      <summary><span>{title}</span></summary>
       {children}
     </details>
   );
@@ -407,9 +425,11 @@ function AnalysisContent({
       if (item.kind.startsWith("melody_") && item.kind !== "melody_interval_summary") return false;
       return true;
     });
-  const harmonyCount = evidenceInsights.filter((item) => ["chord", "roman_numeral", "harmonic_function"].includes(item.kind)).length;
-  const rhythmCount = evidenceInsights.filter((item) => ["rhythm", "rhythm_density", "rhythm_rests"].includes(item.kind)).length;
-  const melodyCount = evidenceInsights.filter((item) => item.kind === "melody" || item.kind === "melody_interval_summary").length;
+  const hasHarmony = evidenceInsights.some(
+    (item) => ["chord", "roman_numeral", "harmonic_function"].includes(item.kind) && insightStartSeconds(item, bpm) !== null,
+  );
+  const hasRhythm = evidenceInsights.some((item) => ["rhythm", "rhythm_density", "rhythm_rests"].includes(item.kind));
+  const hasMelody = evidenceInsights.some((item) => item.kind === "melody" || item.kind === "melody_interval_summary");
 
   if (activeInsights.length === 0 && findings.length === 0) {
     return (
@@ -426,21 +446,27 @@ function AnalysisContent({
 
       <FindingsSection findings={findings} onSeek={seek} setSelection={setSelection} />
 
-      {(harmonyCount > 0 || rhythmCount > 0 || melodyCount > 0) && (
+      {(hasHarmony || hasRhythm || hasMelody) && (
         <section className="inspector-section inspector-evidence-section">
           <div className="inspector-section-heading">
             <h3>Supporting evidence</h3>
           </div>
           <div className="inspector-evidence-groups">
-            <EvidenceDisclosure title="Harmony" count={harmonyCount}>
-              <HarmonyEvidence insights={evidenceInsights} bpm={bpm} onSeek={seek} setSelection={setSelection} />
-            </EvidenceDisclosure>
-            <EvidenceDisclosure title="Rhythm" count={rhythmCount}>
-              <RhythmEvidence insights={evidenceInsights} onSeek={seek} />
-            </EvidenceDisclosure>
-            <EvidenceDisclosure title="Melody" count={melodyCount}>
-              <MelodyEvidence insights={evidenceInsights} onSeek={seek} setSelection={setSelection} />
-            </EvidenceDisclosure>
+            {hasHarmony && (
+              <EvidenceDisclosure title="Harmony">
+                <HarmonyEvidence insights={evidenceInsights} bpm={bpm} onSeek={seek} setSelection={setSelection} />
+              </EvidenceDisclosure>
+            )}
+            {hasRhythm && (
+              <EvidenceDisclosure title="Rhythm">
+                <RhythmEvidence insights={evidenceInsights} onSeek={seek} />
+              </EvidenceDisclosure>
+            )}
+            {hasMelody && (
+              <EvidenceDisclosure title="Melody">
+                <MelodyEvidence insights={evidenceInsights} onSeek={seek} setSelection={setSelection} />
+              </EvidenceDisclosure>
+            )}
           </div>
         </section>
       )}
