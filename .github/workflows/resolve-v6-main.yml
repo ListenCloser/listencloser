@@ -6,6 +6,7 @@ on:
       - design/v6-reference-led-system
     paths:
       - .github/workflows/resolve-v6-main.yml
+      - .github/scripts/resolve-v6-main.sh
 
 permissions:
   contents: write
