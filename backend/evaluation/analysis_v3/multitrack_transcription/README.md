@@ -22,7 +22,7 @@ On five deterministic 30-second excerpts from the Slakh2100-redux test split, ca
 
 Basic Pitch does not provide program/drum attribution, so arbitrary default MIDI program values are not treated as evidence.
 
-MR-MT3 wins flat onset recovery on all five measured excerpts once scored at the decoder boundary. This is a strong quality signal, but **not an ADOPT decision**: the subset is tiny, exact program-attributed note-with-offset quality remains weak, and the current stock process-per-track CPU wrapper costs roughly 26–155 seconds per 30-second excerpt.
+MR-MT3 wins flat onset recovery on all five measured excerpts once scored at the decoder boundary. This is a strong quality signal, but **not an ADOPT decision**: the subset is tiny, exact program-attributed note-with-offset quality remains weak, and the current stock process-per-track CPU wrapper costs roughly 26–156 seconds per 30-second excerpt.
 
 The machine-readable result is `results/slakh_redux_subset_results.json`.
 
@@ -31,7 +31,7 @@ The machine-readable result is `results/slakh_redux_subset_results.json`.
 - **Dataset:** Slakh2100-redux, test split, CC BY 4.0.
 - **Measured subset:** `Track01876`, `Track01877`, `Track01878`, `Track01880`, `Track01881`; first 30 seconds.
 - **Ground truth:** active per-source `MIDI/SXX.mid` marked `midi_saved: true`, not `all_src.mid`.
-- **Acquisition:** selective mirror pinned to `bb320faf307f5d24aeced0e60f9445ff0abce205`; upstream identity remains Zenodo 4599666. Cropped mix/reference files are SHA-256 recorded.
+- **Acquisition:** selective mirror pinned to `bb320faf307f5d24aeced0e60f9445ff0abce205`; upstream identity remains Zenodo 4599666. Canonical artifact manifest SHA-256 is `7ad55174f83f2f0097898624a269e1ff25899183f18dac9dd7da38005c971b99`; committed mix/reference hashes come directly from that artifact.
 - **Production baseline:** repository `BasicPitchEngine`, measurement SHA `7057c1c247fb2770fee5f5e418479cbf69bd4619`.
 - **Research candidate:** `mt3-infer 0.2.0` at `2d20ee5bb6ca727968bd23c6100fd2a35154166b`, MR-MT3 checkpoint SHA-256 `b8a3807ed265059abd25ad7f68142c06c35e8f6144dcaa45bd55946a3745398f`.
 - **Required CI:** metadata/metrics/unit tests only; no model or dataset download.
@@ -49,15 +49,20 @@ The scorer reports flat onset/note F1, GM-family and exact-program onset F1, exa
 
 ## Critical `mt3-infer` serializer finding
 
-Pinned `mt3-infer` correctly decodes MR-MT3 program tokens into `Note.program` and `is_drum`, but its stock MIDI serializer writes all pitched notes to channel 0 with no `program_change` messages.
+Pinned `mt3-infer` correctly decodes MR-MT3 program tokens into `Note.program` and `is_drum`, but its stock MIDI serializer corrupts the decoded evidence in **two distinct ways**:
 
-That is worse than a label-loss bug. When simultaneous/overlapping notes with the same pitch originate from different decoded programs, collapsing them onto one channel destroys note identity for MIDI parsers. The stock serialized output therefore under-reports **flat note quality as well as program-aware quality**.
+1. it writes all pitched notes to channel 0 with no `program_change`, destroying program identity and making overlapping same-pitch notes ambiguous;
+2. it independently truncates every successive event-time delta to integer MIDI ticks, so small negative rounding errors accumulate through dense event streams.
+
+Independent artifact analysis found stock MIDI onsets shifted earlier than the decoded events by median **43–191 ms** across the five tracks, with maxima up to **324 ms**. Those shifts exceed the benchmark's 50 ms onset tolerance.
 
 Three controlled measurements establish the boundary:
 
 1. **Stock CLI diagnostic:** serializer-corrupted macro onset F1 `0.3366`, note F1 `0.0905`.
-2. **Program-channel serializer patch diagnostic:** preserves decoded program channels but still serializes through MIDI; macro onset F1 `0.3366`, note F1 `0.0977`.
+2. **Program-channel serializer patch diagnostic:** preserves decoded program channels but retains upstream delta-to-tick conversion; macro onset F1 remains `0.3366`, note F1 `0.0977`.
 3. **Decoder-sidecar calibration (canonical):** captures every decoded note immediately after `decode_and_combine_predictions`, before the stock serializer; macro onset F1 `0.7898`, note F1 `0.2415`.
+
+The channel-only patch substantially improves program/family detection but leaves onset F1 identical to stock. That controlled result shows program-channel collapse is **not** the main explanation for the onset gap; accumulated integer tick-rounding drift is the dominant onset corruption.
 
 Decoder-sidecar provenance:
 
@@ -67,9 +72,9 @@ Decoder-sidecar provenance:
 - upstream adapter SHA-256 before instrumentation `5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef`
 - instrumentation writes a JSON sidecar only; stock MIDI serialization is unchanged
 
-The locked hello-ai environment converts those sidecars into one MIDI stream per decoded program solely so the frozen scorer can consume them. Independent validation found every decoded note survives one-to-one on all five tracks, with at most ~1.1 ms serialization quantization—well below the 50 ms evaluation tolerance.
+The locked hello-ai environment converts those sidecars into one MIDI stream per decoded program solely so the frozen scorer can consume them. Independent validation found every decoded note survives one-to-one on all five tracks with matching pitch/program/drum identity and at most ~1.1 ms serialization quantization—well below the 50 ms evaluation tolerance.
 
-Therefore **decoder-level evidence, not stock `mt3-infer` MIDI, is the canonical MR-MT3 measurement**. Any future product adapter must preserve decoded note identity directly rather than consume the current stock MIDI serializer.
+Therefore **decoder-level evidence, not stock `mt3-infer` MIDI, is the canonical MR-MT3 measurement**. Any future product adapter must preserve decoded note identity and timestamps directly rather than consume the current stock MIDI serializer.
 
 ## Per-excerpt flat onset F1
 
@@ -130,9 +135,9 @@ Every scored run records candidate/checkpoint provenance, separate code/weight l
 
 ## Operational findings
 
-Basic Pitch's first excerpt includes model cold-start; the remaining four measured about 1.5–1.8 seconds each on the GitHub CPU runner.
+Basic Pitch's first excerpt includes model cold-start; the remaining four measured about 1.4–1.8 seconds each on the GitHub CPU runner.
 
-The stock MR-MT3 CLI launches and loads a model process for every excerpt. Measured wall time was roughly 26–155 seconds with ~817–863 MB RSS. This is a wrapper/process cost, not a warm persistent-model latency measurement.
+The stock MR-MT3 CLI launches and loads a model process for every excerpt. In the canonical sidecar run, measured wall time was roughly 26–156 seconds with ~825–841 MB RSS. This is a wrapper/process cost, not a warm persistent-model latency measurement.
 
 A production candidate would require a lossless decoder-level adapter, persistent/warm inference, broader data, and downstream product-task validation.
 
