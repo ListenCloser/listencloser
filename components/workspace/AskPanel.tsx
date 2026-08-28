@@ -19,10 +19,9 @@ import type { PlaybackSource } from "@/lib/stores/transport";
 import type { AskAction, AskMessage, AskReference, AskResponse } from "@/lib/ask/types";
 
 const STARTER_PROMPTS = [
-  "What is happening harmonically here?",
-  "What changes in this section?",
-  "Why does this passage sound different?",
-  "Summarize this piece.",
+  "Summarize this piece",
+  "What changes here?",
+  "Explain the harmony",
 ];
 
 function makeId(): string {
@@ -32,19 +31,13 @@ function makeId(): string {
 }
 
 function referenceLabel(ref: AskReference, insights: { id: string; claim: string }[]): string {
-  const resolveInsight = (id: string) => insights.find((i) => i.id === id)?.claim ?? null;
+  const resolveInsight = (id: string) => insights.find((item) => item.id === id)?.claim ?? null;
   return formatReference(ref, resolveInsight);
 }
 
 function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; blocked: boolean; reason?: string; onClick: (action: AskAction) => void }) {
   return (
-    <button
-      type="button"
-      className="ask-action-chip"
-      disabled={blocked}
-      title={reason}
-      onClick={() => onClick(action)}
-    >
+    <button type="button" className="ask-action-chip" disabled={blocked} title={reason} onClick={() => onClick(action)}>
       {actionLabel(action)}
     </button>
   );
@@ -84,13 +77,12 @@ export default function AskPanel() {
     try {
       const response = await askMusic({ question, context });
       if (token !== askTokenRef.current || workId !== activeWorkIdRef.current) return;
-      const assistantMessage: AskMessage = { id: makeId(), role: "assistant", response };
-      appendAskMessage(assistantMessage);
+      appendAskMessage({ id: makeId(), role: "assistant", response });
       setLastAsked(null);
-    } catch (err) {
+    } catch (cause) {
       if (token !== askTokenRef.current || workId !== activeWorkIdRef.current) return;
-      const msg = err instanceof Error ? err.message : "Ask is not available right now.";
-      setError(msg.includes("not configured") ? "Ask is not configured. Contact your administrator." : "Ask is not available right now. Please try again.");
+      const message = cause instanceof Error ? cause.message : "Ask is not available right now.";
+      setError(message.includes("not configured") ? "Ask is not configured for this workspace." : "Ask is unavailable right now.");
     } finally {
       if (token === askTokenRef.current) {
         setPending(false);
@@ -119,11 +111,10 @@ export default function AskPanel() {
       timeline.bpm,
     );
     if (!context) {
-      setError("Ask needs an open work to answer questions.");
+      setError("Open a piece before asking about it.");
       return;
     }
-    const userMessage: AskMessage = { id: makeId(), role: "user", text: trimmed };
-    appendAskMessage(userMessage);
+    appendAskMessage({ id: makeId(), role: "user", text: trimmed });
     setDraft("");
     setLastAsked({ question: trimmed, context, workId: activeWorkId });
     void runAsk(trimmed, context, activeWorkId);
@@ -173,8 +164,8 @@ export default function AskPanel() {
   }, [activeSource, seek, setActiveRepresentation, setLoop, toggleLoop, transport.loopEnabled]);
 
   const scope = describeAskContext(workspace.selection);
+  const showScope = Boolean(workspace.selection && scope);
   const conversation = workspace.askConversation;
-  const starterPrompts = conversation.length === 0;
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -184,24 +175,22 @@ export default function AskPanel() {
   };
 
   return (
-    <div className="ask-panel">
-      <div className="ask-context">
-        <span className="ask-context-label">Context</span>
-        <span className="ask-context-value">{scope}</span>
-      </div>
+    <div className="ask-panel ask-panel-v4">
+      {showScope && (
+        <div className="ask-context" aria-label={`Question context: ${scope}`}>
+          <span>{scope}</span>
+        </div>
+      )}
 
       <div className="ask-conversation" aria-live="polite">
-        {conversation.length === 0 && starterPrompts && (
+        {conversation.length === 0 && (
           <div className="ask-empty">
-            <p>Ask questions about this piece. Answers reference evidence in the workspace.</p>
+            <div className="ask-empty-mark" aria-hidden="true">\u223f</div>
+            <strong>Ask about what you hear</strong>
+            <p>Questions use the current piece, playhead, selection, and analysis as context.</p>
             <div className="ask-prompts">
               {STARTER_PROMPTS.map((prompt) => (
-                <button
-                  type="button"
-                  className="ask-prompt"
-                  key={prompt}
-                  onClick={() => void handleAsk(prompt)}
-                >
+                <button type="button" className="ask-prompt" key={prompt} onClick={() => void handleAsk(prompt)}>
                   {prompt}
                 </button>
               ))}
@@ -223,8 +212,8 @@ export default function AskPanel() {
 
         {pending && (
           <div className="ask-turn ask-thinking" role="status">
-            <span className="spinner" aria-hidden="true" />
-            <span>Thinking…</span>
+            <span className="ask-thinking-dot" />
+            <span>Thinking</span>
           </div>
         )}
       </div>
@@ -232,31 +221,26 @@ export default function AskPanel() {
       {error && (
         <div className="ask-error" role="alert">
           <span>{error}</span>
-          <button type="button" onClick={retry}>
-            Try again
-          </button>
+          {lastAsked && <button type="button" onClick={retry}>Retry</button>}
         </div>
       )}
 
-      <form
-        className="ask-composer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void handleAsk(draft);
-        }}
-      >
+      <form className="ask-composer" onSubmit={(event) => { event.preventDefault(); void handleAsk(draft); }}>
         <textarea
           ref={inputRef}
           className="ask-input"
-          placeholder="Ask about this piece…"
+          placeholder={showScope ? "Ask about this selection…" : "Ask about this piece…"}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
           rows={2}
           disabled={!activeWorkId}
+          aria-label="Ask about the music"
         />
-        <button type="submit" className="ask-send" disabled={pending || !draft.trim()}>
-          Send
+        <button type="submit" className="ask-send" disabled={pending || !draft.trim()} aria-label="Send question">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 8h9M8.5 3.5 13 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       </form>
     </div>
@@ -279,18 +263,12 @@ function AskMessageView({
   onAction: (action: AskAction) => void;
 }) {
   if (message.role === "user") {
-    return (
-      <div className="ask-turn ask-turn-user">
-        <span className="ask-turn-label">You</span>
-        <p>{message.text}</p>
-      </div>
-    );
+    return <div className="ask-turn ask-turn-user"><p>{message.text}</p></div>;
   }
 
   const response: AskResponse = message.response;
   return (
     <div className="ask-turn ask-turn-assistant">
-      <span className="ask-turn-label">Ask</span>
       <p>{response.answer}</p>
       {response.references.length > 0 && (
         <div className="ask-references">
@@ -319,15 +297,7 @@ function AskMessageView({
         <div className="ask-actions">
           {response.suggestedActions.map((action, index) => {
             const { allowed, reason } = validateAction(action, activeSource);
-            return (
-              <ActionChip
-                key={`${action.type}-${index}`}
-                action={action}
-                blocked={!allowed}
-                reason={reason}
-                onClick={onAction}
-              />
-            );
+            return <ActionChip key={`${action.type}-${index}`} action={action} blocked={!allowed} reason={reason} onClick={onAction} />;
           })}
         </div>
       )}
