@@ -1,0 +1,32 @@
+name: npm audit probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/npm-audit-probe.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Report npm audit findings
+        run: |
+          npm audit --json > /tmp/npm-audit.json || true
+          node - <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('/tmp/npm-audit.json', 'utf8'));
+          console.log(JSON.stringify({metadata: report.metadata, vulnerabilities: report.vulnerabilities}, null, 2));
+          NODE
