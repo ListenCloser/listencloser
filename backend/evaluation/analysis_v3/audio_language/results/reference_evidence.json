@@ -3,6 +3,19 @@
   "local_model_inference_performed": false,
   "assessed_date": "2026-08-28",
   "hello_ai_base_sha": "19fe23a765d6b80ce099be428e46f701cf97c828",
+  "source_registry": {
+    "music_flamingo_model_card": "https://huggingface.co/nvidia/music-flamingo-2601-hf",
+    "music_flamingo_transformers": "https://huggingface.co/docs/transformers/en/model_doc/musicflamingo",
+    "music_flamingo_project": "https://research.nvidia.com/labs/adlr/MF/",
+    "audio_flamingo_3_model_card": "https://huggingface.co/nvidia/audio-flamingo-3-hf",
+    "audio_flamingo_repo": "https://github.com/NVIDIA/audio-flamingo",
+    "qwen2_5_omni_model_card": "https://huggingface.co/Qwen/Qwen2.5-Omni-7B",
+    "llark_repo": "https://github.com/spotify-research/llark",
+    "cmi_bench_ismir": "https://ismir2025program.ismir.net/poster_246.html",
+    "cmi_bench_arxiv": "https://arxiv.org/abs/2506.12285",
+    "cmi_bench_repo": "https://github.com/nicolaus625/CMI-bench",
+    "muse_arxiv": "https://arxiv.org/abs/2510.19055"
+  },
   "candidates": [
     {
       "candidate": "music_flamingo",
@@ -22,7 +35,14 @@
       "relational_result": "not locally measured",
       "semantic_usefulness": "not locally measured; primary first-run candidate",
       "hallucination_or_contradiction_rate": "not locally measured",
-      "decision": "RESEARCH"
+      "decision": "RESEARCH",
+      "source_refs": [
+        "music_flamingo_model_card",
+        "music_flamingo_transformers",
+        "music_flamingo_project",
+        "audio_flamingo_repo",
+        "cmi_bench_ismir"
+      ]
     },
     {
       "candidate": "audio_flamingo_3",
@@ -42,7 +62,12 @@
       "relational_result": "MUSE reference reports at/near chance performance on several music-perception and relational tasks",
       "semantic_usefulness": "not locally measured; general audio-language control",
       "hallucination_or_contradiction_rate": "not locally measured",
-      "decision": "RESEARCH"
+      "decision": "RESEARCH",
+      "source_refs": [
+        "audio_flamingo_3_model_card",
+        "audio_flamingo_repo",
+        "muse_arxiv"
+      ]
     },
     {
       "candidate": "qwen2_5_omni_7b",
@@ -61,7 +86,11 @@
       "relational_result": "MUSE reference reports at/near chance performance on several core music-perception tasks",
       "semantic_usefulness": "not locally measured",
       "hallucination_or_contradiction_rate": "not locally measured",
-      "decision": "REVISIT"
+      "decision": "REVISIT",
+      "source_refs": [
+        "qwen2_5_omni_model_card",
+        "muse_arxiv"
+      ]
     },
     {
       "candidate": "llark",
@@ -80,7 +109,10 @@
       "relational_result": "historical reference only",
       "semantic_usefulness": "historical reference only",
       "hallucination_or_contradiction_rate": "not applicable without released checkpoint",
-      "decision": "REVISIT"
+      "decision": "REVISIT",
+      "source_refs": [
+        "llark_repo"
+      ]
     }
   ],
   "reference_benchmarks": [
@@ -89,14 +121,22 @@
       "year": 2025,
       "evidence_class": "REFERENCE_BENCHMARK",
       "conclusion": "Audio-text LLMs significantly trail task-specific supervised MIR systems on standard exact-MIR metrics and exhibit demographic/cultural/chronological biases.",
-      "product_implication": "Do not promote audio-language answers to exact musical facts without task-level validation against specialized evidence."
+      "product_implication": "Do not promote audio-language answers to exact musical facts without task-level validation against specialized evidence.",
+      "source_refs": [
+        "cmi_bench_ismir",
+        "cmi_bench_arxiv",
+        "cmi_bench_repo"
+      ]
     },
     {
       "name": "MUSE",
       "year": 2025,
       "evidence_class": "REFERENCE_BENCHMARK",
       "conclusion": "Large audio-language systems show a persistent human gap; Qwen2.5-Omni and Audio Flamingo 3 are at or near chance on several music perception/relational tasks, and chain-of-thought prompting is inconsistent.",
-      "product_implication": "Relational claims remain hypotheses unless separately validated or grounded in trusted evidence."
+      "product_implication": "Relational claims remain hypotheses unless separately validated or grounded in trusted evidence.",
+      "source_refs": [
+        "muse_arxiv"
+      ]
     }
   ],
   "architecture_recommendation": "Research-only evidence-grounded multimodal Ask path; audio-language outputs remain SemanticHypothesis-class evidence unless exact-task evaluation proves otherwise."
