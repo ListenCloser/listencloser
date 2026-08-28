@@ -1,6 +1,6 @@
 # Visual Enhancement Source of Truth
 
-> **Status:** active design R&D for PR #405.
+> **Status:** active design R&D for PR #405. PR #396 has merged; #405 is now ready to be rebased onto current `main` before implementation/merge validation.
 >
 > This document is the authoritative source for visual enhancement proposals, references, decisions, guardrails, and review questions. Chat discussion and earlier #405 hero/favicon experiments are superseded when they conflict with this file.
 
@@ -15,7 +15,7 @@ Current direction:
 - **STRONG MOTION REFERENCE:** **Entropy** — borrow the organic order→structure feeling; do not run the full busy effect persistently.
 - **AESTHETIC REFERENCES ONLY:** Halide Topo, Liquid Metal — borrow single-object confidence, monochrome technical depth, and negative space; reject theatrical 3D/parallax/shader identity for now.
 - **REJECTED:** the first #405 miniature-workspace hero (waveform + piano roll + score + evidence cards). It was explanatory but looked like a designed mockup rather than a confident product identity.
-- **UNRESOLVED:** favicon / logo. The current waveform/staff mark is not approved and should not be defended merely because it is already implemented.
+- **UNRESOLVED:** favicon / logo. The rejected #405 favicon/BrandMark experiment has been reverted from the branch; the existing production mark remains until a new direction passes explicit visual validation.
 
 The signed-out surface may be expressive. The signed-in workspace remains a calm creative instrument.
 
@@ -294,7 +294,7 @@ A polished composition should normally have **one dominant visual idea**, suppor
 
 ### Current status
 
-**Unresolved.** The currently changed waveform/staff favicon is not approved.
+**Unresolved.** The rejected #405 favicon and BrandMark code changes have been reverted. The existing production mark stays in place until a replacement passes the acceptance test below.
 
 ### Requirements
 
@@ -402,24 +402,24 @@ The reviewer should provide concrete references and, where possible, visual alte
 
 Before #405 can become merge-ready:
 
-1. #396 merge-gate/platform work lands first.
-2. Rebase #405 on current `main`.
-3. Keep Signal Landscape as the default prototype unless review produces a clearly stronger direction.
-4. Verify source/license before adopting any third-party component code.
-5. Capture real browser evidence at:
+1. **PR #396 is merged. Rebase #405 onto current `main` now.**
+2. Keep Signal Landscape as the default prototype unless review produces a clearly stronger direction.
+3. Verify source/license before adopting any third-party component code.
+4. Capture real browser evidence at:
    - 1440×900 desktop;
    - ~820–980px tablet;
    - 390×844 phone;
    - `prefers-reduced-motion`.
-6. Verify landing performance and no unexpected layout shift.
-7. Confirm signed-in workspace has no new persistent ambient motion.
-8. Confirm the shared mark/favicon direction separately; do not merge an unresolved logo merely as collateral.
-9. Run the hardened exact-head merge gates.
-10. Only then decide whether the visual direction earns a production merge.
+5. Verify landing performance and no unexpected layout shift.
+6. Confirm signed-in workspace has no new persistent ambient motion.
+7. Keep brand/favicon implementation unchanged unless a new mark passes the explicit 16px acceptance test.
+8. Run the hardened exact-head merge gates established by #396.
+9. Only then decide whether the visual direction earns a production merge.
 
 ## 14. Change log / superseded directions
 
 - **Initial #405:** mini-workspace hero + simplified waveform/staff mark. **Rejected after visual review** as too literal/generic.
+- **Brand cleanup:** rejected favicon/BrandMark branch changes **reverted** so an unresolved identity cannot merge accidentally.
 - **Second exploration:** more cinematic generative/sculptural mockups. **Useful for taste discovery**, but several still read as generic AI because of dark + serif + abstract glowing object conventions.
 - **Current direction:** Signal Landscape informed by Background Paths / Entropy / topo references, with an intentionally much smaller motion and dependency budget.
 
