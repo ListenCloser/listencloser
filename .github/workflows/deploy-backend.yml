@@ -1,10 +1,10 @@
 name: Deploy Backend
 
-# Zero-cost deployment path:
-# - build the production image once on free GitHub-hosted runners
-# - publish arch-specific images to GHCR
-# - deploy the exact git SHA to Oracle without rebuilding on the VM
-# - keep the existing VM build path as a migration/rollback fallback
+# POST-TRANSITION (2026-08-18): automatic backend deployment restored.
+# The one-time migration-history correction has succeeded and its workflow
+# was deleted. Steady-state deploy = `supabase link` + `supabase db push`
+# only. Migration history is never mutated here and applied migrations are
+# never force-replayed.
 
 on:
   workflow_dispatch:
@@ -22,50 +22,8 @@ concurrency:
   group: deploy-backend-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}-backend
-
 jobs:
-  publish-image:
-    name: Publish backend image (${{ matrix.arch }})
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Log in to GitHub Container Registry
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-      - name: Build exact-SHA image natively
-        env:
-          ARCH: ${{ matrix.arch }}
-        run: |
-          set -euo pipefail
-          image_name="$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
-          image_ref="${image_name}:${GITHUB_SHA}-${ARCH}"
-          docker build \
-            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
-            --tag "$image_ref" \
-            backend
-          docker push "$image_ref"
-          echo "Published $image_ref"
-
   migrate:
-    needs: publish-image
-    permissions:
-      contents: read
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
@@ -84,21 +42,18 @@ jobs:
 
   deploy:
     needs: migrate
-    permissions:
-      contents: read
-      packages: read
     timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy exact image via SSH
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.ORACLE_VM_HOST }}
           username: ${{ secrets.ORACLE_VM_USER }}
           key: ${{ secrets.ORACLE_VM_SSH_KEY }}
-          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA,LLM_BASE_URL,LLM_API_KEY,LLM_MODEL,OTEL_EXPORTER_OTLP_ENDPOINT,OTEL_EXPORTER_OTLP_HEADERS,BACKEND_IMAGE_REPOSITORY,GHCR_USERNAME,GHCR_TOKEN
+          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA,LLM_BASE_URL,LLM_API_KEY,LLM_MODEL,OTEL_EXPORTER_OTLP_ENDPOINT,OTEL_EXPORTER_OTLP_HEADERS
           script: |
             set -euo pipefail
             if [ ! -d ~/hello-ai/.git ]; then
@@ -127,6 +82,3 @@ jobs:
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
           OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
-          BACKEND_IMAGE_REPOSITORY: ${{ env.IMAGE_NAME }}
-          GHCR_USERNAME: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

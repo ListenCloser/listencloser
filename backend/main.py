@@ -20,6 +20,7 @@ from api_schemas import HealthLiveResponse, HealthQueueResponse, HealthReadyResp
 from ask.api import router as ask_router
 from auth_utils import get_supabase_client, limiter
 from domain.api import router as domain_router
+from domain.upload_api import router as upload_router
 from observability import configure_logging, init_telemetry, record_http_request
 
 configure_logging("hello-ai-api")
@@ -70,6 +71,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(domain_router)
+app.include_router(upload_router)
 app.include_router(ask_router)
 
 # Instrument after routes are registered so request spans include FastAPI route
