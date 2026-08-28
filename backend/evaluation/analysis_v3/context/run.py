@@ -184,8 +184,12 @@ def run_zero_shot_probe(
         for name, taxonomy in manifest["taxonomies"].items()
     }
 
-    scored_truth: dict[str, list[np.ndarray]] = {name: [] for name in taxonomy_embeddings}
-    scored_values: dict[str, list[np.ndarray]] = {name: [] for name in taxonomy_embeddings}
+    scored_truth: dict[str, list[np.ndarray]] = {
+        name: [] for name in taxonomy_embeddings
+    }
+    scored_values: dict[str, list[np.ndarray]] = {
+        name: [] for name in taxonomy_embeddings
+    }
     clips: list[dict[str, Any]] = []
 
     for clip in manifest["clips"]:
@@ -198,12 +202,19 @@ def run_zero_shot_probe(
         end = float(clip["excerpt_end"])
         audio, sample_rate = _load_audio_segment(path, start, end)
         audio_vector = _embed_audio(adapter, audio, sample_rate)
-        clip_result: dict[str, Any] = {"id": clip["id"], "status": "ok", "taxonomies": {}}
+        clip_result: dict[str, Any] = {
+            "id": clip["id"],
+            "status": "ok",
+            "taxonomies": {},
+        }
 
         for taxonomy_name, (labels, text_vectors) in taxonomy_embeddings.items():
             ranking = rank_zero_shot(audio_vector, text_vectors, labels)
             score_by_label = {label: score for label, score in ranking}
-            expected = [str(value) for value in clip.get("expected", {}).get(taxonomy_name, [])]
+            expected = [
+                str(value)
+                for value in clip.get("expected", {}).get(taxonomy_name, [])
+            ]
             clip_result["taxonomies"][taxonomy_name] = {
                 "expected": expected,
                 "ranked": [
