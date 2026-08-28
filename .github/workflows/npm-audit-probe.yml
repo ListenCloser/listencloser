@@ -32,7 +32,7 @@ jobs:
           npm install --save-exact next@16.3.3
           npm install --save-dev --save-exact eslint-config-next@16.3.3
           npm audit fix
-          npm pkg set scripts.build='next build --webpack'
+          npm pkg set scripts.build='next build --webpack' scripts.dev='next dev --webpack'
           npm audit
           npm run typecheck
           npm run lint
