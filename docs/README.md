@@ -8,14 +8,15 @@ This directory is the durable source of truth for product, architecture, researc
 2. **`CURRENT_STATE.md`** — fast snapshot of current `main`/capability state; verify deployed SHA for production claims.
 3. **`ANALYSIS_V3_IMPLEMENTATION_PLAN.md`** — concrete Analysis V3 sequencing, bakeoff contracts, decision gates, and first implementation-agent task.
 4. **`EVIDENCE_GRAPH_V3.md`** — concrete Analysis V3 evidence/observation/relation contracts, trust semantics, persistence mapping, and schema migration triggers for #336.
-5. **`AGENT_EXECUTION_PLAYBOOK.md`** — required autonomous implementation and verification process.
-6. **`RESEARCH_LANDSCAPE.md`** — current MIR / OSS / foundation-model / benchmark adoption reference.
-7. **`PLATFORM_V3_COMPETITOR_LANDSCAPE.md`** — current low-cost hosting/compute/database/storage alternatives, migration triggers, and Platform V3 provider decisions.
-8. **`AGENTS.md`** — compact agent entry point and repository map.
-9. **ADRs (`adr/`)** — explicit architectural decisions; a newer accepted ADR may supersede a section of the master spec and must update it promptly.
-10. **`ARCHITECTURE.md`** — current shipped runtime contract.
-11. **`OPS.md`, `TEST_ENVIRONMENT.md`** — operational and testing procedures.
-12. Historical/audit/evaluation docs — supporting evidence and context, not automatically current product direction.
+5. **`design/BREAKDOWN_V3.md`** — product/interaction contract for the evidence-grounded Breakdown experience in #340, including ranking, trust presentation, evidence prerequisites, reference-source usage, responsive states, and bounded implementation sequencing.
+6. **`AGENT_EXECUTION_PLAYBOOK.md`** — required autonomous implementation and verification process.
+7. **`RESEARCH_LANDSCAPE.md`** — current MIR / OSS / foundation-model / benchmark adoption reference.
+8. **`PLATFORM_V3_COMPETITOR_LANDSCAPE.md`** — current low-cost hosting/compute/database/storage alternatives, migration triggers, and Platform V3 provider decisions.
+9. **`AGENTS.md`** — compact agent entry point and repository map.
+10. **ADRs (`adr/`)** — explicit architectural decisions; a newer accepted ADR may supersede a section of the master spec and must update it promptly.
+11. **`ARCHITECTURE.md`** — current shipped runtime contract.
+12. **`OPS.md`, `TEST_ENVIRONMENT.md`** — operational and testing procedures.
+13. Historical/audit/evaluation docs — supporting evidence and context, not automatically current product direction.
 
 ## Machine/runtime sources of truth
 
@@ -40,6 +41,7 @@ If docs and runtime disagree, treat the discrepancy as documentation/config drif
   - #336 — Evidence Graph ERD/contracts and additive migration triggers; concrete design lives in `EVIDENCE_GRAPH_V3.md`.
   - #339 — audio-language grounded semantic evaluation.
 - UX V3 redesign: GitHub issue #328.
+  - #340 — evidence-grounded music Breakdown experience; interaction and implementation contract lives in `design/BREAKDOWN_V3.md`.
 - Platform V3 architecture/DevEx review: GitHub issue #329.
   - `PLATFORM_V3_COMPETITOR_LANDSCAPE.md` — provider/free-tier comparison and migration triggers.
 - Structure remains separately evaluation-gated; consult the relevant issue/capability registry before exposure.

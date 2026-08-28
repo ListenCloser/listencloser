@@ -149,3 +149,15 @@ Escalate only for genuine blockers such as:
 - substantial new paid infrastructure,
 - major architecture changes with broad consequences,
 - required secrets/credentials unavailable to the agent.
+
+## 12. Parallel work and the merge lane
+
+Parallel research and implementation branches are encouraged, but merge traffic must be serialized so autonomous agents do not invalidate each other's CI.
+
+- Keep at most one PR non-draft / merge-ready at a time. Other parallel PRs stay draft until the active merge-lane PR lands.
+- Refresh the merge-lane branch onto current `main` immediately before its final required-check cycle. Do not repeatedly rebase draft work merely because `main` moves.
+- Once the active PR is on current `main` and its required/relevant evidence is green, merge it promptly before promoting the next PR.
+- Do not merge docs, research, or low-risk cleanup while another runtime/security/data PR is in its final check window; doing so forces expensive revalidation without improving the runtime change.
+- Use the smallest evidence tier that proves the diff. Real-stack E2E is required for critical cross-boundary product/runtime changes, not automatically for static docs, dead-code deletion, or tooling-only edits whose behavior is already covered by build/typecheck/unit/browser checks.
+- A heavyweight optional check may continue after a low-risk PR merges when the required and risk-relevant gates already prove the change; never skip a check that is required by branch protection or materially relevant to the changed behavior.
+- If multiple PRs become ready simultaneously, prioritize production correctness/security/data migrations, then user-facing runtime changes, then tooling/cleanup, then docs/research-only changes.
