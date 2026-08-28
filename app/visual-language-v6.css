@@ -209,12 +209,19 @@
   color: #e3d6b7;
 }
 
+/* Draw the selected marker without generated text so it never changes the
+ * option's accessible name ("Score" must stay "Score", not "Score ✓"). */
 .piece-source-menu button[aria-selected="true"]::after {
-  content: "✓";
+  content: "";
   position: absolute;
-  right: 9px;
-  color: #cbae69;
-  font-size: 10px;
+  right: 10px;
+  top: 50%;
+  width: 6px;
+  height: 3px;
+  border-left: 1.5px solid #cbae69;
+  border-bottom: 1.5px solid #cbae69;
+  transform: translateY(-65%) rotate(-45deg);
+  transform-origin: center;
 }
 
 /* Reduce visual competition in toolbar chrome. */
