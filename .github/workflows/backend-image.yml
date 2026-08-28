@@ -6,6 +6,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'backend/**'
+      - '!backend/evaluation/**'
+      - '!backend/tests/**'
       - '.github/workflows/backend-image.yml'
       - '.github/workflows/deploy-backend.yml'
       - 'scripts/deploy.sh'
