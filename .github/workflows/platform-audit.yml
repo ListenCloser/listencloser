@@ -30,6 +30,7 @@ jobs:
       - name: Sync backend
         run: uv sync --project backend --locked
       - name: deptry report
-        run: uvx --from deptry==0.25.1 deptry backend || true
+        working-directory: backend
+        run: uvx --from deptry==0.25.1 deptry . || true
       - name: High-confidence Vulture report
-        run: uvx --from vulture vulture backend --min-confidence 100 --sort-by-size || true
+        run: uvx --from vulture vulture backend --exclude 'backend/.venv/**' --min-confidence 100 --sort-by-size || true
