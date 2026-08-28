@@ -1,0 +1,42 @@
+name: Fix V5 score source wiring
+
+on:
+  push:
+    branches:
+      - design/v5-visual-language-cleanup
+    paths:
+      - .github/workflows/fix-v5-score-wiring.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: design/v5-visual-language-cleanup
+      - name: Fix score transport hook
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('lib/representations.tsx')
+          text = p.read_text()
+          old_wave = 'function WaveformView() {\n  const { workspace, setSelection } = useWorkspace();\n  const { transport, seek, setActiveSource } = useTransport();'
+          new_wave = 'function WaveformView() {\n  const { workspace, setSelection } = useWorkspace();\n  const { transport, seek } = useTransport();'
+          old_score = 'function ScoreView() {\n  const { workspace, setSelection } = useWorkspace();\n  const { transport, seek } = useTransport();'
+          new_score = 'function ScoreView() {\n  const { workspace, setSelection } = useWorkspace();\n  const { transport, seek, setActiveSource } = useTransport();'
+          if old_wave not in text or old_score not in text:
+              raise SystemExit('expected transport hooks not found')
+          text = text.replace(old_wave, new_wave, 1).replace(old_score, new_score, 1)
+          p.write_text(text)
+          PY
+      - name: Commit and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- lib/representations.tsx
+          git rm .github/workflows/fix-v5-score-wiring.yml
+          git commit -m "fix: wire score playback action to transport"
+          git push origin HEAD:design/v5-visual-language-cleanup
