@@ -73,12 +73,13 @@ def test_init_sentry_preserves_api_integrations_and_default_release(monkeypatch)
     calls = []
     monkeypatch.setattr(sentry_sdk, "init", lambda **kwargs: calls.append(kwargs))
 
-    assert init_sentry(
+    initialized = init_sentry(
         logging.getLogger("test"),
         default_release="backend@2.0.0",
         include_fastapi_integrations=True,
-    ) is True
+    )
 
+    assert initialized is True
     kwargs = calls[0]
     assert kwargs["dsn"] == "https://backend@example.invalid/2"
     assert kwargs["environment"] == "production"
