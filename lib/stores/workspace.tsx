@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import type { Insight } from "@/lib/domain.types";
-import type { Project, Work } from "@/lib/domain.types";
 import type { RepresentationId } from "@/lib/representations";
 import type { AskMessage } from "@/lib/ask/types";
 
@@ -62,8 +61,6 @@ export type MusicalSelection = {
 export type TranscriptionProfile = "auto" | "solo_piano";
 
 type WorkspaceState = {
-  project: Project | null;
-  works: Work[];
   activeWorkId: string | null;
   isLoadingWork: boolean;
   importRequestId: number;
@@ -84,8 +81,6 @@ type WorkspaceState = {
 
 type WorkspaceContextValue = {
   workspace: WorkspaceState;
-  setProject: (project: Project | null) => void;
-  setWorks: (works: Work[]) => void;
   setActiveWorkId: (workId: string | null) => void;
   setLoadingWork: (loading: boolean) => void;
   requestImport: () => void;
@@ -94,8 +89,6 @@ type WorkspaceContextValue = {
   setInspectorMode: (mode: "analysis" | "ask") => void;
   appendAskMessage: (message: AskMessage) => void;
   clearAskConversation: () => void;
-  removeWork: (workId: string) => void;
-  restoreWork: (work: Work) => void;
   addRepresentation: (rep: RepresentationEntry) => void;
   replaceRepresentations: (reps: RepresentationEntry[]) => void;
   setInsights: (insights: Insight[]) => void;
@@ -135,8 +128,6 @@ export function WorkspaceProvider({
   initialLoading?: boolean;
 }) {
   const [workspace, setWorkspace] = useState<WorkspaceState>({
-    project: null,
-    works: [],
     activeWorkId: null,
     // The signed-in app opts into this during session/library hydration. Tests
     // and isolated consumers keep normal work-loading semantics by default.
@@ -156,9 +147,6 @@ export function WorkspaceProvider({
     transcriptionProfile: "auto",
     analysisState: "idle",
   });
-
-  const setProject = useCallback((project: Project | null) => setWorkspace((prev) => ({ ...prev, project })), []);
-  const setWorks = useCallback((works: Work[]) => setWorkspace((prev) => ({ ...prev, works })), []);
 
   const setActiveWorkId = useCallback((activeWorkId: string | null) => {
     setWorkspace((prev) => {
@@ -183,32 +171,6 @@ export function WorkspaceProvider({
   const setLoadingWork = useCallback((isLoadingWork: boolean) => setWorkspace((prev) => ({ ...prev, isLoadingWork })), []);
   const requestImport = useCallback(() => setWorkspace((prev) => ({ ...prev, importRequestId: prev.importRequestId + 1 })), []);
   const toggleLibrary = useCallback(() => setWorkspace((prev) => ({ ...prev, libraryCollapsed: !prev.libraryCollapsed })), []);
-
-  const removeWork = useCallback((workId: string) => {
-    setWorkspace((prev) => {
-      const removingActive = prev.activeWorkId === workId;
-      return {
-        ...prev,
-        works: prev.works.filter((work) => work.id !== workId),
-        activeWorkId: removingActive ? null : prev.activeWorkId,
-        representations: removingActive ? [] : prev.representations,
-        insights: removingActive ? [] : prev.insights,
-        takes: removingActive ? [] : prev.takes,
-        studioAction: removingActive ? null : prev.studioAction,
-        studioOperation: removingActive ? { state: "idle", label: "" } : prev.studioOperation,
-        activeRepresentation: removingActive ? null : prev.activeRepresentation,
-        selection: removingActive ? null : prev.selection,
-        askConversation: removingActive ? [] : prev.askConversation,
-        isLoadingWork: removingActive ? false : prev.isLoadingWork,
-        analysisState: removingActive ? "idle" : prev.analysisState,
-      };
-    });
-  }, []);
-
-  const restoreWork = useCallback((work: Work) => {
-    setWorkspace((prev) => prev.works.some((item) => item.id === work.id) ? prev : { ...prev, works: [...prev.works, work] });
-  }, []);
-
   const toggleInspector = useCallback(() => setWorkspace((prev) => ({ ...prev, inspectorCollapsed: !prev.inspectorCollapsed })), []);
   const setInspectorMode = useCallback((inspectorMode: "analysis" | "ask") => setWorkspace((prev) => ({ ...prev, inspectorMode })), []);
   const appendAskMessage = useCallback((message: AskMessage) => setWorkspace((prev) => ({ ...prev, askConversation: [...prev.askConversation, message] })), []);
@@ -243,8 +205,6 @@ export function WorkspaceProvider({
   return (
     <WorkspaceContext.Provider value={{
       workspace,
-      setProject,
-      setWorks,
       setActiveWorkId,
       setLoadingWork,
       requestImport,
@@ -253,8 +213,6 @@ export function WorkspaceProvider({
       setInspectorMode,
       appendAskMessage,
       clearAskConversation,
-      removeWork,
-      restoreWork,
       addRepresentation,
       replaceRepresentations,
       setInsights,
