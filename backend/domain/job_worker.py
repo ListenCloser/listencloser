@@ -38,7 +38,7 @@ from uuid import UUID, uuid4
 
 from opentelemetry.trace import Status, StatusCode
 
-from observability import get_tracer
+from observability import get_tracer, record_job_execution, record_orphans_recovered
 
 from .models import Capability, Job, JobLifecycle
 
@@ -235,6 +235,7 @@ class JobWorker:
             count = len(result.data) if result.data else 0
             if count:
                 logger.warning("orphan_recovery", extra={"count": count})
+                record_orphans_recovered(count)
             return count
         except Exception:
             logger.exception("orphan_recovery_failed")
@@ -552,6 +553,7 @@ class JobWorker:
         heartbeat_thread.start()
 
         # --- Execute handler ---
+        execution_started = time.perf_counter()
         with _tracer.start_as_current_span(
             "job.execute",
             attributes={
@@ -576,6 +578,11 @@ class JobWorker:
                     )
                     return
                 self._mark_succeeded(job_id, output_version_ids)
+                record_job_execution(
+                    cap_key,
+                    "succeeded",
+                    time.perf_counter() - execution_started,
+                )
                 execute_span.set_attribute("job.success", True)
                 execute_span.set_attribute("output_version_count", len(output_version_ids))
                 logger.info("job_succeeded", extra={"job_id": job_id})
@@ -599,7 +606,21 @@ class JobWorker:
                 retry_count = int(job_row.get("retry_count", 0)) + 1
                 max_retries = int(job_row.get("max_retries", 3))
 
-                if self._check_cancelled(job_id):
+                cancelled = self._check_cancelled(job_id)
+                outcome = (
+                    "cancelled"
+                    if cancelled
+                    else "retry"
+                    if retry_count <= max_retries
+                    else "failed"
+                )
+                record_job_execution(
+                    cap_key,
+                    outcome,
+                    time.perf_counter() - execution_started,
+                )
+
+                if cancelled:
                     logger.info(
                         "job_cancelled_after_handler_error",
                         extra={"job_id": job_id},
