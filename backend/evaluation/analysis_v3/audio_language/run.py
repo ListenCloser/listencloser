@@ -37,7 +37,11 @@ def _validate_reference_sources(result: dict[str, Any]) -> None:
             if not isinstance(entry, dict):
                 raise ValueError(f"reference evidence {section} entries must be objects")
             refs = entry.get("source_refs")
-            if not isinstance(refs, list) or not refs or not all(isinstance(ref, str) for ref in refs):
+            if (
+                not isinstance(refs, list)
+                or not refs
+                or not all(isinstance(ref, str) for ref in refs)
+            ):
                 raise ValueError(f"every {section} entry requires non-empty source_refs")
             unknown = sorted(set(refs) - set(registry))
             if unknown:
