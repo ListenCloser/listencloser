@@ -28,25 +28,98 @@ def load_reference_evidence(path: Path | None = None) -> dict[str, Any]:
     return result
 
 
+def _require_nonempty_string(payload: dict[str, Any], name: str) -> str:
+    value = payload.get(name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"assessment file requires non-empty {name}")
+    return value
+
+
+def _validate_scored_run(payload: dict[str, Any], assessments: list[dict[str, Any]]) -> None:
+    for name in (
+        "evaluation_id",
+        "hello_ai_sha",
+        "model",
+        "model_version",
+        "code_license",
+        "weight_license",
+        "annotation_method",
+    ):
+        _require_nonempty_string(payload, name)
+
+    if "model_checksum" not in payload:
+        raise ValueError("assessment file requires model_checksum key (null only if unobtainable)")
+    checksum = payload["model_checksum"]
+    if checksum is not None and (not isinstance(checksum, str) or not checksum.strip()):
+        raise ValueError("model_checksum must be a non-empty string or null")
+
+    for name in ("environment", "generation", "operational"):
+        if not isinstance(payload.get(name), dict) or not payload[name]:
+            raise ValueError(f"assessment file requires non-empty {name} object")
+
+    cases = payload.get("cases")
+    if not isinstance(cases, list) or not cases:
+        raise ValueError("assessment file requires non-empty cases list with raw model outputs")
+
+    raw_outputs: set[tuple[str, str, str]] = set()
+    for case in cases:
+        if not isinstance(case, dict):
+            raise ValueError("each case must be an object")
+        case_id = _require_nonempty_string(case, "case_id")
+        question_id = _require_nonempty_string(case, "question_id")
+        conditions = case.get("conditions")
+        if not isinstance(conditions, dict):
+            raise ValueError(f"case {case_id} requires conditions object")
+        for condition, output in conditions.items():
+            if not isinstance(output, dict):
+                raise ValueError(f"case {case_id} condition {condition} must be an object")
+            raw_response = output.get("raw_response")
+            if not isinstance(raw_response, str) or not raw_response.strip():
+                raise ValueError(
+                    f"case {case_id} condition {condition} requires non-empty raw_response"
+                )
+            raw_outputs.add((case_id, question_id, condition))
+
+    for assessment in assessments:
+        key = (
+            assessment.get("case_id"),
+            assessment.get("question_id"),
+            assessment.get("condition"),
+        )
+        if key not in raw_outputs:
+            raise ValueError(
+                "every assessment must correspond to a case/question/condition with a raw response"
+            )
+
+
 def score_assessment_file(path: Path) -> dict[str, Any]:
     with path.open() as handle:
         payload = json.load(handle)
     assessments = payload.get("assessments")
-    if not isinstance(assessments, list):
-        raise ValueError("assessment file must contain an assessments list")
+    if not isinstance(assessments, list) or not assessments:
+        raise ValueError("assessment file must contain a non-empty assessments list")
+
+    _validate_scored_run(payload, assessments)
     grouped = score_by_condition(assessments)
     return {
-        "evaluation_id": payload.get("evaluation_id"),
-        "hello_ai_sha": payload.get("hello_ai_sha"),
-        "model": payload.get("model"),
-        "model_version": payload.get("model_version"),
-        "model_checksum": payload.get("model_checksum"),
-        "annotation_method": payload.get("annotation_method"),
+        "evaluation_id": payload["evaluation_id"],
+        "provenance": {
+            "hello_ai_sha": payload["hello_ai_sha"],
+            "model": payload["model"],
+            "model_version": payload["model_version"],
+            "model_checksum": payload["model_checksum"],
+            "code_license": payload["code_license"],
+            "weight_license": payload["weight_license"],
+            "environment": payload["environment"],
+            "generation": payload["generation"],
+            "operational": payload["operational"],
+            "annotation_method": payload["annotation_method"],
+        },
         "by_condition": grouped,
         "grounded_value_gate": grounded_value_gate(grouped),
         "notes": (
-            "Scores aggregate claim-level human/manual annotations; they do not infer "
-            "factual correctness from fluent model prose."
+            "Scores aggregate claim-level human/manual annotations tied to retained raw model "
+            "outputs; they do not infer factual correctness from fluent model prose."
         ),
     }
 
