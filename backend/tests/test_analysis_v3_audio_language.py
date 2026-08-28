@@ -338,3 +338,13 @@ def test_score_assessment_file_requires_matching_raw_response(tmp_path: Path) ->
 
     with pytest.raises(ValueError, match="raw_response"):
         score_assessment_file(path)
+
+
+def test_score_assessment_file_rejects_duplicate_raw_cases(tmp_path: Path) -> None:
+    payload = scored_payload(complete_assessments())
+    payload["cases"].append(dict(payload["cases"][0]))
+    path = tmp_path / "assessments.json"
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(ValueError, match="duplicate case_id/question_id raw cases"):
+        score_assessment_file(path)
