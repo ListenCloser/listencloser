@@ -1,4 +1,4 @@
-# Music Lab — Product UI Design System
+# Music Workspace — Product UI Design System
 
 ## Design intent
 
@@ -134,7 +134,7 @@ The library is a navigator, not a dashboard card collection.
 
 The canvas is the largest uninterrupted region.
 
-A piece title appears once. Below it, use a compact representation switcher for `Audio`, `Piano roll`, `Score`, and overflow views.
+Do not repeat the piece title in global chrome. Use a compact representation switcher for `Waveform`, `Piano roll`, `Score`, and `Spectrogram` inside the canvas.
 
 The representation should not itself be wrapped in an ornamental card. Its natural surface can define the visual language:
 - waveform: quiet charcoal background, warm-neutral waveform
@@ -146,7 +146,7 @@ The representation should not itself be wrapped in an ornamental card. Its natur
 
 Use a low-profile tab strip with 36–40px height. Active state should rely on text contrast and a small underline/indicator. Avoid large rounded tab pills.
 
-`Compare` belongs beside representation controls because it changes how the same music is inspected.
+`Compare` belongs in transport because it changes what the user hears; representation tabs change what the user sees.
 
 ### Inspector
 
@@ -247,3 +247,49 @@ Before a UI PR is mergeable, review screenshots at 1440×900 and 390×844 and ch
 5. Do loading/error/empty states preserve spatial stability?
 6. Can Analysis and Library be opened/closed without losing playhead state?
 7. Does the UI remain useful at the narrow viewport?
+
+
+## V5 visual language — editorial instrument
+
+V5 is a craft pass, not a new information architecture. The stable model remains **Library | music canvas | Inspector | Transport**. The visual goal is a professional editorial instrument: quiet chrome, highly legible state, and musical material that carries more visual weight than the application shell.
+
+Reference synthesis for implementation agents:
+- **Mobbin:** use mature creative/editor patterns for panel density, menus, loading, empty states, and persistent transport. Borrow interaction logic, not visual branding.
+- **21st.dev:** prefer a small repeatable primitive vocabulary (tabs, menu/popover, tooltip, icon button, status, skeleton) over one-off controls.
+- **Taste / Impeccable:** audit before decorating; remove generic AI-dashboard habits such as card grids, KPI tiles, gratuitous pills, gradients, glass, and decorative AI glyphs.
+- **Emil Kowalski:** interaction quality comes from hover/press/focus behavior, menu geometry, state transitions, and restrained motion rather than ornamental animation.
+- **awesome-design-md:** this file is authoritative for visual decisions. When implementation and this document disagree, update one deliberately rather than allowing silent drift.
+
+### V5 surface hierarchy
+
+1. **Music is brightest.** Score paper, waveform trace, notes, selections, and the active playhead carry contrast.
+2. **Chrome is quiet.** Library, Inspector, toolbar, and transport use closely related warm graphite surfaces separated mostly by spacing and hairlines.
+3. **Raised surfaces are rare.** Reserve elevation for menus, transient status, and true overlays. A section is not a card by default.
+4. **Brass is interaction, not decoration.** Use the accent for active state, focus, selection, and primary actions; never as a background wash.
+5. **Typography carries hierarchy.** Prefer size, weight, spacing, and muted text over borders and filled boxes.
+
+### Analysis hierarchy
+
+Analysis is an interpretation surface, not a detector dump:
+1. a concise high-level summary grounded only in available evidence;
+2. quiet inline metadata (key / tempo / meter) only when values exist;
+3. notable time-linked moments;
+4. collapsed supporting evidence.
+
+Never render empty metadata boxes. Never show `—` as a KPI. Roman numerals and harmonic function require interpretable key context. Local melody events already promoted to Notable moments should not be duplicated as raw evidence merely because a detector emitted them.
+
+### Ask hierarchy
+
+Ask has no decorative AI logo. It is a contextual explanation/comparison tool. Starter prompts should change with selection state and teach the user what the capability is good at. The current recording, playhead, selection, and trusted analysis are implicit context.
+
+### Playback and score
+
+Playback source and representation are distinct, but their relationship must be obvious. The Score surface exposes a direct **Hear score** action when notation-derived audio exists. The score cursor follows shared transport time measure-by-measure: left-to-right within the active measure, then jumps to the next measure and follows the next system when notation wraps.
+
+### Loading and availability
+
+Progressive availability is preferred over a global blocking state. The workspace frame appears immediately; audio can become playable before analysis/score finishes. Controls must not imply readiness for data that is not loaded. Import is independent from opening an existing recording once the Library project itself is ready. Progress UI must stay within viewport bounds.
+
+### Primitive discipline
+
+Before adding a new control, reuse or extend an existing interaction pattern. Icon-only controls are acceptable only for universally recognized actions; otherwise add a visible label at desktop sizes and retain a tooltip/accessible name at compact sizes. Focus, hover, disabled, and selected states are part of the component contract, not optional polish.

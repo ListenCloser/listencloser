@@ -1,0 +1,93 @@
+# Canonical backend dependency and Python-tool configuration.
+[project]
+name = "hello-ai-backend"
+version = "0.1.0"
+description = "FastAPI API and durable music-processing worker for hello-ai"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "fastapi==0.115.0",
+  "python-multipart==0.0.20",
+  "slowapi==0.1.9",
+  "uvicorn[standard]==0.30.6",
+  "pydantic>=2.11.7",
+  "httpx>=0.27.0",
+  "scipy==1.14.1",
+  "supabase==2.31.0",
+  "sentry-sdk>=2.14.0",
+  # OpenTelemetry 1.27+ moves generated protocol packages onto protobuf >=5,
+  # which conflicts with Basic Pitch's TensorFlow runtime (protobuf <5).
+  "opentelemetry-api==1.26.0",
+  "opentelemetry-sdk==1.26.0",
+  "opentelemetry-exporter-otlp-proto-http==1.26.0",
+  "opentelemetry-instrumentation-fastapi==0.47b0",
+  "opentelemetry-instrumentation-httpx==0.47b0",
+  # OTel instrumentation 0.47b0 still imports pkg_resources. Setuptools 82
+  # removed that module, so keep the compatibility floor until OTel can move.
+  "setuptools<82",
+  "basic-pitch[tf]==0.4.0",
+  "pretty-midi==0.2.10",
+  "soundfile==0.12.1",
+  "pyfluidsynth==1.4.0",
+  "librosa>=0.10.0",
+  "beat-this==1.1.0",
+  # 2.6.0 is the first release patched for GHSA-53q9-r3pm-6pq6.
+  "torchaudio==2.6.0",
+  "music21>=10.0.0",
+  "partitura>=1.5.0",
+  "transkun==2.0.1",
+  "torch==2.6.0",
+  "moduleconf==0.1.4",
+  "soxr==0.5.0.post1",
+  "lv-chordia>=1.1.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==9.1.1",
+  "pytest-asyncio>=0.23.0",
+  "ruff==0.5.7",
+]
+
+[tool.uv]
+package = false
+required-version = "==0.12.6"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The current codebase still contains both flat imports (`domain.*`) and
+# package-qualified imports (`backend.evaluation.*`). Preserve both roots in
+# this dependency migration; the module-boundary cleanup will standardize them.
+pythonpath = [".", ".."]
+asyncio_mode = "strict"
+markers = [
+  "integration: real-model inference tests (Basic Pitch / Transkun / piano-transcription) run against real ML models; excluded from the default unit suite",
+  "real_stack: tests requiring a live Supabase/Postgres database (RLS policies, pipeline smoke); excluded from the default unit suite",
+  "external_provider: tests requiring a real external LLM/provider (opt-in smoke); excluded from the default unit suite",
+  "benchmark: evaluation benchmark runs kept out of required unit semantics",
+]
+addopts = '-m "not integration and not real_stack and not benchmark and not external_provider"'
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008", "B904"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["B017", "E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

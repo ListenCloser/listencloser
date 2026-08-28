@@ -39,13 +39,13 @@ router = APIRouter(prefix="/api/v1")
 logger = logging.getLogger("ask.api")
 
 
-@router.post("/ask")
+@router.post("/ask", response_model=AskResponse)
 @limiter.limit(lambda: load_llm_settings().rate_limit)
 async def create_ask(
     body: AskRequest,
     request: Request,
     auth=Depends(verify_token),
-):
+) -> AskResponse:
     settings: LLMSettings = load_llm_settings()
     started = time.perf_counter()
     owner_id = auth.user.id

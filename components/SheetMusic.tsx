@@ -316,7 +316,6 @@ export default function SheetMusic({
 
   return (
     <div className="sheet-music-wrap">
-      {!hasScorePlayback && <span className="sheet-music-status">Score audio unavailable</span>}
       <div
         ref={containerRef}
         className={`sheet-music-container ${className ?? ""}`}

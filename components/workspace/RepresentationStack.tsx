@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { availableRepresentations, representationById } from "@/lib/representations";
+import { useEffect, useMemo, useState } from "react";
+import TabStrip from "@/components/ui/TabStrip";
+import { availableRepresentations, type RepresentationId } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 
@@ -52,6 +53,7 @@ function WorkspaceLoadingSkeleton() {
 
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport, setActiveRepresentation } = useWorkspace();
+  const [mountedViews, setMountedViews] = useState<Set<RepresentationId>>(() => new Set());
   const availability = useMemo(
     () => deriveAvailability(workspace.representations, workspace.insights.length),
     [workspace.representations, workspace.insights.length],
@@ -66,35 +68,57 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
 
+  // Representation canvases are expensive client-side objects: OSMD builds a
+  // full score SVG, WaveSurfer owns waveform state, and the spectrogram decodes
+  // audio. Preserve views after their first visit within a work session so a
+  // tab switch is a visibility change rather than a destroy/rebuild cycle.
+  useEffect(() => {
+    setMountedViews(new Set());
+  }, [workspace.activeWorkId]);
+
+  useEffect(() => {
+    if (!activeView) return;
+    setMountedViews((previous) => {
+      if (previous.has(activeView)) return previous;
+      const next = new Set(previous);
+      next.add(activeView);
+      return next;
+    });
+  }, [activeView]);
+
   if (workspace.isLoadingWork) return <WorkspaceLoadingSkeleton />;
   if (!available.length) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
+  if (!activeView) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
 
-  const view = representationById(activeView ?? available[0].id);
-  if (!view) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
-  const ViewComponent = view.component;
+  const renderedViews = available.filter((definition) => definition.id === activeView || mountedViews.has(definition.id));
 
   return (
     <main className="piece-desk piece-desk-v3">
       <div className="representation-toolbar">
-        <nav className="piece-view-tabs piece-view-tabs-v3" role="tablist" aria-label="Music representation">
-          {available.map((def) => (
-            <button
-              key={def.id}
-              type="button"
-              role="tab"
-              aria-selected={activeView === def.id}
-              className={activeView === def.id ? "active" : ""}
-              onClick={() => setActiveRepresentation(def.id)}
-            >
-              {def.title}
-            </button>
-          ))}
-        </nav>
+        <TabStrip
+          className="piece-view-tabs piece-view-tabs-v3"
+          label="Music representation"
+          items={available.map((def) => ({ id: def.id, label: def.title }))}
+          value={activeView}
+          onChange={setActiveRepresentation}
+        />
       </div>
 
-      <section className="piece-active-view piece-active-view-v3" aria-label={view.title}>
-        <ViewComponent />
-      </section>
+      {renderedViews.map((definition) => {
+        const ViewComponent = definition.component;
+        const active = definition.id === activeView;
+        return (
+          <section
+            key={definition.id}
+            className="piece-active-view piece-active-view-v3"
+            aria-label={definition.title}
+            aria-hidden={!active}
+            hidden={!active}
+          >
+            <ViewComponent active={active} />
+          </section>
+        );
+      })}
     </main>
   );
 }

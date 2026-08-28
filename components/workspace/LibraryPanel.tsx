@@ -135,6 +135,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   const { resetTimeline } = useTimeline();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const importReady = canImport && Boolean(workspace.project);
 
   async function signOut() {
     await supabase?.auth.signOut();
@@ -175,8 +176,9 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               type="button"
               className="library-import-btn"
               onClick={requestImport}
-              disabled={!canImport || workspace.isLoadingWork}
-              aria-label={canImport ? "Import audio" : "Import temporarily unavailable"}
+              disabled={!importReady}
+              aria-label={importReady ? "Import audio" : "Import unavailable while the library starts"}
+              title={importReady ? "Import audio" : "Import is available when your library is ready"}
             >
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
                 <path d="M7.5 2v11M2 7.5h11" />

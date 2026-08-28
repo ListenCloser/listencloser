@@ -16,8 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:types": "supabase gen types typescript --linked > lib/database.types.ts",
-    "api:generate": "openapi-typescript http://localhost:8000/openapi.json -o lib/api-types.ts",
-    "api:check": "openapi-typescript http://localhost:8000/openapi.json -o lib/api-types.ts --check",
+    "api:schema": "uv run --project backend python backend/export_openapi.py",
+    "api:generate": "npm run api:schema && openapi-typescript openapi/openapi.json -o lib/api-types.ts",
+    "api:check": "npm run api:schema && git ls-files --error-unmatch openapi/openapi.json >/dev/null && git diff --exit-code -- openapi/openapi.json && openapi-typescript openapi/openapi.json -o lib/api-types.ts --check",
     "precommit": "pre-commit run --all-files"
   },
   "dependencies": {

@@ -16,6 +16,7 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from api_schemas import HealthLiveResponse, HealthQueueResponse, HealthReadyResponse, HealthResponse
 from ask.api import router as ask_router
 from auth_utils import get_supabase_client, limiter
 from domain.api import router as domain_router
@@ -103,29 +104,32 @@ async def observability_middleware(request: Request, call_next):
     return response
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    return HealthResponse(status="ok")
 
 
-@app.get("/health/live")
-def health_live():
-    return {"status": "alive", "release": os.environ.get("RELEASE", "development")}
+@app.get("/health/live", response_model=HealthLiveResponse)
+def health_live() -> HealthLiveResponse:
+    return HealthLiveResponse(
+        status="alive",
+        release=os.environ.get("RELEASE", "development"),
+    )
 
 
-@app.get("/health/ready")
-def health_ready():
+@app.get("/health/ready", response_model=HealthReadyResponse, response_model_exclude_none=True)
+def health_ready() -> HealthReadyResponse:
     release = os.environ.get("RELEASE", "development")
     client = get_supabase_client()
     if not client:
-        return {
-            "status": "degraded",
-            "supabase": False,
-            "database": False,
-            "storage": False,
-            "release": release,
-            "reason": "supabase not configured",
-        }
+        return HealthReadyResponse(
+            status="degraded",
+            supabase=False,
+            database=False,
+            storage=False,
+            release=release,
+            reason="supabase not configured",
+        )
     database_ready = False
     storage_ready = False
     try:
@@ -140,27 +144,27 @@ def health_ready():
     except Exception:
         logger.exception("readiness_storage_failed")
     configured = database_ready and storage_ready
-    return {
-        "status": "ready" if configured else "degraded",
-        "supabase": True,
-        "database": database_ready,
-        "storage": storage_ready,
-        "release": release,
-    }
+    return HealthReadyResponse(
+        status="ready" if configured else "degraded",
+        supabase=True,
+        database=database_ready,
+        storage=storage_ready,
+        release=release,
+    )
 
 
-@app.get("/health/queue")
-def health_queue():
+@app.get("/health/queue", response_model=HealthQueueResponse, response_model_exclude_none=True)
+def health_queue() -> HealthQueueResponse:
     client = get_supabase_client()
     if not client:
-        return {
-            "status": "degraded",
-            "reason": "supabase not configured",
-            "workers": 0,
-            "queued": 0,
-            "running": 0,
-            "stale_leases": 0,
-        }
+        return HealthQueueResponse(
+            status="degraded",
+            reason="supabase not configured",
+            workers=0,
+            queued=0,
+            running=0,
+            stale_leases=0,
+        )
 
     now = datetime.now(UTC)
     try:
@@ -173,14 +177,14 @@ def health_queue():
         rows = active_jobs.data or []
     except Exception:
         logger.exception("queue_jobs_health_failed")
-        return {
-            "status": "degraded",
-            "reason": "job queue unavailable",
-            "workers": 0,
-            "queued": 0,
-            "running": 0,
-            "stale_leases": 0,
-        }
+        return HealthQueueResponse(
+            status="degraded",
+            reason="job queue unavailable",
+            workers=0,
+            queued=0,
+            running=0,
+            stale_leases=0,
+        )
 
     workers: list[dict] = []
     source = "database"
@@ -227,11 +231,11 @@ def health_queue():
         and datetime.fromisoformat(str(row["lease_expires_at"]).replace("Z", "+00:00")) < now
     )
     healthy = bool(workers) and stale_leases == 0
-    return {
-        "status": "ready" if healthy else "degraded",
-        "workers": len(workers),
-        "queued": queued,
-        "running": running,
-        "stale_leases": stale_leases,
-        "heartbeat_source": source,
-    }
+    return HealthQueueResponse(
+        status="ready" if healthy else "degraded",
+        workers=len(workers),
+        queued=queued,
+        running=running,
+        stale_leases=stale_leases,
+        heartbeat_source=source,
+    )

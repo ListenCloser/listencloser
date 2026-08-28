@@ -1,13 +1,19 @@
+FROM ghcr.io/astral-sh/uv:0.12.6 AS uv
+
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
-COPY requirements.txt .
+COPY --from=uv /uv /uvx /bin/
+COPY pyproject.toml uv.lock ./
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+RUN uv sync --locked --no-dev
 
 
 FROM python:3.11-slim
@@ -18,7 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 ffmpeg fluidsynth fluid-soundfont-gm curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /install /usr/local
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
 
 COPY . .
 
