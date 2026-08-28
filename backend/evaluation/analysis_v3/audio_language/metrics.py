@@ -74,8 +74,23 @@ def _mean_present(items: list[dict[str, Any]], name: str) -> float | None:
     return round(sum(values) / len(values), 6)
 
 
+def _assessment_key(row: dict[str, Any]) -> str:
+    return f"{row['case_id']}::{row['question_id']}"
+
+
 def _assessment_keys(items: list[dict[str, Any]]) -> list[str]:
-    return sorted(f"{row['case_id']}::{row['question_id']}" for row in items)
+    return sorted(_assessment_key(row) for row in items)
+
+
+def _assessment_contracts(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {
+        _assessment_key(row): {
+            "expected_support_refs": sorted(set(row["expected_support_refs"])),
+            "should_abstain": row["should_abstain"],
+            "requires_temporal_grounding": row["requires_temporal_grounding"],
+        }
+        for row in items
+    }
 
 
 def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
@@ -110,6 +125,7 @@ def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
     return {
         "num_items": len(items),
         "assessment_keys": assessment_keys,
+        "assessment_contracts": _assessment_contracts(items),
         "total_claims": total_claims,
         "supported_claim_rate": (round(supported / total_claims, 6) if total_claims else None),
         "contradiction_rate": (round(contradicted / total_claims, 6) if total_claims else None),
@@ -171,8 +187,8 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """Test whether raw audio adds grounded value over evidence-only explanation.
 
     This intentionally avoids a weighted composite. Audio+evidence must cover
-    exactly the same cases/questions, improve factual support and human-rated
-    usefulness, and not worsen trust metrics.
+    exactly the same cases/questions under the same grading contract, improve
+    factual support and human-rated usefulness, and not worsen trust metrics.
     """
     baseline = grouped.get("evidence_only")
     combined = grouped.get("audio_plus_evidence")
@@ -195,6 +211,16 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
             "audio_plus_evidence_keys": combined.get("assessment_keys"),
         }
 
+    if baseline.get("assessment_contracts") != combined.get("assessment_contracts"):
+        return {
+            "evaluable": False,
+            "passes": False,
+            "reason": (
+                "evidence_only and audio_plus_evidence must use the same expected support refs, "
+                "abstention target, and temporal-grounding requirement per case/question"
+            ),
+        }
+
     required = (
         "supported_claim_rate",
         "contradiction_rate",
@@ -213,6 +239,7 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
 
     criteria = {
         "matched_case_question_coverage": True,
+        "matched_evaluation_contract": True,
         "supported_claim_rate_improves": (
             combined["supported_claim_rate"] > baseline["supported_claim_rate"]
         ),
@@ -248,8 +275,8 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "evidence_only": baseline,
         "audio_plus_evidence": combined,
         "rule": (
-            "audio_plus_evidence must use matched case/question coverage, improve supported-claim "
-            "rate and usefulness, and not worsen contradiction, unsupported claims, citation "
-            "quality, abstention, temporal grounding, or specificity"
+            "audio_plus_evidence must use matched case/question coverage and grading contracts, "
+            "improve supported-claim rate and usefulness, and not worsen contradiction, "
+            "unsupported claims, citation quality, abstention, temporal grounding, or specificity"
         ),
     }
