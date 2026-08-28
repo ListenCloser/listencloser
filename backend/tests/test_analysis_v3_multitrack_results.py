@@ -26,6 +26,25 @@ def test_measured_result_does_not_treat_basic_pitch_programs_as_evidence() -> No
     assert result["decision"]["production_change"] is False
 
 
+def test_measured_result_counts_match_archived_run() -> None:
+    result = _measured_result()
+    expected = {
+        "Track01876": (379, 297, 300),
+        "Track01877": (136, 172, 127),
+        "Track01878": (164, 147, 128),
+        "Track01880": (651, 170, 534),
+        "Track01881": (565, 399, 594),
+    }
+
+    for track_id, (reference_notes, basic_notes, mr_notes) in expected.items():
+        basic = result["basic_pitch"]["tracks"][track_id]
+        mr = result["mr_mt3"]["tracks"][track_id]
+        assert basic["reference_notes"] == reference_notes
+        assert mr["reference_notes"] == reference_notes
+        assert basic["predicted_notes"] == basic_notes
+        assert mr["predicted_notes"] == mr_notes
+
+
 def test_mr_mt3_program_metrics_are_gated_by_serializer_equivalence() -> None:
     result = _measured_result()
     validity = result["serializer_validity"]
