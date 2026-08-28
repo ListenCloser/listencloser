@@ -1,0 +1,188 @@
+{
+  "candidate": "current",
+  "task": "all",
+  "device": "cpu",
+  "timestamp": "2026-08-28T03:20:41Z",
+  "operational": {
+    "candidate": "current",
+    "device": "cpu",
+    "python_version": "3.9.6",
+    "platform": "macOS-15.3.1-arm64-arm-64bit",
+    "arch": "arm64",
+    "engine": "librosa",
+    "code_license": "ISC",
+    "checkpoint_license": null,
+    "supports_beats": true,
+    "supports_downbeats": false,
+    "supports_tempo": true,
+    "supports_meter": false,
+    "install_success": true,
+    "load_success": true,
+    "load_time_seconds": 0.0,
+    "cpu_latency_10s": {
+      "latency_seconds": null,
+      "audio_duration_seconds": 10.0,
+      "error": null
+    },
+    "cpu_latency_30s": {
+      "latency_seconds": null,
+      "audio_duration_seconds": 30.0,
+      "error": null
+    },
+    "determinism_stable": false
+  },
+  "beat": {
+    "candidate": "current",
+    "task": "beat",
+    "num_clips": 8,
+    "results": [
+      {
+        "id": "guitarset_bn1_comp",
+        "beat_f1": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "matched": 0,
+          "predicted": 43,
+          "reference": 48
+        },
+        "downbeat_f1": null,
+        "tempo": {
+          "absolute_error": 0.2,
+          "relative_error_pct": 0.15,
+          "is_correct": true,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 129.2,
+          "reference_bpm": 129.0
+        },
+        "predicted_beats": 43,
+        "predicted_downbeats": 0,
+        "latency_seconds": null
+      },
+      {
+        "id": "guitarset_rock2_comp",
+        "beat_f1": {
+          "precision": 0.4048,
+          "recall": 0.2656,
+          "f1": 0.3208,
+          "matched": 17,
+          "predicted": 42,
+          "reference": 64
+        },
+        "downbeat_f1": null,
+        "tempo": {
+          "absolute_error": 46.3,
+          "relative_error_pct": 32.6,
+          "is_correct": false,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 95.7,
+          "reference_bpm": 142.0
+        },
+        "predicted_beats": 42,
+        "predicted_downbeats": 0,
+        "latency_seconds": null
+      },
+      {
+        "id": "guitarset_jazz1_comp",
+        "beat_f1": {
+          "precision": 0.1628,
+          "recall": 0.1458,
+          "f1": 0.1538,
+          "matched": 7,
+          "predicted": 43,
+          "reference": 48
+        },
+        "downbeat_f1": null,
+        "tempo": {
+          "absolute_error": 0.8,
+          "relative_error_pct": 0.62,
+          "is_correct": true,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 129.2,
+          "reference_bpm": 130.0
+        },
+        "predicted_beats": 43,
+        "predicted_downbeats": 0,
+        "latency_seconds": null
+      },
+      {
+        "id": "guitarset_funk1_comp",
+        "beat_f1": {
+          "precision": 0.3103,
+          "recall": 0.375,
+          "f1": 0.3396,
+          "matched": 18,
+          "predicted": 58,
+          "reference": 48
+        },
+        "downbeat_f1": null,
+        "tempo": {
+          "absolute_error": 38.0,
+          "relative_error_pct": 33.33,
+          "is_correct": false,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 152.0,
+          "reference_bpm": 114.0
+        },
+        "predicted_beats": 58,
+        "predicted_downbeats": 0,
+        "latency_seconds": null
+      },
+      {
+        "id": "guitarset_ss3_solo",
+        "beat_f1": {
+          "precision": 0.7097,
+          "recall": 0.6875,
+          "f1": 0.6984,
+          "matched": 44,
+          "predicted": 62,
+          "reference": 64
+        },
+        "downbeat_f1": null,
+        "tempo": {
+          "absolute_error": 0.65,
+          "relative_error_pct": 0.77,
+          "is_correct": true,
+          "is_octave_error": false,
+          "is_half_double_error": false,
+          "predicted_bpm": 83.35,
+          "reference_bpm": 84.0
+        },
+        "predicted_beats": 62,
+        "predicted_downbeats": 0,
+        "latency_seconds": null
+      },
+      {
+        "id": "babyslakh_01",
+        "beat_f1": null,
+        "downbeat_f1": null,
+        "tempo": null,
+        "predicted_beats": 307,
+        "predicted_downbeats": 0,
+        "latency_seconds": null
+      },
+      {
+        "id": "babyslakh_02",
+        "beat_f1": null,
+        "downbeat_f1": null,
+        "tempo": null,
+        "predicted_beats": 348,
+        "predicted_downbeats": 0,
+        "latency_seconds": null
+      },
+      {
+        "id": "babyslakh_03",
+        "beat_f1": null,
+        "downbeat_f1": null,
+        "tempo": null,
+        "predicted_beats": 527,
+        "predicted_downbeats": 0,
+        "latency_seconds": null
+      }
+    ]
+  }
+}
