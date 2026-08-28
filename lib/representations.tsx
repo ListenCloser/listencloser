@@ -45,7 +45,7 @@ export type RepresentationDefinition = {
 
 function WaveformView() {
   const { workspace, setSelection } = useWorkspace();
-  const { transport, seek, setActiveSource } = useTransport();
+  const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
   const inspectorOpen = !workspace.inspectorCollapsed;
   const annotations = useMemo(
@@ -181,7 +181,7 @@ function SpectrogramView() {
 
 function ScoreView() {
   const { workspace, setSelection } = useWorkspace();
-  const { transport, seek } = useTransport();
+  const { transport, seek, setActiveSource } = useTransport();
   const entry = workspace.representations.find((item) => item.kind === "score");
   const measureStarts = entry?.measureStarts ?? [];
   const scoreSource = transport.sources.find((source) => source.role === "score") ?? null;
