@@ -153,11 +153,11 @@
     "weight_license": "MIT metadata on gudgud1014/MR-MT3",
     "environment": "GitHub ubuntu-24.04 CPU; isolated torch 2.6.0+cpu",
     "macro": {
-      "onset_flat_f1": 0.3366,
-      "note_flat_f1_program_preserving": 0.0977,
-      "onset_program_family_f1": 0.3147,
-      "onset_program_exact_f1": 0.2286,
-      "note_program_exact_f1": 0.0512,
+      "onset_flat_f1": 0.7898,
+      "note_flat_f1": 0.2415,
+      "onset_program_family_f1": 0.755,
+      "onset_program_exact_f1": 0.4999,
+      "note_program_exact_f1": 0.1211,
       "instrument_detection_exact_f1": 0.3875,
       "instrument_detection_family_f1": 0.9113
     },
@@ -165,11 +165,11 @@
       "Track01876": {
         "reference_notes": 379,
         "predicted_notes": 300,
-        "onset_flat_f1": 0.1473,
-        "note_flat_f1": 0.056,
-        "onset_program_family_f1": 0.106,
-        "onset_program_exact_f1": 0.0383,
-        "note_program_exact_f1": 0.0236,
+        "onset_flat_f1": 0.6804,
+        "note_flat_f1": 0.3211,
+        "onset_program_family_f1": 0.6068,
+        "onset_program_exact_f1": 0.3741,
+        "note_program_exact_f1": 0.1473,
         "instrument_detection_exact_f1": 0.5714,
         "instrument_detection_family_f1": 1.0,
         "reference_source_count": 12,
@@ -179,11 +179,11 @@
       "Track01877": {
         "reference_notes": 136,
         "predicted_notes": 127,
-        "onset_flat_f1": 0.4867,
-        "note_flat_f1": 0.1369,
-        "onset_program_family_f1": 0.4867,
-        "onset_program_exact_f1": 0.4791,
-        "note_program_exact_f1": 0.1369,
+        "onset_flat_f1": 0.9582,
+        "note_flat_f1": 0.3194,
+        "onset_program_family_f1": 0.9582,
+        "onset_program_exact_f1": 0.8517,
+        "note_program_exact_f1": 0.289,
         "instrument_detection_exact_f1": 0.2857,
         "instrument_detection_family_f1": 0.8,
         "reference_source_count": 3,
@@ -193,11 +193,11 @@
       "Track01878": {
         "reference_notes": 164,
         "predicted_notes": 128,
-        "onset_flat_f1": 0.5411,
-        "note_flat_f1": 0.1918,
-        "onset_program_family_f1": 0.5137,
-        "onset_program_exact_f1": 0.274,
-        "note_program_exact_f1": 0.0342,
+        "onset_flat_f1": 0.7603,
+        "note_flat_f1": 0.226,
+        "onset_program_family_f1": 0.7397,
+        "onset_program_exact_f1": 0.3288,
+        "note_program_exact_f1": 0.0411,
         "instrument_detection_exact_f1": 0.3333,
         "instrument_detection_family_f1": 0.8333,
         "reference_source_count": 6,
@@ -207,11 +207,11 @@
       "Track01880": {
         "reference_notes": 651,
         "predicted_notes": 534,
-        "onset_flat_f1": 0.1992,
-        "note_flat_f1": 0.0557,
-        "onset_program_family_f1": 0.1857,
-        "onset_program_exact_f1": 0.1772,
-        "note_program_exact_f1": 0.0371,
+        "onset_flat_f1": 0.67,
+        "note_flat_f1": 0.1789,
+        "onset_program_family_f1": 0.6042,
+        "onset_program_exact_f1": 0.4996,
+        "note_program_exact_f1": 0.0489,
         "instrument_detection_exact_f1": 0.2857,
         "instrument_detection_family_f1": 0.9231,
         "reference_source_count": 6,
@@ -221,11 +221,11 @@
       "Track01881": {
         "reference_notes": 565,
         "predicted_notes": 594,
-        "onset_flat_f1": 0.3089,
-        "note_flat_f1": 0.0483,
-        "onset_program_family_f1": 0.2813,
-        "onset_program_exact_f1": 0.1743,
-        "note_program_exact_f1": 0.0242,
+        "onset_flat_f1": 0.8801,
+        "note_flat_f1": 0.1622,
+        "onset_program_family_f1": 0.8663,
+        "onset_program_exact_f1": 0.4452,
+        "note_program_exact_f1": 0.0794,
         "instrument_detection_exact_f1": 0.4615,
         "instrument_detection_family_f1": 1.0,
         "reference_source_count": 6,
@@ -233,7 +233,8 @@
         "process_max_rss_mb": 863.05
       }
     },
-    "operational_note": "stock CLI launches a fresh process/model per track; runtime is wrapper execution cost, not warm batched inference"
+    "operational_note": "stock CLI launches a fresh process/model per track; runtime is wrapper execution cost, not warm batched inference",
+    "measurement_level": "decoded NoteSequence events before mt3-infer MIDI serialization"
   },
   "serializer_validity": {
     "upstream_bug": "mt3-infer 0.2.0 MR-MT3 decode retains note.program in NoteSequence but its stock MIDI serializer collapses all pitched notes to channel 0 without program_change",
@@ -307,19 +308,56 @@
         "normalized_note_event_sha256_patched": "d661c4a90d0098ec502d1a4973e15425b1c867816635f1a1e782cbfcaa36eb97"
       }
     },
-    "conclusion": "All raw note-on/off events are byte-semantically identical ignoring channel/program assignment and all per-track flat onset F1 values/predicted counts are identical. Offset-aware flat F1 differs on two tracks because unique channels disambiguate overlapping same-pitch note-offs; patched program-aware scores are therefore accepted, while stock program-aware scores are invalid."
+    "conclusion": "Decoder-sidecar calibration shows the stock serializer corrupts more than program labels: collapsing all pitched programs onto channel 0 destroys overlapping same-pitch note identity and therefore both onset/offset recovery and program-attributed note evidence. Canonical MR-MT3 quality metrics in this result are scored from the decoded NoteSequence captured before MIDI serialization. The sidecar was serialized in the locked hello-ai environment with one stream per decoded program; all decoded notes survived one-to-one with <=1.1 ms quantization. Stock and patched serializer runs remain diagnostic provenance only.",
+    "decoder_sidecar_run": {
+      "workflow_run_id": 33218294887,
+      "head_sha": "edfc29a01334db61ceaf6d7dfcde0080cbfd185b",
+      "artifact_digest": "sha256:484581f59d444cfbbc1333da128f8ecb663aa4d0bc0d819a64b72ce8d0818dc8",
+      "instrumentation_before_sha256": "5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef",
+      "instrumentation_after_sha256": "c395b4895e4f4da721c6494beb289962f787d19c443b76ef07dead4e0634d1fd",
+      "scope": "JSON sidecar immediately after decode_and_combine_predictions; stock MIDI serializer unchanged",
+      "sidecar_to_evaluator_midi_max_timing_quantization_seconds": 0.0011
+    },
+    "decoder_macro_f1": {
+      "onset_flat_f1": 0.7898,
+      "note_flat_f1": 0.2415,
+      "onset_program_family_f1": 0.755,
+      "onset_program_exact_f1": 0.4999,
+      "note_program_exact_f1": 0.1211,
+      "instrument_detection_exact_f1": 0.3875,
+      "instrument_detection_family_f1": 0.9113
+    },
+    "stock_serializer_macro_f1": {
+      "onset_flat_f1": 0.3366,
+      "note_flat_f1": 0.0905,
+      "onset_program_family_f1": 0.2561,
+      "onset_program_exact_f1": 0.2091,
+      "note_program_exact_f1": 0.0378,
+      "instrument_detection_exact_f1": 0.3115,
+      "instrument_detection_family_f1": 0.5032
+    },
+    "patched_serializer_macro_f1": {
+      "onset_flat_f1": 0.3366,
+      "note_flat_f1": 0.0977,
+      "onset_program_family_f1": 0.3147,
+      "onset_program_exact_f1": 0.2286,
+      "note_program_exact_f1": 0.0512,
+      "instrument_detection_exact_f1": 0.3875,
+      "instrument_detection_family_f1": 0.9113
+    }
   },
   "decision": {
     "mr_mt3": "RESEARCH",
-    "architecture": "Do not replace Basic Pitch globally. MR-MT3 shows coarse instrument-family presence signal but weaker flat/note recovery and low exact program-attributed note quality; retain only as an optional research path pending broader evaluation.",
+    "architecture": "Do not replace Basic Pitch in production yet. On this five-excerpt subset MR-MT3 decoder-level evidence materially outperforms Basic Pitch on flat onset and onset+offset recovery and carries useful instrument-family/program evidence, but the sample is too small and the current process-per-track CPU wrapper is too slow for adoption. Retain MR-MT3 as a leading optional RESEARCH path pending broader data, warm/batched runtime, and downstream product-task validation.",
     "production_change": false,
     "issue_337_status": "research question materially advanced; broader data or a stronger permissive candidate would be required before production integration"
   },
   "limitations": [
     "Only five fixed 30-second test excerpts.",
     "Subset is deterministic but not representative enough for production adoption.",
-    "Published MR-MT3 Slakh numbers use a different grouped-stem/bass-correction protocol and are not directly comparable.",
+    "Published MR-MT3 Slakh results use a different grouped-stem/bass-correction protocol and are not directly comparable.",
     "MR-MT3 runtime uses process-per-track stock CLI and overstates warm-model latency.",
+    "Canonical MR-MT3 quality uses decoder-sidecar evidence because the pinned stock MIDI serializer corrupts overlapping pitched events; a production adapter would need a validated lossless evidence serializer.",
     "No downstream harmony/bass/melody product task was separately scored in this stage."
   ]
 }
