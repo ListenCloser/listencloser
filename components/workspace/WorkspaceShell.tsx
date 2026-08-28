@@ -28,7 +28,7 @@ function WorkspaceContent({
     if (!window.matchMedia("(max-width: 820px)").matches) return;
 
     // Compact layouts are staged rather than simultaneous: the musical canvas
-    // is the default surface and Library / Analysis open only when requested.
+    // is the default surface and Library / Breakdown open only when requested.
     if (!workspace.libraryCollapsed) toggleLibrary();
     if (!workspace.inspectorCollapsed) toggleInspector();
   }, [toggleInspector, toggleLibrary, workspace.inspectorCollapsed, workspace.libraryCollapsed]);
@@ -66,11 +66,11 @@ function WorkspaceContent({
             <button
               type="button"
               className={`studio-mobile-action studio-inspector-btn${inspectorOpen ? " active" : ""}`}
-              aria-label={inspectorOpen ? "Hide analysis" : "Show analysis"}
+              aria-label={inspectorOpen ? "Hide breakdown" : "Show breakdown"}
               aria-pressed={inspectorOpen}
               onClick={toggleInspector}
             >
-              Analysis
+              Breakdown
             </button>
           )}
         </div>
@@ -97,7 +97,7 @@ function WorkspaceContent({
                 type="button"
                 className="studio-inspector-backdrop"
                 onClick={toggleInspector}
-                aria-label="Close analysis"
+                aria-label="Close breakdown"
               />
             )}
           </>

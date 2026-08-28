@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
  *
  * Tests the analysis state transitions and the layout structure:
  * - Compare is integrated into the transport
- * - Completed analysis is visible in the persistent inspector
+ * - Completed analysis is presented as an evidence-grounded Breakdown
  * - Loop is explicit and accessible; play/pause is the primary transport action
  * - Library stays docked on desktop without duplicate collapse controls
  */
@@ -57,15 +57,16 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(compare).toHaveAttribute("title", /Compare .+ with .+/);
   });
 
-  test("completed analysis is visible in the persistent inspector", async ({ page }) => {
+  test("completed analysis is presented as a Breakdown with factual context", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     const inspector = page.locator("aside.inspector");
     await expect(inspector).toBeVisible();
-    await expect(inspector.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
-    await expect(inspector.getByRole("heading", { name: "Overview" })).toBeVisible();
+    await expect(inspector.getByRole("tab", { name: "Breakdown", selected: true })).toBeVisible();
+    await expect(inspector.getByRole("heading", { name: "What stands out" })).toBeVisible();
+    await expect(inspector.getByRole("heading", { name: "Context" })).toBeVisible();
     await expect(inspector.getByText("A minor", { exact: true })).toBeVisible();
-    await expect(inspector.getByText(/strongest global reading/i)).toBeVisible();
+    await expect(inspector.getByRole("heading", { name: "Overview" })).toHaveCount(0);
   });
 
   test("loop and playback controls expose their current action", async ({ page }) => {

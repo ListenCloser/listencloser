@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
@@ -24,6 +25,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Restore Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-mock-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**/*', 'components/**/*', 'lib/**/*', 'next.config.mjs', 'package.json', 'tsconfig.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-mock-${{ hashFiles('package-lock.json') }}-
       - run: npm ci
       - name: Install Playwright
         run: npx playwright install chromium --with-deps
@@ -45,6 +53,9 @@ jobs:
         run: npx wait-on http://localhost:3000
       - name: Run E2E tests
         run: npx playwright test tests/e2e
+      - name: Run visual regression tests
+        continue-on-error: true
+        run: npx playwright test tests/visual
         env:
           ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
       - name: Upload Playwright failure diagnostics

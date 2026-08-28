@@ -1,25 +1,26 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 import { categorizeInsights, filterByCategory, insightStartSeconds } from "@/lib/inspector/insights";
 import { isInspectorExposed, isExperimental } from "@/lib/inspector/capabilities";
 import { deriveFindings } from "@/lib/inspector/findings";
+import { rankBreakdownFindings, type BreakdownFinding } from "@/lib/inspector/breakdown";
 import { formatTime } from "@/lib/format";
 import TabStrip from "@/components/ui/TabStrip";
 import AskPanel from "./AskPanel";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
-import type { TemporalFinding } from "@/lib/inspector/findings";
 
 function describeSelection(selection: MusicalSelection): string {
   if (selection.measureRange) {
     const { start, end } = selection.measureRange;
-    return `Measures ${start}\u2013${end}`;
+    return `Measures ${start}–${end}`;
   }
   if (selection.timeRange) {
-    return `${formatTime(selection.timeRange.start)}\u2013${formatTime(selection.timeRange.end)}`;
+    return `${formatTime(selection.timeRange.start)}–${formatTime(selection.timeRange.end)}`;
   }
   return "";
 }
@@ -57,57 +58,21 @@ function overviewItems(insights: Insight[]): OverviewItem[] {
   ].filter((item): item is OverviewItem => item !== null);
 }
 
-function AnalysisOverview({
-  insights,
-  findings,
-  selection,
-}: {
-  insights: Insight[];
-  findings: TemporalFinding[];
-  selection: MusicalSelection | null;
-}) {
+function ContextSection({ insights }: { insights: Insight[] }) {
   const items = overviewItems(insights);
-  const values = Object.fromEntries(items.map((item) => [item.label, item.value]));
-  const summaryParts: string[] = [];
-
-  if (values.Key && values.Tempo && values.Meter) {
-    summaryParts.push(`The strongest global reading is ${values.Key}, around ${values.Tempo}, in ${values.Meter}.`);
-  } else if (values.Key && values.Tempo) {
-    summaryParts.push(`The strongest tonal reading is ${values.Key}, with a pulse near ${values.Tempo}.`);
-  } else if (values.Key) {
-    summaryParts.push(`The strongest global tonal reading is ${values.Key}.`);
-  } else if (values.Tempo) {
-    summaryParts.push(`A stable pulse is estimated near ${values.Tempo}.`);
-  }
-
-  const firstFinding = findings[0];
-  if (firstFinding) {
-    const finding = normalizeMusicText(firstFinding.label).replace(/[.]+$/, "");
-    summaryParts.push(`The clearest time-linked observation is ${finding} near ${formatTime(firstFinding.startSeconds)}.`);
-  }
-
-  if (summaryParts.length === 0) {
-    summaryParts.push(
-      selection
-        ? "There is not enough stable evidence in this selection for a useful high-level claim yet."
-        : "There is not enough stable global evidence for a useful high-level claim yet.",
-    );
-  }
+  if (items.length === 0) return null;
 
   return (
-    <section className="inspector-section inspector-overview-section">
-      <div className="inspector-section-heading"><h3>Overview</h3></div>
-      <p className="inspector-summary">{summaryParts.join(" ")}</p>
-      {items.length > 0 && (
-        <dl className="inspector-meta-line" aria-label="Analysis metadata">
-{items.map((item) => (
-  <div className="inspector-meta-item" key={item.label}>
-    <dt>{item.label}</dt>
-    <dd>{item.value}</dd>
-  </div>
-))}
-        </dl>
-      )}
+    <section className="inspector-section inspector-breakdown-context">
+      <div className="inspector-section-heading"><h3>Context</h3></div>
+      <dl className="inspector-meta-line" aria-label="Musical context">
+        {items.map((item) => (
+          <div className="inspector-meta-item" key={item.label}>
+            <dt>{item.label}</dt>
+            <dd>{item.value}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }
@@ -289,7 +254,7 @@ function MelodyEvidence({ insights, onSeek, setSelection }: {
   );
 }
 
-function EvidenceDisclosure({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+function EvidenceDisclosure({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   if (count === 0 || !children) return null;
   return (
     <details className="inspector-evidence-group">
@@ -302,44 +267,55 @@ function EvidenceDisclosure({ title, count, children }: { title: string; count: 
   );
 }
 
-function FindingsSection({
+function overlapsSelection(finding: BreakdownFinding, selection: MusicalSelection | null): boolean {
+  const range = selection?.timeRange;
+  if (!range) return true;
+  return finding.startSeconds < range.end && finding.endSeconds > range.start;
+}
+
+function BreakdownSection({
   findings,
-  onSeek,
-  setSelection,
+  selection,
+  onFocus,
 }: {
-  findings: TemporalFinding[];
-  onSeek: (seconds: number) => void;
-  setSelection: (selection: MusicalSelection | null) => void;
+  findings: BreakdownFinding[];
+  selection: MusicalSelection | null;
+  onFocus: (finding: BreakdownFinding) => void;
 }) {
-  if (findings.length === 0) return null;
-
-  const handleClick = (finding: TemporalFinding) => {
-    onSeek(finding.startSeconds);
-    setSelection({
-      timeRange: { start: finding.startSeconds, end: finding.endSeconds, domain: "performance" },
-      provenance: { origin: null, timeExact: false, measureApproximate: true },
-    });
-  };
-
   return (
-    <section className="inspector-section inspector-findings-section">
+    <section className="inspector-section inspector-breakdown-section">
       <div className="inspector-section-heading">
-        <h3>Notable moments</h3>
-        <span>{findings.length}</span>
+        <h3>{selection ? "About this selection" : "What stands out"}</h3>
+        {findings.length > 0 && <span>{findings.length}</span>}
       </div>
-      <div className="inspector-findings">
-        {findings.map((finding) => (
-          <button
-            key={finding.id}
-            type="button"
-            className={`inspector-finding inspector-finding-${finding.category}`}
-            onClick={() => handleClick(finding)}
-          >
-            <span className="inspector-finding-time">{formatTime(finding.startSeconds)}</span>
-            <span className="inspector-finding-label">{finding.label}</span>
-          </button>
-        ))}
-      </div>
+
+      {findings.length === 0 ? (
+        <div className="inspector-breakdown-sparse">
+          <strong>No strong time-linked finding here yet</strong>
+          <p>{selection
+            ? "The current evidence does not support a reliable localized claim for this selection. Try a wider passage or Ask about what is available."
+            : "The current evidence does not support a reliable time-linked summary yet. Available context and source evidence remain below."}</p>
+        </div>
+      ) : (
+        <div className="inspector-breakdown-findings">
+          {findings.map((finding) => (
+            <button
+              key={finding.id}
+              type="button"
+              className="inspector-breakdown-finding"
+              onClick={() => onFocus(finding)}
+              aria-label={`Focus ${formatTime(finding.startSeconds)} to ${formatTime(finding.endSeconds)}: ${finding.headline}`}
+            >
+              <span className="inspector-breakdown-time">{formatTime(finding.startSeconds)}–{formatTime(finding.endSeconds)}</span>
+              <span className="inspector-breakdown-headline">{finding.headline}</span>
+              <span className="inspector-breakdown-support">{finding.evidenceSummary}</span>
+              {finding.maturity === "experimental" && (
+                <span className="inspector-breakdown-maturity">Experimental melody evidence</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -357,7 +333,7 @@ export default function InspectorPanel() {
           className="inspector-mode-tabs"
           label="Inspector mode"
           items={[
-            { id: "analysis", label: "Analysis" },
+            { id: "analysis", label: "Breakdown" },
             { id: "ask", label: "Ask" },
           ]}
           value={mode}
@@ -365,6 +341,7 @@ export default function InspectorPanel() {
         />
         {mode === "analysis" && workspace.selection && (
           <div className="inspector-scope">
+            <span className="inspector-scope-label">Selected</span>
             <span className="inspector-scope-value">{describeSelection(workspace.selection)}</span>
             <button type="button" className="inspector-scope-clear" onClick={clearSelection} aria-label="Clear selection">×</button>
           </div>
@@ -372,13 +349,13 @@ export default function InspectorPanel() {
       </header>
 
       {mode === "analysis"
-        ? <AnalysisContent workspace={workspace} seek={seek} bpm={timeline.bpm} setSelection={setSelection} />
+        ? <BreakdownContent workspace={workspace} seek={seek} bpm={timeline.bpm} setSelection={setSelection} />
         : <div className="inspector-content ask-content"><AskPanel /></div>}
     </aside>
   );
 }
 
-function AnalysisContent({
+function BreakdownContent({
   workspace,
   seek,
   bpm,
@@ -389,59 +366,87 @@ function AnalysisContent({
   bpm: number;
   setSelection: (selection: MusicalSelection | null) => void;
 }) {
-  const categorized = categorizeInsights(workspace.insights, workspace.selection, bpm);
-  const selectionInsights = filterByCategory(categorized, "selection");
-  const wholeWorkInsights = filterByCategory(categorized, "whole-work");
-
   const exposed = (insights: Insight[]) => insights
     .filter((item) => item.confidence == null || item.confidence >= 0.5)
     .filter((item) => isInspectorExposed(item.kind));
 
-  const activeInsights = exposed(workspace.selection ? selectionInsights : wholeWorkInsights);
-  const findings = deriveFindings(activeInsights);
-  const hasKeyContext = overviewItems(activeInsights).some((item) => item.label === "Key");
-  const evidenceInsights = activeInsights
+  const exposedAll = exposed(workspace.insights);
+  const categorized = categorizeInsights(exposedAll, workspace.selection, bpm);
+  const selectionInsights = filterByCategory(categorized, "selection");
+  const wholeWorkInsights = filterByCategory(categorized, "whole-work");
+
+  const rawFindings = workspace.selection && !workspace.selection.timeRange
+    ? deriveFindings(exposed(selectionInsights))
+    : deriveFindings(exposedAll);
+  const timeRange = workspace.selection?.timeRange
+    ? { start: workspace.selection.timeRange.start, end: workspace.selection.timeRange.end }
+    : null;
+  const rankedFindings = rankBreakdownFindings(rawFindings, timeRange, 5)
+    .filter((finding) => overlapsSelection(finding, workspace.selection));
+
+  const scopedInsights = workspace.selection
+    ? exposed([...selectionInsights, ...wholeWorkInsights])
+    : exposedAll;
+  const contextInsights = exposed(wholeWorkInsights);
+  const hasKeyContext = overviewItems(contextInsights).some((item) => item.label === "Key");
+  const evidenceInsights = scopedInsights
     .filter((item) => item.confidence == null || item.confidence >= 0.65)
     .filter((item) => {
       if (["roman_numeral", "harmonic_function"].includes(item.kind)) return hasKeyContext;
       if (item.kind.startsWith("melody_") && item.kind !== "melody_interval_summary") return false;
       return true;
     });
+
   const harmonyCount = evidenceInsights.filter((item) => ["chord", "roman_numeral", "harmonic_function"].includes(item.kind)).length;
   const rhythmCount = evidenceInsights.filter((item) => ["rhythm", "rhythm_density", "rhythm_rests"].includes(item.kind)).length;
   const melodyCount = evidenceInsights.filter((item) => item.kind === "melody" || item.kind === "melody_interval_summary").length;
+  const totalEvidenceCount = harmonyCount + rhythmCount + melodyCount;
+  const contextCount = overviewItems(contextInsights).length;
 
-  if (activeInsights.length === 0 && findings.length === 0) {
+  if (exposedAll.length === 0 && rankedFindings.length === 0) {
     return (
       <div className="inspector-content inspector-empty-state">
         <strong>No confident findings yet</strong>
-        <p>{workspace.selection ? "Try a wider selection or inspect the whole piece." : "Analysis will appear here when there is enough musical evidence."}</p>
+        <p>{workspace.selection
+          ? "Try a wider selection or Ask about what is available."
+          : "Breakdown will appear here when there is enough musical evidence."}</p>
       </div>
     );
   }
 
+  const focusFinding = (finding: BreakdownFinding) => {
+    seek(finding.startSeconds);
+    setSelection({
+      timeRange: { start: finding.startSeconds, end: finding.endSeconds, domain: "performance" },
+      provenance: { origin: null, timeExact: false, measureApproximate: true },
+    });
+  };
+
   return (
-    <div className="inspector-content inspector-analysis-content">
-      <AnalysisOverview insights={activeInsights} findings={findings} selection={workspace.selection} />
+    <div className="inspector-content inspector-analysis-content inspector-breakdown-content">
+      <BreakdownSection findings={rankedFindings} selection={workspace.selection} onFocus={focusFinding} />
 
-      <FindingsSection findings={findings} onSeek={seek} setSelection={setSelection} />
+      {contextCount > 0 && <ContextSection insights={contextInsights} />}
 
-      {(harmonyCount > 0 || rhythmCount > 0 || melodyCount > 0) && (
-        <section className="inspector-section inspector-evidence-section">
-          <div className="inspector-section-heading">
-            <h3>Supporting evidence</h3>
-          </div>
-          <div className="inspector-evidence-groups">
-            <EvidenceDisclosure title="Harmony" count={harmonyCount}>
-              <HarmonyEvidence insights={evidenceInsights} bpm={bpm} onSeek={seek} setSelection={setSelection} />
-            </EvidenceDisclosure>
-            <EvidenceDisclosure title="Rhythm" count={rhythmCount}>
-              <RhythmEvidence insights={evidenceInsights} onSeek={seek} />
-            </EvidenceDisclosure>
-            <EvidenceDisclosure title="Melody" count={melodyCount}>
-              <MelodyEvidence insights={evidenceInsights} onSeek={seek} setSelection={setSelection} />
-            </EvidenceDisclosure>
-          </div>
+      {totalEvidenceCount > 0 && (
+        <section className="inspector-section inspector-evidence-section inspector-breakdown-evidence-section">
+          <details className="inspector-breakdown-evidence-root">
+            <summary>
+              <span>Evidence details</span>
+              <span className="inspector-evidence-count">{totalEvidenceCount}</span>
+            </summary>
+            <div className="inspector-evidence-groups">
+              <EvidenceDisclosure title="Harmony" count={harmonyCount}>
+                <HarmonyEvidence insights={evidenceInsights} bpm={bpm} onSeek={seek} setSelection={setSelection} />
+              </EvidenceDisclosure>
+              <EvidenceDisclosure title="Rhythm" count={rhythmCount}>
+                <RhythmEvidence insights={evidenceInsights} onSeek={seek} />
+              </EvidenceDisclosure>
+              <EvidenceDisclosure title="Melody" count={melodyCount}>
+                <MelodyEvidence insights={evidenceInsights} onSeek={seek} setSelection={setSelection} />
+              </EvidenceDisclosure>
+            </div>
+          </details>
         </section>
       )}
     </div>
