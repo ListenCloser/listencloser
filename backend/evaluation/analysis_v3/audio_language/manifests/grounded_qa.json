@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "name": "analysis_v3_audio_language_grounded_qa_v1",
+  "conditions": [
+    "audio_only",
+    "evidence_only",
+    "audio_plus_evidence"
+  ],
+  "questions": [
+    {
+      "id": "arrangement_change",
+      "prompt_class": "semantic_arrangement",
+      "text": "Describe the major arrangement changes over this selected passage.",
+      "requires_localized_support": true
+    },
+    {
+      "id": "instrument_prominence",
+      "prompt_class": "semantic_layers",
+      "text": "What instruments or musical layers become more or less prominent here?",
+      "requires_localized_support": true
+    },
+    {
+      "id": "compare_spans",
+      "prompt_class": "relational_comparison",
+      "text": "What changed between the first selected span and the second selected span?",
+      "requires_localized_support": true
+    },
+    {
+      "id": "production_timbre",
+      "prompt_class": "semantic_production",
+      "text": "Summarize the production and timbral character of this passage.",
+      "requires_localized_support": true
+    },
+    {
+      "id": "related_passages",
+      "prompt_class": "relational_similarity",
+      "text": "What musical features make these selected passages feel related?",
+      "requires_localized_support": true
+    },
+    {
+      "id": "insufficient_exact_fact",
+      "prompt_class": "abstention_exact_fact",
+      "text": "State the exact chord substitution in this passage. If the supplied evidence cannot establish it, say so rather than guessing.",
+      "requires_localized_support": true,
+      "should_abstain_when_chord_evidence_missing": true
+    }
+  ],
+  "annotation_protocol": {
+    "unit": "one model answer to one question under one condition",
+    "claim_partition": [
+      "supported_claims",
+      "contradicted_claims",
+      "unsupported_claims"
+    ],
+    "ratings": {
+      "usefulness_rating": "1-5 human rating",
+      "specificity_rating": "1-5 human rating"
+    },
+    "citation_fields": [
+      "expected_support_refs",
+      "cited_support_refs"
+    ],
+    "abstention_fields": [
+      "should_abstain",
+      "abstained"
+    ],
+    "temporal_grounding_fields": [
+      "requires_temporal_grounding",
+      "temporal_grounding_correct"
+    ],
+    "grading_rule": "Do not use the evaluated model to grade its own factual correctness. Prefer blinded human/manual claim-level annotation against supplied evidence and known benchmark facts.",
+    "temporal_rule": "Mark temporal_grounding_correct only when a claim is localized to the correct selected/adjacent span; do not infer timestamp precision from prose."
+  },
+  "notes": "Question manifest only. Audio/evidence cases are attached by a future runnable model evaluation; this file does not invent ground truth or model outputs."
+}

@@ -41,6 +41,7 @@ function CompareTransportControl() {
         type="button"
         className="transport-compare-trigger"
         disabled={!original || !defaultB}
+        title={original && defaultB ? `Compare ${original.label} with ${defaultB.label}` : "A second playback source is required"}
         onClick={() => {
           if (original && defaultB && original.id !== defaultB.id) startCompare(original, defaultB);
         }}
@@ -61,6 +62,7 @@ function CompareTransportControl() {
               type="button"
               className="transport-compare-side-label"
               aria-pressed={activeSide === side}
+              title={`Listen to compare side ${side}`}
               onClick={() => setCompareSide(side)}
             >
               {side}
@@ -81,7 +83,7 @@ function CompareTransportControl() {
           </div>
         );
       })}
-      <button type="button" className="transport-compare-exit" onClick={exitCompare} aria-label="Exit compare">
+      <button type="button" className="transport-compare-exit" onClick={exitCompare} aria-label="Exit compare" title="Exit compare mode">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
           <path d="M2 2l8 8M10 2l-8 8" />
         </svg>
@@ -157,6 +159,7 @@ export default function TransportBar() {
           className="transport-play-btn"
           onClick={toggle}
           aria-label={isPlaying ? "Pause" : "Play"}
+          title={isPlaying ? "Pause playback" : "Play recording"}
           disabled={!hasSource}
         >
           {isPlaying ? (
@@ -186,7 +189,8 @@ export default function TransportBar() {
             toggleLoop();
           }}
           aria-label="Toggle loop"
-          title="Loop entire source"
+          aria-pressed={loopEnabled}
+          title={loopEnabled ? "Turn loop off" : "Loop entire source"}
           disabled={!hasSource}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

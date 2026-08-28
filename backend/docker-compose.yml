@@ -1,5 +1,6 @@
 services:
   backend:
+    image: ${BACKEND_IMAGE:-hello-ai-backend:local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -32,6 +33,7 @@ services:
       start_period: 30s
 
   worker:
+    image: ${BACKEND_IMAGE:-hello-ai-backend:local}
     build:
       context: .
       dockerfile: Dockerfile

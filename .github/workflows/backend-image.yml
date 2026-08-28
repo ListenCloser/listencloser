@@ -4,17 +4,10 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'backend/Dockerfile'
-      - 'backend/pyproject.toml'
-      - 'backend/uv.lock'
+      - 'backend/**'
       - '.github/workflows/backend-image.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'backend/Dockerfile'
-      - 'backend/pyproject.toml'
-      - 'backend/uv.lock'
-      - '.github/workflows/backend-image.yml'
+      - '.github/workflows/deploy-backend.yml'
+      - 'scripts/deploy.sh'
 
 concurrency:
   group: backend-image-${{ github.ref }}
@@ -24,10 +17,39 @@ permissions:
   contents: read
 
 jobs:
+  deploy-contract:
+    name: Validate deploy contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate deployment shell syntax
+        run: bash -n scripts/deploy.sh
+      - name: Validate Compose prebuilt-image contract
+        env:
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role
+          BACKEND_IMAGE: ghcr.io/gr-rr/hello-ai-backend:test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        run: |
+          set -euo pipefail
+          docker compose -f backend/docker-compose.yml config > /tmp/hello-ai-compose.yml
+          images="$(docker compose -f backend/docker-compose.yml config --images | sort -u)"
+          test "$(printf '%s\n' "$images" | sed '/^$/d' | wc -l)" -eq 1
+          grep -Fq "$BACKEND_IMAGE" <<<"$images"
+
   build:
-    runs-on: ubuntu-latest
+    name: Build backend image (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - name: Build production backend image from locked dependencies
-        run: docker build --tag hello-ai-backend:${{ github.sha }} backend
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build production backend image natively
+        run: docker build --tag hello-ai-backend:${{ matrix.arch }} backend

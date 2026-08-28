@@ -14,6 +14,13 @@ import type {
   WorkBundle,
 } from "./domain.types";
 
+type UploadIntent = {
+  bucket: string;
+  storage_key: string;
+  token: string;
+  max_bytes: number;
+};
+
 export async function createProject(name: string, description?: string): Promise<Project> {
   return apiFetch<Project>("/api/v1/projects", {
     method: "POST",
@@ -46,10 +53,10 @@ export async function deleteWork(workId: string): Promise<{ deleted: string }> {
   });
 }
 
-export async function uploadArtifact(
+async function uploadArtifactViaProxy(
   projectId: string,
   file: File,
-  workId?: string
+  workId?: string,
 ): Promise<{ artifact: Artifact; version: Version }> {
   const token = supabase
     ? (await supabase.auth.getSession()).data.session?.access_token
@@ -78,6 +85,53 @@ export async function uploadArtifact(
   }
 
   return res.json();
+}
+
+export async function uploadArtifact(
+  projectId: string,
+  file: File,
+  workId?: string,
+): Promise<{ artifact: Artifact; version: Version }> {
+  const directUploadEnabled = process.env.NEXT_PUBLIC_DIRECT_ARTIFACT_UPLOAD !== "false";
+  if (!directUploadEnabled || !supabase) {
+    return uploadArtifactViaProxy(projectId, file, workId);
+  }
+
+  const descriptor = {
+    filename: file.name,
+    byte_size: file.size,
+    content_type: file.type || null,
+    work_id: workId ?? null,
+  };
+  const intent = await apiFetch<UploadIntent>(
+    `/api/v1/projects/${projectId}/artifacts/upload-intent`,
+    {
+      method: "POST",
+      body: JSON.stringify(descriptor),
+    },
+  );
+
+  if (file.size > intent.max_bytes) {
+    throw new Error("File exceeds upload size limit");
+  }
+
+  const { error: uploadError } = await supabase.storage
+    .from(intent.bucket)
+    .uploadToSignedUrl(intent.storage_key, intent.token, file);
+  if (uploadError) {
+    throw new Error(`Storage upload failed: ${uploadError.message}`);
+  }
+
+  return apiFetch<{ artifact: Artifact; version: Version }>(
+    `/api/v1/projects/${projectId}/artifacts/finalize-upload`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...descriptor,
+        storage_key: intent.storage_key,
+      }),
+    },
+  );
 }
 
 export async function startUnderstandWorkflow(
