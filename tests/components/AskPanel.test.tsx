@@ -53,7 +53,7 @@ beforeEach(() => {
 
 async function askOnWorkA(user: ReturnType<typeof userEvent.setup>) {
   act(() => store!.setActiveWorkId("work-a"));
-  await user.click(screen.getByText("What is happening harmonically here?"));
+  await user.click(screen.getByRole("button", { name: "Explain the harmony in plain language." }));
 }
 
 describe("AskPanel work-switch lifecycle", () => {
