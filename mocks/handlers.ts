@@ -1,5 +1,5 @@
 import { http, HttpResponse, delay } from "msw";
-import { sampleWavBase64, sampleWavOutputBase64 } from "@/tests/fixtures/sample-wav";
+import { sampleWavBase64, sampleWavOutputBase64 } from "@/mocks/fixtures/sample-wav";
 import { pitchToName } from "@/lib/notes";
 
 const SCALE = [60, 62, 64, 65, 67, 69, 71, 72];

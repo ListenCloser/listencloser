@@ -3,6 +3,9 @@
   "version": "2.0.0",
   "private": true,
   "description": "Music AI Studio — transcribe audio to MIDI and sheet music, and manage your music library.",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",

@@ -27,7 +27,7 @@ jobs:
         run: python3 scripts/check_actions_pinned.py
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: package.json
           cache: npm
       - name: Restore Next.js build cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -37,9 +37,33 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-prod-${{ hashFiles('package-lock.json') }}-
       - run: npm ci
-      - name: Build pull request without release upload
+      - name: Build pull request from Vercel-like source context
         if: github.event_name == 'pull_request'
-        run: npm run build
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_dir="$(mktemp -d)"
+          trap 'rm -rf "$deploy_dir"' EXIT
+
+          # Vercel removes these paths before compiling. Building the full checkout
+          # previously allowed runtime imports from tests/ to pass CI and fail only
+          # after deployment packaging.
+          rsync -a \
+            --exclude-from=.vercelignore \
+            --exclude='.git/' \
+            --exclude='.next/' \
+            --exclude='node_modules/' \
+            ./ "$deploy_dir/"
+
+          test ! -e "$deploy_dir/tests"
+          test ! -e "$deploy_dir/backend"
+          test -f "$deploy_dir/mocks/fixtures/sample-wav.ts"
+
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$deploy_dir/node_modules"
+          (
+            cd "$deploy_dir"
+            npm run build
+          )
       - name: Build main and upload Sentry source maps
         if: github.event_name == 'push'
         run: npm run build
@@ -61,7 +85,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: package.json
           cache: npm
       - run: npm ci
       - run: npm test
