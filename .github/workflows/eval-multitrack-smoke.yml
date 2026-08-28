@@ -1,4 +1,4 @@
-name: Analysis V3 multitrack Slakh Redux subset
+name: Analysis V3 multitrack Slakh Redux program-preserving
 
 on:
   push:
@@ -6,7 +6,8 @@ on:
       - eval/analysis-v3-multitrack-smoke-run
     paths:
       - '.github/workflows/eval-multitrack-smoke.yml'
-      - 'backend/evaluation/analysis_v3/multitrack_transcription/slakh_redux_subset_run.py'
+      - 'backend/evaluation/analysis_v3/multitrack_transcription/slakh_redux_program_preserving_run.py'
+      - 'backend/evaluation/analysis_v3/multitrack_transcription/mr_mt3_program_preserving_runner.py'
 
 permissions:
   contents: read
@@ -65,24 +66,25 @@ jobs:
           print({'hello_ai_torch': torch.__version__})
           PY
 
-      - name: Run five-track per-source Slakh Redux subset
+      - name: Run five-track program-preserving Slakh Redux subset
         env:
           PYTHONPATH: backend
           SLAKH_SOURCE_CACHE: ${{ runner.temp }}/slakh-selective-source
           MT3_CHECKPOINT_DIR: ${{ runner.temp }}/mt3-checkpoints
           MT3_INFER_BIN: ${{ runner.temp }}/mt3-venv/bin/mt3-infer
+          MT3_PYTHON_BIN: ${{ runner.temp }}/mt3-venv/bin/python
           MT3_INFER_VERSION: '0.2.0'
           MT3_TORCH_VERSION: '2.6.0+cpu'
-          MULTITRACK_SMOKE_OUTPUT: ${{ github.workspace }}/slakh-subset-output
+          MULTITRACK_SMOKE_OUTPUT: ${{ github.workspace }}/slakh-preserving-output
           HELLO_AI_MEASUREMENT_SHA: 7057c1c247fb2770fee5f5e418479cbf69bd4619
         run: |
-          backend/.venv/bin/python backend/evaluation/analysis_v3/multitrack_transcription/slakh_redux_subset_run.py
+          backend/.venv/bin/python backend/evaluation/analysis_v3/multitrack_transcription/slakh_redux_program_preserving_run.py
 
       - name: Upload evaluation artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: analysis-v3-multitrack-slakh-redux-subset
-          path: slakh-subset-output
+          name: analysis-v3-multitrack-slakh-redux-program-preserving
+          path: slakh-preserving-output
           if-no-files-found: warn
           retention-days: 7
