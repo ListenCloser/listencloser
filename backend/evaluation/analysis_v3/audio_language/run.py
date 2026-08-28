@@ -19,12 +19,38 @@ from .metrics import CONDITIONS, grounded_value_gate, score_by_condition
 ROOT = Path(__file__).parent
 
 
+def _validate_reference_sources(result: dict[str, Any]) -> None:
+    registry = result.get("source_registry")
+    if not isinstance(registry, dict) or not registry:
+        raise ValueError("reference evidence requires a non-empty source_registry")
+    for source_id, url in registry.items():
+        if not isinstance(source_id, str) or not source_id.strip():
+            raise ValueError("reference source ids must be non-empty strings")
+        if not isinstance(url, str) or not url.startswith("https://"):
+            raise ValueError(f"reference source {source_id} must be an https URL")
+
+    for section in ("candidates", "reference_benchmarks"):
+        entries = result.get(section)
+        if not isinstance(entries, list) or not entries:
+            raise ValueError(f"reference evidence requires non-empty {section}")
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError(f"reference evidence {section} entries must be objects")
+            refs = entry.get("source_refs")
+            if not isinstance(refs, list) or not refs or not all(isinstance(ref, str) for ref in refs):
+                raise ValueError(f"every {section} entry requires non-empty source_refs")
+            unknown = sorted(set(refs) - set(registry))
+            if unknown:
+                raise ValueError(f"unknown reference source refs: {unknown}")
+
+
 def load_reference_evidence(path: Path | None = None) -> dict[str, Any]:
     path = path or ROOT / "results" / "reference_evidence.json"
     with path.open() as handle:
         result = json.load(handle)
     if result.get("local_model_inference_performed") is not False:
         raise ValueError("reference evidence must explicitly record no local model inference")
+    _validate_reference_sources(result)
     return result
 
 
