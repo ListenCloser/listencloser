@@ -239,7 +239,7 @@
 .inspector-evidence-group summary {
   min-height: 36px;
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
+  grid-template-columns: 10px minmax(0, 1fr);
   align-items: center;
   gap: 7px;
   padding: 0 2px;
@@ -279,16 +279,64 @@
   color: #ddd8ce;
 }
 
-.inspector-evidence-count {
-  min-width: 18px;
-  text-align: right;
+.inspector-evidence-group > .inspector-evidence-body {
+  padding: 2px 0 10px 17px;
+}
+
+/* Chord, Roman numeral, and harmonic function are parallel labels for the same
+ * instant. Present one compact harmonic event instead of three repeated rows. */
+.inspector-harmony-moments {
+  display: grid;
+  gap: 0;
+}
+
+.inspector-harmony-moment {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 38px minmax(42px, max-content) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 7px;
+  padding: 6px 3px;
+  border: 0;
+  border-bottom: 1px solid rgba(241, 237, 228, 0.045);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.inspector-harmony-moment:last-child {
+  border-bottom: 0;
+}
+
+.inspector-harmony-moment:hover,
+.inspector-harmony-moment:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.inspector-harmony-time {
   color: var(--v6-control-muted);
-  font-size: 9.5px;
+  font: 500 9px "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
 }
 
-.inspector-evidence-group > .inspector-evidence-body {
-  padding: 2px 0 10px 17px;
+.inspector-harmony-primary {
+  color: var(--v6-control-text-strong);
+  font-size: 11px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+.inspector-harmony-context {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--v6-control-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Reduce visual competition in toolbar chrome. */
