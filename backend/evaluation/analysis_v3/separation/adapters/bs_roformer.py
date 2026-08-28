@@ -1,4 +1,10 @@
-"""BS-RoFormer adapter."""
+"""BS-RoFormer adapter for evaluation-only feasibility checks.
+
+The upstream architecture package does not provide a production-ready official
+checkpoint through the path evaluated here. Do not instantiate random weights
+and treat them as a model result. Until a compatible, licensed checkpoint is
+wired explicitly, this adapter must fail closed.
+"""
 
 from __future__ import annotations
 
@@ -13,79 +19,45 @@ class BSRoFormerAdapter(SeparationAdapter):
 
     def __init__(self, device: str = "cpu"):
         super().__init__(device)
-        self._model = None
 
     def load(self) -> None:
         if self._loaded:
             return
-        try:
-            from bs_roformer import BSRoformer
-
-            self._model = BSRoformer(
-                dim=384,
-                depth=12,
-                stereo=True,
-                num_stems=4,
-                time_steps=801,
-                freq_bins=256,
-            )
-            self._model.eval()
-            self._model.to(self.device)
-            self._loaded = True
-        except Exception as e:
-            raise RuntimeError(f"Failed to load BS-RoFormer: {e}") from e
+        raise RuntimeError(
+            "BS-RoFormer is REVISIT in this evaluation: the evaluated Python 3.9 "
+            "environment is incompatible with the package path attempted, and no "
+            "verified compatible pretrained checkpoint is wired. Refusing to "
+            "instantiate an untrained/random architecture as evaluation evidence."
+        )
 
     def separate(
         self,
         audio: np.ndarray,
         sample_rate: int,
     ) -> SeparationResult:
-        if not self._loaded:
-            return SeparationResult(error="Model not loaded")
-        try:
-            import torch
-
-            if audio.ndim == 1:
-                audio = np.stack([audio, audio], axis=0)
-            elif audio.ndim == 2 and audio.shape[0] == 1:
-                audio = np.concatenate([audio, audio], axis=0)
-
-            waveform = torch.from_numpy(audio).float().unsqueeze(0).to(self.device)
-
-            with torch.no_grad():
-                stems = self._model(waveform)
-
-            if isinstance(stems, list | tuple):
-                vocals = stems[0].squeeze().cpu().numpy() if len(stems) > 0 else None
-                drums = stems[1].squeeze().cpu().numpy() if len(stems) > 1 else None
-                bass = stems[2].squeeze().cpu().numpy() if len(stems) > 2 else None
-                other = stems[3].squeeze().cpu().numpy() if len(stems) > 3 else None
-            else:
-                vocals = stems.squeeze().cpu().numpy()
-                drums = None
-                bass = None
-                other = None
-
-            return SeparationResult(
-                vocals=vocals,
-                drums=drums,
-                bass=bass,
-                other=other,
+        return SeparationResult(
+            error=(
+                "BS-RoFormer unavailable: no verified compatible pretrained "
+                "checkpoint is wired for this evaluation environment"
             )
-        except Exception as e:
-            return SeparationResult(error=str(e))
+        )
 
     def metadata(self) -> SeparationMetadata:
         return SeparationMetadata(
             candidate="bs_roformer",
             model_id=self.model_id,
             code_license="MIT",
-            weight_license="CC-BY-NC-SA-4.0",
+            weight_license=None,
             upstream_repo="https://github.com/lucidrains/BS-RoFormer",
             supports_vocals=True,
             supports_drums=True,
             supports_bass=True,
             supports_other=True,
             num_stems=4,
-            notes="Transformer-based source separation. Weight license requires verification.",
+            notes=(
+                "REVISIT: architecture package path was incompatible with Python "
+                "3.9 and no verified compatible pretrained checkpoint is wired. "
+                "Weight license must be recorded from the exact future checkpoint, "
+                "not inferred from the code repository."
+            ),
         )
