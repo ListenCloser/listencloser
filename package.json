@@ -16,6 +16,7 @@
     "commit": "aicommits",
     "ci": "npm run build && npm run lint",
     "check": "bash scripts/check.sh",
+    "check:full": "bash scripts/check.sh full",
     "check:fast": "bash scripts/check.sh fast",
     "check:frontend": "bash scripts/check.sh frontend",
     "check:backend": "bash scripts/check.sh backend",
