@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/artifacts/finalize-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finalize Upload */
+        post: operations["finalize_upload_api_v1_projects__project_id__artifacts_finalize_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/artifacts/upload": {
         parameters: {
             query?: never;
@@ -101,6 +118,23 @@ export interface paths {
         put?: never;
         /** Upload Artifact */
         post: operations["upload_artifact_api_v1_projects__project_id__artifacts_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/artifacts/upload-intent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Upload Intent */
+        post: operations["create_upload_intent_api_v1_projects__project_id__artifacts_upload_intent_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -712,6 +746,17 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CreateUploadIntentBody */
+        CreateUploadIntentBody: {
+            /** Byte Size */
+            byte_size: number;
+            /** Content Type */
+            content_type?: string | null;
+            /** Filename */
+            filename: string;
+            /** Work Id */
+            work_id?: string | null;
+        };
         /** CreateWorkBody */
         CreateWorkBody: {
             /** Composer */
@@ -768,6 +813,19 @@ export interface components {
          * @enum {string}
          */
         EntityKind: "note" | "chord" | "beat" | "measure" | "phrase" | "section" | "cadence" | "motif";
+        /** FinalizeUploadBody */
+        FinalizeUploadBody: {
+            /** Byte Size */
+            byte_size: number;
+            /** Content Type */
+            content_type?: string | null;
+            /** Filename */
+            filename: string;
+            /** Storage Key */
+            storage_key: string;
+            /** Work Id */
+            work_id?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1065,6 +1123,17 @@ export interface components {
         UploadArtifactResponse: {
             artifact: components["schemas"]["Artifact"];
             version: components["schemas"]["Version"];
+        };
+        /** UploadIntentResponse */
+        UploadIntentResponse: {
+            /** Bucket */
+            bucket: string;
+            /** Max Bytes */
+            max_bytes: number;
+            /** Storage Key */
+            storage_key: string;
+            /** Token */
+            token: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -1401,6 +1470,41 @@ export interface operations {
             };
         };
     };
+    finalize_upload_api_v1_projects__project_id__artifacts_finalize_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalizeUploadBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadArtifactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upload_artifact_api_v1_projects__project_id__artifacts_upload_post: {
         parameters: {
             query?: never;
@@ -1423,6 +1527,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadArtifactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_upload_intent_api_v1_projects__project_id__artifacts_upload_intent_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUploadIntentBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadIntentResponse"];
                 };
             };
             /** @description Validation Error */
