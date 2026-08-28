@@ -27,12 +27,14 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
   // covering a narrow canvas. The Inspector stays mounted for state/performance
   // continuity but is visually staged until explicitly opened.
   const libraryTrigger = page.getByRole("button", { name: "Show library", exact: true });
+  const breakdownTrigger = page.getByRole("button", { name: "Show breakdown", exact: true });
   await expect(libraryTrigger).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show analysis", exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("tab", { name: "Analysis", exact: true })).not.toBeVisible();
+  await expect(breakdownTrigger).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("tab", { name: "Breakdown", exact: true })).not.toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await expectTouchHeight(libraryTrigger);
+  await expectTouchHeight(breakdownTrigger);
   await expectTouchHeight(page.getByRole("tab", { name: "Waveform", exact: true }));
   await expectTouchHeight(page.getByRole("button", { name: /Playback source:/ }));
   await expectTouchHeight(page.getByRole("button", { name: "Play", exact: true }));
@@ -49,12 +51,12 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
   await expectTouchHeight(deleteButton);
   await page.getByRole("button", { name: "Hide library", exact: true }).click();
 
-  // Analysis / Ask is a phone bottom sheet above a viewport-docked transport.
-  await page.getByRole("button", { name: "Show analysis", exact: true }).click();
+  // Breakdown / Ask is a phone bottom sheet above a viewport-docked transport.
+  await breakdownTrigger.click();
   const inspector = page.locator(".studio-inspector-v3");
   const transport = page.locator(".transport-bar-v3");
   await expect(inspector).toHaveClass(/is-open/);
-  await expect(page.getByRole("tab", { name: "Analysis", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Breakdown", exact: true })).toBeVisible();
   await expect
     .poll(
       async () => {
@@ -72,7 +74,7 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
       },
       {
         timeout: 5_000,
-        message: "phone analysis sheet should settle full-width above a bottom-docked 120px transport",
+        message: "phone Breakdown sheet should settle full-width above a bottom-docked 120px transport",
       },
     )
     .toBe(true);

@@ -3,9 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * Theory annotation E2E regression tests (MSW).
  *
- * Validates the Analysis Inspector hierarchy:
- *   - Overview shows interpretable Key, Tempo, Meter as quiet inline metadata
- *   - Harmony evidence can be expanded to Chords, Roman numerals, Function
+ * Validates the Breakdown Inspector hierarchy:
+ *   - Context shows interpretable Key, Tempo, Meter as quiet inline metadata
+ *   - Evidence details can be expanded to Harmony → Chords, Roman numerals, Function
  *   - Clicking a chord/RN sets a selection
  *   - Withheld capabilities (cadence, key_region) never appear
  */
@@ -51,13 +51,20 @@ test.describe("theory annotations (MSW)", () => {
   });
 
   async function openHarmonyEvidence(page: Page) {
-    const harmony = page
+    const evidenceRoot = page.locator("details.inspector-breakdown-evidence-root");
+    await expect(evidenceRoot).toBeVisible();
+    if ((await evidenceRoot.getAttribute("open")) === null) {
+      await evidenceRoot.locator(":scope > summary").click();
+    }
+    await expect(evidenceRoot).toHaveAttribute("open", "");
+
+    const harmony = evidenceRoot
       .locator("details.inspector-evidence-group")
       .filter({ hasText: /^Harmony/ })
       .first();
     await expect(harmony).toBeVisible();
     if ((await harmony.getAttribute("open")) === null) {
-      await harmony.locator("summary").click();
+      await harmony.locator(":scope > summary").click();
     }
     await expect(harmony).toHaveAttribute("open", "");
     return harmony;
@@ -70,8 +77,8 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Breakdown", selected: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Context" })).toBeVisible();
 
     const metadata = page.getByRole("definition");
     await expect(page.getByText("Key", { exact: true })).toBeVisible();

@@ -162,10 +162,10 @@ test("real audio golden path", async ({ page }) => {
     }
   });
 
-  // ── Analysis ─────────────────────────────────────────────────────────
-  await test.step("analysis", async () => {
-    await page.getByRole("tab", { name: "Analysis" }).click();
-    // Verify analysis insights are present — "Key" label confirms key detection ran
+  // ── Breakdown ────────────────────────────────────────────────────────
+  await test.step("breakdown", async () => {
+    await page.getByRole("tab", { name: "Breakdown" }).click();
+    // Verify analysis insights are present — "Key" confirms the factual context ran.
     await expect(page.getByText("Key", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
   });
 
@@ -245,9 +245,9 @@ test("real audio golden path", async ({ page }) => {
     await expectPositionPreserved(page, positionBeforeCompare);
     await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
 
-    // Analysis scopes to selection
+    // Breakdown scopes to selection
     await page.getByRole("button", { name: "Exit compare", exact: true }).click();
-    await page.getByRole("tab", { name: "Analysis" }).click();
+    await page.getByRole("tab", { name: "Breakdown" }).click();
     const inspectorScope = page.locator("aside.inspector");
     await expect(inspectorScope.getByRole("button", { name: "Clear selection" })).toBeVisible({ timeout: 20_000 });
     await expect(inspectorScope.locator(".inspector-scope-value")).toHaveText(/\d+:\d{2}–\d+:\d{2}/);
@@ -267,11 +267,11 @@ test("real audio golden path", async ({ page }) => {
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('[data-selection-highlight]').first()).toBeVisible({ timeout: 10_000 });
 
-    // Desktop Inspector is a persistent dock. Verify its selected analysis
+    // Desktop Inspector is a persistent dock. Verify its selected Breakdown
     // mode instead of stale show/hide controls that intentionally no longer exist.
     const inspector = page.locator("aside.inspector");
     await expect(inspector).toBeVisible();
-    await expect(inspector.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
+    await expect(inspector.getByRole("tab", { name: "Breakdown", selected: true })).toBeVisible();
   });
 
   // ── Persistence ──────────────────────────────────────────────────────
@@ -281,7 +281,7 @@ test("real audio golden path", async ({ page }) => {
     await dismissWorkspaceNotice(page);
     await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Breakdown" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Playback source:/ })).toBeVisible();
     await page.getByRole("button", { name: /Playback source:/ }).click();
     await expect(page.getByRole("option", { name: "Original", exact: true })).toBeVisible();
