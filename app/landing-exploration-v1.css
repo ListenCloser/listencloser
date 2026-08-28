@@ -1,0 +1,342 @@
+/* Landing visual exploration V1
+ * High-energy first impression, deliberately low-motion and low-dependency.
+ * The workspace remains the calm instrument; this layer only affects signed-out landing.
+ */
+
+.welcome-page-v4 {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 78% 42%, rgba(214, 181, 109, 0.08), transparent 26%),
+    radial-gradient(circle at 82% 62%, rgba(114, 169, 196, 0.055), transparent 25%),
+    #181713;
+}
+
+/* Quiet notation/signal texture. Decorative only; no interaction depends on it. */
+.welcome-page-v4::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0.46;
+  background-image:
+    linear-gradient(rgba(242, 238, 229, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 238, 229, 0.017) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at 72% 48%, black 0 24%, transparent 68%);
+}
+
+.welcome-page-v4::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: min(62vw, 760px);
+  aspect-ratio: 1;
+  right: -15vw;
+  top: 8vh;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(214, 181, 109, 0.07), transparent 63%);
+  filter: blur(36px);
+}
+
+.welcome-header-v4 {
+  position: relative;
+  z-index: 3;
+  width: min(1240px, calc(100% - 48px));
+  min-height: 76px;
+  margin: 0 auto;
+  padding: 18px 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.welcome-header-v4 .welcome-mark {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(242, 238, 229, 0.085);
+  border-radius: 11px;
+  background: rgba(242, 238, 229, 0.026);
+  color: #f0eadf;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
+}
+
+.welcome-header-v4 .welcome-mark svg {
+  filter: drop-shadow(0 3px 10px rgba(214, 181, 109, 0.1));
+}
+
+.welcome-hero-v4 {
+  position: relative;
+  z-index: 2;
+  width: min(1240px, calc(100% - 48px));
+  max-width: none;
+  min-height: calc(100dvh - 76px);
+  margin: 0 auto;
+  padding: clamp(48px, 8vh, 96px) 0 clamp(68px, 10vh, 112px);
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(440px, 1.2fr);
+  grid-template-rows: auto auto auto auto;
+  align-content: center;
+  align-items: center;
+  column-gap: clamp(52px, 7vw, 112px);
+  row-gap: 0;
+  text-align: left;
+}
+
+.welcome-hero-v4 > h1,
+.welcome-hero-v4 > p,
+.welcome-hero-v4 > button,
+.welcome-hero-v4 > small {
+  grid-column: 1;
+  position: relative;
+  z-index: 2;
+}
+
+.welcome-hero-v4 > h1 {
+  grid-row: 1;
+  margin: 0;
+  max-width: 7.6ch;
+  color: #f3eee5;
+  font-family: var(--font-display);
+  font-size: clamp(58px, 6.6vw, 94px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.91;
+  text-wrap: balance;
+  animation: landing-copy-enter 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.welcome-hero-v4 > h1::after {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 2px;
+  margin-top: 28px;
+  background: linear-gradient(90deg, #d6b56d, rgba(214, 181, 109, 0));
+}
+
+.welcome-hero-v4 > p {
+  grid-row: 2;
+  max-width: 43ch;
+  margin: 25px 0 0;
+  color: #a9a397;
+  font-size: clamp(15px, 1.25vw, 17px);
+  line-height: 1.64;
+  letter-spacing: -0.012em;
+  animation: landing-copy-enter 620ms 70ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.welcome-hero-v4 > .btn-primary {
+  grid-row: 3;
+  justify-self: start;
+  min-height: 42px;
+  margin-top: 28px;
+  padding: 0 17px;
+  border: 1px solid rgba(214, 181, 109, 0.18);
+  border-radius: 8px;
+  background: #d6b56d;
+  color: #211f1b;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  transition:
+    transform 140ms ease-out,
+    background 140ms ease-out,
+    box-shadow 140ms ease-out;
+  animation: landing-copy-enter 620ms 130ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.welcome-hero-v4 > .btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #e0c079;
+  filter: none;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+}
+
+.welcome-hero-v4 > .btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.welcome-hero-v4 > small {
+  grid-row: 4;
+  margin-top: 12px;
+  color: #777168;
+  font-size: 10.5px;
+  letter-spacing: 0.005em;
+  animation: landing-copy-enter 620ms 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* One coherent product story instead of a grid of marketing cards. The SVG is
+ * intentionally illustrative, not interactive: it shows synchronized views
+ * without creating fake controls or adding JS to the landing page. */
+.welcome-hero-v4::after {
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / 5;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  justify-self: stretch;
+  align-self: center;
+  border-radius: 22px;
+  background: url("/landing-signal.svg") center / contain no-repeat;
+  filter: saturate(0.96);
+  transform-origin: center;
+  animation: landing-study-enter 760ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* A single ambient halo adds depth; it never moves after entry. */
+.welcome-hero-v4::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 48%;
+  aspect-ratio: 1;
+  right: 1%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 45% 42%, rgba(214, 181, 109, 0.1), transparent 47%),
+    radial-gradient(circle at 58% 62%, rgba(114, 169, 196, 0.075), transparent 45%);
+  filter: blur(28px);
+}
+
+@keyframes landing-copy-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-study-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 980px) {
+  .welcome-header-v4,
+  .welcome-hero-v4 {
+    width: min(100% - 36px, 760px);
+  }
+
+  .welcome-hero-v4 {
+    min-height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    padding-top: 54px;
+    padding-bottom: 72px;
+    row-gap: 0;
+  }
+
+  .welcome-hero-v4 > h1,
+  .welcome-hero-v4 > p,
+  .welcome-hero-v4 > button,
+  .welcome-hero-v4 > small,
+  .welcome-hero-v4::after {
+    grid-column: 1;
+  }
+
+  .welcome-hero-v4 > h1 { grid-row: 1; max-width: 8ch; }
+  .welcome-hero-v4 > p { grid-row: 2; }
+  .welcome-hero-v4 > .btn-primary { grid-row: 3; }
+  .welcome-hero-v4 > small { grid-row: 4; }
+
+  .welcome-hero-v4::after {
+    grid-row: 5;
+    width: min(100%, 720px);
+    margin-top: 48px;
+    justify-self: center;
+  }
+
+  .welcome-hero-v4::before {
+    width: 78%;
+    right: 8%;
+    top: 72%;
+  }
+}
+
+@media (max-width: 620px) {
+  .welcome-header-v4,
+  .welcome-hero-v4 {
+    width: calc(100% - 28px);
+  }
+
+  .welcome-header-v4 {
+    min-height: 66px;
+    padding-block: 13px;
+  }
+
+  .welcome-header-v4 .welcome-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .welcome-hero-v4 {
+    padding-top: 38px;
+    padding-bottom: 50px;
+  }
+
+  .welcome-hero-v4 > h1 {
+    max-width: 7ch;
+    font-size: clamp(50px, 16vw, 72px);
+  }
+
+  .welcome-hero-v4 > h1::after {
+    margin-top: 22px;
+  }
+
+  .welcome-hero-v4 > p {
+    max-width: 34ch;
+    margin-top: 20px;
+    font-size: 14.5px;
+  }
+
+  .welcome-hero-v4 > .btn-primary {
+    width: 100%;
+    justify-content: center;
+    margin-top: 24px;
+  }
+
+  .welcome-hero-v4::after {
+    width: calc(100% + 12px);
+    margin-left: -6px;
+    margin-top: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-hero-v4 > h1,
+  .welcome-hero-v4 > p,
+  .welcome-hero-v4 > .btn-primary,
+  .welcome-hero-v4 > small,
+  .welcome-hero-v4::after {
+    animation: none;
+  }
+
+  .welcome-hero-v4 > .btn-primary {
+    transition: background 120ms ease-out, box-shadow 120ms ease-out;
+  }
+
+  .welcome-hero-v4 > .btn-primary:hover:not(:disabled) {
+    transform: none;
+  }
+}
