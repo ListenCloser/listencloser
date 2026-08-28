@@ -65,9 +65,12 @@
   }
 
   /* Library remains an explicit edge destination; it is almost full-screen on
-   * a phone without pretending the underlying canvas can be used concurrently. */
-  .studio-library-v3 {
-    width: min(360px, 94vw);
+   * a phone without pretending the underlying canvas can be used concurrently.
+   * The compound selector and !important overrides intentionally beat the
+   * legacy <820px responsive layer carried by the shared .studio-library class. */
+  .studio-library.studio-library-v3 {
+    width: min(360px, 94vw) !important;
+    max-height: none !important;
     box-shadow: 20px 0 54px rgba(0, 0, 0, 0.44);
   }
 
@@ -92,17 +95,20 @@
   }
 
   /* Analysis / Ask becomes a bottom sheet on phones. It reads vertically and
-   * should not consume most of the horizontal canvas just to imitate desktop. */
-  .studio-inspector-v3 {
+   * should not consume most of the horizontal canvas just to imitate desktop.
+   * The shared legacy .studio-inspector responsive rule uses !important width/
+   * height declarations, so the V3 phone mode explicitly owns those properties. */
+  .studio-inspector.studio-inspector-v3 {
     top: auto;
     left: 0;
     right: 0;
     bottom: var(--transport-height);
-    width: 100%;
-    min-width: 0;
-    height: min(72dvh, 620px);
-    max-height: min(72dvh, 620px);
-    border-left: 0;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: min(72dvh, 620px) !important;
+    max-height: min(72dvh, 620px) !important;
+    border-left: 0 !important;
     border-top: 1px solid var(--v5-line-strong, rgba(241, 237, 228, 0.13));
     border-radius: 14px 14px 0 0;
     transform: translateY(calc(100% + var(--transport-height)));
@@ -110,7 +116,7 @@
     overflow: hidden;
   }
 
-  .studio-inspector-v3.is-open {
+  .studio-inspector.studio-inspector-v3.is-open {
     transform: translateY(0);
   }
 
