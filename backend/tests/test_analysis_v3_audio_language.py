@@ -29,9 +29,12 @@ def row(
     specificity: float | None = 3.0,
     requires_temporal_grounding: bool = False,
     temporal_grounding_correct: bool | None = None,
+    case_id: str = "case-1",
+    question_id: str = "q",
 ) -> dict:
     return {
-        "question_id": "q",
+        "case_id": case_id,
+        "question_id": question_id,
         "condition": condition,
         "supported_claims": supported,
         "contradicted_claims": contradicted,
@@ -48,11 +51,53 @@ def row(
     }
 
 
+def scored_payload(assessments: list[dict]) -> dict:
+    cases: dict[tuple[str, str], dict] = {}
+    for assessment in assessments:
+        key = (assessment["case_id"], assessment["question_id"])
+        case = cases.setdefault(
+            key,
+            {
+                "case_id": assessment["case_id"],
+                "question_id": assessment["question_id"],
+                "conditions": {},
+            },
+        )
+        case["conditions"][assessment["condition"]] = {
+            "raw_response": f"raw response for {assessment['condition']}",
+            "latency_seconds": 1.0,
+        }
+    return {
+        "evaluation_id": "eval-1",
+        "hello_ai_sha": "abc123",
+        "model": "music_flamingo",
+        "model_version": "revision-1",
+        "model_checksum": "sha256:deadbeef",
+        "code_license": "MIT",
+        "weight_license": "noncommercial",
+        "environment": {"device": "cuda", "hardware": "test-gpu"},
+        "generation": {"do_sample": False, "max_new_tokens": 256},
+        "operational": {"load_seconds": 1.0, "determinism_repeats": 3},
+        "annotation_method": "blinded manual annotation",
+        "cases": list(cases.values()),
+        "assessments": assessments,
+    }
+
+
 def test_score_assessments_known_rates() -> None:
     result = score_assessments(
         [
             row("audio_only", 2, 1, 0, ["a", "b"], ["a", "x"], usefulness=4),
-            row("audio_only", 2, 0, 1, ["c"], ["c"], usefulness=2),
+            row(
+                "audio_only",
+                2,
+                0,
+                1,
+                ["c"],
+                ["c"],
+                usefulness=2,
+                case_id="case-2",
+            ),
         ]
     )
     assert result["supported_claim_rate"] == pytest.approx(4 / 6)
@@ -102,6 +147,28 @@ def test_grounded_value_gate_passes_only_on_bounded_improvement() -> None:
     assert result["criteria"]["unsupported_claim_rate_not_worse"] is False
 
 
+def test_grounded_value_gate_rejects_mismatched_coverage() -> None:
+    grouped = score_by_condition(
+        [
+            row("evidence_only", 1, 0, 1, case_id="case-a"),
+            row("audio_plus_evidence", 2, 0, 0, case_id="case-b", usefulness=4),
+        ]
+    )
+    result = grounded_value_gate(grouped)
+    assert result["evaluable"] is False
+    assert "same case_id/question_id coverage" in result["reason"]
+
+
+def test_duplicate_assessment_key_is_rejected() -> None:
+    with pytest.raises(ValueError, match="duplicate"):
+        score_assessments(
+            [
+                row("audio_only", 1, 0, 0),
+                row("audio_only", 1, 0, 0),
+            ]
+        )
+
+
 def test_grounded_value_gate_requires_human_ratings() -> None:
     grouped = score_by_condition(
         [
@@ -135,6 +202,13 @@ def test_invalid_condition_is_rejected() -> None:
 def test_invalid_rating_is_rejected() -> None:
     with pytest.raises(ValueError, match="usefulness_rating"):
         score_assessments([row("audio_only", 1, 0, 0, usefulness=6)])
+
+
+def test_missing_case_id_is_rejected() -> None:
+    item = row("audio_only", 1, 0, 0)
+    item["case_id"] = ""
+    with pytest.raises(ValueError, match="case_id"):
+        score_assessments([item])
 
 
 def test_zero_claim_abstention_item_is_valid() -> None:
@@ -210,26 +284,40 @@ def test_load_reference_evidence_rejects_local_inference_flag(tmp_path: Path) ->
         load_reference_evidence(path)
 
 
-def test_score_assessment_file_preserves_model_provenance(tmp_path: Path) -> None:
+def test_score_assessment_file_preserves_required_provenance(tmp_path: Path) -> None:
+    assessments = [
+        row("evidence_only", 1, 0, 1, usefulness=3, specificity=3),
+        row("audio_plus_evidence", 2, 0, 0, usefulness=4, specificity=4),
+    ]
     path = tmp_path / "assessments.json"
-    path.write_text(
-        json.dumps(
-            {
-                "evaluation_id": "eval-1",
-                "hello_ai_sha": "abc123",
-                "model": "music_flamingo",
-                "model_version": "revision-1",
-                "model_checksum": "sha256:deadbeef",
-                "annotation_method": "manual",
-                "assessments": [
-                    row("evidence_only", 1, 0, 1, usefulness=3, specificity=3),
-                    row("audio_plus_evidence", 2, 0, 0, usefulness=4, specificity=4),
-                ],
-            }
-        )
-    )
+    path.write_text(json.dumps(scored_payload(assessments)))
+
     result = score_assessment_file(path)
-    assert result["hello_ai_sha"] == "abc123"
-    assert result["model_version"] == "revision-1"
-    assert result["model_checksum"] == "sha256:deadbeef"
+
+    assert result["provenance"]["hello_ai_sha"] == "abc123"
+    assert result["provenance"]["model_version"] == "revision-1"
+    assert result["provenance"]["model_checksum"] == "sha256:deadbeef"
+    assert result["provenance"]["environment"]["hardware"] == "test-gpu"
     assert result["grounded_value_gate"]["passes"] is True
+
+
+def test_score_assessment_file_rejects_missing_provenance(tmp_path: Path) -> None:
+    assessments = [row("evidence_only", 1, 0, 1)]
+    payload = scored_payload(assessments)
+    del payload["model_version"]
+    path = tmp_path / "assessments.json"
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(ValueError, match="model_version"):
+        score_assessment_file(path)
+
+
+def test_score_assessment_file_requires_matching_raw_response(tmp_path: Path) -> None:
+    assessments = [row("evidence_only", 1, 0, 1)]
+    payload = scored_payload(assessments)
+    payload["cases"][0]["conditions"] = {}
+    path = tmp_path / "assessments.json"
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(ValueError, match="raw response"):
+        score_assessment_file(path)
