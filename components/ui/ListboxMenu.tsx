@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
 type MenuOption = { id: string; label: string; disabled?: boolean };
 
+type FocusDirection = 1 | -1;
+
 export default function ListboxMenu({
   triggerLabel,
   triggerAria,
@@ -25,7 +27,7 @@ export default function ListboxMenu({
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const menuId = useId();
 
-  const focusOption = (index: number) => {
+  const focusOption = (index: number, direction: FocusDirection = 1) => {
     if (options.length === 0) return;
     let next = index;
     for (let attempts = 0; attempts < options.length; attempts += 1) {
@@ -35,7 +37,7 @@ export default function ListboxMenu({
         optionRefs.current[next]?.focus();
         return;
       }
-      next += 1;
+      next += direction;
     }
   };
 
@@ -48,7 +50,7 @@ export default function ListboxMenu({
         : preferred === "first"
           ? 0
           : Math.max(0, selectedIndex);
-      focusOption(index);
+      focusOption(index, preferred === "last" ? -1 : 1);
     });
   };
 
@@ -60,7 +62,7 @@ export default function ListboxMenu({
   useEffect(() => {
     if (!open) return;
     const onDown = (event: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) closeMenu(false);
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -82,21 +84,21 @@ export default function ListboxMenu({
   const onOptionKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      focusOption(index + 1);
+      focusOption(index + 1, 1);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      focusOption(index - 1);
+      focusOption(index - 1, -1);
     } else if (event.key === "Home") {
       event.preventDefault();
-      focusOption(0);
+      focusOption(0, 1);
     } else if (event.key === "End") {
       event.preventDefault();
-      focusOption(options.length - 1);
+      focusOption(options.length - 1, -1);
     } else if (event.key === "Escape") {
       event.preventDefault();
       closeMenu(true);
     } else if (event.key === "Tab") {
-      closeMenu(false);
+      setOpen(false);
     }
   };
 
