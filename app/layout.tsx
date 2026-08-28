@@ -3,6 +3,7 @@ import "./globals.css";
 import "./workspace-v3.css";
 import "./product-polish-v4.css";
 import "./workspace-interactions.css";
+import "./visual-language-v5.css";
 import { Geist } from "next/font/google";
 import MSWInit from "@/components/MSWInit";
 import AuthProvider from "@/components/AuthProvider";

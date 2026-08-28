@@ -45,7 +45,7 @@ export type RepresentationDefinition = {
 
 function WaveformView() {
   const { workspace, setSelection } = useWorkspace();
-  const { transport, seek } = useTransport();
+  const { transport, seek, setActiveSource } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
   const inspectorOpen = !workspace.inspectorCollapsed;
   const annotations = useMemo(
@@ -184,7 +184,13 @@ function ScoreView() {
   const { transport, seek } = useTransport();
   const entry = workspace.representations.find((item) => item.kind === "score");
   const measureStarts = entry?.measureStarts ?? [];
-  const scoreDuration = entry?.audioUrl ? transport.duration : null;
+  const scoreSource = transport.sources.find((source) => source.role === "score") ?? null;
+  const finalMeasureSpan = measureStarts.length > 1
+    ? measureStarts[measureStarts.length - 1] - measureStarts[measureStarts.length - 2]
+    : 2;
+  const scoreDuration = measureStarts.length > 0
+    ? Math.max(transport.duration || 0, measureStarts[measureStarts.length - 1] + Math.max(finalMeasureSpan, 0.25))
+    : (transport.duration || null);
   const selection = workspace.selection;
   const inspectorOpen = !workspace.inspectorCollapsed;
   const annotations = useMemo(
@@ -207,12 +213,23 @@ function ScoreView() {
       : null;
   return (
     <div className="representation-body">
+      <div className="score-playback-strip">
+        {scoreSource ? (
+transport.activeSource?.role === "score" ? (
+  <span className="score-playback-state">Hearing score</span>
+) : (
+  <button type="button" className="score-playback-action" onClick={() => setActiveSource(scoreSource)}>Hear score</button>
+)
+        ) : (
+<span className="score-playback-state score-playback-state-muted">Notation audio is unavailable for this saved version.</span>
+        )}
+      </div>
       <SheetMusic
         musicXml={entry?.musicxml ?? ""}
         playheadTime={transport.position}
         isPlaying={transport.isPlaying}
-        isScoreActive={transport.activeSource?.role === "score"}
-        hasScorePlayback={transport.sources.some((source) => source.role === "score")}
+        isScoreActive
+        hasScorePlayback={Boolean(scoreSource)}
         measureStarts={measureStarts}
         scoreDuration={scoreDuration}
         selectedMeasures={selectedMeasures}
