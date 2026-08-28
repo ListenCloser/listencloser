@@ -20,7 +20,7 @@ from api_schemas import HealthLiveResponse, HealthQueueResponse, HealthReadyResp
 from ask.api import router as ask_router
 from auth_utils import get_supabase_client, limiter
 from domain.api import router as domain_router
-from observability import configure_logging, init_telemetry
+from observability import configure_logging, init_telemetry, record_http_request
 
 configure_logging("hello-ai-api")
 init_telemetry("hello-ai-api")
@@ -82,12 +82,18 @@ async def observability_middleware(request: Request, call_next):
     req_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
     token = _request_id_ctx.set(req_id)
     started = time.perf_counter()
+    status_code = 500
     try:
         response = await call_next(request)
+        status_code = response.status_code
     except Exception:
         logger.exception("request_failed", extra={"req_id": req_id})
         raise
     finally:
+        duration_ms = (time.perf_counter() - started) * 1000
+        route = request.scope.get("route")
+        route_template = getattr(route, "path", None) or "unmatched"
+        record_http_request(request.method, route_template, status_code, duration_ms)
         _request_id_ctx.reset(token)
 
     response.headers["x-request-id"] = req_id
@@ -98,7 +104,7 @@ async def observability_middleware(request: Request, call_next):
             "method": request.method,
             "path": request.url.path,
             "status": response.status_code,
-            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            "duration_ms": round(duration_ms, 2),
         },
     )
     return response
