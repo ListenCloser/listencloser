@@ -4,17 +4,10 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'backend/Dockerfile'
-      - 'backend/pyproject.toml'
-      - 'backend/uv.lock'
+      - 'backend/**'
       - '.github/workflows/backend-image.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'backend/Dockerfile'
-      - 'backend/pyproject.toml'
-      - 'backend/uv.lock'
-      - '.github/workflows/backend-image.yml'
+      - '.github/workflows/deploy-backend.yml'
+      - 'scripts/deploy.sh'
 
 concurrency:
   group: backend-image-${{ github.ref }}
@@ -25,9 +18,18 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build backend image (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Build production backend image from locked dependencies
-        run: docker build --tag hello-ai-backend:${{ github.sha }} backend
+      - name: Build production backend image natively
+        run: docker build --tag hello-ai-backend:${{ matrix.arch }} backend
