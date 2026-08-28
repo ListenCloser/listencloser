@@ -9,6 +9,9 @@ import "./visual-language-v6.css";
 import "./mobile-workspace.css";
 import "./readiness-polish-v6.css";
 import "./breakdown-v3.css";
+// Signed-out visual R&D only. Keep this isolated from workspace chrome so the
+// product can be expressive at the front door and restrained while editing.
+import "./landing-exploration-v1.css";
 import { Geist } from "next/font/google";
 import MSWInit from "@/components/MSWInit";
 import AuthProvider from "@/components/AuthProvider";
@@ -18,7 +21,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Music Workspace",
-  description: "Listen, transcribe, inspect, and analyze music.",
+  description: "Bring in a recording and move between waveform, piano roll, notation, and evidence-backed analysis.",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",
