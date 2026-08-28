@@ -38,6 +38,14 @@ def test_multilabel_ranking_metrics() -> None:
     assert label_ranking_average_precision(truth, scores) == pytest.approx(11 / 12)
 
 
+def test_label_ranking_average_precision_handles_ties() -> None:
+    truth = np.asarray([[True, False, True]])
+    scores = np.asarray([[0.5, 0.5, 0.1]])
+
+    # At score 0.5: 1 relevant / 2 labels. At 0.1: 2 / 3.
+    assert label_ranking_average_precision(truth, scores) == pytest.approx(7 / 12)
+
+
 def test_recall_ignores_empty_truth_rows() -> None:
     truth = np.asarray([[False, False], [True, False]])
     scores = np.asarray([[0.9, 0.1], [0.8, 0.2]])
