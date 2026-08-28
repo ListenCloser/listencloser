@@ -36,16 +36,45 @@ jobs:
       - name: Sync locked hello-ai backend
         run: uv sync --project backend --locked
 
-      - name: Install pinned research-only MR-MT3 runner
+      - name: Create isolated pinned CPU MR-MT3 environment
+        shell: bash
         run: |
-          uv pip install --python backend/.venv/bin/python 'mt3-infer[torch]==0.2.0'
-          backend/.venv/bin/python -c "import importlib.metadata as m; assert m.version('mt3-infer') == '0.2.0'"
+          set -euo pipefail
+          MT3_VENV="$RUNNER_TEMP/mt3-venv"
+          uv venv "$MT3_VENV" --python 3.11
+          uv pip install --python "$MT3_VENV/bin/python" \
+            --index-url https://download.pytorch.org/whl/cpu \
+            'torch==2.6.0' 'torchvision==0.21.0' 'torchaudio==2.6.0'
+          uv pip install --python "$MT3_VENV/bin/python" \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            'mt3-infer @ git+https://github.com/openmirlab/mt3-infer.git@2d20ee5bb6ca727968bd23c6100fd2a35154166b'
+          "$MT3_VENV/bin/python" - <<'PY'
+          import importlib.metadata as metadata
+          import torch
+
+          assert metadata.version('mt3-infer') == '0.2.0', metadata.version('mt3-infer')
+          assert torch.__version__.startswith('2.6.0'), torch.__version__
+          assert '+cpu' in torch.__version__, torch.__version__
+          print({'mt3_infer': metadata.version('mt3-infer'), 'torch': torch.__version__})
+          PY
+          test -x "$MT3_VENV/bin/mt3-infer"
+
+      - name: Verify locked hello-ai environment stayed unchanged
+        run: |
+          backend/.venv/bin/python - <<'PY'
+          import torch
+          assert torch.__version__ == '2.6.0+cpu', torch.__version__
+          print({'hello_ai_torch': torch.__version__})
+          PY
 
       - name: Run one-track 30-second BabySlakh exploratory smoke
         env:
           PYTHONPATH: backend
           MUSIC_EVAL_CACHE_DIR: ${{ runner.temp }}/music-eval-cache
           MT3_CHECKPOINT_DIR: ${{ runner.temp }}/mt3-checkpoints
+          MT3_INFER_BIN: ${{ runner.temp }}/mt3-venv/bin/mt3-infer
+          MT3_INFER_VERSION: '0.2.0'
+          MT3_TORCH_VERSION: '2.6.0+cpu'
           MULTITRACK_SMOKE_OUTPUT: ${{ github.workspace }}/smoke-output
           HELLO_AI_MEASUREMENT_SHA: 7057c1c247fb2770fee5f5e418479cbf69bd4619
         run: |
