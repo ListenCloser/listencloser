@@ -1,17 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/AuthProvider";
 import BrandMark from "@/components/BrandMark";
 import WorkspaceShell, { type ServiceStatus } from "@/components/workspace/WorkspaceShell";
 import {
   cancelJob,
-  createProject,
   getEntities,
   getInsights,
   getWorkBundle,
-  listProjects,
-  listWorks,
   retryJob,
   startCompareWorkflow,
   startUnderstandWorkflow,
@@ -20,6 +18,7 @@ import {
 } from "@/lib/api-client";
 import { JobObservationError, JobTerminalError, waitForJob, sanitizeJobError } from "@/lib/job-tracking";
 import { supabase } from "@/lib/supabase";
+import { refreshProjectWorks, useLibraryProject, useProcessingHealth, useProjectWorks } from "@/lib/server-state";
 import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
 import { understandStageLabel, presentableTitle } from "@/lib/format";
@@ -42,16 +41,18 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
     setAnalysisState,
     setInsights,
     setLoadingWork,
-    setProject,
     setStudioOperation,
     setTakes,
-    setWorks,
     workspace,
   } = useWorkspace();
   const transcriptionProfile = workspace.transcriptionProfile;
   const { replaceSources } = useTransport();
   const { setBpm, setTimeSignature, resetTimeline } = useTimeline();
-  const [projectId, setProjectId] = useState("");
+  const queryClient = useQueryClient();
+  const projectQuery = useLibraryProject(user?.id ?? "");
+  const projectId = projectQuery.data?.id ?? "";
+  const worksQuery = useProjectWorks(projectId);
+  const works = worksQuery.data ?? [];
   const [stage, setStage] = useState<UploadStage>("idle");
   const [filename, setFilename] = useState("");
   const [progress, setProgress] = useState(0);
@@ -65,6 +66,7 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
   const loadSequenceRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const loadedWorkRef = useRef<string | null>(null);
+  const initializedProjectSelectionRef = useRef<string | null>(null);
 
   const loadWork = useCallback(async (workId: string) => {
     const preserveTransport = loadedWorkRef.current === workId;
@@ -334,36 +336,60 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
   }, [loadWork, projectId, setStudioOperation, workspace.activeWorkId, workspace.studioAction]);
 
   useEffect(() => {
-    let cancelled = false;
-    if (!user) {
-      setProjectId("");
-      setProject(null);
+    if (projectQuery.isError || worksQuery.isError) {
       setLoadingWork(false);
+      setError("Could not load your library");
+      setStage("error");
+      return;
+    }
+    if (projectQuery.isPending || (projectId && worksQuery.isPending)) {
+      setLoadingWork(true);
+      return;
+    }
+    if (!projectId) return;
+
+    const activeWorkStillExists = Boolean(
+      workspace.activeWorkId && works.some((work) => work.id === workspace.activeWorkId),
+    );
+    const isInitialSelectionForProject = initializedProjectSelectionRef.current !== projectId;
+    if (isInitialSelectionForProject) {
+      initializedProjectSelectionRef.current = projectId;
+      if (activeWorkStillExists) return;
+      if (works[0]) setActiveWorkId(works[0].id);
+      else {
+        setActiveWorkId(null);
+        setLoadingWork(false);
+      }
       return;
     }
 
-    setLoadingWork(true);
-    void (async () => {
-      try {
-        const projects = await listProjects();
-        const project = projects.find((item) => !item.archived_at) ?? await createProject("Library", "Music workspace");
-        const works = await listWorks(project.id);
-        if (cancelled) return;
-        setProjectId(project.id);
-        setProject(project);
-        setWorks(works);
-        if (works[0]) setActiveWorkId(works[0].id);
-        else setLoadingWork(false);
-      } catch (cause) {
-        if (!cancelled) {
-          setLoadingWork(false);
-          setError(cause instanceof Error ? cause.message : "Could not load your library");
-          setStage("error");
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [setActiveWorkId, setLoadingWork, setProject, setWorks, user]);
+    // A null selection after initial hydration is deliberate (for example,
+    // deleting the active recording). Do not race the optimistic works-cache
+    // update by reselecting the stale first row.
+    if (!workspace.activeWorkId) {
+      setLoadingWork(false);
+      return;
+    }
+    if (activeWorkStillExists) return;
+
+    // If a selected work disappears outside the local delete flow, fall back
+    // to the next available server-owned work.
+    if (works[0]) setActiveWorkId(works[0].id);
+    else {
+      setActiveWorkId(null);
+      setLoadingWork(false);
+    }
+  }, [
+    projectId,
+    projectQuery.isError,
+    projectQuery.isPending,
+    setActiveWorkId,
+    setLoadingWork,
+    workspace.activeWorkId,
+    works,
+    worksQuery.isError,
+    worksQuery.isPending,
+  ]);
 
   useEffect(() => {
     if (workspace.activeWorkId) void loadWork(workspace.activeWorkId);
@@ -405,7 +431,7 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
       const { artifact, version } = await uploadArtifact(projectId, file);
       setPendingSourceVersionId(version.id);
       setProcessingWorkId(artifact.work_id);
-      setWorks(await listWorks(projectId));
+      await refreshProjectWorks(queryClient, projectId);
       setStage("processing");
       const { job } = await startUnderstandWorkflow(version.id, projectId, transcriptionProfile);
       setActiveJobId(job.id);
@@ -413,7 +439,7 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
         setMessage(understandStageLabel(current.progress));
         setProgress(5 + Math.round(current.progress * 90));
       });
-      setWorks(await listWorks(projectId));
+      await refreshProjectWorks(queryClient, projectId);
       setProgress(100);
       setActiveJobId(null);
       setActiveWorkId(artifact.work_id);
@@ -428,7 +454,7 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
         setStage("error");
       }
     }
-  }, [projectId, serviceStatus, setActiveWorkId, setWorks, transcriptionProfile]);
+  }, [projectId, queryClient, serviceStatus, setActiveWorkId, transcriptionProfile]);
 
   const cancelActiveJob = useCallback(async () => {
     if (!activeJobId) return;
@@ -577,30 +603,22 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
 
 export default function Home() {
   const { user, loading } = useAuth();
-  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>("checking");
-  const healthSequence = useRef(0);
-
-  const refreshService = useCallback(() => {
-    const sequence = ++healthSequence.current;
-    void fetch("/api/health/queue", { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("service unavailable");
-        const body = await response.json();
-        if (body.status !== "ready") throw new Error("service unavailable");
-        if (sequence === healthSequence.current) setServiceStatus("ready");
-      })
-      .catch(() => {
-        if (sequence === healthSequence.current) setServiceStatus("unavailable");
-      });
-  }, []);
+  const {
+    data: processingHealth,
+    isPending: processingHealthPending,
+    isSuccess: processingHealthSuccess,
+    refetch: refreshService,
+  } = useProcessingHealth();
+  const serviceStatus: ServiceStatus = processingHealthPending
+    ? "checking"
+    : processingHealthSuccess && processingHealth?.status === "ready"
+      ? "ready"
+      : "unavailable";
 
   useEffect(() => {
-    refreshService();
-    const timer = window.setInterval(refreshService, 30_000);
-    const onControllerChange = () => refreshService();
+    const onControllerChange = () => { void refreshService(); };
     navigator.serviceWorker?.addEventListener("controllerchange", onControllerChange);
     return () => {
-      window.clearInterval(timer);
       navigator.serviceWorker?.removeEventListener("controllerchange", onControllerChange);
     };
   }, [refreshService]);
