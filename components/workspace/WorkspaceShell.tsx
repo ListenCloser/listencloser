@@ -26,8 +26,12 @@ function WorkspaceContent({
     if (initializedResponsiveLayout.current) return;
     initializedResponsiveLayout.current = true;
     if (!window.matchMedia("(max-width: 820px)").matches) return;
+
+    // Compact layouts are staged rather than simultaneous: the musical canvas
+    // is the default surface and Library / Analysis open only when requested.
     if (!workspace.libraryCollapsed) toggleLibrary();
-  }, [toggleLibrary, workspace.libraryCollapsed]);
+    if (!workspace.inspectorCollapsed) toggleInspector();
+  }, [toggleInspector, toggleLibrary, workspace.inspectorCollapsed, workspace.libraryCollapsed]);
 
   const inspectorOpen = !workspace.inspectorCollapsed;
   const analysisAvailable = workspace.analysisState === "completed" && Boolean(workspace.activeWorkId);
