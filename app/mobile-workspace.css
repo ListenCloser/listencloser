@@ -1,0 +1,242 @@
+/* Mobile workspace — touch-first adaptation of the desktop editor.
+ * Desktop keeps simultaneous Library | Canvas | Inspector | Transport.
+ * Phones stage supporting surfaces around one primary musical canvas.
+ */
+
+.library-row-delete {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #756f67;
+  cursor: pointer;
+  opacity: 0.52;
+  transition: opacity 120ms ease-out, color 120ms ease-out, background 120ms ease-out;
+}
+
+.library-work-row:hover .library-row-delete,
+.library-work-row.selected .library-row-delete,
+.library-row-delete:focus-visible {
+  opacity: 1;
+}
+
+.library-row-delete:hover:not(:disabled),
+.library-row-delete:focus-visible {
+  color: #df8c84;
+  background: rgba(213, 123, 114, 0.09);
+}
+
+.library-row-delete:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --workspace-header-height: 52px;
+    --transport-height: calc(120px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Phone chrome uses touch targets, not desktop-density controls. */
+  .studio-header-v3 {
+    padding-inline: 7px;
+  }
+
+  .studio-brand-mark {
+    width: 34px;
+    height: 34px;
+  }
+
+  .studio-mobile-action {
+    min-width: 44px;
+    min-height: 44px;
+    padding-inline: 10px;
+    border-color: transparent;
+    font-size: 10.5px;
+  }
+
+  .studio-mobile-action.active,
+  .studio-mobile-action[aria-pressed="true"] {
+    border-color: rgba(241, 237, 228, 0.08);
+  }
+
+  /* Library remains an explicit edge destination; it is almost full-screen on
+   * a phone without pretending the underlying canvas can be used concurrently. */
+  .studio-library-v3 {
+    width: min(360px, 94vw);
+    box-shadow: 20px 0 54px rgba(0, 0, 0, 0.44);
+  }
+
+  .library-import-btn,
+  .library-account-action {
+    min-height: 44px;
+  }
+
+  .library-work-row {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+
+  .library-work-btn {
+    min-height: 56px;
+  }
+
+  .library-row-delete {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+    color: #8a8379;
+  }
+
+  /* Analysis / Ask becomes a bottom sheet on phones. It reads vertically and
+   * should not consume most of the horizontal canvas just to imitate desktop. */
+  .studio-inspector-v3 {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: var(--transport-height);
+    width: 100%;
+    min-width: 0;
+    height: min(72dvh, 620px);
+    max-height: min(72dvh, 620px);
+    border-left: 0;
+    border-top: 1px solid var(--v5-line-strong, rgba(241, 237, 228, 0.13));
+    border-radius: 14px 14px 0 0;
+    transform: translateY(calc(100% + 12px));
+    box-shadow: 0 -22px 56px rgba(0, 0, 0, 0.42);
+    overflow: hidden;
+  }
+
+  .studio-inspector-v3.is-open {
+    transform: translateY(0);
+  }
+
+  .studio-inspector-backdrop {
+    inset: var(--workspace-header-height) 0 var(--transport-height) 0;
+    background: rgba(5, 5, 4, 0.54);
+  }
+
+  .inspector-mode-tabs.ui-tab-strip,
+  .inspector-mode-tabs.ui-tab-strip > .ui-tab,
+  .ui-tab {
+    min-height: 44px;
+  }
+
+  .inspector-analysis-content {
+    padding-bottom: 32px;
+    overscroll-behavior: contain;
+  }
+
+  /* Representation switching remains direct. Horizontal scrolling is preferable
+   * to hiding a representation behind a More menu on a touch device. */
+  .piece-desk-v3,
+  .piece-loading-shell {
+    grid-template-rows: 44px minmax(0, 1fr);
+  }
+
+  .representation-toolbar {
+    height: 44px;
+    min-height: 44px;
+    padding-inline: 10px;
+  }
+
+  .piece-view-tabs-v3.ui-tab-strip {
+    min-height: 44px;
+    gap: 18px;
+    scroll-padding-inline: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .piece-active-view-v3 {
+    padding: 10px 8px 16px;
+  }
+
+  /* Persistent transport respects the home-indicator safe area. */
+  .transport-bar-v3 {
+    box-sizing: border-box;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .piece-source-trigger,
+  .transport-compare-trigger,
+  .transport-compare-exit,
+  .transport-compare-side-label {
+    min-height: 44px;
+  }
+
+  .piece-source-trigger {
+    max-width: 148px;
+    padding-inline: 10px;
+  }
+
+  .transport-playback-zone {
+    gap: 3px;
+    grid-template-columns: 44px 38px minmax(60px, 1fr) 38px auto auto;
+    padding-inline: 8px;
+  }
+
+  .transport-play-btn,
+  .transport-ctrl {
+    min-width: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .transport-ctrl-labeled {
+    width: auto !important;
+    min-width: 56px;
+    min-height: 44px;
+    padding-inline: 7px;
+  }
+
+  .transport-time {
+    font-size: 9.5px;
+  }
+
+  .transport-seek {
+    height: 24px;
+  }
+
+  .piece-processing-card {
+    bottom: calc(var(--transport-height) + 8px) !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .studio-document-title {
+    padding-inline: 6px;
+  }
+
+  .studio-document-name {
+    max-width: 31vw;
+  }
+
+  .studio-mobile-action {
+    padding-inline: 8px;
+  }
+
+  .transport-playback-zone {
+    grid-template-columns: 44px 34px minmax(52px, 1fr) 34px auto auto;
+    padding-inline: 5px;
+  }
+
+  .transport-ctrl-labeled {
+    min-width: 52px;
+    padding-inline: 5px;
+    gap: 4px;
+  }
+
+  .transport-ctrl-text {
+    font-size: 8.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-row-delete,
+  .studio-inspector-v3 {
+    transition: none;
+  }
+}
