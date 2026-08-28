@@ -99,6 +99,7 @@
    * The shared legacy .studio-inspector responsive rule uses !important width/
    * height declarations, so the V3 phone mode explicitly owns those properties. */
   .studio-inspector.studio-inspector-v3 {
+    position: fixed;
     top: auto;
     left: 0;
     right: 0;
@@ -114,6 +115,7 @@
     transform: translateY(calc(100% + var(--transport-height)));
     box-shadow: 0 -22px 56px rgba(0, 0, 0, 0.42);
     overflow: hidden;
+    z-index: 72;
   }
 
   .studio-inspector.studio-inspector-v3.is-open {

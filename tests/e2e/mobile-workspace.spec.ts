@@ -49,11 +49,24 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
   // Analysis / Ask is a phone bottom sheet above the persistent transport.
   await page.getByRole("button", { name: "Show analysis", exact: true }).click();
   const inspector = page.locator(".studio-inspector-v3");
+  const transport = page.locator(".transport-bar-v3");
+  await expect(inspector).toHaveClass(/is-open/);
   await expect(page.getByRole("tab", { name: "Analysis", exact: true })).toBeVisible();
-  const inspectorBox = await inspector.boundingBox();
-  const transportBox = await page.locator(".transport-bar-v3").boundingBox();
-  expect(inspectorBox).not.toBeNull();
-  expect(transportBox).not.toBeNull();
-  expect(inspectorBox!.width).toBeGreaterThanOrEqual(385);
-  expect(inspectorBox!.y + inspectorBox!.height).toBeLessThanOrEqual(transportBox!.y + 2);
+  await expect
+    .poll(
+      async () => {
+        const inspectorBox = await inspector.boundingBox();
+        const transportBox = await transport.boundingBox();
+        if (!inspectorBox || !transportBox) return false;
+        return (
+          inspectorBox.width >= 385 &&
+          inspectorBox.y + inspectorBox.height <= transportBox.y + 2
+        );
+      },
+      {
+        timeout: 5_000,
+        message: "phone analysis sheet should settle full-width directly above transport",
+      },
+    )
+    .toBe(true);
 });
