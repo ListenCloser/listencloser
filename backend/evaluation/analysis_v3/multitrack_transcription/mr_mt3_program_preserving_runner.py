@@ -7,8 +7,8 @@ That serializer is unsuitable for #337's instrument-aware evaluation.
 
 This runner leaves the model, checkpoint, preprocessing, forward pass, codec,
 and note-state decoder untouched. It only serializes the already-decoded
-``NoteSequence`` into program-separated PrettyMIDI instruments so the frozen
-hello-ai scorer can evaluate the model's actual program predictions.
+``NoteSequence`` into program-separated MIDI tracks so the frozen hello-ai
+scorer can evaluate the model's actual program predictions.
 """
 
 from __future__ import annotations
@@ -19,11 +19,14 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-import pretty_midi
+import mido
 
 from mt3_infer import load_model
 from mt3_infer.adapters import vocab_utils
 from mt3_infer.utils.audio import load_audio
+
+TEMPO_US_PER_BEAT = mido.bpm2tempo(120)
+TICKS_PER_BEAT = 480
 
 
 def _decode_note_sequence(model, outputs):
@@ -40,30 +43,83 @@ def _decode_note_sequence(model, outputs):
     return vocab_utils.decode_and_combine_predictions(predictions, model.codec)
 
 
+def _seconds_to_ticks(seconds: float) -> int:
+    return max(
+        0,
+        int(round(mido.second2tick(seconds, TICKS_PER_BEAT, TEMPO_US_PER_BEAT))),
+    )
+
+
 def _write_program_midi(note_sequence, output: Path) -> list[dict[str, object]]:
     grouped = defaultdict(list)
     for note in note_sequence.notes:
         key = (0 if note.is_drum else int(note.program), bool(note.is_drum))
         grouped[key].append(note)
 
-    midi = pretty_midi.PrettyMIDI(initial_tempo=120.0)
+    midi = mido.MidiFile(ticks_per_beat=TICKS_PER_BEAT)
+    tempo_track = mido.MidiTrack()
+    tempo_track.append(mido.MetaMessage("set_tempo", tempo=TEMPO_US_PER_BEAT, time=0))
+    midi.tracks.append(tempo_track)
+
     streams: list[dict[str, object]] = []
-    for (program, is_drum), notes in sorted(grouped.items(), key=lambda item: (item[0][1], item[0][0])):
-        instrument = pretty_midi.Instrument(
-            program=program,
-            is_drum=is_drum,
-            name="MR-MT3 drums" if is_drum else f"MR-MT3 program {program}",
-        )
-        for note in notes:
-            instrument.notes.append(
-                pretty_midi.Note(
-                    velocity=max(1, min(127, int(note.velocity))),
-                    pitch=max(0, min(127, int(note.pitch))),
-                    start=max(0.0, float(note.start_time)),
-                    end=max(float(note.start_time) + 0.001, float(note.end_time)),
+    for (program, is_drum), notes in sorted(
+        grouped.items(), key=lambda item: (item[0][1], item[0][0])
+    ):
+        track = mido.MidiTrack()
+        midi.tracks.append(track)
+        channel = 9 if is_drum else 0
+        if not is_drum:
+            track.append(
+                mido.Message(
+                    "program_change",
+                    program=max(0, min(127, program)),
+                    channel=channel,
+                    time=0,
                 )
             )
-        midi.instruments.append(instrument)
+
+        events: list[tuple[float, int, mido.Message]] = []
+        for note in notes:
+            pitch = max(0, min(127, int(note.pitch)))
+            velocity = max(1, min(127, int(note.velocity)))
+            start = max(0.0, float(note.start_time))
+            end = max(start + 0.001, float(note.end_time))
+            events.append(
+                (
+                    start,
+                    1,
+                    mido.Message(
+                        "note_on",
+                        note=pitch,
+                        velocity=velocity,
+                        channel=channel,
+                        time=0,
+                    ),
+                )
+            )
+            events.append(
+                (
+                    end,
+                    0,
+                    mido.Message(
+                        "note_off",
+                        note=pitch,
+                        velocity=0,
+                        channel=channel,
+                        time=0,
+                    ),
+                )
+            )
+
+        events.sort(key=lambda item: (item[0], item[1]))
+        previous_seconds = 0.0
+        for absolute_seconds, _, message in events:
+            delta_seconds = max(0.0, absolute_seconds - previous_seconds)
+            message.time = _seconds_to_ticks(delta_seconds)
+            track.append(message)
+            previous_seconds = absolute_seconds
+        track.append(mido.MetaMessage("end_of_track", time=0))
+
         streams.append(
             {
                 "program": program,
@@ -73,7 +129,7 @@ def _write_program_midi(note_sequence, output: Path) -> list[dict[str, object]]:
         )
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    midi.write(str(output))
+    midi.save(str(output))
     return streams
 
 
@@ -130,7 +186,7 @@ def main() -> None:
         )
 
     payload = {
-        "serializer": "hello-ai research program-preserving serializer",
+        "serializer": "hello-ai research program-preserving mido serializer",
         "model_load_seconds": round(model_load_seconds, 3),
         "tracks": results,
     }
