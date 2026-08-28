@@ -1,0 +1,30 @@
+{
+  "evidence_class": "PRIOR_LOCAL_AND_REFERENCE_EVIDENCE",
+  "generated_from": {
+    "hello_ai_source": "backend/evaluation/analysis_v3/foundation/results/clap.json",
+    "reference_source": "backend/evaluation/analysis_v3/context/reference_metrics.json"
+  },
+  "clap": {
+    "model_id": "laion/larger_clap_music",
+    "weight_license": "Apache-2.0",
+    "prior_local_operational": {
+      "cpu_latency_10s_seconds": 0.09838987500000052,
+      "cpu_latency_30s_seconds": 0.09717216700000009,
+      "embedding_dim": 512,
+      "arm_feasible": true
+    },
+    "prompt_ranking_diagnostic": {
+      "num_queries": 7,
+      "unique_top1": 1,
+      "unique_top1_fraction": 0.1429,
+      "mean_pairwise_top3_jaccard": 1.0,
+      "top1_audio_id_for_all_queries": "guitarset_bossa_nova",
+      "interpretation": "All seven distinct prompts produced the same top-1 item and identical top-3 item sets in the committed #332 product probe. This is a prompt-discrimination failure diagnostic, not a standard accuracy score."
+    }
+  },
+  "essentia_reference": {
+    "source": "backend/evaluation/analysis_v3/context/reference_metrics.json",
+    "evidence_class": "REFERENCE_BENCHMARK"
+  },
+  "notes": "No new model inference produced this file. CLAP values reuse the committed #332 local result; Essentia values are official upstream reference metrics."
+}
