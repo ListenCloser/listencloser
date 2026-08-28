@@ -2,7 +2,7 @@
 
 ## Executive Decision
 
-**Recommendation: keep source separation in RESEARCH. Demucs/HTDemucs is operationally runnable on the current CPU/ARM development environment, while the BS-RoFormer path evaluated here is blocked on Python 3.9. This PR does not establish separation quality or downstream MIR value, so it does not justify production adoption or a first-class source-separation architecture yet.**
+**Recommendation: keep source separation in RESEARCH. Demucs/HTDemucs is operationally runnable on the current CPU/ARM development environment, while the BS-RoFormer path evaluated here is blocked on Python 3.9 and has no verified compatible pretrained checkpoint wired. This PR does not establish separation quality or downstream MIR value, so it does not justify production adoption or a first-class source-separation architecture yet.**
 
 ## Product Question
 
@@ -24,7 +24,7 @@ This PR answers only the first-stage feasibility question. It does **not** answe
 
 | Candidate | Model ID | Code License | Weight License | Stems | Python Compatibility | Decision |
 |---|---|---|---|---|---|---|
-| bs_roformer | lucidrains/BS-RoFormer | MIT | CC-BY-NC-SA-4.0 | 4 | evaluated package path requires Python 3.10+ | REVISIT |
+| bs_roformer | lucidrains/BS-RoFormer | MIT | **unverified for a concrete pretrained checkpoint** | intended 4 | evaluated package path requires Python 3.10+; no verified compatible checkpoint wired | REVISIT |
 | demucs | facebookresearch/demucs / HTDemucs | MIT | MIT | vocals, drums, bass, other | works on Python 3.9 | RESEARCH |
 
 ## Datasets and Licensing
@@ -49,7 +49,9 @@ No SDR/SIR/SAR, perceptual-error score, chord-improvement score, beat-improvemen
 
 The evaluated BS-RoFormer package path (1.0.5/1.0.6) fails under the repo's Python 3.9 environment because package code uses Python 3.10+ union/type syntax and `beartype` evaluates it at import time.
 
-This is an **operational/tooling blocker**, not evidence that the BS-RoFormer model family is poor. No model-quality comparison against Demucs was completed.
+A second validity issue was identified during review: instantiating the architecture class without loading an exact pretrained checkpoint would evaluate random/untrained weights. The adapter now **fails closed** instead. No BS-RoFormer quality result exists in this PR.
+
+The exact future checkpoint and its weight license must be recorded together; weight rights are not inferred from the architecture repository.
 
 Decision: **REVISIT**.
 
@@ -114,7 +116,7 @@ High-value tests include:
 
 What this PR establishes:
 1. HTDemucs is a viable implementation candidate for deeper evaluation on the current CPU/ARM environment.
-2. The evaluated BS-RoFormer package path is currently blocked by Python compatibility and should be revisited in a compatible isolated evaluation environment rather than dismissed on quality grounds.
+2. The evaluated BS-RoFormer package path is currently blocked by Python compatibility and lacks a verified compatible pretrained checkpoint in this harness; it should be revisited in a compatible isolated evaluation environment rather than dismissed on quality grounds.
 3. The central #334 question — whether separation materially improves downstream understanding — remains open.
 
 Source separation should become a first-class evidence layer only after a candidate demonstrates both:
@@ -154,8 +156,8 @@ Notes:
 - downstream MIR value for beat/downbeat, harmony, melody/bass, and instrumentation
 - product value for isolate/loop/A-B/Breakdown workflows
 - whole-track CPU/RAM/storage cost and production scheduling implications
-- exact checkpoint checksum/version provenance
-- BS-RoFormer evaluation in a compatible isolated Python environment
+- exact Demucs checkpoint checksum/version provenance
+- BS-RoFormer evaluation in a compatible isolated Python environment with an exact pretrained checkpoint and verified checkpoint license
 
 ## Merge Interpretation
 
