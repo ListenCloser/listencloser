@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
  *
  * Tests the analysis state transitions and the new layout structure:
  * - Compare is integrated into the transport
- * - Analysis states: idle → analyzing → completed
+ * - Completed analysis is visible in the persistent inspector
  * - Loop is an accessible icon button; play/pause is the primary transport action
  * - Library stays docked on desktop without duplicate collapse controls
  */
@@ -55,12 +55,17 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(transport.getByRole("button", { name: "Compare", exact: true })).toBeVisible();
   });
 
-  test("analysis states: completed work shows Analysis tab", async ({ page }) => {
+  test("completed analysis is visible in the persistent inspector", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    // The mock work has insights loaded, so analysisState should be "completed"
-    // and the Analysis button should be visible in the inspector
-    await expect(page.getByRole("button", { name: "Hide analysis" })).toBeVisible();
+    // Desktop analysis is a stable dock, not a show/hide control. The mock work
+    // already has insights loaded, so its selected Analysis tab and overview
+    // are the durable completed-state signals.
+    const inspector = page.locator("aside.inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
+    await expect(inspector.getByRole("heading", { name: "At a glance" })).toBeVisible();
+    await expect(inspector.getByText("A minor", { exact: true })).toBeVisible();
   });
 
   test("loop is an accessible icon control", async ({ page }) => {
