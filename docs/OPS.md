@@ -1,155 +1,134 @@
 # Operations Runbook
 
-This is the operational contract for the current production stack. If code and this file disagree, treat code/workflow definitions as authoritative and repair this document in the same PR.
+How to run, observe, and recover the backend on the Oracle VM.
 
-## Production topology
+## Topology
 
-```text
-Browser
-  ├── auth + signed object upload ──────────────► Supabase Auth / private Storage
-  └── JSON/session API ─► Vercel Next.js ─────► Oracle FastAPI
-                                                   │
-Oracle worker ◄──────── durable Postgres jobs ─────┘
-      │
-      ├── music engines
-      ├── Sentry / OpenTelemetry
-      └── Supabase Postgres + Storage
-
-GitHub Actions ─► GHCR exact-SHA images ─► Oracle API + worker
+```
+Browser / Vercel (Next.js)
+        │  /api/* proxy
+        ▼
+Oracle VM  ── docker compose ──► backend (FastAPI :8000)
+        │                       └─────► worker (durable jobs)
+        │                              │
+        │                              ├── Sentry (errors + traces)
+        │                              └── JSON stdout logs
+        │
+        └── observability stack (opt-in)
+              Loki ◄── Promtail ◄── container logs
+              Grafana (dashboards)
 ```
 
-Production frontend: `https://hello-ai-wheat.vercel.app`.
+Backend deploys run via `deploy-backend.yml` (on push to `main` for `backend/**`) and
+via `scripts/deploy.sh` on the VM. Changes are only live once the container is rebuilt on
+the VM (see Deploy) — rebuild before concluding a BE change "didn't show up".
 
-Large imported audio does **not** normally transit through Vercel or Oracle. FastAPI authorizes a signed upload intent, the browser uploads directly to private Supabase Storage, and a small finalize API records durable metadata after verification. The legacy multipart proxy is a compatibility/fallback path only.
+## Environment
 
-## Frontend deployment
+GitHub Actions writes `backend/.env` on the VM from repository secrets:
 
-Vercel Git integration deploys `main` only; automatic branch previews are disabled to preserve Hobby-plan capacity. PR validation belongs to GitHub Actions.
-
-Build invariants:
-
-- Node version comes from `package.json` (`engines.node`).
-- Vercel installs with `npm ci`.
-- the protected GitHub Build compiles a source tree with `.vercelignore` applied, so deploy-excluded imports fail before merge;
-- every `main` push receives a non-mutating `Production Smoke`: it waits for Vercel success on that exact SHA, then checks the production alias and backend readiness.
-
-Do not diagnose a release solely from a green preview or a local build. Confirm the `Vercel` status on the exact `main` SHA and the production alias.
-
-## Backend deployment
-
-Normal backend releases are **not built on Oracle**.
-
-`deploy-backend.yml` is triggered by production backend/config/migration changes and executes:
-
-1. native amd64 and arm64 image builds on GitHub-hosted runners;
-2. publish exact-SHA architecture tags to GHCR;
-3. apply pending Supabase migrations;
-4. SSH to Oracle and reset the checkout to the exact triggering SHA;
-5. `scripts/deploy.sh` detects Oracle architecture, pulls the exact GHCR image, resolves/logs the image digest, and starts API + worker with `--no-build`;
-6. deployment waits for API readiness, worker health, queue health, and exact release SHA.
-
-The source-build path in `scripts/deploy.sh` is retained as a recovery fallback. Seeing `Oracle build skipped` during a normal release is expected and desirable.
-
-### Migration safety
-
-Migrations run **before** the new application image is started. Application rollback can restore the previous image, but it does not automatically reverse a database migration. Therefore every production migration must be compatible with both the currently running release and the new release.
-
-Use expand/contract for destructive changes:
-
-1. add new schema while old readers/writers still work;
-2. deploy code that can tolerate both shapes;
-3. migrate/backfill data if needed;
-4. remove old schema only in a later independently safe release.
-
-A one-step DROP/rename that makes the old release invalid is not deployment-safe even if fresh-database CI passes.
-
-## Backend environment
-
-GitHub Actions writes `backend/.env` on Oracle. Important values include:
-
-| Variable | Purpose |
+| Var | Purpose |
 |---|---|
-| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Postgres + private Storage service access |
-| `SUPABASE_ANON_KEY` | publishable Supabase key used by backend helpers where needed |
-| `SENTRY_DSN_BACKEND` / `SENTRY_ENV` | backend telemetry |
-| `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | optional Ask provider |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_HEADERS` | OpenTelemetry export |
-| `RELEASE` | exact deployed Git SHA, written by `scripts/deploy.sh` |
-| `BACKEND_IMAGE` | resolved exact image reference used by Compose |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | DB + Storage access |
+| `SENTRY_DSN_BACKEND` | Backend errors/traces (falls back to `SENTRY_DSN`) |
+| `SENTRY_ENV` | `production` on the VM, `development` locally |
+| `RELEASE` | Exact deployed Git SHA; written by `scripts/deploy.sh` |
 
-The frontend BFF uses `MUSIC_BACKEND_URL`. Do not reintroduce the historical `BACKEND_URL` name into Vercel configuration.
+Frontend Sentry uses `NEXT_PUBLIC_SENTRY_DSN` (separate, in the Vercel build).
 
-## Health and release identity
-
-User-facing health endpoints go through Vercel:
+## Deploy (health-gated)
 
 ```bash
-curl https://hello-ai-wheat.vercel.app/api/health/live
-curl https://hello-ai-wheat.vercel.app/api/health/ready
-curl https://hello-ai-wheat.vercel.app/api/health/queue
+# on the VM, inside the repo
+./scripts/deploy.sh
 ```
 
-Expected properties:
+The workflow first resets the VM checkout to the exact triggering Git SHA. The
+script rebuilds the backend and worker containers, polls
+`GET /health/ready` and `GET /health/queue`, and **auto-rolls back to the
+previous commit** if either service is not healthy within `HEALTH_TIMEOUT`
+seconds (default 120). Readiness must report the same release SHA. Rollback is
+also health/SHA-gated. Always tail logs after a deploy.
 
-- `live.status == "alive"` and includes backend release SHA;
-- `ready.status == "ready"` with database/storage/Supabase true;
-- `queue.status == "ready"` with a recent worker heartbeat and no unhealthy stale-lease state.
+The production image installs Debian's `fluid-soundfont-gm`; readiness and smoke
+testing should not accept the low-fidelity numpy fallback as normal production
+rendering.
 
-The backend container also exposes `/health/live` and `/health/ready` locally on Oracle. `scripts/deploy.sh` uses those local gates plus `/health/queue` before accepting a release.
+## Restart / rollback
 
-## Rollback
+```bash
+docker compose up -d --build backend worker  # restart with latest code
+docker compose restart backend worker        # restart without rebuild
+git checkout <prev_commit> && ./scripts/deploy.sh   # manual rollback
+```
 
-`scripts/deploy.sh` records the previous release before replacement. If the new containers fail health/release gates, it attempts to restore the previous prebuilt image (or source fallback) and health-checks that rollback.
+# Monitoring & Status — where do I look?
+All reachable by a human without touching code. Commands run from your machine unless marked 'on the VM'.
 
-Manual rollback is a release operation, not a routine restart. Prefer redeploying a known-good exact SHA through the workflow. Remember that an already-applied migration remains in the database; verify schema compatibility before rolling code backward.
+## Sentry (errors + traces)
+Two Sentry setups, both env-gated (silent if DSN empty):
+- Frontend: `NEXT_PUBLIC_SENTRY_DSN` (Vercel project vars + `.env.local`).
+- Backend: `SENTRY_DSN_BACKEND` (falls back to `SENTRY_DSN`); set in `.env.local` on the VM (`docker-compose.yml:83`).
+Verify on VM: `docker compose exec backend printenv SENTRY_DSN_BACKEND` and `docker compose logs backend | grep sentry_initialized`.
+A DSN looks like `https://<key>@<org>.<region>.ingest.sentry.io/<project_id>`. To reach the dashboard: open https://sentry.io/ → org switcher → your org → **Issues** (exceptions) and **Performance/Traces** (latency). The org slug + project names are NOT in the repo — derive from `.env.local` DSN or your Sentry account. Backend releases tagged via `RELEASE` (default `backend@2.0.0`).
 
-## CI / merge safety
+## Logs (Loki / Promtail / Grafana)
+Backend emits structured JSON to stdout (`{ts,level,logger,msg,req_id}` + `exc` on errors; per-request `{req_id,method,path,status,duration_ms}`). Every request gets `x-request-id` echoed in the response header — copy it to find the exact log line.
+Live tail (always works, on VM): `docker compose logs -f backend`.
+Grafana/Loki are opt-in: `docker compose -f docker-compose.observability.yml up -d` → Grafana on `:3001`, Loki `:3100`. If `3001` isn't reachable, `ssh -L 3001:localhost:3001 <vm-user>@<vm-ip>` then open http://localhost:3001 (admin / `$GRAFANA_PASSWORD`). Query Loki: `{container="music-ai-backend"} |= "request_failed"` or `|= "req_id=abc123"`.
 
-The repository keeps one stable branch-protection context named `build`. It is an **aggregate gate**, not merely a frontend compile:
+## Health (is the backend up?)
+`curl https://gricci-testing.duckdns.org/health/live` returns liveness plus the
+release SHA; `/health/ready` verifies the database schema and private artifact
+storage; `/health/queue` reports recent
+worker heartbeats, queued/running jobs, and stale leases. The Vercel-facing queue
+check is `/api/health/queue`.
 
-- compile + frontend tests run inside Build;
-- the final `build` waits for the latest required workflows on the exact PR head SHA;
-- non-doc code requires CI + mocked E2E;
-- runtime boundary changes require fresh Real-stack E2E;
-- database/domain changes require Database Integration;
-- backend/deploy changes require native Backend Image validation;
-- CodeQL, Dependency Review, and Gitleaks are always required for merge-ready PRs.
+Worker heartbeats require `20260811_worker_heartbeats.sql`. A heartbeat older
+than 45 seconds is not counted as live.
 
-Argos remains visual evidence and is non-blocking by design. Draft PRs avoid heavyweight lanes where possible; make only the active merge candidate non-draft.
+Backend deploys apply pending migrations before touching the VM. Configure the
+GitHub Actions secret `SUPABASE_DB_URL` with the pooler/session-mode Postgres
+connection string from Supabase Database settings. Failed migrations block deployment.
+PRs that touch migrations also boot a clean local Supabase instance and run the
+full migration history plus an insert/claim/run/succeed lifecycle check.
 
-Evaluation-only `backend/evaluation/**` and backend test-only changes are intentionally excluded from native image and real-stack triggers unless another changed file crosses a production runtime boundary.
+## Deployed understanding smoke test
 
-## Production verification levels
+This command creates a persisted work in the supplied project and verifies the
+entire Vercel → FastAPI → worker → Supabase loop:
 
-### Routine release smoke — automatic, non-mutating
+```bash
+HELLO_AI_APP_URL=https://hello-ai.vercel.app \
+HELLO_AI_PROJECT_ID=<project-uuid> \
+SUPABASE_ACCESS_TOKEN=<short-lived-user-token> \
+python scripts/smoke_understand.py path/to/licensed-fixture.wav
+```
 
-`Production Smoke` runs after every `main` push. It verifies Vercel success for the exact SHA, the production HTML document, and live/ready/queue endpoints. This is the default release signal.
+It requires queue health to be ready, waits for the job, then verifies original
+audio, MIDI, rendered audio, MusicXML, note entities, and insights. Never commit
+the access token or private fixture.
 
-### Deep production browser verification — manual, mutating
+## CI (did my PR break anything?)
+Repo → Actions tab. Workflows: `build.yml` (build+vitest, blocks), `ci.yml` (lint+typecheck+ruff+pytest, blocks), `e2e.yml` (Playwright vs mocks, blocks), `database-integration.yml` (real local Postgres/Supabase migrations), `argos.yml` (visual, NON-blocking), `codeql.yml`, `gitleaks.yml`, `dependency-review.yml`, `deploy-backend.yml` (push only).
 
-`Production Verify` runs `tests/e2e/production-verify.spec.ts`, which creates a real authenticated session/import and therefore mutates production data. Run it deliberately for cross-stack incidents or high-risk releases, not on every merge. Its generated accounts/works are operational test data and should be periodically cleaned up.
+## Vercel production ownership
 
-### Fresh isolated real-stack — pre-merge
+`hello-ai.vercel.app` must be assigned to the v2 project built from this repo's
+`main` branch. A green Vercel preview is not production. Required environment:
+`BACKEND_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`. After aliasing, verify the root title is
+`hello-ai — Music Studio` and `/api/health/queue` is ready before smoke testing.
 
-`Real-stack E2E` boots disposable local Supabase, real FastAPI + worker, a production Next.js build, and a licensed audio fixture. This is the pre-merge proof for critical cross-boundary behavior; it is not a substitute for production release smoke.
+## Argos (visual diffs)
+`https://app.argos-ci.com` (needs `ARGOS_TOKEN` repo secret); also comments a visual diff on each PR. Non-blocking by design.
 
-## Observability
+## Supabase (storage/DB/auth/RLS)
+Dashboard from `.env.local` `SUPABASE_URL` (`https://<ref>.supabase.co` → supabase.com/dashboard/project/<ref>). Check buckets, `jobs`/`models` tables, Auth users, RLS policies (`supabase/migrations/`).
 
-- Frontend: Sentry via `NEXT_PUBLIC_SENTRY_DSN`; source-map upload is enabled when the Sentry build credentials are present.
-- Backend: `SENTRY_DSN_BACKEND` plus OpenTelemetry OTLP export.
-- Backend logs are structured stdout and include request IDs; `docker compose logs -f backend worker` is the direct Oracle fallback.
-- `/api/health/queue` exposes aggregate worker/queue state without user payloads.
-
-Do not put credentials, DSNs with secrets, provider tokens, or private audio into documentation or CI artifacts.
-
-## Dependency / supply-chain maintenance
-
-- GitHub Actions references are full-SHA pinned; `scripts/check_actions_pinned.py` enforces this.
-- Dependabot covers GitHub Actions, npm, backend uv dependencies, and backend Docker base images.
-- npm deploys use the committed lockfile; backend images use `uv sync --locked`.
-- Deployed backend releases are immutable by image digest after publication. Upstream base images/apt repositories are not fully hermetic snapshots yet; treat digest/snapshot pinning as future supply-chain hardening rather than silently assuming bit-for-bit rebuild reproducibility.
-
-## Known operational hygiene debt
-
-- GitHub repository setting `delete_branch_on_merge` is currently disabled, so historical merged branches accumulate. Do not delete branches blindly while parallel agents may still be using them; enable automatic deletion in repository settings or prune only branches proven merged/closed and inactive.
-- Several backend orchestration modules remain large. Prefer extracting cohesive services at natural change boundaries instead of adding unrelated responsibilities to `domain/capabilities.py`, `domain/api.py`, `domain/repositories.py`, `domain/job_worker.py`, or `analyze.py`.
+## Links to add (owner-only — paste from your accounts, never commit tokens)
+- [ ] Sentry org slug + frontend/backend project URLs
+- [ ] Supabase project dashboard URL
+- [ ] Grafana base URL / VM IP (and whether 3001 is exposed)
+- [ ] Argos project URL
+- [ ] Backend public URL for health curls
