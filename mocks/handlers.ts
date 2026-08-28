@@ -44,7 +44,7 @@ export const handlers = [
 
   http.get("/api/v1/projects/:projectId/works", async () => {
     return HttpResponse.json([
-      { id: "mock-work-1", project_id: "mock-project-1", title: "Test Work", composer: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      { id: "mock-work-1", project_id: "mock-project-1", title: "Test Work", composer: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), archived_at: null },
     ]);
   }),
 
