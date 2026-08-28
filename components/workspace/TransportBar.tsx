@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import ListboxMenu from "@/components/ui/ListboxMenu";
 import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
 
@@ -16,77 +16,6 @@ function formatTime(s: number): string {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2, "0")}`;
-}
-
-function SourceMenu({
-  triggerLabel,
-  triggerAria,
-  options,
-  selectedId,
-  onSelect,
-  compact = false,
-}: {
-  triggerLabel: string;
-  triggerAria: string;
-  options: { id: string; label: string }[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  compact?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div className={`piece-source-select${compact ? " compact" : ""}`} ref={ref}>
-      <button
-        type="button"
-        className="piece-source-trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={triggerAria}
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        <span>{triggerLabel}</span>
-        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-          <path d="m2.75 4 2.75 2.75L8.25 4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      {open && (
-        <div className="piece-source-menu" role="listbox" aria-label={triggerAria}>
-          {options.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="option"
-              aria-selected={selectedId === option.id}
-              onClick={() => {
-                onSelect(option.id);
-                setOpen(false);
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function CompareTransportControl() {
@@ -136,7 +65,7 @@ function CompareTransportControl() {
             >
               {side}
             </button>
-            <SourceMenu
+            <ListboxMenu
               compact
               triggerLabel={source?.label ?? "Choose"}
               triggerAria={`${side} compare source`}
@@ -210,7 +139,7 @@ export default function TransportBar() {
   return (
     <footer className="transport-bar transport-bar-v3" aria-label="Playback">
       <div className="transport-source-zone">
-        <SourceMenu
+        <ListboxMenu
           triggerLabel={activeSource ? activeSource.label : "Choose source"}
           triggerAria={`Playback source: ${activeSource ? activeSource.label : "none"}`}
           options={sources.map((item) => ({ id: item.id, label: item.label }))}
