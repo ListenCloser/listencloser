@@ -24,12 +24,14 @@ function SourceMenu({
   options,
   selectedId,
   onSelect,
+  compact = false,
 }: {
   triggerLabel: string;
   triggerAria: string;
   options: { id: string; label: string }[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -51,7 +53,7 @@ function SourceMenu({
   }, [open]);
 
   return (
-    <div className="piece-source-select" ref={ref}>
+    <div className={`piece-source-select${compact ? " compact" : ""}`} ref={ref}>
       <button
         type="button"
         className="piece-source-trigger"
@@ -61,7 +63,9 @@ function SourceMenu({
         onClick={() => setOpen((prev) => !prev)}
       >
         <span>{triggerLabel}</span>
-        <span className="piece-caret" aria-hidden="true">&#9662;</span>
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+          <path d="m2.75 4 2.75 2.75L8.25 4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       {open && (
         <div className="piece-source-menu" role="listbox" aria-label={triggerAria}>
@@ -85,13 +89,84 @@ function SourceMenu({
   );
 }
 
+function CompareTransportControl() {
+  const {
+    transport,
+    startCompare,
+    setCompareSide,
+    setCompareSource,
+    exitCompare,
+  } = useTransport();
+  const { sources, compareEnabled, compareA, compareB, activeSide } = transport;
+
+  if (sources.length <= 1) return null;
+
+  const original = sources.find((item) => item.role === "original") ?? sources[0] ?? null;
+  const defaultB = sources.find((item) => item.id !== original?.id && ["transcription", "score"].includes(item.role))
+    ?? sources.find((item) => item.id !== original?.id)
+    ?? null;
+
+  if (!compareEnabled) {
+    return (
+      <button
+        type="button"
+        className="transport-compare-trigger"
+        disabled={!original || !defaultB}
+        onClick={() => {
+          if (original && defaultB && original.id !== defaultB.id) startCompare(original, defaultB);
+        }}
+      >
+        Compare
+      </button>
+    );
+  }
+
+  return (
+    <div className="transport-compare-active" role="group" aria-label="Compare playback sources">
+      {(["A", "B"] as const).map((side) => {
+        const source = side === "A" ? compareA : compareB;
+        const other = side === "A" ? compareB : compareA;
+        return (
+          <div key={side} className={`transport-compare-side${activeSide === side ? " active" : ""}`}>
+            <button
+              type="button"
+              className="transport-compare-side-label"
+              aria-pressed={activeSide === side}
+              onClick={() => setCompareSide(side)}
+            >
+              {side}
+            </button>
+            <SourceMenu
+              compact
+              triggerLabel={source?.label ?? "Choose"}
+              triggerAria={`${side} compare source`}
+              options={sources
+                .filter((item) => item.id !== other?.id)
+                .map((item) => ({ id: item.id, label: item.label }))}
+              selectedId={source?.id ?? null}
+              onSelect={(id) => {
+                const next = sources.find((item) => item.id === id);
+                if (next) setCompareSource(side, next);
+              }}
+            />
+          </div>
+        );
+      })}
+      <button type="button" className="transport-compare-exit" onClick={exitCompare} aria-label="Exit compare">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+          <path d="M2 2l8 8M10 2l-8 8" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export default function TransportBar() {
   const {
     transport,
     seek,
     setActiveSource,
     setLoop,
-    stop,
     toggle,
     toggleLoop,
   } = useTransport();
@@ -123,15 +198,34 @@ export default function TransportBar() {
     Math.abs(loopEnd - selectionTimeRange.end) < 0.05;
 
   const applyLoopSelection = () => {
-    if (!selectionTimeRange || !hasSource) return;
-    if (!domainMatches) return;
+    if (!selectionTimeRange || !hasSource || !domainMatches) return;
     setLoop(selectionTimeRange.start, selectionTimeRange.end);
     if (!loopEnabled) toggleLoop();
   };
 
   return (
-    <footer className="transport-bar" aria-label="Playback">
-      <div className="transport-row-primary">
+    <footer className="transport-bar transport-bar-v3" aria-label="Playback">
+      <div className="transport-source-zone">
+        {sources.length > 0 ? (
+          <>
+            <span className="transport-zone-label">Listening to</span>
+            <SourceMenu
+              triggerLabel={activeSource ? activeSource.label : "Choose source"}
+              triggerAria={`Listening to: ${activeSource ? activeSource.label : "no source"}`}
+              options={sources.map((item) => ({ id: item.id, label: item.label }))}
+              selectedId={activeSource?.id ?? null}
+              onSelect={(id) => {
+                const next = sources.find((item) => item.id === id);
+                if (next) setActiveSource(next);
+              }}
+            />
+          </>
+        ) : (
+          <span className="transport-empty-label">No audio loaded</span>
+        )}
+      </div>
+
+      <div className="transport-playback-zone">
         <button
           type="button"
           className="transport-play-btn"
@@ -158,66 +252,40 @@ export default function TransportBar() {
           disabled={!hasSource || duration <= 0}
         />
         <span className="transport-time transport-time-muted">{formatTime(duration)}</span>
-
-        <span className="transport-divider" aria-hidden="true" />
-
-        {sources.length > 0 && (
-          <div className="transport-hearing">
-            <SourceMenu
-              triggerLabel={activeSource ? activeSource.label : "No source"}
-              triggerAria={`Listening to: ${activeSource ? activeSource.label : "no source"}`}
-              options={sources.map((item) => ({ id: item.id, label: item.label }))}
-              selectedId={activeSource?.id ?? null}
-              onSelect={(id) => {
-                const next = sources.find((item) => item.id === id);
-                if (next) setActiveSource(next);
-              }}
-            />
-          </div>
-        )}
-
-        <span className="transport-divider" aria-hidden="true" />
-
-        <div className="transport-controls-secondary">
+        <button
+          type="button"
+          className={`transport-ctrl${loopEnabled ? " active" : ""}`}
+          onClick={() => {
+            if (!loopEnabled && (loopStart === null || loopEnd === null) && duration > 0) setLoop(0, duration);
+            toggleLoop();
+          }}
+          aria-label="Toggle loop"
+          title="Loop"
+          disabled={!hasSource}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M11 3h3v3" /><path d="M14 3l-3.25 3.25" /><path d="M5 13H2v-3" /><path d="M2 13l3.25-3.25" /><path d="M13.5 6A5.5 5.5 0 0 0 4 3.75" /><path d="M2.5 10A5.5 5.5 0 0 0 12 12.25" />
+          </svg>
+        </button>
+        {selectionTimeRange && (
           <button
             type="button"
-            className={`transport-ctrl${loopEnabled ? " active" : ""}`}
-            onClick={() => {
-              if (!loopEnabled && (loopStart === null || loopEnd === null) && duration > 0) setLoop(0, duration);
-              toggleLoop();
-            }}
-            aria-label="Toggle loop"
-            title="Toggle loop"
-            disabled={!hasSource}
+            className={`transport-ctrl${loopSelectionActive ? " active" : ""}`}
+            onClick={applyLoopSelection}
+            aria-label="Loop selection"
+            aria-pressed={loopSelectionActive}
+            disabled={!hasSource || !domainMatches}
+            title={domainMatches ? "Loop selected region" : "Selection uses a different time domain"}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M11 2h3v3" /><path d="M14 2L10 6" /><path d="M5 14H2v-3" /><path d="M2 14l4-4" /><path d="M14 5.5A6 6 0 0 0 3.5 3.5" /><path d="M2 10.5A6 6 0 0 0 12.5 12.5" />
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+              <rect x="3" y="5" width="10" height="6" rx="1.5" strokeDasharray="2 2" />
             </svg>
           </button>
-          {selectionTimeRange && (
-            <button
-              type="button"
-              className={`transport-ctrl${loopSelectionActive ? " active" : ""}${!domainMatches ? " disabled" : ""}`}
-              onClick={applyLoopSelection}
-              aria-label={domainMatches ? "Loop selection" : "Loop selection (disabled: selection and source have different time domains)"}
-              aria-pressed={loopSelectionActive}
-              disabled={!hasSource || !domainMatches}
-              title={
-                domainMatches
-                  ? `Loop the selected region (${selectionTimeRange.start.toFixed(1)}s \u2013 ${selectionTimeRange.end.toFixed(1)}s)`
-                  : `Selection is in ${selectionDomain} time; active source is ${activeDomain} time. Loop disabled.`
-              }
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M11 2h3v3" /><path d="M14 2L10 6" /><path d="M5 14H2v-3" /><path d="M2 14l4-4" /><path d="M14 5.5A6 6 0 0 0 3.5 3.5" /><path d="M2 10.5A6 6 0 0 0 12.5 12.5" />
-                <rect x="5" y="5" width="6" height="6" rx="1" strokeDasharray="2 2" />
-              </svg>
-            </button>
-          )}
-          <button type="button" className="transport-ctrl" onClick={stop} aria-label="Stop" title="Stop" disabled={!hasSource}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="10" height="10" rx="1.5" /></svg>
-          </button>
-        </div>
+        )}
+      </div>
+
+      <div className="transport-compare-zone">
+        <CompareTransportControl />
       </div>
     </footer>
   );
