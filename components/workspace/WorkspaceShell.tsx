@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { TransportProvider } from "@/lib/stores/transport";
 import { TimelineProvider } from "@/lib/stores/timeline";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
-import { presentableTitle } from "@/lib/format";
+import BrandMark from "@/components/BrandMark";
 import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
@@ -29,41 +29,24 @@ function WorkspaceContent({
     if (!workspace.libraryCollapsed) toggleLibrary();
   }, [toggleLibrary, workspace.libraryCollapsed]);
 
-  const activeWork = workspace.works.find((work) => work.id === workspace.activeWorkId) ?? null;
   const inspectorOpen = !workspace.inspectorCollapsed;
   const analysisAvailable = workspace.analysisState === "completed" && Boolean(workspace.activeWorkId);
-  const serviceLabel = serviceStatus === "checking" ? "Connecting" : "Offline";
+  const canImport = serviceStatus !== "unavailable";
 
   return (
     <div className="studio-shell studio-shell-v3">
       <header className="studio-header studio-header-v3">
-        <div className="studio-brand-lockup" aria-label="Music Lab">
-          <span className="studio-brand-mark" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M5 13.5V5.25L14 3v8.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="3.75" cy="13.5" r="2.25" fill="currentColor" />
-              <circle cx="12.75" cy="11.25" r="2.25" fill="currentColor" />
-            </svg>
-          </span>
-          <span className="studio-product-name">Music Lab</span>
+        <div className="studio-brand-lockup studio-brand-lockup-mark-only" aria-label="Music workspace">
+          <span className="studio-brand-mark" aria-hidden="true"><BrandMark size={21} /></span>
         </div>
 
-        <div className="studio-document-title" aria-live="polite">
-          {activeWork ? (
-            <>
-              <span className="studio-document-name">{presentableTitle(activeWork.title)}</span>
-              {workspace.isLoadingWork && <span className="studio-document-state">Opening…</span>}
-            </>
-          ) : (
-            <span className="studio-document-name studio-document-name-muted">Untitled workspace</span>
-          )}
-        </div>
+        <div className="studio-header-spacer" aria-hidden="true" />
 
         <div className="studio-header-actions">
-          {serviceStatus !== "ready" && (
-            <span className={`studio-service-state studio-service-${serviceStatus}`} title={`Processing service: ${serviceLabel}`}>
+          {serviceStatus === "unavailable" && (
+            <span className="studio-service-state studio-service-unavailable" title="Audio processing is temporarily unavailable">
               <span className="studio-service-dot" aria-hidden="true" />
-              <span className="studio-service-label">{serviceLabel}</span>
+              <span className="studio-service-label">Processing offline</span>
             </span>
           )}
           <button
@@ -90,10 +73,10 @@ function WorkspaceContent({
       </header>
 
       <div className="studio-workspace studio-workspace-v3">
-        <LibraryPanel signedIn={signedIn} canImport={serviceStatus === "ready"} />
+        <LibraryPanel signedIn={signedIn} canImport={canImport} />
 
         <div className="studio-canvas-area studio-canvas-area-v3">
-          <RepresentationStack signedIn={signedIn} canImport={serviceStatus === "ready"} />
+          <RepresentationStack signedIn={signedIn} canImport={canImport} />
         </div>
 
         {analysisAvailable && (
@@ -124,7 +107,6 @@ export default function WorkspaceShell({
   children,
 }: {
   signedIn?: boolean;
-  projectName?: string;
   serviceStatus?: ServiceStatus;
   children?: ReactNode;
 }) {
