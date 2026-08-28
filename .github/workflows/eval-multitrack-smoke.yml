@@ -46,7 +46,6 @@ jobs:
             --index-url https://download.pytorch.org/whl/cpu \
             'torch==2.6.0' 'torchvision==0.21.0' 'torchaudio==2.6.0'
           uv pip install --python "$MT3_VENV/bin/python" \
-            --extra-index-url https://download.pytorch.org/whl/cpu \
             'mt3-infer @ git+https://github.com/openmirlab/mt3-infer.git@2d20ee5bb6ca727968bd23c6100fd2a35154166b'
           "$MT3_VENV/bin/python" - <<'PY'
           import importlib.metadata as metadata
