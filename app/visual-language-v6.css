@@ -214,14 +214,81 @@
 .piece-source-menu button[aria-selected="true"]::after {
   content: "";
   position: absolute;
-  right: 10px;
+  right: 11px;
   top: 50%;
-  width: 6px;
-  height: 3px;
-  border-left: 1.5px solid #cbae69;
+  width: 4px;
+  height: 7px;
+  border-right: 1.5px solid #cbae69;
   border-bottom: 1.5px solid #cbae69;
-  transform: translateY(-65%) rotate(-45deg);
+  transform: translateY(-62%) rotate(45deg);
   transform-origin: center;
+}
+
+/* Evidence stays semantic native disclosure, but reads as a compact inspector
+ * hierarchy rather than a stack of bordered cards. */
+.inspector-evidence-groups {
+  margin-top: 3px;
+  border-bottom: 1px solid var(--v5-line, rgba(241, 237, 228, 0.07));
+}
+
+.inspector-evidence-group {
+  margin: 0;
+  border-top: 1px solid var(--v5-line, rgba(241, 237, 228, 0.07));
+}
+
+.inspector-evidence-group summary {
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px;
+  border-radius: 4px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--v6-control-text);
+  transition: color 120ms ease-out;
+}
+
+.inspector-evidence-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.inspector-evidence-group summary::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin-left: 1px;
+  border-right: 1px solid #777168;
+  border-bottom: 1px solid #777168;
+  transform: rotate(-45deg);
+  transform-origin: center;
+  transition: transform 120ms ease-out, border-color 120ms ease-out;
+}
+
+.inspector-evidence-group[open] summary::before {
+  transform: rotate(45deg) translate(-1px, -1px);
+  border-color: #aaa398;
+}
+
+.inspector-evidence-group summary:hover {
+  color: #d2cdc3;
+}
+
+.inspector-evidence-group[open] summary {
+  color: #ddd8ce;
+}
+
+.inspector-evidence-count {
+  min-width: 18px;
+  text-align: right;
+  color: var(--v6-control-muted);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector-evidence-group > .inspector-evidence-body {
+  padding: 2px 0 10px 17px;
 }
 
 /* Reduce visual competition in toolbar chrome. */
@@ -265,7 +332,9 @@
 @media (prefers-reduced-motion: reduce) {
   .ui-tab,
   .ui-tab::after,
-  .piece-source-trigger {
+  .piece-source-trigger,
+  .inspector-evidence-group summary,
+  .inspector-evidence-group summary::before {
     transition: none;
   }
 }
