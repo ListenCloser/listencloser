@@ -44,30 +44,8 @@ export type StudioOperation = {
   message?: string;
 };
 
-/**
- * Analysis lifecycle state for the active work.
- *
- * - "idle": No analysis has been requested or completed for this work.
- * - "analyzing": An analysis job is currently running.
- * - "completed": Analysis has finished (even with 0 insights).
- *
- * This is the source of truth for the Analysis tab visibility.
- * Do NOT infer from insights.length.
- */
 export type AnalysisState = "idle" | "analyzing" | "completed";
 
-/**
- * Shared musical selection across representations.
- *
- * Owned by the WorkSession (not per representation). Exactly the fields that
- * can be mapped honestly are set, never fabricated:
- *   - timeRange  — seconds in the currently active playback source's timeline.
- *   - noteIds    — piano-roll note ids (a direct, exact reading).
- *   - measureRange — score measure indices (a direct, exact reading on the score).
- * Composing fields (e.g. timeRange derived from measures, or measures derived
- * from time) is kept coarse and marked in `provenance`, never presented as an
- * exact cross-timing-domain mapping.
- */
 export type SelectionOrigin = "waveform" | "piano_roll" | "score" | "spectrogram" | null;
 
 export type MusicalSelection = {
@@ -76,12 +54,7 @@ export type MusicalSelection = {
   measureRange?: { start: number; end: number };
   provenance: {
     origin: SelectionOrigin;
-    /** True when timeRange is a direct reading in the active source's
-        timeline (waveform and piano-roll selections). False when the
-        timeRange was composed from measure data (approximate). */
     timeExact: boolean;
-    /** True when measureRange was composed from a time-based selection
-        (approximate). False for direct score measure selections. */
     measureApproximate: boolean;
   };
 };
@@ -141,14 +114,10 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 function representationKindToKnown(kind: RepresentationKind): RepresentationId | null {
   switch (kind) {
-    case "waveform":
-      return "listen";
-    case "piano_roll":
-      return "piano_roll";
-    case "score":
-      return "score";
-    default:
-      return null;
+    case "waveform": return "listen";
+    case "piano_roll": return "piano_roll";
+    case "score": return "score";
+    default: return null;
   }
 }
 
@@ -163,7 +132,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     project: null,
     works: [],
     activeWorkId: null,
-    isLoadingWork: false,
+    // Begin in a structural loading state. HomeContent clears this only after
+    // the saved library has been resolved, preventing a false empty/import
+    // screen from flashing after sign-in.
+    isLoadingWork: true,
     importRequestId: 0,
     libraryCollapsed: false,
     inspectorCollapsed: false,
@@ -180,13 +152,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     analysisState: "idle",
   });
 
-  const setProject = useCallback((project: Project | null) => {
-    setWorkspace((prev) => ({ ...prev, project }));
-  }, []);
-
-  const setWorks = useCallback((works: Work[]) => {
-    setWorkspace((prev) => ({ ...prev, works }));
-  }, []);
+  const setProject = useCallback((project: Project | null) => setWorkspace((prev) => ({ ...prev, project })), []);
+  const setWorks = useCallback((works: Work[]) => setWorkspace((prev) => ({ ...prev, works })), []);
 
   const setActiveWorkId = useCallback((activeWorkId: string | null) => {
     setWorkspace((prev) => {
@@ -208,27 +175,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setLoadingWork = useCallback((isLoadingWork: boolean) => {
-    setWorkspace((prev) => ({ ...prev, isLoadingWork }));
-  }, []);
-
-  const requestImport = useCallback(() => {
-    setWorkspace((prev) => ({
-      ...prev,
-      importRequestId: prev.importRequestId + 1,
-    }));
-  }, []);
-
-  const toggleLibrary = useCallback(() => {
-    setWorkspace((prev) => ({ ...prev, libraryCollapsed: !prev.libraryCollapsed }));
-  }, []);
+  const setLoadingWork = useCallback((isLoadingWork: boolean) => setWorkspace((prev) => ({ ...prev, isLoadingWork })), []);
+  const requestImport = useCallback(() => setWorkspace((prev) => ({ ...prev, importRequestId: prev.importRequestId + 1 })), []);
+  const toggleLibrary = useCallback(() => setWorkspace((prev) => ({ ...prev, libraryCollapsed: !prev.libraryCollapsed })), []);
 
   const removeWork = useCallback((workId: string) => {
     setWorkspace((prev) => {
       const removingActive = prev.activeWorkId === workId;
       return {
         ...prev,
-        works: prev.works.filter((w) => w.id !== workId),
+        works: prev.works.filter((work) => work.id !== workId),
         activeWorkId: removingActive ? null : prev.activeWorkId,
         representations: removingActive ? [] : prev.representations,
         insights: removingActive ? [] : prev.insights,
@@ -245,36 +201,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const restoreWork = useCallback((work: Work) => {
-    setWorkspace((prev) => {
-      if (prev.works.some((w) => w.id === work.id)) return prev;
-      return { ...prev, works: [...prev.works, work] };
-    });
+    setWorkspace((prev) => prev.works.some((item) => item.id === work.id) ? prev : { ...prev, works: [...prev.works, work] });
   }, []);
 
-  const toggleInspector = useCallback(() => {
-    setWorkspace((prev) => ({ ...prev, inspectorCollapsed: !prev.inspectorCollapsed }));
-  }, []);
-
-  const setInspectorMode = useCallback((inspectorMode: "analysis" | "ask") => {
-    setWorkspace((prev) => ({ ...prev, inspectorMode }));
-  }, []);
-
-  const appendAskMessage = useCallback((message: AskMessage) => {
-    setWorkspace((prev) => ({ ...prev, askConversation: [...prev.askConversation, message] }));
-  }, []);
-
-  const clearAskConversation = useCallback(() => {
-    setWorkspace((prev) => ({ ...prev, askConversation: [] }));
-  }, []);
+  const toggleInspector = useCallback(() => setWorkspace((prev) => ({ ...prev, inspectorCollapsed: !prev.inspectorCollapsed })), []);
+  const setInspectorMode = useCallback((inspectorMode: "analysis" | "ask") => setWorkspace((prev) => ({ ...prev, inspectorMode })), []);
+  const appendAskMessage = useCallback((message: AskMessage) => setWorkspace((prev) => ({ ...prev, askConversation: [...prev.askConversation, message] })), []);
+  const clearAskConversation = useCallback(() => setWorkspace((prev) => ({ ...prev, askConversation: [] })), []);
 
   const addRepresentation = useCallback((rep: RepresentationEntry) => {
     setWorkspace((prev) => {
-      const existing = prev.representations.find((r) => r.kind === rep.kind);
+      const existing = prev.representations.find((item) => item.kind === rep.kind);
       if (existing) {
-        return {
-          ...prev,
-          representations: prev.representations.map((r) => (r.kind === rep.kind ? rep : r)),
-        };
+        return { ...prev, representations: prev.representations.map((item) => item.kind === rep.kind ? rep : item) };
       }
       return {
         ...prev,
@@ -284,105 +223,46 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setInsights = useCallback((insights: Insight[]) => {
-    setWorkspace((prev) => ({ ...prev, insights }));
-  }, []);
-
-  const setTakes = useCallback((takes: StudioTake[]) => {
-    setWorkspace((prev) => ({ ...prev, takes }));
-  }, []);
-
-  const requestVariation = useCallback((versionId: string, semitones: number) => {
-    setWorkspace((prev) => ({
-      ...prev,
-      studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "variation", versionIds: [versionId], semitones },
-    }));
-  }, []);
-
-  const requestComparison = useCallback((versionIdA: string, versionIdB: string) => {
-    setWorkspace((prev) => ({
-      ...prev,
-      studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "compare", versionIds: [versionIdA, versionIdB] },
-    }));
-  }, []);
-
-  const setStudioOperation = useCallback((studioOperation: StudioOperation) => {
-    setWorkspace((prev) => ({ ...prev, studioOperation }));
-  }, []);
-
-  const replaceRepresentations = useCallback((representations: RepresentationEntry[]) => {
-    setWorkspace((prev) => ({
-      ...prev,
-      representations,
-      activeRepresentation: prev.activeRepresentation ?? null,
-    }));
-  }, []);
-
-  const setActiveRepresentation = useCallback((representation: RepresentationId | null) => {
-    setWorkspace((prev) => {
-      if (prev.activeRepresentation === representation) return prev;
-      return {
-        ...prev,
-        activeRepresentation: representation,
-      };
-    });
-  }, []);
-
-  const setSelection = useCallback((selection: MusicalSelection | null) => {
-    setWorkspace((prev) => ({
-      ...prev,
-      selection,
-    }));
-  }, []);
-
-  const clearSelection = useCallback(() => {
-    setWorkspace((prev) => ({
-      ...prev,
-      selection: null,
-    }));
-  }, []);
-
-  const setTranscriptionProfile = useCallback((transcriptionProfile: TranscriptionProfile) => {
-    setWorkspace((prev) => {
-      if (prev.transcriptionProfile === transcriptionProfile) return prev;
-      return { ...prev, transcriptionProfile };
-    });
-  }, []);
-
-  const setAnalysisState = useCallback((analysisState: AnalysisState) => {
-    setWorkspace((prev) => ({ ...prev, analysisState }));
-  }, []);
+  const setInsights = useCallback((insights: Insight[]) => setWorkspace((prev) => ({ ...prev, insights })), []);
+  const setTakes = useCallback((takes: StudioTake[]) => setWorkspace((prev) => ({ ...prev, takes })), []);
+  const requestVariation = useCallback((versionId: string, semitones: number) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "variation", versionIds: [versionId], semitones } })), []);
+  const requestComparison = useCallback((versionIdA: string, versionIdB: string) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "compare", versionIds: [versionIdA, versionIdB] } })), []);
+  const setStudioOperation = useCallback((studioOperation: StudioOperation) => setWorkspace((prev) => ({ ...prev, studioOperation })), []);
+  const replaceRepresentations = useCallback((representations: RepresentationEntry[]) => setWorkspace((prev) => ({ ...prev, representations, activeRepresentation: prev.activeRepresentation ?? null })), []);
+  const setActiveRepresentation = useCallback((activeRepresentation: RepresentationId | null) => setWorkspace((prev) => prev.activeRepresentation === activeRepresentation ? prev : { ...prev, activeRepresentation }), []);
+  const setSelection = useCallback((selection: MusicalSelection | null) => setWorkspace((prev) => ({ ...prev, selection })), []);
+  const clearSelection = useCallback(() => setWorkspace((prev) => ({ ...prev, selection: null })), []);
+  const setTranscriptionProfile = useCallback((transcriptionProfile: TranscriptionProfile) => setWorkspace((prev) => prev.transcriptionProfile === transcriptionProfile ? prev : { ...prev, transcriptionProfile }), []);
+  const setAnalysisState = useCallback((analysisState: AnalysisState) => setWorkspace((prev) => ({ ...prev, analysisState })), []);
 
   return (
-    <WorkspaceContext.Provider
-      value={{
-        workspace,
-        setProject,
-        setWorks,
-        setActiveWorkId,
-        setLoadingWork,
-        requestImport,
-        toggleLibrary,
-        toggleInspector,
-        setInspectorMode,
-        appendAskMessage,
-        clearAskConversation,
-        removeWork,
-        restoreWork,
-        addRepresentation,
-        replaceRepresentations,
-        setInsights,
-        setTakes,
-        requestVariation,
-        requestComparison,
-        setStudioOperation,
-        setActiveRepresentation,
-        setSelection,
-        clearSelection,
-        setTranscriptionProfile,
-        setAnalysisState,
-      }}
-    >
+    <WorkspaceContext.Provider value={{
+      workspace,
+      setProject,
+      setWorks,
+      setActiveWorkId,
+      setLoadingWork,
+      requestImport,
+      toggleLibrary,
+      toggleInspector,
+      setInspectorMode,
+      appendAskMessage,
+      clearAskConversation,
+      removeWork,
+      restoreWork,
+      addRepresentation,
+      replaceRepresentations,
+      setInsights,
+      setTakes,
+      requestVariation,
+      requestComparison,
+      setStudioOperation,
+      setActiveRepresentation,
+      setSelection,
+      clearSelection,
+      setTranscriptionProfile,
+      setAnalysisState,
+    }}>
       {children}
     </WorkspaceContext.Provider>
   );
