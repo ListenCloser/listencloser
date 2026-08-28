@@ -117,7 +117,9 @@ def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "num_items": len(items),
         "assessment_keys": assessment_keys,
         "total_claims": total_claims,
-        "supported_claim_rate": round(supported / total_claims, 6) if total_claims else None,
+        "supported_claim_rate": (
+            round(supported / total_claims, 6) if total_claims else None
+        ),
         "contradiction_rate": (
             round(contradicted / total_claims, 6) if total_claims else None
         ),
@@ -130,10 +132,13 @@ def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
             else None
         ),
         "citation_precision": (
-            round(cited_expected_count / cited_ref_count, 6) if cited_ref_count else None
+            round(cited_expected_count / cited_ref_count, 6)
+            if cited_ref_count
+            else None
         ),
         "abstention_accuracy": round(
-            sum(row["should_abstain"] == row["abstained"] for row in items) / len(items),
+            sum(row["should_abstain"] == row["abstained"] for row in items)
+            / len(items),
             6,
         ),
         "temporal_grounding_accuracy": (
@@ -215,7 +220,8 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "mean_specificity_rating",
     )
     if any(
-        baseline.get(field) is None or combined.get(field) is None for field in required
+        baseline.get(field) is None or combined.get(field) is None
+        for field in required
     ):
         return {
             "evaluable": False,
