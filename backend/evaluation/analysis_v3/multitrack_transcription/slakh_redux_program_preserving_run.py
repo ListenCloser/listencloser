@@ -135,6 +135,9 @@ def run_program_preserving_batch(
         "--stats",
         str(stats_path),
     ]
+    candidate_env = os.environ.copy()
+    candidate_env.pop("PYTHONPATH", None)
+    candidate_env.pop("PYTHONHOME", None)
     started = time.perf_counter()
     process = subprocess.run(
         command,
@@ -142,7 +145,7 @@ def run_program_preserving_batch(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,
-        env=os.environ.copy(),
+        env=candidate_env,
     )
     elapsed = time.perf_counter() - started
     log_path.write_text(process.stdout or "")
