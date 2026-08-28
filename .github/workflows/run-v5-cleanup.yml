@@ -32,6 +32,14 @@ jobs:
               line[10:] if line.startswith("          ") else line
               for line in match.group(1).splitlines()
           )
+          payload = payload.replace(
+              "overview_pattern.subn(overview, text, count=1)",
+              "overview_pattern.subn(lambda _match: overview, text, count=1)",
+          )
+          payload = payload.replace(
+              "counts_pattern.subn(counts, text, count=1)",
+              "counts_pattern.subn(lambda _match: counts, text, count=1)",
+          )
           exec(compile(payload, 'v5-cleanup', 'exec'))
           PY
       - name: Commit V5 cleanup
