@@ -1,0 +1,127 @@
+{
+  "evidence_class": "REFERENCE_AND_OPERATIONAL_METADATA",
+  "local_model_inference_performed": false,
+  "assessed_date": "2026-08-28",
+  "hello_ai_base_sha": "19fe23a765d6b80ce099be428e46f701cf97c828",
+  "candidates": [
+    {
+      "candidate": "music_flamingo",
+      "checkpoint": "nvidia/music-flamingo-2601-hf",
+      "checkpoint_revision": "main metadata snapshot; pin immutable revision before local inference",
+      "parameters": "8B total; Qwen2.5-7B language backbone",
+      "checkpoint_size_gb": 16.5,
+      "weight_file_sha256": "4da26452d3978503fb064023a69f7867a1f235a2a5a89d3d9146ebf2e04eb15b",
+      "max_audio_seconds": 1200,
+      "code_license": "MIT upstream Audio Flamingo code; Transformers Apache-2.0",
+      "weight_license": "NVIDIA OneWay Noncommercial License",
+      "additional_terms": "Model card notes portions of dataset generation are also subject to Qwen Research License and OpenAI Terms of Use.",
+      "upstream_test_hardware": "NVIDIA A100 80 GB",
+      "hello_ai_cpu_feasibility": "not measured",
+      "hello_ai_gpu_feasibility": "not measured",
+      "exact_mir_evidence": "not locally measured; upstream music results do not establish authority over exact localized MIR facts",
+      "semantic_evidence": "music-specialized QA, captioning, long-context and reasoning candidate",
+      "decision": "RESEARCH",
+      "decision_reason": "Highest-priority music-specialized semantic candidate, but large non-commercial weights and no hello-ai audio+evidence measurement prevent adoption.",
+      "sources": [
+        "https://huggingface.co/nvidia/music-flamingo-2601-hf",
+        "https://huggingface.co/docs/transformers/en/model_doc/musicflamingo",
+        "https://research.nvidia.com/labs/adlr/MF/",
+        "https://github.com/NVIDIA/audio-flamingo"
+      ]
+    },
+    {
+      "candidate": "audio_flamingo_3",
+      "checkpoint": "nvidia/audio-flamingo-3-hf",
+      "checkpoint_revision": "main metadata snapshot; pin immutable revision before local inference",
+      "parameters": "Qwen2.5-7B language backbone",
+      "checkpoint_size_gb": 16.5,
+      "weight_file_sha256": "74e31be176c4691982818c10f958f9a183df88da2bad65625fa25d30c6fd5e79",
+      "max_audio_seconds": 600,
+      "code_license": "MIT upstream Audio Flamingo code; Transformers Apache-2.0",
+      "weight_license": "NVIDIA OneWay Noncommercial License",
+      "additional_terms": "Model card notes portions of dataset generation are subject to Qwen Research License and OpenAI Terms of Use.",
+      "upstream_test_hardware": "GPU-oriented; no hello-ai runtime measurement",
+      "hello_ai_cpu_feasibility": "not measured",
+      "hello_ai_gpu_feasibility": "not measured",
+      "exact_mir_evidence": "MUSE reports Audio Flamingo 3 at or near chance on several fundamental music-perception/relational tasks",
+      "semantic_evidence": "general audio-language control with long-context audio support",
+      "decision": "RESEARCH",
+      "decision_reason": "Useful control, but non-commercial weights and MUSE weaknesses rule out factual authority or production adoption.",
+      "sources": [
+        "https://huggingface.co/nvidia/audio-flamingo-3-hf",
+        "https://github.com/NVIDIA/audio-flamingo",
+        "https://arxiv.org/abs/2510.19055"
+      ]
+    },
+    {
+      "candidate": "qwen2_5_omni",
+      "checkpoint": "Qwen/Qwen2.5-Omni-7B",
+      "checkpoint_revision": "main metadata snapshot; pin immutable revision before local inference",
+      "parameters": "7B",
+      "checkpoint_size_gb": 22.4,
+      "weight_file_sha256": null,
+      "max_audio_seconds": null,
+      "code_license": "Apache-2.0",
+      "weight_license": "Apache-2.0",
+      "additional_terms": "Normal dataset and downstream-use diligence still required.",
+      "upstream_test_hardware": "GPU-oriented; audio-only memory not measured by hello-ai",
+      "hello_ai_cpu_feasibility": "not measured",
+      "hello_ai_gpu_feasibility": "not measured",
+      "exact_mir_evidence": "MUSE reports Qwen2.5-Omni at or near chance on several fundamental music-perception/relational tasks",
+      "semantic_evidence": "permissively licensed general multimodal baseline; no hello-ai-specific grounded advantage measured",
+      "decision": "REVISIT",
+      "decision_reason": "Permissive license is attractive, but checkpoint size and MUSE evidence make this lower priority than Music Flamingo for a first grounded run.",
+      "sources": [
+        "https://huggingface.co/Qwen/Qwen2.5-Omni-7B",
+        "https://arxiv.org/abs/2510.19055"
+      ]
+    },
+    {
+      "candidate": "llark",
+      "checkpoint": null,
+      "checkpoint_revision": null,
+      "parameters": null,
+      "checkpoint_size_gb": null,
+      "weight_file_sha256": null,
+      "max_audio_seconds": null,
+      "code_license": "Apache-2.0",
+      "weight_license": null,
+      "additional_terms": "Official repository explicitly states the paper is not accompanied by trained models.",
+      "upstream_test_hardware": null,
+      "hello_ai_cpu_feasibility": "not runnable without an official checkpoint",
+      "hello_ai_gpu_feasibility": "not runnable without an official checkpoint",
+      "exact_mir_evidence": "historical research reference only",
+      "semantic_evidence": "historical music instruction-following architecture reference",
+      "decision": "REVISIT",
+      "decision_reason": "No official trained checkpoint is available; do not retrain as part of this bakeoff.",
+      "sources": [
+        "https://github.com/spotify-research/llark"
+      ]
+    }
+  ],
+  "reference_benchmarks": [
+    {
+      "name": "CMI-Bench",
+      "venue": "ISMIR 2025",
+      "coverage": "14 traditional MIR task families across 20 datasets reformulated as open-ended music instruction following",
+      "finding": "The authors report significant gaps between evaluated audio-text LLMs and task-specific supervised MIR systems under standard MIR metrics, together with cultural, chronological, and gender biases.",
+      "product_implication": "Fluent audio-language output is not evidence of exact MIR competence; specialized engines remain authoritative unless matched-task evaluation proves otherwise.",
+      "sources": [
+        "https://ismir2025program.ismir.net/poster_246.html",
+        "https://arxiv.org/abs/2506.12285",
+        "https://github.com/nicolaus625/CMI-bench"
+      ]
+    },
+    {
+      "name": "MUSE",
+      "venue": "2025 preprint",
+      "coverage": "10 fundamental music perception and auditory relational reasoning tasks with a 200-person human baseline",
+      "finding": "The benchmark reports a persistent human gap; Qwen2.5-Omni and Audio Flamingo 3 perform at or near chance on several tasks, and chain-of-thought prompting is inconsistent and often detrimental.",
+      "product_implication": "Do not assume a general audio-language model can supply reliable relational music facts; evaluate semantic explanation as a separate capability.",
+      "sources": [
+        "https://arxiv.org/abs/2510.19055"
+      ]
+    }
+  ],
+  "notes": "This artifact records upstream reference evidence only. No hello-ai audio-language checkpoint was loaded or run in this stage."
+}
