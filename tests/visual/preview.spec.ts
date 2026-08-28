@@ -1,5 +1,22 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { argosScreenshot } from "@argos-ci/playwright";
+import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
+
+async function openMockWorkspace(page: Parameters<typeof test>[0] extends never ? never : any) {
+  await page.addInitScript(persistSessionScript(), {
+    projectRef: MOCK_PROJECT_REF,
+    session: mockSession,
+  });
+  await page.goto("/");
+  await page.waitForFunction(
+    () => navigator.serviceWorker?.controller !== null,
+    undefined,
+    { timeout: 15_000 },
+  );
+  await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
+}
 
 // Design source-of-truth mockup (lives in design/mockups, uses real tokens).
 test("design mockup (SOT)", async ({ page }) => {
@@ -17,11 +34,22 @@ test("app landing", async ({ page }) => {
   await argosScreenshot(page, "app-landing", { fullPage: true });
 });
 
-// Actual built app — studio after mock auth setup (requires MSW).
-test("app studio", async ({ page }) => {
-  // Studio loads client-side — capture the default Transcribe step
-  await page.goto("/");
-  await page.waitForTimeout(400);
-  // If MSW is enabled, the page may show the studio; otherwise it shows auth
-  await argosScreenshot(page, "app-studio", { fullPage: true });
+// V6 changes live in the authenticated creative workspace, so the visual gate
+// must cover that surface rather than merely screenshotting the auth gate.
+test("app studio — desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openMockWorkspace(page);
+  await argosScreenshot(page, "app-studio-desktop", { fullPage: true });
+
+  const harmony = page.locator("details.inspector-evidence-group").filter({ hasText: /^Harmony/ }).first();
+  if (await harmony.count()) {
+    await harmony.locator("summary").click();
+    await argosScreenshot(page, "app-studio-desktop-evidence", { fullPage: true });
+  }
+});
+
+test("app studio — narrow desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await openMockWorkspace(page);
+  await argosScreenshot(page, "app-studio-narrow", { fullPage: true });
 });
