@@ -1,0 +1,255 @@
+name: Analysis V3 multitrack MR-MT3 decoder sidecar
+
+on:
+  push:
+    branches:
+      - eval/analysis-v3-multitrack-smoke-run
+    paths:
+      - '.github/workflows/eval-multitrack-decoder-sidecar.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: analysis-v3-multitrack-decoder-sidecar
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+
+      - name: Sync locked hello-ai backend
+        run: uv sync --project backend --locked
+
+      - name: Create isolated pinned CPU MR-MT3 environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          MT3_VENV="$RUNNER_TEMP/mt3-venv"
+          uv venv "$MT3_VENV" --python 3.11
+          uv pip install --python "$MT3_VENV/bin/python" \
+            --index-url https://download.pytorch.org/whl/cpu \
+            'torch==2.6.0' 'torchvision==0.21.0' 'torchaudio==2.6.0'
+          uv pip install --python "$MT3_VENV/bin/python" \
+            'mt3-infer @ git+https://github.com/openmirlab/mt3-infer.git@2d20ee5bb6ca727968bd23c6100fd2a35154166b'
+          "$MT3_VENV/bin/python" - <<'PY'
+          import importlib.metadata as metadata
+          import torch
+          assert metadata.version('mt3-infer') == '0.2.0'
+          assert torch.__version__ == '2.6.0+cpu'
+          print({'mt3_infer': metadata.version('mt3-infer'), 'torch': torch.__version__})
+          PY
+          test -x "$MT3_VENV/bin/mt3-infer"
+
+      - name: Instrument decoder sidecar before stock MIDI serialization
+        shell: bash
+        env:
+          PATCH_OUTPUT: ${{ github.workspace }}/slakh-sidecar-output/decoder_sidecar_patch.json
+        run: |
+          set -euo pipefail
+          MT3_VENV="$RUNNER_TEMP/mt3-venv"
+          "$MT3_VENV/bin/python" - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sysconfig
+          from pathlib import Path
+
+          adapter = Path(sysconfig.get_paths()['purelib']) / 'mt3_infer' / 'adapters' / 'mr_mt3.py'
+          if not adapter.is_file():
+              raise SystemExit(f'installed MR-MT3 adapter not found: {adapter}')
+          original = adapter.read_text()
+          needle = '''        note_sequence, invalid_events, dropped_events = vocab_utils.decode_and_combine_predictions(
+                      predictions, self.codec
+                  )
+
+                  # Convert NoteSequence to mido.MidiFile'''
+          replacement = '''        note_sequence, invalid_events, dropped_events = vocab_utils.decode_and_combine_predictions(
+                      predictions, self.codec
+                  )
+
+                  # Evaluation-only instrumentation: persist decoded model events before
+                  # the upstream MIDI serializer collapses pitched programs onto channel 0.
+                  sidecar_dir = os.environ.get("MT3_NOTE_SIDECAR_DIR")
+                  if sidecar_dir:
+                      import sys
+                      input_args = [Path(arg) for arg in sys.argv if arg.endswith("mix.wav")]
+                      if len(input_args) != 1:
+                          raise InferenceError(f"cannot resolve input track for decoder sidecar: {sys.argv}")
+                      track_id = input_args[0].parent.name
+                      sidecar_path = Path(sidecar_dir) / f"{track_id}.json"
+                      sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+                      sidecar_path.write_text(json.dumps({
+                          "track_id": track_id,
+                          "invalid_events": int(invalid_events),
+                          "dropped_events": int(dropped_events),
+                          "ticks_per_quarter": int(note_sequence.ticks_per_quarter),
+                          "notes": [
+                              {
+                                  "pitch": int(note.pitch),
+                                  "velocity": int(note.velocity),
+                                  "start_time": float(note.start_time),
+                                  "end_time": float(note.end_time),
+                                  "program": int(note.program),
+                                  "is_drum": bool(note.is_drum),
+                              }
+                              for note in note_sequence.notes
+                          ],
+                      }, indent=2) + "\\n")
+
+                  # Convert NoteSequence to mido.MidiFile'''
+          if needle not in original:
+              raise SystemExit('expected decoder boundary not found; refusing to instrument')
+          patched = original.replace(needle, replacement, 1)
+          before = hashlib.sha256(original.encode()).hexdigest()
+          after = hashlib.sha256(patched.encode()).hexdigest()
+          adapter.write_text(patched)
+          output = Path(os.environ['PATCH_OUTPUT'])
+          output.parent.mkdir(parents=True, exist_ok=True)
+          output.write_text(json.dumps({
+              'upstream_adapter_path': str(adapter),
+              'upstream_commit': '2d20ee5bb6ca727968bd23c6100fd2a35154166b',
+              'before_sha256': before,
+              'after_sha256': after,
+              'instrumentation_scope': 'JSON sidecar after decode_and_combine_predictions and before stock MIDI serialization',
+              'stock_midi_serializer_modified': False,
+          }, indent=2) + '\n')
+          print(output.read_text())
+          PY
+
+      - name: Verify locked hello-ai environment stayed unchanged
+        run: |
+          backend/.venv/bin/python - <<'PY'
+          import torch
+          assert torch.__version__ == '2.6.0+cpu', torch.__version__
+          print({'hello_ai_torch': torch.__version__})
+          PY
+
+      - name: Run stock CLI and capture decoder sidecars
+        env:
+          PYTHONPATH: backend
+          SLAKH_SOURCE_CACHE: ${{ runner.temp }}/slakh-selective-source
+          MT3_CHECKPOINT_DIR: ${{ runner.temp }}/mt3-checkpoints
+          MT3_INFER_BIN: ${{ runner.temp }}/mt3-venv/bin/mt3-infer
+          MT3_INFER_VERSION: '0.2.0'
+          MT3_TORCH_VERSION: '2.6.0+cpu'
+          MT3_NOTE_SIDECAR_DIR: ${{ github.workspace }}/slakh-sidecar-output/decoder_sidecars
+          MULTITRACK_SMOKE_OUTPUT: ${{ github.workspace }}/slakh-sidecar-output
+          HELLO_AI_MEASUREMENT_SHA: 7057c1c247fb2770fee5f5e418479cbf69bd4619
+        run: |
+          backend/.venv/bin/python backend/evaluation/analysis_v3/multitrack_transcription/slakh_redux_subset_run.py
+
+      - name: Score decoder events without the stock serializer
+        env:
+          PYTHONPATH: backend
+          OUTPUT_ROOT: ${{ github.workspace }}/slakh-sidecar-output
+        run: |
+          backend/.venv/bin/python - <<'PY'
+          import copy
+          import json
+          import os
+          from pathlib import Path
+
+          import pretty_midi
+
+          from evaluation.analysis_v3.multitrack_transcription.run import score_model_run
+
+          root = Path(os.environ['OUTPUT_ROOT'])
+          manifest = root / 'manifest.json'
+          dataset_root = root / 'dataset'
+          stock_run_path = root / 'mr_mt3' / 'model_run.json'
+          stock_score = json.loads((root / 'mr_mt3' / 'score.json').read_text())
+          stock_run = json.loads(stock_run_path.read_text())
+          decoder_root = root / 'mr_mt3_decoder'
+          decoder_root.mkdir(parents=True, exist_ok=True)
+
+          entries = []
+          for stock_entry in stock_run['entries']:
+              track_id = stock_entry['id']
+              sidecar_path = root / 'decoder_sidecars' / f'{track_id}.json'
+              if not sidecar_path.is_file():
+                  raise SystemExit(f'missing decoder sidecar: {sidecar_path}')
+              sidecar = json.loads(sidecar_path.read_text())
+              if sidecar.get('track_id') != track_id:
+                  raise SystemExit(f'sidecar track mismatch for {track_id}')
+              grouped = {}
+              for note in sidecar['notes']:
+                  key = (int(note['program']) if not note['is_drum'] else 0, bool(note['is_drum']))
+                  grouped.setdefault(key, []).append(note)
+              midi = pretty_midi.PrettyMIDI(initial_tempo=120.0)
+              for (program, is_drum), notes in sorted(grouped.items(), key=lambda item: (item[0][1], item[0][0])):
+                  instrument = pretty_midi.Instrument(program=program, is_drum=is_drum)
+                  for note in notes:
+                      start = max(0.0, float(note['start_time']))
+                      end = max(start + 0.001, float(note['end_time']))
+                      instrument.notes.append(pretty_midi.Note(
+                          velocity=max(1, min(127, int(note['velocity']))),
+                          pitch=max(0, min(127, int(note['pitch']))),
+                          start=start,
+                          end=end,
+                      ))
+                  midi.instruments.append(instrument)
+              midi_path = decoder_root / f'{track_id}.mid'
+              midi.write(str(midi_path))
+              entry = copy.deepcopy(stock_entry)
+              entry['predicted_midi'] = midi_path.name
+              entry['predicted_notes'] = len(sidecar['notes'])
+              entry['decoder_invalid_events'] = sidecar['invalid_events']
+              entry['decoder_dropped_events'] = sidecar['dropped_events']
+              entries.append(entry)
+
+          decoder_run = copy.deepcopy(stock_run)
+          decoder_run['evaluation_id'] = 'analysis_v3_multitrack_slakh_redux_subset_mr_mt3_decoder_events'
+          decoder_run['candidate'] = 'mr_mt3_decoder_events'
+          decoder_run['candidate_revision'] = stock_run['candidate_revision'] + '; decoded-event sidecar before stock MIDI serializer'
+          decoder_run['entries'] = entries
+          decoder_run['environment']['serialization'] = 'hello-ai locked-env program-separated PrettyMIDI from decoder sidecar'
+          decoder_run_path = decoder_root / 'model_run.json'
+          decoder_run_path.write_text(json.dumps(decoder_run, indent=2) + '\n')
+          decoder_score = score_model_run(manifest, decoder_run_path, dataset_root=dataset_root)
+          (decoder_root / 'score.json').write_text(json.dumps(decoder_score, indent=2) + '\n')
+
+          comparison = {
+              'stock_macro_f1': stock_score['macro_f1'],
+              'decoder_macro_f1': decoder_score['macro_f1'],
+              'tracks': [],
+          }
+          for stock, decoded in zip(stock_score['entries'], decoder_score['entries']):
+              if stock['id'] != decoded['id']:
+                  raise SystemExit('stock/decoder track ordering mismatch')
+              comparison['tracks'].append({
+                  'id': stock['id'],
+                  'stock_onset_flat': stock['metrics']['onset_flat']['f1'],
+                  'decoder_onset_flat': decoded['metrics']['onset_flat']['f1'],
+                  'stock_note_flat': stock['metrics']['note_flat']['f1'],
+                  'decoder_note_flat': decoded['metrics']['note_flat']['f1'],
+                  'decoder_onset_program_family': decoded['metrics']['onset_program_family']['f1'],
+                  'decoder_onset_program_exact': decoded['metrics']['onset_program_exact']['f1'],
+                  'decoder_note_program_exact': decoded['metrics']['note_program_exact']['f1'],
+              })
+          (root / 'decoder_vs_stock.json').write_text(json.dumps(comparison, indent=2) + '\n')
+          print(json.dumps(comparison, indent=2))
+          PY
+
+      - name: Upload decoder-sidecar calibration artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: analysis-v3-multitrack-mr-mt3-decoder-sidecar
+          path: slakh-sidecar-output
+          if-no-files-found: warn
+          retention-days: 7
