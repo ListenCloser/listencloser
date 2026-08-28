@@ -1,0 +1,58 @@
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
+
+async function expectTouchHeight(locator: Locator) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.height).toBeGreaterThanOrEqual(43);
+}
+
+async function openPhoneWorkspace(page: Page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
+  await page.goto("/");
+  await page.waitForFunction(
+    () => navigator.serviceWorker?.controller !== null,
+    undefined,
+    { timeout: 15_000 },
+  );
+  await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
+}
+
+test("phone workspace stages supporting surfaces around a touch-safe canvas", async ({ page }) => {
+  await openPhoneWorkspace(page);
+
+  // Compact layout starts on the music itself, not with desktop side panels
+  // covering a narrow canvas.
+  const libraryTrigger = page.getByRole("button", { name: "Show library" });
+  await expect(libraryTrigger).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show analysis" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("tab", { name: "Analysis" })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await expectTouchHeight(libraryTrigger);
+  await expectTouchHeight(page.getByRole("tab", { name: "Waveform" }));
+  await expectTouchHeight(page.getByRole("button", { name: /Playback source:/ }));
+  await expectTouchHeight(page.getByRole("button", { name: "Play" }));
+  await expectTouchHeight(page.getByRole("button", { name: "Toggle loop" }));
+
+  // Library is an explicit touch destination and its only destructive command
+  // is direct rather than hidden behind a one-item overflow menu.
+  await libraryTrigger.click();
+  const deleteButton = page.getByRole("button", { name: "Delete Test Work" });
+  await expect(deleteButton).toBeVisible();
+  await expectTouchHeight(deleteButton);
+  await page.getByRole("button", { name: "Hide library" }).click();
+
+  // Analysis / Ask is a phone bottom sheet above the persistent transport.
+  await page.getByRole("button", { name: "Show analysis" }).click();
+  const inspector = page.locator(".studio-inspector-v3");
+  await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
+  const inspectorBox = await inspector.boundingBox();
+  const transportBox = await page.locator(".transport-bar-v3").boundingBox();
+  expect(inspectorBox).not.toBeNull();
+  expect(transportBox).not.toBeNull();
+  expect(inspectorBox!.width).toBeGreaterThanOrEqual(385);
+  expect(inspectorBox!.y + inspectorBox!.height).toBeLessThanOrEqual(transportBox!.y + 2);
+});
