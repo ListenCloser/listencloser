@@ -11,7 +11,7 @@
     "arch": "arm64",
     "model_id": "lucidrains/BS-RoFormer",
     "code_license": "MIT",
-    "weight_license": "CC-BY-NC-SA-4.0",
+    "weight_license": null,
     "num_stems": 4,
     "supports_vocals": true,
     "supports_drums": true,
@@ -19,6 +19,6 @@
     "supports_other": true,
     "install_success": true,
     "load_success": false,
-    "load_error": "Failed to load BS-RoFormer: Method bs_roformer.bs_roformer.BSRoformer.__init__() parameter \"freq_range\" stringified PEP 604 type hint 'tuple[int, int] | None' syntactically invalid under Python < 3.10 (i.e., TypeError(\"unsupported operand type(s) for |: 'types.GenericAlias' and 'NoneType'\")). Consider either:\n* Requiring Python >= 3.10. Abandon Python < 3.10 all ye who code here.\n* Refactoring PEP 604 type hints into equivalent PEP 484 type hints: e.g.,\n    # Instead of this...\n    from __future__ import annotations\n    def bad_func() -> int | str: ...\n\n    # Do this. Ugly, yet it works. Worky >>>> pretty.\n    from typing import Union\n    def bad_func() -> Union[int, str]: ..."
+    "load_error": "Evaluated package path is incompatible with Python 3.9 due to PEP 604 annotations evaluated by beartype. No verified compatible pretrained checkpoint was wired. Candidate is REVISIT; weight license must be recorded from the exact future checkpoint rather than inferred from the architecture repository."
   }
 }
