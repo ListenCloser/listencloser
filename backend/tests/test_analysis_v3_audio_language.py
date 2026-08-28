@@ -166,6 +166,26 @@ def test_grounded_value_gate_rejects_mismatched_coverage() -> None:
     assert "same case_id/question_id coverage" in result["reason"]
 
 
+def test_grounded_value_gate_rejects_mismatched_contract() -> None:
+    grouped = score_by_condition(
+        [
+            row("evidence_only", 1, 0, 1, refs_expected=["evidence:a"]),
+            row(
+                "audio_plus_evidence",
+                2,
+                0,
+                0,
+                refs_expected=[],
+                usefulness=4,
+                specificity=4,
+            ),
+        ]
+    )
+    result = grounded_value_gate(grouped)
+    assert result["evaluable"] is False
+    assert "same expected support refs" in result["reason"]
+
+
 def test_duplicate_assessment_key_is_rejected() -> None:
     with pytest.raises(ValueError, match="duplicate"):
         score_assessments(
