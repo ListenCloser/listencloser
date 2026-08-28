@@ -1,0 +1,746 @@
+name: Apply V5 design cleanup
+
+on:
+  push:
+    branches: [design/v5-visual-language-cleanup]
+    paths:
+      - '.github/workflows/apply-v5-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: design/v5-visual-language-cleanup
+          fetch-depth: 0
+      - name: Apply focused V5 cleanup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path: str, old: str, new: str):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f"expected snippet not found in {path}: {old[:80]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          # Next App Router auto-discovers app/icon.svg; keep it identical to the
+          # product mark instead of the legacy purple-note favicon.
+          Path("app/icon.svg").write_text(Path("public/icon.svg").read_text())
+
+          replace_once(
+              "app/layout.tsx",
+              'import "./workspace-interactions.css";\n',
+              'import "./workspace-interactions.css";\nimport "./visual-language-v5.css";\n',
+          )
+
+          # Import is blocked only until the Library project exists, not while an
+          # already-saved recording is progressively opening.
+          library = Path("components/workspace/LibraryPanel.tsx")
+          text = library.read_text()
+          text = text.replace(
+              '  const [deleteError, setDeleteError] = useState<string | null>(null);\n',
+              '  const [deleteError, setDeleteError] = useState<string | null>(null);\n  const importReady = canImport && Boolean(workspace.project);\n',
+              1,
+          )
+          text = text.replace(
+              '              disabled={!canImport || workspace.isLoadingWork}\n              aria-label={canImport ? "Import audio" : "Import temporarily unavailable"}\n',
+              '              disabled={!importReady}\n              aria-label={importReady ? "Import audio" : "Import unavailable while the library starts"}\n              title={importReady ? "Import audio" : "Import is available when your library is ready"}\n',
+              1,
+          )
+          library.write_text(text)
+
+          # Ask is contextual utility, not a decorative AI sub-product.
+          ask = Path("components/workspace/AskPanel.tsx")
+          text = ask.read_text()
+          text = text.replace(
+              'const STARTER_PROMPTS = [\n  "Summarize this piece",\n  "What changes here?",\n  "What is happening harmonically here?",\n];',
+              'const WHOLE_WORK_PROMPTS = [\n  "What stands out in this recording?",\n  "Where does the music change?",\n  "Explain the harmony in plain language.",\n];\n\nconst SELECTION_PROMPTS = [\n  "Explain this moment.",\n  "What changes in this selection?",\n  "Why does this passage sound different?",\n];',
+              1,
+          )
+          text = text.replace(
+              '    scoreDuration: scoreEntry?.audioUrl ? transport.duration : null,',
+              '    scoreDuration: scoreEntry?.measureStarts?.length ? transport.duration : null,',
+              1,
+          )
+          text = text.replace(
+              '  const showScope = Boolean(workspace.selection && scope);\n  const conversation = workspace.askConversation;',
+              '  const showScope = Boolean(workspace.selection && scope);\n  const starterPrompts = showScope ? SELECTION_PROMPTS : WHOLE_WORK_PROMPTS;\n  const conversation = workspace.askConversation;',
+              1,
+          )
+          text = text.replace(
+              '            <div className="ask-empty-mark" aria-hidden="true">∿</div>\n            <strong>Ask about what you hear</strong>\n            <p>Questions use the current piece, playhead, selection, and analysis as context.</p>\n            <div className="ask-prompts">\n              {STARTER_PROMPTS.map((prompt) => (',
+              '            <strong>Ask about the current music</strong>\n            <p>Ask for an explanation, comparison, or a closer look at the current selection.</p>\n            <div className="ask-prompts">\n              {starterPrompts.map((prompt) => (',
+              1,
+          )
+          text = text.replace(
+              'placeholder={showScope ? "Ask about this selection…" : "Ask about this piece…"}',
+              'placeholder={showScope ? "Ask a question about this selection…" : "Ask a question about this recording…"}',
+              1,
+          )
+          ask.write_text(text)
+
+          # Make transport utilities recognizable without requiring users to learn
+          # a private icon language.
+          transport = Path("components/workspace/TransportBar.tsx")
+          text = transport.read_text()
+          text = text.replace(
+              'className={`transport-ctrl${loopEnabled ? " active" : ""}`}',
+              'className={`transport-ctrl transport-ctrl-labeled${loopEnabled ? " active" : ""}`}',
+              1,
+          )
+          text = text.replace('title="Loop"', 'title="Loop entire source"', 1)
+          text = text.replace(
+              '          </svg>\n        </button>\n        {selectionTimeRange && (',
+              '          </svg>\n          <span className="transport-ctrl-text">Loop</span>\n        </button>\n        {selectionTimeRange && (',
+              1,
+          )
+          text = text.replace(
+              'className={`transport-ctrl${loopSelectionActive ? " active" : ""}`}',
+              'className={`transport-ctrl transport-ctrl-labeled${loopSelectionActive ? " active" : ""}`}',
+              1,
+          )
+          text = text.replace(
+              '            </svg>\n          </button>\n        )}',
+              '            </svg>\n            <span className="transport-ctrl-text">Region</span>\n          </button>\n        )}',
+              1,
+          )
+          transport.write_text(text)
+
+          # Analysis: interpretation first, metadata as quiet inline facts, raw
+          # evidence only when it is interpretable in the active context.
+          inspector = Path("components/workspace/Inspector.tsx")
+          text = inspector.read_text()
+          overview_pattern = re.compile(r'function OverviewRow\(\{ insights \}: \{ insights: Insight\[\] \}\) \{.*?\n\}\n\n(?=function SequenceBlock)', re.S)
+          overview = r'''type OverviewItem = { label: string; value: string };
+
+function normalizeMusicText(value: string): string {
+  return value
+    .replace(/\b([A-G])- (?=(?:major|minor)\b)/g, "$1♭ ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanOverviewValue(insight: Insight | undefined): string | null {
+  if (!insight) return null;
+  const value = normalizeMusicText(stripClaimPrefix(insight.claim));
+  if (!value || value === "—" || value === "-" || /^(unknown|unavailable|not confidently detected)$/i.test(value)) return null;
+  return value;
+}
+
+function overviewItems(insights: Insight[]): OverviewItem[] {
+  const key = cleanOverviewValue(insights.find((item) => item.kind === "key"));
+  const tempo = cleanOverviewValue(
+    insights.find((item) => item.kind === "audio_tempo") ?? insights.find((item) => item.kind === "tempo"),
+  );
+  const meter = cleanOverviewValue(insights.find((item) => item.kind === "time_signature"));
+  return [
+    key ? { label: "Key", value: key } : null,
+    tempo ? { label: "Tempo", value: tempo } : null,
+    meter ? { label: "Meter", value: meter } : null,
+  ].filter((item): item is OverviewItem => item !== null);
+}
+
+function AnalysisOverview({
+  insights,
+  findings,
+  selection,
+}: {
+  insights: Insight[];
+  findings: TemporalFinding[];
+  selection: MusicalSelection | null;
+}) {
+  const items = overviewItems(insights);
+  const values = Object.fromEntries(items.map((item) => [item.label, item.value]));
+  const summaryParts: string[] = [];
+
+  if (values.Key && values.Tempo && values.Meter) {
+    summaryParts.push(`The strongest global reading is ${values.Key}, around ${values.Tempo}, in ${values.Meter}.`);
+  } else if (values.Key && values.Tempo) {
+    summaryParts.push(`The strongest tonal reading is ${values.Key}, with a pulse near ${values.Tempo}.`);
+  } else if (values.Key) {
+    summaryParts.push(`The strongest global tonal reading is ${values.Key}.`);
+  } else if (values.Tempo) {
+    summaryParts.push(`A stable pulse is estimated near ${values.Tempo}.`);
+  }
+
+  const firstFinding = findings[0];
+  if (firstFinding) {
+    const finding = normalizeMusicText(firstFinding.label).replace(/[.]+$/, "");
+    summaryParts.push(`The clearest time-linked observation is ${finding} near ${formatTime(firstFinding.startSeconds)}.`);
+  }
+
+  if (summaryParts.length === 0) {
+    summaryParts.push(
+      selection
+        ? "There is not enough stable evidence in this selection for a useful high-level claim yet."
+        : "There is not enough stable global evidence for a useful high-level claim yet.",
+    );
+  }
+
+  return (
+    <section className="inspector-section inspector-overview-section">
+      <div className="inspector-section-heading"><h3>Overview</h3></div>
+      <p className="inspector-summary">{summaryParts.join(" ")}</p>
+      {items.length > 0 && (
+        <dl className="inspector-meta-line" aria-label="Analysis metadata">
+          {items.map((item) => (
+            <div className="inspector-meta-item" key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
+}
+
+'''
+          text, count = overview_pattern.subn(overview, text, count=1)
+          if count != 1:
+              raise SystemExit("failed to replace Inspector overview")
+          text = text.replace('title={item.claim}', 'title={normalizeMusicText(item.claim)}')
+          text = text.replace('{item.claim}', '{normalizeMusicText(item.claim)}')
+          text = text.replace('<h3>Moments</h3>', '<h3>Notable moments</h3>', 1)
+          text = text.replace('aria-label="Clear selection">\\u00d7</button>', 'aria-label="Clear selection">×</button>', 1)
+          text = text.replace('        <span className="inspector-empty-mark">\\u223f</span>\n', '', 1)
+
+          counts_pattern = re.compile(
+              r'  const activeInsights = exposed\(workspace\.selection \? selectionInsights : wholeWorkInsights\);\n'
+              r'  const findings = deriveFindings\(activeInsights\);\n'
+              r'  const harmonyCount = .*?\n'
+              r'  const rhythmCount = .*?\n'
+              r'  const melodyCount = .*?\n',
+              re.S,
+          )
+          counts = '''  const activeInsights = exposed(workspace.selection ? selectionInsights : wholeWorkInsights);
+  const findings = deriveFindings(activeInsights);
+  const hasKeyContext = overviewItems(activeInsights).some((item) => item.label === "Key");
+  const evidenceInsights = activeInsights
+    .filter((item) => item.confidence == null || item.confidence >= 0.65)
+    .filter((item) => {
+      if (["roman_numeral", "harmonic_function"].includes(item.kind)) return hasKeyContext;
+      if (item.kind.startsWith("melody_") && item.kind !== "melody_interval_summary") return false;
+      return true;
+    });
+  const harmonyCount = evidenceInsights.filter((item) => ["chord", "roman_numeral", "harmonic_function"].includes(item.kind)).length;
+  const rhythmCount = evidenceInsights.filter((item) => ["rhythm", "rhythm_density", "rhythm_rests"].includes(item.kind)).length;
+  const melodyCount = evidenceInsights.filter((item) => item.kind === "melody" || item.kind === "melody_interval_summary").length;
+'''
+          text, count = counts_pattern.subn(counts, text, count=1)
+          if count != 1:
+              raise SystemExit("failed to replace Inspector evidence counts")
+
+          old_overview = '''      <section className="inspector-section inspector-overview-section">
+        <div className="inspector-section-heading">
+          <h3>{workspace.selection ? "Selection" : "At a glance"}</h3>
+        </div>
+        <OverviewRow insights={activeInsights} />
+      </section>
+'''
+          if old_overview not in text:
+              raise SystemExit("failed to find old Inspector overview JSX")
+          text = text.replace(
+              old_overview,
+              '      <AnalysisOverview insights={activeInsights} findings={findings} selection={workspace.selection} />\n',
+              1,
+          )
+          text = text.replace('<h3>Evidence</h3>', '<h3>Supporting evidence</h3>', 1)
+          text = text.replace('            <span className="inspector-section-hint">Details</span>\n', '', 1)
+          text = text.replace('insights={activeInsights}', 'insights={evidenceInsights}')
+          inspector.write_text(text)
+
+          # Score is visually synchronized to the shared transport at all times.
+          # When a notation-derived WAV exists, surface an explicit one-click way
+          # to hear it instead of hiding it in the source menu.
+          reps = Path("lib/representations.tsx")
+          text = reps.read_text()
+          text = text.replace('  const { transport, seek } = useTransport();', '  const { transport, seek, setActiveSource } = useTransport();', 1)
+          text = text.replace(
+              '  const scoreDuration = entry?.audioUrl ? transport.duration : null;',
+              '''  const scoreSource = transport.sources.find((source) => source.role === "score") ?? null;
+  const finalMeasureSpan = measureStarts.length > 1
+    ? measureStarts[measureStarts.length - 1] - measureStarts[measureStarts.length - 2]
+    : 2;
+  const scoreDuration = measureStarts.length > 0
+    ? Math.max(transport.duration || 0, measureStarts[measureStarts.length - 1] + Math.max(finalMeasureSpan, 0.25))
+    : (transport.duration || null);''',
+              1,
+          )
+          text = text.replace(
+              '    <div className="representation-body">\n      <SheetMusic',
+              '''    <div className="representation-body">
+      <div className="score-playback-strip">
+        {scoreSource ? (
+          transport.activeSource?.role === "score" ? (
+            <span className="score-playback-state">Hearing score</span>
+          ) : (
+            <button type="button" className="score-playback-action" onClick={() => setActiveSource(scoreSource)}>Hear score</button>
+          )
+        ) : (
+          <span className="score-playback-state score-playback-state-muted">Notation audio is unavailable for this saved version.</span>
+        )}
+      </div>
+      <SheetMusic''',
+              1,
+          )
+          text = text.replace('        isScoreActive={transport.activeSource?.role === "score"}', '        isScoreActive', 1)
+          text = text.replace('        hasScorePlayback={transport.sources.some((source) => source.role === "score")}', '        hasScorePlayback={Boolean(scoreSource)}', 1)
+          reps.write_text(text)
+
+          sheet = Path("components/SheetMusic.tsx")
+          text = sheet.read_text()
+          text = text.replace('      {!hasScorePlayback && <span className="sheet-music-status">Score audio unavailable</span>}\n', '')
+          sheet.write_text(text)
+
+          # Authoritative V5 visual language: quieter chrome, fewer boxes, stronger
+          # hierarchy, explicit interaction labels, and robust loading geometry.
+          Path("app/visual-language-v5.css").write_text(r'''/* Visual language V5 — editorial instrument
+ * Reference-led craft pass: quiet professional editor chrome, explicit controls,
+ * typography/spacing over card borders, and music surfaces as the visual focus.
+ */
+
+:root {
+  --v5-canvas: #1b1a17;
+  --v5-chrome: #201f1b;
+  --v5-panel: #24231f;
+  --v5-raised: #2a2822;
+  --v5-hover: #302d27;
+  --v5-text: #f1ede4;
+  --v5-text-2: #bbb5aa;
+  --v5-text-3: #817c72;
+  --v5-line: rgba(241, 237, 228, 0.07);
+  --v5-line-strong: rgba(241, 237, 228, 0.13);
+  --v5-accent: #d6b56d;
+  --v5-accent-soft: rgba(214, 181, 109, 0.10);
+  --v5-focus: 0 0 0 2px rgba(214, 181, 109, 0.26);
+}
+
+/* The product reads as one instrument, not a grid of cards. */
+.studio-shell-v3,
+.studio-canvas-area-v3,
+.piece-desk-v3,
+.piece-loading-shell,
+.piece-empty-v3,
+.welcome-page-v4 {
+  background: var(--v5-canvas) !important;
+  background-image: none !important;
+}
+
+.studio-library-v3,
+.studio-inspector-v3,
+.transport-bar-v3,
+.representation-toolbar,
+.studio-header-v3 {
+  border-color: var(--v5-line) !important;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: none;
+  box-shadow: var(--v5-focus);
+}
+
+/* Analysis is a reading surface: interpretation → moments → evidence. */
+.inspector-analysis-content {
+  padding: 14px 16px 28px;
+}
+
+.inspector-section {
+  padding: 15px 0 17px;
+  border-bottom-color: var(--v5-line);
+}
+
+.inspector-section-heading h3 {
+  color: var(--v5-text-2);
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.075em;
+}
+
+.inspector-summary {
+  margin: 0;
+  color: #d8d3c9;
+  font-size: 12px;
+  line-height: 1.62;
+  letter-spacing: -0.006em;
+}
+
+.inspector-meta-line {
+  margin: 12px 0 0;
+  padding: 9px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 15px;
+  border-top: 1px solid var(--v5-line);
+}
+
+.inspector-meta-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.inspector-meta-item dt {
+  color: var(--v5-text-3);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+}
+
+.inspector-meta-item dd {
+  margin: 0;
+  color: var(--v5-text-2);
+  font-size: 10.5px;
+  font-weight: 560;
+}
+
+.inspector-overview-row,
+.inspector-overview-item {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.inspector-finding,
+.inspector-seq-btn,
+.inspector-evidence-jump {
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.inspector-finding,
+.inspector-evidence-jump {
+  padding-inline: 5px !important;
+}
+
+.inspector-finding:hover,
+.inspector-seq-btn:hover,
+.inspector-evidence-jump:hover {
+  background: rgba(255, 255, 255, 0.035) !important;
+}
+
+.inspector-evidence-section {
+  border-bottom: 0;
+}
+
+.inspector-evidence-group {
+  border-top: 1px solid var(--v5-line);
+}
+
+.inspector-evidence-group summary {
+  min-height: 34px;
+  padding: 0 2px;
+  color: #a7a198;
+}
+
+.inspector-evidence-count {
+  color: var(--v5-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector-scope {
+  max-width: 150px;
+  background: transparent !important;
+  border-color: var(--v5-line-strong) !important;
+}
+
+.inspector-scope-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-scope-clear {
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.inspector-empty-state {
+  gap: 8px;
+  align-content: start;
+  padding-top: 28px;
+}
+
+.inspector-empty-mark,
+.ask-empty-mark {
+  display: none !important;
+}
+
+/* Ask is a contextual inspector mode, not branded chat chrome. */
+.ask-empty {
+  align-items: stretch;
+  text-align: left;
+  padding: 18px 2px 12px;
+}
+
+.ask-empty strong {
+  color: #d8d3c9;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ask-empty p {
+  max-width: none;
+  color: var(--v5-text-3);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.ask-prompts {
+  gap: 0;
+  margin-top: 8px;
+  border-top: 1px solid var(--v5-line);
+}
+
+.ask-prompt {
+  min-height: 38px;
+  justify-content: flex-start;
+  padding: 0 2px;
+  border: 0 !important;
+  border-bottom: 1px solid var(--v5-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #aaa49a !important;
+  text-align: left;
+}
+
+.ask-prompt:hover {
+  color: var(--v5-text) !important;
+  background: transparent !important;
+}
+
+.ask-composer {
+  border-top-color: var(--v5-line) !important;
+  background: var(--v5-panel) !important;
+}
+
+.ask-input {
+  background: rgba(255, 255, 255, 0.025) !important;
+  border-color: var(--v5-line-strong) !important;
+}
+
+/* Transport controls should be recognizable before tooltips. */
+.transport-playback-zone {
+  grid-template-columns: 34px 36px minmax(80px, 1fr) 36px auto auto;
+}
+
+.transport-ctrl-labeled {
+  width: auto !important;
+  min-width: 48px;
+  padding: 0 7px;
+  gap: 5px;
+}
+
+.transport-ctrl-text {
+  display: inline;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+}
+
+.transport-ctrl-labeled.active {
+  background: var(--v5-accent-soft) !important;
+}
+
+/* Import is a clear primary utility, while transcription settings stay quiet. */
+.library-import-btn {
+  min-height: 32px;
+  border-color: rgba(214, 181, 109, 0.18) !important;
+  background: rgba(214, 181, 109, 0.075) !important;
+}
+
+.library-import-btn:not(:disabled):hover {
+  border-color: rgba(214, 181, 109, 0.28) !important;
+  background: rgba(214, 181, 109, 0.11) !important;
+}
+
+.library-import-btn:disabled {
+  opacity: 0.38;
+}
+
+/* Status/progress stays inside the viewport and never behaves like a modal. */
+.operation-layer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.piece-processing-card {
+  box-sizing: border-box !important;
+  max-width: calc(100vw - 32px) !important;
+  overflow: hidden;
+}
+
+.piece-processing-card progress {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.piece-processing-filename,
+.piece-processing-stage,
+.piece-processing-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.piece-processing-stage {
+  white-space: nowrap;
+}
+
+/* Score playback is explicit, but visually secondary to the notation. */
+.score-playback-strip {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 2px 6px;
+}
+
+.score-playback-action,
+.score-playback-state {
+  min-height: 25px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 9.5px;
+}
+
+.score-playback-action {
+  border: 1px solid rgba(214, 181, 109, 0.20);
+  background: rgba(214, 181, 109, 0.07);
+  color: #dbc180;
+  cursor: pointer;
+}
+
+.score-playback-action:hover {
+  background: rgba(214, 181, 109, 0.11);
+}
+
+.score-playback-state {
+  color: var(--v5-text-3);
+}
+
+.score-playback-state:not(.score-playback-state-muted) {
+  color: #a8a197;
+}
+
+.sheet-music-container [data-score-cursor] {
+  filter: drop-shadow(0 0 1px rgba(114, 169, 196, 0.18));
+}
+
+@media (max-width: 1180px) {
+  .transport-ctrl-labeled {
+    min-width: 29px;
+    padding: 0;
+  }
+  .transport-ctrl-text {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piece-view-tabs-v3 > button,
+  .transport-ctrl,
+  .library-import-btn,
+  .ask-prompt {
+    transition: none !important;
+  }
+}
+''')
+
+          # DESIGN.md is the agent-facing source of truth; V5 makes the reference
+          # synthesis explicit so future agents do not drift back to dashboard UI.
+          design = Path("DESIGN.md")
+          text = design.read_text()
+          text = text.replace("# Music Lab — Product UI Design System", "# Music Workspace — Product UI Design System", 1)
+          text = text.replace(
+              "A piece title appears once. Below it, use a compact representation switcher for `Audio`, `Piano roll`, `Score`, and overflow views.",
+              "Do not repeat the piece title in global chrome. Use a compact representation switcher for `Waveform`, `Piano roll`, `Score`, and `Spectrogram` inside the canvas.",
+              1,
+          )
+          text = text.replace(
+              "`Compare` belongs beside representation controls because it changes how the same music is inspected.",
+              "`Compare` belongs in transport because it changes what the user hears; representation tabs change what the user sees.",
+              1,
+          )
+          marker = "## V5 visual language — editorial instrument"
+          if marker not in text:
+              text += r'''
+
+## V5 visual language — editorial instrument
+
+V5 is a craft pass, not a new information architecture. The stable model remains **Library | music canvas | Inspector | Transport**. The visual goal is a professional editorial instrument: quiet chrome, highly legible state, and musical material that carries more visual weight than the application shell.
+
+Reference synthesis for implementation agents:
+- **Mobbin:** use mature creative/editor patterns for panel density, menus, loading, empty states, and persistent transport. Borrow interaction logic, not visual branding.
+- **21st.dev:** prefer a small repeatable primitive vocabulary (tabs, menu/popover, tooltip, icon button, status, skeleton) over one-off controls.
+- **Taste / Impeccable:** audit before decorating; remove generic AI-dashboard habits such as card grids, KPI tiles, gratuitous pills, gradients, glass, and decorative AI glyphs.
+- **Emil Kowalski:** interaction quality comes from hover/press/focus behavior, menu geometry, state transitions, and restrained motion rather than ornamental animation.
+- **awesome-design-md:** this file is authoritative for visual decisions. When implementation and this document disagree, update one deliberately rather than allowing silent drift.
+
+### V5 surface hierarchy
+
+1. **Music is brightest.** Score paper, waveform trace, notes, selections, and the active playhead carry contrast.
+2. **Chrome is quiet.** Library, Inspector, toolbar, and transport use closely related warm graphite surfaces separated mostly by spacing and hairlines.
+3. **Raised surfaces are rare.** Reserve elevation for menus, transient status, and true overlays. A section is not a card by default.
+4. **Brass is interaction, not decoration.** Use the accent for active state, focus, selection, and primary actions; never as a background wash.
+5. **Typography carries hierarchy.** Prefer size, weight, spacing, and muted text over borders and filled boxes.
+
+### Analysis hierarchy
+
+Analysis is an interpretation surface, not a detector dump:
+1. a concise high-level summary grounded only in available evidence;
+2. quiet inline metadata (key / tempo / meter) only when values exist;
+3. notable time-linked moments;
+4. collapsed supporting evidence.
+
+Never render empty metadata boxes. Never show `—` as a KPI. Roman numerals and harmonic function require interpretable key context. Local melody events already promoted to Notable moments should not be duplicated as raw evidence merely because a detector emitted them.
+
+### Ask hierarchy
+
+Ask has no decorative AI logo. It is a contextual explanation/comparison tool. Starter prompts should change with selection state and teach the user what the capability is good at. The current recording, playhead, selection, and trusted analysis are implicit context.
+
+### Playback and score
+
+Playback source and representation are distinct, but their relationship must be obvious. The Score surface exposes a direct **Hear score** action when notation-derived audio exists. The score cursor follows shared transport time measure-by-measure: left-to-right within the active measure, then jumps to the next measure and follows the next system when notation wraps.
+
+### Loading and availability
+
+Progressive availability is preferred over a global blocking state. The workspace frame appears immediately; audio can become playable before analysis/score finishes. Controls must not imply readiness for data that is not loaded. Import is independent from opening an existing recording once the Library project itself is ready. Progress UI must stay within viewport bounds.
+
+### Primitive discipline
+
+Before adding a new control, reuse or extend an existing interaction pattern. Icon-only controls are acceptable only for universally recognized actions; otherwise add a visible label at desktop sizes and retain a tooltip/accessible name at compact sizes. Focus, hover, disabled, and selected states are part of the component contract, not optional polish.
+'''
+          design.write_text(text)
+          PY
+
+      - name: Commit cleanup and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- app/icon.svg app/layout.tsx app/visual-language-v5.css DESIGN.md components/workspace/LibraryPanel.tsx components/workspace/AskPanel.tsx components/workspace/TransportBar.tsx components/workspace/Inspector.tsx components/SheetMusic.tsx lib/representations.tsx
+          git rm .github/workflows/apply-v5-cleanup.yml
+          git commit -m "design: tighten V5 visual language and music interactions"
+          git push origin HEAD:design/v5-visual-language-cleanup
