@@ -9,7 +9,7 @@
 The decisive finding is two-part:
 
 1. MR-MT3's **decoded model events** materially outperform the production Basic Pitch baseline on this five-excerpt Slakh2100-redux subset.
-2. The pinned `mt3-infer 0.2.0` stock MIDI serializer corrupts that evidence by collapsing all pitched programs onto one channel, so stock-CLI MIDI scores dramatically understate MR-MT3 quality.
+2. The pinned `mt3-infer 0.2.0` stock MIDI serializer corrupts that evidence in two independent ways: it collapses pitched program identity onto one channel **and** accumulates timestamp drift by truncating each successive event-time delta to integer MIDI ticks.
 
 Candidate decisions:
 
@@ -29,7 +29,7 @@ Dataset: **Slakh2100-redux**, test split, CC BY 4.0.
 
 Fixed subset: `Track01876`, `Track01877`, `Track01878`, `Track01880`, `Track01881`, first 30 seconds of each. Ground truth is active per-source `MIDI/SXX.mid` marked `midi_saved: true`, not `all_src.mid`.
 
-The run used a selective Hugging Face acquisition mirror pinned to immutable revision `bb320faf307f5d24aeced0e60f9445ff0abce205`. Upstream identity/license remain Zenodo 4599666 / CC BY 4.0. Cropped mixes and reference MIDIs are SHA-256 recorded in `results/slakh_redux_subset_results.json`.
+The run used a selective Hugging Face acquisition mirror pinned to immutable revision `bb320faf307f5d24aeced0e60f9445ff0abce205`. Upstream identity/license remain Zenodo 4599666 / CC BY 4.0. The committed mix/reference SHA-256 values in `results/slakh_redux_subset_results.json` are copied from the canonical decoder-sidecar artifact manifest (`7ad55174f83f2f0097898624a269e1ff25899183f18dac9dd7da38005c971b99`), not reconstructed from a later run.
 
 Hello-ai measurement SHA: `7057c1c247fb2770fee5f5e418479cbf69bd4619`.
 
@@ -98,13 +98,22 @@ Interpretation: broad-family and program-attributed **onset** evidence is promis
 
 ## Upstream serializer validity finding
 
-Pinned `mt3-infer 0.2.0` decodes MR-MT3 token streams into a `NoteSequence` containing `Note.program` and `is_drum`. Its final `mido.MidiFile` serializer then:
+Pinned `mt3-infer 0.2.0` decodes MR-MT3 token streams into a `NoteSequence` containing `Note.program` and `is_drum`. Its final `mido.MidiFile` serializer has two distinct problems:
 
-- emits every pitched note on channel 0;
-- emits no `program_change` messages;
-- reserves only channel 9 for drums.
+1. **Program collapse.** It emits every pitched note on channel 0, emits no `program_change` messages, and reserves only channel 9 for drums. Overlapping same-pitch notes from different decoded programs therefore become ambiguous after serialization.
+2. **Cumulative timing drift.** It turns each successive event-time delta into ticks with integer truncation. Those small negative rounding errors accumulate through dense event streams, shifting later MIDI events progressively earlier than the decoded model events.
 
-This does not merely erase instrument labels. Overlapping same-pitch notes from different decoded programs become ambiguous on the same MIDI channel, so downstream MIDI parsing can merge/truncate note identities and corrupt even instrument-agnostic onset/offset evidence.
+Independent comparison of the canonical sidecar artifact against the stock MIDI from the same run found the following stock-minus-decoder onset drift:
+
+| track | median onset drift | most-negative onset drift |
+| --- | ---: | ---: |
+| Track01876 | -92.7 ms | -197.9 ms |
+| Track01877 | -64.0 ms | -137.9 ms |
+| Track01878 | -42.5 ms | -105.2 ms |
+| Track01880 | -190.7 ms | -324.3 ms |
+| Track01881 | -123.9 ms | -311.5 ms |
+
+Negative means the stock MIDI event occurs earlier than the decoded event. The 50 ms evaluation tolerance is therefore exceeded for substantial portions of four tracks. End-time corruption can be larger because it combines cumulative tick drift with same-channel overlap ambiguity.
 
 ### Diagnostic stock serializer
 
@@ -119,7 +128,7 @@ These values describe the **wrapper's MIDI artifact**, not canonical MR-MT3 mode
 
 ### Intermediate program-channel patch
 
-A throwaway run changed only final MIDI channel/program serialization. It proved that program information exists in the decoder and improved detection, but still forced decoded notes through MIDI channel semantics. It is retained as diagnostic provenance, not the canonical measurement.
+A throwaway run changed only final MIDI channel/program serialization. It proved that program information exists in the decoder and improved program/family detection, but it intentionally retained the upstream delta-to-tick conversion.
 
 Patched workflow run `33215520514`, head `cf100d2dd1338dbe3819994fa9a695d63bd79320`:
 
@@ -127,6 +136,8 @@ Patched workflow run `33215520514`, head `cf100d2dd1338dbe3819994fa9a695d63bd793
 - onset+offset F1 `0.0977`
 - family onset F1 `0.3147`
 - exact-program onset F1 `0.2286`
+
+The patched and stock onset F1 are **identical**. This controlled result rules out channel/program collapse as the main explanation for the 0.3366→0.7898 onset gap and is consistent with cumulative tick-rounding drift as the dominant onset corruption.
 
 ### Decoder-sidecar calibration — canonical
 
@@ -154,12 +165,12 @@ Therefore the decoder-sidecar result is the canonical MR-MT3 model-quality evide
 Basic Pitch on GitHub CPU:
 
 - first excerpt ~25 s including cold/model-load cost;
-- remaining excerpts ~1.5–1.8 s each.
+- remaining excerpts ~1.4–1.8 s each.
 
 MR-MT3 through the stock process-per-track CLI:
 
-- roughly 26–155 s per excerpt;
-- ~817–863 MB RSS;
+- roughly 26–156 s per excerpt;
+- ~825–841 MB RSS in the canonical sidecar run;
 - checkpoint prefetch separated from per-track wall time in the controlled runs.
 
 This is wrapper execution cost, not a warm/batched model latency claim. A persistent service could be substantially different, but that must be measured rather than assumed.
@@ -172,7 +183,7 @@ The corrected evidence changes the product hypothesis:
 - MR-MT3 is now a **leading research candidate** for optional instrument-aware symbolic evidence; it is not merely a tagging aid.
 - Decoder-level onset/program evidence may be useful for arrangement, instrument-aware piano roll, bass/melody extraction, comparison, and selective downstream analysis.
 - Weak exact-program duration quality still cautions against treating its output as authoritative notation.
-- A production adapter must consume/persist decoded events losslessly; the current stock `mt3-infer` MIDI output is unsuitable.
+- A production adapter must consume/persist decoded events losslessly; the current stock `mt3-infer` MIDI output is unsuitable both for program identity and time fidelity.
 - Symbolic transcription remains one evidence family, not the universal substrate.
 
 Proposed payload remains under the #336 evidence envelope:
