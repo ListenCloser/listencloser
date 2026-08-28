@@ -28,6 +28,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
 
   async function openAsk(page: import("@playwright/test").Page) {
     await page.getByRole("tab", { name: "Ask" }).click();
+    await expect(page.getByRole("tab", { name: "Ask", selected: true })).toBeVisible();
     await expect(page.getByPlaceholder("Ask about this piece…")).toBeVisible();
   }
 
@@ -36,7 +37,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
     await openAsk(page);
-    await expect(page.getByText("Whole piece")).toBeVisible();
+    await expect(page.getByText("Questions use the current piece, playhead, selection, and analysis as context.")).toBeVisible();
 
     // Starter prompts render in the empty state and submit directly.
     await page.getByRole("button", { name: "What is happening harmonically here?" }).click();
