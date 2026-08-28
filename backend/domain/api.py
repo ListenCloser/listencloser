@@ -13,11 +13,20 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from pydantic import BaseModel, Field
 
 from auth_utils import limiter, verify_token
+from domain.api_schemas import (
+    DeletedWorkResponse,
+    UploadArtifactResponse,
+    VersionResourceResponse,
+    WorkBundleResponse,
+    WorkflowJobResponse,
+)
 from domain.capability_policy import is_exposed
 from domain.models import (
     Artifact,
     ArtifactKind,
     Capability,
+    Entity,
+    Insight,
     Job,
     Project,
     Version,
@@ -206,7 +215,7 @@ def _inspector_exposed(insight) -> bool:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/projects")
+@router.post("/projects", response_model=Project)
 @limiter.limit("10/minute")
 async def create_project(
     body: CreateProjectBody,
@@ -230,7 +239,7 @@ async def create_project(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/projects")
+@router.get("/projects", response_model=list[Project])
 async def list_projects(
     auth=Depends(verify_token),
 ):
@@ -245,7 +254,7 @@ async def list_projects(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/projects/{project_id}/works")
+@router.post("/projects/{project_id}/works", response_model=Work)
 @limiter.limit("10/minute")
 async def create_work(
     project_id: UUID,
@@ -265,7 +274,7 @@ async def create_work(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/projects/{project_id}/works")
+@router.get("/projects/{project_id}/works", response_model=list[Work])
 async def list_works(
     project_id: UUID,
     auth=Depends(verify_token),
@@ -280,7 +289,7 @@ async def list_works(
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
-@router.get("/works/{work_id}")
+@router.get("/works/{work_id}", response_model=WorkBundleResponse)
 async def get_work_bundle(
     work_id: UUID,
     auth=Depends(verify_token),
@@ -338,7 +347,7 @@ async def get_work_bundle(
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
-@router.delete("/works/{work_id}")
+@router.delete("/works/{work_id}", response_model=DeletedWorkResponse)
 @limiter.limit("10/minute")
 async def delete_work(
     work_id: UUID,
@@ -382,7 +391,7 @@ async def delete_work(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/projects/{project_id}/artifacts/upload")
+@router.post("/projects/{project_id}/artifacts/upload", response_model=UploadArtifactResponse)
 @limiter.limit("10/minute")
 async def upload_artifact(
     project_id: UUID,
@@ -489,7 +498,7 @@ async def upload_artifact(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/workflows/understand")
+@router.post("/workflows/understand", response_model=WorkflowJobResponse)
 @limiter.limit("10/minute")
 async def create_understand_workflow(
     body: UnderstandWorkflowBody,
@@ -571,7 +580,7 @@ async def create_understand_workflow(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/jobs/{job_id}")
+@router.get("/jobs/{job_id}", response_model=JobStateResponse)
 async def get_job(
     job_id: UUID,
     auth=Depends(verify_token),
@@ -591,7 +600,7 @@ async def get_job(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/jobs/{job_id}/cancel")
+@router.post("/jobs/{job_id}/cancel", response_model=JobStateResponse)
 @limiter.limit("20/minute")
 async def cancel_job(
     job_id: UUID,
@@ -608,7 +617,7 @@ async def cancel_job(
         raise HTTPException(status_code=409, detail=str(error)) from error
 
 
-@router.post("/jobs/{job_id}/retry")
+@router.post("/jobs/{job_id}/retry", response_model=JobStateResponse)
 @limiter.limit("10/minute")
 async def retry_job(
     job_id: UUID,
@@ -630,7 +639,7 @@ async def retry_job(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/workflows/analyze")
+@router.post("/workflows/analyze", response_model=WorkflowJobResponse)
 @limiter.limit("10/minute")
 async def create_analyze_workflow(
     body: AnalyzeWorkflowBody,
@@ -675,7 +684,7 @@ async def create_analyze_workflow(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/versions/{version_id}")
+@router.get("/versions/{version_id}", response_model=VersionResourceResponse)
 async def get_version_resource(
     version_id: UUID,
     auth=Depends(verify_token),
@@ -709,7 +718,7 @@ async def get_version_resource(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/versions/{version_id}/entities")
+@router.get("/versions/{version_id}/entities", response_model=list[Entity])
 async def list_entities(
     version_id: UUID,
     auth=Depends(verify_token),
@@ -731,7 +740,7 @@ async def list_entities(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/versions/{version_id}/insights")
+@router.get("/versions/{version_id}/insights", response_model=list[Insight])
 async def list_insights(
     version_id: UUID,
     auth=Depends(verify_token),
@@ -756,7 +765,7 @@ async def list_insights(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/workflows/correct")
+@router.post("/workflows/correct", response_model=WorkflowJobResponse)
 @limiter.limit("10/minute")
 async def create_correct_workflow(
     body: CorrectWorkflowBody,
@@ -808,7 +817,7 @@ async def create_correct_workflow(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/workflows/compare")
+@router.post("/workflows/compare", response_model=WorkflowJobResponse)
 @limiter.limit("10/minute")
 async def create_compare_workflow(
     body: CompareWorkflowBody,
@@ -856,7 +865,7 @@ async def create_compare_workflow(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/workflows/variation")
+@router.post("/workflows/variation", response_model=WorkflowJobResponse)
 @limiter.limit("5/minute")
 async def create_variation_workflow(
     body: VariationWorkflowBody,
@@ -931,7 +940,7 @@ async def create_variation_workflow(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/workflows/create")
+@router.post("/workflows/create", response_model=WorkflowJobResponse)
 @limiter.limit("5/minute")
 async def create_create_workflow(
     body: CreateWorkflowBody,
