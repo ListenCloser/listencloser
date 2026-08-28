@@ -20,6 +20,22 @@ function Harness() {
   );
 }
 
+function DisabledHarness() {
+  const [value, setValue] = useState<"waveform" | "score" | "analysis">("waveform");
+  return (
+    <TabStrip
+      label="Music representation"
+      items={[
+        { id: "waveform", label: "Waveform" },
+        { id: "score", label: "Score", disabled: true },
+        { id: "analysis", label: "Analysis" },
+      ]}
+      value={value}
+      onChange={setValue}
+    />
+  );
+}
+
 describe("TabStrip", () => {
   it("uses a single roving tab stop and arrow-key navigation", async () => {
     const user = userEvent.setup();
@@ -45,5 +61,24 @@ describe("TabStrip", () => {
     await user.keyboard("{ArrowRight}");
     expect(waveform).toHaveAttribute("aria-selected", "true");
     expect(waveform).toHaveFocus();
+  });
+
+  it("skips disabled tabs in both directions", async () => {
+    const user = userEvent.setup();
+    render(<DisabledHarness />);
+
+    const waveform = screen.getByRole("tab", { name: "Waveform" });
+    const score = screen.getByRole("tab", { name: "Score" });
+    const analysis = screen.getByRole("tab", { name: "Analysis" });
+
+    expect(score).toBeDisabled();
+    waveform.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(analysis).toHaveFocus();
+    expect(analysis).toHaveAttribute("aria-selected", "true");
+
+    await user.keyboard("{ArrowLeft}");
+    expect(waveform).toHaveFocus();
+    expect(waveform).toHaveAttribute("aria-selected", "true");
   });
 });
