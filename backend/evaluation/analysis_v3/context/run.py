@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from backend.evaluation.analysis_v3.foundation.adapters.clap import CLAPAdapter
 
+from ..foundation.adapters.clap import CLAPAdapter
 from .metrics import (
     label_ranking_average_precision,
     precision_at_k,
@@ -88,9 +88,7 @@ def summarize_prior_clap(result: dict[str, Any]) -> dict[str, Any]:
         "available": bool(top1_ids),
         "num_queries": len(top1_ids),
         "unique_top1": len(set(top1_ids)),
-        "unique_top1_fraction": (
-            round(len(set(top1_ids)) / len(top1_ids), 4) if top1_ids else None
-        ),
+        "unique_top1_fraction": round(len(set(top1_ids)) / len(top1_ids), 4) if top1_ids else None,
         "mean_pairwise_top3_jaccard": (
             round(float(np.mean(pairwise_jaccard)), 4) if pairwise_jaccard else None
         ),
@@ -151,9 +149,7 @@ def _text_embeddings(
     return labels, np.stack(vectors)
 
 
-def _embed_audio(
-    adapter: CLAPAdapter, audio: np.ndarray, sample_rate: int
-) -> np.ndarray:
+def _embed_audio(adapter: CLAPAdapter, audio: np.ndarray, sample_rate: int) -> np.ndarray:
     result = adapter.embed_audio(audio, sample_rate)
     if not result.ok or result.vector is None:
         raise RuntimeError(f"Failed to embed audio: {result.error}")
@@ -186,12 +182,8 @@ def run_zero_shot_probe(
         for name, taxonomy in manifest["taxonomies"].items()
     }
 
-    scored_truth: dict[str, list[np.ndarray]] = {
-        name: [] for name in taxonomy_embeddings
-    }
-    scored_values: dict[str, list[np.ndarray]] = {
-        name: [] for name in taxonomy_embeddings
-    }
+    scored_truth: dict[str, list[np.ndarray]] = {name: [] for name in taxonomy_embeddings}
+    scored_values: dict[str, list[np.ndarray]] = {name: [] for name in taxonomy_embeddings}
     clips: list[dict[str, Any]] = []
 
     for clip in manifest["clips"]:
@@ -204,25 +196,15 @@ def run_zero_shot_probe(
         end = float(clip["excerpt_end"])
         audio, sample_rate = _load_audio_segment(path, start, end)
         audio_vector = _embed_audio(adapter, audio, sample_rate)
-        clip_result: dict[str, Any] = {
-            "id": clip["id"],
-            "status": "ok",
-            "taxonomies": {},
-        }
+        clip_result: dict[str, Any] = {"id": clip["id"], "status": "ok", "taxonomies": {}}
 
         for taxonomy_name, (labels, text_vectors) in taxonomy_embeddings.items():
             ranking = rank_zero_shot(audio_vector, text_vectors, labels)
             score_by_label = {label: score for label, score in ranking}
-            expected = [
-                str(value)
-                for value in clip.get("expected", {}).get(taxonomy_name, [])
-            ]
+            expected = [str(value) for value in clip.get("expected", {}).get(taxonomy_name, [])]
             clip_result["taxonomies"][taxonomy_name] = {
                 "expected": expected,
-                "ranked": [
-                    {"label": label, "score": round(score, 6)}
-                    for label, score in ranking
-                ],
+                "ranked": [{"label": label, "score": round(score, 6)} for label, score in ranking],
                 "scored": bool(expected),
             }
             if expected:
@@ -293,9 +275,7 @@ def run_zero_shot_probe(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Analysis V3 context evidence evaluation"
-    )
+    parser = argparse.ArgumentParser(description="Analysis V3 context evidence evaluation")
     parser.add_argument("--task", choices=["prior", "zero-shot"], default="prior")
     parser.add_argument("--device", choices=["cpu", "cuda", "mps"], default="cpu")
     parser.add_argument("--manifest", type=Path, default=None)
