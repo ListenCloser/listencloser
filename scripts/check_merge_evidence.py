@@ -56,6 +56,11 @@ def _is_docs_only(path: str) -> bool:
     return ("/" not in path and path.endswith(".md")) or path.startswith("docs/")
 
 
+def _is_mock_e2e_ignored(path: str) -> bool:
+    """Match e2e.yml's paths-ignore contract exactly."""
+    return _is_docs_only(path) or path.startswith(("backend/", "supabase/"))
+
+
 def _is_backend_runtime(path: str) -> bool:
     return (
         path.startswith("backend/")
@@ -137,8 +142,11 @@ def production_components(paths: Iterable[str]) -> set[str]:
 def required_workflows(paths: Iterable[str]) -> set[str]:
     files = tuple(paths)
     required = set(ALWAYS_REQUIRED)
+
     if not files or not all(_is_docs_only(path) for path in files):
-        required.update({"CI", "E2E"})
+        required.add("CI")
+    if not files or any(not _is_mock_e2e_ignored(path) for path in files):
+        required.add("E2E")
     if any(_needs_real_stack(path) for path in files):
         required.add("Real-stack E2E")
     if any(_needs_database(path) for path in files):
@@ -228,22 +236,38 @@ def _self_test() -> None:
     assert component == ALWAYS_REQUIRED | {"CI", "E2E", "Real-stack E2E"}
 
     evaluation = required_workflows(["backend/evaluation/foo.py"])
-    assert evaluation == ALWAYS_REQUIRED | {"CI", "E2E"}
+    assert evaluation == ALWAYS_REQUIRED | {"CI"}
+
+    backend_test = required_workflows(["backend/tests/test_worker.py"])
+    assert backend_test == ALWAYS_REQUIRED | {"CI"}
 
     domain = required_workflows(["backend/domain/job_worker.py"])
     assert domain == ALWAYS_REQUIRED | {
         "CI",
-        "E2E",
         "Real-stack E2E",
         "Database Integration",
         "Backend Image",
     }
 
     integration_test = required_workflows(["backend/tests/integration/test_jobs.py"])
-    assert integration_test == ALWAYS_REQUIRED | {"CI", "E2E", "Database Integration"}
+    assert integration_test == ALWAYS_REQUIRED | {"CI", "Database Integration"}
+
+    migration = required_workflows(["supabase/migrations/20260828.sql"])
+    assert migration == ALWAYS_REQUIRED | {"CI", "Database Integration"}
 
     deploy = required_workflows(["scripts/deploy.sh"])
     assert deploy == ALWAYS_REQUIRED | {"CI", "E2E", "Backend Image"}
+
+    mixed = required_workflows(
+        ["backend/domain/job_worker.py", "components/workspace/Inspector.tsx"]
+    )
+    assert mixed == ALWAYS_REQUIRED | {
+        "CI",
+        "E2E",
+        "Real-stack E2E",
+        "Database Integration",
+        "Backend Image",
+    }
 
     assert production_components(["README.md"]) == set()
     assert production_components(["docs/PLATFORM.md"]) == set()
