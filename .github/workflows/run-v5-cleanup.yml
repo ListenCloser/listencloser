@@ -1,0 +1,42 @@
+name: Run V5 cleanup helper
+
+on:
+  push:
+    branches:
+      - design/v5-visual-language-cleanup
+    paths:
+      - .github/workflows/run-v5-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: design/v5-visual-language-cleanup
+          fetch-depth: 0
+      - name: Execute patch payload
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import textwrap
+
+          source = Path('.github/workflows/apply-v5-cleanup.yml').read_text()
+          match = re.search(r"python - <<'PY'\n(.*?)\n          PY\n", source, re.S)
+          if not match:
+              raise SystemExit('patch payload not found')
+          payload = textwrap.dedent(match.group(1))
+          exec(compile(payload, 'v5-cleanup', 'exec'))
+          PY
+      - name: Commit V5 cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- app/icon.svg app/layout.tsx app/visual-language-v5.css DESIGN.md components/workspace/LibraryPanel.tsx components/workspace/AskPanel.tsx components/workspace/TransportBar.tsx components/workspace/Inspector.tsx components/SheetMusic.tsx lib/representations.tsx
+          git rm .github/workflows/apply-v5-cleanup.yml .github/workflows/run-v5-cleanup.yml
+          git commit -m "design: tighten V5 visual language and music interactions"
+          git push origin HEAD:design/v5-visual-language-cleanup
