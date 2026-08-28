@@ -38,6 +38,34 @@ describe("ListboxMenu", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("skips disabled options in both keyboard directions", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListboxMenu
+        triggerLabel="Original"
+        triggerAria="Playback source: Original"
+        selectedId="original"
+        options={[
+          { id: "original", label: "Original" },
+          { id: "unavailable", label: "Unavailable", disabled: true },
+          { id: "score", label: "Score" },
+        ]}
+        onSelect={() => {}}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Playback source: Original" });
+    trigger.focus();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("option", { name: "Original" })).toHaveFocus();
+
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("option", { name: "Score" })).toHaveFocus();
+
+    await user.keyboard("{ArrowUp}");
+    expect(screen.getByRole("option", { name: "Original" })).toHaveFocus();
+  });
+
   it("closes on Escape and restores trigger focus", async () => {
     const user = userEvent.setup();
     render(
