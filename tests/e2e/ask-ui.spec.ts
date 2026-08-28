@@ -28,15 +28,16 @@ test.describe("contextual Ask inspector (MSW)", () => {
 
   async function openAsk(page: import("@playwright/test").Page) {
     await page.getByRole("tab", { name: "Ask" }).click();
+    await expect(page.getByRole("tab", { name: "Ask", selected: true })).toBeVisible();
     await expect(page.getByPlaceholder("Ask about this piece…")).toBeVisible();
   }
 
   test("Ask answers a question and renders evidence chips and suggested actions", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
     await openAsk(page);
-    await expect(page.getByText("Whole piece")).toBeVisible();
+    await expect(page.getByText("Questions use the current piece, playhead, selection, and analysis as context.")).toBeVisible();
 
     // Starter prompts render in the empty state and submit directly.
     await page.getByRole("button", { name: "What is happening harmonically here?" }).click();
@@ -65,7 +66,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
   });
 
   test("measure reference opens the Score and show_representation opens the matching view", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     await openAsk(page);
     await page.getByRole("button", { name: "What is happening harmonically here?" }).click();
@@ -85,15 +86,15 @@ test.describe("contextual Ask inspector (MSW)", () => {
   });
 
   test("domain-mismatched loop and seek actions are disabled", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     // Switch the playback source to the Score so the active timeline
     // is notation time. The mocked suggested actions are performance-domain,
     // so Loop passage and Jump to time must render disabled (not clickable
     // no-ops), while the representation action stays enabled.
-    await page.getByRole("button", { name: /Listening to:/ }).click();
+    await page.getByRole("button", { name: /Playback source:/ }).click();
     await page.getByRole("option", { name: "Score", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Listening to: Score", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Playback source: Score", exact: true })).toBeVisible();
 
     await openAsk(page);
     await page.getByRole("button", { name: "What is happening harmonically here?" }).click();

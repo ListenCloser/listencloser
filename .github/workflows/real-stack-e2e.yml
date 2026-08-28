@@ -9,6 +9,7 @@ on:
       - 'components/**'
       - 'lib/**'
       - 'tests/e2e/real-stack-workflow.spec.ts'
+      - 'tests/e2e/real-stack-golden.spec.ts'
       - 'playwright.realstack.config.ts'
       - '.github/workflows/real-stack-e2e.yml'
   push:
@@ -19,6 +20,7 @@ on:
       - 'components/**'
       - 'lib/**'
       - 'tests/e2e/real-stack-workflow.spec.ts'
+      - 'tests/e2e/real-stack-golden.spec.ts'
       - 'playwright.realstack.config.ts'
 
 concurrency:

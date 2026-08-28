@@ -4,10 +4,10 @@ import { expect, test } from "@playwright/test";
  * Workspace ergonomics (MSW).
  *
  * Tests the analysis state transitions and the new layout structure:
- * - Compare is near the representation tabs, not in the transport
- * - Analysis states: idle → analyzing → completed
- * - Loop/Stop are icon buttons with aria-labels
- * - Library has one desktop toggle
+ * - Compare is integrated into the transport
+ * - Completed analysis is visible in the persistent inspector
+ * - Loop is an accessible icon button; play/pause is the primary transport action
+ * - Library stays docked on desktop without duplicate collapse controls
  */
 test.describe("workspace ergonomics (MSW)", () => {
   test.beforeEach(async ({ page }) => {
@@ -47,68 +47,62 @@ test.describe("workspace ergonomics (MSW)", () => {
     );
   });
 
-  test("Compare is near representation tabs, not in transport", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+  test("Compare is integrated into the transport", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
-    // Compare button should be near the tabs
-    await expect(page.getByRole("button", { name: "Compare", exact: true })).toBeVisible();
-
-    // Compare should NOT be in the transport footer
-    const transport = page.locator('[aria-label="Playback"]');
-    await expect(transport.locator('button:has-text("Compare")')).not.toBeVisible();
+    const transport = page.getByRole("contentinfo", { name: "Playback" });
+    await expect(transport.getByRole("button", { name: "Compare", exact: true })).toBeVisible();
   });
 
-  test("analysis states: completed work shows Analysis tab", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+  test("completed analysis is visible in the persistent inspector", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    // The mock work has insights loaded, so analysisState should be "completed"
-    // and the Analysis button should be visible in the inspector
-    await expect(page.getByRole("button", { name: "Hide analysis" })).toBeVisible();
+    // Desktop analysis is a stable dock, not a show/hide control. The mock work
+    // already has insights loaded, so its selected Analysis tab and overview
+    // are the durable completed-state signals.
+    const inspector = page.locator("aside.inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
+    await expect(inspector.getByRole("heading", { name: "At a glance" })).toBeVisible();
+    await expect(inspector.getByText("A minor", { exact: true })).toBeVisible();
   });
 
-  test("loop and stop are icon buttons with aria-labels", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+  test("loop is an accessible icon control", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    // Loop button should have aria-label
     const loopBtn = page.getByRole("button", { name: "Toggle loop" });
     await expect(loopBtn).toBeVisible();
-    await expect(loopBtn).toHaveAttribute("title", "Toggle loop");
-
-    // Stop button should have aria-label
-    const stopBtn = page.getByRole("button", { name: "Stop" });
-    await expect(stopBtn).toBeVisible();
-    await expect(stopBtn).toHaveAttribute("title", "Stop");
+    await expect(loopBtn).toHaveAttribute("title", "Loop");
+    await expect(page.getByRole("button", { name: "Play", exact: true })).toBeVisible();
   });
 
-  test("library has one desktop toggle in header only", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+  test("library is docked on desktop without duplicate collapse controls", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    // Header should have a Library button
-    const header = page.locator("header.studio-header");
-    await expect(header.getByRole("button", { name: /library/i })).toBeVisible();
-
-    // The library panel itself should NOT have a separate collapse button
-    // (it was removed - only the header toggle remains)
     const library = page.locator("aside.studio-library");
-    await expect(library.locator('button[title="Collapse library"]')).not.toBeVisible();
+    await expect(library).toBeVisible();
+    await expect(library.getByRole("heading", { name: "Library" })).toBeVisible();
+    await expect(library.locator('button[title="Collapse library"]')).toHaveCount(0);
+
+    // The header control is mobile-only and should not duplicate the docked desktop navigation.
+    await expect(page.locator("header.studio-header").getByRole("button", { name: /library/i })).not.toBeVisible();
   });
 
   test("piano roll fills available vertical space", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
 
-    // The piano roll scroll container should have a reasonable height
-    const scroll = page.locator(".piano-roll-scroll");
-    const box = await scroll.boundingBox();
+    // The redesigned roll uses the workspace canvas instead of a nested vertical scroller.
+    const box = await page.getByTestId("piano-roll").boundingBox();
     expect(box).not.toBeNull();
     // Should be at least 320px tall (our min-height)
     expect(box!.height).toBeGreaterThanOrEqual(320);
   });
 
   test("waveform ruler has sparse timestamps", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
     // Waveform ruler should be visible

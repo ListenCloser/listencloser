@@ -111,7 +111,13 @@ class TestInterpretMelody:
         notes = []
         # Dense section: 10 notes in 2 seconds
         for i in range(10):
-            notes.append(MelodyNote(pitch=60 + i, start_seconds=i * 0.2, end_seconds=i * 0.2 + 0.15))
+            notes.append(
+                MelodyNote(
+                    pitch=60 + i,
+                    start_seconds=i * 0.2,
+                    end_seconds=i * 0.2 + 0.15,
+                )
+            )
         # Sparse section: 2 notes over 4 seconds
         notes.append(MelodyNote(pitch=72, start_seconds=3.0, end_seconds=3.5))
         notes.append(MelodyNote(pitch=70, start_seconds=5.0, end_seconds=5.5))
@@ -125,7 +131,13 @@ class TestInterpretMelody:
         notes = []
         # Dense section: 8 notes in 2 seconds
         for i in range(8):
-            notes.append(MelodyNote(pitch=60 + i, start_seconds=i * 0.25, end_seconds=i * 0.25 + 0.2))
+            notes.append(
+                MelodyNote(
+                    pitch=60 + i,
+                    start_seconds=i * 0.25,
+                    end_seconds=i * 0.25 + 0.2,
+                )
+            )
         # Gap: 4 seconds of no notes
         # Sparse section: 2 notes spread out
         notes.append(MelodyNote(pitch=72, start_seconds=7.0, end_seconds=7.5))

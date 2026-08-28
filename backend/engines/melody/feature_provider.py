@@ -27,9 +27,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
 
-from music21 import features, interval, stream, note
+from music21 import features, interval, note, stream
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +36,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MelodyNoteInput:
     """Input note for feature extraction."""
+
     pitch: int  # MIDI pitch
     start_seconds: float
     end_seconds: float
@@ -46,6 +46,7 @@ class MelodyNoteInput:
 @dataclass
 class MelodyFeatures:
     """Canonical melody features from music21/jSymbolic."""
+
     # Trivial projections (custom, acceptable)
     highest_pitch: int
     lowest_pitch: int
@@ -123,12 +124,16 @@ def extract_melody_features(notes: list[MelodyNoteInput]) -> MelodyFeatures | No
         direction = 0.5
 
     try:
-        avg_interval = features.jSymbolic.AverageMelodicIntervalFeature(melody_stream).extract().vector[0]
+        avg_interval = (
+            features.jSymbolic.AverageMelodicIntervalFeature(melody_stream).extract().vector[0]
+        )
     except Exception:
         avg_interval = 0.0
 
     try:
-        most_common = int(features.jSymbolic.MostCommonMelodicIntervalFeature(melody_stream).extract().vector[0])
+        most_common = int(
+            features.jSymbolic.MostCommonMelodicIntervalFeature(melody_stream).extract().vector[0]
+        )
     except Exception:
         most_common = 0
 
@@ -148,13 +153,19 @@ def extract_melody_features(notes: list[MelodyNoteInput]) -> MelodyFeatures | No
         density = 0.0
 
     try:
-        avg_duration = features.jSymbolic.AverageNoteDurationFeature(melody_stream).extract().vector[0]
+        avg_duration = (
+            features.jSymbolic.AverageNoteDurationFeature(melody_stream).extract().vector[0]
+        )
     except Exception:
         avg_duration = 0.0
 
     # Interval histogram
     try:
-        histogram = features.jSymbolic.MelodicIntervalHistogramFeature(melody_stream).extract().vector.tolist()
+        histogram = (
+            features.jSymbolic.MelodicIntervalHistogramFeature(melody_stream)
+            .extract()
+            .vector.tolist()
+        )
         # Pad or truncate to 13 bins (0-12 semitones)
         if len(histogram) < 13:
             histogram.extend([0.0] * (13 - len(histogram)))

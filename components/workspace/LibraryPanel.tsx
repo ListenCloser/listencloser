@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useWorkspace } from "@/lib/stores/workspace";
+import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
@@ -46,7 +46,7 @@ function WorkRow({
   }, [menuOpen]);
 
   const status = isLoading
-    ? "Processing"
+    ? "Opening"
     : hasAnalysis
       ? "Analyzed"
       : hasRepresentations
@@ -103,6 +103,24 @@ function WorkRow({
   );
 }
 
+function ImportSettings({
+  profile,
+  onChange,
+}: {
+  profile: TranscriptionProfile;
+  onChange: (profile: TranscriptionProfile) => void;
+}) {
+  return (
+    <details className="library-import-settings">
+      <summary>Transcription · {profile === "solo_piano" ? "Solo piano" : "Auto"}</summary>
+      <div className="library-import-settings-body" role="group" aria-label="Transcription mode">
+        <button type="button" className={profile === "auto" ? "active" : ""} aria-pressed={profile === "auto"} onClick={() => onChange("auto")}>Auto</button>
+        <button type="button" className={profile === "solo_piano" ? "active" : ""} aria-pressed={profile === "solo_piano"} onClick={() => onChange("solo_piano")}>Solo piano</button>
+      </div>
+    </details>
+  );
+}
+
 export default function LibraryPanel({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const {
     workspace,
@@ -111,6 +129,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     removeWork,
     restoreWork,
     clearSelection,
+    setTranscriptionProfile,
   } = useWorkspace();
   const { clearActiveSource } = useTransport();
   const { resetTimeline } = useTimeline();
@@ -151,29 +170,34 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
           {workspace.works.length > 0 && <span className="library-count">{workspace.works.length}</span>}
         </div>
         {signedIn && (
-          <button
-            type="button"
-            className="library-import-btn"
-            onClick={requestImport}
-            disabled={!canImport}
-            aria-label={canImport ? "Import audio" : "Import unavailable"}
-            title={canImport ? "Import audio" : "Processing service unavailable"}
-          >
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-              <path d="M7.5 2v11M2 7.5h11" />
-            </svg>
-            <span>Import</span>
-          </button>
+          <>
+            <button
+              type="button"
+              className="library-import-btn"
+              onClick={requestImport}
+              disabled={!canImport || workspace.isLoadingWork}
+              aria-label={canImport ? "Import audio" : "Import temporarily unavailable"}
+            >
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                <path d="M7.5 2v11M2 7.5h11" />
+              </svg>
+              <span>Import</span>
+            </button>
+            <ImportSettings profile={workspace.transcriptionProfile} onChange={setTranscriptionProfile} />
+          </>
         )}
       </div>
 
       <div className="library-list library-list-v3">
         {deleteError && <div role="alert" className="library-error">{deleteError}</div>}
-        {workspace.works.length === 0 ? (
+        {workspace.works.length === 0 && workspace.isLoadingWork ? (
+          <div className="library-loading-list" aria-hidden="true">
+            <span /><span /><span />
+          </div>
+        ) : workspace.works.length === 0 ? (
           <div className="library-empty library-empty-v3">
-            <span className="library-empty-icon" aria-hidden="true">♪</span>
             <strong>No recordings yet</strong>
-            <p>Import audio to start a workspace.</p>
+            <p>Import audio to begin.</p>
           </div>
         ) : workspace.works.map((work) => {
           const selected = workspace.activeWorkId === work.id;

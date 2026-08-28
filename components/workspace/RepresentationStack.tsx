@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { availableRepresentations, representationById, type RepresentationId } from "@/lib/representations";
+import { useEffect, useMemo } from "react";
+import { availableRepresentations, representationById } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 
@@ -29,74 +29,6 @@ function TranscriptionModeToggle() {
   );
 }
 
-const PRIMARY_TAB_COUNT = 3;
-
-function MoreMenu({
-  items,
-  activeId,
-  onSelect,
-}: {
-  items: { id: string; title: string }[];
-  activeId: string | null;
-  onSelect: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  if (items.length === 0) return null;
-
-  return (
-    <div className="repr-more-select" ref={ref}>
-      <button
-        type="button"
-        className={`repr-more-trigger${activeId ? " active" : ""}`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        More
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-          <path d="m3 4.5 3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      {open && (
-        <div className="repr-more-menu" role="menu">
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="menuitemradio"
-              aria-checked={activeId === item.id}
-              onClick={() => {
-                onSelect(item.id);
-                setOpen(false);
-              }}
-            >
-              {item.title}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function WorkspaceLoadingSkeleton() {
   return (
     <main className="piece-desk piece-loading-shell" aria-busy="true" aria-label="Opening recording">
@@ -104,18 +36,15 @@ function WorkspaceLoadingSkeleton() {
         <span className="loading-pill loading-pill-wide" />
         <span className="loading-pill" />
         <span className="loading-pill" />
+        <span className="loading-pill" />
       </div>
       <div className="piece-loading-canvas" role="status">
-        <div className="piece-loading-header">
-          <span className="loading-line loading-line-title" />
-          <span className="loading-line loading-line-meta" />
-        </div>
         <div className="piece-loading-visual" aria-hidden="true">
           {Array.from({ length: 7 }).map((_, row) => (
             <span key={row} style={{ "--loading-row": row } as React.CSSProperties} />
           ))}
         </div>
-        <span className="sr-only">Opening the saved recording and its analysis.</span>
+        <span className="sr-only">Opening the saved recording.</span>
       </div>
     </main>
   );
@@ -144,15 +73,11 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   if (!view) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
   const ViewComponent = view.component;
 
-  const primaryTabs = available.slice(0, PRIMARY_TAB_COUNT);
-  const overflowTabs = available.slice(PRIMARY_TAB_COUNT);
-  const activeInOverflow = overflowTabs.some((tab) => tab.id === activeView);
-
   return (
     <main className="piece-desk piece-desk-v3">
       <div className="representation-toolbar">
         <nav className="piece-view-tabs piece-view-tabs-v3" role="tablist" aria-label="Music representation">
-          {primaryTabs.map((def) => (
+          {available.map((def) => (
             <button
               key={def.id}
               type="button"
@@ -164,13 +89,6 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
               {def.title}
             </button>
           ))}
-          {overflowTabs.length > 0 && (
-            <MoreMenu
-              items={overflowTabs.map((tab) => ({ id: tab.id, title: tab.title }))}
-              activeId={activeInOverflow ? activeView : null}
-              onSelect={(id) => setActiveRepresentation(id as RepresentationId)}
-            />
-          )}
         </nav>
       </div>
 
@@ -190,14 +108,13 @@ function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canIm
         <span className="empty-note empty-note-two">♫</span>
       </div>
       <div className="empty-desk-copy">
-        <span className="piece-eyebrow">New workspace</span>
-        <h1>Bring in a recording.</h1>
-        <p>Listen, transcribe, inspect notation, and understand the music without leaving the same workspace.</p>
+        <h1>Import a recording</h1>
+        <p>Listen, transcribe, inspect notation, and analyze the same piece in one workspace.</p>
         <button className="btn btn-primary empty-import-primary" onClick={onImport} disabled={!signedIn || !canImport}>
-          {canImport ? "Import audio" : "Preparing import"}
+          Import audio
         </button>
         <details className="transcription-settings">
-          <summary>Transcription settings</summary>
+          <summary>Transcription</summary>
           <TranscriptionModeToggle />
         </details>
         <small>WAV, MP3, M4A, FLAC, OGG, AAC · up to 4 MB</small>

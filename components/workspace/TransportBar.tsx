@@ -203,26 +203,23 @@ export default function TransportBar() {
     if (!loopEnabled) toggleLoop();
   };
 
+  if (!hasSource && sources.length === 0) {
+    return <footer className="transport-bar transport-bar-v3 transport-bar-idle" aria-label="Playback" />;
+  }
+
   return (
     <footer className="transport-bar transport-bar-v3" aria-label="Playback">
       <div className="transport-source-zone">
-        {sources.length > 0 ? (
-          <>
-            <span className="transport-zone-label">Listening to</span>
-            <SourceMenu
-              triggerLabel={activeSource ? activeSource.label : "Choose source"}
-              triggerAria={`Listening to: ${activeSource ? activeSource.label : "no source"}`}
-              options={sources.map((item) => ({ id: item.id, label: item.label }))}
-              selectedId={activeSource?.id ?? null}
-              onSelect={(id) => {
-                const next = sources.find((item) => item.id === id);
-                if (next) setActiveSource(next);
-              }}
-            />
-          </>
-        ) : (
-          <span className="transport-empty-label">No audio loaded</span>
-        )}
+        <SourceMenu
+          triggerLabel={activeSource ? activeSource.label : "Choose source"}
+          triggerAria={`Playback source: ${activeSource ? activeSource.label : "none"}`}
+          options={sources.map((item) => ({ id: item.id, label: item.label }))}
+          selectedId={activeSource?.id ?? null}
+          onSelect={(id) => {
+            const next = sources.find((item) => item.id === id);
+            if (next) setActiveSource(next);
+          }}
+        />
       </div>
 
       <div className="transport-playback-zone">
@@ -230,7 +227,7 @@ export default function TransportBar() {
           type="button"
           className="transport-play-btn"
           onClick={toggle}
-          aria-label={hasSource ? (isPlaying ? "Pause" : "Play") : "Import audio to enable playback"}
+          aria-label={isPlaying ? "Pause" : "Play"}
           disabled={!hasSource}
         >
           {isPlaying ? (

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import BrandMark from "@/components/BrandMark";
 import WorkspaceShell, { type ServiceStatus } from "@/components/workspace/WorkspaceShell";
 import {
   cancelJob,
@@ -33,8 +34,8 @@ const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["wav", "mp3", "m4a", "flac", "ogg", "aac"]);
 type UploadStage = "idle" | "uploading" | "processing" | "disconnected" | "success" | "error";
 
-function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: string) => void; serviceStatus: ServiceStatus }) {
-  const { user, loading } = useAuth();
+function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
+  const { user } = useAuth();
   const {
     replaceRepresentations,
     setActiveWorkId,
@@ -66,9 +67,6 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
   const loadedWorkRef = useRef<string | null>(null);
 
   const loadWork = useCallback(async (workId: string) => {
-    // Re-loading the *same* work (e.g. after creating a take or comparing
-    // versions) must not reset the transport: the listener is still inspecting
-    // the same piece, so keep the playhead and playback state.
     const preserveTransport = loadedWorkRef.current === workId;
     loadedWorkRef.current = workId;
     const sequence = ++loadSequenceRef.current;
@@ -87,15 +85,16 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     setInsights([]);
     setTakes([]);
     setAnalysisState("idle");
+
     try {
       let bundle = await getWorkBundle(workId);
       if (sequence !== loadSequenceRef.current) return;
       let latestJob = bundle.jobs[0];
-      const activeJob = latestJob &&
-        ["queued", "claimed", "running"].includes(latestJob.lifecycle.current)
+      const activeJob = latestJob && ["queued", "claimed", "running"].includes(latestJob.lifecycle.current)
         ? latestJob
         : undefined;
       let observationIssue: JobObservationError | null = null;
+
       if (activeJob) {
         setActiveJobId(activeJob.id);
         setAnalysisState("analyzing");
@@ -110,8 +109,6 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
             setProgress(Math.round(current.progress * 100));
           }, { signal });
         } catch (cause) {
-          // Terminal jobs can still have useful partial artifacts. Re-fetch the
-          // bundle and render those before presenting retry controls.
           if (cause instanceof DOMException && cause.name === "AbortError") return;
           if (cause instanceof JobObservationError) observationIssue = cause;
           else if (!(cause instanceof JobTerminalError)) throw cause;
@@ -123,20 +120,17 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
           setActiveJobId(null);
         }
       }
-      const terminalJob = latestJob &&
-        ["failed", "cancelled"].includes(latestJob.lifecycle.current)
+
+      const terminalJob = latestJob && ["failed", "cancelled"].includes(latestJob.lifecycle.current)
         ? latestJob
         : undefined;
       const latestByKind = new Map<string, (typeof bundle.artifacts)[number]>();
       for (const item of bundle.artifacts) {
-        if (
-          item.latest_version &&
-          item.signed_url &&
-          !latestByKind.has(item.artifact.kind)
-        ) {
+        if (item.latest_version && item.signed_url && !latestByKind.has(item.artifact.kind)) {
           latestByKind.set(item.artifact.kind, item);
         }
       }
+
       const original = latestByKind.get("audio_original");
       const baseMidi = latestByKind.get("midi_performance");
       const midi = baseMidi ?? latestByKind.get("midi_corrected");
@@ -146,26 +140,20 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       const takeArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && ["midi_performance", "midi_corrected"].includes(item.artifact.kind),
       );
-      const takes = takeArtifacts.flatMap((item) => item.latest_version ? [{
+      setTakes(takeArtifacts.flatMap((item) => item.latest_version ? [{
         versionId: item.latest_version.id,
-        label: item.artifact.kind === "midi_performance"
-          ? "Transcription"
-          : item.latest_version.label || "Derived take",
+        label: item.artifact.kind === "midi_performance" ? "Transcription" : item.latest_version.label || "Derived take",
         parentVersionId: item.latest_version.parent_version_id,
-      }] : []);
-      setTakes(takes);
+      }] : []));
+
       const renderedArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && item.artifact.kind === "audio_rendered",
       );
-      // Prefer the render that corresponds to the primary transcription, then
-      // fall back to the first available render. Human labels are used so
-      // internal artifact/version identifiers never surface in the UI.
       const primaryRendered = renderedArtifacts.find(
         (item) => item.latest_version?.parent_version_id === baseMidi?.latest_version?.id,
       ) ?? renderedArtifacts.find(
         (item) => item.latest_version?.parent_version_id === midi?.latest_version?.id,
       ) ?? renderedArtifacts[0];
-
       const extraRendered = renderedArtifacts.filter(
         (item) => item.latest_version && item.signed_url && item.latest_version.id !== primaryRendered?.latest_version?.id,
       );
@@ -190,135 +178,126 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         });
       }
 
+      // First meaningful paint: once the durable bundle returns, show playable
+      // audio immediately. Note entities, analysis, and MusicXML can hydrate in
+      // parallel instead of holding the entire workspace behind a loading view.
+      replaceSources(sources, activeId ?? undefined, preserveTransport);
+      if (representations.length > 0) {
+        replaceRepresentations([...representations]);
+        setLoadingWork(false);
+      }
+
+      const midiVersionId = midi?.latest_version?.id ?? null;
+      const [entitiesResult, insightsResult, scoreResult] = await Promise.allSettled([
+        midiVersionId ? getEntities(midiVersionId) : Promise.resolve([]),
+        midiVersionId ? getInsights(midiVersionId) : Promise.resolve([]),
+        score?.signed_url
+          ? fetch(score.signed_url).then(async (response) => {
+              if (!response.ok) throw new Error("score request failed");
+              return response.text();
+            })
+          : Promise.resolve(null),
+      ]);
+      if (sequence !== loadSequenceRef.current) return;
+
       const warnings: string[] = [];
-      let pendingInsights: Awaited<ReturnType<typeof getInsights>> = [];
+      const entities = entitiesResult.status === "fulfilled" ? entitiesResult.value : [];
+      const pendingInsights = insightsResult.status === "fulfilled" ? insightsResult.value : [];
+      if (midiVersionId && entitiesResult.status === "rejected") warnings.push("Piano roll data is temporarily unavailable.");
+      if (midiVersionId && insightsResult.status === "rejected") warnings.push("Analysis is temporarily unavailable.");
+
+      const notes = entities.flatMap((entity) => entity.note ? [{
+        id: entity.id,
+        pitch: entity.note.pitch,
+        start: entity.note.start_seconds,
+        end: entity.note.end_seconds,
+        velocity: entity.note.velocity,
+      }] : []);
+      if (midiVersionId && notes.length > 0) {
+        representations.push({
+          kind: "piano_roll",
+          label: "Piano Roll",
+          sourceUrl: midi?.signed_url ?? "",
+          sourceLabel: `${notes.length} detected notes`,
+          confidence: null,
+          provenance: "transcription",
+          notes,
+          versionId: midiVersionId,
+        });
+      }
+
       let pendingTempo: number | null = null;
       let pendingSignature: { numerator: number; denominator: number } | null = null;
-      if (midi?.latest_version) {
-        const [entitiesResult, insightsResult] = await Promise.allSettled([
-          getEntities(midi.latest_version.id),
-          getInsights(midi.latest_version.id),
-        ]);
-        if (sequence !== loadSequenceRef.current) return;
-        const entities = entitiesResult.status === "fulfilled" ? entitiesResult.value : [];
-        const insights = insightsResult.status === "fulfilled" ? insightsResult.value : [];
-        if (entitiesResult.status === "rejected") warnings.push("The note-level piano roll could not be loaded.");
-        if (insightsResult.status === "rejected") warnings.push("The saved analysis could not be loaded.");
-        pendingInsights = insights;
-        const notes = entities.flatMap((entity) => entity.note ? [{
-          id: entity.id,
-          pitch: entity.note.pitch,
-          start: entity.note.start_seconds,
-          end: entity.note.end_seconds,
-          velocity: entity.note.velocity,
-        }] : []);
-        if (notes.length > 0) {
-          representations.push({
-            kind: "piano_roll",
-            label: "Piano Roll",
-            sourceUrl: midi.signed_url ?? "",
-            sourceLabel: `${notes.length} detected notes`,
-            confidence: null,
-            provenance: "transcription",
-            notes,
-            versionId: midi.latest_version.id,
-          });
-        }
-        const tempo = insights.find((item) => item.kind === "tempo")?.evidence.bpm;
-        if (typeof tempo === "number" && tempo > 0) pendingTempo = tempo;
-        const signature = insights.find((item) => item.kind === "time_signature")?.evidence;
-        if (typeof signature?.numerator === "number" && typeof signature?.denominator === "number") {
-          pendingSignature = { numerator: signature.numerator, denominator: signature.denominator };
-        }
+      const tempo = pendingInsights.find((item) => item.kind === "tempo")?.evidence.bpm;
+      if (typeof tempo === "number" && tempo > 0) pendingTempo = tempo;
+      const signature = pendingInsights.find((item) => item.kind === "time_signature")?.evidence;
+      if (typeof signature?.numerator === "number" && typeof signature?.denominator === "number") {
+        pendingSignature = { numerator: signature.numerator, denominator: signature.denominator };
       }
 
       if (score?.signed_url) {
-        try {
-          const response = await fetch(score.signed_url);
-          if (!response.ok) throw new Error("score request failed");
-          const musicxml = await response.text();
-          if (sequence !== loadSequenceRef.current) return;
+        if (scoreResult.status === "fulfilled" && scoreResult.value) {
           const measureStarts = (renderedScore?.latest_version?.metadata?.measure_starts_seconds as number[] | undefined) ?? [];
           representations.push({
             kind: "score",
             label: "Score",
             sourceUrl: score.signed_url,
-            sourceLabel: "Quantized notation draft · review by ear",
+            sourceLabel: "Notation draft",
             confidence: null,
             provenance: "music21 notation",
-            musicxml,
+            musicxml: scoreResult.value,
             measureStarts,
             versionId: score.latest_version?.id,
           });
-        } catch {
-          warnings.push("The saved score could not be loaded.");
+        } else if (scoreResult.status === "rejected") {
+          warnings.push("Score data is temporarily unavailable.");
         }
       }
 
-      replaceSources(sources, activeId ?? undefined, preserveTransport);
       replaceRepresentations(representations);
       setInsights(pendingInsights);
       if (pendingTempo !== null) setBpm(pendingTempo);
       if (pendingSignature !== null) setTimeSignature(pendingSignature.numerator, pendingSignature.denominator);
       setLoadWarnings(warnings);
 
-      // Determine analysis state from job lifecycle and artifacts.
       if (observationIssue) {
-        setAnalysisState("analyzing"); // still running, just disconnected
+        setAnalysisState("analyzing");
         setProcessingWorkId(workId);
         setError(observationIssue.message);
         setStage("disconnected");
       } else if (terminalJob) {
-        setAnalysisState("completed"); // analysis attempted (failed/cancelled)
+        setAnalysisState("completed");
         setActiveJobId(terminalJob.id);
-        setError(
-          sanitizeJobError(
-            terminalJob.error || terminalJob.lifecycle.message || `Understanding audio ${terminalJob.lifecycle.current}`,
-          ),
-        );
+        setError(sanitizeJobError(terminalJob.error || terminalJob.lifecycle.message || `Understanding audio ${terminalJob.lifecycle.current}`));
         setStage("error");
       } else if (original?.latest_version && !midi && !score) {
-        setAnalysisState("idle"); // never analyzed
+        setAnalysisState("idle");
         setPendingSourceVersionId(original.latest_version.id);
         setProcessingWorkId(null);
         setError(null);
-        warnings.push("Music understanding has not completed yet. Run Analyze to transcribe this work.");
-        setLoadWarnings(warnings);
         setStage("success");
       } else if (representations.length === 0) {
         setAnalysisState("idle");
         setError(null);
-        warnings.push("This work has no playable artifacts yet.");
-        setLoadWarnings(warnings);
         setStage("success");
       } else {
-        // Has midi/score → analysis was done.
-        // Also check insights: if insights exist, analysis is definitely complete.
         setAnalysisState("completed");
         setActiveJobId(null);
         setStage("success");
       }
     } catch (cause) {
       if (sequence !== loadSequenceRef.current) return;
-      setError(cause instanceof Error ? cause.message : "Could not load this work");
+      setError(cause instanceof Error ? cause.message : "Could not load this recording");
       setStage("error");
     } finally {
       if (sequence === loadSequenceRef.current) setLoadingWork(false);
     }
-  }, [replaceRepresentations, replaceSources, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature, resetTimeline]);
+  }, [replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
 
-  // Abort any in-flight job polling when the active work is deleted (activeWorkId
-  // becomes null without a new loadWork) and on unmount.
-  useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-    };
-  }, []);
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   useEffect(() => {
-    if (workspace.activeWorkId === null) {
-      abortRef.current?.abort();
-    }
+    if (workspace.activeWorkId === null) abortRef.current?.abort();
   }, [workspace.activeWorkId]);
 
   const handledStudioAction = useRef(0);
@@ -329,7 +308,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
     const workId = workspace.activeWorkId;
     void (async () => {
       const label = action.kind === "variation" ? "Creating a playable take" : "Comparing saved takes";
-      setStudioOperation({ state: "running", label, message: "Queued on the music worker" });
+      setStudioOperation({ state: "running", label, message: "Queued" });
       try {
         const result = action.kind === "variation"
           ? await startVariationWorkflow(action.versionIds[0], projectId, action.semitones ?? 0)
@@ -341,13 +320,13 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         setStudioOperation({
           state: "success",
           label: action.kind === "variation" ? "New take is ready" : "Comparison is ready",
-          message: action.kind === "variation" ? "Playback, score, and analysis have been saved with the new take." : "The comparison was saved in the analysis for the first selected take.",
+          message: action.kind === "variation" ? "The new take is ready to audition." : "Comparison is ready.",
         });
       } catch (cause) {
         const disconnected = cause instanceof JobObservationError;
         setStudioOperation({
           state: disconnected ? "disconnected" : "error",
-          label: disconnected ? "Connection interrupted" : "Studio operation failed",
+          label: disconnected ? "Connection interrupted" : "Operation failed",
           message: cause instanceof Error ? cause.message : "Please try again.",
         });
       }
@@ -356,33 +335,35 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
 
   useEffect(() => {
     let cancelled = false;
-    if (loading || !user) {
+    if (!user) {
       setProjectId("");
       setProject(null);
+      setLoadingWork(false);
       return;
     }
+
+    setLoadingWork(true);
     void (async () => {
       try {
         const projects = await listProjects();
-        const project = projects.find((item) => !item.archived_at) ??
-          await createProject("Music Lab", "Audio transformations and analysis");
+        const project = projects.find((item) => !item.archived_at) ?? await createProject("Library", "Music workspace");
         const works = await listWorks(project.id);
-        if (!cancelled) {
-          setProjectId(project.id);
-          setProject(project);
-          setWorks(works);
-          onProjectName(project.name);
-          if (works[0]) setActiveWorkId(works[0].id);
-        }
+        if (cancelled) return;
+        setProjectId(project.id);
+        setProject(project);
+        setWorks(works);
+        if (works[0]) setActiveWorkId(works[0].id);
+        else setLoadingWork(false);
       } catch (cause) {
         if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : "Could not load the project");
+          setLoadingWork(false);
+          setError(cause instanceof Error ? cause.message : "Could not load your library");
           setStage("error");
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [loading, onProjectName, setActiveWorkId, setProject, setWorks, user]);
+  }, [setActiveWorkId, setLoadingWork, setProject, setWorks, user]);
 
   useEffect(() => {
     if (workspace.activeWorkId) void loadWork(workspace.activeWorkId);
@@ -394,12 +375,12 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
 
   const handleFile = useCallback(async (file: File) => {
     if (!projectId) {
-      setError("Your project is still loading. Please try again in a moment.");
+      setError("Your library is still loading.");
       setStage("error");
       return;
     }
-    if (serviceStatus !== "ready") {
-      setError("The processing service is offline. Your file was not uploaded.");
+    if (serviceStatus === "unavailable") {
+      setError("Audio processing is temporarily unavailable. Your file was not uploaded.");
       setStage("error");
       return;
     }
@@ -414,6 +395,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       setStage("error");
       return;
     }
+
     setFilename(file.name);
     setPendingSourceVersionId(null);
     setStage("uploading");
@@ -431,8 +413,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         setMessage(understandStageLabel(current.progress));
         setProgress(5 + Math.round(current.progress * 90));
       });
-      const works = await listWorks(projectId);
-      setWorks(works);
+      setWorks(await listWorks(projectId));
       setProgress(100);
       setActiveJobId(null);
       setActiveWorkId(artifact.work_id);
@@ -447,7 +428,7 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         setStage("error");
       }
     }
-  }, [projectId, serviceStatus, setActiveWorkId, setWorks]);
+  }, [projectId, serviceStatus, setActiveWorkId, setWorks, transcriptionProfile]);
 
   const cancelActiveJob = useCallback(async () => {
     if (!activeJobId) return;
@@ -536,13 +517,9 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         setStage("error");
       }
     }
-  }, [loadWork, pendingSourceVersionId, processingWorkId, projectId, workspace.activeWorkId]);
+  }, [loadWork, pendingSourceVersionId, processingWorkId, projectId, transcriptionProfile, workspace.activeWorkId]);
 
-  const showOverlay =
-    stage === "processing" ||
-    stage === "uploading" ||
-    stage === "disconnected" ||
-    stage === "error";
+  const showOverlay = stage === "processing" || stage === "uploading" || stage === "disconnected" || stage === "error";
 
   return (
     <>
@@ -559,47 +536,29 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
         }}
       />
       {showOverlay && (
-        <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, pointerEvents: "none" }}>
-          <div style={{ pointerEvents: "auto", maxWidth: 480, width: "100%", padding: "var(--s-4)" }}>
+        <div className="operation-layer">
+          <div className="operation-layer-inner">
             {(stage === "uploading" || stage === "processing") && (
               <div className="piece-processing-card" role="status">
                 <span className="piece-processing-filename">{presentableTitle(filename)}</span>
-                <progress value={progress} max={100} style={{ width: "100%" }} />
-                <span className="piece-processing-stage">{stage === "uploading" ? "Uploading your recording…" : message} · {Math.round(progress)}%</span>
-                <span className="piece-processing-hint">You can close this page; processing will continue on the server.</span>
-                {stage === "processing" && activeJobId && (
-                  <button className="btn" onClick={() => void cancelActiveJob()}>
-                    Cancel processing
-                  </button>
-                )}
+                <progress value={progress} max={100} />
+                <span className="piece-processing-stage">{stage === "uploading" ? "Uploading…" : message} · {Math.round(progress)}%</span>
+                {stage === "processing" && activeJobId && <button className="btn" onClick={() => void cancelActiveJob()}>Cancel</button>}
               </div>
             )}
             {stage === "disconnected" && (
               <div className="operation-card operation-card-warning" role="alert">
                 <strong>Connection interrupted</strong><span>{error}</span>
-                <span>The durable server job has not been duplicated or restarted.</span>
-                <button className="btn btn-primary" onClick={() => void resumeActiveJob()}>
-                  Reconnect to job
-                </button>
+                <button className="btn btn-primary" onClick={() => void resumeActiveJob()}>Reconnect</button>
               </div>
             )}
             {stage === "error" && (
-              <div style={{ background: "var(--danger-soft)", border: "1px solid var(--danger)", borderRadius: "var(--r-lg)", padding: "var(--s-5)", display: "grid", gap: "var(--s-3)", color: "var(--danger)" }}>
-                <strong>Operation failed</strong><span>{error}</span>
-                <div style={{ display: "flex", gap: "var(--s-2)" }}>
-                  {activeJobId && (
-                    <button className="btn btn-primary" onClick={() => void retryActiveJob()}>
-                      Retry processing
-                    </button>
-                  )}
-                  {!activeJobId && pendingSourceVersionId && (
-                    <button className="btn btn-primary" onClick={() => void startPendingProcessing()}>
-                      Process saved audio
-                    </button>
-                  )}
-                  <button className="btn" onClick={() => { setStage("idle"); setError(null); setProgress(0); }}>
-                    {workspace.representations.length ? "Dismiss" : "Try another file"}
-                  </button>
+              <div className="operation-card operation-card-error" role="alert">
+                <strong>Couldn’t complete that</strong><span>{error}</span>
+                <div className="operation-card-actions">
+                  {activeJobId && <button className="btn btn-primary" onClick={() => void retryActiveJob()}>Retry</button>}
+                  {!activeJobId && pendingSourceVersionId && <button className="btn btn-primary" onClick={() => void startPendingProcessing()}>Process saved audio</button>}
+                  <button className="btn" onClick={() => { setStage("idle"); setError(null); setProgress(0); }}>Dismiss</button>
                 </div>
               </div>
             )}
@@ -608,9 +567,8 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
       )}
       {loadWarnings.length > 0 && stage === "success" && (
         <div className="workspace-notice" role="status">
-          <strong>Some saved results need attention</strong>
           <span>{loadWarnings.join(" ")}</span>
-          <button type="button" className="icon-btn" aria-label="Dismiss notice" onClick={() => setLoadWarnings([])}>✕</button>
+          <button type="button" className="icon-btn" aria-label="Dismiss notice" onClick={() => setLoadWarnings([])}>×</button>
         </div>
       )}
     </>
@@ -618,14 +576,12 @@ function HomeContent({ onProjectName, serviceStatus }: { onProjectName: (name: s
 }
 
 export default function Home() {
-  const { user } = useAuth();
-  const [projectName, setProjectName] = useState("");
+  const { user, loading } = useAuth();
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus>("checking");
   const healthSequence = useRef(0);
 
   const refreshService = useCallback(() => {
     const sequence = ++healthSequence.current;
-    setServiceStatus("checking");
     void fetch("/api/health/queue", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("service unavailable");
@@ -648,16 +604,38 @@ export default function Home() {
       navigator.serviceWorker?.removeEventListener("controllerchange", onControllerChange);
     };
   }, [refreshService]);
-  if (!user) return <SignedOutLanding serviceStatus={serviceStatus} />;
+
+  if (loading) return <AppBootShell />;
+  if (!user) return <SignedOutLanding />;
 
   return (
-    <WorkspaceShell signedIn={Boolean(user)} projectName={projectName} serviceStatus={serviceStatus}>
-      <HomeContent onProjectName={setProjectName} serviceStatus={serviceStatus} />
+    <WorkspaceShell signedIn serviceStatus={serviceStatus}>
+      <HomeContent serviceStatus={serviceStatus} />
     </WorkspaceShell>
   );
 }
 
-function SignedOutLanding({ serviceStatus }: { serviceStatus: ServiceStatus }) {
+function AppBootShell() {
+  return (
+    <main className="app-boot-shell" aria-busy="true" aria-label="Opening your library">
+      <header className="app-boot-header"><BrandMark size={21} /></header>
+      <div className="app-boot-workspace" aria-hidden="true">
+        <aside className="app-boot-library">
+          <span className="boot-line boot-line-short" />
+          <span className="boot-row" /><span className="boot-row" /><span className="boot-row" />
+        </aside>
+        <section className="app-boot-canvas">
+          <div className="app-boot-tabs"><span /><span /><span /><span /></div>
+          <div className="app-boot-visual">{Array.from({ length: 8 }).map((_, index) => <span key={index} />)}</div>
+        </section>
+        <aside className="app-boot-inspector"><span className="boot-line" /><span className="boot-row" /><span className="boot-row" /></aside>
+      </div>
+      <footer className="app-boot-transport" />
+    </main>
+  );
+}
+
+function SignedOutLanding() {
   async function signIn() {
     await supabase?.auth.signInWithOAuth({
       provider: "google",
@@ -666,22 +644,15 @@ function SignedOutLanding({ serviceStatus }: { serviceStatus: ServiceStatus }) {
   }
 
   return (
-    <main className="welcome-page">
-      <header className="welcome-header">
-        <span className="brand">Music Lab</span>
-        <span>{serviceStatus === "ready" ? "Processing is ready" : "Music workspace"}</span>
+    <main className="welcome-page welcome-page-v4">
+      <header className="welcome-header welcome-header-v4">
+        <span className="welcome-mark" aria-label="Music workspace"><BrandMark size={26} /></span>
       </header>
-      <section className="welcome-hero">
-        <p className="piece-eyebrow">A place to listen closely</p>
-        <h1>See what your music is doing.</h1>
-        <p>Bring in a recording, compare the original with its transcription, and inspect a piano roll, notation, and musical analysis in one place.</p>
-        <button className="btn btn-primary" onClick={signIn}>Sign in with Google</button>
-        <small>Your recordings and their transcriptions stay private to your account.</small>
-      </section>
-      <section className="welcome-steps" aria-label="How Music Lab works">
-        <div><b>01</b><span>Import audio</span></div>
-        <div><b>02</b><span>Listen & compare</span></div>
-        <div><b>03</b><span>Inspect the music</span></div>
+      <section className="welcome-hero welcome-hero-v4">
+        <h1>Listen closer.</h1>
+        <p>Bring in a recording. Move between waveform, piano roll, notation, and analysis without losing your place.</p>
+        <button className="btn btn-primary" onClick={signIn}>Continue with Google</button>
+        <small>Your recordings stay private to your account.</small>
       </section>
     </main>
   );

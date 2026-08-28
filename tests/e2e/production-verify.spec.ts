@@ -75,9 +75,7 @@ test("A: signed-in production page loads with service online", async ({
   ).toBeVisible({
     timeout: 20_000,
   });
-  await expect(
-    page.getByText("Bring in a recording to transcribe, explore, and analyze."),
-  ).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("heading", { name: /^(Bring in a recording\.|Import a recording)$/ })).toBeVisible({ timeout: 10_000 });
 });
 
 test("B: backend health endpoints return ready", async ({ request }) => {
@@ -113,17 +111,15 @@ test("C: import real audio, wait for durable understand, verify representations"
     sessionData: s,
   });
 
-  // The Import button renders before the first-load project setup completes;
-  // importing then surfaces "Your project is still loading". Register the
-  // create/list round-trip watcher before navigation so it catches the POST.
-  const projectSettled = page
+  // Wait for durable library hydration, not merely project creation.
+  const librarySettled = page
     .waitForResponse(
-      (resp) => resp.url().includes("/api/v1/projects") && resp.request().method() === "POST",
+      (resp) => /\/api\/v1\/projects\/[^/]+\/works$/.test(new URL(resp.url()).pathname) && resp.request().method() === "GET",
       { timeout: 30_000 },
     )
     .catch(() => {});
   await page.goto(PROD_URL);
-  await projectSettled;
+  await librarySettled;
 
   await expect(
     page.getByRole("main").getByRole("button", { name: "Import audio" }),

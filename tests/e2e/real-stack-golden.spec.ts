@@ -34,28 +34,25 @@ async function expectPositionPreserved(
     .toBe(true);
 }
 
-async function scoreCursorLeft(page: import("@playwright/test").Page): Promise<string | null> {
-  return page.evaluate(() => {
-    const cursor = document.querySelector<HTMLElement>('.sheet-music-container img[id^="cursorImg"]');
-    return cursor ? cursor.style.left : null;
-  });
-}
-
 async function openSourceSelector(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: /Listening to:/ }).click();
+  await page.getByRole("button", { name: /Playback source:/ }).click();
 }
 
 async function selectSource(page: import("@playwright/test").Page, label: string) {
+  const selected = page.getByRole("button", { name: `Playback source: ${label}`, exact: true });
+  if (await selected.isVisible().catch(() => false)) return;
   await openSourceSelector(page);
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
 async function listeningTo(page: import("@playwright/test").Page, label: string) {
-  return page.getByRole("button", { name: `Listening to: ${label}`, exact: true });
+  return page.getByRole("button", { name: `Playback source: ${label}`, exact: true });
 }
 
 async function setCompareSideSource(page: import("@playwright/test").Page, side: "A" | "B", label: string) {
-  await page.getByRole("button", { name: new RegExp(`^${side}: `) }).click();
+  const trigger = page.getByRole("button", { name: `${side} compare source`, exact: true });
+  if ((await trigger.textContent())?.trim() === label) return;
+  await trigger.click();
   await page.getByRole("option", { name: label, exact: true }).click();
 }
 
@@ -83,10 +80,10 @@ async function importWithRetry(page: import("@playwright/test").Page) {
     await importButton.click();
     await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
 
-    const uploading = page.getByText("Uploading your recording…");
+    const processing = page.getByRole("progressbar");
     const failed = page.getByRole("alert").filter({ hasText: "Your project is still loading" });
     const outcome = await Promise.race([
-      uploading.waitFor({ state: "visible", timeout: 15_000 }).then(() => "started"),
+      processing.waitFor({ state: "visible", timeout: 15_000 }).then(() => "started"),
       failed.waitFor({ state: "visible", timeout: 15_000 }).then(() => "failed"),
     ]);
     if (outcome === "started") return;
@@ -150,17 +147,17 @@ test("real audio golden path", async ({ page }) => {
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
 
-    // Score rendition is a distinct source (may not be available if rendering failed)
+    // Score is a distinct source (may not be available if rendering failed)
     await openSourceSelector(page);
-    const scoreRendition = page.getByRole("option", { name: "Score rendition", exact: true });
+    const scoreRendition = page.getByRole("option", { name: "Score", exact: true });
     if (await scoreRendition.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await scoreRendition.click();
-      await expect(await listeningTo(page, "Score rendition")).toBeVisible();
+      await expect(await listeningTo(page, "Score")).toBeVisible();
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
       await page.getByRole("button", { name: "Pause", exact: true }).click();
     } else {
-      // Close the selector if score rendition isn't available
+      // Close the selector if score isn't available
       await page.keyboard.press("Escape");
     }
   });
@@ -174,8 +171,10 @@ test("real audio golden path", async ({ page }) => {
 
   // ── Annotations and Inspector ────────────────────────────────────────
   await test.step("annotations and inspector", async () => {
-    // Score measure click seeks transport (best-effort — headless click
-    // targeting on SVG measures can be flaky)
+    // Score measure click owns two contracts: it seeks the active score
+    // timeline and creates the shared measure selection. The visible playback
+    // cursor is driven by playback-follow state, so selection should not be
+    // coupled to OSMD's legacy hidden cursor element.
     await page.getByRole("tab", { name: "Score" }).click();
     const measures = page.locator(".sheet-music-container g.vf-measure");
     const measureCount = await measures.count();
@@ -185,16 +184,13 @@ test("real audio golden path", async ({ page }) => {
     expect(targetBox).not.toBeNull();
     const beforeSeek = await transportPosition(page);
     await page.mouse.click(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2);
-    // Seek may not register in headless — verify only if it did
-    const afterSeek = await transportPosition(page);
-    const seekWorked = Math.abs(afterSeek - beforeSeek) > 0.1;
-    if (seekWorked) {
-      const cursorBefore = await scoreCursorLeft(page);
-      await expect.poll(
-        async () => (await scoreCursorLeft(page)) !== cursorBefore,
-        { timeout: 10_000 },
-      ).toBe(true);
-    }
+    await expect
+      .poll(
+        async () => Math.abs((await transportPosition(page)) - beforeSeek) > 0.1,
+        { timeout: 10_000, message: "score measure click should seek the active score timeline" },
+      )
+      .toBe(true);
+    await expect(page.locator("[data-selection-highlight]").first()).toBeVisible({ timeout: 10_000 });
 
     // Representation changes preserve playback
     await selectSource(page, "Original");
@@ -220,12 +216,12 @@ test("real audio golden path", async ({ page }) => {
     await expect(await listeningTo(page, "Transcription")).toBeVisible();
     await expectPositionPreserved(page, positionBeforeSourceSwap);
 
-    // Score rendition source swap (conditional — may not be available)
+    // Score source swap (conditional — may not be available)
     await openSourceSelector(page);
-    const scoreRenditionOption = page.getByRole("option", { name: "Score rendition", exact: true });
+    const scoreRenditionOption = page.getByRole("option", { name: "Score", exact: true });
     if (await scoreRenditionOption.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await scoreRenditionOption.click();
-      await expect(await listeningTo(page, "Score rendition")).toBeVisible();
+      await expect(await listeningTo(page, "Score")).toBeVisible();
       await expectPositionPreserved(page, positionBeforeSourceSwap);
     } else {
       await page.keyboard.press("Escape");
@@ -233,11 +229,12 @@ test("real audio golden path", async ({ page }) => {
 
     // A/B comparison
     await page.getByRole("button", { name: "Compare", exact: true }).click();
-    await expect(page.getByRole("group", { name: "Compare playback" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Compare playback sources" })).toBeVisible();
 
-    // Use Transcription for B side since Score rendition may not be available
+    // Use Transcription for B side since Score may not be available.
+    // The helper is idempotent because compare already defaults B to it.
     await setCompareSideSource(page, "B", "Transcription");
-    await expect(page.getByRole("button", { name: "B: Transcription", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "B compare source", exact: true })).toContainText("Transcription");
 
     const positionBeforeCompare = await transportPosition(page);
     await page.getByRole("button", { name: "B", exact: true }).click();
@@ -268,12 +265,11 @@ test("real audio golden path", async ({ page }) => {
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('[data-selection-highlight]').first()).toBeVisible({ timeout: 10_000 });
 
-    // Inspector visibility
-    await expect(page.locator(".inspector")).toBeVisible();
-    await page.getByRole("button", { name: "Hide analysis" }).click();
-    await expect(page.locator(".inspector")).toHaveCount(0);
-    await page.getByRole("button", { name: "Show analysis" }).click();
-    await expect(page.locator(".inspector")).toBeVisible();
+    // Desktop Inspector is a persistent dock. Verify its selected analysis
+    // mode instead of stale show/hide controls that intentionally no longer exist.
+    const inspector = page.locator("aside.inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
   });
 
   // ── Persistence ──────────────────────────────────────────────────────
@@ -284,29 +280,30 @@ test("real audio golden path", async ({ page }) => {
     await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Listening to:/ })).toBeVisible();
-    await page.getByRole("button", { name: /Listening to:/ }).click();
+    await expect(page.getByRole("button", { name: /Playback source:/ })).toBeVisible();
+    await page.getByRole("button", { name: /Playback source:/ }).click();
     await expect(page.getByRole("option", { name: "Original", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: "Transcription", exact: true })).toBeVisible();
-    // Score rendition may not be available if rendering failed
+    // Score may not be available if rendering failed
     await page.keyboard.press("Escape");
   });
 
   // ── Deletion ─────────────────────────────────────────────────────────
   await test.step("deletion", async () => {
     await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
-    await page.getByTitle("Delete work").click();
-    await page.getByTitle("Click again to confirm delete").click();
-    await expect(page.getByText(/Bring in a recording|Start with a recording/i).first()).toBeVisible({ timeout: 15_000 });
+    const activeRowActions = page.getByRole("button", { name: /More actions for / }).first();
+    await activeRowActions.click();
+    await page.getByRole("menuitem", { name: "Delete recording" }).click();
+    await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByRole("slider", { name: "Playback position" })).toBeDisabled();
     const times = page.locator(".transport-time");
     await expect(times.nth(0)).toHaveText("0:00");
     await expect(times.nth(1)).toHaveText("0:00");
-    await expect(page.getByText(/Listening to:/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Playback source:/ })).toHaveCount(0);
 
     await page.reload();
     await expect(page.getByRole("tab", { name: "Waveform" })).not.toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/Bring in a recording|Start with a recording/i).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible({ timeout: 30_000 });
   });
 });
