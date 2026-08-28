@@ -1,6 +1,7 @@
 # Analysis V3 Audio-Language Grounded QA — Reference/Feasibility Stage
 
-hello-ai base commit: `19fe23a765d6b80ce099be428e46f701cf97c828`
+Reference-stage authoring base: `19fe23a765d6b80ce099be428e46f701cf97c828`.
+The PR may be synchronized to newer `main` commits; this SHA records the repo state used when the reference artifact and local deterministic harness checks were authored, not a claim that model inference ran at that SHA.
 
 ## Executive decision
 
@@ -8,14 +9,18 @@ hello-ai base commit: `19fe23a765d6b80ce099be428e46f701cf97c828`
 
 This stage supports a narrower architecture decision: continue a **research-only, evidence-grounded multimodal Ask path** where raw-audio semantic reasoning is evaluated as an optional input beside trusted specialized evidence.
 
-| Candidate | Checkpoint | License / deployment constraint | Current evidence | Decision |
-|---|---|---|---|---|
-| Music Flamingo | `nvidia/music-flamingo-2601-hf` | 16.5 GB, NVIDIA OneWay Noncommercial; upstream tested on A100 80 GB | strongest music-specialized semantic candidate; no hello-ai grounded run | RESEARCH |
-| Audio Flamingo 3 | `nvidia/audio-flamingo-3-hf` | 16.5 GB, NVIDIA OneWay Noncommercial; 10-minute cap | general audio-language control; MUSE exposes music-perception weaknesses | RESEARCH |
-| Qwen2.5-Omni | `Qwen/Qwen2.5-Omni-7B` | 22.4 GB, Apache-2.0; heavy GPU-oriented checkpoint | permissive baseline, but MUSE reports near-chance behavior on several tasks | REVISIT |
-| LLark | no released checkpoint | Apache-2.0 code; no official trained weights | architecture/evaluation reference only | REVISIT |
+## Required candidate scorecard
 
-There is no `ADOPT` decision in this stage.
+`not locally measured` means exactly that: this PR does not load a large audio-language checkpoint and does not convert upstream benchmark evidence into a hello-ai measurement.
+
+| Candidate | Exact checkpoint | License | Hardware | Max audio | Exact-MIR result | Relational result | Semantic usefulness | Hallucination / contradiction rate | Decision |
+|---|---|---|---|---|---|---|---|---|---|
+| Music Flamingo | `nvidia/music-flamingo-2601-hf` | NVIDIA OneWay Noncommercial weights; upstream Audio Flamingo code MIT; Transformers Apache-2.0 | upstream model card: NVIDIA A100 80 GB; hello-ai CPU/GPU not measured | 20 min on current Transformers/model-card path; longer audio truncated | not locally measured; CMI-Bench cautions against treating audio-text LLM fluency as exact MIR authority | not locally measured | highest-priority music-specialized candidate for a grounded product probe; no hello-ai usefulness rating yet | not locally measured | **RESEARCH** |
+| Audio Flamingo 3 | `nvidia/audio-flamingo-3-hf` | NVIDIA OneWay Noncommercial weights; upstream code MIT; Transformers Apache-2.0 | GPU-oriented upstream path; hello-ai runtime not measured | 10 min total from 30 s windows; longer audio truncated | not locally measured; no factual-authority claim | MUSE reports AF3 at or near chance on several fundamental music-perception / relational tasks | useful general audio-language control; no hello-ai usefulness rating yet | not locally measured | **RESEARCH** |
+| Qwen2.5-Omni | `Qwen/Qwen2.5-Omni-7B` | Apache-2.0 checkpoint/code path | GPU-oriented 22.4 GB checkpoint; hello-ai runtime not measured | not established by this stage | not locally measured; no factual-authority claim | MUSE reports Qwen2.5-Omni at or near chance on several fundamental tasks | permissively licensed general multimodal baseline; no hello-ai usefulness rating yet | not locally measured | **REVISIT** |
+| LLark | no official trained checkpoint | Apache-2.0 code; no checkpoint license because no weights are released | not runnable as a candidate without official weights | n/a | historical paper/reference only | historical paper/reference only | historical music instruction-following reference; not runnable here | not measurable without checkpoint | **REVISIT** |
+
+There is no `ADOPT` decision in this stage. The required hallucination/contradiction column is intentionally empty of invented numbers: those rates require a real checkpoint run and claim-level annotations.
 
 ## What is measured here
 
@@ -35,7 +40,7 @@ Any future local model measurement must be stored separately with model version/
 
 The current Hugging Face Transformers checkpoint is an 8B, ~16.5 GB model using a Qwen2.5-7B language backbone. The current Transformers/model-card path supports up to 20 minutes of audio; this supersedes older project-page descriptions of an approximately 15-minute receptive field. NVIDIA reports A100 80 GB as test hardware. We have not measured hello-ai CPU/GPU latency or memory.
 
-The released weights use the NVIDIA OneWay Noncommercial License. That alone prevents this checkpoint from being a default commercial production dependency, even if research quality is high.
+The released weights use the NVIDIA OneWay Noncommercial License. That prevents this checkpoint from being a default commercial production dependency, even if research quality is high. Portions of dataset generation are also described by the model card as subject to Qwen Research License and OpenAI Terms of Use; those are recorded separately from the checkpoint license in the machine-readable reference artifact.
 
 ### Audio Flamingo 3 — RESEARCH
 
@@ -45,7 +50,7 @@ AF3 is useful as the general audio-language control, but MUSE reports AF3 at or 
 
 ### Qwen2.5-Omni-7B — REVISIT
 
-The official checkpoint is 22.4 GB and Apache-2.0. That licensing is much more compatible with a future product than the NVIDIA candidates, but licensing alone is not enough: MUSE reports Qwen2.5-Omni at or near chance on several core music-perception tasks, and the checkpoint is heavier than the NVIDIA 7B/8B candidates. No hello-ai audio-only runtime is measured here.
+The official checkpoint repository is 22.4 GB and Apache-2.0. That licensing is more compatible with a future product than the NVIDIA candidates, but licensing alone is not enough: MUSE reports Qwen2.5-Omni at or near chance on several core music-perception tasks, and the checkpoint is heavier than the NVIDIA 7B/8B candidates. No hello-ai audio-only runtime is measured here.
 
 ### LLark — REVISIT
 
