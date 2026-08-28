@@ -47,10 +47,10 @@ jobs:
 
       - name: Start fresh local Supabase and apply every migration
         run: |
-          # Hosted runners have no prior local database, so start already proves
-          # the full migration history from zero. A second immediate db reset is
-          # redundant and can race Docker while the new stack is still settling.
-          supabase start
+          # The golden path requires Postgres, Kong, PostgREST, Auth, and Storage.
+          # A disposable CI probe proved the identical real-audio browser flow with
+          # the unrelated local services excluded, avoiding needless cold starts.
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
       - name: Export Supabase environment
         run: |
@@ -77,7 +77,10 @@ jobs:
 
       - name: Sync locked backend environment
         run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
           uv sync --project backend --locked
 
       - name: Start backend API
