@@ -1,0 +1,84 @@
+name: Resolve V5 main drift
+
+on:
+  push:
+    branches:
+      - design/v5-visual-language-cleanup
+    paths:
+      - .github/workflows/merge-main-into-v5.yml
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: design/v5-visual-language-cleanup
+          fetch-depth: 0
+      - name: Merge current main and preserve both product contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+
+          set +e
+          git merge origin/main --no-edit
+          merge_status=$?
+          set -e
+
+          if [ "$merge_status" -ne 0 ]; then
+            # Start from main's representation-lifecycle and current golden-path
+            # contracts, then reapply the V5 behavior that intentionally differs.
+            git checkout --theirs lib/representations.tsx tests/e2e/real-stack-golden.spec.ts
+
+            python3 - <<'PY'
+          from pathlib import Path
+
+          representations = Path("lib/representations.tsx")
+          text = representations.read_text()
+          text = text.replace(
+              '  const { transport, seek } = useTransport();\n  const entry = workspace.representations.find((item) => item.kind === "score");\n  const measureStarts = entry?.measureStarts ?? [];\n  const scoreDuration = entry?.audioUrl ? transport.duration : null;',
+              '  const { transport, seek, setActiveSource } = useTransport();\n  const entry = workspace.representations.find((item) => item.kind === "score");\n  const measureStarts = entry?.measureStarts ?? [];\n  const scoreSource = transport.sources.find((source) => source.role === "score") ?? null;\n  const finalMeasureSpan = measureStarts.length > 1\n    ? measureStarts[measureStarts.length - 1] - measureStarts[measureStarts.length - 2]\n    : 2;\n  const scoreDuration = measureStarts.length > 0\n    ? Math.max(transport.duration || 0, measureStarts[measureStarts.length - 1] + Math.max(finalMeasureSpan, 0.25))\n    : (transport.duration || null);',
+              1,
+          )
+          needle = '    <div className="representation-body">\n      <SheetMusic\n        musicXml={entry?.musicxml ?? ""}\n'
+          replacement = '''    <div className="representation-body">\n      <div className="score-playback-strip">\n        {scoreSource ? (\n          transport.activeSource?.role === "score" ? (\n            <span className="score-playback-state">Hearing score</span>\n          ) : (\n            <button type="button" className="score-playback-action" onClick={() => setActiveSource(scoreSource)}>Hear score</button>\n          )\n        ) : (\n          <span className="score-playback-state score-playback-state-muted">Notation audio is unavailable for this saved version.</span>\n        )}\n      </div>\n      <SheetMusic\n        musicXml={entry?.musicxml ?? ""}\n'''
+          if needle not in text:
+              raise SystemExit("score SheetMusic insertion point not found")
+          text = text.replace(needle, replacement, 1)
+          text = text.replace(
+              '        isScoreActive={active && transport.activeSource?.role === "score"}\n        hasScorePlayback={transport.sources.some((source) => source.role === "score")}',
+              '        isScoreActive={active}\n        hasScorePlayback={Boolean(scoreSource)}',
+              1,
+          )
+          representations.write_text(text)
+
+          golden = Path("tests/e2e/real-stack-golden.spec.ts")
+          text = golden.read_text()
+          old = '    await expect(page.getByText("Selection", { exact: true }).first()).toBeVisible({ timeout: 20_000 });'
+          new = '''    const inspectorScope = page.locator("aside.inspector");\n    await expect(inspectorScope.getByRole("button", { name: "Clear selection" })).toBeVisible({ timeout: 20_000 });\n    await expect(inspectorScope.locator(".inspector-scope-value")).toHaveText(/\\d+:\\d{2}–\\d+:\\d{2}/);'''
+          if old not in text:
+              raise SystemExit("stale selection assertion not found")
+          golden.write_text(text.replace(old, new, 1))
+          PY
+
+            git add lib/representations.tsx tests/e2e/real-stack-golden.spec.ts
+          fi
+
+          # The helper is one-shot and must never be part of the final PR diff.
+          git rm .github/workflows/merge-main-into-v5.yml
+          git add -A
+          git diff --cached --check
+
+          if git diff --cached --quiet && [ "$merge_status" -eq 0 ]; then
+            echo "main already merged cleanly"
+            exit 0
+          fi
+
+          git commit --no-edit || git commit -m "merge: reconcile V5 with current main"
+          git push origin HEAD:design/v5-visual-language-cleanup
