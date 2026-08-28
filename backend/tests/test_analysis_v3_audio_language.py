@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from backend.evaluation.analysis_v3.audio_language.metrics import (
     grounded_value_gate,
     score_assessments,
