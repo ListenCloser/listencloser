@@ -19,7 +19,7 @@ async function openDesktopWorkspace(page: Page) {
   await installMockSession(page);
   await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Breakdown" })).toBeVisible();
 }
 
 async function openCompactWorkspace(page: Page) {
@@ -29,13 +29,25 @@ async function openCompactWorkspace(page: Page) {
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
 }
 
-// Design source-of-truth mockup (lives in design/mockups, uses real tokens).
+// Existing design source-of-truth mockup retained as a broad workspace reference.
 test("design mockup (SOT)", async ({ page }) => {
   await page.goto(
     "file://" + process.cwd() + "/design/mockups/audio-to-sheet-music.html",
   );
   await page.waitForTimeout(300);
   await argosScreenshot(page, "design-mockup");
+});
+
+// Breakdown V3 is the current Inspector interaction contract. Keeping the
+// prototype in Argos makes reference drift visible instead of leaving the
+// design document disconnected from implementation.
+test("Breakdown V3 design reference", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(
+    "file://" + process.cwd() + "/design/mockups/breakdown-v3.html",
+  );
+  await page.waitForTimeout(300);
+  await argosScreenshot(page, "design-breakdown-v3", { fullPage: true });
 });
 
 // Actual built app — landing (auth gate when unauthenticated).
@@ -45,16 +57,18 @@ test("app landing", async ({ page }) => {
   await argosScreenshot(page, "app-landing", { fullPage: true });
 });
 
-// V6 changes live in the authenticated creative workspace, so the visual gate
-// covers the actual editor rather than merely screenshotting the auth gate.
+// The visual gate covers the actual authenticated creative workspace rather
+// than merely screenshotting the auth gate.
 test("app studio — desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openDesktopWorkspace(page);
   await argosScreenshot(page, "app-studio-desktop", { fullPage: true });
 
-  const harmony = page.locator("details.inspector-evidence-group").filter({ hasText: /^Harmony/ }).first();
-  if (await harmony.count()) {
-    await harmony.locator("summary").click();
+  const evidenceRoot = page.locator("details.inspector-breakdown-evidence-root").first();
+  if (await evidenceRoot.count()) {
+    await evidenceRoot.locator(":scope > summary").click();
+    const harmony = evidenceRoot.locator("details.inspector-evidence-group").filter({ hasText: /^Harmony/ }).first();
+    if (await harmony.count()) await harmony.locator("summary").click();
     await argosScreenshot(page, "app-studio-desktop-evidence", { fullPage: true });
   }
 });
@@ -86,8 +100,8 @@ test("app studio — phone", async ({ page }) => {
   await argosScreenshot(page, "app-studio-phone-library", { fullPage: true });
   await page.getByRole("button", { name: "Hide library" }).click();
 
-  await expect(page.getByRole("button", { name: "Show analysis" })).toBeVisible({ timeout: 20_000 });
-  await page.getByRole("button", { name: "Show analysis" }).click();
-  await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show breakdown" })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Show breakdown" }).click();
+  await expect(page.getByRole("tab", { name: "Breakdown" })).toBeVisible();
   await argosScreenshot(page, "app-studio-phone-analysis", { fullPage: true });
 });
