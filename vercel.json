@@ -5,5 +5,10 @@
   "outputDirectory": ".next",
   "installCommand": "npm ci",
   "cleanUrls": true,
-  "ignoreCommand": "test \"$VERCEL_ENV\" != \"production\""
+  "git": {
+    "deploymentEnabled": {
+      "*": false,
+      "main": true
+    }
+  }
 }
