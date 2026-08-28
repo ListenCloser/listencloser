@@ -2,6 +2,7 @@ name: Database Integration
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'supabase/migrations/**'
       - 'backend/domain/**'
@@ -30,6 +31,7 @@ concurrency:
 
 jobs:
   integration:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
