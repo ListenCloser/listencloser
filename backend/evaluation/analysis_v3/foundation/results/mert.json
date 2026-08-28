@@ -1,0 +1,782 @@
+{
+  "candidate": "mert",
+  "task": "all",
+  "device": "cpu",
+  "timestamp": "2026-08-28T01:16:00Z",
+  "operational": {
+    "candidate": "mert",
+    "device": "cpu",
+    "python_version": "3.9.6",
+    "platform": "macOS-15.3.1-arm64-arm-64bit",
+    "arch": "arm64",
+    "model_id": "m-a-p/MERT-v1-95M",
+    "code_license": "MIT",
+    "weight_license": "CC-BY-NC-SA-4.0",
+    "training_data_notes": "MERT training data includes copyrighted music.",
+    "embedding_dim": 768,
+    "temporal": true,
+    "supports_audio": true,
+    "supports_text": false,
+    "supports_symbolic": false,
+    "install_success": true,
+    "load_success": true,
+    "load_time_seconds": 4.3,
+    "cpu_latency": {
+      "10s": {
+        "latency_seconds": 0.43614245900000004,
+        "audio_duration_seconds": 10.0,
+        "error": null
+      },
+      "30s": {
+        "latency_seconds": 1.4402640829999989,
+        "audio_duration_seconds": 30.0,
+        "error": null
+      }
+    },
+    "determinism_stable": true,
+    "embedding_dim_measured": 768,
+    "temporal_measured": true,
+    "temporal_vectors_shape": [
+      749,
+      768
+    ]
+  },
+  "within_work": {
+    "candidate": "mert",
+    "task": "within_work_similarity",
+    "work_id": "maestro_long_recording",
+    "work_duration_seconds": 307.1,
+    "num_windows": 60,
+    "num_embeddings": 60,
+    "window_seconds": 10.0,
+    "hop_seconds": 5.0,
+    "per_query_results": [
+      {
+        "query_window": "window_000_0s",
+        "query_start": 0,
+        "query_description": "opening passage",
+        "nearest_neighbors": [
+          {
+            "window": "window_036_180s",
+            "start": 180.0,
+            "end": 190.0,
+            "similarity": 0.9815
+          },
+          {
+            "window": "window_004_20s",
+            "start": 20.0,
+            "end": 30.0,
+            "similarity": 0.9653
+          },
+          {
+            "window": "window_001_5s",
+            "start": 5.0,
+            "end": 15.0,
+            "similarity": 0.9652
+          },
+          {
+            "window": "window_008_40s",
+            "start": 40.0,
+            "end": 50.0,
+            "similarity": 0.9649
+          },
+          {
+            "window": "window_021_105s",
+            "start": 105.0,
+            "end": 115.0,
+            "similarity": 0.9603
+          },
+          {
+            "window": "window_003_15s",
+            "start": 15.0,
+            "end": 25.0,
+            "similarity": 0.96
+          },
+          {
+            "window": "window_057_285s",
+            "start": 285.0,
+            "end": 295.0,
+            "similarity": 0.9593
+          },
+          {
+            "window": "window_058_290s",
+            "start": 290.0,
+            "end": 300.0,
+            "similarity": 0.9582
+          },
+          {
+            "window": "window_020_100s",
+            "start": 100.0,
+            "end": 110.0,
+            "similarity": 0.9552
+          },
+          {
+            "window": "window_010_50s",
+            "start": 50.0,
+            "end": 60.0,
+            "similarity": 0.9551
+          }
+        ]
+      },
+      {
+        "query_window": "window_012_60s",
+        "query_start": 60,
+        "query_description": "early section",
+        "nearest_neighbors": [
+          {
+            "window": "window_013_65s",
+            "start": 65.0,
+            "end": 75.0,
+            "similarity": 0.9797
+          },
+          {
+            "window": "window_017_85s",
+            "start": 85.0,
+            "end": 95.0,
+            "similarity": 0.9771
+          },
+          {
+            "window": "window_015_75s",
+            "start": 75.0,
+            "end": 85.0,
+            "similarity": 0.976
+          },
+          {
+            "window": "window_047_235s",
+            "start": 235.0,
+            "end": 245.0,
+            "similarity": 0.9728
+          },
+          {
+            "window": "window_048_240s",
+            "start": 240.0,
+            "end": 250.0,
+            "similarity": 0.9727
+          },
+          {
+            "window": "window_016_80s",
+            "start": 80.0,
+            "end": 90.0,
+            "similarity": 0.9719
+          },
+          {
+            "window": "window_041_205s",
+            "start": 205.0,
+            "end": 215.0,
+            "similarity": 0.9719
+          },
+          {
+            "window": "window_011_55s",
+            "start": 55.0,
+            "end": 65.0,
+            "similarity": 0.9702
+          },
+          {
+            "window": "window_046_230s",
+            "start": 230.0,
+            "end": 240.0,
+            "similarity": 0.9667
+          },
+          {
+            "window": "window_040_200s",
+            "start": 200.0,
+            "end": 210.0,
+            "similarity": 0.9638
+          }
+        ]
+      },
+      {
+        "query_window": "window_024_120s",
+        "query_start": 120,
+        "query_description": "middle section",
+        "nearest_neighbors": [
+          {
+            "window": "window_025_125s",
+            "start": 125.0,
+            "end": 135.0,
+            "similarity": 0.9684
+          },
+          {
+            "window": "window_048_240s",
+            "start": 240.0,
+            "end": 250.0,
+            "similarity": 0.9619
+          },
+          {
+            "window": "window_046_230s",
+            "start": 230.0,
+            "end": 240.0,
+            "similarity": 0.9616
+          },
+          {
+            "window": "window_047_235s",
+            "start": 235.0,
+            "end": 245.0,
+            "similarity": 0.9612
+          },
+          {
+            "window": "window_015_75s",
+            "start": 75.0,
+            "end": 85.0,
+            "similarity": 0.9591
+          },
+          {
+            "window": "window_012_60s",
+            "start": 60.0,
+            "end": 70.0,
+            "similarity": 0.9549
+          },
+          {
+            "window": "window_005_25s",
+            "start": 25.0,
+            "end": 35.0,
+            "similarity": 0.9518
+          },
+          {
+            "window": "window_002_10s",
+            "start": 10.0,
+            "end": 20.0,
+            "similarity": 0.9517
+          },
+          {
+            "window": "window_052_260s",
+            "start": 260.0,
+            "end": 270.0,
+            "similarity": 0.9516
+          },
+          {
+            "window": "window_051_255s",
+            "start": 255.0,
+            "end": 265.0,
+            "similarity": 0.9512
+          }
+        ]
+      },
+      {
+        "query_window": "window_036_180s",
+        "query_start": 180,
+        "query_description": "later section",
+        "nearest_neighbors": [
+          {
+            "window": "window_000_0s",
+            "start": 0.0,
+            "end": 10.0,
+            "similarity": 0.9815
+          },
+          {
+            "window": "window_001_5s",
+            "start": 5.0,
+            "end": 15.0,
+            "similarity": 0.9776
+          },
+          {
+            "window": "window_020_100s",
+            "start": 100.0,
+            "end": 110.0,
+            "similarity": 0.9733
+          },
+          {
+            "window": "window_058_290s",
+            "start": 290.0,
+            "end": 300.0,
+            "similarity": 0.9689
+          },
+          {
+            "window": "window_003_15s",
+            "start": 15.0,
+            "end": 25.0,
+            "similarity": 0.9651
+          },
+          {
+            "window": "window_004_20s",
+            "start": 20.0,
+            "end": 30.0,
+            "similarity": 0.9649
+          },
+          {
+            "window": "window_009_45s",
+            "start": 45.0,
+            "end": 55.0,
+            "similarity": 0.9603
+          },
+          {
+            "window": "window_057_285s",
+            "start": 285.0,
+            "end": 295.0,
+            "similarity": 0.9574
+          },
+          {
+            "window": "window_059_295s",
+            "start": 295.0,
+            "end": 305.0,
+            "similarity": 0.9562
+          },
+          {
+            "window": "window_008_40s",
+            "start": 40.0,
+            "end": 50.0,
+            "similarity": 0.9557
+          }
+        ]
+      },
+      {
+        "query_window": "window_048_240s",
+        "query_start": 240,
+        "query_description": "closing section",
+        "nearest_neighbors": [
+          {
+            "window": "window_047_235s",
+            "start": 235.0,
+            "end": 245.0,
+            "similarity": 0.9838
+          },
+          {
+            "window": "window_017_85s",
+            "start": 85.0,
+            "end": 95.0,
+            "similarity": 0.9793
+          },
+          {
+            "window": "window_015_75s",
+            "start": 75.0,
+            "end": 85.0,
+            "similarity": 0.9769
+          },
+          {
+            "window": "window_016_80s",
+            "start": 80.0,
+            "end": 90.0,
+            "similarity": 0.975
+          },
+          {
+            "window": "window_046_230s",
+            "start": 230.0,
+            "end": 240.0,
+            "similarity": 0.9737
+          },
+          {
+            "window": "window_012_60s",
+            "start": 60.0,
+            "end": 70.0,
+            "similarity": 0.9727
+          },
+          {
+            "window": "window_025_125s",
+            "start": 125.0,
+            "end": 135.0,
+            "similarity": 0.9704
+          },
+          {
+            "window": "window_013_65s",
+            "start": 65.0,
+            "end": 75.0,
+            "similarity": 0.9658
+          },
+          {
+            "window": "window_041_205s",
+            "start": 205.0,
+            "end": 215.0,
+            "similarity": 0.9632
+          },
+          {
+            "window": "window_051_255s",
+            "start": 255.0,
+            "end": 265.0,
+            "similarity": 0.963
+          }
+        ]
+      }
+    ],
+    "notes": "QUALITATIVE PRODUCT PROBE. Within-work segment retrieval from one real musical work. No objective ground truth; inspect nearest-neighbor tables for musical plausibility."
+  },
+  "cross_work": {
+    "candidate": "mert",
+    "task": "cross_work_similarity",
+    "num_probes": 7,
+    "similarity_matrix": {
+      "ids": [
+        "babyslakh_full_mix_01",
+        "babyslakh_full_mix_02",
+        "guitarset_bossa_nova",
+        "guitarset_jazz",
+        "guitarset_rock",
+        "maestro_classical_01",
+        "maestro_classical_02"
+      ],
+      "values": [
+        [
+          1.0,
+          0.8628,
+          0.792,
+          0.8167,
+          0.7218,
+          0.8443,
+          0.868
+        ],
+        [
+          0.8628,
+          1.0,
+          0.8046,
+          0.8075,
+          0.7437,
+          0.7952,
+          0.8258
+        ],
+        [
+          0.792,
+          0.8046,
+          1.0,
+          0.9042,
+          0.8503,
+          0.82,
+          0.8448
+        ],
+        [
+          0.8167,
+          0.8075,
+          0.9042,
+          1.0,
+          0.9116,
+          0.8221,
+          0.8393
+        ],
+        [
+          0.7218,
+          0.7437,
+          0.8503,
+          0.9116,
+          1.0,
+          0.7364,
+          0.7653
+        ],
+        [
+          0.8443,
+          0.7952,
+          0.82,
+          0.8221,
+          0.7364,
+          1.0,
+          0.9613
+        ],
+        [
+          0.868,
+          0.8258,
+          0.8448,
+          0.8393,
+          0.7653,
+          0.9613,
+          1.0
+        ]
+      ]
+    },
+    "per_query_results": [
+      {
+        "query": "babyslakh_full_mix_01",
+        "query_category": "full_mix",
+        "nearest_neighbors": [
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.868
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.8628
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.8443
+          },
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8167
+          },
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.792
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.7218
+          }
+        ]
+      },
+      {
+        "query": "babyslakh_full_mix_02",
+        "query_category": "full_mix",
+        "nearest_neighbors": [
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.8628
+          },
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.8258
+          },
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8075
+          },
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8046
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.7952
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.7437
+          }
+        ]
+      },
+      {
+        "query": "guitarset_bossa_nova",
+        "query_category": "guitar_accomp",
+        "nearest_neighbors": [
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9042
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8503
+          },
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.8448
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.82
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.8046
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.792
+          }
+        ]
+      },
+      {
+        "query": "guitarset_jazz",
+        "query_category": "guitar_accomp",
+        "nearest_neighbors": [
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9116
+          },
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9042
+          },
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.8393
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.8221
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.8167
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.8075
+          }
+        ]
+      },
+      {
+        "query": "guitarset_rock",
+        "query_category": "guitar_accomp",
+        "nearest_neighbors": [
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9116
+          },
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8503
+          },
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.7653
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.7437
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.7364
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.7218
+          }
+        ]
+      },
+      {
+        "query": "maestro_classical_01",
+        "query_category": "solo_piano",
+        "nearest_neighbors": [
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9613
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.8443
+          },
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8221
+          },
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.82
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.7952
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.7364
+          }
+        ]
+      },
+      {
+        "query": "maestro_classical_02",
+        "query_category": "solo_piano",
+        "nearest_neighbors": [
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9613
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.868
+          },
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8448
+          },
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.8393
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.8258
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.7653
+          }
+        ]
+      }
+    ],
+    "notes": "QUALITATIVE PRODUCT PROBE. Cross-work similarity using real music from established corpora. Inspect ranking behavior; do not interpret absolute cosine ranges as quality."
+  },
+  "text_retrieval": {
+    "candidate": "mert",
+    "task": "text_retrieval",
+    "status": "unsupported",
+    "notes": "mert does not support text embedding"
+  },
+  "cross_representation": {
+    "candidate": "mert",
+    "task": "cross_representation",
+    "status": "unsupported",
+    "notes": "mert does not support symbolic (MIDI) embedding"
+  }
+}

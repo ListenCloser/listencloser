@@ -1,0 +1,1069 @@
+{
+  "candidate": "clap",
+  "task": "all",
+  "device": "cpu",
+  "timestamp": "2026-08-28T01:29:57Z",
+  "operational": {
+    "candidate": "clap",
+    "device": "cpu",
+    "python_version": "3.9.6",
+    "platform": "macOS-15.3.1-arm64-arm-64bit",
+    "arch": "arm64",
+    "model_id": "laion/larger_clap_music",
+    "code_license": "MIT",
+    "weight_license": "Apache-2.0",
+    "training_data_notes": "LAION AudioSet music subset. Substituted for specified music_audioset_epoch_15_esc_90.14.pt due to upstream dependency incompatibility.",
+    "embedding_dim": 512,
+    "temporal": false,
+    "supports_audio": true,
+    "supports_text": true,
+    "supports_symbolic": false,
+    "install_success": true,
+    "load_success": true,
+    "load_time_seconds": 6.03,
+    "cpu_latency": {
+      "10s": {
+        "latency_seconds": 0.09838987500000052,
+        "audio_duration_seconds": 10.0,
+        "error": null
+      },
+      "30s": {
+        "latency_seconds": 0.09717216700000009,
+        "audio_duration_seconds": 30.0,
+        "error": null
+      }
+    },
+    "determinism_stable": true,
+    "embedding_dim_measured": 512,
+    "temporal_measured": false,
+    "text_embedding_dim": 512
+  },
+  "within_work": {
+    "candidate": "clap",
+    "task": "within_work_similarity",
+    "work_id": "maestro_long_recording",
+    "work_duration_seconds": 307.1,
+    "num_windows": 60,
+    "num_embeddings": 60,
+    "window_seconds": 10.0,
+    "hop_seconds": 5.0,
+    "per_query_results": [
+      {
+        "query_window": "window_000_0s",
+        "query_start": 0,
+        "query_description": "opening passage",
+        "nearest_neighbors": [
+          {
+            "window": "window_036_180s",
+            "start": 180.0,
+            "end": 190.0,
+            "similarity": 0.9996
+          },
+          {
+            "window": "window_008_40s",
+            "start": 40.0,
+            "end": 50.0,
+            "similarity": 0.9994
+          },
+          {
+            "window": "window_001_5s",
+            "start": 5.0,
+            "end": 15.0,
+            "similarity": 0.9993
+          },
+          {
+            "window": "window_020_100s",
+            "start": 100.0,
+            "end": 110.0,
+            "similarity": 0.9989
+          },
+          {
+            "window": "window_050_250s",
+            "start": 250.0,
+            "end": 260.0,
+            "similarity": 0.9989
+          },
+          {
+            "window": "window_049_245s",
+            "start": 245.0,
+            "end": 255.0,
+            "similarity": 0.9988
+          },
+          {
+            "window": "window_059_295s",
+            "start": 295.0,
+            "end": 305.0,
+            "similarity": 0.9988
+          },
+          {
+            "window": "window_051_255s",
+            "start": 255.0,
+            "end": 265.0,
+            "similarity": 0.9987
+          },
+          {
+            "window": "window_037_185s",
+            "start": 185.0,
+            "end": 195.0,
+            "similarity": 0.9987
+          },
+          {
+            "window": "window_010_50s",
+            "start": 50.0,
+            "end": 60.0,
+            "similarity": 0.9986
+          }
+        ]
+      },
+      {
+        "query_window": "window_012_60s",
+        "query_start": 60,
+        "query_description": "early section",
+        "nearest_neighbors": [
+          {
+            "window": "window_048_240s",
+            "start": 240.0,
+            "end": 250.0,
+            "similarity": 0.9988
+          },
+          {
+            "window": "window_047_235s",
+            "start": 235.0,
+            "end": 245.0,
+            "similarity": 0.9985
+          },
+          {
+            "window": "window_002_10s",
+            "start": 10.0,
+            "end": 20.0,
+            "similarity": 0.9984
+          },
+          {
+            "window": "window_018_90s",
+            "start": 90.0,
+            "end": 100.0,
+            "similarity": 0.9984
+          },
+          {
+            "window": "window_013_65s",
+            "start": 65.0,
+            "end": 75.0,
+            "similarity": 0.9983
+          },
+          {
+            "window": "window_019_95s",
+            "start": 95.0,
+            "end": 105.0,
+            "similarity": 0.9983
+          },
+          {
+            "window": "window_001_5s",
+            "start": 5.0,
+            "end": 15.0,
+            "similarity": 0.9982
+          },
+          {
+            "window": "window_003_15s",
+            "start": 15.0,
+            "end": 25.0,
+            "similarity": 0.9981
+          },
+          {
+            "window": "window_017_85s",
+            "start": 85.0,
+            "end": 95.0,
+            "similarity": 0.998
+          },
+          {
+            "window": "window_011_55s",
+            "start": 55.0,
+            "end": 65.0,
+            "similarity": 0.998
+          }
+        ]
+      },
+      {
+        "query_window": "window_024_120s",
+        "query_start": 120,
+        "query_description": "middle section",
+        "nearest_neighbors": [
+          {
+            "window": "window_023_115s",
+            "start": 115.0,
+            "end": 125.0,
+            "similarity": 0.9961
+          },
+          {
+            "window": "window_013_65s",
+            "start": 65.0,
+            "end": 75.0,
+            "similarity": 0.9951
+          },
+          {
+            "window": "window_015_75s",
+            "start": 75.0,
+            "end": 85.0,
+            "similarity": 0.9951
+          },
+          {
+            "window": "window_046_230s",
+            "start": 230.0,
+            "end": 240.0,
+            "similarity": 0.9948
+          },
+          {
+            "window": "window_007_35s",
+            "start": 35.0,
+            "end": 45.0,
+            "similarity": 0.9945
+          },
+          {
+            "window": "window_009_45s",
+            "start": 45.0,
+            "end": 55.0,
+            "similarity": 0.9944
+          },
+          {
+            "window": "window_025_125s",
+            "start": 125.0,
+            "end": 135.0,
+            "similarity": 0.9944
+          },
+          {
+            "window": "window_014_70s",
+            "start": 70.0,
+            "end": 80.0,
+            "similarity": 0.9944
+          },
+          {
+            "window": "window_002_10s",
+            "start": 10.0,
+            "end": 20.0,
+            "similarity": 0.9939
+          },
+          {
+            "window": "window_042_210s",
+            "start": 210.0,
+            "end": 220.0,
+            "similarity": 0.9939
+          }
+        ]
+      },
+      {
+        "query_window": "window_036_180s",
+        "query_start": 180,
+        "query_description": "later section",
+        "nearest_neighbors": [
+          {
+            "window": "window_000_0s",
+            "start": 0.0,
+            "end": 10.0,
+            "similarity": 0.9996
+          },
+          {
+            "window": "window_008_40s",
+            "start": 40.0,
+            "end": 50.0,
+            "similarity": 0.9992
+          },
+          {
+            "window": "window_020_100s",
+            "start": 100.0,
+            "end": 110.0,
+            "similarity": 0.999
+          },
+          {
+            "window": "window_001_5s",
+            "start": 5.0,
+            "end": 15.0,
+            "similarity": 0.9989
+          },
+          {
+            "window": "window_037_185s",
+            "start": 185.0,
+            "end": 195.0,
+            "similarity": 0.9988
+          },
+          {
+            "window": "window_010_50s",
+            "start": 50.0,
+            "end": 60.0,
+            "similarity": 0.9987
+          },
+          {
+            "window": "window_050_250s",
+            "start": 250.0,
+            "end": 260.0,
+            "similarity": 0.9986
+          },
+          {
+            "window": "window_017_85s",
+            "start": 85.0,
+            "end": 95.0,
+            "similarity": 0.9986
+          },
+          {
+            "window": "window_004_20s",
+            "start": 20.0,
+            "end": 30.0,
+            "similarity": 0.9985
+          },
+          {
+            "window": "window_049_245s",
+            "start": 245.0,
+            "end": 255.0,
+            "similarity": 0.9985
+          }
+        ]
+      },
+      {
+        "query_window": "window_048_240s",
+        "query_start": 240,
+        "query_description": "closing section",
+        "nearest_neighbors": [
+          {
+            "window": "window_001_5s",
+            "start": 5.0,
+            "end": 15.0,
+            "similarity": 0.9988
+          },
+          {
+            "window": "window_047_235s",
+            "start": 235.0,
+            "end": 245.0,
+            "similarity": 0.9988
+          },
+          {
+            "window": "window_012_60s",
+            "start": 60.0,
+            "end": 70.0,
+            "similarity": 0.9988
+          },
+          {
+            "window": "window_002_10s",
+            "start": 10.0,
+            "end": 20.0,
+            "similarity": 0.9984
+          },
+          {
+            "window": "window_017_85s",
+            "start": 85.0,
+            "end": 95.0,
+            "similarity": 0.9984
+          },
+          {
+            "window": "window_011_55s",
+            "start": 55.0,
+            "end": 65.0,
+            "similarity": 0.9982
+          },
+          {
+            "window": "window_019_95s",
+            "start": 95.0,
+            "end": 105.0,
+            "similarity": 0.9982
+          },
+          {
+            "window": "window_000_0s",
+            "start": 0.0,
+            "end": 10.0,
+            "similarity": 0.9981
+          },
+          {
+            "window": "window_049_245s",
+            "start": 245.0,
+            "end": 255.0,
+            "similarity": 0.9981
+          },
+          {
+            "window": "window_056_280s",
+            "start": 280.0,
+            "end": 290.0,
+            "similarity": 0.9979
+          }
+        ]
+      }
+    ],
+    "notes": "QUALITATIVE PRODUCT PROBE. Within-work segment retrieval from one real musical work. No objective ground truth; inspect nearest-neighbor tables for musical plausibility."
+  },
+  "cross_work": {
+    "candidate": "clap",
+    "task": "cross_work_similarity",
+    "num_probes": 7,
+    "similarity_matrix": {
+      "ids": [
+        "babyslakh_full_mix_01",
+        "babyslakh_full_mix_02",
+        "guitarset_bossa_nova",
+        "guitarset_jazz",
+        "guitarset_rock",
+        "maestro_classical_01",
+        "maestro_classical_02"
+      ],
+      "values": [
+        [
+          1.0,
+          0.9714,
+          0.9648,
+          0.9583,
+          0.9667,
+          0.9725,
+          0.975
+        ],
+        [
+          0.9714,
+          1.0,
+          0.9879,
+          0.9838,
+          0.9905,
+          0.9793,
+          0.985
+        ],
+        [
+          0.9648,
+          0.9879,
+          1.0,
+          0.9981,
+          0.9925,
+          0.9949,
+          0.9928
+        ],
+        [
+          0.9583,
+          0.9838,
+          0.9981,
+          1.0,
+          0.9891,
+          0.9938,
+          0.9909
+        ],
+        [
+          0.9667,
+          0.9905,
+          0.9925,
+          0.9891,
+          1.0,
+          0.9873,
+          0.988
+        ],
+        [
+          0.9725,
+          0.9793,
+          0.9949,
+          0.9938,
+          0.9873,
+          1.0,
+          0.9926
+        ],
+        [
+          0.975,
+          0.985,
+          0.9928,
+          0.9909,
+          0.988,
+          0.9926,
+          1.0
+        ]
+      ]
+    },
+    "per_query_results": [
+      {
+        "query": "babyslakh_full_mix_01",
+        "query_category": "full_mix",
+        "nearest_neighbors": [
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.975
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9725
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9714
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9667
+          },
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9648
+          },
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9583
+          }
+        ]
+      },
+      {
+        "query": "babyslakh_full_mix_02",
+        "query_category": "full_mix",
+        "nearest_neighbors": [
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9905
+          },
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9879
+          },
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.985
+          },
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9838
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9793
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9714
+          }
+        ]
+      },
+      {
+        "query": "guitarset_bossa_nova",
+        "query_category": "guitar_accomp",
+        "nearest_neighbors": [
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9981
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9949
+          },
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9928
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9925
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9879
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9648
+          }
+        ]
+      },
+      {
+        "query": "guitarset_jazz",
+        "query_category": "guitar_accomp",
+        "nearest_neighbors": [
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9981
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9938
+          },
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9909
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9891
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9838
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9583
+          }
+        ]
+      },
+      {
+        "query": "guitarset_rock",
+        "query_category": "guitar_accomp",
+        "nearest_neighbors": [
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9925
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9905
+          },
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9891
+          },
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.988
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9873
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9667
+          }
+        ]
+      },
+      {
+        "query": "maestro_classical_01",
+        "query_category": "solo_piano",
+        "nearest_neighbors": [
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9949
+          },
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9938
+          },
+          {
+            "id": "maestro_classical_02",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9926
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9873
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9793
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.9725
+          }
+        ]
+      },
+      {
+        "query": "maestro_classical_02",
+        "query_category": "solo_piano",
+        "nearest_neighbors": [
+          {
+            "id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9928
+          },
+          {
+            "id": "maestro_classical_01",
+            "category": "solo_piano",
+            "dataset": "maestro",
+            "similarity": 0.9926
+          },
+          {
+            "id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.9909
+          },
+          {
+            "id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "dataset": "guitarset",
+            "similarity": 0.988
+          },
+          {
+            "id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.985
+          },
+          {
+            "id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "dataset": "babyslakh",
+            "similarity": 0.975
+          }
+        ]
+      }
+    ],
+    "notes": "QUALITATIVE PRODUCT PROBE. Cross-work similarity using real music from established corpora. Inspect ranking behavior; do not interpret absolute cosine ranges as quality."
+  },
+  "text_retrieval": {
+    "candidate": "clap",
+    "task": "text_retrieval",
+    "num_queries": 7,
+    "num_audio_candidates": 7,
+    "per_query_results": [
+      {
+        "query_id": "solo_piano",
+        "query_text": "solo piano",
+        "ranked_results": [
+          {
+            "audio_id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "similarity": 0.0118
+          },
+          {
+            "audio_id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "similarity": 0.0114
+          },
+          {
+            "audio_id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "similarity": 0.0108
+          },
+          {
+            "audio_id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "similarity": 0.0095
+          },
+          {
+            "audio_id": "maestro_classical_02",
+            "category": "solo_piano",
+            "similarity": 0.009
+          },
+          {
+            "audio_id": "maestro_classical_01",
+            "category": "solo_piano",
+            "similarity": 0.0089
+          },
+          {
+            "audio_id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "similarity": -0.0106
+          }
+        ]
+      },
+      {
+        "query_id": "prominent_drums_bass",
+        "query_text": "prominent drums and bass",
+        "ranked_results": [
+          {
+            "audio_id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "similarity": 0.0102
+          },
+          {
+            "audio_id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "similarity": 0.0097
+          },
+          {
+            "audio_id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "similarity": 0.0089
+          },
+          {
+            "audio_id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "similarity": 0.0079
+          },
+          {
+            "audio_id": "maestro_classical_01",
+            "category": "solo_piano",
+            "similarity": 0.0071
+          },
+          {
+            "audio_id": "maestro_classical_02",
+            "category": "solo_piano",
+            "similarity": 0.0067
+          },
+          {
+            "audio_id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "similarity": -0.0122
+          }
+        ]
+      },
+      {
+        "query_id": "sparse_vocal",
+        "query_text": "sparse vocal passage",
+        "ranked_results": [
+          {
+            "audio_id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "similarity": 0.0098
+          },
+          {
+            "audio_id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "similarity": 0.0094
+          },
+          {
+            "audio_id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "similarity": 0.0087
+          },
+          {
+            "audio_id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "similarity": 0.0076
+          },
+          {
+            "audio_id": "maestro_classical_01",
+            "category": "solo_piano",
+            "similarity": 0.0067
+          },
+          {
+            "audio_id": "maestro_classical_02",
+            "category": "solo_piano",
+            "similarity": 0.0066
+          },
+          {
+            "audio_id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "similarity": -0.0128
+          }
+        ]
+      },
+      {
+        "query_id": "dense_distorted_guitars",
+        "query_text": "dense distorted guitars",
+        "ranked_results": [
+          {
+            "audio_id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "similarity": 0.0111
+          },
+          {
+            "audio_id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "similarity": 0.0108
+          },
+          {
+            "audio_id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "similarity": 0.0099
+          },
+          {
+            "audio_id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "similarity": 0.009
+          },
+          {
+            "audio_id": "maestro_classical_01",
+            "category": "solo_piano",
+            "similarity": 0.0081
+          },
+          {
+            "audio_id": "maestro_classical_02",
+            "category": "solo_piano",
+            "similarity": 0.008
+          },
+          {
+            "audio_id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "similarity": -0.0112
+          }
+        ]
+      },
+      {
+        "query_id": "acoustic_ensemble",
+        "query_text": "acoustic ensemble",
+        "ranked_results": [
+          {
+            "audio_id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "similarity": 0.0102
+          },
+          {
+            "audio_id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "similarity": 0.0095
+          },
+          {
+            "audio_id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "similarity": 0.0092
+          },
+          {
+            "audio_id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "similarity": 0.0078
+          },
+          {
+            "audio_id": "maestro_classical_01",
+            "category": "solo_piano",
+            "similarity": 0.0071
+          },
+          {
+            "audio_id": "maestro_classical_02",
+            "category": "solo_piano",
+            "similarity": 0.0071
+          },
+          {
+            "audio_id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "similarity": -0.0122
+          }
+        ]
+      },
+      {
+        "query_id": "electronic_synthesizer",
+        "query_text": "electronic synthesizer",
+        "ranked_results": [
+          {
+            "audio_id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "similarity": 0.0106
+          },
+          {
+            "audio_id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "similarity": 0.0103
+          },
+          {
+            "audio_id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "similarity": 0.0094
+          },
+          {
+            "audio_id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "similarity": 0.0086
+          },
+          {
+            "audio_id": "maestro_classical_02",
+            "category": "solo_piano",
+            "similarity": 0.0076
+          },
+          {
+            "audio_id": "maestro_classical_01",
+            "category": "solo_piano",
+            "similarity": 0.0075
+          },
+          {
+            "audio_id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "similarity": -0.0116
+          }
+        ]
+      },
+      {
+        "query_id": "string_quartet",
+        "query_text": "string quartet",
+        "ranked_results": [
+          {
+            "audio_id": "guitarset_bossa_nova",
+            "category": "guitar_accomp",
+            "similarity": 0.0087
+          },
+          {
+            "audio_id": "babyslakh_full_mix_02",
+            "category": "full_mix",
+            "similarity": 0.0082
+          },
+          {
+            "audio_id": "guitarset_jazz",
+            "category": "guitar_accomp",
+            "similarity": 0.0076
+          },
+          {
+            "audio_id": "guitarset_rock",
+            "category": "guitar_accomp",
+            "similarity": 0.0063
+          },
+          {
+            "audio_id": "maestro_classical_01",
+            "category": "solo_piano",
+            "similarity": 0.0058
+          },
+          {
+            "audio_id": "maestro_classical_02",
+            "category": "solo_piano",
+            "similarity": 0.0057
+          },
+          {
+            "audio_id": "babyslakh_full_mix_01",
+            "category": "full_mix",
+            "similarity": -0.0134
+          }
+        ]
+      }
+    ],
+    "notes": "QUALITATIVE PRODUCT PROBE. Text-to-audio retrieval using real music. Inspect ranking plausibility."
+  },
+  "cross_representation": {
+    "candidate": "clap",
+    "task": "cross_representation",
+    "status": "unsupported",
+    "notes": "clap does not support symbolic (MIDI) embedding"
+  }
+}
