@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.12.6 AS uv
 
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 COPY --from=uv /uv /uvx /bin/
@@ -16,7 +16,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 RUN uv sync --locked --no-dev
 
 
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
