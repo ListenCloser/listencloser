@@ -3,6 +3,7 @@ import type { PlaybackSource } from "@/lib/stores/transport";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { RepresentationId } from "@/lib/representations";
 import { categorizeInsights } from "@/lib/inspector/insights";
+import { isAskExposed } from "@/lib/inspector/capabilities";
 import type { AskContext } from "./types";
 
 export type { AskAction, AskContext, AskReference, AskResponse } from "./types";
@@ -14,8 +15,8 @@ export type { AskAction, AskContext, AskReference, AskResponse } from "./types";
  *
  * Returns null until a work is loaded. `visibleInsights` is categorized via
  * the shared `categorizeInsights` helper so whole-work findings remain
- * distinguishable from selection-scoped findings; `unrelated` insights are
- * excluded to match what the workspace actually presents.
+ * distinguishable from selection-scoped findings; `unrelated` insights and
+ * capabilities the backend registry marks `ask: false` are excluded.
  */
 export function deriveAskContext(
   workId: string | null,
@@ -27,13 +28,14 @@ export function deriveAskContext(
   bpm: number,
 ): AskContext | null {
   if (!workId) return null;
+  const askExposedInsights = insights.filter((insight) => isAskExposed(insight.kind));
   return {
     workId,
     representationId: representationId ?? "listen",
     currentTime,
     playbackSourceId: activeSource?.id ?? null,
     selection,
-    visibleInsights: categorizeInsights(insights, selection, bpm).filter(
+    visibleInsights: categorizeInsights(askExposedInsights, selection, bpm).filter(
       (item) => item.category === "selection" || item.category === "whole-work",
     ),
   };
