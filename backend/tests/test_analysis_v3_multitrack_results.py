@@ -45,14 +45,30 @@ def test_measured_result_counts_match_archived_run() -> None:
         assert mr["predicted_notes"] == mr_notes
 
 
-def test_mr_mt3_program_metrics_are_gated_by_serializer_equivalence() -> None:
+def test_mr_mt3_quality_uses_pre_serializer_decoder_evidence() -> None:
+    result = _measured_result()
+    mr = result["mr_mt3"]
+    validity = result["serializer_validity"]
+    sidecar = validity["decoder_sidecar_run"]
+
+    assert mr["decision"] == "RESEARCH"
+    assert mr["measurement_level"].startswith("decoded NoteSequence")
+    assert mr["macro"]["onset_flat_f1"] == 0.7898
+    assert mr["macro"]["note_flat_f1"] == 0.2415
+    assert mr["macro"]["onset_program_family_f1"] == 0.755
+    assert mr["macro"]["onset_program_exact_f1"] == 0.4999
+    assert sidecar["workflow_run_id"] == 33218294887
+    assert sidecar["artifact_digest"] == (
+        "sha256:484581f59d444cfbbc1333da128f8ecb663aa4d0bc0d819a64b72ce8d0818dc8"
+    )
+    assert sidecar["sidecar_to_evaluator_midi_max_timing_quantization_seconds"] <= 0.0011
+    assert validity["stock_serializer_macro_f1"]["onset_flat_f1"] == 0.3366
+    assert validity["patched_serializer_macro_f1"]["onset_flat_f1"] == 0.3366
+
+
+def test_intermediate_serializer_equivalence_remains_auditable() -> None:
     result = _measured_result()
     validity = result["serializer_validity"]
-
-    assert result["mr_mt3"]["decision"] == "RESEARCH"
-    assert result["mr_mt3"]["macro"]["onset_flat_f1"] == 0.3366
-    assert result["mr_mt3"]["macro"]["onset_program_family_f1"] == 0.3147
-    assert result["mr_mt3"]["macro"]["onset_program_exact_f1"] == 0.2286
 
     for evidence in validity["equivalence"].values():
         assert evidence["predicted_note_count_equal"] is True
