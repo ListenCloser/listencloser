@@ -1,0 +1,21 @@
+name: Reconcile V6 with main
+
+on:
+  push:
+    branches:
+      - design/v6-reference-led-system
+    paths:
+      - .github/workflows/resolve-v6-main.yml
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: design/v6-reference-led-system
+          fetch-depth: 0
+      - run: bash .github/scripts/resolve-v6-main.sh
