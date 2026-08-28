@@ -46,6 +46,13 @@ def test_label_ranking_average_precision_handles_ties() -> None:
     assert label_ranking_average_precision(truth, scores) == pytest.approx(7 / 12)
 
 
+def test_label_ranking_average_precision_matches_degenerate_definition() -> None:
+    truth = np.asarray([[False, False, False], [True, True, True]])
+    scores = np.asarray([[0.9, 0.1, 0.5], [0.2, 0.8, 0.4]])
+
+    assert label_ranking_average_precision(truth, scores) == pytest.approx(1.0)
+
+
 def test_recall_ignores_empty_truth_rows() -> None:
     truth = np.asarray([[False, False], [True, False]])
     scores = np.asarray([[0.9, 0.1], [0.8, 0.2]])
