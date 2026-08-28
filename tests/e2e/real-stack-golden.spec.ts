@@ -293,9 +293,9 @@ test("real audio golden path", async ({ page }) => {
   // ── Deletion ─────────────────────────────────────────────────────────
   await test.step("deletion", async () => {
     await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
-    const activeRowActions = page.getByRole("button", { name: /More actions for / }).first();
-    await activeRowActions.click();
-    await page.getByRole("menuitem", { name: "Delete recording" }).click();
+    const deleteRecording = page.getByRole("button", { name: /^Delete / }).first();
+    await expect(deleteRecording).toBeVisible();
+    await deleteRecording.click();
     await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByRole("slider", { name: "Playback position" })).toHaveCount(0);
