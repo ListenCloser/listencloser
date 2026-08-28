@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .metrics import grounded_value_gate, score_by_condition
+from .metrics import CONDITIONS, grounded_value_gate, score_by_condition
 
 ROOT = Path(__file__).parent
 
@@ -62,6 +62,7 @@ def _validate_scored_run(payload: dict[str, Any], assessments: list[dict[str, An
         raise ValueError("assessment file requires non-empty cases list with raw model outputs")
 
     raw_outputs: set[tuple[str, str, str]] = set()
+    required_conditions = set(CONDITIONS)
     for case in cases:
         if not isinstance(case, dict):
             raise ValueError("each case must be an object")
@@ -70,6 +71,10 @@ def _validate_scored_run(payload: dict[str, Any], assessments: list[dict[str, An
         conditions = case.get("conditions")
         if not isinstance(conditions, dict):
             raise ValueError(f"case {case_id} requires conditions object")
+        if set(conditions) != required_conditions:
+            raise ValueError(
+                f"case {case_id} must contain exactly the three conditions: {CONDITIONS}"
+            )
         for condition, output in conditions.items():
             if not isinstance(output, dict):
                 raise ValueError(f"case {case_id} condition {condition} must be an object")
@@ -80,16 +85,18 @@ def _validate_scored_run(payload: dict[str, Any], assessments: list[dict[str, An
                 )
             raw_outputs.add((case_id, question_id, condition))
 
-    for assessment in assessments:
-        key = (
+    assessment_outputs = {
+        (
             assessment.get("case_id"),
             assessment.get("question_id"),
             assessment.get("condition"),
         )
-        if key not in raw_outputs:
-            raise ValueError(
-                "every assessment must correspond to a case/question/condition with a raw response"
-            )
+        for assessment in assessments
+    }
+    if assessment_outputs != raw_outputs:
+        raise ValueError(
+            "assessments must cover every retained case/question/condition raw response exactly"
+        )
 
 
 def score_assessment_file(path: Path) -> dict[str, Any]:
