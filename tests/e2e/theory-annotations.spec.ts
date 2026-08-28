@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
  * Theory annotation E2E regression tests (MSW).
  *
  * Validates the Analysis Inspector hierarchy:
- *   - Overview row shows Key, Tempo, Meter compactly
+ *   - Overview shows interpretable Key, Tempo, Meter as quiet inline metadata
  *   - Harmony evidence can be expanded to Chords, Roman numerals, Function
  *   - Clicking a chord/RN sets a selection
  *   - Withheld capabilities (cadence, key_region) never appear
@@ -63,7 +63,7 @@ test.describe("theory annotations (MSW)", () => {
     return harmony;
   }
 
-  test("Inspector shows compact overview row with Key, Tempo, Meter", async ({
+  test("Inspector shows interpretable Key, Tempo, Meter metadata", async ({
     page,
   }) => {
     await expect(
@@ -71,16 +71,17 @@ test.describe("theory annotations (MSW)", () => {
     ).toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 
-    // Overview row should show Key, Tempo, Meter labels
+    const metadata = page.getByRole("definition");
     await expect(page.getByText("Key", { exact: true })).toBeVisible();
     await expect(page.getByText("Tempo", { exact: true })).toBeVisible();
     await expect(page.getByText("Meter", { exact: true })).toBeVisible();
 
-    // Values should be visible (use exact match to avoid matching RN buttons)
     await expect(page.getByText("A minor", { exact: true })).toBeVisible();
-    await expect(page.getByText("112 BPM")).toBeVisible();
-    await expect(page.getByText("4/4")).toBeVisible();
+    await expect(page.getByText("112 BPM", { exact: true })).toBeVisible();
+    await expect(page.getByText("4/4", { exact: true })).toBeVisible();
+    await expect(metadata).toHaveCount(3);
   });
 
   test("Inspector shows Harmony section with Chords, Roman numerals, Function sub-sections", async ({
@@ -110,7 +111,6 @@ test.describe("theory annotations (MSW)", () => {
     const harmony = await openHarmonyEvidence(page);
     await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
 
-    // Mock returns 6 chord entries; verify distinct chords are visible
     await expect(harmony.getByRole("button", { name: "C maj" }).first()).toBeVisible();
     await expect(harmony.getByRole("button", { name: "G min" })).toBeVisible();
     await expect(harmony.getByRole("button", { name: "F maj" })).toBeVisible();
@@ -139,10 +139,8 @@ test.describe("theory annotations (MSW)", () => {
     const harmony = await openHarmonyEvidence(page);
     await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
 
-    // Click first chord entry — should set a selection (scope header appears)
     await harmony.getByRole("button", { name: "C maj" }).first().click();
 
-    // A selection scope header should appear showing the time range
     await expect(page.locator(".inspector-scope-value")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("0:00–0:02")).toBeVisible();
   });
@@ -152,8 +150,6 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    // Cadence and key_region are WITHHELD from product.
-    // These headings must NOT appear in the inspector even after evidence expands.
     await openHarmonyEvidence(page);
     await expect(page.getByRole("heading", { name: "Cadences" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Key Regions" })).toHaveCount(0);
