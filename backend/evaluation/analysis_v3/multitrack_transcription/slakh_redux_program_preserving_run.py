@@ -19,7 +19,10 @@ import platform
 import subprocess
 import sys
 import time
+from collections import defaultdict
 from pathlib import Path
+
+import pretty_midi
 
 from evaluation.analysis_v3.multitrack_transcription.run import (
     run_basic_pitch_baseline,
@@ -43,6 +46,55 @@ from evaluation.analysis_v3.multitrack_transcription.slakh_redux_subset_run impo
 SERIALIZER_NAME = "hello-ai research program-preserving serializer"
 
 
+def _write_decoded_notes_midi(note_json: Path, output_midi: Path) -> list[dict[str, object]]:
+    payload = json.loads(note_json.read_text())
+    notes = payload.get("notes")
+    if not isinstance(notes, list):
+        raise ValueError(f"decoded-note JSON has no notes list: {note_json}")
+
+    grouped: dict[tuple[int, bool], list[dict[str, object]]] = defaultdict(list)
+    for note in notes:
+        if not isinstance(note, dict):
+            raise ValueError(f"invalid decoded note in {note_json}")
+        is_drum = bool(note["is_drum"])
+        program = 0 if is_drum else int(note["program"])
+        grouped[(program, is_drum)].append(note)
+
+    midi = pretty_midi.PrettyMIDI(initial_tempo=120.0)
+    streams: list[dict[str, object]] = []
+    for (program, is_drum), stream_notes in sorted(
+        grouped.items(), key=lambda item: (item[0][1], item[0][0])
+    ):
+        instrument = pretty_midi.Instrument(
+            program=max(0, min(127, program)),
+            is_drum=is_drum,
+            name="MR-MT3 drums" if is_drum else f"MR-MT3 program {program}",
+        )
+        for note in stream_notes:
+            start = max(0.0, float(note["start_time"]))
+            end = max(start + 0.001, float(note["end_time"]))
+            instrument.notes.append(
+                pretty_midi.Note(
+                    velocity=max(1, min(127, int(note["velocity"]))),
+                    pitch=max(0, min(127, int(note["pitch"]))),
+                    start=start,
+                    end=end,
+                )
+            )
+        midi.instruments.append(instrument)
+        streams.append(
+            {
+                "program": program,
+                "is_drum": is_drum,
+                "notes": len(stream_notes),
+            }
+        )
+
+    output_midi.parent.mkdir(parents=True, exist_ok=True)
+    midi.write(str(output_midi))
+    return streams
+
+
 def run_program_preserving_batch(
     *,
     mt3_python: Path,
@@ -62,7 +114,7 @@ def run_program_preserving_batch(
         {
             "id": track_id,
             "audio": str((dataset_root / track_id / "mix.wav").resolve()),
-            "output": str((mt3_root / f"{track_id}.mid").resolve()),
+            "output_json": str((mt3_root / f"{track_id}.decoded.json").resolve()),
         }
         for track_id in TRACK_IDS
     ]
@@ -187,9 +239,11 @@ def main() -> None:
     mt3_entries: list[dict[str, object]] = []
     for track_id in TRACK_IDS:
         item = track_stats[track_id]
+        decoded_json = Path(str(item["output_json"]))
         predicted_midi = mt3_root / f"{track_id}.mid"
-        if not predicted_midi.is_file():
-            raise RuntimeError(f"missing program-preserving MIDI for {track_id}")
+        streams = _write_decoded_notes_midi(decoded_json, predicted_midi)
+        if sum(int(stream["notes"]) for stream in streams) != int(item["predicted_notes"]):
+            raise RuntimeError(f"decoded-note serialization changed note count for {track_id}")
         runtime_seconds = float(item["audio_load_seconds"]) + float(item["inference_decode_seconds"])
         mt3_entries.append(
             {
