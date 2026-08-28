@@ -46,7 +46,7 @@ export const handlers = [
 
   http.get("/api/v1/projects/:projectId/works", async () => {
     return HttpResponse.json([
-      { id: "mock-work-1", project_id: "mock-project-1", title: "Test Work", composer: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      { id: "mock-work-1", project_id: "mock-project-1", title: "Test Work", composer: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), archived_at: null },
     ]);
   }),
 
@@ -149,6 +149,8 @@ export const handlers = [
       { id: "key-insight", version_id: "mock-midi-version", kind: "key", claim: "Key: A minor", span: nullSpan, entity_ids: [], evidence: { tonic: "A", mode: "minor" }, confidence: 0.82, provenance: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-analysis-job" },
       { id: "tempo-insight", version_id: "mock-midi-version", kind: "tempo", claim: "Tempo: 112 BPM", span: nullSpan, entity_ids: [], evidence: { bpm: 112 }, confidence: 0.88, provenance: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-analysis-job" },
       { id: "time-insight", version_id: "mock-midi-version", kind: "time_signature", claim: "Time Signature: 4/4", span: nullSpan, entity_ids: [], evidence: { numerator: 4, denominator: 4 }, confidence: 0.9, provenance: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-analysis-job" },
+      { id: "density-insight", version_id: "mock-midi-version", kind: "rhythm_density", claim: "Observed note-onset density varies across the recording", span: nullSpan, entity_ids: [], evidence: { windows: [{ start: 0.5, end: 1, density: 2 }, { start: 2, end: 2.5, density: 8 }] }, confidence: null, provenance: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-analysis-job" },
+      { id: "melody-peak-insight", version_id: "mock-midi-version", kind: "melody_register_peak", claim: "Highest observed melody register around 0:02", span: makeSpan(2.5, 3.1), entity_ids: [], evidence: { pitch: 84, note: "C6" }, confidence: null, provenance: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-analysis-job" },
       { id: "chord-1", version_id: "mock-midi-version", kind: "chord", claim: "C maj", span: makeSpan(0, 2), entity_ids: [], evidence: { root: "C", quality: "maj", start_seconds: 0, end_seconds: 2 }, confidence: null, provenance: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-analysis-job" },
       { id: "chord-2", version_id: "mock-midi-version", kind: "chord", claim: "G min", span: makeSpan(2, 4), entity_ids: [], evidence: { root: "G", quality: "min", start_seconds: 2, end_seconds: 4 }, confidence: null, provenance: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-analysis-job" },
       { id: "chord-3", version_id: "mock-midi-version", kind: "chord", claim: "F maj", span: makeSpan(4, 6), entity_ids: [], evidence: { root: "F", quality: "maj", start_seconds: 4, end_seconds: 6 }, confidence: null, provenance: {}, created_at: new Date().toISOString(), created_by: "mock-user-1", produced_by_job_id: "mock-analysis-job" },
