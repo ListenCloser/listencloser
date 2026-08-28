@@ -1,0 +1,24 @@
+{
+  "candidate": "bs_roformer",
+  "task": "operational",
+  "device": "cpu",
+  "timestamp": "2026-08-28T06:05:21Z",
+  "operational": {
+    "candidate": "bs_roformer",
+    "device": "cpu",
+    "python_version": "3.9.6",
+    "platform": "macOS-15.3.1-arm64-arm-64bit",
+    "arch": "arm64",
+    "model_id": "lucidrains/BS-RoFormer",
+    "code_license": "MIT",
+    "weight_license": "CC-BY-NC-SA-4.0",
+    "num_stems": 4,
+    "supports_vocals": true,
+    "supports_drums": true,
+    "supports_bass": true,
+    "supports_other": true,
+    "install_success": true,
+    "load_success": false,
+    "load_error": "Failed to load BS-RoFormer: Method bs_roformer.bs_roformer.BSRoformer.__init__() parameter \"freq_range\" stringified PEP 604 type hint 'tuple[int, int] | None' syntactically invalid under Python < 3.10 (i.e., TypeError(\"unsupported operand type(s) for |: 'types.GenericAlias' and 'NoneType'\")). Consider either:\n* Requiring Python >= 3.10. Abandon Python < 3.10 all ye who code here.\n* Refactoring PEP 604 type hints into equivalent PEP 484 type hints: e.g.,\n    # Instead of this...\n    from __future__ import annotations\n    def bad_func() -> int | str: ...\n\n    # Do this. Ugly, yet it works. Worky >>>> pretty.\n    from typing import Union\n    def bad_func() -> Union[int, str]: ..."
+  }
+}
