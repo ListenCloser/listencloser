@@ -1,11 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 /**
  * Theory annotation E2E regression tests (MSW).
  *
- * Validates the new Analysis Inspector hierarchy:
+ * Validates the Analysis Inspector hierarchy:
  *   - Overview row shows Key, Tempo, Meter compactly
- *   - Harmony section contains Chords, Roman numerals, Function sub-sections
+ *   - Harmony evidence can be expanded to Chords, Roman numerals, Function
  *   - Clicking a chord/RN sets a selection
  *   - Withheld capabilities (cadence, key_region) never appear
  */
@@ -50,6 +50,19 @@ test.describe("theory annotations (MSW)", () => {
     );
   });
 
+  async function openHarmonyEvidence(page: Page) {
+    const harmony = page
+      .locator("details.inspector-evidence-group")
+      .filter({ hasText: /^Harmony/ })
+      .first();
+    await expect(harmony).toBeVisible();
+    if ((await harmony.getAttribute("open")) === null) {
+      await harmony.locator("summary").click();
+    }
+    await expect(harmony).toHaveAttribute("open", "");
+    return harmony;
+  }
+
   test("Inspector shows compact overview row with Key, Tempo, Meter", async ({
     page,
   }) => {
@@ -77,20 +90,16 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    // Harmony section heading
-    await expect(page.getByRole("heading", { name: "Harmony" })).toBeVisible();
+    const harmony = await openHarmonyEvidence(page);
 
-    // Chords sub-section
-    await expect(page.getByRole("heading", { name: "Chords" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "C maj" }).first()).toBeVisible();
+    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "C maj" }).first()).toBeVisible();
 
-    // Roman numerals sub-section
-    await expect(page.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
+    await expect(harmony.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
 
-    // Function sub-section
-    await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "TONIC (I)" }).first()).toBeVisible();
+    await expect(harmony.getByRole("heading", { name: "Function" })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "TONIC (I)" }).first()).toBeVisible();
   });
 
   test("all 6 chord entries rendered in Inspector", async ({ page }) => {
@@ -98,13 +107,14 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.getByRole("heading", { name: "Chords" })).toBeVisible();
+    const harmony = await openHarmonyEvidence(page);
+    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
 
     // Mock returns 6 chord entries; verify distinct chords are visible
-    await expect(page.getByRole("button", { name: "C maj" }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "G min" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "F maj" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "G7" })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "C maj" }).first()).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "G min" })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "F maj" })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "G7" })).toBeVisible();
   });
 
   test("all 6 roman numeral entries rendered in Inspector", async ({ page }) => {
@@ -112,12 +122,13 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
+    const harmony = await openHarmonyEvidence(page);
+    await expect(harmony.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
 
-    await expect(page.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "v (A minor)", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "iv (A minor)", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "V7 (A minor)" })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "v (A minor)", exact: true })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "iv (A minor)", exact: true })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: "V7 (A minor)" })).toBeVisible();
   });
 
   test("Clicking a chord in Inspector sets selection", async ({ page }) => {
@@ -125,14 +136,15 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.getByRole("heading", { name: "Chords" })).toBeVisible();
+    const harmony = await openHarmonyEvidence(page);
+    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
 
     // Click first chord entry — should set a selection (scope header appears)
-    await page.getByRole("button", { name: "C maj" }).first().click();
+    await harmony.getByRole("button", { name: "C maj" }).first().click();
 
     // A selection scope header should appear showing the time range
-    await expect(page.locator(".inspector-scope-label")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("0:00\u20130:02")).toBeVisible();
+    await expect(page.locator(".inspector-scope-value")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("0:00–0:02")).toBeVisible();
   });
 
   test("no cadence or key_region insights appear", async ({ page }) => {
@@ -141,8 +153,9 @@ test.describe("theory annotations (MSW)", () => {
     ).toBeVisible({ timeout: 20_000 });
 
     // Cadence and key_region are WITHHELD from product.
-    // These headings must NOT appear in the inspector.
-    await expect(page.getByRole("heading", { name: "Cadences" })).not.toBeVisible();
-    await expect(page.getByRole("heading", { name: "Key Regions" })).not.toBeVisible();
+    // These headings must NOT appear in the inspector even after evidence expands.
+    await openHarmonyEvidence(page);
+    await expect(page.getByRole("heading", { name: "Cadences" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Key Regions" })).toHaveCount(0);
   });
 });
