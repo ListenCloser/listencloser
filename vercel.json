@@ -5,5 +5,5 @@
   "outputDirectory": ".next",
   "installCommand": "npm install",
   "cleanUrls": true,
-  "ignoreCommand": "test \"$VERCEL_GIT_COMMIT_REF\" != \"main\""
+  "ignoreCommand": "test \"$VERCEL_ENV\" != \"production\""
 }
