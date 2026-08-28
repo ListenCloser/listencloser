@@ -1,249 +1,426 @@
-# Visual Excitement Experiments
+# Visual Enhancement Source of Truth
 
-This is an R&D queue, not a mandate to make the product louder.
+> **Status:** active design R&D for PR #405.
+>
+> This document is the authoritative source for visual enhancement proposals, references, decisions, guardrails, and review questions. Chat discussion and earlier #405 hero/favicon experiments are superseded when they conflict with this file.
 
-The product should feel contemporary because **music, state, and causality are visible**, not because the interface accumulates trendy effects.
+## 0. Executive decision
 
-## Current recommendation: Signal Landscape
+The goal is **more polish, identity, and wow factor without turning hello-ai into a component-gallery demo or generic AI startup**.
 
-After visual review, the original PR #405 miniature-workspace hero was rejected as too literal and visually generic. The current direction is the **Signal Landscape**: an abstract contour field that feels halfway between signal processing, topography, and musical phrasing.
+Current direction:
 
-The implementation prototype lives at `public/landing-signal.svg` and is intentionally lightweight SVG/CSS rather than a shader or 3D scene.
+- **SELECTED FOR FURTHER PROTOTYPING:** **Signal Landscape** — an abstract contour/spectral object with extremely slow SVG/CSS motion.
+- **STRONG IMPLEMENTATION REFERENCE:** Kokonut / 21st.dev **Background Paths** — borrow path composition and motion discipline, not the stock gradient-startup aesthetic.
+- **STRONG MOTION REFERENCE:** **Entropy** — borrow the organic order→structure feeling; do not run the full busy effect persistently.
+- **AESTHETIC REFERENCES ONLY:** Halide Topo, Liquid Metal — borrow single-object confidence, monochrome technical depth, and negative space; reject theatrical 3D/parallax/shader identity for now.
+- **REJECTED:** the first #405 miniature-workspace hero (waveform + piano roll + score + evidence cards). It was explanatory but looked like a designed mockup rather than a confident product identity.
+- **UNRESOLVED:** favicon / logo. The current waveform/staff mark is not approved and should not be defended merely because it is already implemented.
 
-### Motion
+The signed-out surface may be expressive. The signed-in workspace remains a calm creative instrument.
 
-The Signal Landscape is not meant to be static, but it also should not behave like an animated screensaver.
+## 1. Visual evidence
 
-Current prototype motion budget:
+### A. Ranked hero direction board
 
-- contour layers drift vertically by only a few pixels on 16–24 second cycles;
-- one restrained brass trace moves slowly across a ridge;
-- a few evidence points breathe subtly;
+![Hero directions](./visual-rd/hero-directions.svg)
+
+### B. Current animated Signal Landscape prototype
+
+![Signal Landscape live prototype](../../public/landing-signal.svg)
+
+The live prototype uses SVG/CSS only:
+
+- 18 contour ridges;
+- ~16–24 second low-amplitude drift;
+- one slow brass trace;
+- three very subtle evidence points;
 - no pointer parallax;
-- no scroll-jacking;
 - no JavaScript frame loop;
-- no canvas/WebGL dependency;
-- `prefers-reduced-motion` freezes the landscape into a complete static composition.
+- no canvas/WebGL;
+- no shader dependency;
+- `prefers-reduced-motion` freezes the complete composition.
 
-The desired feeling is **slow musical respiration**, not visible animation for its own sake.
+Target feeling: **slow musical respiration**, not an animated screensaver.
 
-### Why this direction is stronger
+### C. Favicon / brand exploration board
 
-1. It provides one compelling object instead of a miniature dashboard.
-2. It is abstract enough to create identity without becoming a generic waveform logo.
-3. It can eventually be driven by real musical evidence, but does not need fake analysis to look complete.
-4. It gives the product a reusable visual grammar beyond the hero.
-5. It stays compatible with the calm signed-in workspace because the same language can reduce down to static lines, a playhead trace, or a small evidence pulse.
+![Brand directions](./visual-rd/brand-directions.svg)
 
-## Reference position
+Current preference is only a **lane**, not a final logo: derive a simple asymmetrical contour/fold from the same visual grammar, then simplify until it works in pure monochrome at 16×16.
 
-We should use good OSS/component work more directly when its execution is already polished, but treat it as a **construction kit, not an aesthetic authority**.
+## 2. Product-level design thesis
 
-### Strong references
+hello-ai should feel like an **editorial instrument**:
 
-#### Kokonut UI / Background Paths
+- precise rather than flashy;
+- musically expressive rather than SaaS-generic;
+- technically credible rather than mystical-AI;
+- visually memorable without competing with the recording;
+- dense and calm while operating;
+- more art-directed while introducing the product.
 
-Use: **yes, strongly as implementation/motion reference.**
+The key principle is:
 
-Why:
-- animated SVG paths;
-- no canvas and no custom frame loop;
-- visually polished with relatively low implementation complexity;
-- easy to reduce or recolor;
-- its line/path vocabulary maps naturally to signal and musical structure.
+> **Make music, state, and causality visually interesting. Do not add visual effects simply because they are fashionable.**
 
-What to change:
-- no generic gradient-title treatment;
-- fewer paths;
-- slower motion;
-- warm neutral / brass palette;
-- shapes should imply signal structure rather than arbitrary decorative waves.
-
-#### Entropy by xubohuah
-
-Use: **motion/art-direction reference, not direct product component.**
-
-Why:
-- the compelling idea is order emerging from apparent chaos;
-- organic movement feels more musical than conventional SaaS animation;
-- useful inspiration for processing/transformation moments.
-
-Risk:
-- too busy as a persistent background;
-- can quickly read as generative-AI art rather than music software.
-
-Best use: a short transformation or processing sequence, not the entire application background.
-
-#### Halide Topo Hero
-
-Use: **aesthetic reference, not implementation.**
-
-Why:
-- monochrome technical landscape;
-- depth and grain without generic gradient blobs;
-- strong single-object composition.
-
-Reject from the reference:
-- persistent mouse parallax;
-- dramatic 3D perspective as a primary interaction;
-- long theatrical entrance.
-
-#### Liquid Metal Hero
-
-Use: **composition reference only.**
-
-The single-object confidence is excellent. The literal liquid-metal/shader material is probably wrong for hello-ai and carries more rendering/dependency cost than the value it adds.
-
-## Extending the visual system beyond the hero
-
-The hero should be the richest expression. The same ideas can continue elsewhere at much lower intensity.
-
-### 1. Landing-page section transitions
-
-Contour/path lines can continue below the fold as sparse separators or connective traces instead of introducing a different decorative motif for every section.
-
-**Intensity:** 3/10.
-
-### 2. Import / upload
-
-A dropped recording can begin as one simple signal trace and resolve into the real waveform when decoding finishes.
-
-This is not decorative continuity: it communicates that the uploaded file has become the musical object in the workspace.
-
-**Intensity:** 4/10, short and state-driven.
-
-### 3. Processing states
-
-Use the line grammar to show real evidence becoming available:
-
-- source audio;
-- timing/grid;
-- detected events;
-- notation;
-- analysis.
-
-Do not fabricate intermediate results. The visual should only become more structured as actual pipeline states complete.
-
-**Intensity:** 4/10 while processing; stops when complete.
-
-### 4. Empty canvas / onboarding
-
-A very faint, fully static fragment of the contour field can give empty states identity without another illustration or card stack.
-
-**Intensity:** 1/10.
-
-### 5. Evidence jumps and selection
-
-The workspace should not inherit the hero landscape. Instead, reuse only its smallest behavior: when an insight jumps to a musical region, a thin trace/pulse can briefly identify the destination.
-
-**Intensity:** 1–2/10, user-triggered only.
-
-### 6. Brand motion
-
-The eventual mark can be derived from a single contour fold / resonance gesture. On boot it may resolve once from a line into the static mark, then remain still.
-
-**Intensity:** 2/10, one-shot.
-
-## Decision rule
-
-A visual treatment earns its place when it does at least one of these:
+A treatment earns its place when it does one or more of these:
 
 1. explains the product faster;
-2. makes a state change easier to perceive;
+2. communicates a real state change;
 3. makes direct manipulation feel more physical;
-4. creates memorable identity without competing with music;
-5. reduces uncertainty during waiting or processing.
+4. improves orientation across representations;
+5. establishes memorable identity without competing with music;
+6. reduces uncertainty while work is processing.
 
 If it only looks impressive in a component gallery, it is not enough.
 
-## Tier A — worth building / testing
+## 3. Preferred visual system: Signal Landscape
 
-### 1. Signal Landscape landing hero
-**Status:** prototype implemented in PR #405.
+### Why this is stronger than the original #405 hero
 
-Use a restrained SVG contour field as the landing focal object. It should feel derived from musical signal/structure even before we make it literally data-driven.
+The previous mini-workspace illustration tried to explain every feature at once. It was legible but visually fragmented and literal.
 
-**Why it adds value:** identity + differentiation + establishes a reusable visual grammar.
+Signal Landscape instead gives the first screen **one strong object**. It can imply waveform, spectral energy, self-similarity, density, topology, and time without becoming a literal fake screenshot.
 
-### 2. Upload → waveform continuity
-When a user drops a file, let the drop surface transition directly into the first waveform rather than disappearing into a generic progress state.
+That gives us:
 
-Keep the transition short and deterministic.
+- stronger negative space;
+- one focal region instead of card soup;
+- a visual language that can be genuinely product-specific;
+- room for display typography without the common “serif + shiny blob” AI formula;
+- a system that can decay into quieter forms throughout the product.
 
-**Why it adds value:** continuity + confidence during import.
+### Motion model
 
-### 3. Processing as evidence arriving
-Instead of a generic spinner, progressively reveal the kinds of evidence that have actually become available: audio ready, beat grid ready, transcription ready, score ready, analysis ready.
+Motion should be almost subconscious:
 
-**Why it adds value:** reduces uncertainty; exposes pipeline truthfully.
+- amplitude: a few pixels, not dramatic shape morphing;
+- duration: measured in tens of seconds, not 1–3 second loops;
+- no mouse chase by default;
+- no scroll hijacking;
+- no autoplay audio requirement;
+- no animation needed to understand the page;
+- all important information exists in the static frame;
+- reduced-motion is a first-class static composition.
 
-### 4. Evidence-linked Ask response
-When an Ask answer cites a time range, briefly emphasize that same range in the active representation and offer a direct jump/loop affordance.
+### Future data coupling
 
-**Why it adds value:** trust + causal connection between language and music.
+The initial version may be art-directed rather than numerically derived, but the strongest long-term version would let the visual grammar correspond to actual musical data.
 
-### 5. Shared playhead micro-feedback
-Keep the playhead visually consistent across waveform, piano roll, score, and section/evidence lanes. When a user jumps from an insight, the destination can use a brief pulse/fade to explain where they landed.
+Potential inputs:
 
-**Why it adds value:** orientation across representations.
+- waveform envelope;
+- spectral centroid / energy;
+- note density;
+- onset density;
+- self-similarity / structural novelty;
+- section boundaries;
+- stem activity.
 
-## Tier B — prototype before committing
+Do **not** fake a precise mapping before it exists. If data-driven behavior is added, it should be truthful and documented.
 
-### 6. Real-data Signal Landscape
-Drive contour geometry from real musical evidence (for example spectral energy, density, section novelty, or a downsampled self-similarity representation) rather than purely illustrative coordinates.
+## 4. Expression should decay as the user enters the tool
 
-**Risk:** do not imply a direct scientific mapping unless the mapping is real and explainable.
+The system should not be equally expressive everywhere.
 
-### 7. Representation morph
-A tap or one controlled scroll transition could move from abstract signal → waveform → detected events → notation.
+| Surface | Expression budget | Recommended treatment |
+|---|---:|---|
+| Signed-out hero | 8/10 | animated Signal Landscape + strong typography |
+| Landing body | 4/10 | sparse path fragments, real product media, restrained reveals |
+| Upload/import | 4/10 | signal → real waveform continuity |
+| Processing | 4/10 | real evidence becoming available; no fake progress theater |
+| Empty workspace | 1–2/10 | static/faint contour fragment only |
+| Active workspace | 1/10 | no ambient spectacle; state-linked micro-feedback |
+| Breakdown / Inspector | 1/10 | evidence-linked pulse/jump only |
+| Brand/favicons | static | simple monochrome glyph |
 
-**Risk:** easy to become marketing theater; mobile/reduced-motion must remain first-class.
+This is the main anti-slop mechanism: **the marketing edge gets the art direction; the work surface gets precision.**
 
-### 8. Entropy-inspired processing transition
-Use an order-from-chaos motion vocabulary during analysis/transcription, but only while the system genuinely moves from raw input to structured evidence.
+## 5. Enhancements beyond the hero
 
-**Risk:** visual busyness and generic generative-art feel.
+The visual R&D is not just a hero project. These are the highest-value extensions.
 
-## Tier C — current hype, low product value
+### Tier A — worth building / testing
 
-Avoid unless a future use case proves otherwise:
+#### 5.1 Upload → waveform continuity
 
-- full-screen WebGL shader identity;
-- particle fields;
-- aurora blobs as primary identity;
-- magnetic buttons;
-- cursor-follow spotlights everywhere;
-- dock navigation;
+When a user drops an audio file, the import surface should not disappear into a generic spinner. A simple signal trace can resolve into the first **real waveform** once decoding is available.
+
+Why it matters:
+
+- communicates object continuity;
+- makes import feel intentional;
+- makes the product feel more tactile;
+- creates wow through meaning rather than decoration.
+
+#### 5.2 Processing as evidence arriving
+
+Replace generic loading theater with truthful stages such as:
+
+- audio available;
+- timing evidence available;
+- transcription available;
+- notation available;
+- analysis available.
+
+A raw/loose signal can become slightly more structured as those real outputs arrive. This is where the **Entropy order→structure idea** is more appropriate than as a permanent full-page background.
+
+Do not animate notes, chords, sections, or findings that have not actually been computed.
+
+#### 5.3 Evidence-linked jumps
+
+When Breakdown/Ask points to a time range and the user jumps there:
+
+- seek the real shared transport;
+- briefly emphasize the destination in the active representation;
+- optionally pulse one short contour/trace cue;
+- never leave an ambient animation running afterward.
+
+This is visual polish that improves comprehension and trust.
+
+#### 5.4 Shared playhead micro-feedback
+
+Keep the playhead visually coherent across waveform, piano roll, score, and temporal evidence. Source/representation switches should feel like one shared musical time, not separate widgets.
+
+#### 5.5 Landing body as product story, not feature-card grid
+
+Below the hero, prefer 2–4 large editorial sections that show actual product behaviors:
+
+1. **Bring in a recording** — upload/record → waveform.
+2. **See the same moment differently** — waveform / piano roll / score synchronized around one playhead.
+3. **Understand what changed** — one evidence-backed finding tied to a real time range.
+4. **Ask about it** — one answer pointing back to the same musical evidence.
+
+Use real product media or focused prototypes. Avoid a 6–12 card “features” bento unless hierarchy genuinely benefits from it.
+
+#### 5.6 Tooltips / microinteraction primitives
+
+Use high-quality OSS primitives for polish where appropriate: tooltips, disclosure, menus, segmented controls, state transitions. These should improve the existing product UI rather than introduce a new style language.
+
+This is complementary to PR #401, which handles baseline legibility and craft.
+
+### Tier B — prototype before committing
+
+#### 5.7 One controlled representation morph
+
+A single interaction could move from abstract signal → waveform → discrete notes → notation.
+
+Good if:
+
+- one-shot;
+- short;
+- understandable without motion;
+- mobile-safe;
+- no forced scroll choreography.
+
+Bad if it becomes a long cinematic scroll sequence.
+
+#### 5.8 Real music-reactive hero
+
+A user-initiated demo recording could subtly drive the Signal Landscape.
+
+Only pursue if:
+
+- audio is explicitly started by the user;
+- animation uses real data;
+- CPU/mobile behavior is acceptable;
+- the static hero remains complete;
+- this tests meaningfully better than the quiet ambient version.
+
+#### 5.9 Section/story navigation
+
+A timeline-like landing navigation could reveal Intro → See → Understand → Ask, styled more like a playhead or chapter scrubber than conventional pills.
+
+Prototype only; do not make navigation cryptic.
+
+## 6. Reference matrix
+
+These references are **construction material**, not aesthetic authority. `DESIGN.md` remains authoritative.
+
+| Reference | Role | What to borrow | What not to borrow |
+|---|---|---|---|
+| [21st.dev / Kokonut Background Paths](https://21st.dev/@kokonutd/components/background-paths) | Strong implementation reference | animated SVG path composition, timing, lightweight structure | stock gradient-title/startup styling |
+| [21st.dev / Entropy](https://21st.dev/@xubohuah/components/entropy) | Motion/art-direction reference | organic flow, order→structure feeling | busy persistent background / too many simultaneous elements |
+| [21st.dev / Halide Topo Hero](https://21st.dev/@shivendra9795kumar/components/halide-topo-hero) | Aesthetic reference | monochrome topology, grain, technical depth | persistent mouse parallax, theatrical 3D entrance |
+| [21st.dev / Liquid Metal Hero](https://21st.dev/@chowlol202/components/liquid-metal-hero) | Composition reference | one confident focal object, strong negative space | literal liquid-metal identity, shader dependency by default |
+| [Motion Primitives](https://github.com/ibelick/motion-primitives) | OSS primitive pool | high-quality micro-motion, disclosure, spotlight/interaction ideas | applying motion primitives everywhere |
+| [Magic UI](https://github.com/magicuidesign/magicui) | OSS pattern pool | backgrounds/reveals and polished copy-paste interaction patterns | generic “animated landing template” assembly |
+| [React Bits](https://github.com/DavidHDev/react-bits) | Prototype pool | selectively explore unusual backgrounds/visualizations | broad dependency adoption; note MIT + Commons Clause terms |
+| Mobbin | shipped-product pattern reference | proven navigation/interaction hierarchy | copying unrelated app visual identity |
+
+### Licensing rule
+
+21st.dev aggregates components from different authors/sources. Before copying an implementation into production, verify the **specific source component/package license**, not merely that it appears on 21st.dev.
+
+Known reference-library status at time of this R&D:
+
+- Motion Primitives: MIT;
+- Magic UI: MIT;
+- React Bits: MIT + Commons Clause restriction on reselling/redistributing the component library itself.
+
+Keep licensing notes in any implementation PR that directly incorporates third-party source.
+
+## 7. What we explicitly reject for now
+
+These are not banned forever; they simply have poor expected value for the current product.
+
+- generic aurora / colorful AI blobs as identity;
+- generic neural-network or particle backgrounds;
 - glass-card stacks;
-- animated border beams;
-- shiny text;
-- typewriter for core copy;
+- border beams / shiny borders everywhere;
+- magnetic buttons;
+- cursor-follow spotlight as a default behavior;
+- text scramble/typewriter for core explanatory copy;
+- marquee content;
 - infinite floating cards;
-- 3D galleries;
-- scroll-jacking;
-- persistent parallax in the editor.
+- dock navigation as primary navigation;
+- heavy 3D galleries;
+- forced smooth scrolling / scroll hijacking;
+- persistent parallax;
+- autoplay media;
+- multiple ambient animations in one viewport;
+- full-screen shaders simply because they look impressive in isolation.
 
-## Motion budget
+### “One effect” rule
 
-- one moving focal region at a time;
-- user-triggered motion beats ambient motion;
-- ambient hero motion is extremely slow and low-amplitude;
-- no animation is required to understand a control;
-- reduced-motion is fully usable, not a degraded fallback;
-- prefer SVG/CSS before Motion/GSAP/Three/WebGL;
-- do not animate expensive layout properties during interaction.
+Do not stack:
 
-## Visual language guardrails
+- shader + blur + glass + border beam + cursor spotlight + floating animation.
+
+A polished composition should normally have **one dominant visual idea**, supported by typography, spacing, and restrained state feedback.
+
+## 8. Brand / favicon SOT
+
+### Current status
+
+**Unresolved.** The currently changed waveform/staff favicon is not approved.
+
+### Requirements
+
+The next mark must:
+
+1. work at 16×16 in pure monochrome;
+2. have a recognizable silhouette without internal micro-detail;
+3. not read primarily as a waveform/equalizer/music-note/AI sparkle;
+4. not depend on gradients or animation;
+5. feel compatible with both the expressive landing and restrained app chrome;
+6. derive from the product’s signal/contour grammar without becoming a tiny illustration.
+
+### Current preferred exploration lane
+
+**Contour Fold:** a single asymmetrical continuous gesture that folds or crosses once.
+
+Potential virtue: suggests signal, transformation, continuity, and musical phrasing without literally depicting any of them.
+
+Risk: can still collapse into a generic wave if not simplified carefully.
+
+No mark ships until desktop header, boot state, light/dark surface, 32px, and 16px comparisons are captured side by side.
+
+## 9. Typography / color / texture guardrails
 
 Keep:
 
-- warm graphite workspace;
-- paper-like notation surface;
-- restrained brass identity/accent;
-- blue reserved for playback/score-time relationships;
-- expressive typography at the marketing edge;
-- compact, precise typography in the tool;
-- low gloss and low card count;
-- the musical object as the largest visual element.
+- warm graphite/dark neutral as core product environment;
+- paper-like score surface;
+- restrained brass accent/identity;
+- blue for playback/time-linked relationships where useful;
+- editorial display typography on marketing surfaces;
+- compact sans/mono in the tool;
+- low gloss;
+- limited radius vocabulary;
+- minimal card count;
+- music representation as the largest product object.
 
-The landing page may be more expressive than the editor, but it should feel like the same instrument before and after sign-in.
+Avoid:
+
+- purple as a generic AI accent merely because a reference uses it;
+- gradient text as default branding;
+- excessive serif everywhere inside the tool;
+- grain so strong that it degrades legibility;
+- huge hero copy that leaves no room for the actual visual/product object.
+
+## 10. Motion budget
+
+Global rules:
+
+- one moving focal region at a time;
+- user-triggered motion beats ambient motion;
+- ambient motion belongs mostly to the signed-out edge;
+- entrance motion is one-shot;
+- menu/popover motion should be ~100–180ms;
+- no animation is necessary to discover a control;
+- reduced-motion must be fully useful;
+- avoid adding Motion/GSAP/Three unless CSS/SVG cannot achieve the validated behavior;
+- continuous effects must not animate expensive layout/filter properties unnecessarily;
+- mobile may simplify or remove decorative motion rather than preserving desktop spectacle at all costs.
+
+## 11. Relationship to other design work
+
+### PR #401
+
+#401 is the **baseline craft / legibility** lane:
+
+- type scale;
+- menu polish;
+- Breakdown legibility;
+- subtle control-state feedback.
+
+It should remain conservative and is conceptually compatible with this SOT.
+
+### PR #405
+
+#405 is the **visual enhancement / identity R&D** lane and should remain the SOT for:
+
+- expressive landing direction;
+- visual reference evaluation;
+- Signal Landscape prototype;
+- marketing-to-product visual grammar;
+- future meaningful visual enhancements;
+- logo/favicon exploration.
+
+Do not fold unrelated backend/product semantics into #405.
+
+## 12. Review / handoff questions for another agent
+
+When passing #405 to another design/product agent, ask them to challenge—not merely approve—the following:
+
+1. Is Signal Landscape genuinely more distinctive, or does it still read as generic AI/data visualization?
+2. Would Background Paths used more directly produce a more polished result than our custom SVG?
+3. Is the current motion budget too subtle to create value, or appropriately restrained?
+4. Which parts of Entropy’s motion language are worth borrowing without importing its busyness?
+5. Does the visual grammar extend naturally into upload/processing/evidence feedback, or are we forcing a metaphor?
+6. Does the landing still look like the same product when it transitions into the signed-in workspace?
+7. Which OSS component should be used nearly OOTB because it is simply better executed than our bespoke version?
+8. Which proposed effect is hype and should be deleted?
+9. Does the Contour Fold favicon lane survive 16×16, or should brand exploration restart again?
+10. Are there stronger free/OSS references—21st.dev or elsewhere—that we should add before implementation?
+
+The reviewer should provide concrete references and, where possible, visual alternatives rather than only prose taste judgments.
+
+## 13. Implementation / acceptance plan
+
+Before #405 can become merge-ready:
+
+1. #396 merge-gate/platform work lands first.
+2. Rebase #405 on current `main`.
+3. Keep Signal Landscape as the default prototype unless review produces a clearly stronger direction.
+4. Verify source/license before adopting any third-party component code.
+5. Capture real browser evidence at:
+   - 1440×900 desktop;
+   - ~820–980px tablet;
+   - 390×844 phone;
+   - `prefers-reduced-motion`.
+6. Verify landing performance and no unexpected layout shift.
+7. Confirm signed-in workspace has no new persistent ambient motion.
+8. Confirm the shared mark/favicon direction separately; do not merge an unresolved logo merely as collateral.
+9. Run the hardened exact-head merge gates.
+10. Only then decide whether the visual direction earns a production merge.
+
+## 14. Change log / superseded directions
+
+- **Initial #405:** mini-workspace hero + simplified waveform/staff mark. **Rejected after visual review** as too literal/generic.
+- **Second exploration:** more cinematic generative/sculptural mockups. **Useful for taste discovery**, but several still read as generic AI because of dark + serif + abstract glowing object conventions.
+- **Current direction:** Signal Landscape informed by Background Paths / Entropy / topo references, with an intentionally much smaller motion and dependency budget.
+
+This document should be updated whenever the design decision changes so #405 remains the single source of truth rather than accumulating contradictory artifacts.
