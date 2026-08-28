@@ -46,7 +46,7 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
   await expectTouchHeight(deleteButton);
   await page.getByRole("button", { name: "Hide library", exact: true }).click();
 
-  // Analysis / Ask is a phone bottom sheet above the persistent transport.
+  // Analysis / Ask is a phone bottom sheet above a viewport-docked transport.
   await page.getByRole("button", { name: "Show analysis", exact: true }).click();
   const inspector = page.locator(".studio-inspector-v3");
   const transport = page.locator(".transport-bar-v3");
@@ -58,14 +58,18 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
         const inspectorBox = await inspector.boundingBox();
         const transportBox = await transport.boundingBox();
         if (!inspectorBox || !transportBox) return false;
+        const viewportHeight = await page.evaluate(() => window.innerHeight);
         return (
           inspectorBox.width >= 385 &&
-          inspectorBox.y + inspectorBox.height <= transportBox.y + 2
+          inspectorBox.y + inspectorBox.height <= transportBox.y + 2 &&
+          transportBox.height >= 118 &&
+          transportBox.height <= 122 &&
+          Math.abs(transportBox.y + transportBox.height - viewportHeight) <= 2
         );
       },
       {
         timeout: 5_000,
-        message: "phone analysis sheet should settle full-width directly above transport",
+        message: "phone analysis sheet should settle full-width above a bottom-docked 120px transport",
       },
     )
     .toBe(true);
