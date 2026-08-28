@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-
 from backend.evaluation.analysis_v3.foundation.adapters.clap import CLAPAdapter
 
 from .metrics import (
