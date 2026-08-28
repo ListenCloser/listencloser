@@ -37,9 +37,33 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-prod-${{ hashFiles('package-lock.json') }}-
       - run: npm ci
-      - name: Build pull request without release upload
+      - name: Build pull request from Vercel-like source context
         if: github.event_name == 'pull_request'
-        run: npm run build
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_dir="$(mktemp -d)"
+          trap 'rm -rf "$deploy_dir"' EXIT
+
+          # Vercel removes these paths before compiling. Building the full checkout
+          # previously allowed runtime imports from tests/ to pass CI and fail only
+          # after deployment packaging.
+          rsync -a \
+            --exclude-from=.vercelignore \
+            --exclude='.git/' \
+            --exclude='.next/' \
+            --exclude='node_modules/' \
+            ./ "$deploy_dir/"
+
+          test ! -e "$deploy_dir/tests"
+          test ! -e "$deploy_dir/backend"
+          test -f "$deploy_dir/mocks/fixtures/sample-wav.ts"
+
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$deploy_dir/node_modules"
+          (
+            cd "$deploy_dir"
+            npm run build
+          )
       - name: Build main and upload Sentry source maps
         if: github.event_name == 'push'
         run: npm run build
