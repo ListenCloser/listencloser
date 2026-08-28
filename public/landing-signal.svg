@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-labelledby="title desc">
+  <title id="title">Music representation study</title>
+  <desc id="desc">A stylized workspace showing a waveform, piano roll, notation, and an evidence note aligned to one playhead.</desc>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#25231f"/>
+      <stop offset="1" stop-color="#1c1b18"/>
+    </linearGradient>
+    <linearGradient id="trace" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9f988a"/>
+      <stop offset="0.55" stop-color="#f0eadf"/>
+      <stop offset="1" stop-color="#b8b0a0"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect x="20" y="20" width="920" height="600" rx="26" fill="url(#panel)" stroke="#f2eee5" stroke-opacity="0.09" filter="url(#softShadow)"/>
+  <path d="M20 82h920" stroke="#f2eee5" stroke-opacity="0.07"/>
+
+  <circle cx="54" cy="51" r="4" fill="#d6b56d"/>
+  <text x="72" y="56" fill="#a49e92" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="1.6">ONE RECORDING · MANY VIEWS</text>
+  <text x="828" y="56" fill="#777168" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">00:18.42</text>
+
+  <g transform="translate(52 112)">
+    <rect width="560" height="220" rx="14" fill="#292720" stroke="#f2eee5" stroke-opacity="0.055"/>
+    <text x="18" y="28" fill="#777168" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" letter-spacing="1.5">WAVEFORM</text>
+    <g stroke="#f2eee5" stroke-opacity="0.055">
+      <path d="M18 58h524M18 92h524M18 126h524M18 160h524M18 194h524"/>
+      <path d="M70 46v158M122 46v158M174 46v158M226 46v158M278 46v158M330 46v158M382 46v158M434 46v158M486 46v158"/>
+    </g>
+    <path d="M18 129 C32 128 34 115 44 115 C55 115 58 146 69 146 C82 146 85 93 99 93 C114 93 118 171 133 171 C147 171 150 104 165 104 C178 104 181 133 194 133 C207 133 210 74 225 74 C239 74 244 163 258 163 C272 163 278 119 292 119 C306 119 309 141 323 141 C338 141 342 86 357 86 C370 86 374 154 388 154 C403 154 407 111 421 111 C434 111 440 128 453 128 C467 128 470 99 484 99 C497 99 505 144 518 144 C529 144 535 124 542 124" fill="none" stroke="url(#trace)" stroke-width="3" stroke-linecap="round"/>
+    <path d="M18 129 C42 129 45 135 69 135 C94 135 103 122 127 122 C151 122 162 132 188 132 C212 132 224 121 249 121 C275 121 287 134 312 134 C338 134 351 125 375 125 C400 125 415 131 440 131 C466 131 485 123 508 123 C524 123 535 128 542 128" fill="none" stroke="#d6b56d" stroke-opacity="0.38" stroke-width="1.2"/>
+    <path d="M331 46v158" stroke="#d6b56d" stroke-width="2"/>
+    <circle cx="331" cy="46" r="4" fill="#d6b56d"/>
+  </g>
+
+  <g transform="translate(52 354)">
+    <rect width="560" height="214" rx="14" fill="#211f1b" stroke="#f2eee5" stroke-opacity="0.055"/>
+    <text x="18" y="28" fill="#777168" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" letter-spacing="1.5">PIANO ROLL</text>
+    <g stroke="#f2eee5" stroke-opacity="0.04">
+      <path d="M18 56h524M18 80h524M18 104h524M18 128h524M18 152h524M18 176h524"/>
+      <path d="M70 46v146M122 46v146M174 46v146M226 46v146M278 46v146M330 46v146M382 46v146M434 46v146M486 46v146"/>
+    </g>
+    <g fill="#d6b56d">
+      <rect x="30" y="132" width="62" height="10" rx="3" opacity="0.68"/>
+      <rect x="98" y="109" width="44" height="10" rx="3" opacity="0.78"/>
+      <rect x="148" y="84" width="77" height="10" rx="3" opacity="0.9"/>
+      <rect x="232" y="108" width="46" height="10" rx="3" opacity="0.72"/>
+      <rect x="286" y="70" width="72" height="10" rx="3"/>
+      <rect x="366" y="94" width="50" height="10" rx="3" opacity="0.83"/>
+      <rect x="424" y="119" width="84" height="10" rx="3" opacity="0.72"/>
+    </g>
+    <g fill="#72a9c4" opacity="0.75">
+      <rect x="51" y="157" width="92" height="8" rx="3"/>
+      <rect x="171" y="145" width="67" height="8" rx="3"/>
+      <rect x="250" y="157" width="100" height="8" rx="3"/>
+      <rect x="375" y="145" width="112" height="8" rx="3"/>
+    </g>
+    <path d="M331 46v146" stroke="#d6b56d" stroke-width="2"/>
+  </g>
+
+  <g transform="translate(640 112)">
+    <rect width="268" height="274" rx="14" fill="#eee9de"/>
+    <text x="18" y="28" fill="#776f62" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" letter-spacing="1.5">SCORE</text>
+    <g stroke="#7a7265" stroke-opacity="0.34">
+      <path d="M20 76h228M20 86h228M20 96h228M20 106h228M20 116h228"/>
+      <path d="M20 166h228M20 176h228M20 186h228M20 196h228M20 206h228"/>
+    </g>
+    <g fill="#39342d">
+      <ellipse cx="62" cy="96" rx="6.5" ry="4.6" transform="rotate(-18 62 96)"/>
+      <path d="M68 95v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="104" cy="83" rx="6.5" ry="4.6" transform="rotate(-18 104 83)"/>
+      <path d="M110 82v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="151" cy="104" rx="6.5" ry="4.6" transform="rotate(-18 151 104)"/>
+      <path d="M157 103v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="198" cy="88" rx="6.5" ry="4.6" transform="rotate(-18 198 88)"/>
+      <path d="M204 87v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="82" cy="186" rx="6.5" ry="4.6" transform="rotate(-18 82 186)"/>
+      <path d="M88 185v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="139" cy="173" rx="6.5" ry="4.6" transform="rotate(-18 139 173)"/>
+      <path d="M145 172v-35" stroke="#39342d" stroke-width="2"/>
+      <ellipse cx="205" cy="196" rx="6.5" ry="4.6" transform="rotate(-18 205 196)"/>
+      <path d="M211 195v-35" stroke="#39342d" stroke-width="2"/>
+    </g>
+    <path d="M157 48v190" stroke="#72a9c4" stroke-width="2.5" opacity="0.76"/>
+  </g>
+
+  <g transform="translate(640 410)">
+    <rect width="268" height="158" rx="14" fill="#292720" stroke="#d6b56d" stroke-opacity="0.2"/>
+    <circle cx="22" cy="25" r="4" fill="#d6b56d"/>
+    <text x="36" y="29" fill="#a49e92" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" letter-spacing="1.2">EVIDENCE · 00:18</text>
+    <text x="18" y="66" fill="#f0eadf" font-family="ui-sans-serif, system-ui, sans-serif" font-size="17">The phrase opens up here.</text>
+    <text x="18" y="94" fill="#918a7e" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13">Higher register · lower density</text>
+    <path d="M18 122h148" stroke="#f2eee5" stroke-opacity="0.07"/>
+    <text x="18" y="143" fill="#d6b56d" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">Jump to evidence →</text>
+  </g>
+</svg>
