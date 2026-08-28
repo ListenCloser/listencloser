@@ -29,7 +29,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
   async function openAsk(page: import("@playwright/test").Page) {
     await page.getByRole("tab", { name: "Ask" }).click();
     await expect(page.getByRole("tab", { name: "Ask", selected: true })).toBeVisible();
-    await expect(page.getByPlaceholder("Ask about this piece…")).toBeVisible();
+    await expect(page.getByPlaceholder("Ask a question about this recording…")).toBeVisible();
   }
 
   test("Ask answers a question and renders evidence chips and suggested actions", async ({ page }) => {
@@ -37,14 +37,15 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
     await openAsk(page);
-    await expect(page.getByText("Questions use the current piece, playhead, selection, and analysis as context.")).toBeVisible();
+    await expect(page.getByText("Ask for an explanation, comparison, or a closer look at the current selection.")).toBeVisible();
 
     // Starter prompts render in the empty state and submit directly.
-    await page.getByRole("button", { name: "What is happening harmonically here?" }).click();
+    const prompt = "Explain the harmony in plain language.";
+    await page.getByRole("button", { name: prompt }).click();
 
     // The user turn and the assistant answer appear; the answer references
     // evidence chips (time, measures, notes, insight).
-    await expect(page.getByText("What is happening harmonically here?")).toBeVisible();
+    await expect(page.getByText(prompt)).toBeVisible();
     await expect(page.getByText(/This passage stays centered on the tonic/)).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Evidence")).toBeVisible();
     await expect(page.getByText("0:04–0:08")).toBeVisible();
@@ -62,14 +63,14 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await openAsk(page);
     await expect(page.getByText(/This passage stays centered on the tonic/)).toBeVisible();
-    await expect(page.getByText("What is happening harmonically here?")).toBeVisible();
+    await expect(page.getByText(prompt)).toBeVisible();
   });
 
   test("measure reference opens the Score and show_representation opens the matching view", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     await openAsk(page);
-    await page.getByRole("button", { name: "What is happening harmonically here?" }).click();
+    await page.getByRole("button", { name: "Explain the harmony in plain language." }).click();
     await expect(page.getByText(/This passage stays centered on the tonic/)).toBeVisible({ timeout: 10_000 });
 
     // ── Measure reference opens the Score, session preserved ───────────────
@@ -97,7 +98,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByRole("button", { name: "Playback source: Score", exact: true })).toBeVisible();
 
     await openAsk(page);
-    await page.getByRole("button", { name: "What is happening harmonically here?" }).click();
+    await page.getByRole("button", { name: "Explain the harmony in plain language." }).click();
     await expect(page.getByText(/This passage stays centered on the tonic/)).toBeVisible({ timeout: 10_000 });
 
     const toggleLoop = page.getByRole("button", { name: "Toggle loop" });

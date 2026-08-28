@@ -251,23 +251,24 @@ export default function TransportBar() {
         <span className="transport-time transport-time-muted">{formatTime(duration)}</span>
         <button
           type="button"
-          className={`transport-ctrl${loopEnabled ? " active" : ""}`}
+          className={`transport-ctrl transport-ctrl-labeled${loopEnabled ? " active" : ""}`}
           onClick={() => {
             if (!loopEnabled && (loopStart === null || loopEnd === null) && duration > 0) setLoop(0, duration);
             toggleLoop();
           }}
           aria-label="Toggle loop"
-          title="Loop"
+          title="Loop entire source"
           disabled={!hasSource}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M11 3h3v3" /><path d="M14 3l-3.25 3.25" /><path d="M5 13H2v-3" /><path d="M2 13l3.25-3.25" /><path d="M13.5 6A5.5 5.5 0 0 0 4 3.75" /><path d="M2.5 10A5.5 5.5 0 0 0 12 12.25" />
           </svg>
+          <span className="transport-ctrl-text">Loop</span>
         </button>
         {selectionTimeRange && (
           <button
             type="button"
-            className={`transport-ctrl${loopSelectionActive ? " active" : ""}`}
+            className={`transport-ctrl transport-ctrl-labeled${loopSelectionActive ? " active" : ""}`}
             onClick={applyLoopSelection}
             aria-label="Loop selection"
             aria-pressed={loopSelectionActive}
@@ -277,6 +278,7 @@ export default function TransportBar() {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
               <rect x="3" y="5" width="10" height="6" rx="1.5" strokeDasharray="2 2" />
             </svg>
+            <span className="transport-ctrl-text">Region</span>
           </button>
         )}
       </div>

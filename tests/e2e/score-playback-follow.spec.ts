@@ -39,7 +39,6 @@ test.describe("score playback following (MSW)", () => {
       undefined,
       { timeout: 15_000 },
     );
-    // Dismiss Next.js dev overlay if present
     await page.evaluate(() => {
       const portal = document.querySelector("nextjs-portal");
       if (portal) portal.remove();
@@ -49,19 +48,16 @@ test.describe("score playback following (MSW)", () => {
   test("playback highlight appears, advances on measure boundary, follows seek backward", async ({
     page,
   }) => {
-    // Wait for workspace to load
     await expect(
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
 
-    // Navigate to Score view
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({
       timeout: 30_000,
     });
 
-    // Switch to Score source
     await page
       .getByRole("button", { name: /Playback source:/ })
       .click();
@@ -71,36 +67,27 @@ test.describe("score playback following (MSW)", () => {
 
     await expect(page.getByRole("button", { name: "Playback source: Score", exact: true })).toBeVisible();
 
-    // Play
     await page.getByRole("button", { name: "Play", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Pause", exact: true }),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Playback highlight should appear
     await expect(
       page.locator("[data-playback-highlight]"),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Capture initial playback highlight position
     const highlight1 = page.locator("[data-playback-highlight]").first();
     const box1 = await highlight1.boundingBox();
     expect(box1).not.toBeNull();
 
-    // Wait briefly for measure transition (mock measures are at 0,2,4,6,8,10s)
     await page.waitForTimeout(1500);
 
-    // Check if highlight has moved (measure changed)
-    // Wait for the highlight to be visible before boundingBox — the
-    // playback highlight may have been removed and re-inserted during
-    // the measure transition (getBBox retry cycle).
     await expect(
       page.locator("[data-playback-highlight]"),
     ).toBeVisible({ timeout: 10_000 });
     const highlight2 = page.locator("[data-playback-highlight]").first();
     await expect(highlight2).toBeVisible({ timeout: 5_000 });
 
-    // Pause — the mock audio is ~4s; it may have finished already.
     const pauseBtn = page.getByRole("button", { name: "Pause", exact: true });
     if (await pauseBtn.isVisible().catch(() => false)) {
       await pauseBtn.click();
@@ -109,26 +96,23 @@ test.describe("score playback following (MSW)", () => {
       page.getByRole("button", { name: "Play", exact: true }),
     ).toBeVisible();
 
-    // Highlight should persist after pause
     await expect(
       page.locator("[data-playback-highlight]"),
     ).toBeVisible();
   });
 
-  test("playback highlight is removed when switching away from score source", async ({
+  test("score follow remains synchronized while auditioning another source", async ({
     page,
   }) => {
     await expect(
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    // Navigate to Score view
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({
       timeout: 30_000,
     });
 
-    // Switch to Score source
     await page
       .getByRole("button", { name: /Playback source:/ })
       .click();
@@ -136,16 +120,14 @@ test.describe("score playback following (MSW)", () => {
       .getByRole("option", { name: "Score", exact: true })
       .click();
 
-    // Play
     await page.getByRole("button", { name: "Play", exact: true }).click();
     await expect(
       page.locator("[data-playback-highlight]"),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Pause
-    await page.getByRole("button", { name: "Pause", exact: true }).click();
+    const pause = page.getByRole("button", { name: "Pause", exact: true });
+    if (await pause.isVisible().catch(() => false)) await pause.click();
 
-    // Switch to Original source
     await page
       .getByRole("button", { name: /Playback source:/ })
       .click();
@@ -153,10 +135,12 @@ test.describe("score playback following (MSW)", () => {
       .getByRole("option", { name: "Original", exact: true })
       .click();
 
-    // Playback highlight should be removed
-    await expect(
-      page.locator("[data-playback-highlight]"),
-    ).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible();
+    await expect(page.locator("[data-playback-highlight]")).toBeVisible();
+
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("[data-playback-highlight]")).toBeVisible();
   });
 
   test("selection and playback highlights are independent", async ({ page }) => {
@@ -164,13 +148,11 @@ test.describe("score playback following (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    // Navigate to Score view
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({
       timeout: 30_000,
     });
 
-    // Select a measure by clicking it
     const firstMeasure = page.locator("g.vf-measure").first();
     const measureBox = await firstMeasure.boundingBox();
     if (measureBox) {
@@ -180,12 +162,10 @@ test.describe("score playback following (MSW)", () => {
       );
     }
 
-    // Selection highlight should appear (may be multiple from theory annotations)
     await expect(
       page.locator("[data-selection-highlight]").first(),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Switch to Score source and play
     await page
       .getByRole("button", { name: /Playback source:/ })
       .click();
@@ -194,7 +174,6 @@ test.describe("score playback following (MSW)", () => {
       .click();
     await page.getByRole("button", { name: "Play", exact: true }).click();
 
-    // Both highlights should be visible
     await expect(
       page.locator("[data-playback-highlight]"),
     ).toBeVisible({ timeout: 10_000 });
@@ -202,7 +181,6 @@ test.describe("score playback following (MSW)", () => {
       page.locator("[data-selection-highlight]").first(),
     ).toBeVisible();
 
-    // They should be different elements
     const playbackCount = await page
       .locator("[data-playback-highlight]")
       .count();

@@ -30,8 +30,8 @@ test("a persisted work reopens with synchronized musical workspace views", async
   await page.getByRole("tab", { name: "Score" }).click();
   await expect(page.locator(".sheet-music-container")).toBeVisible();
   await page.getByRole("tab", { name: "Analysis" }).click();
-  await expect(page.getByText("A minor").first()).toBeVisible();
-  await expect(page.getByText("112 BPM")).toBeVisible();
+  await expect(page.getByText("A minor", { exact: true })).toBeVisible();
+  await expect(page.getByText("112 BPM", { exact: true })).toBeVisible();
 });
 
 test("import starts one durable understand job and reloads the persisted work", async ({
@@ -114,7 +114,7 @@ test("the representation changes independently of the playback source", async ({
   await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Analysis" }).click();
-  await expect(page.getByText("A minor").first()).toBeVisible();
+  await expect(page.getByText("A minor", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible();
 });
 

@@ -18,10 +18,16 @@ import { composeNoteSelection } from "@/lib/selection";
 import type { PlaybackSource } from "@/lib/stores/transport";
 import type { AskAction, AskMessage, AskReference, AskResponse } from "@/lib/ask/types";
 
-const STARTER_PROMPTS = [
-  "Summarize this piece",
-  "What changes here?",
-  "What is happening harmonically here?",
+const WHOLE_WORK_PROMPTS = [
+  "What stands out in this recording?",
+  "Where does the music change?",
+  "Explain the harmony in plain language.",
+];
+
+const SELECTION_PROMPTS = [
+  "Explain this moment.",
+  "What changes in this selection?",
+  "Why does this passage sound different?",
 ];
 
 function makeId(): string {
@@ -66,7 +72,7 @@ export default function AskPanel() {
     insights: workspace.insights,
     bpm: timeline.bpm,
     measureStarts: scoreEntry?.measureStarts ?? [],
-    scoreDuration: scoreEntry?.audioUrl ? transport.duration : null,
+    scoreDuration: scoreEntry?.measureStarts?.length ? transport.duration : null,
     notes: pianoRollEntry?.notes ?? [],
   };
 
@@ -165,6 +171,7 @@ export default function AskPanel() {
 
   const scope = describeAskContext(workspace.selection);
   const showScope = Boolean(workspace.selection && scope);
+  const starterPrompts = showScope ? SELECTION_PROMPTS : WHOLE_WORK_PROMPTS;
   const conversation = workspace.askConversation;
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -185,11 +192,10 @@ export default function AskPanel() {
       <div className="ask-conversation" aria-live="polite">
         {conversation.length === 0 && (
           <div className="ask-empty">
-            <div className="ask-empty-mark" aria-hidden="true">∿</div>
-            <strong>Ask about what you hear</strong>
-            <p>Questions use the current piece, playhead, selection, and analysis as context.</p>
+            <strong>Ask about the current music</strong>
+            <p>Ask for an explanation, comparison, or a closer look at the current selection.</p>
             <div className="ask-prompts">
-              {STARTER_PROMPTS.map((prompt) => (
+              {starterPrompts.map((prompt) => (
                 <button type="button" className="ask-prompt" key={prompt} onClick={() => void handleAsk(prompt)}>
                   {prompt}
                 </button>
@@ -229,7 +235,7 @@ export default function AskPanel() {
         <textarea
           ref={inputRef}
           className="ask-input"
-          placeholder={showScope ? "Ask about this selection…" : "Ask about this piece…"}
+          placeholder={showScope ? "Ask a question about this selection…" : "Ask a question about this recording…"}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
