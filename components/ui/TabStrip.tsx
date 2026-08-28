@@ -22,9 +22,8 @@ export default function TabStrip<T extends string>({
   className?: string;
 }) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
-  const activeIndex = Math.max(0, items.findIndex((item) => item.id === value && !item.disabled));
 
-  const moveTo = (index: number) => {
+  const moveTo = (index: number, direction: 1 | -1) => {
     if (items.length === 0) return;
     let next = index;
     for (let attempts = 0; attempts < items.length; attempts += 1) {
@@ -32,11 +31,14 @@ export default function TabStrip<T extends string>({
       if (next >= items.length) next = 0;
       const item = items[next];
       if (!item.disabled) {
+        // Tabs are all mounted, so move focus immediately. Deferring this with
+        // requestAnimationFrame makes keyboard navigation lag behind selection
+        // and can leave assistive-technology focus on the previous tab.
+        refs.current[next]?.focus();
         onChange(item.id);
-        requestAnimationFrame(() => refs.current[next]?.focus());
         return;
       }
-      next += index >= activeIndex ? 1 : -1;
+      next += direction;
     }
   };
 
@@ -44,19 +46,19 @@ export default function TabStrip<T extends string>({
     switch (event.key) {
       case "ArrowRight":
         event.preventDefault();
-        moveTo(index + 1);
+        moveTo(index + 1, 1);
         break;
       case "ArrowLeft":
         event.preventDefault();
-        moveTo(index - 1);
+        moveTo(index - 1, -1);
         break;
       case "Home":
         event.preventDefault();
-        moveTo(0);
+        moveTo(0, 1);
         break;
       case "End":
         event.preventDefault();
-        moveTo(items.length - 1);
+        moveTo(items.length - 1, -1);
         break;
       default:
         break;
