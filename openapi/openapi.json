@@ -917,6 +917,51 @@
         "title": "CreateProjectBody",
         "type": "object"
       },
+      "CreateUploadIntentBody": {
+        "properties": {
+          "byte_size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "filename": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "work_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Id"
+          }
+        },
+        "required": [
+          "filename",
+          "byte_size"
+        ],
+        "title": "CreateUploadIntentBody",
+        "type": "object"
+      },
       "CreateWorkBody": {
         "properties": {
           "composer": {
@@ -1056,6 +1101,58 @@
         ],
         "title": "EntityKind",
         "type": "string"
+      },
+      "FinalizeUploadBody": {
+        "properties": {
+          "byte_size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "filename": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "storage_key": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Storage Key",
+            "type": "string"
+          },
+          "work_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Id"
+          }
+        },
+        "required": [
+          "filename",
+          "byte_size",
+          "storage_key"
+        ],
+        "title": "FinalizeUploadBody",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1811,6 +1908,34 @@
         "title": "UploadArtifactResponse",
         "type": "object"
       },
+      "UploadIntentResponse": {
+        "properties": {
+          "bucket": {
+            "title": "Bucket",
+            "type": "string"
+          },
+          "max_bytes": {
+            "title": "Max Bytes",
+            "type": "integer"
+          },
+          "storage_key": {
+            "title": "Storage Key",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bucket",
+          "storage_key",
+          "token",
+          "max_bytes"
+        ],
+        "title": "UploadIntentResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -2446,6 +2571,61 @@
         "summary": "Create Project"
       }
     },
+    "/api/v1/projects/{project_id}/artifacts/finalize-upload": {
+      "post": {
+        "operationId": "finalize_upload_api_v1_projects__project_id__artifacts_finalize_upload_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizeUploadBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadArtifactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Finalize Upload"
+      }
+    },
     "/api/v1/projects/{project_id}/artifacts/upload": {
       "post": {
         "operationId": "upload_artifact_api_v1_projects__project_id__artifacts_upload_post",
@@ -2499,6 +2679,61 @@
           }
         ],
         "summary": "Upload Artifact"
+      }
+    },
+    "/api/v1/projects/{project_id}/artifacts/upload-intent": {
+      "post": {
+        "operationId": "create_upload_intent_api_v1_projects__project_id__artifacts_upload_intent_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUploadIntentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadIntentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Upload Intent"
       }
     },
     "/api/v1/projects/{project_id}/works": {
