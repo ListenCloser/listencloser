@@ -23,6 +23,11 @@ def _validate_assessment(row: dict[str, Any]) -> None:
     if condition not in CONDITIONS:
         raise ValueError(f"condition must be one of {CONDITIONS}")
 
+    for name in ("case_id", "question_id"):
+        value = row.get(name)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{name} must be a non-empty string")
+
     count_names = (
         "supported_claims",
         "contradicted_claims",
@@ -71,6 +76,10 @@ def _mean_present(items: list[dict[str, Any]], name: str) -> float | None:
     return round(sum(values) / len(values), 6)
 
 
+def _assessment_keys(items: list[dict[str, Any]]) -> list[str]:
+    return sorted(f"{row['case_id']}::{row['question_id']}" for row in items)
+
+
 def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate grounding metrics from manual claim-level annotations."""
     items = list(rows)
@@ -78,6 +87,10 @@ def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
         raise ValueError("at least one assessment is required")
     for row in items:
         _validate_assessment(row)
+
+    assessment_keys = _assessment_keys(items)
+    if len(set(assessment_keys)) != len(assessment_keys):
+        raise ValueError("duplicate case_id/question_id assessments are not allowed per condition")
 
     total_claims = sum(row["total_claims"] for row in items)
     supported = sum(row["supported_claims"] for row in items)
@@ -98,6 +111,7 @@ def score_assessments(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
 
     return {
         "num_items": len(items),
+        "assessment_keys": assessment_keys,
         "total_claims": total_claims,
         "supported_claim_rate": round(supported / total_claims, 6) if total_claims else None,
         "contradiction_rate": (
@@ -160,9 +174,9 @@ def _not_worse(
 def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """Test whether raw audio adds grounded value over evidence-only explanation.
 
-    This intentionally avoids a weighted composite. Audio+evidence must improve
-    factual support and human-rated usefulness while not worsening contradictions,
-    unsupported claims, evidence citation, abstention, temporal grounding, or specificity.
+    This intentionally avoids a weighted composite. Audio+evidence must cover
+    exactly the same cases/questions, improve factual support and human-rated
+    usefulness, and not worsen trust metrics.
     """
     baseline = grouped.get("evidence_only")
     combined = grouped.get("audio_plus_evidence")
@@ -171,6 +185,18 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
             "evaluable": False,
             "passes": False,
             "reason": "both evidence_only and audio_plus_evidence conditions are required",
+        }
+
+    if baseline.get("assessment_keys") != combined.get("assessment_keys"):
+        return {
+            "evaluable": False,
+            "passes": False,
+            "reason": (
+                "evidence_only and audio_plus_evidence must contain the same "
+                "case_id/question_id coverage"
+            ),
+            "evidence_only_keys": baseline.get("assessment_keys"),
+            "audio_plus_evidence_keys": combined.get("assessment_keys"),
         }
 
     required = (
@@ -190,6 +216,7 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
         }
 
     criteria = {
+        "matched_case_question_coverage": True,
         "supported_claim_rate_improves": (
             combined["supported_claim_rate"] > baseline["supported_claim_rate"]
         ),
@@ -225,8 +252,8 @@ def grounded_value_gate(grouped: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "evidence_only": baseline,
         "audio_plus_evidence": combined,
         "rule": (
-            "audio_plus_evidence must improve supported-claim rate and usefulness without "
-            "worsening contradiction, unsupported claims, citation quality, abstention, "
-            "temporal grounding, or specificity"
+            "audio_plus_evidence must use matched case/question coverage, improve supported-claim "
+            "rate and usefulness, and not worsen contradiction, unsupported claims, citation "
+            "quality, abstention, temporal grounding, or specificity"
         ),
     }
