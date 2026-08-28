@@ -1,0 +1,249 @@
+# Music Lab — Product UI Design System
+
+## Design intent
+
+Music Lab is an **operate-mode music analysis workspace**, not a marketing dashboard and not a toy DAW. The interface should feel like a focused instrument for listening, comparing, inspecting, and understanding a piece of music.
+
+The product should read as:
+- precise rather than flashy
+- calm rather than futuristic
+- editorial rather than card-heavy
+- musical rather than generic SaaS
+- dense enough for serious work, but never visually noisy
+
+The UI must privilege the music itself: waveform, piano roll, score, temporal evidence, and analysis are the visual center. Chrome is secondary.
+
+## Anti-references
+
+Do not introduce:
+- purple gradients
+- glassmorphism
+- neon-on-black cyber aesthetics
+- card grids inside cards
+- oversized dashboard KPI tiles
+- generic AI sparkle iconography
+- excessive pills/chips
+- decorative gradients without semantic meaning
+- rounded containers around every region
+- large marketing-style headings inside the workspace
+- hidden critical controls that appear only on hover
+
+## Visual direction
+
+Use a warm-neutral dark workspace with quiet contrast and one restrained accent.
+
+The closest product archetype is a modern creative tool: compact navigation, a broad central canvas, stable transport, subtle separators, and an inspector that feels integrated rather than modal.
+
+### Palette
+
+Core surfaces:
+- canvas: `#11110f`
+- shell: `#171714`
+- raised: `#1d1d19`
+- hover: `#25241f`
+- strong surface: `#2b2a24`
+
+Text:
+- primary: `#f1efe8`
+- secondary: `#b6b2a7`
+- tertiary: `#817d73`
+
+Borders:
+- subtle: `rgba(241,239,232,0.07)`
+- standard: `rgba(241,239,232,0.12)`
+- strong: `rgba(241,239,232,0.20)`
+
+Accent:
+- primary: `#d6b56d` — warm brass / manuscript tone
+- primary hover: `#e2c27e`
+- soft: `rgba(214,181,109,0.12)`
+
+Semantic:
+- success: `#8fb58a`
+- warning: `#d0a65f`
+- danger: `#c9786f`
+
+Do not use gradients for primary UI surfaces.
+
+## Typography
+
+Use the application sans stack unless a high-quality variable font is deliberately introduced. The hierarchy should come from weight, spacing, and density rather than extreme size changes.
+
+- workspace title: 18–20px, 600
+- section title: 13–14px, 600
+- controls/body: 13px, 400–500
+- metadata: 11–12px, 400–500
+- monospace only for timestamps, numeric music metadata, and debug/evidence values
+
+Avoid all-caps except tiny metadata labels where it materially improves scanability.
+
+## Geometry
+
+Creative-tool geometry should be compact.
+
+- global radius: 7px
+- small controls: 5px
+- large floating panels only: 10px
+- do not use pill radius unless the content is genuinely a chip/status
+
+Primary spacing scale:
+- 4, 6, 8, 12, 16, 20, 24, 32px
+
+Borders and negative space should define regions more often than cards.
+
+## Workspace architecture
+
+Desktop target:
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│ compact top bar: product / piece title                    analysis · user │
+├───────────────┬───────────────────────────────────────────┬────────────────┤
+│ Library       │ representation nav                        │ Inspector      │
+│               ├───────────────────────────────────────────┤                │
+│ pieces        │                                           │ findings       │
+│ import        │            MUSIC CANVAS                   │ evidence       │
+│               │                                           │ ask            │
+│               │                                           │                │
+├───────────────┴───────────────────────────────────────────┴────────────────┤
+│ playback source        waveform / scrub       transport       time         │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Top bar
+
+Height: ~48px.
+
+The left side should contain a small product mark and current piece. Do not display internal repo/product names such as `hello-ai`.
+
+The right side should contain only global actions. `Analysis` should behave as a panel toggle when results exist; analysis progress should appear as restrained inline state, not as a large button.
+
+### Library
+
+The library is a navigator, not a dashboard card collection.
+
+- desktop width: 220–248px
+- separated from canvas by a 1px border
+- compact rows (~42–48px)
+- selected piece indicated primarily by surface + text contrast, not a glowing outline
+- import action at top or bottom, visually stable
+- destructive actions visible on selection/focus with an adequate click target
+- track status should be terse and secondary
+
+### Canvas
+
+The canvas is the largest uninterrupted region.
+
+A piece title appears once. Below it, use a compact representation switcher for `Audio`, `Piano roll`, `Score`, and overflow views.
+
+The representation should not itself be wrapped in an ornamental card. Its natural surface can define the visual language:
+- waveform: quiet charcoal background, warm-neutral waveform
+- piano roll: editor grid, restrained note colors
+- score: paper-like warm light surface inside dark workspace is acceptable
+- spectrogram: scientifically legible palette, not decorative
+
+### Representation navigation
+
+Use a low-profile tab strip with 36–40px height. Active state should rely on text contrast and a small underline/indicator. Avoid large rounded tab pills.
+
+`Compare` belongs beside representation controls because it changes how the same music is inspected.
+
+### Inspector
+
+Desktop inspector width: 300–340px.
+
+It should be a persistent docked region rather than visually feeling like a modal overlay. Organize it as a scrollable reading surface with stable sections.
+
+Analysis hierarchy:
+1. concise interpretation / key findings
+2. time-linked findings
+3. evidence and confidence
+4. deeper detail
+
+Avoid repeating every value as a separate bordered card. Prefer grouped sections and rows. Confidence should be visually quiet unless it is low or disputed.
+
+### Ask / AI
+
+Ask should feel like a capability of the inspector, not a separate product. Prefer a collapsible section or inspector mode. Keep the conversation narrow, evidence-linked, and tied to the current piece/time range.
+
+### Transport
+
+Transport is a stable bottom bar, ~56px high. It is the strongest persistent control surface besides the canvas.
+
+It should answer four things clearly:
+- what source am I hearing?
+- am I playing?
+- where am I?
+- can I switch/compare representations without losing position?
+
+Use one primary play/pause control and compact adjacent controls. Tempo is not globally important enough to occupy persistent chrome unless relevant to the active task.
+
+## Interaction and motion
+
+Motion should clarify spatial changes, never decorate them.
+
+- panel open/close: 160–220ms ease-out
+- menus/popovers: subtle opacity + 4–6px translation
+- hover transitions: 100–150ms
+- do not animate layout continuously during playback
+- respect `prefers-reduced-motion`
+
+Buttons should use slight surface/contrast changes. Avoid scaling buttons on hover.
+
+## Empty/loading/error states
+
+Empty states should orient the user to the music workflow, not fill space with illustration.
+
+Good empty-state structure:
+- one sentence explaining the outcome
+- one primary import action
+- transcription mode as a secondary control
+- supported formats in tertiary text
+
+Loading existing music should preserve the workspace frame and show skeleton/progress inside the canvas instead of replacing the entire product with a floating status box.
+
+Errors should appear next to the affected action/representation and preserve access to successfully created artifacts.
+
+## Responsive behavior
+
+Desktop is primary because the task is analysis-heavy.
+
+- >= 1180px: library + canvas + inspector
+- 820–1179px: library collapsible; inspector overlays/docks as needed
+- < 820px: canvas primary; library and inspector become sheets; transport remains fixed and usable
+
+Do not simply shrink three desktop columns onto mobile.
+
+## Accessibility
+
+- WCAG AA text contrast
+- 40px minimum pointer target for primary controls
+- visible focus ring using accent color at restrained opacity
+- keyboard navigation for tabs, library, source picker, menus
+- active representation and active playback source announced distinctly
+- never encode confidence/status through color alone
+
+## Component rules
+
+Prefer reusable primitives for:
+- `IconButton`
+- `SegmentedControl` only where mutually-exclusive modes genuinely benefit from it
+- `MenuButton`
+- `PanelHeader`
+- `Section`
+- `EmptyState`
+- `StatusText`
+- `Tooltip`
+
+Do not create a generic `Card` primitive and apply it to every region.
+
+## Design QA gate
+
+Before a UI PR is mergeable, review screenshots at 1440×900 and 390×844 and check:
+1. Can the user identify the current piece, active representation, active playback source, and play state in <2 seconds?
+2. Is the central music representation visually dominant?
+3. Are there unnecessary cards, pills, gradients, or borders?
+4. Does every persistent control earn its space?
+5. Do loading/error/empty states preserve spatial stability?
+6. Can Analysis and Library be opened/closed without losing playhead state?
+7. Does the UI remain useful at the narrow viewport?
