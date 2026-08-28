@@ -187,9 +187,7 @@ def test_grounded_value_gate_requires_human_ratings() -> None:
 
 
 def test_score_by_condition_keeps_conditions_separate() -> None:
-    result = score_by_condition(
-        [row("audio_only", 1, 0, 0), row("evidence_only", 0, 0, 1)]
-    )
+    result = score_by_condition([row("audio_only", 1, 0, 0), row("evidence_only", 0, 0, 1)])
     assert result["audio_only"]["supported_claim_rate"] == 1.0
     assert result["evidence_only"]["unsupported_claim_rate"] == 1.0
 
