@@ -23,13 +23,15 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-          import textwrap
 
           source = Path('.github/workflows/apply-v5-cleanup.yml').read_text()
           match = re.search(r"python - <<'PY'\n(.*?)\n          PY\n", source, re.S)
           if not match:
               raise SystemExit('patch payload not found')
-          payload = textwrap.dedent(match.group(1))
+          payload = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in match.group(1).splitlines()
+          )
           exec(compile(payload, 'v5-cleanup', 'exec'))
           PY
       - name: Commit V5 cleanup
