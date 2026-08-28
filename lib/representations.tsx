@@ -13,7 +13,7 @@ import {
   measureRangeFromTime,
   noteIdsInRange,
 } from "@/lib/selection";
-import { extractAnnotations, type AnalysisAnnotation } from "@/lib/analysis-annotations";
+import { extractAnnotations } from "@/lib/analysis-annotations";
 import Waveform from "@/components/Waveform";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
