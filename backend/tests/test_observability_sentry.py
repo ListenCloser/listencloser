@@ -1,3 +1,4 @@
+import builtins
 import logging
 
 import sentry_sdk
@@ -47,6 +48,26 @@ def test_init_sentry_uses_shared_worker_environment_contract(monkeypatch):
             "release": "worker@abc123",
         }
     ]
+
+
+def test_worker_sentry_does_not_import_api_framework_integrations(monkeypatch):
+    _clear_sentry_env(monkeypatch)
+    monkeypatch.setenv("SENTRY_DSN", "https://public@example.invalid/1")
+    monkeypatch.setattr(sentry_sdk, "init", lambda **_kwargs: None)
+
+    original_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name in {
+            "sentry_sdk.integrations.fastapi",
+            "sentry_sdk.integrations.starlette",
+        }:
+            raise AssertionError(f"worker unexpectedly imported {name}")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    assert init_sentry(logging.getLogger("test")) is True
 
 
 def test_init_sentry_preserves_api_integrations_and_default_release(monkeypatch):
