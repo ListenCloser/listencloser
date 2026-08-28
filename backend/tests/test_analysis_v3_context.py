@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -10,7 +13,7 @@ from backend.evaluation.analysis_v3.context.metrics import (
     recall_at_k,
     top_k_jaccard,
 )
-from backend.evaluation.analysis_v3.context.run import summarize_prior_clap
+from backend.evaluation.analysis_v3.context.run import run_prior_evidence, summarize_prior_clap
 
 
 def test_multilabel_ranking_metrics() -> None:
@@ -101,3 +104,37 @@ def test_prior_clap_summary_detects_collapsed_rankings() -> None:
 
 def test_prior_clap_summary_handles_missing_retrieval() -> None:
     assert summarize_prior_clap({})["available"] is False
+
+
+def test_prior_evidence_reuses_files_without_model_inference(tmp_path: Path) -> None:
+    foundation_path = tmp_path / "clap.json"
+    reference_path = tmp_path / "reference.json"
+    foundation_path.write_text(
+        json.dumps(
+            {
+                "operational": {
+                    "model_id": "test-clap",
+                    "weight_license": "Apache-2.0",
+                    "cpu_latency": {"10s": {"latency_seconds": 0.1}},
+                },
+                "text_retrieval": {
+                    "per_query_results": [
+                        {
+                            "ranked_results": [
+                                {"audio_id": "a"},
+                                {"audio_id": "b"},
+                                {"audio_id": "c"},
+                            ]
+                        }
+                    ]
+                },
+            }
+        )
+    )
+    reference_path.write_text(json.dumps({"evidence_class": "REFERENCE_BENCHMARK"}))
+
+    result = run_prior_evidence(foundation_path, reference_path)
+
+    assert result["clap"]["model_id"] == "test-clap"
+    assert result["clap"]["prompt_ranking_diagnostic"]["num_queries"] == 1
+    assert result["essentia_reference"]["evidence_class"] == "REFERENCE_BENCHMARK"
