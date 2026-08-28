@@ -183,6 +183,24 @@ def _job_state(job: Job) -> JobStateResponse:
     )
 
 
+def _inspector_exposed(insight) -> bool:
+    """Return whether a persisted Insight is safe to expose in the Inspector.
+
+    Repositories return Pydantic ``Insight`` models, not dictionaries. Older
+    endpoint code treated them as mappings and crashed with ``.get`` whenever
+    a version actually had saved analysis. Unknown/stale capability kinds are
+    hidden rather than turning the whole analysis request into a 500.
+    """
+    kind = getattr(insight, "kind", None)
+    if not isinstance(kind, str) or not kind:
+        return False
+    try:
+        return is_exposed(kind, "inspector")
+    except KeyError:
+        logger.warning("unregistered_insight_hidden", extra={"kind": kind})
+        return False
+
+
 # ---------------------------------------------------------------------------
 # POST /projects
 # ---------------------------------------------------------------------------
@@ -725,8 +743,8 @@ async def list_insights(
         repo = InsightRepo(sb)
         all_insights = repo.list_by_version(version_id, owner_id)
         # Defense-in-depth: filter by capability exposure policy even if
-        # a withheld insight was accidentally persisted.
-        return [item for item in all_insights if is_exposed(item.get("kind", ""), "inspector")]
+        # a withheld or stale insight was accidentally persisted.
+        return [item for item in all_insights if _inspector_exposed(item)]
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
