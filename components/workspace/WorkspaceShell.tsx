@@ -113,7 +113,7 @@ export default function WorkspaceShell({
   return (
     <TimelineProvider>
       <TransportProvider>
-        <WorkspaceProvider>
+        <WorkspaceProvider initialLoading={signedIn}>
           {children}
           <WorkspaceContent signedIn={signedIn} serviceStatus={serviceStatus} />
         </WorkspaceProvider>
