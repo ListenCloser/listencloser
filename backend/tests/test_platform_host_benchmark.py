@@ -1,20 +1,4 @@
-from __future__ import annotations
-
-import importlib.util
-import sys
-from pathlib import Path
-
-
-_SCRIPT = Path(__file__).parents[2] / "scripts" / "benchmark_api_host.py"
-_SPEC = importlib.util.spec_from_file_location("benchmark_api_host", _SCRIPT)
-assert _SPEC is not None and _SPEC.loader is not None
-benchmark_api_host = importlib.util.module_from_spec(_SPEC)
-sys.modules[_SPEC.name] = benchmark_api_host
-_SPEC.loader.exec_module(benchmark_api_host)
-
-ProbeResult = benchmark_api_host.ProbeResult
-percentile = benchmark_api_host.percentile
-summarize_results = benchmark_api_host.summarize_results
+from scripts.benchmark_api_host import ProbeResult, percentile, summarize_results
 
 
 def test_percentile_uses_nearest_rank() -> None:
