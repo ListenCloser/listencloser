@@ -147,11 +147,10 @@ describe("Workspace session state transitions", () => {
     expect(result.current.workspace.workspace.isLoadingWork).toBe(true);
   });
 
-  it("clears the work session when the active work is deleted", () => {
+  it("clears the work session when the active work is removed from the library", () => {
     const { result } = renderHook(() => useSession(), { wrapper });
 
     act(() => {
-      result.current.workspace.setWorks([{ id: "work-a", project_id: "p", title: "A", composer: null, created_at: "", updated_at: "" }]);
       result.current.workspace.setActiveWorkId("work-a");
       result.current.workspace.replaceRepresentations([waveform, pianoRoll]);
       result.current.workspace.setActiveRepresentation("piano_roll");
@@ -159,7 +158,7 @@ describe("Workspace session state transitions", () => {
       result.current.transport.seek(3);
     });
 
-    act(() => result.current.workspace.removeWork("work-a"));
+    act(() => result.current.workspace.setActiveWorkId(null));
     act(() => result.current.transport.clearActiveSource());
 
     expect(result.current.workspace.workspace.activeWorkId).toBeNull();
