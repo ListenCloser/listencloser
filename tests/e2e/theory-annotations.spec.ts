@@ -129,8 +129,8 @@ test.describe("theory annotations (MSW)", () => {
     await expect(moments).toHaveCount(6);
 
     await expect(moments.filter({ hasText: "I (A minor)" }).first()).toBeVisible();
-    await expect(moments.filter({ hasText: "v (A minor)" })).toBeVisible();
-    await expect(moments.filter({ hasText: "iv (A minor)" })).toBeVisible();
+    await expect(moments.filter({ hasText: /\bv \(A minor\)/ })).toBeVisible();
+    await expect(moments.filter({ hasText: /\biv \(A minor\)/ })).toBeVisible();
     await expect(moments.filter({ hasText: "V7 (A minor)" })).toBeVisible();
   });
 
