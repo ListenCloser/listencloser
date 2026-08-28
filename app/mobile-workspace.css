@@ -105,7 +105,7 @@
     border-left: 0;
     border-top: 1px solid var(--v5-line-strong, rgba(241, 237, 228, 0.13));
     border-radius: 14px 14px 0 0;
-    transform: translateY(calc(100% + 12px));
+    transform: translateY(calc(100% + var(--transport-height)));
     box-shadow: 0 -22px 56px rgba(0, 0, 0, 0.42);
     overflow: hidden;
   }
