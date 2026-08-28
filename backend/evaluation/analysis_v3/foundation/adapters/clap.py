@@ -22,12 +22,8 @@ class CLAPAdapter(FoundationModelAdapter):
         try:
             from transformers import AutoModel, AutoProcessor
 
-            self._processor = AutoProcessor.from_pretrained(
-                self.model_id, trust_remote_code=True
-            )
-            self._model = AutoModel.from_pretrained(
-                self.model_id, trust_remote_code=True
-            )
+            self._processor = AutoProcessor.from_pretrained(self.model_id, trust_remote_code=True)
+            self._model = AutoModel.from_pretrained(self.model_id, trust_remote_code=True)
             self._model.eval()
             self._model.to(self.device)
             self._loaded = True
@@ -50,9 +46,7 @@ class CLAPAdapter(FoundationModelAdapter):
                 waveform = torch.from_numpy(audio).float().unsqueeze(0)
                 if waveform.dim() == 1:
                     waveform = waveform.unsqueeze(0)
-                resampler = torchaudio.transforms.Resample(
-                    orig_freq=sample_rate, new_freq=48000
-                )
+                resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=48000)
                 waveform = resampler(waveform).squeeze(0).numpy()
             else:
                 waveform = audio
@@ -113,12 +107,12 @@ class CLAPAdapter(FoundationModelAdapter):
             model_id=self.model_id,
             code_license="MIT",
             weight_license="MIT",
-            training_data_notes="LAION AudioSet music subset. Commercial use permitted per upstream.",
+            training_data_notes="LAION AudioSet music subset.",
             embedding_dim=512,
             temporal=False,
             supports_audio=True,
             supports_text=True,
             supports_symbolic=False,
             upstream_repo="https://github.com/LAION-AI/CLAP",
-            notes="Audio-text contrastive model. Music-specific checkpoint trained on AudioSet music subset.",
+            notes="Audio-text contrastive model. Music-specific checkpoint.",
         )

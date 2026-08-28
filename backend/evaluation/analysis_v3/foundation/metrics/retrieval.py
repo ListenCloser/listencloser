@@ -122,12 +122,14 @@ def evaluate_cross_representation(
     results: list[dict[str, Any]] = []
     for audio_id, symbolic_id in matched_pairs:
         if audio_id not in audio_embeddings or symbolic_id not in symbolic_embeddings:
-            results.append({
-                "audio_id": audio_id,
-                "symbolic_id": symbolic_id,
-                "rank": None,
-                "error": "missing embedding",
-            })
+            results.append(
+                {
+                    "audio_id": audio_id,
+                    "symbolic_id": symbolic_id,
+                    "rank": None,
+                    "error": "missing embedding",
+                }
+            )
             continue
 
         audio_emb = audio_embeddings[audio_id]
@@ -146,13 +148,15 @@ def evaluate_cross_representation(
                 rank = i + 1
                 break
 
-        results.append({
-            "audio_id": audio_id,
-            "symbolic_id": symbolic_id,
-            "rank": rank,
-            "total_candidates": len(similarities),
-            "matched_score": cosine_similarity(audio_emb, symbolic_emb),
-        })
+        results.append(
+            {
+                "audio_id": audio_id,
+                "symbolic_id": symbolic_id,
+                "rank": rank,
+                "total_candidates": len(similarities),
+                "matched_score": cosine_similarity(audio_emb, symbolic_emb),
+            }
+        )
 
     ranks = [r["rank"] for r in results if r.get("rank") is not None]
     return {

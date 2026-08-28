@@ -32,12 +32,13 @@ class CLaMP3Adapter(FoundationModelAdapter):
 
             weights_path = hf_hub_download(
                 self.model_id,
-                "weights_clamp3_saas_h_size_768_t_model_FacebookAI_xlm-roberta-base_t_length_128_a_size_768_a_layers_12_a_length_128_s_size_768_s_layers_12_p_size_64_p_length_512.pth"
+                "weights_clamp3_saas_h_size_768_t_model_FacebookAI_xlm-roberta-base_t_length_128_a_size_768_a_layers_12_a_length_128_s_size_768_s_layers_12_p_size_64_p_length_512.pth",
             )
 
             clamp3_dir = "/tmp/clamp3"
             if not os.path.exists(clamp3_dir):
                 import subprocess
+
                 subprocess.run(
                     ["git", "clone", "https://github.com/sanderwood/clamp3.git", clamp3_dir],
                     check=True,
@@ -46,22 +47,20 @@ class CLaMP3Adapter(FoundationModelAdapter):
 
             sys.path.insert(0, os.path.join(clamp3_dir, "code"))
 
+            from transformers import BertConfig
+            from utils import CLaMP3Model, M3Patchilizer
+
             from config import (
                 AUDIO_HIDDEN_SIZE,
                 AUDIO_NUM_LAYERS,
                 CLAMP3_HIDDEN_SIZE,
                 CLAMP3_LOAD_M3,
-                MAX_AUDIO_LENGTH,
-                MAX_TEXT_LENGTH,
                 M3_HIDDEN_SIZE,
+                MAX_AUDIO_LENGTH,
                 PATCH_LENGTH,
                 PATCH_NUM_LAYERS,
-                PATCH_SIZE,
                 TEXT_MODEL_NAME,
             )
-            from utils import CLaMP3Model, M3Patchilizer
-
-            from transformers import BertConfig
 
             audio_config = BertConfig(
                 vocab_size=1,
@@ -116,9 +115,7 @@ class CLaMP3Adapter(FoundationModelAdapter):
                 waveform = torch.from_numpy(audio).float().unsqueeze(0)
                 if waveform.dim() == 1:
                     waveform = waveform.unsqueeze(0)
-                resampler = torchaudio.transforms.Resample(
-                    orig_freq=sample_rate, new_freq=24000
-                )
+                resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=24000)
                 waveform = resampler(waveform).squeeze(0).numpy()
             else:
                 waveform = audio
@@ -132,7 +129,7 @@ class CLaMP3Adapter(FoundationModelAdapter):
 
             segment_list = []
             for i in range(0, len(features_tensor), MAX_AUDIO_LENGTH):
-                segment_list.append(features_tensor[i:i + MAX_AUDIO_LENGTH])
+                segment_list.append(features_tensor[i : i + MAX_AUDIO_LENGTH])
             if len(segment_list) > 0:
                 segment_list[-1] = features_tensor[-MAX_AUDIO_LENGTH:]
 
@@ -178,7 +175,7 @@ class CLaMP3Adapter(FoundationModelAdapter):
 
             segment_list = []
             for i in range(0, len(input_data), MAX_TEXT_LENGTH):
-                segment_list.append(input_data[i:i + MAX_TEXT_LENGTH])
+                segment_list.append(input_data[i : i + MAX_TEXT_LENGTH])
             if len(segment_list) > 0:
                 segment_list[-1] = input_data[-MAX_TEXT_LENGTH:]
 
@@ -222,8 +219,9 @@ class CLaMP3Adapter(FoundationModelAdapter):
         if not self._loaded:
             return None
         try:
-            import torch
             import subprocess
+
+            import torch
 
             from config import PATCH_LENGTH, PATCH_SIZE
 
@@ -235,8 +233,13 @@ class CLaMP3Adapter(FoundationModelAdapter):
                 clamp3_dir = "/tmp/clamp3"
                 mtf_dir = tempfile.mkdtemp()
                 subprocess.run(
-                    ["python3", os.path.join(clamp3_dir, "preprocessing", "midi", "batch_midi2mtf.py"),
-                     os.path.dirname(midi_path), mtf_dir, "--m3_compatible"],
+                    [
+                        "python3",
+                        os.path.join(clamp3_dir, "preprocessing", "midi", "batch_midi2mtf.py"),
+                        os.path.dirname(midi_path),
+                        mtf_dir,
+                        "--m3_compatible",
+                    ],
                     check=True,
                     capture_output=True,
                 )
@@ -245,7 +248,7 @@ class CLaMP3Adapter(FoundationModelAdapter):
                 if not mtf_files:
                     return EmbeddingResult(error="Failed to convert MIDI to MTF")
 
-                with open(os.path.join(mtf_dir, mtf_files[0]), "r") as f:
+                with open(os.path.join(mtf_dir, mtf_files[0])) as f:
                     mtf_content = f.read()
 
                 input_data = self._patchilizer.encode(mtf_content, add_special_patches=True)
@@ -253,7 +256,7 @@ class CLaMP3Adapter(FoundationModelAdapter):
 
                 segment_list = []
                 for i in range(0, len(input_data), PATCH_LENGTH):
-                    segment_list.append(input_data[i:i + PATCH_LENGTH])
+                    segment_list.append(input_data[i : i + PATCH_LENGTH])
                 if len(segment_list) > 0:
                     segment_list[-1] = input_data[-PATCH_LENGTH:]
 
@@ -262,7 +265,9 @@ class CLaMP3Adapter(FoundationModelAdapter):
                     input_masks = torch.tensor([1.0] * segment.size(0))
                     pad_len = PATCH_LENGTH - segment.size(0)
                     if pad_len > 0:
-                        pad = torch.ones(pad_len, PATCH_SIZE).long() * self._patchilizer.pad_token_id
+                        pad = (
+                            torch.ones(pad_len, PATCH_SIZE).long() * self._patchilizer.pad_token_id
+                        )
                         segment = torch.cat([segment, pad], 0)
                         input_masks = torch.cat([input_masks, torch.zeros(pad_len)], 0)
 
@@ -295,14 +300,14 @@ class CLaMP3Adapter(FoundationModelAdapter):
             model_id=self.model_id,
             code_license="MIT",
             weight_license="MIT",
-            training_data_notes="CLaMP3 training data includes audio, MIDI, and MusicXML. Uses MERT for audio feature extraction.",
+            training_data_notes="CLaMP3 training data includes audio, MIDI, and MusicXML.",
             embedding_dim=768,
             temporal=False,
             supports_audio=True,
             supports_text=True,
             supports_symbolic=True,
             upstream_repo="https://github.com/sanderwood/clamp3",
-            notes="Cross-modal music model supporting audio, text, and symbolic. Requires MERT for audio features.",
+            notes="Cross-modal music model. Requires MERT for audio features.",
         )
 
 
@@ -315,14 +320,12 @@ class _MERTFeatureExtractor:
     def _load(self):
         if self._model is not None:
             return
-        from transformers import AutoModel, AutoFeatureExtractor
+        from transformers import AutoFeatureExtractor, AutoModel
 
         self._processor = AutoFeatureExtractor.from_pretrained(
             "m-a-p/MERT-v1-95M", trust_remote_code=True
         )
-        self._model = AutoModel.from_pretrained(
-            "m-a-p/MERT-v1-95M", trust_remote_code=True
-        )
+        self._model = AutoModel.from_pretrained("m-a-p/MERT-v1-95M", trust_remote_code=True)
         self._model.eval()
         self._model.to(self.device)
 

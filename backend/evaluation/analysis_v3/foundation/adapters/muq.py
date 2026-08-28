@@ -44,9 +44,7 @@ class MuQAdapter(FoundationModelAdapter):
                 waveform = torch.from_numpy(audio).float().unsqueeze(0)
                 if waveform.dim() == 1:
                     waveform = waveform.unsqueeze(0)
-                resampler = torchaudio.transforms.Resample(
-                    orig_freq=sample_rate, new_freq=24000
-                )
+                resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=24000)
                 waveform = resampler(waveform).squeeze(0).numpy()
             else:
                 waveform = audio
@@ -61,7 +59,7 @@ class MuQAdapter(FoundationModelAdapter):
             elif hasattr(outputs, "last_hidden_state"):
                 hidden_states = outputs.last_hidden_state
             else:
-                hidden_states = outputs[0] if isinstance(outputs, (tuple, list)) else outputs
+                hidden_states = outputs[0] if isinstance(outputs, tuple | list) else outputs
 
             mean_pooled = hidden_states.mean(dim=1).squeeze().cpu().numpy()
 

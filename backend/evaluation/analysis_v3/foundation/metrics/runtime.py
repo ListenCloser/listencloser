@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import platform
 import time
 from dataclasses import dataclass, field
@@ -92,10 +91,10 @@ def check_determinism(
     if len(embeddings) < 2:
         return False
 
-    for i in range(1, len(embeddings)):
-        if not np.allclose(embeddings[0], embeddings[i], atol=1e-6):
-            return False
-    return True
+    return all(
+        np.allclose(embeddings[0], embeddings[i], atol=1e-6)
+        for i in range(1, len(embeddings))
+    )
 
 
 def get_checkpoint_size(model_id: str) -> float | None:
@@ -115,6 +114,7 @@ def get_checkpoint_size(model_id: str) -> float | None:
 def _get_torch_version() -> str:
     try:
         import torch
+
         return torch.__version__
     except ImportError:
         return "not installed"

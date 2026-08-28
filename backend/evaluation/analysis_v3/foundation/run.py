@@ -13,7 +13,6 @@ import argparse
 import json
 import os
 import platform
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -22,11 +21,8 @@ import numpy as np
 
 from .adapters import ADAPTERS, FoundationModelAdapter
 from .metrics import (
-    OperationalResult,
-    RuntimeMetrics,
     check_determinism,
     evaluate_cross_representation,
-    evaluate_retrieval,
     generate_synthetic_audio,
     get_checkpoint_size,
     measure_embedding_latency,
@@ -47,11 +43,11 @@ def _generate_probe_audio(probe: dict[str, Any], sample_rate: int = 24000) -> np
     amplitudes = probe.get("amplitudes", [1.0])
     seed = probe.get("seed", 42)
 
-    rng = np.random.RandomState(seed)
+    np.random.RandomState(seed)
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
     audio = np.zeros_like(t)
 
-    for h, a in zip(harmonics, amplitudes):
+    for h, a in zip(harmonics, amplitudes, strict=False):
         audio += a * np.sin(2 * np.pi * freq * h * t)
 
     onset = probe.get("onset_pattern", "sustained")
@@ -114,7 +110,9 @@ def _generate_midi_bytes(pitches: list[int], duration: float, velocity: int = 80
     us_per_beat = int(60_000_000 / tempo_bpm)
     track_data.extend(_var_len(0))
     track_data.extend(bytes([0xFF, 0x51, 0x03]))
-    track_data.extend(bytes([(us_per_beat >> 16) & 0xFF, (us_per_beat >> 8) & 0xFF, us_per_beat & 0xFF]))
+    track_data.extend(
+        bytes([(us_per_beat >> 16) & 0xFF, (us_per_beat >> 8) & 0xFF, us_per_beat & 0xFF])
+    )
 
     last_tick = 0
     for tick, pitch, vel, on in events:
@@ -247,16 +245,20 @@ def run_within_work_similarity(
         neighbors = []
         for j, neighbor_id in enumerate(ids):
             if i != j:
-                neighbors.append({
-                    "id": neighbor_id,
-                    "similarity": round(float(matrix[i, j]), 4),
-                })
+                neighbors.append(
+                    {
+                        "id": neighbor_id,
+                        "similarity": round(float(matrix[i, j]), 4),
+                    }
+                )
         neighbors.sort(key=lambda x: x["similarity"], reverse=True)
-        similarity_results.append({
-            "query": query_id,
-            "category": next(p["category"] for p in manifest["probes"] if p["id"] == query_id),
-            "nearest_neighbors": neighbors[:3],
-        })
+        similarity_results.append(
+            {
+                "query": query_id,
+                "category": next(p["category"] for p in manifest["probes"] if p["id"] == query_id),
+                "nearest_neighbors": neighbors[:3],
+            }
+        )
 
     return {
         "candidate": candidate,
@@ -267,7 +269,7 @@ def run_within_work_similarity(
             "values": [[round(float(v), 4) for v in row] for row in matrix.tolist()],
         },
         "per_query_results": similarity_results,
-        "notes": "Qualitative product probe. Similarity reflects embedding space structure, not musical accuracy.",
+        "notes": "Qualitative product probe. Similarity reflects embedding space structure.",
     }
 
 
@@ -309,17 +311,25 @@ def run_cross_work_similarity(
         neighbors = []
         for j, neighbor_id in enumerate(ids):
             if i != j:
-                neighbors.append({
-                    "id": neighbor_id,
-                    "category": next(p["category"] for p in manifest["probes"] if p["id"] == neighbor_id),
-                    "similarity": round(float(matrix[i, j]), 4),
-                })
+                neighbors.append(
+                    {
+                        "id": neighbor_id,
+                        "category": next(
+                            p["category"] for p in manifest["probes"] if p["id"] == neighbor_id
+                        ),
+                        "similarity": round(float(matrix[i, j]), 4),
+                    }
+                )
         neighbors.sort(key=lambda x: x["similarity"], reverse=True)
-        cross_results.append({
-            "query": query_id,
-            "query_category": next(p["category"] for p in manifest["probes"] if p["id"] == query_id),
-            "nearest_neighbors": neighbors,
-        })
+        cross_results.append(
+            {
+                "query": query_id,
+                "query_category": next(
+                    p["category"] for p in manifest["probes"] if p["id"] == query_id
+                ),
+                "nearest_neighbors": neighbors,
+            }
+        )
 
     return {
         "candidate": candidate,
@@ -330,7 +340,7 @@ def run_cross_work_similarity(
             "values": [[round(float(v), 4) for v in row] for row in matrix.tolist()],
         },
         "per_query_results": cross_results,
-        "notes": "Qualitative product probe. Different musical organizations should ideally show distinct clustering.",
+        "notes": "Qualitative probe. Different organizations should show distinct clustering.",
     }
 
 
@@ -388,19 +398,25 @@ def run_text_retrieval(
         similarities: list[dict[str, Any]] = []
         for audio_id, audio_emb in audio_embeddings.items():
             sim = cosine_similarity(text_emb, audio_emb)
-            similarities.append({
-                "audio_id": audio_id,
-                "category": next(p["category"] for p in diversity_manifest["probes"] if p["id"] == audio_id),
-                "similarity": round(sim, 4),
-            })
+            similarities.append(
+                {
+                    "audio_id": audio_id,
+                    "category": next(
+                        p["category"] for p in diversity_manifest["probes"] if p["id"] == audio_id
+                    ),
+                    "similarity": round(sim, 4),
+                }
+            )
         similarities.sort(key=lambda x: x["similarity"], reverse=True)
 
         query_text = next(q["text"] for q in manifest["queries"] if q["id"] == query_id)
-        retrieval_results.append({
-            "query_id": query_id,
-            "query_text": query_text,
-            "ranked_results": similarities,
-        })
+        retrieval_results.append(
+            {
+                "query_id": query_id,
+                "query_text": query_text,
+                "ranked_results": similarities,
+            }
+        )
 
     return {
         "candidate": candidate,
@@ -443,13 +459,16 @@ def run_cross_representation(
 
         audio_params = pair["audio_params"]
         if "frequencies" in audio_params:
-            audio = _generate_probe_audio({
-                "frequency_hz": audio_params["frequencies"][0],
-                "harmonics": [1.0],
-                "amplitudes": [1.0],
-                "duration_seconds": audio_params.get("note_duration", 0.5) * len(audio_params["frequencies"]),
-                "seed": hash(pair_id) % 10000,
-            })
+            audio = _generate_probe_audio(
+                {
+                    "frequency_hz": audio_params["frequencies"][0],
+                    "harmonics": [1.0],
+                    "amplitudes": [1.0],
+                    "duration_seconds": audio_params.get("note_duration", 0.5)
+                    * len(audio_params["frequencies"]),
+                    "seed": hash(pair_id) % 10000,
+                }
+            )
         else:
             audio = generate_synthetic_audio(duration_seconds=4.0)
 
@@ -484,7 +503,7 @@ def run_cross_representation(
         "task": "cross_representation",
         "num_pairs": len(matched_pairs),
         "results": cross_result,
-        "notes": "Cross-modal alignment test. Matched audio/MIDI pairs should rank above mismatched pairs.",
+        "notes": "Cross-modal alignment test. Matched pairs should rank above mismatched pairs.",
     }
 
 
@@ -526,7 +545,9 @@ def run_candidate(
     if task in ("all", "cross_representation"):
         manifest_path = os.path.join(manifest_dir, "aligned_representation_probe.json")
         if os.path.exists(manifest_path):
-            results["cross_representation"] = run_cross_representation(candidate, manifest_path, device)
+            results["cross_representation"] = run_cross_representation(
+                candidate, manifest_path, device
+            )
 
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"{candidate}.json")
@@ -548,7 +569,14 @@ def main() -> None:
     parser.add_argument(
         "--task",
         default="all",
-        choices=["all", "operational", "within_work", "cross_work", "text_retrieval", "cross_representation"],
+        choices=[
+            "all",
+            "operational",
+            "within_work",
+            "cross_work",
+            "text_retrieval",
+            "cross_representation",
+        ],
         help="Evaluation task to run",
     )
     parser.add_argument(

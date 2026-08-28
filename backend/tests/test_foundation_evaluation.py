@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 
 import numpy as np
 import pytest
-
 from backend.evaluation.analysis_v3.foundation.metrics.retrieval import (
-    RetrievalResult,
     compute_mrr,
     compute_recall_at_k,
     compute_similarity_matrix,
@@ -22,7 +19,6 @@ from backend.evaluation.analysis_v3.foundation.metrics.retrieval import (
 from backend.evaluation.analysis_v3.foundation.metrics.runtime import (
     OperationalResult,
     RuntimeMetrics,
-    check_determinism,
     generate_synthetic_audio,
 )
 

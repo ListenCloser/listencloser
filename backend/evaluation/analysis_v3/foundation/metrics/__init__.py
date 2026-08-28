@@ -1,20 +1,20 @@
 from .retrieval import (
     RetrievalResult,
-    cosine_similarity,
-    compute_similarity_matrix,
-    retrieve_nearest_neighbors,
-    compute_recall_at_k,
     compute_mrr,
-    evaluate_retrieval,
+    compute_recall_at_k,
+    compute_similarity_matrix,
+    cosine_similarity,
     evaluate_cross_representation,
+    evaluate_retrieval,
+    retrieve_nearest_neighbors,
 )
 from .runtime import (
-    RuntimeMetrics,
     OperationalResult,
-    measure_embedding_latency,
+    RuntimeMetrics,
     check_determinism,
-    get_checkpoint_size,
     generate_synthetic_audio,
+    get_checkpoint_size,
+    measure_embedding_latency,
 )
 
 __all__ = [

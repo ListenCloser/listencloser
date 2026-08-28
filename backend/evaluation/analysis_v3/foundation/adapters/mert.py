@@ -20,14 +20,12 @@ class MERTAdapter(FoundationModelAdapter):
         if self._loaded:
             return
         try:
-            from transformers import AutoModel, AutoFeatureExtractor
+            from transformers import AutoFeatureExtractor, AutoModel
 
             self._processor = AutoFeatureExtractor.from_pretrained(
                 self.model_id, trust_remote_code=True
             )
-            self._model = AutoModel.from_pretrained(
-                self.model_id, trust_remote_code=True
-            )
+            self._model = AutoModel.from_pretrained(self.model_id, trust_remote_code=True)
             self._model.eval()
             self._model.to(self.device)
             self._loaded = True
@@ -50,9 +48,7 @@ class MERTAdapter(FoundationModelAdapter):
                 waveform = torch.from_numpy(audio).float().unsqueeze(0)
                 if waveform.dim() == 1:
                     waveform = waveform.unsqueeze(0)
-                resampler = torchaudio.transforms.Resample(
-                    orig_freq=sample_rate, new_freq=24000
-                )
+                resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=24000)
                 waveform = resampler(waveform).squeeze(0).numpy()
             else:
                 waveform = audio
@@ -87,7 +83,7 @@ class MERTAdapter(FoundationModelAdapter):
             model_id=self.model_id,
             code_license="MIT",
             weight_license="CC-BY-NC-SA-4.0",
-            training_data_notes="MERT training data includes copyrighted music; weights are non-commercial.",
+            training_data_notes="MERT training data includes copyrighted music.",
             embedding_dim=768,
             temporal=True,
             temporal_resolution_seconds=0.02,
@@ -95,5 +91,5 @@ class MERTAdapter(FoundationModelAdapter):
             supports_text=False,
             supports_symbolic=False,
             upstream_repo="https://github.com/yizhilll/MERT",
-            notes="95M parameter music understanding model. Trained on music audio with teacher models.",
+            notes="95M parameter music understanding model.",
         )

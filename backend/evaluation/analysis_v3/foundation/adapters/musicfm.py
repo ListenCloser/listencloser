@@ -31,6 +31,7 @@ class MusicFMAdapter(FoundationModelAdapter):
             musicfm_dir = "/tmp/musicfm"
             if not os.path.exists(musicfm_dir):
                 import subprocess
+
                 subprocess.run(
                     ["git", "clone", "https://github.com/minzwon/musicfm.git", musicfm_dir],
                     check=True,
@@ -67,9 +68,7 @@ class MusicFMAdapter(FoundationModelAdapter):
                 waveform = torch.from_numpy(audio).float().unsqueeze(0)
                 if waveform.dim() == 1:
                     waveform = waveform.unsqueeze(0)
-                resampler = torchaudio.transforms.Resample(
-                    orig_freq=sample_rate, new_freq=24000
-                )
+                resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=24000)
                 waveform = resampler(waveform).squeeze(0).numpy()
             else:
                 waveform = audio

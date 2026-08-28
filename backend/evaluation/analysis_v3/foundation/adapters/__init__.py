@@ -1,9 +1,9 @@
-from .base import FoundationModelAdapter, EmbeddingResult, ModelMetadata
+from .base import EmbeddingResult, FoundationModelAdapter, ModelMetadata
+from .clamp3 import CLaMP3Adapter
+from .clap import CLAPAdapter
 from .mert import MERTAdapter
 from .muq import MuQAdapter
 from .musicfm import MusicFMAdapter
-from .clamp3 import CLaMP3Adapter
-from .clap import CLAPAdapter
 
 ADAPTERS: dict[str, type[FoundationModelAdapter]] = {
     "mert": MERTAdapter,
