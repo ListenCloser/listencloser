@@ -56,9 +56,13 @@ def test_worker_sentry_does_not_import_api_framework_integrations(monkeypatch):
     monkeypatch.setattr(sentry_sdk, "init", lambda **_kwargs: None)
 
     original_import = builtins.__import__
+    forbidden = (
+        "sentry_sdk.integrations.fastapi",
+        "sentry_sdk.integrations.starlette",
+    )
 
     def guarded_import(name, *args, **kwargs):
-        if name in {"sentry_sdk.integrations.fastapi", "sentry_sdk.integrations.starlette"}:
+        if name in forbidden:
             raise AssertionError(f"worker unexpectedly imported {name}")
         return original_import(name, *args, **kwargs)
 
