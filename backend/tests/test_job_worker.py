@@ -116,6 +116,33 @@ class TestClaimJob:
         assert claimed is False
 
 
+class TestClaimNextJob:
+    def test_claim_next_job_uses_atomic_rpc(self, worker, mock_supabase):
+        job_row = make_job_row(stage="claimed", worker_id=worker._worker_id)
+        mock_supabase.rpc.return_value.execute.return_value = make_result([job_row])
+
+        claimed = worker._claim_next_job()
+
+        assert claimed == job_row
+        mock_supabase.rpc.assert_called_once_with(
+            "claim_next_job",
+            {
+                "p_worker_id": worker._worker_id,
+                "p_lease_seconds": worker._lease_duration,
+            },
+        )
+
+    def test_claim_next_job_returns_none_for_empty_queue(self, worker, mock_supabase):
+        mock_supabase.rpc.return_value.execute.return_value = make_result([])
+
+        assert worker._claim_next_job() is None
+
+    def test_claim_next_job_db_error_is_retryable_poll_miss(self, worker, mock_supabase):
+        mock_supabase.rpc.return_value.execute.side_effect = Exception("database unavailable")
+
+        assert worker._claim_next_job() is None
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. Lease expiry / orphan recovery
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -605,7 +632,7 @@ class TestWorkerStop:
 
         with (
             patch.object(worker, "_recover_orphans", return_value=0),
-            patch.object(worker, "_poll_jobs", side_effect=_fake_poll),
+            patch.object(worker, "_claim_next_job", side_effect=_fake_poll),
         ):
             worker.run()
 
@@ -621,7 +648,7 @@ class TestWorkerStop:
 
         with (
             patch.object(worker, "_recover_orphans", return_value=0) as recover,
-            patch.object(worker, "_poll_jobs", side_effect=_stop_after_poll),
+            patch.object(worker, "_claim_next_job", side_effect=_stop_after_poll),
             patch(
                 "domain.job_worker.time.monotonic",
                 side_effect=[0.0, 0.0, 0.02],
@@ -643,7 +670,7 @@ class TestWorkerStop:
 
         with (
             patch.object(worker, "_recover_orphans", return_value=0),
-            patch.object(worker, "_poll_jobs", return_value=None),
+            patch.object(worker, "_claim_next_job", return_value=None),
         ):
             worker.run()
 
