@@ -12,7 +12,7 @@ def _validate_rating(row: dict[str, Any], name: str) -> None:
     value = row.get(name)
     if value is None:
         return
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise ValueError(f"{name} must be numeric or null")
     if not 1 <= float(value) <= 5:
         raise ValueError(f"{name} must be in [1, 5]")
