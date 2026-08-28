@@ -1,0 +1,134 @@
+name: Real-stack Minimal Supabase Probe
+
+on:
+  push:
+    branches: [audit/platform-v3-post-next16]
+
+concurrency:
+  group: real-stack-minimal-supabase-probe
+  cancel-in-progress: true
+
+jobs:
+  real-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.113.0
+
+      - name: Start minimal local Supabase and apply every migration
+        run: |
+          started=$(date +%s)
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          echo "SUPABASE_START_SECONDS=$(($(date +%s)-started))" | tee -a "$GITHUB_ENV" "$GITHUB_STEP_SUMMARY"
+
+      - name: Export Supabase environment
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
+          SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
+          SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
+          echo "SUPABASE_URL=$SUPABASE_URL" >> "$GITHUB_ENV"
+          echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+
+      - name: Sync locked backend environment
+        run: |
+          started=$(date +%s)
+          sudo apt-get update >/dev/null && sudo apt-get install -y ffmpeg >/dev/null
+          uv sync --project backend --locked
+          echo "BACKEND_SETUP_SECONDS=$(($(date +%s)-started))" | tee -a "$GITHUB_ENV" "$GITHUB_STEP_SUMMARY"
+
+      - name: Start backend API
+        run: |
+          cd backend
+          nohup uv run uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+
+      - name: Start worker
+        run: |
+          cd backend
+          nohup uv run python worker.py > /tmp/worker.log 2>&1 &
+          echo $! > /tmp/worker.pid
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build frontend against the local stack
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_MOCK_ENABLED: "false"
+        run: |
+          started=$(date +%s)
+          npm ci
+          npm run build
+          echo "FRONTEND_BUILD_SECONDS=$(($(date +%s)-started))" | tee -a "$GITHUB_ENV" "$GITHUB_STEP_SUMMARY"
+
+      - name: Start frontend
+        run: |
+          MUSIC_BACKEND_URL=http://127.0.0.1:8000 nohup npm run start > /tmp/frontend.log 2>&1 &
+          echo $! > /tmp/frontend.pid
+
+      - name: Wait for the stack to come up
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8000/health/live > /dev/null && curl -sf http://localhost:3000 > /dev/null; then
+              echo "stack ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "stack did not become ready" >&2
+          tail -40 /tmp/backend.log || true
+          tail -40 /tmp/frontend.log || true
+          exit 1
+
+      - name: Run real-stack browser test
+        env:
+          REAL_AUDIO_FILE: ${{ github.workspace }}/tests/fixtures/real-piano.m4a
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKEND_URL: "http://127.0.0.1:8000"
+        run: |
+          started=$(date +%s)
+          npx playwright install chromium --with-deps
+          npx playwright test --config=playwright.realstack.config.ts
+          echo "BROWSER_TEST_SECONDS=$(($(date +%s)-started))" | tee -a "$GITHUB_ENV" "$GITHUB_STEP_SUMMARY"
+
+      - name: Timing summary
+        if: always()
+        run: |
+          echo "### Minimal Supabase timing" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Supabase start: ${SUPABASE_START_SECONDS:-unknown}s" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Backend setup: ${BACKEND_SETUP_SECONDS:-unknown}s" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Frontend install + build: ${FRONTEND_BUILD_SECONDS:-unknown}s" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Playwright install + golden path: ${BROWSER_TEST_SECONDS:-unknown}s" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Collect service logs on failure
+        if: failure()
+        run: |
+          echo "===== backend ====="; tail -150 /tmp/backend.log || true
+          echo "===== worker ====="; tail -150 /tmp/worker.log || true
+          echo "===== frontend ====="; tail -150 /tmp/frontend.log || true
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
