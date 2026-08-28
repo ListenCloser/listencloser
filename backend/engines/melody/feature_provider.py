@@ -36,7 +36,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MelodyNoteInput:
     """Input note for feature extraction."""
-
     pitch: int  # MIDI pitch
     start_seconds: float
     end_seconds: float
@@ -46,7 +45,6 @@ class MelodyNoteInput:
 @dataclass
 class MelodyFeatures:
     """Canonical melody features from music21/jSymbolic."""
-
     # Trivial projections (custom, acceptable)
     highest_pitch: int
     lowest_pitch: int
@@ -116,16 +114,12 @@ def extract_melody_features(notes: list[MelodyNoteInput]) -> MelodyFeatures | No
 
     # jSymbolic features
     try:
-        stepwise = (
-            features.jSymbolic.StepwiseMotionFeature(melody_stream).extract().vector[0]
-        )
+        stepwise = features.jSymbolic.StepwiseMotionFeature(melody_stream).extract().vector[0]
     except Exception:
         stepwise = 0.0
 
     try:
-        direction = (
-            features.jSymbolic.DirectionOfMotionFeature(melody_stream).extract().vector[0]
-        )
+        direction = features.jSymbolic.DirectionOfMotionFeature(melody_stream).extract().vector[0]
     except Exception:
         direction = 0.5
 
@@ -148,16 +142,12 @@ def extract_melody_features(notes: list[MelodyNoteInput]) -> MelodyFeatures | No
         most_common = 0
 
     try:
-        repeated = (
-            features.jSymbolic.RepeatedNotesFeature(melody_stream).extract().vector[0]
-        )
+        repeated = features.jSymbolic.RepeatedNotesFeature(melody_stream).extract().vector[0]
     except Exception:
         repeated = 0.0
 
     try:
-        chromatic = (
-            features.jSymbolic.ChromaticMotionFeature(melody_stream).extract().vector[0]
-        )
+        chromatic = features.jSymbolic.ChromaticMotionFeature(melody_stream).extract().vector[0]
     except Exception:
         chromatic = 0.0
 
@@ -168,9 +158,7 @@ def extract_melody_features(notes: list[MelodyNoteInput]) -> MelodyFeatures | No
 
     try:
         avg_duration = (
-            features.jSymbolic.AverageNoteDurationFeature(melody_stream)
-            .extract()
-            .vector[0]
+            features.jSymbolic.AverageNoteDurationFeature(melody_stream).extract().vector[0]
         )
     except Exception:
         avg_duration = 0.0
