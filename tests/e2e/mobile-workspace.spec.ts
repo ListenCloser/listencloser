@@ -26,30 +26,30 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
   // Compact layout starts on the music itself, not with desktop side panels
   // covering a narrow canvas. The Inspector stays mounted for state/performance
   // continuity but is visually staged until explicitly opened.
-  const libraryTrigger = page.getByRole("button", { name: "Show library" });
+  const libraryTrigger = page.getByRole("button", { name: "Show library", exact: true });
   await expect(libraryTrigger).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show analysis" })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("tab", { name: "Analysis" })).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Show analysis", exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("tab", { name: "Analysis", exact: true })).not.toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await expectTouchHeight(libraryTrigger);
-  await expectTouchHeight(page.getByRole("tab", { name: "Waveform" }));
+  await expectTouchHeight(page.getByRole("tab", { name: "Waveform", exact: true }));
   await expectTouchHeight(page.getByRole("button", { name: /Playback source:/ }));
-  await expectTouchHeight(page.getByRole("button", { name: "Play" }));
-  await expectTouchHeight(page.getByRole("button", { name: "Toggle loop" }));
+  await expectTouchHeight(page.getByRole("button", { name: "Play", exact: true }));
+  await expectTouchHeight(page.getByRole("button", { name: "Toggle loop", exact: true }));
 
   // Library is an explicit touch destination and its only destructive command
   // is direct rather than hidden behind a one-item overflow menu.
   await libraryTrigger.click();
-  const deleteButton = page.getByRole("button", { name: "Delete Test Work" });
+  const deleteButton = page.getByRole("button", { name: "Delete Test Work", exact: true });
   await expect(deleteButton).toBeVisible();
   await expectTouchHeight(deleteButton);
-  await page.getByRole("button", { name: "Hide library" }).click();
+  await page.getByRole("button", { name: "Hide library", exact: true }).click();
 
   // Analysis / Ask is a phone bottom sheet above the persistent transport.
-  await page.getByRole("button", { name: "Show analysis" }).click();
+  await page.getByRole("button", { name: "Show analysis", exact: true }).click();
   const inspector = page.locator(".studio-inspector-v3");
-  await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Analysis", exact: true })).toBeVisible();
   const inspectorBox = await inspector.boundingBox();
   const transportBox = await page.locator(".transport-bar-v3").boundingBox();
   expect(inspectorBox).not.toBeNull();
