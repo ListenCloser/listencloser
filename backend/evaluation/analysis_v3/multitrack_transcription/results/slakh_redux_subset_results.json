@@ -33,7 +33,7 @@
           "Track01876/MIDI/S03.mid": "3a073641e3a3fc178c9fed50c3d3c5da2b21f16a7af7b777247e23a0d6214c3a",
           "Track01876/MIDI/S04.mid": "1b3f009af2a5a77ad82794575821b79317efaaf4cece1bf0ad492c3c03df100f",
           "Track01876/MIDI/S05.mid": "ca6acb4c7063a0e6bd2b11b809a63a61e42f0029423dec57ccd27ff6ead30c78",
-          "Track01876/MIDI/S06.mid": "2000376b9040607b24892918b79dfc6ff0096f6bd25d0e98b091a48826c930459",
+          "Track01876/MIDI/S06.mid": "200037b9040607b24892918b79dfc6ff0096f6bd25d0e98b091a48826c930459",
           "Track01876/MIDI/S07.mid": "0751f6a3cae050cb2a4e7ccac214360d556d285017e99aa6da0da87c2cfc0f8f",
           "Track01876/MIDI/S08.mid": "ca54a841937832506240457b5e21c5c57647e95d4b1c58e2ee75e79332ad77f9",
           "Track01876/MIDI/S09.mid": "a29f53846e8c9dafd1a60ef4cb664c77c33f2240ecd8ecca7a0cb95a57328d4e",
@@ -42,48 +42,48 @@
         }
       },
       "Track01877": {
-        "mix_sha256": "620b8311257035325e334845d86b4640845a316c2d2218f268026fa7b4cd31f2",
+        "mix_sha256": "620b11c7bc00e494d609d9145a715927cf0b429dc865af73d37bee67e1a9b1d4",
         "reference_midi_count": 3,
         "reference_midi_sha256": {
-          "Track01877/MIDI/S00.mid": "8383f524b68dca89173939417eb87e8ae0b2cbca0036e118e1d626c4e198a568",
-          "Track01877/MIDI/S01.mid": "be496515f45b52c94ed32a9cf63bd17bbe717991141323f96d71d58e8c26007d",
-          "Track01877/MIDI/S02.mid": "ed1626655f1003e15eecc15bc8ee6f71a7c111d212f2ea7019193c736d90a3db"
+          "Track01877/MIDI/S00.mid": "7af76c16c07209872419b0795681660058b0c994ca8915275ef9e691ac740335",
+          "Track01877/MIDI/S03.mid": "a73a60223ea075944ee0915af7635a5727ffaee23e8ed598f9b5774a0f389137",
+          "Track01877/MIDI/S09.mid": "8d11b1ced8f4aac23294dcb99e5f4da5778c09dfb4664cc4771a68598494fc79"
         }
       },
       "Track01878": {
-        "mix_sha256": "f9fdc36d00c030197c7eca481c0624e95a479232c50bb759e4d3d0ba0b6257dd",
+        "mix_sha256": "f2f54d66c5a1ab9ec430b8571f7fff0c7498dc4343bb1f820dd8cfe1483c0923",
         "reference_midi_count": 6,
         "reference_midi_sha256": {
-          "Track01878/MIDI/S00.mid": "df4c99dd37593e0548e5ccfe7f084131c71a1bbd86f1c9351719534c8f433242",
-          "Track01878/MIDI/S01.mid": "b2671a4f27623f4151e9332a223520639884463e726507c28b9317158b646a94",
-          "Track01878/MIDI/S02.mid": "17662ff4939895a17891850d44d854cf2fb12815dbc2491bf7a84922c7c86d25",
-          "Track01878/MIDI/S03.mid": "fd1a1a4e50cdd79544cd82cbd32bc0fa2df9d44b53b3e2ecee95084982e54f6b",
-          "Track01878/MIDI/S04.mid": "410fac0cf53fe3f8a49ced74902ce4e0cd7657613f23189afdd21f480b8c2d7a",
-          "Track01878/MIDI/S05.mid": "fbd27447de553b0f44e0be0d94ce581f4f5d57fa08c33a29c943d81a3781815e"
+          "Track01878/MIDI/S00.mid": "e0aec8962b910771375080937ea8a9ba18fa0e4dd0037a30c865951198158a41",
+          "Track01878/MIDI/S01.mid": "547d2f24ed0bd44a81ae351b41277f74f97646be759212b4257f496ea0e4924a",
+          "Track01878/MIDI/S02.mid": "aa4953b954e2d0fd0ae60ba14a82c3ed379a51f42842fa23fa22b800db92deee",
+          "Track01878/MIDI/S03.mid": "36438feb2d63506e87d88624cb6eb4a1ce35a049c40f5b16d73bdbe5ebc7860a",
+          "Track01878/MIDI/S04.mid": "742955dfa128c3f788baee2dbd9a79d37ba70e992389edcd4ed2fb6136158de6",
+          "Track01878/MIDI/S05.mid": "00ea302e1d4204e1ec133ae8117d9fb169d59d7646e913fbdf74936b8372fb73"
         }
       },
       "Track01880": {
-        "mix_sha256": "d87f8e0b61ba3fe8fa7b342cdceea01fcd6631608d08076699244bdefaedcf9b",
+        "mix_sha256": "9c632afea1f59ac23cb032d8340a096076504dabdb7d0ce8995faea9ead036f4",
         "reference_midi_count": 6,
         "reference_midi_sha256": {
-          "Track01880/MIDI/S00.mid": "182c77435273549552105274354e4b6c5cacd4bc37111dd8c796415c7b85b34a",
-          "Track01880/MIDI/S01.mid": "04639a33d8ee6d4dd6b033e80f86b934b878e441f6144710f46085556083cab7",
-          "Track01880/MIDI/S02.mid": "9e13f8ac61454952430f593152354868120495375910c7bbedb8de2ce06f2fc0",
-          "Track01880/MIDI/S03.mid": "560f41d9c6297fd17b169411631a1ca99dbb9f3333fa72f69532917012b5d4a3",
-          "Track01880/MIDI/S04.mid": "e6cc9a34e3ab375e230d3d7bd56aafdf6699268871754935766b363db9529a45",
-          "Track01880/MIDI/S05.mid": "76ffc827cf649baea8486e7c2de8edb5d8f3bca1ed5c7dcb4f22ee11ed54538a"
+          "Track01880/MIDI/S00.mid": "e082758606b9ea5972e50ad0192458f169649c557e9ad7a169937696a9f041d5",
+          "Track01880/MIDI/S01.mid": "63b0aabb78e37fb7d319d84291c4c5329b0c3857c7fbea9a861a818cb43d51a6",
+          "Track01880/MIDI/S03.mid": "28a78ceb8c7dede779ee9bd7fa64534dbce5471f1d9b293361b30c9bc0d7e0af",
+          "Track01880/MIDI/S04.mid": "2223fd15934b6d565d23c1d8da91550dfab35039c9a7e83ba4372b068c09e134",
+          "Track01880/MIDI/S05.mid": "51947af4b751974bd581952bc370ebd5afc5de4f4e1e09d06c6651899e5de109",
+          "Track01880/MIDI/S06.mid": "21283a64cbe14922c3669dd5aa6385b80b5b8232eff222e52cf4131568725248"
         }
       },
       "Track01881": {
-        "mix_sha256": "226381436c64c1ebcc2a9c52d06695ce2995934d41715673718513286dcf26e4",
+        "mix_sha256": "6762066f29458258d56b86c02f2bdbda3c713d60ea92d0526b51f227eaced992",
         "reference_midi_count": 6,
         "reference_midi_sha256": {
-          "Track01881/MIDI/S00.mid": "da65defc8141fa06610498d18c638197aa98bd983dc746aa9fd386338e062f37",
-          "Track01881/MIDI/S01.mid": "30d1aa63fdbb14a8600cd220cd315d76ac58b6ebc0f11c5dbf73a0b75ce5151f",
-          "Track01881/MIDI/S02.mid": "39c69c434bd81f4a90843b16c942857c22e72f92fc91edb9d6ae397565527de7",
-          "Track01881/MIDI/S03.mid": "cde4323a01d931cb2d06f1be50ac98f88193bbd318794ce11f6c1f2663633444",
-          "Track01881/MIDI/S04.mid": "e3d3fd4d9cf961208b0afad8fc5af19fed86d87daaa35db0d42b4b09cfa43755",
-          "Track01881/MIDI/S05.mid": "062ade38a30bf9e6b6a8d9343554a08d8548da217a7ee0e61d99ee1108830d069"
+          "Track01881/MIDI/S00.mid": "65de08d06f2a8a60871806f889110fcdeae81d39d366e4372972a7c781c5a538",
+          "Track01881/MIDI/S01.mid": "f430bbb12c8aa59ba15f7df6c5322f4ddc0dd8ddf5837c384718a979401fc523",
+          "Track01881/MIDI/S02.mid": "148494f6c109f0d197429fc660ea7915e88618f7a38e3b2cab7318c13bca6f9b",
+          "Track01881/MIDI/S03.mid": "78e5234cb543bbefdc899f5a3dd5c7ec57e818f38572216e3c5945cfb3888048",
+          "Track01881/MIDI/S04.mid": "ce083baae6e4013338fcbd04af5d7f38eee572ff919454cba095eddf83d38b00",
+          "Track01881/MIDI/S05.mid": "c5df3493c57b7d8c2dce436bd28433ac85da17a0cba541ff59fe1495032b2711"
         }
       }
     }
@@ -105,43 +105,13 @@
       "note_flat_f1": 0.1397
     },
     "tracks": {
-      "Track01876": {
-        "reference_notes": 379,
-        "predicted_notes": 297,
-        "onset_flat_f1": 0.2988,
-        "note_flat_f1": 0.1183,
-        "runtime_seconds": 24.948
-      },
-      "Track01877": {
-        "reference_notes": 136,
-        "predicted_notes": 172,
-        "onset_flat_f1": 0.6883,
-        "note_flat_f1": 0.2662,
-        "runtime_seconds": 1.824
-      },
-      "Track01878": {
-        "reference_notes": 164,
-        "predicted_notes": 147,
-        "onset_flat_f1": 0.2701,
-        "note_flat_f1": 0.0836,
-        "runtime_seconds": 1.457
-      },
-      "Track01880": {
-        "reference_notes": 651,
-        "predicted_notes": 170,
-        "onset_flat_f1": 0.2363,
-        "note_flat_f1": 0.1389,
-        "runtime_seconds": 1.78
-      },
-      "Track01881": {
-        "reference_notes": 565,
-        "predicted_notes": 399,
-        "onset_flat_f1": 0.4419,
-        "note_flat_f1": 0.0913,
-        "runtime_seconds": 1.544
-      }
+      "Track01876": {"reference_notes": 379, "predicted_notes": 297, "onset_flat_f1": 0.2988, "note_flat_f1": 0.1183, "runtime_seconds": 24.832},
+      "Track01877": {"reference_notes": 136, "predicted_notes": 172, "onset_flat_f1": 0.6883, "note_flat_f1": 0.2662, "runtime_seconds": 1.743},
+      "Track01878": {"reference_notes": 164, "predicted_notes": 147, "onset_flat_f1": 0.2701, "note_flat_f1": 0.0836, "runtime_seconds": 1.408},
+      "Track01880": {"reference_notes": 651, "predicted_notes": 170, "onset_flat_f1": 0.2363, "note_flat_f1": 0.1389, "runtime_seconds": 1.716},
+      "Track01881": {"reference_notes": 565, "predicted_notes": 399, "onset_flat_f1": 0.4419, "note_flat_f1": 0.0913, "runtime_seconds": 1.503}
     },
-    "runtime_note": "first track includes model-load/cold-start cost; median of remaining four tracks = 1.6620 s"
+    "runtime_note": "first track includes model-load/cold-start cost; median of remaining four tracks is ~1.66 s"
   },
   "mr_mt3": {
     "decision": "RESEARCH",
@@ -162,189 +132,36 @@
       "instrument_detection_family_f1": 0.9113
     },
     "tracks": {
-      "Track01876": {
-        "reference_notes": 379,
-        "predicted_notes": 300,
-        "onset_flat_f1": 0.6804,
-        "note_flat_f1": 0.3211,
-        "onset_program_family_f1": 0.6068,
-        "onset_program_exact_f1": 0.3741,
-        "note_program_exact_f1": 0.1473,
-        "instrument_detection_exact_f1": 0.5714,
-        "instrument_detection_family_f1": 1.0,
-        "reference_source_count": 12,
-        "runtime_seconds_stock_cli_process": 100.871,
-        "process_max_rss_mb": 824.88
-      },
-      "Track01877": {
-        "reference_notes": 136,
-        "predicted_notes": 127,
-        "onset_flat_f1": 0.9582,
-        "note_flat_f1": 0.3194,
-        "onset_program_family_f1": 0.9582,
-        "onset_program_exact_f1": 0.8517,
-        "note_program_exact_f1": 0.289,
-        "instrument_detection_exact_f1": 0.2857,
-        "instrument_detection_family_f1": 0.8,
-        "reference_source_count": 3,
-        "runtime_seconds_stock_cli_process": 26.303,
-        "process_max_rss_mb": 817.12
-      },
-      "Track01878": {
-        "reference_notes": 164,
-        "predicted_notes": 128,
-        "onset_flat_f1": 0.7603,
-        "note_flat_f1": 0.226,
-        "onset_program_family_f1": 0.7397,
-        "onset_program_exact_f1": 0.3288,
-        "note_program_exact_f1": 0.0411,
-        "instrument_detection_exact_f1": 0.3333,
-        "instrument_detection_family_f1": 0.8333,
-        "reference_source_count": 6,
-        "runtime_seconds_stock_cli_process": 44.677,
-        "process_max_rss_mb": 833.06
-      },
-      "Track01880": {
-        "reference_notes": 651,
-        "predicted_notes": 534,
-        "onset_flat_f1": 0.67,
-        "note_flat_f1": 0.1789,
-        "onset_program_family_f1": 0.6042,
-        "onset_program_exact_f1": 0.4996,
-        "note_program_exact_f1": 0.0489,
-        "instrument_detection_exact_f1": 0.2857,
-        "instrument_detection_family_f1": 0.9231,
-        "reference_source_count": 6,
-        "runtime_seconds_stock_cli_process": 127.813,
-        "process_max_rss_mb": 831.92
-      },
-      "Track01881": {
-        "reference_notes": 565,
-        "predicted_notes": 594,
-        "onset_flat_f1": 0.8801,
-        "note_flat_f1": 0.1622,
-        "onset_program_family_f1": 0.8663,
-        "onset_program_exact_f1": 0.4452,
-        "note_program_exact_f1": 0.0794,
-        "instrument_detection_exact_f1": 0.4615,
-        "instrument_detection_family_f1": 1.0,
-        "reference_source_count": 6,
-        "runtime_seconds_stock_cli_process": 155.202,
-        "process_max_rss_mb": 863.05
-      }
+      "Track01876": {"reference_notes": 379, "predicted_notes": 300, "onset_flat_f1": 0.6804, "note_flat_f1": 0.3211, "onset_program_family_f1": 0.6068, "onset_program_exact_f1": 0.3741, "note_program_exact_f1": 0.1473, "instrument_detection_exact_f1": 0.5714, "instrument_detection_family_f1": 1.0, "reference_source_count": 12, "runtime_seconds_stock_cli_process": 100.984, "process_max_rss_mb": 837.07, "decoder_invalid_events": 119, "decoder_dropped_events": 0},
+      "Track01877": {"reference_notes": 136, "predicted_notes": 127, "onset_flat_f1": 0.9582, "note_flat_f1": 0.3194, "onset_program_family_f1": 0.9582, "onset_program_exact_f1": 0.8517, "note_program_exact_f1": 0.289, "instrument_detection_exact_f1": 0.2857, "instrument_detection_family_f1": 0.8, "reference_source_count": 3, "runtime_seconds_stock_cli_process": 26.389, "process_max_rss_mb": 840.37, "decoder_invalid_events": 27, "decoder_dropped_events": 0},
+      "Track01878": {"reference_notes": 164, "predicted_notes": 128, "onset_flat_f1": 0.7603, "note_flat_f1": 0.226, "onset_program_family_f1": 0.7397, "onset_program_exact_f1": 0.3288, "note_program_exact_f1": 0.0411, "instrument_detection_exact_f1": 0.3333, "instrument_detection_family_f1": 0.8333, "reference_source_count": 6, "runtime_seconds_stock_cli_process": 45.28, "process_max_rss_mb": 825.54, "decoder_invalid_events": 91, "decoder_dropped_events": 0},
+      "Track01880": {"reference_notes": 651, "predicted_notes": 534, "onset_flat_f1": 0.67, "note_flat_f1": 0.1789, "onset_program_family_f1": 0.6042, "onset_program_exact_f1": 0.4996, "note_program_exact_f1": 0.0489, "instrument_detection_exact_f1": 0.2857, "instrument_detection_family_f1": 0.9231, "reference_source_count": 6, "runtime_seconds_stock_cli_process": 128.61, "process_max_rss_mb": 833.41, "decoder_invalid_events": 50, "decoder_dropped_events": 0},
+      "Track01881": {"reference_notes": 565, "predicted_notes": 594, "onset_flat_f1": 0.8801, "note_flat_f1": 0.1622, "onset_program_family_f1": 0.8663, "onset_program_exact_f1": 0.4452, "note_program_exact_f1": 0.0794, "instrument_detection_exact_f1": 0.4615, "instrument_detection_family_f1": 1.0, "reference_source_count": 6, "runtime_seconds_stock_cli_process": 155.95, "process_max_rss_mb": 840.85, "decoder_invalid_events": 73, "decoder_dropped_events": 0}
     },
     "operational_note": "stock CLI launches a fresh process/model per track; runtime is wrapper execution cost, not warm batched inference",
     "measurement_level": "decoded NoteSequence events before mt3-infer MIDI serialization"
   },
   "serializer_validity": {
-    "upstream_bug": "mt3-infer 0.2.0 MR-MT3 decode retains note.program in NoteSequence but its stock MIDI serializer collapses all pitched notes to channel 0 without program_change",
-    "stock_run": {
-      "workflow_run_id": 33213511319,
-      "head_sha": "4f380d51fa74e67e9c67bb8e5952a749083621f5",
-      "artifact_digest": "sha256:517b4d6ea7a9f97238e5aa91f0f66a6d53c4830aa75da1530aa8dbb6a0aec2fa"
+    "upstream_bugs": [
+      "mt3-infer 0.2.0 retains Note.program/is_drum in the decoded NoteSequence but stock MIDI serialization emits every pitched note on channel 0 without program_change, destroying program identity and making overlapping same-pitch notes ambiguous.",
+      "the stock serializer converts each successive event-time delta to integer MIDI ticks independently; truncation accumulates across dense event streams and shifts decoded onsets earlier by tens to hundreds of milliseconds."
+    ],
+    "stock_run": {"workflow_run_id": 33213511319, "head_sha": "4f380d51fa74e67e9c67bb8e5952a749083621f5", "artifact_digest": "sha256:517b4d6ea7a9f97238e5aa91f0f66a6d53c4830aa75da1530aa8dbb6a0aec2fa"},
+    "patched_run": {"workflow_run_id": 33215520514, "head_sha": "cf100d2dd1338dbe3819994fa9a695d63bd79320", "artifact_digest": "sha256:3ef40d72007bd80b85a2d3817d29b00738bcf6fdc7cc8c242ca531c4b128963e"},
+    "program_channel_patch": {"upstream_adapter_path": "/home/runner/work/_temp/mt3-venv/lib/python3.11/site-packages/mt3_infer/adapters/mr_mt3.py", "upstream_commit": "2d20ee5bb6ca727968bd23c6100fd2a35154166b", "before_sha256": "5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef", "after_sha256": "c024fc59dbacbf61d8bf15fc4886beba353b345f4f04592f8c5cbc3fb24ccb05", "patch_scope": "decode() MIDI channel/program serialization only", "program_strategy": "unique pitched MIDI channel per predicted program; channel 9 reserved for drums"},
+    "stock_vs_decoder_timing_drift": {
+      "Track01876": {"stock_vs_decoder_note_count_equal": true, "stock_minus_decoder_onset_seconds": {"median": -0.092727, "min": -0.197909, "max": -0.000091, "mean": -0.10045}, "stock_minus_decoder_end_seconds": {"median": -0.111045, "min": -3.421818, "max": -0.003091, "mean": -0.165373}},
+      "Track01877": {"stock_vs_decoder_note_count_equal": true, "stock_minus_decoder_onset_seconds": {"median": -0.064, "min": -0.137909, "max": -0.001455, "mean": -0.063825}, "stock_minus_decoder_end_seconds": {"median": -0.070636, "min": -0.772, "max": -0.008273, "mean": -0.073785}},
+      "Track01878": {"stock_vs_decoder_note_count_equal": true, "stock_minus_decoder_onset_seconds": {"median": -0.042545, "min": -0.105182, "max": -0.001636, "mean": -0.046732}, "stock_minus_decoder_end_seconds": {"median": -0.059636, "min": -3.441182, "max": -0.005364, "mean": -0.233663}},
+      "Track01880": {"stock_vs_decoder_note_count_equal": true, "stock_minus_decoder_onset_seconds": {"median": -0.190727, "min": -0.324273, "max": -0.001364, "mean": -0.17669}, "stock_minus_decoder_end_seconds": {"median": -0.199727, "min": -1.769455, "max": -0.001818, "mean": -0.192237}},
+      "Track01881": {"stock_vs_decoder_note_count_equal": true, "stock_minus_decoder_onset_seconds": {"median": -0.123909, "min": -0.311545, "max": -0.000909, "mean": -0.141889}, "stock_minus_decoder_end_seconds": {"median": -0.186727, "min": -3.330727, "max": -0.000909, "mean": -0.243272}}
     },
-    "patched_run": {
-      "workflow_run_id": 33215520514,
-      "head_sha": "cf100d2dd1338dbe3819994fa9a695d63bd79320",
-      "artifact_digest": "sha256:3ef40d72007bd80b85a2d3817d29b00738bcf6fdc7cc8c242ca531c4b128963e"
-    },
-    "patch": {
-      "upstream_adapter_path": "/home/runner/work/_temp/mt3-venv/lib/python3.11/site-packages/mt3_infer/adapters/mr_mt3.py",
-      "upstream_commit": "2d20ee5bb6ca727968bd23c6100fd2a35154166b",
-      "before_sha256": "5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef",
-      "after_sha256": "c024fc59dbacbf61d8bf15fc4886beba353b345f4f04592f8c5cbc3fb24ccb05",
-      "patch_scope": "decode() MIDI channel/program serialization only",
-      "program_strategy": "unique pitched MIDI channel per predicted program; channel 9 reserved for drums"
-    },
-    "equivalence": {
-      "Track01876": {
-        "predicted_note_count_equal": true,
-        "raw_note_event_sequence_equal_ignoring_channel": true,
-        "stock_onset_flat_f1": 0.1473,
-        "patched_onset_flat_f1": 0.1473,
-        "stock_note_flat_f1": 0.056,
-        "patched_note_flat_f1": 0.056,
-        "normalized_note_event_sha256_stock": "3aed73eba47357d1ac3986e7268f894a071891f816bd04f0b2677c5be58d7cbc",
-        "normalized_note_event_sha256_patched": "3aed73eba47357d1ac3986e7268f894a071891f816bd04f0b2677c5be58d7cbc"
-      },
-      "Track01877": {
-        "predicted_note_count_equal": true,
-        "raw_note_event_sequence_equal_ignoring_channel": true,
-        "stock_onset_flat_f1": 0.4867,
-        "patched_onset_flat_f1": 0.4867,
-        "stock_note_flat_f1": 0.1369,
-        "patched_note_flat_f1": 0.1369,
-        "normalized_note_event_sha256_stock": "bc49053c95c8ea9e2a1144815d434c933d1ba368b2eba1b66515956acaa0d525",
-        "normalized_note_event_sha256_patched": "bc49053c95c8ea9e2a1144815d434c933d1ba368b2eba1b66515956acaa0d525"
-      },
-      "Track01878": {
-        "predicted_note_count_equal": true,
-        "raw_note_event_sequence_equal_ignoring_channel": true,
-        "stock_onset_flat_f1": 0.5411,
-        "patched_onset_flat_f1": 0.5411,
-        "stock_note_flat_f1": 0.1575,
-        "patched_note_flat_f1": 0.1918,
-        "normalized_note_event_sha256_stock": "3baa1afb62d6c3f385ac1176fbf02a09978db43ae753cf81fabefba900a3f194",
-        "normalized_note_event_sha256_patched": "3baa1afb62d6c3f385ac1176fbf02a09978db43ae753cf81fabefba900a3f194"
-      },
-      "Track01880": {
-        "predicted_note_count_equal": true,
-        "raw_note_event_sequence_equal_ignoring_channel": true,
-        "stock_onset_flat_f1": 0.1992,
-        "patched_onset_flat_f1": 0.1992,
-        "stock_note_flat_f1": 0.0557,
-        "patched_note_flat_f1": 0.0557,
-        "normalized_note_event_sha256_stock": "1fedf2358e78ffd694727ba57f04a6f94373fc49a18848679725c48162769f4f",
-        "normalized_note_event_sha256_patched": "1fedf2358e78ffd694727ba57f04a6f94373fc49a18848679725c48162769f4f"
-      },
-      "Track01881": {
-        "predicted_note_count_equal": true,
-        "raw_note_event_sequence_equal_ignoring_channel": true,
-        "stock_onset_flat_f1": 0.3089,
-        "patched_onset_flat_f1": 0.3089,
-        "stock_note_flat_f1": 0.0466,
-        "patched_note_flat_f1": 0.0483,
-        "normalized_note_event_sha256_stock": "d661c4a90d0098ec502d1a4973e15425b1c867816635f1a1e782cbfcaa36eb97",
-        "normalized_note_event_sha256_patched": "d661c4a90d0098ec502d1a4973e15425b1c867816635f1a1e782cbfcaa36eb97"
-      }
-    },
-    "conclusion": "Decoder-sidecar calibration shows the stock serializer corrupts more than program labels: collapsing all pitched programs onto channel 0 destroys overlapping same-pitch note identity and therefore both onset/offset recovery and program-attributed note evidence. Canonical MR-MT3 quality metrics in this result are scored from the decoded NoteSequence captured before MIDI serialization. The sidecar was serialized in the locked hello-ai environment with one stream per decoded program; all decoded notes survived one-to-one with <=1.1 ms quantization. Stock and patched serializer runs remain diagnostic provenance only.",
-    "decoder_sidecar_run": {
-      "workflow_run_id": 33218294887,
-      "head_sha": "edfc29a01334db61ceaf6d7dfcde0080cbfd185b",
-      "artifact_digest": "sha256:484581f59d444cfbbc1333da128f8ecb663aa4d0bc0d819a64b72ce8d0818dc8",
-      "instrumentation_before_sha256": "5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef",
-      "instrumentation_after_sha256": "c395b4895e4f4da721c6494beb289962f787d19c443b76ef07dead4e0634d1fd",
-      "scope": "JSON sidecar immediately after decode_and_combine_predictions; stock MIDI serializer unchanged",
-      "sidecar_to_evaluator_midi_max_timing_quantization_seconds": 0.0011
-    },
-    "decoder_macro_f1": {
-      "onset_flat_f1": 0.7898,
-      "note_flat_f1": 0.2415,
-      "onset_program_family_f1": 0.755,
-      "onset_program_exact_f1": 0.4999,
-      "note_program_exact_f1": 0.1211,
-      "instrument_detection_exact_f1": 0.3875,
-      "instrument_detection_family_f1": 0.9113
-    },
-    "stock_serializer_macro_f1": {
-      "onset_flat_f1": 0.3366,
-      "note_flat_f1": 0.0905,
-      "onset_program_family_f1": 0.2561,
-      "onset_program_exact_f1": 0.2091,
-      "note_program_exact_f1": 0.0378,
-      "instrument_detection_exact_f1": 0.3115,
-      "instrument_detection_family_f1": 0.5032
-    },
-    "patched_serializer_macro_f1": {
-      "onset_flat_f1": 0.3366,
-      "note_flat_f1": 0.0977,
-      "onset_program_family_f1": 0.3147,
-      "onset_program_exact_f1": 0.2286,
-      "note_program_exact_f1": 0.0512,
-      "instrument_detection_exact_f1": 0.3875,
-      "instrument_detection_family_f1": 0.9113
-    }
+    "timing_drift_interpretation": "negative values mean the stock MIDI event is earlier than the decoded model event; the cumulative drift exceeds the 50 ms onset tolerance on many notes.",
+    "decoder_sidecar_run": {"workflow_run_id": 33218294887, "head_sha": "edfc29a01334db61ceaf6d7dfcde0080cbfd185b", "artifact_digest": "sha256:484581f59d444cfbbc1333da128f8ecb663aa4d0bc0d819a64b72ce8d0818dc8", "instrumentation_before_sha256": "5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef", "instrumentation_after_sha256": "c395b4895e4f4da721c6494beb289962f787d19c443b76ef07dead4e0634d1fd", "scope": "JSON sidecar after decode_and_combine_predictions and before stock MIDI serialization", "stock_midi_serializer_modified": false, "sidecar_to_evaluator_midi_max_timing_quantization_seconds": 0.0010909},
+    "decoder_macro_f1": {"onset_flat_f1": 0.7898, "note_flat_f1": 0.2415, "onset_program_family_f1": 0.755, "onset_program_exact_f1": 0.4999, "note_program_exact_f1": 0.1211, "instrument_detection_exact_f1": 0.3875, "instrument_detection_family_f1": 0.9113},
+    "stock_serializer_macro_f1": {"onset_flat_f1": 0.3366, "note_flat_f1": 0.0905, "onset_program_family_f1": 0.2561, "onset_program_exact_f1": 0.2091, "note_program_exact_f1": 0.0378, "instrument_detection_exact_f1": 0.3115, "instrument_detection_family_f1": 0.5032},
+    "patched_serializer_macro_f1": {"onset_flat_f1": 0.3366, "note_flat_f1": 0.0977, "onset_program_family_f1": 0.3147, "onset_program_exact_f1": 0.2286, "note_program_exact_f1": 0.0512, "instrument_detection_exact_f1": 0.3875, "instrument_detection_family_f1": 0.9113},
+    "conclusion": "Decoder-sidecar events are the canonical MR-MT3 quality evidence. The stock serializer both loses program identity and accumulates timing drift; a channel-only patch restores program presence but leaves timing drift, explaining why stock and patched onset F1 remain 0.3366 while decoder-sidecar onset F1 is 0.7898. The locked hello-ai scorer serialization preserves decoded pitch/program/drum identity one-to-one with <=1.1 ms timing quantization."
   },
   "decision": {
     "mr_mt3": "RESEARCH",
@@ -357,7 +174,7 @@
     "Subset is deterministic but not representative enough for production adoption.",
     "Published MR-MT3 Slakh results use a different grouped-stem/bass-correction protocol and are not directly comparable.",
     "MR-MT3 runtime uses process-per-track stock CLI and overstates warm-model latency.",
-    "Canonical MR-MT3 quality uses decoder-sidecar evidence because the pinned stock MIDI serializer corrupts overlapping pitched events; a production adapter would need a validated lossless evidence serializer.",
+    "Canonical MR-MT3 quality uses decoder-sidecar evidence because the pinned stock MIDI serializer corrupts program identity and timing; a production adapter would need a validated lossless evidence serializer.",
     "No downstream harmony/bass/melody product task was separately scored in this stage."
   ]
 }
