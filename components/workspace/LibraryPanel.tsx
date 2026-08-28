@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
-import { deleteWork } from "@/lib/api-client";
+import {
+  useDeleteWorkMutation,
+  useLibraryProject,
+  useProjectWorks,
+} from "@/lib/server-state";
 import { presentableTitle } from "@/lib/format";
 import { deriveAvailability } from "@/lib/representation-availability";
 
@@ -95,20 +100,25 @@ function ImportSettings({
 }
 
 export default function LibraryPanel({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
+  const { user } = useAuth();
   const {
     workspace,
     requestImport,
     setActiveWorkId,
-    removeWork,
-    restoreWork,
     clearSelection,
     setTranscriptionProfile,
   } = useWorkspace();
   const { clearActiveSource } = useTransport();
   const { resetTimeline } = useTimeline();
+  const projectQuery = useLibraryProject(signedIn ? user?.id ?? "" : "");
+  const project = projectQuery.data;
+  const worksQuery = useProjectWorks(project?.id ?? "");
+  const works = worksQuery.data ?? [];
+  const deleteWorkMutation = useDeleteWorkMutation(project?.id ?? "");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const importReady = canImport && Boolean(workspace.project);
+  const importReady = canImport && Boolean(project);
+  const libraryLoading = signedIn && (projectQuery.isPending || (Boolean(project) && worksQuery.isPending));
 
   async function signOut() {
     await supabase?.auth.signOut();
@@ -116,20 +126,18 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   }
 
   async function handleDelete(workId: string) {
-    if (deletingId) return;
-    const removed = workspace.works.find((work) => work.id === workId);
+    if (deletingId || !project) return;
     setDeletingId(workId);
     setDeleteError(null);
     if (workspace.activeWorkId === workId) {
       clearActiveSource();
       resetTimeline();
+      setActiveWorkId(null);
     }
-    removeWork(workId);
     clearSelection();
     try {
-      await deleteWork(workId);
+      await deleteWorkMutation.mutateAsync(workId);
     } catch {
-      if (removed) restoreWork(removed);
       setDeleteError("Delete failed. The recording was restored.");
     } finally {
       setDeletingId(null);
@@ -145,7 +153,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
       <div className="library-header library-header-v3">
         <div className="library-heading-row">
           <h2>Library</h2>
-          {workspace.works.length > 0 && <span className="library-count">{workspace.works.length}</span>}
+          {works.length > 0 && <span className="library-count">{works.length}</span>}
         </div>
         {signedIn && (
           <>
@@ -169,16 +177,16 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
 
       <div className="library-list library-list-v3">
         {deleteError && <div role="alert" className="library-error">{deleteError}</div>}
-        {workspace.works.length === 0 && workspace.isLoadingWork ? (
+        {works.length === 0 && libraryLoading ? (
           <div className="library-loading-list" aria-hidden="true">
             <span /><span /><span />
           </div>
-        ) : workspace.works.length === 0 ? (
+        ) : works.length === 0 ? (
           <div className="library-empty library-empty-v3">
             <strong>No recordings yet</strong>
             <p>Import audio to begin.</p>
           </div>
-        ) : workspace.works.map((work) => {
+        ) : works.map((work) => {
           const selected = workspace.activeWorkId === work.id;
           const availability = selected
             ? deriveAvailability(workspace.representations, workspace.insights.length)

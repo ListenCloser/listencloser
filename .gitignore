@@ -61,3 +61,8 @@ docs/FILE_AUDIT.md
 # Real-world music evaluation dataset cache (never commit audio/MIDI)
 backend/evaluation/.cache/
 backend/evaluation/reports/*.json
+
+# External research corpora are acquired locally, not vendored or gitlinked.
+backend/evaluation/corpora/bps-fh/
+backend/evaluation/corpora/mozart_piano_sonatas/
+backend/evaluation/corpora/romantic_piano_corpus/

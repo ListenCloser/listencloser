@@ -22,9 +22,10 @@ test("deleting the active work clears it and leaves no stale transport state", a
   // on desktop and was effectively hidden behind hover on touch devices.
   await page.getByRole("button", { name: "Delete Test Work" }).click();
 
-  // The work should disappear from the library immediately (optimistic) and
-  // show the empty state.
+  // The query-backed mutation removes the row optimistically while both the
+  // Library and Canvas move to their real empty states.
   await expect(page.getByRole("button", { name: /^Test Work\b/ })).toHaveCount(0);
+  await expect(page.getByText("No recordings yet", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible();
 
   // No stale transport state: deleting the active work removes the source
