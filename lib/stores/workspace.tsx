@@ -127,15 +127,20 @@ export function useWorkspace(): WorkspaceContextValue {
   return ctx;
 }
 
-export function WorkspaceProvider({ children }: { children: ReactNode }) {
+export function WorkspaceProvider({
+  children,
+  initialLoading = false,
+}: {
+  children: ReactNode;
+  initialLoading?: boolean;
+}) {
   const [workspace, setWorkspace] = useState<WorkspaceState>({
     project: null,
     works: [],
     activeWorkId: null,
-    // Begin in a structural loading state. HomeContent clears this only after
-    // the saved library has been resolved, preventing a false empty/import
-    // screen from flashing after sign-in.
-    isLoadingWork: true,
+    // The signed-in app opts into this during session/library hydration. Tests
+    // and isolated consumers keep normal work-loading semantics by default.
+    isLoadingWork: initialLoading,
     importRequestId: 0,
     libraryCollapsed: false,
     inspectorCollapsed: false,
