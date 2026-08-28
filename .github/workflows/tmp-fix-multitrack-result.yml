@@ -1,0 +1,40 @@
+name: Temporary multitrack result correction
+
+on:
+  push:
+    branches:
+      - eval/analysis-v3-multitrack-transcription
+    paths:
+      - '.github/workflows/tmp-fix-multitrack-result.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: eval/analysis-v3-multitrack-transcription
+      - name: Correct artifact-backed Track01876 reference counts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('backend/evaluation/analysis_v3/multitrack_transcription/results/slakh_redux_subset_results.json')
+          payload = json.loads(path.read_text())
+          for key in ('basic_pitch', 'mr_mt3'):
+              current = payload[key]['tracks']['Track01876']['reference_notes']
+              if current != 364:
+                  raise SystemExit(f'unexpected {key} Track01876 reference_notes={current}; refusing blind patch')
+              payload[key]['tracks']['Track01876']['reference_notes'] = 379
+          path.write_text(json.dumps(payload, indent=2) + '\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/evaluation/analysis_v3/multitrack_transcription/results/slakh_redux_subset_results.json
+          git diff --cached --exit-code && exit 1 || true
+          git commit -m 'fix(eval): correct Slakh Track01876 reference count'
+          git push origin HEAD:eval/analysis-v3-multitrack-transcription
