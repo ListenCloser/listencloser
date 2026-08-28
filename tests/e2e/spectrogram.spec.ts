@@ -2,8 +2,7 @@ import { expect, test } from "@playwright/test";
 import { mockSession, MOCK_PROJECT_REF, persistSessionScript } from "../fixtures/mockSession";
 
 async function openSpectrogram(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "More" }).click();
-  await page.getByRole("option", { name: "Spectrogram", exact: true }).click();
+  await page.getByRole("tab", { name: "Spectrogram" }).click();
   const canvas = page.getByTestId("spectrogram-canvas");
   await expect(canvas).toBeVisible();
   await expect(canvas).toHaveAttribute("aria-valuetext", /seconds/, { timeout: 20_000 });
@@ -15,10 +14,10 @@ test.describe("synchronized spectrogram (MSW)", () => {
     await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
     await page.goto("/");
     await page.waitForFunction(() => navigator.serviceWorker?.controller !== null, undefined, { timeout: 15_000 });
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
   });
 
-  test("is available from More and preserves shared seek and selection", async ({ page }) => {
+  test("is directly available and preserves shared seek and selection", async ({ page }) => {
     const canvas = await openSpectrogram(page);
     const box = await canvas.boundingBox();
     if (!box) throw new Error("spectrogram canvas not found");

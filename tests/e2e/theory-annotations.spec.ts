@@ -54,7 +54,7 @@ test.describe("theory annotations (MSW)", () => {
     page,
   }) => {
     await expect(
-      page.getByRole("button", { name: "Test Work" }),
+      page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByRole("tab", { name: "Analysis", selected: true })).toBeVisible();
@@ -74,7 +74,7 @@ test.describe("theory annotations (MSW)", () => {
     page,
   }) => {
     await expect(
-      page.getByRole("button", { name: "Test Work" }),
+      page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     // Harmony section heading
@@ -95,7 +95,7 @@ test.describe("theory annotations (MSW)", () => {
 
   test("all 6 chord entries rendered in Inspector", async ({ page }) => {
     await expect(
-      page.getByRole("button", { name: "Test Work" }),
+      page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByRole("heading", { name: "Chords" })).toBeVisible();
@@ -109,7 +109,7 @@ test.describe("theory annotations (MSW)", () => {
 
   test("all 6 roman numeral entries rendered in Inspector", async ({ page }) => {
     await expect(
-      page.getByRole("button", { name: "Test Work" }),
+      page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
@@ -122,7 +122,7 @@ test.describe("theory annotations (MSW)", () => {
 
   test("Clicking a chord in Inspector sets selection", async ({ page }) => {
     await expect(
-      page.getByRole("button", { name: "Test Work" }),
+      page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByRole("heading", { name: "Chords" })).toBeVisible();
@@ -137,7 +137,7 @@ test.describe("theory annotations (MSW)", () => {
 
   test("no cadence or key_region insights appear", async ({ page }) => {
     await expect(
-      page.getByRole("button", { name: "Test Work" }),
+      page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     // Cadence and key_region are WITHHELD from product.

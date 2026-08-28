@@ -59,7 +59,7 @@ test.describe("shared musical selection (MSW)", () => {
     page,
   }) => {
     // Wait for workspace to load
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
     // 1. Select region in Waveform (Listen view). A horizontal drag defines a
@@ -94,10 +94,10 @@ test.describe("shared musical selection (MSW)", () => {
     });
 
     await page.getByRole("button", { name: "Compare", exact: true }).click();
-    await expect(page.getByRole("group", { name: "Compare playback" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Compare playback sources" })).toBeVisible();
 
     // Set B to Score
-    await page.getByRole("button", { name: "B: " }).click();
+    await page.getByRole("button", { name: "B compare source", exact: true }).click();
     await page.getByRole("option", { name: "Score", exact: true }).click();
 
     for (const side of ["B", "A", "B"] as const) {
@@ -114,7 +114,7 @@ test.describe("shared musical selection (MSW)", () => {
     }
 
     await page.getByRole("button", { name: "Exit compare", exact: true }).click();
-    await expect(page.getByRole("group", { name: "Compare playback" })).not.toBeVisible();
+    await expect(page.getByRole("group", { name: "Compare playback sources" })).not.toBeVisible();
 
     // 6. Reverse: select score measure → waveform shows region
     await page.getByRole("tab", { name: "Score" }).click();
@@ -131,7 +131,7 @@ test.describe("shared musical selection (MSW)", () => {
   });
 
   test("score measure selection derives timeRange and highlights waveform", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Test Work" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
 

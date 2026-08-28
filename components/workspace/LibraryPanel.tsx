@@ -175,7 +175,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               type="button"
               className="library-import-btn"
               onClick={requestImport}
-              disabled={!canImport}
+              disabled={!canImport || workspace.isLoadingWork}
               aria-label={canImport ? "Import audio" : "Import temporarily unavailable"}
             >
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">

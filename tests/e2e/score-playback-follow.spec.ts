@@ -51,7 +51,7 @@ test.describe("score playback following (MSW)", () => {
   }) => {
     // Wait for workspace to load
     await expect(
-      page.getByRole("button", { name: "Test Work" }),
+      page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
 
@@ -63,18 +63,13 @@ test.describe("score playback following (MSW)", () => {
 
     // Switch to Score source
     await page
-      .getByRole("button", { name: /Listening to/ })
+      .getByRole("button", { name: /Playback source:/ })
       .click();
     await page
       .getByRole("option", { name: "Score", exact: true })
       .click();
 
-    // Verify hint says notation time
-    await expect(
-      page.getByText(
-        "Playing the score rendition in notation time.",
-      ),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Playback source: Score", exact: true })).toBeVisible();
 
     // Play
     await page.getByRole("button", { name: "Play", exact: true }).click();
@@ -124,7 +119,7 @@ test.describe("score playback following (MSW)", () => {
     page,
   }) => {
     await expect(
-      page.getByRole("button", { name: "Test Work" }),
+      page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     // Navigate to Score view
@@ -135,7 +130,7 @@ test.describe("score playback following (MSW)", () => {
 
     // Switch to Score source
     await page
-      .getByRole("button", { name: /Listening to/ })
+      .getByRole("button", { name: /Playback source:/ })
       .click();
     await page
       .getByRole("option", { name: "Score", exact: true })
@@ -152,7 +147,7 @@ test.describe("score playback following (MSW)", () => {
 
     // Switch to Original source
     await page
-      .getByRole("button", { name: /Listening to/ })
+      .getByRole("button", { name: /Playback source:/ })
       .click();
     await page
       .getByRole("option", { name: "Original", exact: true })
@@ -166,7 +161,7 @@ test.describe("score playback following (MSW)", () => {
 
   test("selection and playback highlights are independent", async ({ page }) => {
     await expect(
-      page.getByRole("button", { name: "Test Work" }),
+      page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     // Navigate to Score view
@@ -192,7 +187,7 @@ test.describe("score playback following (MSW)", () => {
 
     // Switch to Score source and play
     await page
-      .getByRole("button", { name: /Listening to/ })
+      .getByRole("button", { name: /Playback source:/ })
       .click();
     await page
       .getByRole("option", { name: "Score", exact: true })
