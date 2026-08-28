@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from typing import Any, cast
 
 import pytest
@@ -8,14 +9,26 @@ import pytest
 from scripts.queue_transport_bakeoff import run_bakeoff
 
 
+def _local_db_url() -> str:
+    if db_url := os.environ.get("DB_URL"):
+        return db_url
+
+    completed = subprocess.run(
+        ["supabase", "status", "-o", "env"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for line in completed.stdout.splitlines():
+        if line.startswith("DB_URL="):
+            return line.split("=", 1)[1].strip().strip('"')
+    raise RuntimeError("local Supabase status did not provide DB_URL")
+
+
 @pytest.mark.real_stack
 def test_pgmq_beats_select_then_conditional_claim_contention() -> None:
-    db_url = os.environ.get("DB_URL")
-    if not db_url:
-        pytest.skip("DB_URL is provided by the fresh local Supabase integration workflow")
-
     report = run_bakeoff(
-        db_url,
+        _local_db_url(),
         message_count=8,
         workers=4,
     )
@@ -35,12 +48,8 @@ def test_pgmq_beats_select_then_conditional_claim_contention() -> None:
 
 @pytest.mark.real_stack
 def test_pgmq_visibility_timeout_replays_unacked_work() -> None:
-    db_url = os.environ.get("DB_URL")
-    if not db_url:
-        pytest.skip("DB_URL is provided by the fresh local Supabase integration workflow")
-
     report = run_bakeoff(
-        db_url,
+        _local_db_url(),
         message_count=4,
         workers=2,
     )
