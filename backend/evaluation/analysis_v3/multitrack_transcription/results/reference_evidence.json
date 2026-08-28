@@ -1,0 +1,83 @@
+{
+  "evidence_class": "REFERENCE_AND_OPERATIONAL_METADATA",
+  "local_model_inference_performed": false,
+  "assessed_date": "2026-08-28",
+  "hello_ai_base_sha": "7477ea7e8b34a9f205a771080df33622a6f08e20",
+  "source_registry": {
+    "basic_pitch_repo": "https://github.com/spotify/basic-pitch",
+    "mt3_repo": "https://github.com/magenta/mt3",
+    "mt3_checkpoint_license_issue": "https://github.com/magenta/mt3/issues/177",
+    "yourmt3_repo": "https://github.com/mimbres/YourMT3",
+    "yourmt3_weights": "https://huggingface.co/mimbres/YourMT3",
+    "mr_mt3_repo": "https://github.com/gudgud96/MR-MT3",
+    "mr_mt3_weights": "https://huggingface.co/gudgud1014/MR-MT3",
+    "slakh_redux": "https://zenodo.org/records/4599666",
+    "slakh_utils": "https://github.com/ethman/slakh-utils",
+    "muscriptor_repo": "https://github.com/cmbaldwin/muscriptor"
+  },
+  "candidates": [
+    {
+      "candidate": "hello_ai_basic_pitch",
+      "role": "production_baseline",
+      "checkpoint": "basic-pitch 0.4.0 model bundled by installed package",
+      "code_license": "Apache-2.0",
+      "weight_license": "Apache-2.0 per upstream repository/model metadata",
+      "instrument_program_output": false,
+      "drum_output": false,
+      "operational_note": "Already deployed in hello-ai; optimized for lightweight note transcription and documented upstream as working best on one instrument at a time.",
+      "decision": "ADOPT",
+      "source_refs": ["basic_pitch_repo"]
+    },
+    {
+      "candidate": "magenta_mt3",
+      "role": "legacy_research_baseline",
+      "checkpoint": "gs://mt3/checkpoints/mt3/",
+      "code_license": "Apache-2.0",
+      "weight_license": "UNRESOLVED: externally hosted checkpoint license is not explicit; upstream issue #177 requests clarification",
+      "instrument_program_output": true,
+      "drum_output": true,
+      "operational_note": "Legacy T5X/JAX stack; evaluate only if mechanically runnable without production dependency changes.",
+      "decision": "REVISIT",
+      "source_refs": ["mt3_repo", "mt3_checkpoint_license_issue"]
+    },
+    {
+      "candidate": "yourmt3_plus",
+      "role": "quality_reference",
+      "checkpoint": "mimbres/YourMT3",
+      "code_license": "GPL-3.0 in the official GitHub repository",
+      "weight_license": "Apache-2.0 metadata on the official Hugging Face checkpoint repository",
+      "instrument_program_output": true,
+      "drum_output": true,
+      "operational_note": "Keep code and weight licenses separate; GPL code is a deployment constraint even though the checkpoint repository declares Apache-2.0.",
+      "decision": "RESEARCH",
+      "source_refs": ["yourmt3_repo", "yourmt3_weights"]
+    },
+    {
+      "candidate": "mr_mt3",
+      "role": "preferred_newer_practical_candidate",
+      "checkpoint": "gudgud1014/MR-MT3",
+      "code_license": "MIT",
+      "weight_license": "MIT metadata on the upstream Hugging Face repository",
+      "instrument_program_output": true,
+      "drum_output": true,
+      "operational_note": "Primary first-run multi-track candidate; upstream evaluation targets Slakh2100 and explicitly measures instrument leakage/detection.",
+      "decision": "RESEARCH",
+      "source_refs": ["mr_mt3_repo", "mr_mt3_weights"]
+    }
+  ],
+  "excluded_references": [
+    {
+      "candidate": "muscriptor",
+      "reason": "Interesting 2026 quality reference, but released weights are CC BY-NC 4.0, so it does not fill #337's newer permissively licensed production-candidate slot.",
+      "source_refs": ["muscriptor_repo"]
+    }
+  ],
+  "dataset": {
+    "name": "Slakh2100-redux",
+    "license": "CC BY 4.0",
+    "size_gb": 104.3,
+    "ground_truth_rule": "Use per-source MIDI/SXX.mid files, not all_src.mid, because the per-source MIDI is what synthesized each stem.",
+    "source_refs": ["slakh_redux", "slakh_utils"]
+  },
+  "architecture_recommendation": "Evaluate multi-track AMT as optional symbolic evidence for arrangement/instrument-aware tasks; do not make it the universal analysis substrate."
+}
