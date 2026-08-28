@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Music Lab — Workspace V3 Mock</title>
+<style>
+  :root{
+    --canvas:#11110f;--shell:#171714;--raised:#1d1d19;--hover:#25241f;--strong:#2b2a24;
+    --text:#f1efe8;--secondary:#b6b2a7;--muted:#817d73;--accent:#d6b56d;--accent2:#e2c27e;
+    --border:rgba(241,239,232,.12);--subtle:rgba(241,239,232,.07);--danger:#c9786f;
+  }
+  *{box-sizing:border-box} html,body{height:100%;margin:0;background:#0b0b0a;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  body{display:grid;place-items:center;padding:24px}
+  .frame{width:min(1440px,100%);height:min(900px,calc(100vh - 48px));min-height:680px;background:var(--canvas);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.42);display:grid;grid-template-rows:48px 1fr 58px}
+  .top{display:flex;align-items:center;justify-content:space-between;background:var(--shell);border-bottom:1px solid var(--border);padding:0 14px 0 12px;font-size:13px}
+  .brandrow,.actions,.source,.transport,.piece-meta,.tabs{display:flex;align-items:center}.brandrow{gap:10px}.mark{width:26px;height:26px;border-radius:6px;background:var(--accent);color:#191812;display:grid;place-items:center;font-size:14px;font-weight:800}.brand{font-weight:650}.crumb{color:var(--muted)}
+  .actions{gap:6px}.btn{height:32px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--secondary);padding:0 10px;font:inherit}.btn:hover{background:var(--hover);color:var(--text)}.btn.active{background:var(--raised);border-color:var(--border);color:var(--text)}
+  .body{display:grid;grid-template-columns:232px minmax(0,1fr) 318px;min-height:0}
+  .library,.inspector{background:var(--shell);min-height:0;display:flex;flex-direction:column}.library{border-right:1px solid var(--border)}.inspector{border-left:1px solid var(--border)}
+  .panel-head{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;border-bottom:1px solid var(--subtle);font-size:13px;font-weight:650}.icon{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--secondary)}
+  .library-list{padding:8px;display:grid;gap:3px;overflow:auto}.track{display:grid;grid-template-columns:26px minmax(0,1fr) 24px;gap:8px;align-items:center;min-height:46px;padding:5px 6px;border-radius:6px;color:var(--secondary)}.track.selected{background:var(--raised);color:var(--text)}.dot{width:8px;height:8px;border-radius:99px;background:var(--accent);justify-self:center}.track-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;font-weight:560}.track-sub{color:var(--muted);font-size:11px;margin-top:2px}.more{color:var(--muted);font-size:18px;text-align:center}.import{margin:8px;border-top:1px solid var(--subtle);padding-top:10px}.import button{width:100%;height:34px;border:1px solid var(--border);border-radius:6px;background:var(--raised);color:var(--text);font-weight:600}
+  .canvas{min-width:0;min-height:0;display:grid;grid-template-rows:48px 54px 1fr;background:var(--canvas)}.reprbar{display:flex;align-items:end;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--subtle)}.tabs{height:100%;gap:20px}.tab{height:100%;display:flex;align-items:center;position:relative;color:var(--muted);font-size:12.5px}.tab.active{color:var(--text)}.tab.active:after{content:"";position:absolute;height:2px;background:var(--accent);left:0;right:0;bottom:-1px;border-radius:2px}.compare{align-self:center;height:30px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--secondary);padding:0 10px}
+  .piece{padding:13px 18px 10px;display:flex;align-items:center;justify-content:space-between}.piece h1{font-size:19px;line-height:1;margin:0;font-weight:640;letter-spacing:-.015em}.piece-meta{gap:10px;color:var(--muted);font-size:11px}.canvas-inner{padding:0 18px 18px;min-height:0}.viz{height:100%;border:1px solid var(--subtle);border-radius:7px;background:#141411;overflow:hidden;display:grid;grid-template-rows:28px 1fr}.ruler{border-bottom:1px solid var(--subtle);display:grid;grid-template-columns:repeat(8,1fr);align-items:center;padding:0 14px;color:#666258;font:10px ui-monospace,SFMono-Regular,Menlo,monospace}.wave{position:relative;display:flex;align-items:center;padding:0 18px;background:linear-gradient(180deg,#151511,#12120f)}.wave:before{content:"";position:absolute;inset:0;background-image:linear-gradient(to right,rgba(241,239,232,.035) 1px,transparent 1px);background-size:80px 100%}.bars{position:relative;width:100%;height:170px;display:flex;align-items:center;gap:2px;opacity:.9}.bars i{display:block;width:3px;border-radius:2px;background:#a99b79}.selection{position:absolute;left:43%;width:21%;top:22%;bottom:22%;border-left:1px solid rgba(214,181,109,.55);border-right:1px solid rgba(214,181,109,.55);background:rgba(214,181,109,.07)}.playhead{position:absolute;left:58%;top:0;bottom:0;width:1px;background:var(--accent);box-shadow:0 0 0 1px rgba(214,181,109,.08)}.playhead:before{content:"";position:absolute;top:0;left:-3px;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid var(--accent)}
+  .inspector-scroll{overflow:auto;padding:10px 14px 18px}.section{padding:12px 0;border-bottom:1px solid var(--subtle)}.section:last-child{border-bottom:0}.section h3{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:0 0 10px;font-weight:650}.summary{font-size:13px;line-height:1.5;color:var(--secondary)}.summary strong{color:var(--text);font-weight:620}.facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.fact span{display:block;color:var(--muted);font-size:10px}.fact b{display:block;margin-top:3px;font-size:14px;font-weight:620}.finding{display:grid;grid-template-columns:48px 1fr;gap:10px;padding:8px 0}.time{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent)}.finding p{margin:0;color:var(--secondary);font-size:12px;line-height:1.45}.disclosure{height:34px;display:flex;align-items:center;justify-content:space-between;color:var(--secondary);font-size:12px;border-top:1px solid var(--subtle)}.ask{margin-top:12px;border:1px solid var(--border);border-radius:7px;background:var(--raised);padding:8px 9px;display:flex;gap:8px}.ask input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:var(--text);font:12px inherit}.ask button{border:0;border-radius:5px;background:var(--accent);color:#191812;width:30px}
+  .bottom{display:grid;grid-template-columns:230px 160px minmax(220px,1fr) 110px 130px;gap:12px;align-items:center;background:var(--shell);border-top:1px solid var(--border);padding:0 14px}.source{height:34px;border:1px solid var(--border);border-radius:6px;background:var(--raised);padding:0 10px;gap:8px;font-size:12px}.source small{color:var(--muted)}.transport{justify-content:center;gap:8px}.transport button{border:0;background:transparent;color:var(--secondary);width:32px;height:32px;border-radius:6px;font-size:14px}.transport .play{background:var(--text);color:#151511;width:36px;height:36px;border-radius:99px;font-size:15px}.scrub{height:4px;background:#36342d;border-radius:99px;position:relative}.scrub:before{content:"";position:absolute;left:0;top:0;bottom:0;width:58%;border-radius:99px;background:var(--accent)}.scrub:after{content:"";position:absolute;left:58%;top:50%;width:10px;height:10px;border-radius:99px;background:var(--text);transform:translate(-50%,-50%)}.clock{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--secondary);text-align:right}.compare-bottom{height:32px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--secondary);font-size:11px}
+  @media(max-width:1000px){.body{grid-template-columns:210px minmax(0,1fr)}.inspector{display:none}.bottom{grid-template-columns:190px 150px 1fr 90px}.compare-bottom{display:none}}
+  @media(max-width:700px){body{padding:0}.frame{height:100vh;min-height:0;border:0;border-radius:0;grid-template-rows:46px 1fr 76px}.body{grid-template-columns:1fr}.library{display:none}.top{padding:0 10px}.brand{display:none}.crumb{display:none}.actions .btn:first-child{display:none}.canvas{grid-template-rows:42px 48px 1fr}.reprbar{padding:0 12px}.tabs{gap:14px;overflow:hidden}.tab:nth-child(4){display:none}.piece{padding:10px 12px 8px}.piece h1{font-size:16px}.piece-meta{display:none}.canvas-inner{padding:0 10px 10px}.bottom{grid-template-columns:1fr 110px;grid-template-rows:30px 36px;gap:2px 10px;padding:5px 10px}.source{height:30px}.transport{grid-column:1/3;grid-row:2}.scrub{grid-column:1/2;grid-row:1}.clock{grid-column:2;grid-row:1}.source{display:none}}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="top">
+    <div class="brandrow"><div class="mark">♪</div><span class="brand">Music Lab</span><span class="crumb">/</span><span class="crumb">Reflets dans l’eau</span></div>
+    <div class="actions"><button class="btn active">Analysis</button><button class="btn">Library</button><button class="btn">•••</button></div>
+  </div>
+  <div class="body">
+    <aside class="library">
+      <div class="panel-head"><span>Library</span><button class="icon">+</button></div>
+      <div class="library-list">
+        <div class="track selected"><span class="dot"></span><div><div class="track-title">Reflets dans l’eau.m4a</div><div class="track-sub">Transcribed · analyzed</div></div><div class="more">⋯</div></div>
+        <div class="track"><span class="dot" style="background:#79756c"></span><div><div class="track-title">real-piano.m4a</div><div class="track-sub">Transcribed</div></div><div class="more">⋯</div></div>
+        <div class="track"><span class="dot" style="background:#79756c"></span><div><div class="track-title">demo-phrase.wav</div><div class="track-sub">Original audio</div></div><div class="more">⋯</div></div>
+      </div>
+      <div class="import"><button>Import audio</button></div>
+    </aside>
+    <main class="canvas">
+      <div class="reprbar">
+        <div class="tabs"><div class="tab active">Audio</div><div class="tab">Piano roll</div><div class="tab">Score</div><div class="tab">More ▾</div></div>
+        <button class="compare">Compare</button>
+      </div>
+      <div class="piece"><h1>Reflets dans l’eau</h1><div class="piece-meta"><span>original audio</span><span>•</span><span>2:16</span></div></div>
+      <div class="canvas-inner">
+        <div class="viz">
+          <div class="ruler"><span>0:00</span><span>0:17</span><span>0:34</span><span>0:51</span><span>1:08</span><span>1:25</span><span>1:42</span><span>1:59</span></div>
+          <div class="wave"><div class="selection"></div><div class="playhead"></div><div class="bars" id="bars"></div></div>
+        </div>
+      </div>
+    </main>
+    <aside class="inspector">
+      <div class="panel-head"><span>Analysis</span><button class="icon">×</button></div>
+      <div class="inspector-scroll">
+        <div class="section"><h3>Overview</h3><div class="summary"><strong>Fluid, harmonically stable opening</strong> with a gradual rise in melodic activity through the first minute.</div><div class="facts"><div class="fact"><span>Key</span><b>C major</b></div><div class="fact"><span>Tempo</span><b>112 BPM</b></div></div></div>
+        <div class="section"><h3>Findings</h3><div class="finding"><div class="time">0:14–22</div><p>Melodic activity increases while the harmony remains comparatively stable.</p></div><div class="finding"><div class="time">0:42–51</div><p>Phrase density relaxes before the next upward contour begins.</p></div></div>
+        <div class="section"><h3>Evidence</h3><div class="disclosure"><span>Harmony</span><span>›</span></div><div class="disclosure"><span>Melody</span><span>›</span></div><div class="disclosure"><span>Rhythm</span><span>›</span></div><div class="disclosure"><span>Structure</span><span>›</span></div></div>
+        <div class="section"><h3>Ask</h3><div class="ask"><input value="Why does this section feel more active?" aria-label="Ask about this piece" /><button>↑</button></div></div>
+      </div>
+    </aside>
+  </div>
+  <div class="bottom">
+    <div class="source"><span>Original</span><small>▾</small></div>
+    <div class="transport"><button>|◀</button><button class="play">▶</button><button>▶|</button></div>
+    <div class="scrub"></div>
+    <div class="clock">0:42 / 2:16</div>
+    <button class="compare-bottom">Compare A/B</button>
+  </div>
+</div>
+<script>
+  const bars=document.getElementById('bars');
+  for(let i=0;i<210;i++){const b=document.createElement('i');const x=Math.abs(Math.sin(i*.31)*.65+Math.sin(i*.071)*.35);b.style.height=(16+x*136)+'px';bars.appendChild(b)}
+</script>
+</body>
+</html>
