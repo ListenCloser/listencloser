@@ -23,10 +23,15 @@ The scorer intentionally reports several views rather than one composite:
 - onset+offset F1 requiring the exact program
 - exact-program instrument detection F1
 - GM-family instrument detection F1
+- per-program/per-family onset breakdowns for failure analysis
 
-Drums use reserved label `128`. Offset matching uses `max(50 ms, 20% of reference duration)`. The flat metric lets Basic Pitch remain a meaningful note baseline; program-aware metrics expose the product value a multi-track model would need to add.
+Note-event matching uses `mir_eval 0.8.2` maximum bipartite matching with a 50 ms onset tolerance and 50-cent pitch tolerance. Offset-aware metrics use the larger of 50 ms or 20% of the reference-note duration. Drums use reserved label `128`.
 
-## Commands
+The flat metric lets Basic Pitch remain a meaningful note-recovery baseline; program-aware metrics expose the product value a multi-track model would need to add. No weighted composite is used.
+
+## Reproducibility
+
+Every scored model run records an immutable candidate revision, separate code/weight licenses, environment metadata, prediction paths, and dataset-manifest provenance. The scorer verifies the recorded manifest SHA-256 against the manifest being scored before accepting a run.
 
 Create a deterministic manifest from an unpacked Slakh2100-redux tree:
 
@@ -57,6 +62,18 @@ python -m backend.evaluation.analysis_v3.multitrack_transcription.run score \
   --output /tmp/basic-pitch-score.json
 ```
 
+## Verified harness gate
+
+Measurement/code head `7057c1c247fb2770fee5f5e418479cbf69bd4619` was rebased onto then-current `main` (`399ad131563e7741fe12019cc749f5e82e3ba451`) and verified one commit ahead / zero behind. On that exact head:
+
+- Ruff check + format: pass (`239 files already formatted`)
+- generated API contract: pass
+- all 17 new multi-track evaluator/provenance tests: pass
+- required Python suite: **756 passed, 13 skipped, 37 deselected**
+- Build, E2E, CodeQL, Dependency Review, and Gitleaks: pass
+
+This verifies the harness, not a new AMT model. No Slakh Basic Pitch versus MR-MT3 quality result has been measured yet.
+
 ## Promotion gate
 
-A second AMT path is not justified merely by better aggregate note F1. It must materially improve instrument-aware evidence on mixed music, have acceptable failure distributions and operational cost, and have code/weight licensing compatible with the intended deployment. Any production integration is a later, separate decision.
+A second AMT path is not justified merely by better aggregate note F1. It must materially improve instrument-aware evidence on mixed music, have acceptable per-piece/per-instrument failure distributions and operational cost, and have code/weight licensing compatible with the intended deployment. Any production integration is a later, separate decision.
