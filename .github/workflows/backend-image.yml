@@ -17,6 +17,26 @@ permissions:
   contents: read
 
 jobs:
+  deploy-contract:
+    name: Validate deploy contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment shell syntax
+        run: bash -n scripts/deploy.sh
+      - name: Validate Compose prebuilt-image contract
+        env:
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role
+          BACKEND_IMAGE: ghcr.io/gr-rr/hello-ai-backend:test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        run: |
+          set -euo pipefail
+          docker compose -f backend/docker-compose.yml config > /tmp/hello-ai-compose.yml
+          images="$(docker compose -f backend/docker-compose.yml config --images | sort -u)"
+          test "$(printf '%s\n' "$images" | sed '/^$/d' | wc -l)" -eq 1
+          grep -Fq "$BACKEND_IMAGE" <<<"$images"
+
   build:
     name: Build backend image (${{ matrix.arch }})
     strategy:
