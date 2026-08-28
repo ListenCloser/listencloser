@@ -21,7 +21,7 @@ import type { AskAction, AskMessage, AskReference, AskResponse } from "@/lib/ask
 const STARTER_PROMPTS = [
   "Summarize this piece",
   "What changes here?",
-  "Explain the harmony",
+  "What is happening harmonically here?",
 ];
 
 function makeId(): string {
@@ -185,7 +185,7 @@ export default function AskPanel() {
       <div className="ask-conversation" aria-live="polite">
         {conversation.length === 0 && (
           <div className="ask-empty">
-            <div className="ask-empty-mark" aria-hidden="true">\u223f</div>
+            <div className="ask-empty-mark" aria-hidden="true">∿</div>
             <strong>Ask about what you hear</strong>
             <p>Questions use the current piece, playhead, selection, and analysis as context.</p>
             <div className="ask-prompts">
