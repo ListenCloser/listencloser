@@ -40,7 +40,24 @@ jobs:
               "counts_pattern.subn(counts, text, count=1)",
               "counts_pattern.subn(lambda _match: counts, text, count=1)",
           )
+          payload = payload.replace(
+              'raise SystemExit("failed to find old Inspector overview JSX")',
+              'pass',
+          )
           exec(compile(payload, 'v5-cleanup', 'exec'))
+
+          inspector = Path('components/workspace/Inspector.tsx')
+          text = inspector.read_text()
+          pattern = re.compile(
+              r'      <section className="inspector-section inspector-overview-section">.*?'
+              r'      </section>\n\n(?=      <FindingsSection)',
+              re.S,
+          )
+          replacement = '      <AnalysisOverview insights={activeInsights} findings={findings} selection={workspace.selection} />\n\n'
+          text, count = pattern.subn(lambda _match: replacement, text, count=1)
+          if count != 1:
+              raise SystemExit('failed to patch Inspector overview JSX')
+          inspector.write_text(text)
           PY
       - name: Commit V5 cleanup
         run: |
