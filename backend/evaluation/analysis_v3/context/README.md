@@ -23,9 +23,10 @@ The tiny product probe is not an MTG-Jamendo benchmark and must not be presented
 
 ## Reproduce without model downloads
 
+Run from the repository root so the `backend` package is importable:
+
 ```bash
-cd backend
-uv run python -m backend.evaluation.analysis_v3.context.run --task prior
+uv run --project backend python -m backend.evaluation.analysis_v3.context.run --task prior
 ```
 
 This reads the already-committed #332 CLAP result and `reference_metrics.json`.
@@ -34,8 +35,7 @@ This reads the already-committed #332 CLAP result and `reference_metrics.json`.
 
 ```bash
 export MUSIC_EVAL_CACHE_DIR=/path/to/backend/evaluation/.cache
-cd backend
-uv run python -m backend.evaluation.analysis_v3.context.run --task zero-shot --device cpu
+uv run --project backend python -m backend.evaluation.analysis_v3.context.run --task zero-shot --device cpu
 ```
 
 This requires the rights-safe cached audio referenced by `manifests/context_probe.json` and access to the CLAP checkpoint. It is intentionally excluded from required CI.
