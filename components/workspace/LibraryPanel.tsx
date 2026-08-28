@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
@@ -18,6 +18,7 @@ function WorkRow({
   work,
   selected,
   isLoading,
+  isDeleting,
   hasAnalysis,
   hasRepresentations,
   onDelete,
@@ -26,37 +27,22 @@ function WorkRow({
   work: { id: string; title: string };
   selected: boolean;
   isLoading: boolean;
+  isDeleting: boolean;
   hasAnalysis: boolean;
   hasRepresentations: boolean;
   onDelete: () => void;
   onOpen: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
-
-  const status = isLoading
-    ? "Opening"
-    : hasAnalysis
-      ? "Analyzed"
-      : hasRepresentations
-        ? "Ready"
-        : "Imported";
+  const title = presentableTitle(work.title);
+  const status = isDeleting
+    ? "Deleting"
+    : isLoading
+      ? "Opening"
+      : hasAnalysis
+        ? "Analyzed"
+        : hasRepresentations
+          ? "Ready"
+          : "Imported";
 
   return (
     <div className={`library-work-row${selected ? " selected" : ""}`}>
@@ -65,45 +51,32 @@ function WorkRow({
         className="library-work-btn"
         onClick={onOpen}
         aria-current={selected ? "true" : undefined}
+        disabled={isDeleting}
       >
         <span className="library-work-leading" aria-hidden="true">
-          {isLoading ? <span className="library-row-spinner" /> : <span className="library-note-glyph">♪</span>}
+          {isLoading || isDeleting ? <span className="library-row-spinner" /> : <span className="library-note-glyph">♪</span>}
         </span>
         <span className="library-work-copy">
-          <span className="library-work-title">{presentableTitle(work.title)}</span>
+          <span className="library-work-title">{title}</span>
           <span className="library-work-status">{status}</span>
         </span>
       </button>
 
-      <div className="library-row-menu" ref={menuRef}>
-        <button
-          type="button"
-          className="library-row-menu-trigger"
-          aria-label={`More actions for ${presentableTitle(work.title)}`}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-            <circle cx="3" cy="8" r="1.25" /><circle cx="8" cy="8" r="1.25" /><circle cx="13" cy="8" r="1.25" />
-          </svg>
-        </button>
-        {menuOpen && (
-          <div className="library-row-menu-popover" role="menu">
-            <button
-              type="button"
-              className="library-row-menu-item danger"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                onDelete();
-              }}
-            >
-              Delete recording
-            </button>
-          </div>
-        )}
-      </div>
+      <button
+        type="button"
+        className="library-row-delete"
+        aria-label={`Delete ${title}`}
+        title="Delete recording"
+        onClick={onDelete}
+        disabled={isDeleting}
+      >
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3.5 4.5h9" />
+          <path d="M6 2.75h4" />
+          <path d="M5 4.5l.5 8.25h5l.5-8.25" />
+          <path d="M7 6.5v4M9 6.5v4" />
+        </svg>
+      </button>
     </div>
   );
 }
@@ -172,7 +145,11 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   }
 
   return (
-    <aside className={`studio-library studio-library-v3${workspace.libraryCollapsed ? " is-collapsed" : ""}`}>
+    <aside
+      className={`studio-library studio-library-v3${workspace.libraryCollapsed ? " is-collapsed" : ""}`}
+      aria-hidden={workspace.libraryCollapsed}
+      inert={workspace.libraryCollapsed}
+    >
       <div className="library-header library-header-v3">
         <div className="library-heading-row">
           <h2>Library</h2>
@@ -220,6 +197,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               work={work}
               selected={selected}
               isLoading={workspace.isLoadingWork && selected}
+              isDeleting={deletingId === work.id}
               hasAnalysis={workspace.insights.length > 0 && selected}
               hasRepresentations={availability ? availability.availableKinds.length > 0 : false}
               onDelete={() => void handleDelete(work.id)}
