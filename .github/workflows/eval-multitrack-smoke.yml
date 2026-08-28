@@ -1,4 +1,4 @@
-name: Analysis V3 multitrack Slakh Redux program-preserving
+name: Analysis V3 multitrack Slakh Redux patched serializer
 
 on:
   push:
@@ -6,8 +6,7 @@ on:
       - eval/analysis-v3-multitrack-smoke-run
     paths:
       - '.github/workflows/eval-multitrack-smoke.yml'
-      - 'backend/evaluation/analysis_v3/multitrack_transcription/slakh_redux_program_preserving_run.py'
-      - 'backend/evaluation/analysis_v3/multitrack_transcription/mr_mt3_program_preserving_runner.py'
+      - 'backend/evaluation/analysis_v3/multitrack_transcription/slakh_redux_subset_run.py'
 
 permissions:
   contents: read
@@ -58,6 +57,199 @@ jobs:
           PY
           test -x "$MT3_VENV/bin/mt3-infer"
 
+      - name: Patch installed MR-MT3 serializer only
+        shell: bash
+        env:
+          PATCH_OUTPUT: ${{ github.workspace }}/slakh-patched-output/serializer_patch.json
+        run: |
+          set -euo pipefail
+          MT3_VENV="$RUNNER_TEMP/mt3-venv"
+          "$MT3_VENV/bin/python" - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sysconfig
+          from pathlib import Path
+
+          adapter = Path(sysconfig.get_paths()['purelib']) / 'mt3_infer' / 'adapters' / 'mr_mt3.py'
+          if not adapter.is_file():
+              raise SystemExit(f'installed MR-MT3 adapter not found: {adapter}')
+          original = adapter.read_text()
+          old = '''        # Convert NoteSequence to mido.MidiFile
+                  midi = mido.MidiFile(ticks_per_beat=note_sequence.ticks_per_quarter)
+                  track = mido.MidiTrack()
+                  midi.tracks.append(track)
+
+                  # Set tempo (default 120 BPM)
+                  track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(120)))
+
+                  # Sort notes by start time
+                  sorted_notes = sorted(note_sequence.notes, key=lambda n: n.start_time)
+
+                  # Convert notes to MIDI messages
+                  events = []
+                  for note in sorted_notes:
+                      # Note on
+                      events.append({
+                          'time': note.start_time,
+                          'type': 'note_on',
+                          'note': note.pitch,
+                          'velocity': note.velocity,
+                          'channel': 9 if note.is_drum else 0
+                      })
+                      # Note off
+                      events.append({
+                          'time': note.end_time,
+                          'type': 'note_off',
+                          'note': note.pitch,
+                          'velocity': 0,
+                          'channel': 9 if note.is_drum else 0
+                      })
+
+                  # Sort all events by time
+                  events.sort(key=lambda e: e['time'])
+
+                  # Convert absolute times to delta times and add to track
+                  current_time = 0.0
+                  for event in events:
+                      # Calculate delta time in seconds
+                      delta_time_seconds = event['time'] - current_time
+                      # Convert to MIDI ticks
+                      delta_ticks = int(delta_time_seconds * note_sequence.ticks_per_quarter * 2)  # 2 = 120 BPM / 60
+                      delta_ticks = max(0, delta_ticks)  # Ensure non-negative
+
+                      # Add MIDI message
+                      if event['type'] == 'note_on':
+                          track.append(mido.Message(
+                              'note_on',
+                              note=event['note'],
+                              velocity=event['velocity'],
+                              time=delta_ticks,
+                              channel=event['channel']
+                          ))
+                      else:  # note_off
+                          track.append(mido.Message(
+                              'note_off',
+                              note=event['note'],
+                              velocity=event['velocity'],
+                              time=delta_ticks,
+                              channel=event['channel']
+                          ))
+
+                      current_time = event['time']
+
+                  # Add end of track
+                  track.append(mido.MetaMessage('end_of_track', time=0))
+
+                  return midi'''
+          new = '''        # Convert NoteSequence to mido.MidiFile. The upstream 0.2.0
+                  # serializer discards note.program by writing every pitched note on
+                  # channel 0. This evaluation-only patch preserves the already-decoded
+                  # program field while leaving model inference and event timing intact.
+                  midi = mido.MidiFile(ticks_per_beat=note_sequence.ticks_per_quarter)
+                  track = mido.MidiTrack()
+                  midi.tracks.append(track)
+
+                  # Set tempo (default 120 BPM)
+                  track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(120)))
+
+                  pitched_programs = sorted({
+                      int(note.program) for note in note_sequence.notes if not note.is_drum
+                  })
+                  available_channels = [channel for channel in range(16) if channel != 9]
+                  if len(pitched_programs) > len(available_channels):
+                      raise InferenceError(
+                          f"Cannot preserve {len(pitched_programs)} programs with 15 pitched MIDI channels"
+                      )
+                  program_channels = dict(zip(pitched_programs, available_channels))
+                  for program in pitched_programs:
+                      track.append(mido.Message(
+                          'program_change',
+                          program=program,
+                          channel=program_channels[program],
+                          time=0,
+                      ))
+
+                  # Sort notes by start time
+                  sorted_notes = sorted(note_sequence.notes, key=lambda n: n.start_time)
+
+                  # Convert notes to MIDI messages. Event construction/order and
+                  # delta-time conversion intentionally match the upstream serializer.
+                  events = []
+                  for note in sorted_notes:
+                      channel = 9 if note.is_drum else program_channels[int(note.program)]
+                      # Note on
+                      events.append({
+                          'time': note.start_time,
+                          'type': 'note_on',
+                          'note': note.pitch,
+                          'velocity': note.velocity,
+                          'channel': channel
+                      })
+                      # Note off
+                      events.append({
+                          'time': note.end_time,
+                          'type': 'note_off',
+                          'note': note.pitch,
+                          'velocity': 0,
+                          'channel': channel
+                      })
+
+                  # Sort all events by time
+                  events.sort(key=lambda e: e['time'])
+
+                  # Convert absolute times to delta times and add to track
+                  current_time = 0.0
+                  for event in events:
+                      # Calculate delta time in seconds
+                      delta_time_seconds = event['time'] - current_time
+                      # Convert to MIDI ticks
+                      delta_ticks = int(delta_time_seconds * note_sequence.ticks_per_quarter * 2)  # 2 = 120 BPM / 60
+                      delta_ticks = max(0, delta_ticks)  # Ensure non-negative
+
+                      # Add MIDI message
+                      if event['type'] == 'note_on':
+                          track.append(mido.Message(
+                              'note_on',
+                              note=event['note'],
+                              velocity=event['velocity'],
+                              time=delta_ticks,
+                              channel=event['channel']
+                          ))
+                      else:  # note_off
+                          track.append(mido.Message(
+                              'note_off',
+                              note=event['note'],
+                              velocity=event['velocity'],
+                              time=delta_ticks,
+                              channel=event['channel']
+                          ))
+
+                      current_time = event['time']
+
+                  # Add end of track
+                  track.append(mido.MetaMessage('end_of_track', time=0))
+
+                  return midi'''
+          if old not in original:
+              raise SystemExit('expected upstream serializer block not found; refusing to patch')
+          patched = original.replace(old, new, 1)
+          before = hashlib.sha256(original.encode()).hexdigest()
+          after = hashlib.sha256(patched.encode()).hexdigest()
+          adapter.write_text(patched)
+          output = Path(os.environ['PATCH_OUTPUT'])
+          output.parent.mkdir(parents=True, exist_ok=True)
+          output.write_text(json.dumps({
+              'upstream_adapter_path': str(adapter),
+              'upstream_commit': '2d20ee5bb6ca727968bd23c6100fd2a35154166b',
+              'before_sha256': before,
+              'after_sha256': after,
+              'patch_scope': 'decode() MIDI channel/program serialization only',
+              'program_strategy': 'unique pitched MIDI channel per predicted program; channel 9 reserved for drums',
+          }, indent=2) + '\n')
+          print(output.read_text())
+          PY
+
       - name: Verify locked hello-ai environment stayed unchanged
         run: |
           backend/.venv/bin/python - <<'PY'
@@ -66,25 +258,24 @@ jobs:
           print({'hello_ai_torch': torch.__version__})
           PY
 
-      - name: Run five-track program-preserving Slakh Redux subset
+      - name: Run five-track patched-serializer Slakh Redux subset
         env:
           PYTHONPATH: backend
           SLAKH_SOURCE_CACHE: ${{ runner.temp }}/slakh-selective-source
           MT3_CHECKPOINT_DIR: ${{ runner.temp }}/mt3-checkpoints
           MT3_INFER_BIN: ${{ runner.temp }}/mt3-venv/bin/mt3-infer
-          MT3_PYTHON_BIN: ${{ runner.temp }}/mt3-venv/bin/python
           MT3_INFER_VERSION: '0.2.0'
           MT3_TORCH_VERSION: '2.6.0+cpu'
-          MULTITRACK_SMOKE_OUTPUT: ${{ github.workspace }}/slakh-preserving-output
+          MULTITRACK_SMOKE_OUTPUT: ${{ github.workspace }}/slakh-patched-output
           HELLO_AI_MEASUREMENT_SHA: 7057c1c247fb2770fee5f5e418479cbf69bd4619
         run: |
-          backend/.venv/bin/python backend/evaluation/analysis_v3/multitrack_transcription/slakh_redux_program_preserving_run.py
+          backend/.venv/bin/python backend/evaluation/analysis_v3/multitrack_transcription/slakh_redux_subset_run.py
 
       - name: Upload evaluation artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: analysis-v3-multitrack-slakh-redux-program-preserving
-          path: slakh-preserving-output
+          name: analysis-v3-multitrack-slakh-redux-patched-serializer
+          path: slakh-patched-output
           if-no-files-found: warn
           retention-days: 7
