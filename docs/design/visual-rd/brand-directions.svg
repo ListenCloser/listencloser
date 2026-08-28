@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#12110f"/><stop offset="1" stop-color="#191814"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f0eadf"/><stop offset="1" stop-color="#d6b56d"/></linearGradient>
+  </defs>
+  <rect width="1200" height="760" fill="url(#bg)"/>
+  <text x="50" y="58" fill="#d6b56d" font-family="ui-monospace, monospace" font-size="12" letter-spacing="3">HELLO-AI · BRAND R&amp;D</text>
+  <text x="50" y="105" fill="#f0eadf" font-family="Georgia, serif" font-size="40">Favicon / mark directions</text>
+  <text x="50" y="136" fill="#8f897e" font-family="system-ui" font-size="14">Current waveform/staff mark is rejected as too literal and generic. New rule: pass 16×16 monochrome before richer treatment.</text>
+
+  <!-- Candidate A -->
+  <g transform="translate(50 190)">
+    <rect width="330" height="230" rx="18" fill="#1f1e1a" stroke="#d6b56d" stroke-opacity=".3"/>
+    <text x="22" y="32" fill="#d6b56d" font-family="ui-monospace" font-size="11">A · CONTOUR FOLD</text>
+    <g transform="translate(56 58)">
+      <path d="M0 86 C32 12 64 154 102 54 C136 -35 168 139 214 34" fill="none" stroke="url(#gold)" stroke-width="8" stroke-linecap="round"/>
+      <path d="M0 99 C32 25 64 167 102 67 C136 -22 168 152 214 47" fill="none" stroke="#d6b56d" stroke-opacity=".35" stroke-width="2"/>
+    </g>
+    <rect x="22" y="173" width="34" height="34" rx="8" fill="#11110f" stroke="#f0eadf" stroke-opacity=".12"/>
+    <path d="M29 197 C36 177 41 210 48 186" fill="none" stroke="#f0eadf" stroke-width="2.4" stroke-linecap="round"/>
+    <rect x="68" y="165" width="50" height="50" rx="11" fill="#11110f" stroke="#f0eadf" stroke-opacity=".12"/>
+    <path d="M77 199 C88 171 95 216 109 182" fill="none" stroke="#d6b56d" stroke-width="3.6" stroke-linecap="round"/>
+    <text x="135" y="185" fill="#f0eadf" font-family="system-ui" font-size="13">Preferred starting lane</text>
+    <text x="135" y="205" fill="#837d73" font-family="system-ui" font-size="11">Abstract, musical without note/waveform cliché.</text>
+  </g>
+
+  <!-- Candidate B -->
+  <g transform="translate(435 190)">
+    <rect width="330" height="230" rx="18" fill="#1f1e1a" stroke="#f0eadf" stroke-opacity=".1"/>
+    <text x="22" y="32" fill="#d6b56d" font-family="ui-monospace" font-size="11">B · PLAYHEAD NOTCH</text>
+    <circle cx="165" cy="105" r="61" fill="none" stroke="#f0eadf" stroke-width="13" stroke-dasharray="160 40" transform="rotate(-79 165 105)"/>
+    <path d="M165 41 L155 95 L175 95 Z" fill="#d6b56d"/>
+    <rect x="22" y="173" width="34" height="34" rx="8" fill="#11110f"/><circle cx="39" cy="190" r="10" fill="none" stroke="#f0eadf" stroke-width="3" stroke-dasharray="24 7" transform="rotate(-80 39 190)"/><path d="M39 179l-2 9h4z" fill="#d6b56d"/>
+    <text x="70" y="185" fill="#f0eadf" font-family="system-ui" font-size="13">Tool / time identity</text>
+    <text x="70" y="205" fill="#837d73" font-family="system-ui" font-size="11">Strong at tiny sizes; risk: generic media/control symbol.</text>
+  </g>
+
+  <!-- Candidate C -->
+  <g transform="translate(820 190)">
+    <rect width="330" height="230" rx="18" fill="#1f1e1a" stroke="#f0eadf" stroke-opacity=".1"/>
+    <text x="22" y="32" fill="#d6b56d" font-family="ui-monospace" font-size="11">C · CONTINUOUS → DISCRETE</text>
+    <g transform="translate(48 61)">
+      <circle cx="5" cy="55" r="2" fill="#f0eadf" opacity=".35"/><circle cx="16" cy="51" r="3" fill="#f0eadf" opacity=".42"/><circle cx="29" cy="45" r="4" fill="#f0eadf" opacity=".5"/><circle cx="44" cy="37" r="5" fill="#d6b56d" opacity=".65"/>
+      <rect x="65" y="27" width="12" height="12" rx="3" fill="#d6b56d"/><rect x="87" y="18" width="15" height="15" rx="3" fill="#d6b56d"/><rect x="113" y="37" width="18" height="18" rx="3" fill="#d6b56d"/><rect x="143" y="8" width="22" height="22" rx="4" fill="#d6b56d"/>
+      <rect x="180" y="22" width="27" height="27" rx="4" fill="#f0eadf"/>
+    </g>
+    <rect x="22" y="173" width="34" height="34" rx="8" fill="#11110f"/><circle cx="30" cy="190" r="1" fill="#f0eadf"/><circle cx="35" cy="188" r="1.5" fill="#d6b56d"/><rect x="40" y="184" width="4" height="4" rx="1" fill="#d6b56d"/><rect x="47" y="181" width="6" height="6" rx="1" fill="#f0eadf"/>
+    <text x="70" y="185" fill="#f0eadf" font-family="system-ui" font-size="13">Representation concept</text>
+    <text x="70" y="205" fill="#837d73" font-family="system-ui" font-size="11">Conceptually strong; likely too detailed for 16px.</text>
+  </g>
+
+  <!-- Monochrome validation -->
+  <g transform="translate(50 468)">
+    <text x="0" y="0" fill="#f0eadf" font-family="Georgia, serif" font-size="27">Acceptance test before branding is allowed to ship</text>
+    <rect x="0" y="32" width="1100" height="190" rx="16" fill="#1f1e1a" stroke="#f0eadf" stroke-opacity=".08"/>
+    <g font-family="system-ui">
+      <text x="24" y="66" fill="#d6b56d" font-family="ui-monospace" font-size="11">16PX FIRST</text>
+      <text x="24" y="92" fill="#c7c0b5" font-size="13">1. Recognizable silhouette at 16×16 in pure black/white.</text>
+      <text x="24" y="118" fill="#c7c0b5" font-size="13">2. No dependence on thin staff lines, gradients, tiny dots, or animation.</text>
+      <text x="24" y="144" fill="#c7c0b5" font-size="13">3. Must not read primarily as “waveform”, “music note”, “AI sparkle”, or equalizer.</text>
+      <text x="24" y="170" fill="#c7c0b5" font-size="13">4. 24px app-header version may add one secondary contour; favicon stays simplest.</text>
+      <text x="24" y="196" fill="#837d73" font-size="12">Status: unresolved. Candidate A is the starting lane, not an approved final mark.</text>
+    </g>
+    <g transform="translate(770 57)">
+      <rect width="120" height="120" rx="28" fill="#f0eadf"/>
+      <path d="M22 82 C43 20 61 107 97 34" fill="none" stroke="#171612" stroke-width="12" stroke-linecap="round"/>
+      <text x="60" y="145" text-anchor="middle" fill="#837d73" font-family="system-ui" font-size="11">light surface</text>
+    </g>
+    <g transform="translate(925 57)">
+      <rect width="120" height="120" rx="28" fill="#11110f" stroke="#f0eadf" stroke-opacity=".1"/>
+      <path d="M22 82 C43 20 61 107 97 34" fill="none" stroke="#f0eadf" stroke-width="12" stroke-linecap="round"/>
+      <text x="60" y="145" text-anchor="middle" fill="#837d73" font-family="system-ui" font-size="11">dark surface</text>
+    </g>
+  </g>
+
+  <text x="50" y="724" fill="#777168" font-family="system-ui" font-size="12">Brand principle: derive identity from the same contour/signal grammar as the visual system, but compress it until it becomes a strong graphic mark rather than a miniature illustration.</text>
+</svg>
