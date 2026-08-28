@@ -35,6 +35,41 @@
   opacity: 0.35;
 }
 
+/* V3 is grid/fixed-panel based. Legacy responsive rules share the older
+ * .studio-* class names and use !important to switch that shell to a flowing
+ * column layout below 820px. Explicitly give the V3 compact workspace back
+ * ownership of those structural properties before specializing phones below. */
+@media (max-width: 820px) {
+  .studio-shell.studio-shell-v3 {
+    height: 100dvh !important;
+    min-height: 480px;
+    overflow: hidden !important;
+  }
+
+  .studio-workspace.studio-workspace-v3 {
+    min-height: 0;
+    overflow: hidden !important;
+  }
+
+  .studio-workspace.studio-workspace-v3 > .studio-canvas-area-v3 {
+    min-height: 0;
+  }
+
+  .studio-library.studio-library-v3 {
+    width: min(286px, 86vw) !important;
+    max-height: none !important;
+    border-right: 1px solid var(--border) !important;
+    border-bottom: 0;
+  }
+
+  .studio-inspector.studio-inspector-v3 {
+    width: min(340px, 92vw) !important;
+    max-height: none !important;
+    border-left: 1px solid var(--border) !important;
+    border-bottom: 0;
+  }
+}
+
 @media (max-width: 600px) {
   :root {
     --workspace-header-height: 52px;
@@ -65,9 +100,7 @@
   }
 
   /* Library remains an explicit edge destination; it is almost full-screen on
-   * a phone without pretending the underlying canvas can be used concurrently.
-   * The compound selector and !important overrides intentionally beat the
-   * legacy <820px responsive layer carried by the shared .studio-library class. */
+   * a phone without pretending the underlying canvas can be used concurrently. */
   .studio-library.studio-library-v3 {
     width: min(360px, 94vw) !important;
     max-height: none !important;
@@ -95,9 +128,7 @@
   }
 
   /* Analysis / Ask becomes a bottom sheet on phones. It reads vertically and
-   * should not consume most of the horizontal canvas just to imitate desktop.
-   * The shared legacy .studio-inspector responsive rule uses !important width/
-   * height declarations, so the V3 phone mode explicitly owns those properties. */
+   * should not consume most of the horizontal canvas just to imitate desktop. */
   .studio-inspector.studio-inspector-v3 {
     position: fixed;
     top: auto;
@@ -162,10 +193,19 @@
     padding: 10px 8px 16px;
   }
 
-  /* Persistent transport respects the home-indicator safe area. */
-  .transport-bar-v3 {
+  /* Persistent transport is a deliberate two-row phone control surface. The
+   * compound selector neutralizes the old mobile .transport-bar padding/gap and
+   * keeps the physical box aligned with --transport-height for sheet geometry. */
+  .transport-bar.transport-bar-v3 {
     box-sizing: border-box;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: var(--transport-height);
+    min-height: var(--transport-height);
+    max-height: var(--transport-height);
+    gap: 0;
+    padding: 0 0 env(safe-area-inset-bottom, 0px);
+    position: relative;
+    top: auto;
+    overflow: visible;
   }
 
   .piece-source-trigger,
