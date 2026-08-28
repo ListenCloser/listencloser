@@ -135,9 +135,10 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
 
   async function handleDelete(workId: string) {
     if (deletingId || !project) return;
+    const deletingActiveWork = workspace.activeWorkId === workId;
     setDeletingId(workId);
     setDeleteError(null);
-    if (workspace.activeWorkId === workId) {
+    if (deletingActiveWork) {
       clearActiveSource();
       resetTimeline();
       setActiveWorkId(null);
@@ -146,6 +147,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     try {
       await deleteWorkMutation.mutateAsync(workId);
     } catch {
+      if (deletingActiveWork) setActiveWorkId(workId);
       setDeleteError("Delete failed. The recording was restored.");
     } finally {
       setDeletingId(null);
