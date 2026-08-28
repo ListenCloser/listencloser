@@ -54,7 +54,7 @@ test("failed active-work deletion restores the selected workspace and playback",
 
   await page.getByRole("button", { name: "Delete Test Work" }).click();
 
-  await expect(page.getByRole("alert")).toHaveText("Delete failed. The recording was restored.");
+  await expect(page.locator(".library-error")).toHaveText("Delete failed. The recording was restored.");
   const restoredWork = page.getByRole("button", { name: /^Test Work\b/ });
   await expect(restoredWork).toBeVisible();
   await expect(restoredWork).toHaveAttribute("aria-current", "true");
