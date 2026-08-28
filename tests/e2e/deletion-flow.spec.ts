@@ -18,8 +18,9 @@ test("deleting the active work clears it and leaves no stale transport state", a
   const seek = page.getByRole("slider", { name: "Playback position" });
   await expect(seek).toBeEnabled({ timeout: 20_000 });
 
-  await page.getByRole("button", { name: "More actions for Test Work" }).click();
-  await page.getByRole("menuitem", { name: "Delete recording" }).click();
+  // Delete is a direct row action. A one-command overflow menu added friction
+  // on desktop and was effectively hidden behind hover on touch devices.
+  await page.getByRole("button", { name: "Delete Test Work" }).click();
 
   // The work should disappear from the library immediately (optimistic) and
   // show the empty state.
