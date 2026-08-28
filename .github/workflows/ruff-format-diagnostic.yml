@@ -14,8 +14,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Print formatter diff
+      - name: Format exact files
         run: |
           pip install ruff==0.5.7
           ruff format backend/domain/api.py backend/engines/melody/feature_provider.py
           git diff -- backend/domain/api.py backend/engines/melody/feature_provider.py
+      - name: Upload formatted files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruff-formatted-files
+          path: |
+            backend/domain/api.py
+            backend/engines/melody/feature_provider.py
