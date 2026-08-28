@@ -3,6 +3,7 @@ name: Real-stack E2E
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'backend/**'
       - 'app/**'
@@ -37,6 +38,7 @@ concurrency:
 
 jobs:
   real-stack:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -99,6 +101,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Restore Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-realstack-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**/*', 'components/**/*', 'lib/**/*', 'next.config.mjs', 'package.json', 'tsconfig.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-realstack-${{ hashFiles('package-lock.json') }}-
 
       - name: Build frontend against the local stack
         env:
