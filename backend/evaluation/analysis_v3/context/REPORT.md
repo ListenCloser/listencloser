@@ -43,7 +43,7 @@ Sources are machine-recorded in `reference_metrics.json`.
 
 `manifests/context_probe.json` deliberately scores only labels justified by source metadata:
 
-- GuitarSet bossa nova → `bossanova`, `guitar`
+- GuitarSet bossa nova → `bossa nova`, `guitar`
 - GuitarSet rock → `rock`, `guitar`
 - GuitarSet jazz → `jazz`, `guitar`
 - two MAESTRO excerpts → `classical`, `piano`
