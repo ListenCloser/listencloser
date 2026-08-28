@@ -17,11 +17,19 @@ if [ "$status" -ne 0 ]; then
 
   while IFS= read -r path; do
     case "$path" in
-      app/layout.tsx|components/workspace/RepresentationStack.tsx) ;;
+      app/layout.tsx|components/workspace/RepresentationStack.tsx|lib/representations.tsx) ;;
       *) echo "Unexpected conflict: $path"; exit 1 ;;
     esac
   done <<< "$unresolved"
 
+  # V6 does not intentionally change the representation registry. The conflict
+  # is inherited from its pre-merge V5 base, so main is authoritative here.
+  if grep -qx 'lib/representations.tsx' <<< "$unresolved"; then
+    git checkout --theirs lib/representations.tsx
+    git add lib/representations.tsx
+  fi
+
+  # Main owns mounted-view caching; V6 only replaces the tab interaction shell.
   if grep -qx 'components/workspace/RepresentationStack.tsx' <<< "$unresolved"; then
     git checkout --theirs components/workspace/RepresentationStack.tsx
     python3 - <<'PY'
