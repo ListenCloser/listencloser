@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { argosScreenshot } from "@argos-ci/playwright";
 import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
 
-async function openMockWorkspace(page: Parameters<typeof test>[0] extends never ? never : any) {
+async function openMockWorkspace(page: Page) {
   await page.addInitScript(persistSessionScript(), {
     projectRef: MOCK_PROJECT_REF,
     session: mockSession,
