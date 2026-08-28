@@ -62,12 +62,18 @@ def _validate_scored_run(payload: dict[str, Any], assessments: list[dict[str, An
         raise ValueError("assessment file requires non-empty cases list with raw model outputs")
 
     raw_outputs: set[tuple[str, str, str]] = set()
+    seen_case_keys: set[tuple[str, str]] = set()
     required_conditions = set(CONDITIONS)
     for case in cases:
         if not isinstance(case, dict):
             raise ValueError("each case must be an object")
         case_id = _require_nonempty_string(case, "case_id")
         question_id = _require_nonempty_string(case, "question_id")
+        case_key = (case_id, question_id)
+        if case_key in seen_case_keys:
+            raise ValueError("duplicate case_id/question_id raw cases are not allowed")
+        seen_case_keys.add(case_key)
+
         conditions = case.get("conditions")
         if not isinstance(conditions, dict):
             raise ValueError(f"case {case_id} requires conditions object")
