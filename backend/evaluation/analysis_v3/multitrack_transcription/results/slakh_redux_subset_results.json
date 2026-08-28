@@ -106,7 +106,7 @@
     },
     "tracks": {
       "Track01876": {
-        "reference_notes": 364,
+        "reference_notes": 379,
         "predicted_notes": 297,
         "onset_flat_f1": 0.2988,
         "note_flat_f1": 0.1183,
@@ -163,7 +163,7 @@
     },
     "tracks": {
       "Track01876": {
-        "reference_notes": 364,
+        "reference_notes": 379,
         "predicted_notes": 300,
         "onset_flat_f1": 0.1473,
         "note_flat_f1": 0.056,
