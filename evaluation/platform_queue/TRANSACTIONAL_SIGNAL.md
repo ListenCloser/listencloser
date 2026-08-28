@@ -1,93 +1,108 @@
 # Transactional pgmq signal prototype
 
-Status: **evaluation only**. This is stacked on the pgmq delivery bakeoff and does not install pgmq or a trigger in production.
+Status: **evaluation complete; not productionized**.
 
-## Problem
+This evaluation is the follow-up to the pgmq delivery bakeoff in #359. It proves a consistency property that would be required if hello-ai ever adopted pgmq as a worker-delivery signal. It does **not** install pgmq, create a production trigger, or change the deployed worker transport.
 
-PR #359 showed that pgmq clears the local concurrent-delivery and visibility-timeout gate. The remaining architectural risk is a dual write:
+## Result
+
+The hypothesis passed on real PostgreSQL + pgmq in the repository's fresh-Supabase integration environment:
+
+- queued INSERT emitted the exact inserted `job_id`;
+- non-queued INSERT emitted no message;
+- running → queued emitted a message;
+- queued → queued emitted no duplicate message;
+- rolling back a queued INSERT left neither the Job row nor a queue message;
+- rolling back a running → queued transition restored the previous Job stage and left no queue message.
+
+The critical conclusion is that a Postgres trigger calling `pgmq.send(...)` can participate in the **same database transaction** as the authoritative Job mutation. That removes the application-level dual-write window for this prototype.
+
+Historical CI evidence included:
+
+- `test_queued_transitions_emit_exact_job_identity` — passed;
+- `test_job_and_queue_signal_share_transaction_rollback` — passed.
+
+## Why this mattered
+
+A naive future pgmq integration could perform two separate operations:
 
 ```text
-insert public.jobs row
+insert/update public.jobs
 send pgmq {job_id}
 ```
 
-If those are separate application/database requests, a process or network failure can leave:
+A crash or network failure between those operations can create either:
 
-- a queued authoritative Job with no delivery signal, or
+- a queued authoritative Job with no delivery signal; or
 - a delivery signal whose authoritative Job transaction did not commit.
 
-That is not an acceptable production handoff.
-
-## Hypothesis
-
-Because pgmq is a PostgreSQL extension inside the same database, the signal can be emitted by an `AFTER INSERT OR UPDATE OF stage` trigger on the authoritative Job row.
-
-The trigger emits only when a row **enters `queued`**:
-
-- queued job INSERT → signal;
-- running/claimed/failed → queued transition → signal;
-- queued → queued metadata update → no new signal;
-- non-queued insert → no signal.
-
-The message contains only `{job_id}`. All lifecycle/progress/input/output/provenance state remains in `public.jobs`.
-
-Conceptually:
+The evaluated trigger shape instead keeps the handoff inside PostgreSQL:
 
 ```text
 API / retry / orphan recovery
           │
           ▼
   public.jobs mutation
-          │ same Postgres transaction
+          │ same transaction
           ▼
-   trigger: entered queued?
+ trigger: entered queued?
           │
           └── pgmq.send({job_id})
 ```
 
-If `pgmq.send` participates in the surrounding PostgreSQL transaction, rollback of the Job mutation must also roll back the queue message. That removes the application dual-write window without introducing an outbox dispatcher.
+The signal contains only `{job_id}`. Lifecycle, progress, inputs, outputs, provenance, retries, and terminal state remain in `public.jobs`.
 
-## What this PR proves
+## Prototype safety shape
 
-`scripts/queue_transactional_signal_prototype.py` creates only uniquely named scratch objects in a local database by default:
+`scripts/queue_transactional_signal_prototype.py` creates only uniquely named scratch objects and refuses non-local databases by default:
 
 1. a minimal scratch Job table;
 2. a disposable pgmq queue;
-3. a `SECURITY INVOKER` trigger function;
+3. a `SECURITY INVOKER` trigger function with a fixed/empty search path;
 4. an INSERT/UPDATE trigger.
 
-The real-stack integration assertions verify:
+The trigger fires only when a row **enters `queued`**.
 
-- queued INSERT emits the exact inserted job ID;
-- non-queued INSERT is silent;
-- running → queued emits a signal;
-- queued → queued does not emit a duplicate signal;
-- rolling back a queued INSERT leaves neither the Job row nor queue signal;
-- rolling back a running → queued transition leaves the previous Job stage and no queue signal.
+This is deliberately not a browser-facing API. Any future production implementation should keep queue operations server/service-role only and revoke client-role access as appropriate.
 
-A rollback test is the key result: if it passes against real Postgres/pgmq, the queue signal has the same commit boundary as authoritative Job state.
+## Production decision after the experiment
 
-## Security shape for a later production migration
+Although the transactional trigger approach is technically viable, hello-ai did **not** adopt pgmq for the current product/runtime envelope.
 
-This prototype deliberately avoids a `SECURITY DEFINER` trigger. A production function should remain `SECURITY INVOKER`, use a fixed/empty `search_path`, and not become a browser-callable API. Execute privileges should be revoked from `PUBLIC`/client roles as appropriate.
+The simpler zero-cost option was sufficient: keep `public.jobs` as the authoritative queue and move worker claiming into one atomic Postgres operation using `FOR UPDATE SKIP LOCKED`. That shipped and was production-verified in #367.
 
-The queue itself remains worker/server infrastructure. `public.jobs` RLS continues to govern the user-visible job model.
+This preserves:
 
-## Remaining gates even if this passes
+- one authoritative Job model;
+- existing leases and orphan recovery;
+- retries/backoff and cancellation semantics;
+- at-least-once execution with replay-safe/idempotent handlers;
+- no new production queue abstraction or operational surface.
 
-A successful transactional signal does **not** make pgmq production-ready by itself. We still need:
+## When pgmq should be revisited
 
-1. a worker transport abstraction so the current table poller remains a fallback;
-2. pgmq message acknowledgement only after authoritative terminal/requeue state is safely persisted;
-3. cancellation behavior for stale queued signals;
-4. orphan recovery behavior when a running Job lease expires;
-5. queue depth/age observability integrated with #353;
-6. extension/queue migration and rollback procedure;
-7. a short canary period before removing table polling;
-8. confirmation that pgmq storage stays comfortably inside the Supabase free DB budget.
+The transactional trigger result should be retained as reusable evidence, but pgmq should only be reconsidered if measured workload shows the atomic jobs-table transport is insufficient.
 
-## Decision if rollback is atomic
+A future adoption would still require all of the following:
 
-Prefer a **transactional database-trigger signal** over an application dual-write or a separately operated outbox dispatcher. It is smaller, keeps the consistency boundary in one database transaction, and adds no service.
+1. evidence of queue-age/throughput contention under real workload;
+2. a worker transport abstraction with a safe fallback;
+3. acknowledgement only after authoritative terminal/requeue state is persisted;
+4. cancellation semantics for stale delivery signals;
+5. orphan-recovery behavior for expired running leases;
+6. queue depth/age observability integrated with existing telemetry;
+7. extension/queue migration and rollback procedure;
+8. storage-budget validation against the Supabase free-tier constraint;
+9. a canary rollout before replacing the jobs-table delivery path.
 
-If the rollback test fails, do not adopt this pattern. Fall back to an explicit outbox table written in the Job transaction or retain the current jobs-table delivery with an atomic `FOR UPDATE SKIP LOCKED` claim.
+If those gates are ever met, prefer this proven **transactional database-trigger signal** over an unsafe application dual write or an unnecessary separately operated dispatcher.
+
+## Explicit non-goals
+
+- no claim of exactly-once business execution;
+- no production pgmq extension install;
+- no production trigger migration;
+- no queue Data API exposure;
+- no Redis/Celery/RabbitMQ/SQS dependency;
+- no provider migration;
+- no paid infrastructure.
