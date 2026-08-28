@@ -54,24 +54,29 @@ def recall_at_k(y_true: np.ndarray, y_score: np.ndarray, k: int) -> float:
 
 
 def label_ranking_average_precision(y_true: np.ndarray, y_score: np.ndarray) -> float:
-    """Sample-wise label-ranking average precision without sklearn.
+    """Compute sample-wise label-ranking average precision (LRAP).
 
-    For each positive label, this computes precision at the rank where that
-    label appears, then averages over positives and finally over non-empty
-    samples. Ties are deterministic because stable sorting preserves label order.
+    For each positive label, LRAP is the fraction of labels scoring at least as
+    high as that label that are also positive. Averaging those fractions over
+    positive labels and then over non-empty samples matches the standard LRAP
+    definition and, importantly, handles tied scores without arbitrary ordering.
     """
     truth, scores = _validate_matrices(y_true, y_score)
     sample_scores: list[float] = []
     for sample_truth, sample_score in zip(truth, scores, strict=True):
-        positives = int(sample_truth.sum())
-        if positives == 0:
+        positive_indices = np.flatnonzero(sample_truth)
+        if len(positive_indices) == 0:
             continue
-        order = np.argsort(-sample_score, kind="stable")
-        ranked_truth = sample_truth[order]
-        cumulative = np.cumsum(ranked_truth)
-        positive_ranks = np.flatnonzero(ranked_truth) + 1
-        precisions = cumulative[positive_ranks - 1] / positive_ranks
+
+        precisions: list[float] = []
+        for positive_index in positive_indices:
+            threshold = sample_score[positive_index]
+            ranked_mask = sample_score >= threshold
+            denominator = int(ranked_mask.sum())
+            numerator = int(np.logical_and(sample_truth, ranked_mask).sum())
+            precisions.append(numerator / denominator)
         sample_scores.append(float(np.mean(precisions)))
+
     if not sample_scores:
         raise ValueError("average precision requires at least one positive label")
     return float(np.mean(sample_scores))
