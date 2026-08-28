@@ -92,52 +92,49 @@ def _load_audio_segment(
     return data, sr
 
 
-def _render_midi_to_audio(
+def _extract_midi_segment(
     midi_path: str,
-    duration: float,
-    sample_rate: int = 24000,
-) -> np.ndarray:
-    """Render MIDI to audio using FluidSynth via the repository's rendering path."""
-    import subprocess
-    import tempfile
+    start: float,
+    end: float,
+) -> bytes:
+    """Extract MIDI events from [start, end) and serialize as valid MIDI.
 
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-        wav_path = f.name
+    Uses pretty_midi (already in repo dependencies) to parse the MIDI file,
+    extract notes whose time intersects [start, end), shift them to start at
+    time 0, and serialize as a new MIDI file.
+    """
+    import io
 
-    try:
-        subprocess.run(
-            [
-                "fluidsynth",
-                "-ni",
-                "/usr/share/sounds/sf2/FluidR3_GM.sf2",
-                midi_path,
-                "-F",
-                wav_path,
-                "-r",
-                str(sample_rate),
-            ],
-            check=True,
-            capture_output=True,
-            timeout=30,
-        )
-        import soundfile as sf
+    import pretty_midi
 
-        data, sr = sf.read(wav_path, dtype="float32")
-        if data.ndim > 1:
-            data = data.mean(axis=1)
+    pm = pretty_midi.PrettyMIDI(midi_path)
 
-        target_samples = int(duration * sample_rate)
-        if len(data) > target_samples:
-            data = data[:target_samples]
-        elif len(data) < target_samples:
-            data = np.pad(data, (0, target_samples - len(data)))
+    new_pm = pretty_midi.PrettyMIDI(initial_tempo=120.0)
+    new_inst = pretty_midi.Instrument(program=0, is_drum=False)
 
-        return data
-    except Exception:
-        return generate_synthetic_audio(duration_seconds=duration, sample_rate=sample_rate)
-    finally:
-        if os.path.exists(wav_path):
-            os.unlink(wav_path)
+    for inst in pm.instruments:
+        if inst.is_drum:
+            continue
+        for note in inst.notes:
+            if note.end <= start or note.start >= end:
+                continue
+            clipped_start = max(note.start, start) - start
+            clipped_end = min(note.end, end) - start
+            if clipped_end - clipped_start <= 0:
+                continue
+            new_inst.notes.append(
+                pretty_midi.Note(
+                    velocity=note.velocity,
+                    pitch=note.pitch,
+                    start=clipped_start,
+                    end=clipped_end,
+                )
+            )
+
+    new_pm.instruments.append(new_inst)
+    buf = io.BytesIO()
+    new_pm.write(buf)
+    return buf.getvalue()
 
 
 def run_operational_evaluation(
@@ -537,9 +534,6 @@ def run_cross_representation(
     print(f"Cross-representation: {candidate}")
     print(f"{'='*60}")
 
-    with open(manifest_path) as f:
-        manifest = json.load(f)
-
     adapter = _load_adapter(candidate, device)
     adapter.load()
 
@@ -558,8 +552,6 @@ def run_cross_representation(
     ww = diversity_manifest.get("within_work", {})
     maestro_audio = _resolve_path(ww.get("audio_path", ""))
     maestro_midi = _resolve_path(ww.get("midi_path", ""))
-
-    aligned_pairs_data = manifest.get("aligned_pairs", [])
 
     audio_embeddings: dict[str, np.ndarray] = {}
     midi_embeddings: dict[str, np.ndarray] = {}
@@ -585,47 +577,17 @@ def run_cross_representation(
                     audio_embeddings[pair_id] = audio_result.vector
                     print(f"    Audio embedded: {pair_id}")
 
-                midi_audio = _render_midi_to_audio(
-                    maestro_midi, window_sec, sample_rate=sr
-                )
-                if len(midi_audio) > int(t * sr):
-                    midi_segment = midi_audio[int(t * sr):int((t + window_sec) * sr)]
-                else:
-                    midi_segment = midi_audio[:int(window_sec * sr)]
-                if len(midi_segment) < int(window_sec * sr):
-                    midi_segment = np.pad(
-                        midi_segment,
-                        (0, int(window_sec * sr) - len(midi_segment)),
-                    )
-
-                midi_result = adapter.embed_symbolic(
-                    _generate_midi_bytes([60, 64, 67], 0.5)
-                )
+                midi_bytes = _extract_midi_segment(maestro_midi, t, t + window_sec)
+                midi_result = adapter.embed_symbolic(midi_bytes)
                 if midi_result and midi_result.ok and midi_result.vector is not None:
                     midi_embeddings[pair_id] = midi_result.vector
                     print(f"    MIDI embedded: {pair_id}")
             except Exception as e:
                 print(f"    FAILED {pair_id}: {e}")
+                raise
 
             t += hop_sec
             pair_idx += 1
-
-    for pair in aligned_pairs_data:
-        pair_id = pair["id"]
-        if pair_id in audio_embeddings and pair_id in midi_embeddings:
-            continue
-
-        midi_params = pair.get("midi_params", {})
-        if "pitches" in midi_params:
-            midi_bytes = _generate_midi_bytes(
-                midi_params["pitches"],
-                midi_params.get("note_duration", 0.5),
-                midi_params.get("velocity", 80),
-            )
-            midi_result = adapter.embed_symbolic(midi_bytes)
-            if midi_result and midi_result.ok and midi_result.vector is not None:
-                midi_embeddings[pair_id] = midi_result.vector
-                print(f"    MIDI embedded (synthetic): {pair_id}")
 
     if not audio_embeddings or not midi_embeddings:
         return {"error": "Insufficient embeddings for cross-representation evaluation"}

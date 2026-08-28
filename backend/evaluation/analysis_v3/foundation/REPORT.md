@@ -4,7 +4,7 @@
 
 **Recommendation: Do not add a production embedding layer yet.**
 
-Current candidates do not clear all deployment/license/product-value gates simultaneously. CLaMP3 is the only candidate supporting audio, text, and symbolic modalities with a permissive license, but its cross-modal alignment quality (MRR=0.46, Recall@1=0.20) on real aligned MAESTRO pairs is insufficient for production without further investigation. CLAP provides fast audio-text retrieval with a permissive license.
+Current candidates do not clear all deployment/license/product-value gates simultaneously. CLaMP3 is the only candidate supporting audio, text, and symbolic modalities with a permissive license. A tiny 5-pair cross-modal probe (MRR=0.49, R@1=0.20) is insufficient to judge CLaMP3's cross-modal capability—larger-scale evaluation is needed. CLAP provides fast audio-text retrieval with a permissive license.
 
 ## Evaluation Environment
 
@@ -25,7 +25,9 @@ Current candidates do not clear all deployment/license/product-value gates simul
 | MuQ | OpenMuQ/MuQ-large-msd-iter | MIT | CC-BY-NC-4.0 | ~400MB | 1.23s | 2.81s | Temporal (1024-dim) | ✗ | ✗ | RESEARCH |
 | MusicFM | minzwon/MusicFM | MIT | CC-BY-NC-SA-4.0 | ~400MB | 0.69s | 2.55s | Temporal (1024-dim@25Hz) | ✗ | ✗ | RESEARCH |
 | CLaMP3 | sander-wood/clamp3 | MIT | MIT | ~600MB | 1.67s | 2.90s | Global (768-dim) | ✓ | ✓ | RESEARCH |
-| CLAP | laion/larger_clap_music | MIT | Apache-2.0 | ~200MB | 0.10s | 0.10s | Global (512-dim) | ✓ | ✗ | RESEARCH |
+| CLAP | laion/larger_clap_music | MIT | Apache-2.0 | ~200MB | 0.10s | 0.10s* | Global (512-dim) | ✓ | ✗ | RESEARCH |
+
+*CLAP crops audio to fixed duration; 30s latency ≈ 10s latency.
 
 ## Corpus and Manifests
 
@@ -177,23 +179,30 @@ Good temporal resolution. Non-commercial weight license and complex setup block 
 ### Cross-Representation (LOCAL MEASUREMENT)
 
 Method: Real MAESTRO aligned audio/MIDI pairs from the same work.
+MIDI extraction: pretty_midi parses MAESTRO MIDI, extracts notes intersecting
+[start, end), shifts to time zero, serializes as valid MIDI.
 
 | Metric | Value |
 |---|---|
-| Num pairs | 5 |
-| MRR | 0.46 |
+| Num aligned windows | 5 |
+| Window times | 30-40s, 60-70s, 90-100s, 120-130s, 150-160s |
+| MRR | 0.49 |
 | Recall@1 | 0.20 |
 | Recall@5 | 1.00 |
-| Mean rank | 3.0 |
+| Mean rank | 2.8 |
 
-Per-pair results:
-- maestro_pair_0: rank=1, score=0.006
-- maestro_pair_1: rank=2, score=-0.005
-- maestro_pair_2: rank=3, score=0.004
-- maestro_pair_3: rank=4, score=0.020
-- maestro_pair_4: rank=5, score=-0.002
+Per-window results:
+- maestro_pair_0 (30-40s): rank=2, score=0.046
+- maestro_pair_1 (60-70s): rank=2, score=0.069
+- maestro_pair_2 (90-100s): rank=5, score=0.013
+- maestro_pair_3 (120-130s): rank=4, score=0.046
+- maestro_pair_4 (150-160s): rank=1, score=0.058
 
-**Interpretation**: Cross-modal alignment is weak. Matched audio/MIDI pairs do not consistently rank above mismatched pairs. Only 1 of 5 matched pairs ranks first.
+**Interpretation**: This is a tiny qualitative probe (5 windows). Cross-modal
+alignment is weak on these 5 pairs—only 1 of 5 matched pairs ranks first.
+However, 5 examples is insufficient to draw strong conclusions about CLaMP3's
+general cross-modal capability. The result is reported as a qualitative probe,
+not a benchmark score.
 
 ### MusicXML/Score Path
 
@@ -205,7 +214,10 @@ CLaMP3 reports SOTA on cross-modal MIR tasks (per upstream paper). Not measured 
 
 ### Decision: RESEARCH
 
-Only candidate with audio+text+symbolic support and MIT license. Cross-modal alignment quality is insufficient for production. Further investigation needed to determine whether the weak alignment is inherent to the model or specific to our test setup.
+Only candidate with audio+text+symbolic support and MIT license. The 5-pair
+cross-modal probe shows weak alignment (MRR=0.49, R@1=0.20), but this tiny
+qualitative probe is insufficient to conclude CLaMP3 needs fine-tuning.
+Larger-scale evaluation with more diverse aligned pairs is needed.
 
 ## CLAP
 
@@ -316,14 +328,14 @@ Only CLaMP3 and CLAP support text retrieval. Both show weak text-to-audio alignm
 
 Rationale:
 1. **License gate**: Only CLaMP3 and CLAP have permissive weight licenses
-2. **Quality gate**: CLaMP3's cross-modal alignment is weak (MRR=0.46) on real aligned pairs
+2. **Quality gate**: The 5-pair CLaMP3 cross-modal probe is too small to draw conclusions
 3. **Product value gate**: No candidate demonstrates clear product value over existing specialized MIR engines
 
 **What should happen next**:
-1. Investigate CLaMP3's weak cross-modal alignment—is this inherent or test-setup specific?
+1. Run larger-scale CLaMP3 cross-modal evaluation with more diverse aligned pairs
 2. Evaluate CLAP for fast audio-text retrieval in Ask/Inspector
 3. Design EmbeddingEvidence persistence in #336 after concrete requirements exist
-4. Re-evaluate after investigation to determine if any candidate clears production gates
+4. Re-evaluate after larger-scale investigation
 
 ## Proposed EmbeddingEvidence Contract
 

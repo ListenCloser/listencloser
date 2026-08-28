@@ -280,3 +280,156 @@ class TestAdapterUnsupportedCapability:
         adapter = AudioOnlyAdapter()
         assert adapter.supports_text() is False
         assert adapter.embed_text("test") is None
+
+
+class TestMIDIExtraction:
+    """Test that different time windows produce different MIDI content."""
+
+    def _make_test_midi(self, path: str) -> None:
+        """Create a simple MIDI file with notes at different times."""
+        import struct
+
+        def _var_len(value: int) -> bytes:
+            buf = bytearray()
+            buf.append(value & 0x7F)
+            value >>= 7
+            while value:
+                buf.append(0x80 | (value & 0x7F))
+                value >>= 7
+            buf.reverse()
+            return bytes(buf)
+
+        tempo_bpm = 120
+        ppq = 480
+        ticks_per_sec = ppq * tempo_bpm / 60.0
+
+        events = []
+        for i in range(20):
+            start_tick = int(i * 1.0 * ticks_per_sec)
+            end_tick = int((i + 0.5) * ticks_per_sec)
+            pitch = 60 + i
+            events.append((start_tick, pitch, 80, True))
+            events.append((end_tick, pitch, 0, False))
+        events.sort(key=lambda e: e[0])
+
+        track_data = bytearray()
+        us_per_beat = int(60_000_000 / tempo_bpm)
+        track_data.extend(_var_len(0))
+        track_data.extend(bytes([0xFF, 0x51, 0x03]))
+        track_data.extend(bytes([
+            (us_per_beat >> 16) & 0xFF,
+            (us_per_beat >> 8) & 0xFF,
+            us_per_beat & 0xFF,
+        ]))
+
+        last_tick = 0
+        for tick, pitch, vel, on in events:
+            delta = tick - last_tick
+            last_tick = tick
+            track_data.extend(_var_len(delta))
+            cmd = 0x90 if on else 0x80
+            track_data.extend(bytes([cmd, pitch, vel]))
+
+        track_data.extend(_var_len(0))
+        track_data.extend(bytes([0xFF, 0x2F, 0x00]))
+
+        header = struct.pack(">HHH", 0, 1, ppq)
+        track_chunk = b"MTrk" + struct.pack(">I", len(track_data)) + bytes(track_data)
+        midi_data = b"MThd" + struct.pack(">I", 6) + header + track_chunk
+
+        with open(path, "wb") as f:
+            f.write(midi_data)
+
+    def test_different_windows_produce_different_midi(self):
+        """Prove that extracting MIDI from different time windows yields different content."""
+        import io
+        import tempfile
+
+        import pretty_midi
+        from backend.evaluation.analysis_v3.foundation.run import _extract_midi_segment
+
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            midi_path = f.name
+
+        try:
+            self._make_test_midi(midi_path)
+
+            seg_0_5 = _extract_midi_segment(midi_path, 0.0, 5.0)
+            seg_5_10 = _extract_midi_segment(midi_path, 5.0, 10.0)
+            seg_10_15 = _extract_midi_segment(midi_path, 10.0, 15.0)
+
+            pm_0_5 = pretty_midi.PrettyMIDI(io.BytesIO(seg_0_5))
+            pm_5_10 = pretty_midi.PrettyMIDI(io.BytesIO(seg_5_10))
+            pm_10_15 = pretty_midi.PrettyMIDI(io.BytesIO(seg_10_15))
+
+            pitches_0_5 = sorted(set(n.pitch for inst in pm_0_5.instruments for n in inst.notes))
+            pitches_5_10 = sorted(set(n.pitch for inst in pm_5_10.instruments for n in inst.notes))
+            pitches_10_15 = sorted(set(n.pitch for inst in pm_10_15.instruments for n in inst.notes))
+
+            assert pitches_0_5 != pitches_5_10, (
+                f"Windows [0,5) and [5,10) should have different pitches: "
+                f"{pitches_0_5} vs {pitches_5_10}"
+            )
+            assert pitches_5_10 != pitches_10_15, (
+                f"Windows [5,10) and [10,15) should have different pitches: "
+                f"{pitches_5_10} vs {pitches_10_15}"
+            )
+            assert pitches_0_5 != pitches_10_15, (
+                f"Windows [0,5) and [10,15) should have different pitches: "
+                f"{pitches_0_5} vs {pitches_10_15}"
+            )
+        finally:
+            os.unlink(midi_path)
+
+    def test_midi_extraction_preserves_pitches(self):
+        """Verify extracted MIDI contains expected pitches for the time window."""
+        import io
+        import tempfile
+
+        import pretty_midi
+        from backend.evaluation.analysis_v3.foundation.run import _extract_midi_segment
+
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            midi_path = f.name
+
+        try:
+            self._make_test_midi(midi_path)
+
+            seg = _extract_midi_segment(midi_path, 0.0, 3.0)
+            pm = pretty_midi.PrettyMIDI(io.BytesIO(seg))
+            pitches = sorted(set(n.pitch for inst in pm.instruments for n in inst.notes))
+
+            assert 60 in pitches, "Pitch 60 (note at t=0) should be in [0,3) window"
+            assert 61 in pitches, "Pitch 61 (note at t=1) should be in [0,3) window"
+            assert 62 in pitches, "Pitch 62 (note at t=2) should be in [0,3) window"
+            assert 63 not in pitches, "Pitch 63 (note at t=3) should NOT be in [0,3) window"
+        finally:
+            os.unlink(midi_path)
+
+    def test_midi_extraction_shifts_to_zero(self):
+        """Verify extracted MIDI events start near time 0."""
+        import io
+        import tempfile
+
+        import pretty_midi
+        from backend.evaluation.analysis_v3.foundation.run import _extract_midi_segment
+
+        with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as f:
+            midi_path = f.name
+
+        try:
+            self._make_test_midi(midi_path)
+
+            seg = _extract_midi_segment(midi_path, 5.0, 10.0)
+            pm = pretty_midi.PrettyMIDI(io.BytesIO(seg))
+
+            for inst in pm.instruments:
+                for note in inst.notes:
+                    assert note.start >= -0.01, (
+                        f"Note start should be >= 0 after shift, got {note.start}"
+                    )
+                    assert note.start < 5.1, (
+                        f"Note start should be < 5.0 for 5s window, got {note.start}"
+                    )
+        finally:
+            os.unlink(midi_path)
