@@ -298,10 +298,8 @@ test("real audio golden path", async ({ page }) => {
     await page.getByRole("menuitem", { name: "Delete recording" }).click();
     await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible({ timeout: 15_000 });
 
-    await expect(page.getByRole("slider", { name: "Playback position" })).toBeDisabled();
-    const times = page.locator(".transport-time");
-    await expect(times.nth(0)).toHaveText("0:00");
-    await expect(times.nth(1)).toHaveText("0:00");
+    await expect(page.getByRole("slider", { name: "Playback position" })).toHaveCount(0);
+    await expect(page.locator(".transport-time")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Playback source:/ })).toHaveCount(0);
 
     await page.reload();

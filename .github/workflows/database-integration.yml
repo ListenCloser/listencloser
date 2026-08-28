@@ -8,6 +8,8 @@ on:
       - 'backend/music_features.py'
       - 'backend/tests/integration/**'
       - 'backend/tests/test_rls_domain.py'
+      - 'backend/pyproject.toml'
+      - 'backend/uv.lock'
       - 'scripts/verify_database.sql'
       - '.github/workflows/database-integration.yml'
   push:
@@ -18,6 +20,8 @@ on:
       - 'backend/music_features.py'
       - 'backend/tests/integration/**'
       - 'backend/tests/test_rls_domain.py'
+      - 'backend/pyproject.toml'
+      - 'backend/uv.lock'
       - 'scripts/verify_database.sql'
 
 concurrency:
@@ -35,21 +39,30 @@ jobs:
           version: 2.113.0
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - name: Start local Supabase and apply every migration from zero
+          python-version-file: '.python-version'
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+      - name: Start fresh local Supabase and apply every migration
         run: |
           set -euo pipefail
+          # Hosted runners start with no local Supabase database. `supabase start`
+          # creates it and applies the migration history once; immediately running
+          # `db reset` repeats the same destructive bootstrap and has intermittently
+          # failed with Docker exit 125 while containers are still settling.
           supabase start
-          supabase db reset
       - name: Verify database schema contracts (SQL)
         run: |
           set -euo pipefail
           eval "$(supabase status -o env | grep '^DB_URL=')"
           psql "$DB_URL" -f scripts/verify_database.sql
-      - name: Install backend dependencies
+      - name: Sync locked backend environment
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
-          pip install -r backend/requirements.txt
+          uv sync --project backend --locked
       - name: Run backend integration tests against the fresh database
         run: |
           set -euo pipefail
@@ -59,7 +72,7 @@ jobs:
           export SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
           export SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
           export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
-          python -m pytest backend/tests/ -m real_stack -v
+          uv run --project backend python -m pytest backend/tests/ -m real_stack -v
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup || true
