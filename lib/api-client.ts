@@ -21,6 +21,91 @@ type UploadIntent = {
   max_bytes: number;
 };
 
+type CacheEntry<T> = {
+  value: T;
+  expiresAt: number;
+};
+
+// Signed artifact URLs currently live for an hour. Keep the in-memory work
+// cache much shorter so revisits are instant without turning the browser into
+// a second durable source of truth.
+const WORK_CACHE_TTL_MS = 5 * 60 * 1000;
+const workBundleCache = new Map<string, CacheEntry<WorkBundle>>();
+const workBundleInflight = new Map<string, Promise<WorkBundle>>();
+const entityCache = new Map<string, CacheEntry<Entity[]>>();
+const entityInflight = new Map<string, Promise<Entity[]>>();
+const insightCache = new Map<string, CacheEntry<Insight[]>>();
+const insightInflight = new Map<string, Promise<Insight[]>>();
+const versionWorkIndex = new Map<string, string>();
+
+function readCache<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+  // Refresh insertion order so bounded caches can evict least-recently used
+  // entries in the future without changing call sites.
+  cache.delete(key);
+  cache.set(key, entry);
+  return entry.value;
+}
+
+function writeCache<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T): void {
+  cache.set(key, { value, expiresAt: Date.now() + WORK_CACHE_TTL_MS });
+}
+
+function hasActiveJob(bundle: WorkBundle): boolean {
+  return bundle.jobs.some((job) => ["queued", "claimed", "running"].includes(job.lifecycle.current));
+}
+
+function indexBundle(workId: string, bundle: WorkBundle): void {
+  for (const item of bundle.artifacts) {
+    for (const version of item.versions) versionWorkIndex.set(version.id, workId);
+  }
+}
+
+function currentMidiVersionId(bundle: WorkBundle): string | null {
+  const performance = bundle.artifacts.find(
+    (item) => item.artifact.kind === "midi_performance" && item.latest_version,
+  );
+  if (performance?.latest_version) return performance.latest_version.id;
+  const corrected = bundle.artifacts.find(
+    (item) => item.artifact.kind === "midi_corrected" && item.latest_version,
+  );
+  return corrected?.latest_version?.id ?? null;
+}
+
+function invalidateWorkCache(workId: string): void {
+  workBundleCache.delete(workId);
+  workBundleInflight.delete(workId);
+  for (const [versionId, indexedWorkId] of versionWorkIndex) {
+    if (indexedWorkId !== workId) continue;
+    versionWorkIndex.delete(versionId);
+    entityCache.delete(versionId);
+    insightCache.delete(versionId);
+  }
+}
+
+function invalidateVersionWork(versionId: string): void {
+  const workId = versionWorkIndex.get(versionId);
+  if (workId) invalidateWorkCache(workId);
+  entityCache.delete(versionId);
+  insightCache.delete(versionId);
+}
+
+/** Test/support seam for mutations whose work cannot be recovered from a job id. */
+export function clearWorkDataCache(): void {
+  workBundleCache.clear();
+  workBundleInflight.clear();
+  entityCache.clear();
+  entityInflight.clear();
+  insightCache.clear();
+  insightInflight.clear();
+  versionWorkIndex.clear();
+}
+
 export async function createProject(name: string, description?: string): Promise<Project> {
   return apiFetch<Project>("/api/v1/projects", {
     method: "POST",
@@ -44,13 +129,42 @@ export async function listWorks(projectId: string): Promise<Work[]> {
 }
 
 export async function getWorkBundle(workId: string): Promise<WorkBundle> {
-  return apiFetch<WorkBundle>(`/api/v1/works/${workId}`);
+  const cached = readCache(workBundleCache, workId);
+  if (cached) return cached;
+
+  const pending = workBundleInflight.get(workId);
+  if (pending) return pending;
+
+  const request = apiFetch<WorkBundle>(`/api/v1/works/${workId}`)
+    .then(async (bundle) => {
+      indexBundle(workId, bundle);
+      if (!hasActiveJob(bundle)) {
+        // Saved works are opened as one coherent snapshot. Warm the note and
+        // analysis payloads before returning the bundle so page.tsx's existing
+        // parallel hydration resolves from memory instead of visibly popping
+        // in after the waveform.
+        const midiVersionId = currentMidiVersionId(bundle);
+        if (midiVersionId) {
+          await Promise.allSettled([getEntities(midiVersionId), getInsights(midiVersionId)]);
+        }
+        writeCache(workBundleCache, workId, bundle);
+      }
+      return bundle;
+    })
+    .finally(() => {
+      workBundleInflight.delete(workId);
+    });
+
+  workBundleInflight.set(workId, request);
+  return request;
 }
 
 export async function deleteWork(workId: string): Promise<{ deleted: string }> {
-  return apiFetch<{ deleted: string }>(`/api/v1/works/${workId}`, {
+  const result = await apiFetch<{ deleted: string }>(`/api/v1/works/${workId}`, {
     method: "DELETE",
   });
+  invalidateWorkCache(workId);
+  return result;
 }
 
 async function uploadArtifactViaProxy(
@@ -92,6 +206,7 @@ export async function uploadArtifact(
   file: File,
   workId?: string,
 ): Promise<{ artifact: Artifact; version: Version }> {
+  if (workId) invalidateWorkCache(workId);
   const directUploadEnabled = process.env.NEXT_PUBLIC_DIRECT_ARTIFACT_UPLOAD !== "false";
   if (!directUploadEnabled || !supabase) {
     return uploadArtifactViaProxy(projectId, file, workId);
@@ -139,6 +254,7 @@ export async function startUnderstandWorkflow(
   projectId: string,
   transcriptionProfile?: string,
 ): Promise<{ workflow: Workflow; job: Job }> {
+  invalidateVersionWork(versionId);
   return apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/understand", {
     method: "POST",
     body: JSON.stringify({
@@ -154,6 +270,7 @@ export async function startVariationWorkflow(
   projectId: string,
   transposeSemitones: number,
 ): Promise<{ workflow: Workflow; job: Job }> {
+  invalidateVersionWork(versionId);
   return apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/variation", {
     method: "POST",
     body: JSON.stringify({
@@ -169,6 +286,8 @@ export async function startCompareWorkflow(
   versionIdB: string,
   projectId: string,
 ): Promise<{ workflow: Workflow; job: Job }> {
+  invalidateVersionWork(versionIdA);
+  invalidateVersionWork(versionIdB);
   return apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/compare", {
     method: "POST",
     body: JSON.stringify({
@@ -184,12 +303,15 @@ export async function getJob(jobId: string): Promise<JobStatus> {
 }
 
 export async function cancelJob(jobId: string): Promise<JobStatus> {
-  return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}/cancel`, {
+  const result = await apiFetch<JobStatus>(`/api/v1/jobs/${jobId}/cancel`, {
     method: "POST",
   });
+  clearWorkDataCache();
+  return result;
 }
 
 export async function retryJob(jobId: string): Promise<JobStatus> {
+  clearWorkDataCache();
   return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}/retry`, {
     method: "POST",
   });
@@ -200,9 +322,33 @@ export async function getVersionResource(versionId: string): Promise<VersionReso
 }
 
 export async function getEntities(versionId: string): Promise<Entity[]> {
-  return apiFetch<Entity[]>(`/api/v1/versions/${versionId}/entities`);
+  const cached = readCache(entityCache, versionId);
+  if (cached) return cached;
+  const pending = entityInflight.get(versionId);
+  if (pending) return pending;
+
+  const request = apiFetch<Entity[]>(`/api/v1/versions/${versionId}/entities`)
+    .then((entities) => {
+      writeCache(entityCache, versionId, entities);
+      return entities;
+    })
+    .finally(() => entityInflight.delete(versionId));
+  entityInflight.set(versionId, request);
+  return request;
 }
 
 export async function getInsights(versionId: string): Promise<Insight[]> {
-  return apiFetch<Insight[]>(`/api/v1/versions/${versionId}/insights`);
+  const cached = readCache(insightCache, versionId);
+  if (cached) return cached;
+  const pending = insightInflight.get(versionId);
+  if (pending) return pending;
+
+  const request = apiFetch<Insight[]>(`/api/v1/versions/${versionId}/insights`)
+    .then((insights) => {
+      writeCache(insightCache, versionId, insights);
+      return insights;
+    })
+    .finally(() => insightInflight.delete(versionId));
+  insightInflight.set(versionId, request);
+  return request;
 }

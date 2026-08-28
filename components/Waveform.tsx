@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getDecodedAudio } from "@/lib/audio-buffer-cache";
 import { withAlpha } from "@/lib/color";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
@@ -44,14 +45,7 @@ export default function Waveform({
     if (!url) return;
     let cancelled = false;
     setStatus("loading");
-    const audioCtx = new AudioContext();
-    window
-      .fetch(url)
-      .then((response) => {
-        if (!response.ok) throw new Error("waveform request failed");
-        return response.arrayBuffer();
-      })
-      .then((buffer) => audioCtx.decodeAudioData(buffer))
+    getDecodedAudio(url)
       .then((decoded) => {
         if (cancelled) return;
         const channel = decoded.getChannelData(0);
@@ -74,13 +68,9 @@ export default function Waveform({
       })
       .catch(() => {
         if (!cancelled) setStatus("error");
-      })
-      .finally(() => {
-        void audioCtx.close();
       });
     return () => {
       cancelled = true;
-      void audioCtx.close();
     };
   }, [url]);
 
@@ -90,7 +80,8 @@ export default function Waveform({
     [duration],
   );
 
-  // Draw sparse time ruler — very minimal, just subtle tick marks
+  // Draw a quiet editing ruler: compact numeric labels, no browser-default UI
+  // typography, and edge-aware alignment so 0:00 is never clipped.
   useEffect(() => {
     const canvas = rulerRef.current;
     if (!canvas || duration <= 0) return;
@@ -105,27 +96,30 @@ export default function Waveform({
     const muted = styles.getPropertyValue("--muted").trim() || "#575a5e";
 
     ctx.fillStyle = muted;
-    ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.textAlign = "center";
+    ctx.font = '500 9px "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace';
+    ctx.textBaseline = "alphabetic";
 
-    // Very sparse: aim for 3-5 labels
+    // Very sparse: aim for 3-5 labels.
     const targets = [0, 15, 30, 45, 60, 90, 120, 180, 240, 300, 600];
     let interval = 60;
     for (const t of targets) {
-      if (duration / t <= 5) { interval = t; break; }
+      if (t > 0 && duration / t <= 5) {
+        interval = t;
+        break;
+      }
     }
     if (duration > 1200) interval = 300;
 
     for (let t = 0; t <= duration; t += interval) {
       const x = (t / duration) * w;
-      // Subtle tick
-      ctx.globalAlpha = 0.3;
-      ctx.fillRect(x, h - 2, 1, 2);
-      // Label
-      ctx.globalAlpha = 0.5;
+      ctx.globalAlpha = 0.22;
+      ctx.fillRect(Math.round(x), h - 2, 1, 2);
+      ctx.globalAlpha = 0.46;
+      ctx.textAlign = t === 0 ? "left" : t + interval > duration ? "right" : "center";
       const m = Math.floor(t / 60);
       const s = Math.floor(t % 60);
-      ctx.fillText(`${m}:${s.toString().padStart(2, "0")}`, x, h - 4);
+      const labelX = Math.min(Math.max(x, 2), w - 2);
+      ctx.fillText(`${m}:${s.toString().padStart(2, "0")}`, labelX, h - 4);
     }
     ctx.globalAlpha = 1;
   }, [duration]);
