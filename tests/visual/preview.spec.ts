@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { argosScreenshot } from "@argos-ci/playwright";
 import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
 
-async function openMockWorkspace(page: Page) {
+async function installMockSession(page: Page) {
   await page.addInitScript(persistSessionScript(), {
     projectRef: MOCK_PROJECT_REF,
     session: mockSession,
@@ -13,9 +13,20 @@ async function openMockWorkspace(page: Page) {
     undefined,
     { timeout: 15_000 },
   );
+}
+
+async function openDesktopWorkspace(page: Page) {
+  await installMockSession(page);
   await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
+}
+
+async function openCompactWorkspace(page: Page) {
+  await installMockSession(page);
+  await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Show library" })).toBeVisible();
+  await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
 }
 
 // Design source-of-truth mockup (lives in design/mockups, uses real tokens).
@@ -35,10 +46,10 @@ test("app landing", async ({ page }) => {
 });
 
 // V6 changes live in the authenticated creative workspace, so the visual gate
-// must cover that surface rather than merely screenshotting the auth gate.
+// covers the actual editor rather than merely screenshotting the auth gate.
 test("app studio — desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openMockWorkspace(page);
+  await openDesktopWorkspace(page);
   await argosScreenshot(page, "app-studio-desktop", { fullPage: true });
 
   const harmony = page.locator("details.inspector-evidence-group").filter({ hasText: /^Harmony/ }).first();
@@ -50,6 +61,33 @@ test("app studio — desktop", async ({ page }) => {
 
 test("app studio — narrow desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
-  await openMockWorkspace(page);
+  await openDesktopWorkspace(page);
   await argosScreenshot(page, "app-studio-narrow", { fullPage: true });
+});
+
+test("app studio — tablet", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await openCompactWorkspace(page);
+  await argosScreenshot(page, "app-studio-tablet", { fullPage: true });
+
+  await page.getByRole("button", { name: "Show library" }).click();
+  await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible();
+  await argosScreenshot(page, "app-studio-tablet-library", { fullPage: true });
+});
+
+test("app studio — phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openCompactWorkspace(page);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await argosScreenshot(page, "app-studio-phone", { fullPage: true });
+
+  await page.getByRole("button", { name: "Show library" }).click();
+  await expect(page.getByRole("button", { name: "Delete Test Work" })).toBeVisible();
+  await argosScreenshot(page, "app-studio-phone-library", { fullPage: true });
+  await page.getByRole("button", { name: "Hide library" }).click();
+
+  await expect(page.getByRole("button", { name: "Show analysis" })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Show analysis" }).click();
+  await expect(page.getByRole("tab", { name: "Analysis" })).toBeVisible();
+  await argosScreenshot(page, "app-studio-phone-analysis", { fullPage: true });
 });

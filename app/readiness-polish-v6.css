@@ -1,0 +1,70 @@
+/* V6 readiness/control polish.
+ * Keep unavailable actions legible, keep operation feedback inside the viewport,
+ * and expose state without adding another application chrome layer.
+ */
+
+.library-import-status {
+  margin-top: -2px;
+  color: var(--v6-control-muted, #78736a);
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.library-import-btn:disabled {
+  opacity: 0.55;
+}
+
+.library-import-btn[aria-busy="true"] {
+  cursor: progress;
+}
+
+.operation-layer {
+  box-sizing: border-box;
+  max-width: 100vw;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  overflow: hidden;
+}
+
+.operation-layer-inner {
+  width: min(360px, 100%);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.piece-processing-card,
+.operation-card {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.piece-processing-filename {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.piece-processing-card progress {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.piece-processing-stage,
+.operation-card span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .operation-layer {
+    padding-bottom: calc(var(--transport-height) + max(8px, env(safe-area-inset-bottom)));
+  }
+
+  .library-import-status {
+    max-width: 150px;
+  }
+}
