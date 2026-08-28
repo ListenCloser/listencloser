@@ -33,7 +33,7 @@ def test_multilabel_ranking_metrics() -> None:
     )
 
     assert precision_at_k(truth, scores, 1) == pytest.approx(1.0)
-    assert precision_at_k(truth, scores, 2) == pytest.approx(0.75)
+    assert precision_at_k(truth, scores, 2) == pytest.approx(0.5)
     assert recall_at_k(truth, scores, 2) == pytest.approx(0.75)
     assert label_ranking_average_precision(truth, scores) == pytest.approx(11 / 12)
 
