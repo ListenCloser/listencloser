@@ -14,7 +14,7 @@ Current candidates do not clear all deployment/license/product-value gates simul
 - **Device**: CPU (no GPU)
 - **PyTorch**: 2.8.0
 - **Transformers**: 4.57.6
-- **hello-ai commit**: `50dfc75ea6e900dcca1b402d3b719c3912d93ad5`
+- **hello-ai commit**: `eb4c85430f7e45c3c27316338c5e8b6e6db3a58a` (measurement commit)
 - **Branch**: `eval/analysis-v3-foundation-bakeoff`
 
 ## Candidate Matrix
@@ -208,6 +208,19 @@ not a benchmark score.
 
 CLaMP3's official implementation supports MusicXML via preprocessing to interleaved ABC notation. However, the upstream checkpoint packaging separates audio (SAAS) and symbolic (C2) weights, making direct audio↔score comparison require loading separate checkpoint files. This complicates but does not prevent testing.
 
+### MIDI Extraction Limitations
+
+The cross-representation probe uses pretty_midi to extract note events from MAESTRO MIDI files. Current limitations:
+
+- Notes intersecting the [start, end) window are preserved
+- Pitches, note timing, durations, and velocities are preserved
+- Events are shifted to time zero
+- Non-drum instruments are collapsed into one instrument track
+- Sustain pedal and other control changes are **not** preserved
+- Full original MIDI structure (tracks, tempo changes, etc.) is **not** preserved
+
+Therefore this is a **note-event-aligned symbolic probe**, not a lossless MIDI excerpt.
+
 ### REFERENCE BENCHMARK
 
 CLaMP3 reports SOTA on cross-modal MIR tasks (per upstream paper). Not measured locally.
@@ -273,7 +286,7 @@ All candidates embedded 7 real music probes from GuitarSet, MAESTRO, and BabySla
 
 ## Text Retrieval (QUALITATIVE PRODUCT PROBE)
 
-Only CLaMP3 and CLAP support text retrieval. Both show weak text-to-audio alignment on the synthetic probes. Results are not conclusive due to the synthetic nature of the audio probes.
+Only CLaMP3 and CLAP support text retrieval. Both were evaluated using the 7 real music probes from the diversity corpus (GuitarSet, MAESTRO, BabySlakh) against 7 neutral factual text prompts. Results are qualitative—inspect ranking plausibility rather than treating as a benchmark score.
 
 ## Operational Scorecard
 
@@ -308,8 +321,8 @@ Only CLaMP3 and CLAP support text retrieval. Both show weak text-to-audio alignm
 
 ## Failure Analysis
 
-- **CLAP**: Original specified checkpoint requires incompatible dependencies; substituted with HuggingFace version
-- **CLaMP3**: Weak cross-modal alignment (MRR=0.46) on real aligned pairs
+- **CLAP**: Original specified checkpoint (`music_audioset_epoch_15_esc_90.14.pt`) requires incompatible upstream dependencies; substituted with HuggingFace `laion/larger_clap_music`
+- **CLaMP3**: 5-pair cross-modal probe shows MRR=0.49, R@1=0.20—too small to draw conclusions about general cross-modal capability
 - **MusicFM**: Complex setup (requires git clone + symlink)
 
 ## Decision Table
@@ -380,3 +393,27 @@ python3 -m backend.evaluation.analysis_v3.foundation.run --candidate mert --task
 
 # Results are saved to backend/evaluation/analysis_v3/foundation/results/{candidate}.json
 ```
+
+## CI Classification
+
+| Check | Status | Notes |
+|---|---|---|
+| Build | pass | |
+| E2E (test) | pass | |
+| Real-stack E2E | pass | |
+| CodeQL | pass | |
+| Dependency Review | pass | |
+| Gitleaks | pass | |
+| Argos | pass | |
+| Lint (Ruff) | fail | Pre-existing failure in `backend/engines/melody/feature_provider.py` (not caused by this PR) |
+
+The Ruff failure causes the CI workflow to exit before running Python tests. Targeted evidence: 32 foundation evaluation tests pass locally (`pytest backend/tests/test_foundation_evaluation.py --noconftest`).
+
+## Unfinished Work
+
+The following items from #332 remain incomplete:
+
+- Larger-scale CLaMP3 cross-modal evaluation with more diverse aligned pairs
+- CLaMP3 MusicXML/score path testing
+- Reference downstream MIR contextualization (MARBLE integration)
+- Text retrieval benchmark with ground-truth labels
