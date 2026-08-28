@@ -89,5 +89,9 @@ def test_init_sentry_preserves_api_integrations_and_default_release(monkeypatch)
     assert kwargs["traces_sample_rate"] == 0.1
     assert kwargs["send_default_pii"] is False
     assert kwargs["release"] == "backend@2.0.0"
-    assert any(isinstance(item, StarletteIntegration) for item in kwargs["integrations"])
-    assert any(isinstance(item, FastAPIIntegration) for item in kwargs["integrations"])
+    assert any(
+        isinstance(item, StarletteIntegration) for item in kwargs["integrations"]
+    )
+    assert any(
+        isinstance(item, FastAPIIntegration) for item in kwargs["integrations"]
+    )
