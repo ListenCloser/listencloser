@@ -6,12 +6,12 @@
     "style": {
       "prompt_template": "music in the {label} style",
       "labels": [
-        "bossanova",
+        "bossa nova",
         "rock",
         "jazz",
         "classical",
         "electronic",
-        "hiphop",
+        "hip hop",
         "house",
         "latin"
       ]
@@ -39,7 +39,7 @@
       "license": "CC BY 4.0",
       "excerpt_start": 0.0,
       "excerpt_end": 20.0,
-      "expected": {"style": ["bossanova"], "instrument": ["guitar"]}
+      "expected": {"style": ["bossa nova"], "instrument": ["guitar"]}
     },
     {
       "id": "guitarset_rock",
