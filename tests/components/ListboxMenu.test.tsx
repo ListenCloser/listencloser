@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import ListboxMenu from "@/components/ui/ListboxMenu";
@@ -27,7 +27,7 @@ describe("ListboxMenu", () => {
 
     const original = screen.getByRole("option", { name: "Original" });
     const transcription = screen.getByRole("option", { name: "Transcription" });
-    expect(original).toHaveFocus();
+    await waitFor(() => expect(original).toHaveFocus());
 
     await user.keyboard("{ArrowDown}");
     expect(transcription).toHaveFocus();
@@ -35,7 +35,7 @@ describe("ListboxMenu", () => {
 
     expect(onSelect).toHaveBeenCalledWith("transcription");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("skips disabled options in both keyboard directions", async () => {
@@ -57,7 +57,7 @@ describe("ListboxMenu", () => {
     const trigger = screen.getByRole("button", { name: "Playback source: Original" });
     trigger.focus();
     await user.keyboard("{ArrowDown}");
-    expect(screen.getByRole("option", { name: "Original" })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("option", { name: "Original" })).toHaveFocus());
 
     await user.keyboard("{ArrowDown}");
     expect(screen.getByRole("option", { name: "Score" })).toHaveFocus();
@@ -81,9 +81,9 @@ describe("ListboxMenu", () => {
     const trigger = screen.getByRole("button", { name: "Playback source: Score" });
     trigger.focus();
     await user.keyboard("{ArrowDown}");
-    expect(screen.getByRole("option", { name: "Score" })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("option", { name: "Score" })).toHaveFocus());
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 });
