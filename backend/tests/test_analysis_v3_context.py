@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from backend.evaluation.analysis_v3.context.metrics import (
     label_ranking_average_precision,
     precision_at_k,
@@ -13,7 +12,10 @@ from backend.evaluation.analysis_v3.context.metrics import (
     recall_at_k,
     top_k_jaccard,
 )
-from backend.evaluation.analysis_v3.context.run import run_prior_evidence, summarize_prior_clap
+from backend.evaluation.analysis_v3.context.run import (
+    run_prior_evidence,
+    summarize_prior_clap,
+)
 
 
 def test_multilabel_ranking_metrics() -> None:
