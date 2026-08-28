@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import sys
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -11,6 +13,7 @@ _SCRIPT = Path(__file__).parents[3] / "scripts" / "queue_transport_bakeoff.py"
 _SPEC = importlib.util.spec_from_file_location("queue_transport_bakeoff", _SCRIPT)
 assert _SPEC is not None and _SPEC.loader is not None
 queue_transport_bakeoff = importlib.util.module_from_spec(_SPEC)
+sys.modules[_SPEC.name] = queue_transport_bakeoff
 _SPEC.loader.exec_module(queue_transport_bakeoff)
 
 
@@ -26,8 +29,8 @@ def test_pgmq_beats_select_then_conditional_claim_contention() -> None:
         workers=4,
     )
 
-    current = report["current_select_then_claim"]
-    pgmq = report["pgmq"]
+    current = cast(dict[str, Any], report["current_select_then_claim"])
+    pgmq = cast(dict[str, Any], report["pgmq"])
 
     assert current["claimed"] == 8
     assert current["duplicate_claims"] == 0
@@ -50,7 +53,7 @@ def test_pgmq_visibility_timeout_replays_unacked_work() -> None:
         message_count=4,
         workers=2,
     )
-    replay = report["visibility_replay"]
+    replay = cast(dict[str, Any], report["visibility_replay"])
 
     assert replay["first_read_count"] == 1
     assert replay["immediate_second_read_hidden"] is True
