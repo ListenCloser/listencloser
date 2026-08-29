@@ -1,706 +1,642 @@
 # MIR / Music AI Research Landscape and Adoption Matrix
 
-> **Purpose:** Practical research reference for hello-ai. This document is not a shopping list. It identifies mature OSS, current research directions, evaluation resources, commercial reference points, and adoption recommendations.
+> **Purpose:** Practical research and adoption reference for hello-ai.
 >
-> **Rule:** Before building a nontrivial MIR capability, implementation agents must check this document, current web/repo status, licensing, and `backend/config/capabilities.json`.
+> **Status:** Consolidated after the first Analysis V3 bakeoff cycle, 2026-08-29.
+>
+> **Rule:** Treat measured hello-ai results as stronger evidence than candidate reputation. A new paper, model, or repository is not a reason to reopen a settled decision unless it targets a documented failure mode or product gate. `docs/EVALUATION_DECISIONS.md` is the compact cross-track ledger; this document explains the larger technical landscape and architecture implications.
 
 ---
 
-## 1. Field map
+## 1. Current Analysis V3 decisions
 
-Modern music understanding spans several paradigms that should coexist rather than compete for a single “winner.”
+The first V3 cycle produced useful negative results as well as promotion candidates. The architecture is no longer waiting for a single universal model.
 
-### 1.1 Signal-processing / classical MIR
+| Evidence family | Current decision | What we know | Next decision-changing evidence |
+|---|---|---|---|
+| Specialized MIR | **KEEP / PROMOTE SELECTIVELY** | Exact/localized detectors remain the strongest authority for beat, pitch, chord, and similar factual claims. | Task-specific held-out/product regressions when changing an engine. |
+| Perceptual audio evidence | **ADOPT AS MINIMAL EVIDENCE SUBSTRATE** | Low-level, localized measurements are the clearest V3 research→production success and already support deterministic A/B relations. | Product composition in Breakdown/Ask, plus claim-specific sufficiency. |
+| Foundation embeddings | **RESEARCH** | #341 measured MERT, MuQ, MusicFM, CLaMP3, and CLAP. No candidate simultaneously demonstrated license, deployment, and product-value justification for a production vector layer. | A scored retrieval/similarity product task that would actually be exposed. |
+| Style / instrument context | **RESEARCH / REVISIT** | #355 shows supervised reference value but licensing constraints for Essentia; raw CLAP prompt similarity was not discriminative enough to become factual tags. | Labeled standard-split evaluation, calibration/error slices, cultural/generalization probes. |
+| Source separation | **RESEARCH — OPTIONAL / TASK-CONDITIONED** | #480/#521 strongly validate objective stem quality; #477/#486 show that cleaner stems do not automatically improve downstream MIR. | A concrete source-aware user claim with robust real-recording benefit + failure/abstention policy + production-topology evidence. |
+| Metric grid / beat | **LEADING PROMOTION CANDIDATE: BEAT THIS** | #474 shows a very large localized beat/downbeat advantage over production librosa on the checkpoint-associated Candombe validation split, while global BPM alone hides failures. | Genuinely independent annotated corpus + runtime/fallback decision + meter evaluation. |
+| Generic multi-instrument AMT | **RESEARCH / REFERENCE** | #404 shows promising MR-MT3 quality. #541 shows persistent model reuse only improves mean CPU time ~1.08×; expensive clips remain ~4–5× real time. | A materially different runtime/model/hardware profile *and* downstream product-value proof. |
+| Audio-language models | **RESEARCH — SEMANTIC HYPOTHESIS ONLY** | #362 and external benchmark evidence reject treating audio-language prose as exact MIR authority. | Rights-safe real model run: audio-only vs evidence-only vs audio+evidence with claim-level groundedness scoring. |
+| Structure | **RESEARCH — RESULT PENDING** | Candidate-neutral scoring/harness work is sufficiently mature. | Materialize the fixed SongFormBench corpus and run the candidates; do not extend the harness first. |
+| Piano transcription / notation | **ACTIVE RESULT GATES** | Exact production-profile and audio→score stage-attribution evaluators exist. | Run the real corpus and identify the largest user-visible error contributor before changing algorithms. |
+
+### Architecture implication
+
+The product should not have one universal intermediate representation. It should have a small set of evidence families with different authority and cost:
+
+```text
+source Work / audio Version
+  │
+  ├─ specialized MIR
+  │    beats / downbeats / pitch / chords / note events / exact symbolic transforms
+  │
+  ├─ perceptual audio evidence
+  │    dynamics / spectrum / onset activity / texture / localized changes
+  │
+  ├─ optional task-conditioned source views
+  │    stems or other derived views requested only when a claim benefits
+  │
+  ├─ optional research representations
+  │    embeddings / context tags / multi-instrument symbolic evidence
+  │
+  └─ optional semantic hypotheses
+       audio-language model outputs
+            │
+            ▼
+      typed evidence + provenance
+            │
+      claim-specific sufficiency
+        / fallback / abstention
+            │
+            ▼
+   deterministic observations / relations
+            │
+            ▼
+ synchronized representations + Breakdown
+            │
+            ▼
+ Ask explains and cites evidence; it does not invent detector facts
+```
+
+This is the durable V3 direction unless future benchmarks contradict it.
+
+---
+
+## 2. Field map: paradigms that should coexist
+
+### 2.1 Signal-processing / classical MIR
 
 Strengths:
 
-- interpretable,
-- localizable in time/frequency,
+- interpretable and localizable,
 - inexpensive,
-- established metrics,
-- strong for beat/chroma/onset/structure primitives.
+- mature metrics,
+- useful for beat/chroma/onset/spectral/structure primitives.
 
-Examples:
+Examples: librosa, Essentia, Sonic Annotator/Vamp, recurrence/novelty methods.
 
-- librosa,
-- Essentia,
-- Sonic Annotator / Vamp ecosystem,
-- classic recurrence/novelty structure methods.
+**hello-ai role:** keep as inexpensive evidence and baselines where measured quality is adequate. Replace individual engines only with matched-domain evidence.
 
-### 1.2 Symbolic / computational musicology
+### 2.2 Symbolic / computational musicology
 
 Strengths:
 
 - precise pitch/rhythm/harmony relationships,
-- theory-aware reasoning,
+- theory-aware operations,
 - score/notation integration,
 - corpus analysis.
 
-Examples:
+Examples: music21, Partitura, Symusic, pretty_midi.
 
-- music21,
-- partitura,
-- symusic,
-- MusPy,
-- pretty_midi / miditoolkit.
+**hello-ai role:** high-authority when the symbolic evidence itself is trustworthy. MIDI and score are not universal facts about every recording.
 
-### 1.3 Task-specific neural MIR
+### 2.3 Task-specific neural MIR
 
 Strengths:
 
-- best quality for many hard perception tasks,
-- localizable task outputs,
-- often straightforward to benchmark.
+- strong quality on hard perception tasks,
+- localized outputs,
+- benchmarkable task contracts.
 
-Examples:
+Examples include Basic Pitch / Transkun, lv-chordia, LStoM, Beat This / BeatNet, source separators, and specialized notation models.
 
-- Basic Pitch / Transkun transcription,
-- lv-chordia chord recognition,
-- LStoM melody extraction,
-- BeatNet beat/downbeat/meter,
-- Piano_SVSep voice/staff assignment,
-- RoFormer-family separation.
+**hello-ai role:** default candidate class for precise claims when it wins a task-standard evaluation and fits operations/licensing.
 
-### 1.4 Music foundation representations
+### 2.4 Music foundation representations
 
-Strengths:
+Examples: MERT, MuQ, MusicFM, CLaMP3, CLAP-family models.
 
-- broad transfer,
-- similarity/retrieval,
-- tagging,
-- useful learned representations without one handcrafted feature per task.
+Useful for similarity, retrieval, broad transfer, and context features. They are not intrinsically more authoritative than specialized MIR.
 
-Examples:
+**hello-ai measured result (#341):** keep all first-round candidates at `RESEARCH`; do not create a production vector/embedding layer yet.
 
-- MERT,
-- MuQ,
-- MusicFM,
-- CLaMP3,
-- DaSheng,
-- CLAP-family models.
+### 2.5 Source-aware audio
 
-### 1.5 Multimodal/audio-language models
+Source separation can create drums/bass/vocals/other views that make some downstream evidence easier to estimate.
 
-Strengths:
+**hello-ai measured result (#477/#480/#486/#507/#521):** source isolation quality is real, but downstream value is claim-dependent. Keep mixture evidence primary and treat stems as optional immutable `StemReference` artifacts.
 
-- natural-language interfaces,
-- semantic captioning,
-- open-ended question answering,
-- cross-modal reasoning.
+### 2.6 Audio-language / multimodal reasoning
 
-Risks:
+Useful for language interfaces and semantic synthesis. Risks include hallucination, poor calibration, weak temporal grounding, and high deployment cost.
 
-- hallucination,
-- weak localization/calibration,
-- difficult evaluation,
-- large runtime.
+**hello-ai role:** optional semantic hypothesis/explanation layer downstream of trusted evidence. Exact beat/key/pitch/chord/instrument claims require specialized evidence or separate task validation.
 
-Examples:
+### 2.7 Human / corpus / theory systems
 
-- LLark research architecture,
-- Qwen audio/omni encoders,
-- emerging music-specific instruction models.
+Hooktheory and expert music-breakdown media demonstrate the *information architecture* users value: synchronized examples, relative relationships, sections, comparison, and explanation tied back to sound.
 
-### 1.6 Human / corpus / relative-theory systems
-
-Not all high-quality understanding is automatic MIR. Hooktheory is a strong product reference because it structures expert/crowd-curated harmony and melody into relative, synchronized, educational views. Its value demonstrates what the product should communicate even when our evidence is automatically inferred.
+**hello-ai role:** use these as product/explanation references, not as justification to hard-code one theoretical tradition.
 
 ---
 
-## 2. Research venues and communities to follow
+## 3. Measured foundation-model landscape (#332 / #341)
 
-### ISMIR
+The first fixed bakeoff evaluated MERT, MuQ, MusicFM, CLaMP3, and CLAP.
 
-Primary dedicated MIR research conference. The 2025 program explicitly framed self-supervised learning as foundational for MIR. ISMIR 2026 tutorials include:
+| Candidate | Measured CPU 10 s | Measured CPU 30 s | Modalities relevant here | Decision | Main blocker / uncertainty |
+|---|---:|---:|---|---|---|
+| MERT | 0.36 s | 1.24 s | audio | RESEARCH | released weight terms are non-commercial; no exposed product task win |
+| MuQ | 1.23 s | 2.81 s | audio | RESEARCH | non-commercial released weights; no exposed product task win |
+| MusicFM | 0.69 s | 2.55 s | audio | RESEARCH | non-commercial released weights; setup/product value |
+| CLaMP3 | 1.67 s | 2.90 s | audio + text + symbolic | RESEARCH | cross-modal probe too small; product retrieval value unproven |
+| CLAP | ~0.10 s | ~0.10 s* | audio + text | RESEARCH | global/cropped behavior and weak prompt discrimination in tiny product probe |
 
-- **LLMs x Music**,
-- **Introduction to MIR: Three Perspectives**,
-- **Evaluating Music Foundation Models**,
-- deployment of Music AI models into DAWs using HARP.
+*The evaluated CLAP path crops to a fixed duration.
 
-This strongly supports a hybrid direction: classical MIR + multimodal/foundation models + human-facing applications.
+CLaMP3’s corrected aligned MAESTRO audio↔MIDI probe produced:
 
-References:
+- Recall@1: **0.20**
+- Recall@5: **1.00**
+- MRR: **0.49**
 
-- https://ismir2025program.ismir.net/tutorials.html
-- https://ismir2026.ismir.net/tutorials
+Five pairs are not enough to promote or reject the cross-modal idea.
 
-### MIREX
+### Foundation-model decision rule
 
-Shared task evaluation culture. Useful to identify accepted metrics/datasets and avoid inventing private evaluation conventions. 2025 includes Audio Chord Estimation and other traditional MIR tasks.
+Do not benchmark foundation models in the abstract. Reopen this track only for a concrete product task such as:
 
-- https://music-ir.org/mirex/wiki/2025%3AMain_Page
+- “find passages like this,”
+- cross-work similarity,
+- text-to-passage retrieval,
+- representation consistency,
+- library clustering/search.
 
-### Other important venues
-
-- ICASSP — audio/signal processing, source separation, MIR, multimodal audio.
-- ICML / ICLR / NeurIPS — representation learning, foundation models, generative/music ML.
-- CHI / DIS — human-centered music/AI interfaces and creative tools.
-- DAFx — digital audio effects / processing.
-- Audio Mostly / NIME — music interaction/instruments.
-- Music Encoding Conference — notation/symbolic encoding.
-
----
-
-## 3. Labs / research groups worth tracking
-
-### MTG — Universitat Pompeu Fabra
-
-Strong in MIR, sound/music computing, Essentia, datasets, trustworthy music AI, cultural heritage, creation/education.
-
-- https://www.upf.edu/web/mtg/about
-
-### C4DM — Queen Mary University of London
-
-Large multidisciplinary group spanning MIR, semantic audio, machine listening, DSP, perception, education, interaction.
-
-- https://c4dm.eecs.qmul.ac.uk/about/
-
-### International Audio Laboratories Erlangen
-
-Strong in semantic audio analysis, synchronization, structure, decomposition, performance, retrieval; home of the FMP ecosystem.
-
-- https://audiolabs-erlangen.de/
-
-### NYU Music and Audio Research Laboratory (MARL)
-
-Music/audio AI, MIR, cognition, machine listening, sound understanding.
-
-- https://engineering.nyu.edu/research/labs-and-groups
-
-### Stanford CCRMA
-
-Signal processing, computer music, music cognition, computational theory/analysis, interactive systems, HCI.
-
-- https://music.stanford.edu/venues-facilities/facilities/center-computer-research-music-and-acoustics-ccrma
-- https://music.stanford.edu/about/what-we-do/music-science-and-technology
-
-### Spotify Research — Audio & Visual Intelligence
-
-Commercial-scale music understanding, multimodal retrieval, recommendation, language/audio research. LLark is an important research reference for music instruction-following even though no trained model is released with the code.
-
-- https://research.atspotify.com/audio-visual-intelligence
-- https://research.atspotify.com/publications/LLARK-a-multimodal-instruction-following-language-model-for-music
-
-### Adobe Research — Audio
-
-Audio analysis, processing, generation, human-centered creative interfaces, multimodal audio reasoning.
-
-- https://research.adobe.com/research/audio/
+A production embedding layer is justified only when a scored user task, rights, operational fit, and persistence/query requirement all exist.
 
 ---
 
-## 4. Foundation-model adoption matrix
+## 4. Style, instrument, mood, and semantic context (#333 / #355)
 
-### 4.1 MERT
+### Essentia as a reference
 
-**Type:** music-specific SSL audio representation.
+Official Discogs-EffNet / MTG-Jamendo heads provide useful supervised reference evidence. #355 records upstream test metrics such as:
 
-**Evidence:** paper reports strong transfer across 14 music-understanding tasks; MARBLE provides evaluation support/reference.
+| Task | PR-AUC | ROC-AUC |
+|---|---:|---:|
+| genre | 0.20 | 0.88 |
+| instrument | 0.20 | 0.78 |
+| mood/theme | 0.14 | 0.76 |
 
-**Code license:** Apache-2.0 according to official repo.
+These are upstream reference metrics, not matched hello-ai measurements. Open/pretrained licensing is not suitable as an unquestioned default commercial dependency; treat Essentia as a strong reference or revisit commercial licensing if measured value warrants it.
 
-**Why relevant:** strong general-purpose audio embedding baseline; likely useful for similarity and downstream probes.
+### CLAP as a zero-shot baseline
 
-**Recommendation:** **benchmark**. Do not route production facts directly from embeddings without a downstream validated head.
+The #332/#355 tiny product probe showed poor prompt discrimination: seven factual prompts collapsed heavily onto the same retrieved items, and `solo piano` did not reliably retrieve the MAESTRO piano examples.
 
-Official repo:
-- https://github.com/yizhilll/MERT
+That does **not** prove CLAP is generally useless. It does prove that raw cosine similarity is not a factual tag confidence.
 
-### 4.2 MuQ
+### Context evidence contract
 
-**Type:** modern self-supervised music representation using Mel-RVQ targets.
+Validated context should be:
 
-**Code license:** MIT.
+- multi-label,
+- scoped to work or segment,
+- explicitly taxonomy-specific,
+- called `score` unless calibrated,
+- allowed to influence salience/explanatory framing,
+- forbidden from becoming a rigid genre router.
 
-**Important weight restriction:** official open model weights are CC-BY-NC 4.0. This is acceptable for research/prototyping but a future commercial product would need a compatible model/training route or permission.
-
-**Why relevant:** modern music-specific SSL; MuQ-MuLan adds audio-text alignment.
-
-**Recommendation:** **high-priority research bakeoff**, but keep licensing in the decision table.
-
-- https://github.com/tencent-ailab/MuQ
-
-### 4.3 MuQ-MuLan
-
-**Type:** joint music-text embedding.
-
-**Use cases:** zero-shot semantic tagging, text-to-music retrieval, section/work similarity.
-
-**License caveat:** released weights follow the MuQ CC-BY-NC weight terms.
-
-**Recommendation:** **research/reference**, especially for UX prototypes around semantic search and style/instrument tags.
-
-### 4.4 MusicFM
-
-**Type:** foundation model for music informatics.
-
-**Why relevant:** music-specific masked modeling / representation learning; MARBLE reference support.
-
-**Recommendation:** benchmark against MERT/MuQ rather than integrating by reputation.
-
-- https://github.com/minzwon/musicfm
-
-### 4.5 CLaMP3
-
-**Type:** shared embedding across text, audio, MIDI, sheet music, and images; multilingual.
-
-**Code license:** MIT according to official repo.
-
-**Why unusually relevant to hello-ai:** our product already has synchronized audio, MIDI and MusicXML representations. CLaMP3’s cross-modal space may enable:
-
-- audio ↔ score similarity,
-- text ↔ passage search,
-- MIDI ↔ audio retrieval,
-- multimodal clustering,
-- representation-consistency checks.
-
-**Runtime caveat:** official setup uses a substantial PyTorch environment; practical deployment must be measured.
-
-**Recommendation:** **top-priority R&D candidate**.
-
-- https://github.com/sanderwood/clamp3
-
-### 4.6 LAION CLAP
-
-**Type:** general audio-text contrastive model.
-
-**Code license:** Apache-style according to project metadata; verify exact weights/data terms before deployment.
-
-**Use:** semantic baseline against music-specific MuLan/CLaMP3.
-
-**Recommendation:** benchmark as a **generic audio-text baseline**, not necessarily production default.
-
-- https://github.com/LAION-AI/CLAP
-
-### 4.7 LLark
-
-**Type:** music-focused multimodal instruction-following research system.
-
-**Code license:** Apache-2.0.
-
-**Critical limitation:** Spotify repo does **not** release trained model weights.
-
-**Recommendation:** architecture/evaluation reference for Ask, not a drop-in production dependency.
-
-- https://github.com/spotify-research/llark
+Remaining gate: standard labeled split + calibration + ambiguity/cultural failure analysis.
 
 ---
 
-## 5. Foundation benchmark framework: MARBLE
+## 5. Beat / downbeat / tempo / meter (#335)
 
-MARBLE is a key reference because it attempts universal evaluation of pretrained music encoders and currently lists/supports encoders including MERT, MusicFM, MuQ, MuQ-MuLan, CLaMP3, DaSheng, and audio encoders from Qwen models.
+### Production baseline
 
-Use it to answer:
+Current production uses librosa-derived beat evidence and does not supply validated downbeat/meter evidence.
 
-- which embeddings are genuinely strong across tasks,
-- which tasks each representation supports,
-- whether a larger modern model is worth its runtime/deployment cost.
+### Beat This
 
-Recommendation:
+#474 evaluated Beat This `single_final0` on the published Candombe `single.split` validation rows and found:
 
-1. Reuse MARBLE evaluation/task definitions where practical.
-2. Add a hello-ai operational layer: CPU latency, memory, model download size, ARM compatibility, license, and selected-passage UX usefulness.
-3. Do not reproduce the entire framework if a small upstream invocation suffices.
+| Metric | production librosa | Beat This |
+|---|---:|---:|
+| mean beat F1 | 0.3847 | **0.9989** |
+| reference beat coverage | 33.46% | **100%** |
+| median matched beat error | 40.6 ms | **10.9 ms** |
+| mean downbeat F1 | unsupported | **1.0000** |
+| tempo accuracy @4% | 100% | 100% |
 
-- https://github.com/a43992899/MARBLE
+The key lesson is architectural: **global BPM correctness is not enough** for groove, phase, bar-relative comparison, structure alignment, or notation.
 
----
+### Current decision
 
-## 6. Audio analysis / tagging / semantic OSS
+Beat This is the leading `MetricGridEvidence` promotion candidate, not yet the global production default.
 
-### Essentia
+Before promotion:
 
-**Strength:** unusually broad industrial MIR toolkit with handcrafted DSP plus pretrained models.
+1. score a genuinely independent annotated corpus not used for this checkpoint’s training/validation;
+2. preserve coverage + event-localization metrics, not BPM alone;
+3. decide asynchronous CPU/runtime/fallback behavior;
+4. evaluate meter separately;
+5. rerun beat-relative downstream regressions.
 
-Available model ecosystem includes Discogs-EffNet embeddings/style classifiers; one released classifier targets 400 Discogs styles.
-
-Potential uses:
-
-- genre/style,
-- mood/theme,
-- instrument classifiers,
-- similarity embeddings,
-- BPM/key/chroma/rhythm reference implementation,
-- broad baseline feature extraction.
-
-**License:** Essentia’s licensing must be treated carefully (AGPL / commercial licensing context). Do not silently embed it into a commercial backend later without review.
-
-**Recommendation:** **major evaluation/reference candidate**. It can tell us which bespoke analysis code should be deleted or avoided.
-
-- https://essentia.upf.edu/models.html
-
-### MTG-Jamendo
-
-Over 55k full tracks with genre, instrument, and mood/theme annotations; repository supplies standard splits and baseline scripts.
-
-Use cases:
-
-- style/instrument/mood classifier evaluation,
-- downstream probes for foundation embeddings,
-- evaluation of semantic tagging.
-
-**Recommendation:** core dataset for Analysis V3 semantic/context bakeoff.
-
-- https://github.com/MTG/mtg-jamendo-dataset
+BeatNet remains relevant primarily if it supplies validated meter/bar-phase evidence that Beat This does not.
 
 ---
 
-## 7. Beat / downbeat / meter
+## 6. Harmony, tonality, melody, and symbolic analysis
 
-### Current hello-ai path
+### Chords
 
-Current code uses an audio beat path that must be verified from current main. Existing temporal rhythm features depend on its reliability.
+`lv-chordia` remains the production audio-chord foundation after internal evaluation. Do not restart engine shopping without a documented domain failure.
 
-### BeatNet
+### Key / theory
 
-**Task:** joint beat, downbeat, tempo, and meter tracking.
+music21 remains useful for symbolic/theory operations. Theory labels must state the analytical framework and should not be presented as culturally universal.
 
-**Features:** offline and real-time modes, pretrained models included, training pipeline available.
+### Melody
 
-**Why relevant:** one engine can provide the metrical scaffolding needed by groove, structure, rhythmic pattern, and notation analysis.
+LStoM remains the production-default symbolic melody extraction path after internal evaluation. Its archived upstream status is less important than owned model provenance, tests, and domain validation.
 
-**License:** official repo reports CC-BY-4.0; validate software/model implications before production.
+### Symbolic utilities
 
-**Recommendation:** **benchmark against current beat engine** across styles.
+- **Partitura:** strong modern score/MIDI/MEI utility; Apache-2.0.
+- **Symusic:** fast modern symbolic representation/transformations; useful if measured performance or glue-code simplification warrants migration.
+- **pretty_midi:** continue where it is already a sufficient boundary.
+- **note-seq:** archived; do not adopt as a new central dependency.
 
-- https://github.com/mjhydri/BeatNet
+### Rule
 
-### Benchmark families
-
-Depending on task and legal availability:
-
-- Ballroom,
-- GiantSteps,
-- GTZAN beat annotations,
-- RWC-related annotations,
-- other MIREX-style beat/downbeat datasets.
-
-Use beat, downbeat, tempo and meter metrics separately. One “BPM correct” number is not enough.
+Symbolic relationships can be highly trustworthy, but only after the audio→symbolic evidence path itself clears the relevant accuracy gate.
 
 ---
 
-## 8. Harmony / tonality
+## 7. Generic multi-instrument transcription (#337)
 
-### lv-chordia
+MR-MT3 is the strongest current research/reference path, but it does not clear the operational gate for default CPU deployment.
 
-Current production audio chord foundation after internal GuitarSet evaluation. Do not restart the engine search without evidence of a concrete deficiency.
+#404 established useful quality/reference evidence. #541 then compared fresh CLI processes with one persistent model across the exact same five 30-second Slakh excerpts.
 
-Use current internal benchmark artifacts as source of truth for its production domain.
+| Metric | fresh process | resident model |
+|---|---:|---:|
+| mean time / 30 s | 83.107 s | 79.810 s |
+| median time / 30 s | 90.701 s | 83.306 s |
+| mean paired speedup | — | **1.0828×** |
+| one-time model load | — | **2.918 s** |
 
-### music21
+The two heaviest clips were essentially unchanged: `117.018→115.746 s` and `143.739→143.866 s`. CLI and resident outputs matched semantically.
 
-**Role:** computational musicology, symbolic key/theory, Roman numeral interpretation, score operations.
+### Decision
 
-**License:** BSD-3-Clause.
+**MR-MT3 = RESEARCH / reference.** Repeated loading is not the primary bottleneck; CPU inference is.
 
-**Recommendation:** retain as theory/symbolic layer; avoid using it as general audio chord recognizer.
+Do not:
 
-- https://github.com/cuthbertLab/music21
+- add a production MR-MT3 dependency,
+- build a resident worker solely to recover wrapper overhead,
+- make multitrack symbolic transcription the universal substrate.
 
-### BACHI
+Revisit only when there is both:
 
-Previously identified research candidate for symbolic chord recognition, especially piano/classical/pop symbolic domains. Maintain as research reference if its specialization becomes relevant again; do not displace working lv-chordia without a matched-domain evaluation.
-
-### Evaluation datasets
-
-- GuitarSet,
-- POP909-CL,
-- DCML corpora,
-- When-in-Rome,
-- domain-specific chord corpora.
-
-Remember: symbolic oracle theory metrics are not end-to-end audio metrics.
+1. a materially different operations profile (different runtime/model/hardware), and
+2. a product capability whose quality measurably depends on instrument-aware symbolic evidence.
 
 ---
 
-## 9. Melody / symbolic voices / notation
+## 8. Source separation (#334)
 
-### LStoM
+### What the measurements say
 
-Current production-default symbolic melody extraction after internal POP909 evaluation. Official ByteDance repository is archived as of 2026, but code is MIT and the project has a clear ISMIR 2022 research basis.
+Objective isolation is strong:
 
-Internal validation, model artifact metadata, and production compatibility are more important than repository activity now that the model is owned in our pipeline.
+- #480 BabySlakh: mean ΔSI-SDR **+13.983 dB drums**, **+12.900 dB bass**.
+- #521 MUSDB18 preview, all 50 test tracks:
+  - drums **+13.3558 dB**, 50/50 improved;
+  - bass **+12.9033 dB**, 47/50 improved;
+  - other **+8.9048 dB**, 49/50 improved;
+  - vocals **+12.0349 dB**, 48/50 improved.
 
-- https://github.com/bytedance/midi_melody_extraction
+But the negative tail matters: some bass/vocal rows degrade catastrophically.
 
-### Piano_SVSep
+Downstream value is not automatic:
 
-**Task:** voice and staff prediction for symbolic piano engraving.
+- #477: drums-vs-mixture production beat F1 mean delta **-0.0045**.
+- #486: bass stem improves onset-only Basic Pitch F1 by **+0.0578** mean, while onset+offset mean delta is **-0.0088** and recall drops sharply.
 
-**Not:** audio separation or semantic melody detection.
+Operations are plausible but not free:
 
-**Input:** quantized symbolic score.
+- #507 180 s audio: ~85.9 s hosted x86 CPU / ~152.3 s hosted ARM CPU;
+- peak RSS roughly 1.6–1.8 GB;
+- actual Oracle concurrency/cold-start/cost remains unmeasured.
 
-**Output:** voice/staff assignments suitable for engraving.
+### Current architecture
 
-**License:** MIT.
+Source separation is **not universal preprocessing**.
 
-**Recommendation:** high-value notation R&D once environment/dependency fit is resolved.
+Use:
 
-- https://github.com/CPJKU/piano_svsep
+```text
+mixture evidence = primary
+optional StemReference = immutable cached derived artifact
+stem-specific detector evidence = claim evidence
+claim sufficiency = decides whether stem evidence is usable
+mixture fallback / abstention = required for weak/conflicting stem evidence
+```
 
-### Partitura
-
-**Role:** MusicXML/MIDI/MEI symbolic score handling; active releases through 2026.
-
-**License:** Apache-2.0.
-
-**Recommendation:** preferred symbolic/notation utility when its data model reduces custom score manipulation.
-
-- https://github.com/CPJKU/partitura
-
-### Symusic
-
-**Role:** fast modern MIDI/ABC parsing/transformations/rendering; MIT; wheels across broad Python/platform matrix.
-
-**Recommendation:** evaluate for performance-sensitive symbolic processing and simplification of pretty_midi/miditoolkit glue. Do not migrate solely for speed without a bottleneck.
-
-- https://github.com/Yikai-Liao/symusic
-
-### MusPy
-
-**Role:** symbolic datasets, representations, generation evaluation.
-
-**License:** MIT.
-
-**Recommendation:** useful primarily when generation/corpus infrastructure becomes active; not a replacement for music21/partitura today.
-
-- https://github.com/salu133445/muspy
-
-### note-seq
-
-Apache-2.0 symbolic utilities, but archived by Magenta in May 2026.
-
-**Recommendation:** do not adopt as a new central dependency. Existing ideas/representations remain useful references.
+Do not run a RoFormer tournament merely because newer separators exist. Revisit a challenger when a concrete source-aware claim has a failure mode or promotion target.
 
 ---
 
-## 10. Source separation
+## 9. Perceptual evidence and musical relations (#455 / #457 / #459 / #460)
 
-### BS-RoFormer / Mel-Band RoFormer family
+This is the most important V3 convergence path because it has already moved from evaluation into bounded production contracts.
 
-Modern transformer-based source separation family; practical open implementations exist.
+Examples of useful low-level evidence:
 
-**Code license:** MIT for the widely used lucidrains implementation.
+- RMS/amplitude dynamics,
+- spectral centroid/band energy,
+- onset strength/activity,
+- register/spectral distribution,
+- temporal windows over the same source Version.
 
-**Important caveat:** model weight licenses and training data terms must be checked independently from code.
+These measurements are valuable because they are:
 
-**Recommendation:** **high-priority bakeoff** for drums/bass/vocals/other because source-specific analysis unlocks generic style-aware understanding.
+- localizable,
+- cheap,
+- interpretable,
+- comparable between spans,
+- compatible with abstention,
+- useful across genres without pretending to be a high-level cultural interpretation.
 
-- https://github.com/lucidrains/BS-RoFormer
+### Product rule
 
-### MSST ecosystem
+A low-level measurement is not automatically a semantic claim:
 
-Open training/inference framework supports multiple architectures including MDX, Demucs, BS-RoFormer, Mel-Band RoFormer, BandIt, SCNet.
+- spectral centroid ≠ “brightness” unless wording is explicitly validated;
+- onset density ≠ “excitement”;
+- RMS ≠ calibrated perceptual loudness;
+- event density ≠ “busyness” or syncopation.
 
-**Recommendation:** consider as evaluation/inference harness rather than integrating many model families independently.
+The progression is:
 
-- https://github.com/ZFTurbo/Music-Source-Separation-Training (verify current upstream)
+```text
+typed evidence
+→ sufficiency
+→ deterministic observation/relation
+→ literal grounded finding
+→ optional theory/context explanation
+```
 
-### Commercial reference: AudioShake
-
-AudioShake exposes specialized production stems such as vocals, lead/backing vocals, drums, bass, guitar, piano, keys, strings.
-
-Use as a **quality/product benchmark**, not necessarily a dependency.
-
-- https://developer.audioshake.ai/separate-stems
+This is the preferred way to add breadth without creating a bespoke detector for every future style.
 
 ---
 
-## 11. Structure / form
+## 10. Structure / form
 
-### Current hello-ai baseline
+The structure track has enough evaluation infrastructure. The current blocker is evidence, not architecture.
 
-Evaluation-only librosa CENS/recurrence/novelty/peak-pick pipeline.
-
-This is appropriate as a reproducible baseline, not enough evidence for product exposure.
-
-### All-In-One
-
-Historically integrated but runtime/dependency issues (`madmom` etc.) have prevented clean production use. Do not spend unlimited time resurrecting it.
-
-### MSAF
-
-Historically relevant structure-analysis framework but dependency age/runtime fit must be treated as a practical blocker on modern Python.
-
-### Evaluation
-
-Use established boundary metrics (`mir_eval.segment`-style conventions) and labeled datasets such as SALAMI/Harmonix where lawful audio + annotations can be obtained.
-
-Split capability maturity:
+Use established boundary/grouping metrics and keep separate:
 
 1. boundary detection,
 2. repeated-section grouping,
-3. semantic labels.
+3. semantic section labels.
 
-Do not require semantic labels before shipping validated boundaries.
+Do not require Verse/Chorus labels before validated boundaries/grouping can be useful.
 
----
-
-## 12. Product/commercial benchmarks
-
-### Hooktheory TheoryTab
-
-What to learn:
-
-- relative notation can be better for understanding than conventional score,
-- Roman numerals support cross-key pattern recognition,
-- chord/melody synchronized playback,
-- section-aware analysis,
-- theory concepts tied to actual songs,
-- corpus-relative metrics can make “complexity/novelty” interpretable.
-
-Notable metrics include chord complexity, melodic complexity, chord-melody tension, progression novelty, and bass-motion characteristics. These are product inspirations, not direct formulas to copy blindly.
-
-- https://www.hooktheory.com/theorytab/
-- https://www.hooktheory.com/song-metrics/about
-
-### Sonic Visualiser
-
-What to learn:
-
-- aligned waveform/spectrogram/MIDI,
-- annotation layers,
-- feature-extraction plugin model,
-- multiple time resolutions,
-- synchronized playback.
-
-hello-ai should be more opinionated, persistent, accessible, and explanatory.
-
-- https://sonicvisualiser.org/features.html
-
-### Moises
-
-What to learn:
-
-- source separation is a user-facing capability, not just backend preprocessing,
-- synced metronome, key/BPM, pitch/speed manipulation fit musician workflows,
-- stem playback is a representation/control surface.
-
-- https://moises.ai/products/moises-app/
-
-### Cyanite
-
-What to learn:
-
-- commercial analysis uses multi-label genre/mood taxonomies,
-- segment-level outputs matter,
-- product APIs separate versioned model outputs,
-- semantic/style analysis is useful even when not theory-centric.
-
-- https://api-docs.cyanite.ai/docs/audio-analysis-v6-classifier/
-
-### Spotify Research
-
-What to learn:
-
-- audio understanding increasingly connects to description, similarity, search, recommendation, and natural language,
-- multimodal instruction-following is a credible long-term interface pattern,
-- evaluation must be a first-class research area.
-
-- https://research.atspotify.com/audio-visual-intelligence
+Current next step: use the frozen SongFormBench selection from #550/#516 and produce candidate results. Do not expand the harness first.
 
 ---
 
-## 13. Courses / textbooks / domain learning path
+## 11. Audio-language models (#339 / #362)
 
-### Computational MIR foundation
+The correct product experiment is not “which model writes the nicest paragraph?”
 
-1. **Meinard Müller — Fundamentals of Music Processing (2nd ed.)**
-   - representation,
-   - Fourier analysis,
-   - synchronization,
-   - structure,
-   - chords,
-   - beat/tempo,
-   - retrieval,
-   - decomposition.
+It is:
 
-2. **Audio Signal Processing for Music Applications** — Xavier Serra + Julius O. Smith / Stanford.
-   - practical music DSP,
-   - spectral models,
-   - transformations,
-   - open Python material.
-
-3. **Stanford CCRMA curriculum**
-   - MUSIC 258A Computational Music Theory & Analysis,
-   - MUSIC 320A/B audio signal processing,
-   - MUSIC 251 Psychophysics and Music Cognition,
-   - MUSIC 220A/B/C computer-generated/computational music.
-
-### Western tonal theory / analysis
-
-1. MIT OCW Harmony & Counterpoint I.
-2. MIT OCW Harmony & Counterpoint II — includes chromatic harmony, Neapolitan and augmented-sixth chords, chromatic modulation.
-3. MIT OCW Musical Analysis — rhythm/form, harmony, line, motivic relationships at local and large scales.
-4. Aldwell & Schachter, *Harmony and Voice Leading*.
-5. Open Music Theory as an accessible online reference.
-
-### Important limitation
-
-These theory resources heavily represent Western common-practice tonal frameworks. They are not sufficient for culturally broad analysis. Before implementing genre/culture-specific explanatory modules, add authoritative style-specific musicology / ethnomusicology / production literature to the research issue and identify whose theory vocabulary is being used.
-
----
-
-## 14. Immediate recommendation matrix
-
-| Area | Current | Next action |
-|---|---|---|
-| Transcription | Basic Pitch + Transkun routing | keep; continue notation/transcription eval |
-| Chords | lv-chordia | keep; broaden domain eval, no engine churn |
-| Key/theory | music21 + gated theory | keep; evaluate richer claims separately |
-| Melody | LStoM | keep; domain validation and human-facing interpretation |
-| Rhythm | current beats + deterministic measurements | benchmark beat/downbeat layer; avoid heuristic syncopation |
-| Structure | librosa baseline eval-only | obtain lawful benchmark; no exposure yet |
-| Spectrogram | client-side synchronized representation | keep |
-| Style/instrument | missing/weak | benchmark Essentia + foundation probes |
-| Foundation embeddings | missing | top-priority bakeoff: MuQ/MERT/MusicFM/CLaMP3 |
-| Source separation | missing/legacy | top-priority RoFormer-family bakeoff |
-| Audio-text semantics | missing | benchmark MuLan/CLaMP3/CLAP; keep low-trust until evaluated |
-| Similarity/search | missing | build after embedding bakeoff |
-| Ask | grounded evidence architecture | evolve toward Evidence Graph + education |
-| Generation | future | defer until understanding layer is strong |
-
----
-
-## 15. Research issue template
-
-Every research/bakeoff issue should include:
-
-```markdown
-# Capability
-What user question does this enable?
-
-# Task definition
-Exactly what is predicted / represented?
-
-# Candidates
-OSS / model / baseline.
-
-# Licensing
-Code + weights + dataset separately.
-
-# Evaluation data
-Dataset, split, domain, lawful access.
-
-# Metrics
-Established metrics where possible.
-
-# Operational metrics
-CPU/GPU, latency, RAM, model size, install size, ARM/container fit.
-
-# Baseline
-Current production or simple reference.
-
-# Product gate
-What result is good enough to expose?
-
-# Output contract
-Canonical evidence type + provenance.
-
-# Decision
-Adopt / research / reject / revisit.
+```text
+same audio case + same question
+  ├─ audio only
+  ├─ structured hello-ai evidence only
+  └─ audio + structured hello-ai evidence
 ```
 
-This prevents “interesting repo found → production dependency” decisions.
+`audio + evidence` is useful only if it increases supported claims/usefulness without worsening:
+
+- contradiction,
+- unsupported claims,
+- citation quality,
+- abstention,
+- temporal grounding,
+- specificity.
+
+External CMI-Bench/MUSE evidence is an important warning that general audio-language systems can trail specialized MIR and struggle on basic music relations.
+
+### Decision
+
+No audio-language model is a production factual authority. Music Flamingo / Audio Flamingo / Qwen-class models remain research candidates or controls. A future Ask path may use raw audio as *additional semantic context* only after the matched grounded-value gate.
+
+---
+
+## 12. Notation / transcription / score
+
+The current score problem must be decomposed rather than treated as one engraving bug.
+
+Active evaluation work separates:
+
+```text
+audio
+→ predicted note events
+→ metric grid
+→ quantization / durations / voices / staffing
+→ MusicXML
+→ renderer
+```
+
+#540 targets exact production Basic Pitch vs Transkun profiles. #502 targets audio→predicted-MIDI→Score stage attribution.
+
+Next action is the real result on a fixed corpus, then fix the largest measured contributor. Do not add another notation abstraction before those results exist.
+
+---
+
+## 13. Evidence authority and trust tiers
+
+Use trust/maturity per claim, not per model brand.
+
+### Tier 1 — measured/localized evidence
+
+Examples: beat timestamps, note events, chord candidates, RMS windows, stem-derived detector outputs.
+
+Requirements: exact source Version/span, engine/model version, parameters, provenance, known metric/domain.
+
+### Tier 2 — deterministic derived observations
+
+Examples: “span B has higher measured RMS amplitude than span A,” harmonic interval derived from validated notes.
+
+Requirements: evidence support refs + deterministic computation + sufficiency.
+
+### Tier 3 — model-estimated context
+
+Examples: style/instrument tags, embedding similarity, source-role hypotheses.
+
+Requirements: task validation, calibration when called confidence, taxonomy/model provenance, graceful ambiguity.
+
+### Tier 4 — interpretive/semantic explanation
+
+Examples: “the arrangement opens up,” stylistic/function explanations.
+
+Requirements: cite lower-tier support, state framework/assumptions where relevant, abstain when evidence does not support the wording.
+
+An LLM can compose or explain evidence; it does not promote Tier 3/4 language into Tier 1 fact.
+
+---
+
+## 14. Persistence / Evidence Graph direction (#336)
+
+Keep the conceptual Evidence Graph; do **not** build a graph database.
+
+Prefer current Postgres/Supabase + immutable Artifact/Version lineage + typed JSON/domain contracts until a real query need justifies another persistence primitive.
+
+Useful conceptual entities include:
+
+- source Version / time span,
+- Evidence,
+- Observation,
+- Relation,
+- support/provenance references,
+- optional StemReference,
+- optional embedding/vector reference,
+- ContextEvidence,
+- section/group membership.
+
+Physical schema changes require concrete product/query pressure. The graph is an ontology and dependency model first.
+
+---
+
+## 15. Product/commercial references
+
+### Hooktheory
+
+Learn from relative notation, synchronized chord/melody playback, section context, cross-key relationships, and educational explanations tied to actual passages. Do not copy its Western tonal ontology as a universal one.
+
+### Sonic Visualiser / Vamp
+
+Learn from synchronized representations, annotation layers, multiple time resolutions, and plugin-like evidence extraction.
+
+### Moises / AudioShake
+
+Learn from stems as user-manipulable source views. hello-ai should still require evidence gates before using stems as factual analysis inputs.
+
+### Cyanite / commercial tagging systems
+
+Learn from multi-label/segment-level context and versioned model outputs; raw taxonomy labels remain model-specific evidence.
+
+### DAWs / production tools
+
+Learn from persistent time, source/layer orientation, transport, and low-friction comparison. The product should feel like one musical object viewed through multiple representations, not a set of disconnected analysis dashboards.
+
+---
+
+## 16. Research communities and benchmark culture
+
+Follow:
+
+- ISMIR / MIREX for task definitions, evaluation practice, and music-specific research;
+- MTG/UPF, QMUL C4DM, AudioLabs Erlangen, NYU MARL, Stanford CCRMA;
+- Spotify Research, Adobe Research, and other groups connecting music understanding with product interaction;
+- ICASSP / DAFx for signal processing and source separation;
+- CHI / NIME / Audio Mostly for music interaction and human-centered AI.
+
+Important methodological references:
+
+- MARBLE for music-representation evaluation;
+- MIREX task metrics rather than private aggregate scores;
+- mir_eval / task-standard matching where applicable;
+- standard labeled splits with train/validation/test provenance recorded explicitly.
+
+---
+
+## 17. Cultural / framework boundary
+
+Do not equate “general music understanding” with common-practice tonal analysis or Western-pop taxonomies.
+
+For any style/framework-specific explanation:
+
+1. identify the analytical tradition or vocabulary;
+2. state prerequisites and applicability;
+3. distinguish measured evidence from interpretation;
+4. validate on representative material;
+5. retain universal evidence even if context classification is uncertain.
+
+Piano, jazz, house, reggaeton, hip-hop, classical, orchestral, and non-Western traditions should be **diversity probes and framework contexts**, not hard-coded product forks.
+
+---
+
+## 18. Current recommendation matrix
+
+| Area | Current state | Allowed next move |
+|---|---|---|
+| Transcription | Basic Pitch + Transkun production profiles | Run #540 real corpus; change routing only from result |
+| Chords | lv-chordia | Keep; reopen only for concrete domain failure |
+| Key/theory | music21 + gated theory | Keep; expand claims only with framework/evidence gate |
+| Melody | LStoM | Keep; validate new domains/interpretations separately |
+| Rhythm | librosa production; Beat This leading candidate | Independent MetricGrid result + ops/meter gate |
+| Perceptual evidence | promoted minimal substrate | Build relations/grounded product composition, not descriptor sprawl |
+| Structure | eval harness mature | Materialize fixed corpus and run candidates |
+| Style/instrument | research context evidence | Labeled scored/calibrated run |
+| Foundation embeddings | no production layer | Reopen only for scored retrieval/similarity product task |
+| Source separation | optional research StemReference | Concrete source-aware claim; no universal preprocessing |
+| Multi-instrument AMT | MR-MT3 research/reference | Revisit only with new ops profile + downstream value |
+| Audio-language | semantic hypothesis research | Real matched grounded-QA run on legitimate GPU |
+| Similarity/search | no production vector layer | Depend on a demonstrated retrieval UX need + embedding gate |
+| Breakdown | primary understanding surface | Consume grounded observations/relations with time + provenance |
+| Ask | evidence-grounded | Cite evidence/relations; raw-audio semantic augmentation only after #339 gate |
+| Generation | future | Defer until understanding/evidence architecture is stable |
+
+---
+
+## 19. What not to build now
+
+Do not spend the next cycle on:
+
+- a universal embedding/vector database without a scored retrieval product;
+- eager source separation for every upload;
+- another separator tournament without a source-aware claim target;
+- MR-MT3 process-caching/warm-worker tuning as if wrapper overhead were the bottleneck;
+- a hard genre router;
+- raw CLAP/LLM scores displayed as factual confidence;
+- a graph database for the conceptual Evidence Graph;
+- a universal MIDI/score ontology;
+- semantic Verse/Chorus claims before structure evidence is validated;
+- more evaluation harness abstraction when the owning track already has a runnable result gate.
+
+---
+
+## 20. Research issue template
+
+Every new bakeoff or reopened track should state:
+
+```markdown
+# Product decision
+What user capability or architecture choice changes if this succeeds?
+
+# Existing evidence
+Which prior result or failure mode requires reopening the question?
+
+# Candidate / baseline
+Exact system, version/checkpoint, code license, weight license, training/data restrictions.
+
+# Evaluation
+Dataset/split/sample IDs, task-standard metrics, per-piece distribution, operational metrics.
+
+# Product gate
+What numeric/qualitative result is sufficient to change routing, exposure, or persistence?
+
+# Output contract
+Typed evidence + provenance + maturity.
+
+# Failure / abstention
+How does the product behave when the evidence is missing, weak, or contradictory?
+
+# Decision
+ADOPT / RESEARCH / REJECT / REVISIT.
+```
+
+The key discipline is: **once a runnable harness exists, the default next PR is result-bearing, not another harness extension.**
