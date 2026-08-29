@@ -40,9 +40,6 @@ jobs:
       - name: Sync locked backend environment
         run: uv sync --project backend --locked
 
-      - name: Show Ruff formatter diff
-        run: uv run --project backend ruff format backend/evaluation/analysis_v3/perceptual/run_real_stability.py --diff
-
       - name: Install codec tooling
         run: |
           sudo apt-get update
