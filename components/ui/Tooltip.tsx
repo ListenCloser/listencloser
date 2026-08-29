@@ -1,6 +1,7 @@
 "use client";
 
 import { cloneElement, useId, type ReactElement, type ReactNode } from "react";
+import styles from "./Tooltip.module.css";
 
 type TooltipTriggerProps = {
   "aria-describedby"?: string;
@@ -18,9 +19,9 @@ export default function Tooltip({
   const describedBy = [existingDescription, id].filter(Boolean).join(" ");
 
   return (
-    <span className="ui-tooltip-anchor">
+    <span className={styles.anchor}>
       {cloneElement(children, { "aria-describedby": describedBy })}
-      <span id={id} className="ui-tooltip" role="tooltip">
+      <span id={id} className={styles.tooltip} role="tooltip">
         {content}
       </span>
     </span>
