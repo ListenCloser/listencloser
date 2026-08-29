@@ -3,11 +3,9 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
+from backend.evaluation.analysis_v3.separation import beat_downstream, run_beat_downstream
 import numpy as np
 import pytest
-
-from backend.evaluation.analysis_v3.separation import beat_downstream
-from backend.evaluation.analysis_v3.separation import run_beat_downstream
 
 
 def test_compare_mixture_vs_drums_reuses_production_estimator_and_pulse_metrics(monkeypatch):
