@@ -111,7 +111,10 @@ create_lane() {
   printf 'Fetching protected baseline origin/main...\n'
   git -C "$root" fetch --prune origin main
 
-  if git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+  # Fetching only main does not populate every refs/remotes/origin/* entry. Ask
+  # the remote directly so an agent cannot accidentally recreate a lane that
+  # exists on GitHub but has never been fetched into this checkout.
+  if git -C "$root" ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
     die "remote branch already exists: $branch"
   fi
 
@@ -256,10 +259,30 @@ cleanup_lane() {
 
   local root
   root="$(git_primary_root)"
-  local wt_root
-  wt_root="$(worktree_root "$root")"
-  local path="$wt_root/$lane"
+  local meta_file
+  meta_file="$(metadata_dir "$root")/$lane.tsv"
+  local path=""
+  if [[ -f "$meta_file" ]]; then
+    path="$(awk -F '\t' '$1=="path" {print $2}' "$meta_file")"
+  fi
+  if [[ -z "$path" ]]; then
+    local wt_root
+    wt_root="$(worktree_root "$root")"
+    path="$wt_root/$lane"
+  fi
   [[ -d "$path" ]] || die "worktree does not exist: $path"
+
+  # Metadata is local state, not authority. Confirm the resolved path is an
+  # actual registered Git worktree before running destructive cleanup.
+  local registered=0
+  local registered_path
+  while IFS= read -r registered_path; do
+    if [[ "$registered_path" == "$path" ]]; then
+      registered=1
+      break
+    fi
+  done < <(git -C "$root" worktree list --porcelain | awk '/^worktree / { sub(/^worktree /, ""); print }')
+  ((registered == 1)) || die "resolved path is not a registered Git worktree: $path"
 
   local branch
   branch="$(git -C "$path" branch --show-current)"
@@ -294,7 +317,7 @@ cleanup_lane() {
 
   git -C "$root" worktree remove "$path"
   git -C "$root" branch -D "$branch"
-  rm -f "$(metadata_dir "$root")/$lane.tsv"
+  rm -f "$meta_file"
   git -C "$root" worktree prune
 
   printf 'Removed lane %s (%s).\n' "$lane" "$branch"
