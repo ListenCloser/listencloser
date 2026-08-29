@@ -23,7 +23,10 @@ jobs:
           version: '0.12.6'
           enable-cache: true
           cache-dependency-glob: 'backend/uv.lock'
-      - name: Install backend environment
-        run: uv sync --project backend --locked
+      - name: Install backend and audio runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          uv sync --project backend --locked
       - name: Run benchmark
         run: uv run --project backend python scripts/temp_basic_pitch_benchmark.py
