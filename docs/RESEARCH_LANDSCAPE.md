@@ -4,7 +4,7 @@
 >
 > **Status:** Consolidated after the first Analysis V3 bakeoff cycle, 2026-08-29.
 >
-> **Rule:** Treat measured hello-ai results as stronger evidence than candidate reputation. A new paper, model, or repository is not a reason to reopen a settled decision unless it targets a documented failure mode or product gate. `docs/EVALUATION_DECISIONS.md` is the compact cross-track ledger; this document explains the larger technical landscape and architecture implications.
+> **Rule:** Treat measured hello-ai results as stronger evidence than candidate reputation. A new paper, model, or repository is not a reason to reopen a settled decision unless it targets a documented failure mode or product gate. #543 proposes a compact cross-track decision ledger; this document remains independently mergeable and explains the larger technical landscape and architecture implications.
 
 ---
 
