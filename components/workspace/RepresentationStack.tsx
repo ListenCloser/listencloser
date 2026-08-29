@@ -131,8 +131,13 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   }, [activeView]);
 
   if (workspace.isLoadingWork) return <WorkspaceLoadingSkeleton />;
-  if (!available.length) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
-  if (!activeView) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
+  if (!available.length || !activeView) {
+    // A durable selection whose representations are still hydrating is an
+    // existing recording opening, not a first-run workspace. Keep the empty
+    // import CTA reserved for a settled library with no active Work.
+    if (signedIn && workspace.activeWorkId) return <WorkspaceLoadingSkeleton />;
+    return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
+  }
 
   const renderedViews = available.filter((definition) => definition.id === activeView || mountedViews.has(definition.id));
 
