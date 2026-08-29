@@ -1,0 +1,32 @@
+name: Scratch Ruff Format 480
+
+on:
+  push:
+    branches:
+      - scratch/ruff-format-480
+    paths:
+      - .github/workflows/scratch-ruff-format-480.yml
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --project backend --locked
+      - name: Format target and print exact result
+        run: |
+          uv run --project backend ruff format backend/evaluation/analysis_v3/separation/datasets/babyslakh_reference.py
+          echo '---RUFF-FORMATTED-FILE-BEGIN---'
+          cat backend/evaluation/analysis_v3/separation/datasets/babyslakh_reference.py
+          echo '---RUFF-FORMATTED-FILE-END---'
