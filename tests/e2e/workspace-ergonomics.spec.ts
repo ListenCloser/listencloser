@@ -85,7 +85,12 @@ test.describe("workspace ergonomics (MSW)", () => {
     const playBtn = page.getByRole("button", { name: "Play", exact: true });
     await expect(playBtn).toBeVisible();
     await expect(playBtn).not.toHaveAttribute("title");
+    // Establish keyboard input modality before returning focus to Play. The
+    // tooltip should follow :focus-visible, not linger after pointer/touch focus.
     await playBtn.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(playBtn).toBeFocused();
     await expect(page.getByRole("tooltip", { name: "Play recording" })).toBeVisible();
 
     await loopBtn.click();
