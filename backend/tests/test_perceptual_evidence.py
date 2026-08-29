@@ -7,8 +7,8 @@ from uuid import uuid4
 import numpy as np
 import pytest
 import soundfile as sf
-from domain.models import Artifact, ArtifactKind, Capability, Job, Version
 from domain import perceptual_capability
+from domain.models import Artifact, ArtifactKind, Capability, Job, Version
 from perceptual_evidence import (
     CANONICAL_SAMPLE_RATE,
     PREPROCESSING_VERSION,
