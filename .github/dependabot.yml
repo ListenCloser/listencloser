@@ -16,9 +16,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 3
     groups:
-      frontend:
+      frontend-routine:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: uv
     directory: /backend
@@ -26,12 +29,22 @@ updates:
       interval: weekly
     open-pull-requests-limit: 3
     groups:
-      backend-python:
+      backend-python-routine:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: docker
     directory: /backend
     schedule:
       interval: weekly
     open-pull-requests-limit: 2
+    ignore:
+      # Python minor versions are runtime migrations for this repository, not
+      # routine image refreshes. Move this bound deliberately when the runtime
+      # contract is upgraded and verified across local/CI/production images.
+      - dependency-name: python
+        versions:
+          - ">= 3.12"
