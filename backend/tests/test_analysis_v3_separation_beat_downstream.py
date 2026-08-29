@@ -40,9 +40,7 @@ def test_compare_mixture_vs_drums_reuses_production_estimator_and_pulse_metrics(
     assert all(payload.startswith(b"RIFF") for payload in calls)
     assert comparison.drums.f1 > comparison.mixture.f1
     assert comparison.drums.reference_coverage > comparison.mixture.reference_coverage
-    assert comparison.f1_delta == pytest.approx(
-        comparison.drums.f1 - comparison.mixture.f1
-    )
+    assert comparison.f1_delta == pytest.approx(comparison.drums.f1 - comparison.mixture.f1)
 
 
 def test_score_requires_reference_beats():
