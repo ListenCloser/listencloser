@@ -221,7 +221,10 @@ def test_span_extending_past_stored_coverage_withholds_even_with_complete_window
 
     assert result.sufficiency.status == "withhold"
     assert result.measurements == []
-    assert any("outside rhythm density evidence coverage" in reason for reason in result.sufficiency.reasons)
+    assert any(
+        "outside rhythm density evidence coverage" in reason
+        for reason in result.sufficiency.reasons
+    )
 
 
 def test_span_starting_before_stored_coverage_withholds_even_with_complete_windows():
@@ -240,7 +243,10 @@ def test_span_starting_before_stored_coverage_withholds_even_with_complete_windo
 
     assert result.sufficiency.status == "withhold"
     assert result.measurements == []
-    assert any("outside rhythm density evidence coverage" in reason for reason in result.sufficiency.reasons)
+    assert any(
+        "outside rhythm density evidence coverage" in reason
+        for reason in result.sufficiency.reasons
+    )
 
 
 def test_boundary_aligned_complete_windows_are_supported():
