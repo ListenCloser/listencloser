@@ -11,7 +11,7 @@ The correctness contract lives in Git, GitHub, `AGENTS.md`, the PR template, and
 3. **One canonical PR per logical result.** Close superseded/replayed PRs promptly.
 4. **Issues/docs coordinate; PRs integrate.** Do not keep a non-mergeable PR open indefinitely as the only source of direction.
 5. **Green branch-head CI is not enough after `main` moves.** The protected `Build` context requires an up-to-date integration state. Refresh mechanically and rerun the gate.
-6. **No merge bypasses.** Do not disable protection, weaken assertions, or add a token-based auto-merger merely to increase throughput.
+6. **No merge bypasses.** Do not disable protection, weaken assertions, or add a token-based auto-merger merely to increase throughput. Native GitHub auto-merge is acceptable when it preserves the repository's normal branch-protection and required-check semantics.
 
 ## Repository helper
 
@@ -165,6 +165,28 @@ PR A becomes current + green
 ```
 
 Do not continuously rebase every active development branch after each merge. Only merge-ready branches need the final current-base cycle.
+
+## Strict-branch integration slot
+
+This repository's protected `main` requires the merge candidate to be up to date. On a busy branch, two independent PRs can both be correct and green yet repeatedly invalidate one another's final evidence when either one lands.
+
+That is an **integration** serialization problem, not a reason to serialize development or ordinary CI.
+
+Until the repository has a GitHub merge queue, use one active integration slot:
+
+1. agents continue implementing and testing independent PRs in parallel;
+2. choose one merge-ready PR as the active integration candidate;
+3. read the authoritative `refs/heads/main` Git ref immediately before refresh rather than relying on possibly stale cached PR/branch metadata;
+4. refresh the candidate mechanically onto that exact base, preserving only its reviewed logical delta;
+5. enable native GitHub auto-merge as soon as the refreshed head is pushed;
+6. let required checks run normally; GitHub should merge immediately when the current-base requirements are satisfied;
+7. only after that merge, refresh the next merge-ready PR into the integration slot.
+
+If `main` moves before the candidate finishes, repeat the current-base refresh. Do not weaken the up-to-date requirement merely to break the race.
+
+Native GitHub auto-merge is useful here because it removes the polling gap between the final required check becoming green and the merge request being sent. It is not a custom merge bot and must not bypass normal required checks, reviews, or branch protection.
+
+A true GitHub merge queue would be preferable because it tests queued changes against the moving target branch without requiring every PR author to keep rebasing. If repository ownership/plan later makes merge queues available, replace this integration-slot convention with the native queue rather than maintaining a bespoke queue service.
 
 ## Cleanup
 
