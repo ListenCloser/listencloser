@@ -25,17 +25,18 @@ def _sanitize_fmt(fmt: str) -> str:
 
 
 def enhance_audio(audio_bytes: bytes, fmt: str = "wav") -> bytes:
-    """Light, CPU-friendly cleanup of a raw recording.
+    """Light, CPU-friendly cleanup of a raw recording: denoise (afftdn),
+    declip (adeclip), and EBU R128 normalize (loudnorm). Returns cleaned WAV.
 
-    Applies FFmpeg denoise, declip, and EBU R128 normalization and returns WAV
-    bytes. The helper remains no-op safe: if FFmpeg is unavailable or cleanup
-    fails, it returns the input (or successfully pre-converted source) bytes.
+    Runs transparently before transcription so every upload/recording is
+    cleaned without the user opting in. No-op safe: returns input if ffmpeg
+    is unavailable or the pipeline fails.
     """
     suffix = _sanitize_fmt(fmt)
     with tempfile.TemporaryDirectory() as td:
         in_path = os.path.join(td, f"input{suffix}")
-        with open(in_path, "wb") as file_handle:
-            file_handle.write(audio_bytes)
+        with open(in_path, "wb") as f:
+            f.write(audio_bytes)
         src = in_path
         # basic-pitch only reads wav/flac/ogg/mp3; convert other formats first.
         if suffix not in (".wav", ".flac", ".ogg", ".mp3", ".m4a", ".aac"):
@@ -54,11 +55,10 @@ def enhance_audio(audio_bytes: bytes, fmt: str = "wav") -> bytes:
                 capture_output=True,
                 timeout=_FFMPEG_TIMEOUT,
             )
-            converted_path = os.path.join(td, "input_conv.wav")
-            if conv.returncode != 0 or not os.path.exists(converted_path):
+            if conv.returncode != 0 or not os.path.exists(os.path.join(td, "input_conv.wav")):
                 logger.warning("enhance: pre-convert failed, using raw input")
                 return audio_bytes
-            src = converted_path
+            src = os.path.join(td, "input_conv.wav")
         out_path = os.path.join(td, "clean.wav")
         cmd = [
             "ffmpeg",
@@ -73,15 +73,16 @@ def enhance_audio(audio_bytes: bytes, fmt: str = "wav") -> bytes:
             "1",
             out_path,
         ]
-        res = subprocess.run(cmd, capture_output=True, timeout=_FFMPEG_TIMEOUT)
+        res = subprocess.run(cmd, capture_output=True, timeout=120)
         if res.returncode != 0 or not os.path.exists(out_path):
             logger.warning("enhance pipeline failed, using source: " + res.stderr.decode()[:200])
+            # Fall back to the (already converted) source if cleanup failed.
             if src != in_path:
-                with open(src, "rb") as file_handle:
-                    return file_handle.read()
+                with open(src, "rb") as f:
+                    return f.read()
             return audio_bytes
-        with open(out_path, "rb") as file_handle:
-            return file_handle.read()
+        with open(out_path, "rb") as f:
+            return f.read()
 
 
 def decode_audio_to_wav(audio_bytes: bytes, fmt: str = "wav") -> bytes:
