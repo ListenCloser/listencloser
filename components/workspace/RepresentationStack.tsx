@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import TabStrip from "@/components/ui/TabStrip";
+import Tooltip from "@/components/ui/Tooltip";
 import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
 import { availableRepresentations, type RepresentationId } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
@@ -19,16 +20,16 @@ function TranscriptionModeToggle() {
   return (
     <div className="transcription-mode" role="group" aria-label="Transcription mode">
       {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          aria-pressed={workspace.transcriptionProfile === option.id}
-          className={workspace.transcriptionProfile === option.id ? "active" : ""}
-          onClick={() => setTranscriptionProfile(option.id)}
-          title={option.description}
-        >
-          {option.label}
-        </button>
+        <Tooltip key={option.id} content={option.description}>
+          <button
+            type="button"
+            aria-pressed={workspace.transcriptionProfile === option.id}
+            className={workspace.transcriptionProfile === option.id ? "active" : ""}
+            onClick={() => setTranscriptionProfile(option.id)}
+          >
+            {option.label}
+          </button>
+        </Tooltip>
       ))}
     </div>
   );

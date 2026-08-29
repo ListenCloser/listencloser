@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import Tooltip from "@/components/ui/Tooltip";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
@@ -53,21 +54,22 @@ function WorkRow({
         </span>
       </button>
 
-      <button
-        type="button"
-        className="library-row-delete"
-        aria-label={`Delete ${title}`}
-        title="Delete recording"
-        onClick={onDelete}
-        disabled={isDeleting}
-      >
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M3.5 4.5h9" />
-          <path d="M6 2.75h4" />
-          <path d="M5 4.5l.5 8.25h5l.5-8.25" />
-          <path d="M7 6.5v4M9 6.5v4" />
-        </svg>
-      </button>
+      <Tooltip content="Delete recording">
+        <button
+          type="button"
+          className="library-row-delete"
+          aria-label={`Delete ${title}`}
+          onClick={onDelete}
+          disabled={isDeleting}
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3.5 4.5h9" />
+            <path d="M6 2.75h4" />
+            <path d="M5 4.5l.5 8.25h5l.5-8.25" />
+            <path d="M7 6.5v4M9 6.5v4" />
+          </svg>
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -83,8 +85,12 @@ function ImportSettings({
     <details className="library-import-settings">
       <summary>Transcription · {profile === "solo_piano" ? "Solo piano" : "Auto"}</summary>
       <div className="library-import-settings-body" role="group" aria-label="Transcription mode">
-        <button type="button" className={profile === "auto" ? "active" : ""} aria-pressed={profile === "auto"} onClick={() => onChange("auto")}>Auto</button>
-        <button type="button" className={profile === "solo_piano" ? "active" : ""} aria-pressed={profile === "solo_piano"} onClick={() => onChange("solo_piano")}>Solo piano</button>
+        <Tooltip content="Best default for most recordings">
+          <button type="button" className={profile === "auto" ? "active" : ""} aria-pressed={profile === "auto"} onClick={() => onChange("auto")}>Auto</button>
+        </Tooltip>
+        <Tooltip content="Prefer piano-specific transcription">
+          <button type="button" className={profile === "solo_piano" ? "active" : ""} aria-pressed={profile === "solo_piano"} onClick={() => onChange("solo_piano")}>Solo piano</button>
+        </Tooltip>
       </div>
     </details>
   );
@@ -166,7 +172,6 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               aria-label="Import audio"
               aria-busy={projectQuery.isPending || undefined}
               aria-describedby={importStatusId}
-              title={importStatus ?? "Import audio"}
             >
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
                 <path d="M7.5 2v11M2 7.5h11" />
