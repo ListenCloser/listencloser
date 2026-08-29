@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import TabStrip from "@/components/ui/TabStrip";
 import { availableRepresentations, type RepresentationId } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
+import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
 
 function TranscriptionModeToggle() {
   const { workspace, setTranscriptionProfile } = useWorkspace();
@@ -54,6 +55,9 @@ function WorkspaceLoadingSkeleton() {
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport, setActiveRepresentation } = useWorkspace();
   const [mountedViews, setMountedViews] = useState<Set<RepresentationId>>(() => new Set());
+  const [orientationCue, setOrientationCue] = useState(false);
+  const orientationFrame = useRef<number | null>(null);
+  const orientationTimeout = useRef<number | null>(null);
   const availability = useMemo(
     () => deriveAvailability(workspace.representations, workspace.insights.length),
     [workspace.representations, workspace.insights.length],
@@ -68,12 +72,47 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
 
+  // The shared selection is authoritative. This local cue only helps the eye
+  // find that selection after a Breakdown Focus/Show action, then disappears.
+  useEffect(() => {
+    const cancelPendingCue = () => {
+      if (orientationFrame.current !== null) {
+        window.cancelAnimationFrame(orientationFrame.current);
+        orientationFrame.current = null;
+      }
+      if (orientationTimeout.current !== null) {
+        window.clearTimeout(orientationTimeout.current);
+        orientationTimeout.current = null;
+      }
+    };
+
+    const handleOrientation = () => {
+      cancelPendingCue();
+      setOrientationCue(false);
+      orientationFrame.current = window.requestAnimationFrame(() => {
+        orientationFrame.current = null;
+        setOrientationCue(true);
+        orientationTimeout.current = window.setTimeout(() => {
+          orientationTimeout.current = null;
+          setOrientationCue(false);
+        }, 640);
+      });
+    };
+
+    window.addEventListener(WORKSPACE_ORIENTATION_EVENT, handleOrientation);
+    return () => {
+      window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, handleOrientation);
+      cancelPendingCue();
+    };
+  }, []);
+
   // Representation canvases are expensive client-side objects: OSMD builds a
   // full score SVG, WaveSurfer owns waveform state, and the spectrogram decodes
   // audio. Preserve views after their first visit within a work session so a
   // tab switch is a visibility change rather than a destroy/rebuild cycle.
   useEffect(() => {
     setMountedViews(new Set());
+    setOrientationCue(false);
   }, [workspace.activeWorkId]);
 
   useEffect(() => {
@@ -110,7 +149,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         return (
           <section
             key={definition.id}
-            className="piece-active-view piece-active-view-v3"
+            className={`piece-active-view piece-active-view-v3${active && orientationCue ? " piece-active-view-oriented" : ""}`}
             aria-label={definition.title}
             aria-hidden={!active}
             hidden={!active}

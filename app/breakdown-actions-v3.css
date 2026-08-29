@@ -81,6 +81,37 @@
   outline-offset: 2px;
 }
 
+/* The real selection stays visible inside each representation. This trace is
+ * only a short orientation aid after a Breakdown Focus/Show action. */
+.piece-active-view-oriented {
+  position: relative;
+}
+
+.piece-active-view-oriented::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  z-index: 8;
+  border: 1px solid rgba(214, 181, 109, 0.56);
+  border-radius: 8px;
+  pointer-events: none;
+  animation: breakdown-canvas-orientation 640ms var(--ease) forwards;
+}
+
+@keyframes breakdown-canvas-orientation {
+  0% {
+    opacity: 0;
+    transform: scale(0.998);
+  }
+  22% {
+    opacity: 0.72;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 820px) {
   .inspector-breakdown-focus {
     grid-template-columns: 1fr;
@@ -109,5 +140,10 @@
   .inspector-breakdown-focus,
   .inspector-breakdown-action {
     transition: none;
+  }
+
+  .piece-active-view-oriented::after {
+    animation: none;
+    opacity: 0;
   }
 }

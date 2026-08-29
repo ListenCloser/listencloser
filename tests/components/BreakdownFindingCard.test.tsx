@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import BreakdownFindingCard from "@/components/workspace/BreakdownFindingCard";
 import { rankBreakdownFindings } from "@/lib/inspector/breakdown";
 import type { TemporalFinding } from "@/lib/inspector/findings";
+import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
 
 const mocks = vi.hoisted(() => ({
   workspace: {
@@ -74,8 +75,10 @@ beforeEach(() => {
 });
 
 describe("BreakdownFindingCard live actions", () => {
-  it("wires Loop to selection, seek, and the authoritative transport loop", async () => {
+  it("wires Loop to selection, seek, transport loop, and Canvas orientation", async () => {
     const user = userEvent.setup();
+    const orientationListener = vi.fn();
+    window.addEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
     render(<BreakdownFindingCard finding={finding()} />);
 
     await user.click(screen.getByRole("button", { name: /^Loop / }));
@@ -87,6 +90,8 @@ describe("BreakdownFindingCard live actions", () => {
       timeRange: { start: 0.2, end: 0.5, domain: "performance" },
       provenance: { origin: null, timeExact: false, measureApproximate: true },
     });
+    expect(orientationListener).toHaveBeenCalledTimes(1);
+    window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
   });
 
   it("wires Show and Ask only for capabilities the live workspace can execute", async () => {
