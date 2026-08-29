@@ -9,22 +9,22 @@
     "device": "cpu",
     "python_version": "3.11.16",
     "torch_version": "2.6.0+cpu",
-    "torch_num_threads": 4
+    "torch_num_threads": 2
   },
   "separator": {
     "candidate": "HTDemucs",
     "demucs_package_version": "4.1.0",
-    "package_install_mode": "core-model-no-deps-after-sphn-packaging-blocker",
+    "package_install_mode": "declared-dependencies-sphn-cmake3",
     "model": "htdemucs",
     "model_signature": "955717e8",
     "inference_shifts": 0,
-    "model_prepare_seconds": 0.296,
+    "model_prepare_seconds": 0.272,
     "weight_artifact": {
       "repository": "adefossez/HTDemucs",
       "filename": "955717e8.safetensors",
       "sha256": "d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd",
       "size_mb": 80.13,
-      "download_seconds": 1.239,
+      "download_seconds": 1.664,
       "verification": "sha256_fail_closed"
     }
   },
@@ -32,61 +32,34 @@
   "measurements": [
     {
       "audio_duration_seconds": 10.0,
-      "latency_seconds": 11.28,
-      "real_time_factor": 1.128,
-      "process_max_rss_mb": 1211.07,
-      "output_shape": [
-        4,
-        2,
-        441000
-      ],
-      "source_names": [
-        "drums",
-        "bass",
-        "other",
-        "vocals"
-      ]
+      "latency_seconds": 12.477,
+      "real_time_factor": 1.2477,
+      "process_max_rss_mb": 1222.94,
+      "output_shape": [4, 2, 441000],
+      "source_names": ["drums", "bass", "other", "vocals"]
     },
     {
       "audio_duration_seconds": 30.0,
-      "latency_seconds": 24.372,
-      "real_time_factor": 0.8124,
-      "process_max_rss_mb": 1243.04,
-      "output_shape": [
-        4,
-        2,
-        1323000
-      ],
-      "source_names": [
-        "drums",
-        "bass",
-        "other",
-        "vocals"
-      ]
+      "latency_seconds": 29.1,
+      "real_time_factor": 0.97,
+      "process_max_rss_mb": 1333.05,
+      "output_shape": [4, 2, 1323000],
+      "source_names": ["drums", "bass", "other", "vocals"]
     },
     {
       "audio_duration_seconds": 180.0,
-      "latency_seconds": 127.383,
-      "real_time_factor": 0.7077,
-      "process_max_rss_mb": 1576.09,
-      "output_shape": [
-        4,
-        2,
-        7938000
-      ],
-      "source_names": [
-        "drums",
-        "bass",
-        "other",
-        "vocals"
-      ]
+      "latency_seconds": 152.278,
+      "real_time_factor": 0.846,
+      "process_max_rss_mb": 1604.45,
+      "output_shape": [4, 2, 7938000],
+      "source_names": ["drums", "bass", "other", "vocals"]
     }
   ],
   "determinism": {
     "duration_seconds": 10.0,
     "shifts": 0,
     "first_stem_sha256_equal": true,
-    "repeat_latency_seconds": 7.935
+    "repeat_latency_seconds": 10.269
   },
   "success": true,
   "failures": []
