@@ -186,6 +186,9 @@ def run_operational_probe(*, device: str = "cpu") -> dict[str, Any]:
         "separator": {
             "candidate": "HTDemucs",
             "demucs_package_version": version("demucs"),
+            "package_install_mode": os.environ.get(
+                "DEMUCS_PACKAGE_INSTALL_MODE", "declared-dependencies"
+            ),
             "model": MODEL_NAME,
             "model_signature": MODEL_SIGNATURE,
             "inference_shifts": 0,
