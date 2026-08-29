@@ -67,14 +67,19 @@ def test_audio_to_wav_bytes_accepts_channel_first_stereo():
     assert wav_bytes.startswith(b"RIFF")
 
 
-def test_si_sdr_comparison_measures_gain_over_mixture():
-    sample_rate = 8000
-    time = np.arange(sample_rate, dtype=np.float64) / sample_rate
-    reference = np.sin(2.0 * np.pi * 220.0 * time)
-    interference = 0.7 * np.sin(2.0 * np.pi * 440.0 * time)
-    mixture = reference + interference
-    estimated_stem = reference + 0.1 * interference
+def test_si_sdr_comparison_uses_fast_bss_eval_and_reports_gain(monkeypatch):
+    calls: list[tuple[tuple[int, ...], tuple[int, ...], bool, float]] = []
+    scores = iter([3.0, 10.0])
 
+    def fake_si_sdr(reference, estimated, zero_mean, clamp_db):
+        calls.append((reference.shape, estimated.shape, zero_mean, clamp_db))
+        return np.asarray([next(scores)], dtype=float)
+
+    monkeypatch.setitem(sys.modules, "fast_bss_eval", SimpleNamespace(si_sdr=fake_si_sdr))
+
+    reference = np.linspace(-1.0, 1.0, 100)
+    mixture = reference + 0.5
+    estimated_stem = reference + 0.1
     result = separation.compare_si_sdr_mixture_vs_stem(
         mixture,
         estimated_stem,
@@ -82,8 +87,13 @@ def test_si_sdr_comparison_measures_gain_over_mixture():
     )
 
     assert result is not None
-    assert result.stem_si_sdr_db > result.mixture_si_sdr_db
-    assert result.improvement_db == pytest.approx(20.0, abs=0.01)
+    assert result.mixture_si_sdr_db == 3.0
+    assert result.stem_si_sdr_db == 10.0
+    assert result.improvement_db == 7.0
+    assert calls == [
+        ((1, 100), (1, 100), True, 100.0),
+        ((1, 100), (1, 100), True, 100.0),
+    ]
 
 
 def test_si_sdr_withholds_completely_silent_reference():
@@ -92,15 +102,23 @@ def test_si_sdr_withholds_completely_silent_reference():
     assert separation.compute_si_sdr(audio, silent_reference) is None
 
 
-def test_si_sdr_accepts_mismatched_channel_layouts_by_folding_to_mono():
+def test_si_sdr_folds_mismatched_channel_layouts_to_mono(monkeypatch):
+    calls: list[tuple[tuple[int, ...], tuple[int, ...]]] = []
+
+    def fake_si_sdr(reference, estimated, zero_mean, clamp_db):
+        calls.append((reference.shape, estimated.shape))
+        return np.asarray([5.0], dtype=float)
+
+    monkeypatch.setitem(sys.modules, "fast_bss_eval", SimpleNamespace(si_sdr=fake_si_sdr))
+
     base = np.linspace(-1.0, 1.0, 100)
     reference = np.stack([base, 0.5 * base], axis=1)
     estimated = reference.mean(axis=1)
 
     score = separation.compute_si_sdr(estimated, reference)
 
-    assert score is not None
-    assert np.isfinite(score)
+    assert score == 5.0
+    assert calls == [((1, 100), (1, 100))]
 
 
 def test_bass_amt_comparison_reuses_basic_pitch_and_amt_metric(monkeypatch, tmp_path):
