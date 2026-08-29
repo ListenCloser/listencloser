@@ -22,11 +22,7 @@ from observability import configure_logging, init_sentry, init_telemetry, record
 configure_logging("hello-ai-api")
 logger = logging.getLogger("backend")
 init_telemetry("hello-ai-api")
-init_sentry(
-    logger,
-    default_release="backend@2.0.0",
-    include_fastapi_integrations=True,
-)
+init_sentry(logger, default_release="backend@2.0.0")
 _request_id_ctx = contextvars.ContextVar("request_id", default="none")
 
 
