@@ -119,20 +119,27 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(jump).toHaveAttribute("aria-disabled", "true");
     await expect(loop).toHaveAttribute("aria-disabled", "true");
     await expect(timeReference).toHaveAttribute("aria-disabled", "true");
-    await expect(jump).not.toBeDisabled();
-    await expect(loop).not.toBeDisabled();
-    await expect(timeReference).not.toBeDisabled();
+    await expect(jump).not.toHaveAttribute("disabled");
+    await expect(loop).not.toHaveAttribute("disabled");
+    await expect(timeReference).not.toHaveAttribute("disabled");
     await expect(page.getByRole("button", { name: "Open Score" })).toBeEnabled();
 
+    // aria-disabled remains a semantic disabled state, but unlike native
+    // disabled it can still receive focus and expose its explanation.
+    await jump.focus();
+    await expect(jump).toBeFocused();
     await jump.hover();
     await expect(page.getByRole("tooltip", { name: "This matches a different timeline than the active source." })).toBeVisible();
     await timeReference.hover();
     await expect(page.getByRole("tooltip", { name: "This reference uses a different timeline than the active source." })).toBeVisible();
 
     const posBefore = await transportPos(page);
-    await jump.click();
-    await loop.click();
-    await timeReference.click();
+    await jump.focus();
+    await page.keyboard.press("Enter");
+    await loop.focus();
+    await page.keyboard.press("Enter");
+    await timeReference.focus();
+    await page.keyboard.press("Enter");
     await expect.poll(() => transportPos(page)).toBe(posBefore);
     if (loopPressedBefore) {
       await expect(toggleLoop).toHaveAttribute("aria-pressed", "true");
