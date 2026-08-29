@@ -191,11 +191,11 @@ def test_partial_evidence_coverage_withholds_explicitly():
     truncated = rms.model_copy(
         update={
             "frame_times_seconds": [
-                time for time, selected in zip(rms.frame_times_seconds, keep, strict=True) if selected
+                time
+                for time, selected in zip(rms.frame_times_seconds, keep, strict=True)
+                if selected
             ],
-            "values": [
-                value for value, selected in zip(rms.values, keep, strict=True) if selected
-            ],
+            "values": [value for value, selected in zip(rms.values, keep, strict=True) if selected],
         }
     )
     series = dict(report.series)
