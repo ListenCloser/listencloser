@@ -19,7 +19,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(214, 181, 109, 0.035), transparent 24%, transparent 76%, rgba(114, 169, 196, 0.03));
+  background: radial-gradient(circle at 62% 48%, rgba(241, 237, 228, 0.03), transparent 38%);
 }
 
 .header,
@@ -126,7 +126,7 @@
 }
 
 .lane[data-lane="evidence"] .rail {
-  background: rgba(214, 181, 109, 0.13);
+  background: repeating-linear-gradient(90deg, rgba(241, 237, 228, 0.075) 0 7px, transparent 7px 13px);
 }
 
 .alignmentGuide {
@@ -135,19 +135,17 @@
   bottom: 2px;
   left: calc(72px + (100% - 72px) * 0.62);
   width: 1px;
-  background: rgba(241, 237, 228, 0.14);
+  background: repeating-linear-gradient(180deg, rgba(241, 237, 228, 0.16) 0 4px, transparent 4px 8px);
 }
 
 .alignmentGuide::before {
   content: "";
   position: absolute;
-  top: -4px;
+  top: -3px;
   left: 50%;
-  width: 5px;
-  height: 5px;
-  border: 1px solid rgba(214, 181, 109, 0.5);
-  border-radius: 50%;
-  background: #211f1b;
+  width: 7px;
+  height: 1px;
+  background: rgba(241, 237, 228, 0.22);
   transform: translateX(-50%);
 }
 
