@@ -1,0 +1,6 @@
+# Analysis V3 #334 evaluation-only dependencies.
+# Keep these out of production runtime requirements until the benchmark earns adoption.
+demucs==4.1.0
+fast-bss-eval==0.1.4
+mir_eval==0.8.2
+PyYAML==6.0.2
