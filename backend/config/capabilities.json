@@ -245,6 +245,19 @@
       "exposure": {"inspector": false, "annotations": false, "ask": false},
       "reason": "Depends on unreliable chord stream for voice tracking."
     },
+    "perceptual_series": {
+      "status": "production",
+      "input": "audio",
+      "engine": "librosa",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "evaluation": {
+        "dataset": "synthetic fixtures + repository piano + Candombe CC BY 4.0 probe",
+        "metric": "canonical_preprocessing_stability",
+        "details": "#455/#468: mono 22.05 kHz canonicalization stabilizes onset strength, spectral centroid, and relative band-energy evidence for bounded within-work comparison."
+      },
+      "validated_domain": "within-work measured comparison under identical mono 22.05 kHz preprocessing",
+      "notes": "Measured evidence only. RMS is an amplitude proxy, not calibrated loudness. Do not infer semantic timbre adjectives, source identity, section labels, cross-song rankings, or population norms."
+    },
     "structure": {
       "status": "evaluation_only",
       "input": "audio",
