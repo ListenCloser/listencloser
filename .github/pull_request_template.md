@@ -54,6 +54,14 @@ Otherwise: N/A.
 
 List new environment variables, dependencies, migrations, model/checkpoint requirements, or deployment changes. Confirm configuration reaches the actual runtime/container where applicable.
 
+## Merge policy
+
+- [ ] Merge automatically when green
+
+Check this only for a production merge-intended PR. The repository merge coordinator will re-check the current `main` at merge time: disjoint leaf work may merge without a redundant rebase, while overlapping/shared integration surfaces are refreshed automatically and re-run through CI.
+
+Leave it unchecked for research, design/reference, experiment, or intentionally held PRs.
+
 ## Remaining limitations / rollback
 
 What remains imperfect, and how can this change be disabled or rolled back if needed?
