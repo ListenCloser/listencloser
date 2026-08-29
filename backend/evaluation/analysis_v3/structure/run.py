@@ -126,6 +126,7 @@ def run_structure_evaluation(
             "split": clip.split,
             "source_id": clip.source_id,
             "license": clip.license,
+            "audio_provenance": clip.audio_provenance,
         }
         if not clip.reference.sections:
             row["status"] = "withheld_no_reference_sections"
