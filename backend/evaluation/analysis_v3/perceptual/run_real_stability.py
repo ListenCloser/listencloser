@@ -246,9 +246,7 @@ def main() -> int:
     args = parser.parse_args()
 
     codec_paths = {track_id: Path(path) for track_id, path in args.codec_variant}
-    tracks = [
-        (track_id, Path(path), codec_paths.get(track_id)) for track_id, path in args.track
-    ]
+    tracks = [(track_id, Path(path), codec_paths.get(track_id)) for track_id, path in args.track]
     if not tracks:
         parser.error("at least one --track is required")
 
