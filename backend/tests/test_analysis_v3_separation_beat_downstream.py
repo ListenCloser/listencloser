@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from backend.evaluation.analysis_v3.separation import beat_downstream
+from backend.evaluation.analysis_v3.separation import run_beat_downstream
 
 
 def test_compare_mixture_vs_drums_reuses_production_estimator_and_pulse_metrics(monkeypatch):
@@ -71,3 +72,18 @@ def test_comparison_serializes_localization_and_coverage():
     assert payload["drums"]["reference_coverage"] == 1.0
     assert payload["drums"]["absolute_median_error_seconds"] == pytest.approx(0.01)
     assert payload["f1_delta"] > 0
+
+
+def test_reference_beats_excludes_end_exclusive_boundary(monkeypatch):
+    monkeypatch.setattr(
+        run_beat_downstream.pretty_midi,
+        "PrettyMIDI",
+        lambda _: SimpleNamespace(get_beats=lambda: np.array([0.0, 59.5, 60.0])),
+    )
+
+    assert run_beat_downstream._reference_beats("fixture.mid", end_seconds=60.0) == [0.0, 59.5]
+
+
+def test_reference_beats_rejects_non_positive_excerpt():
+    with pytest.raises(ValueError, match="end_seconds must be positive"):
+        run_beat_downstream._reference_beats("fixture.mid", end_seconds=0.0)
