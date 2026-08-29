@@ -91,7 +91,7 @@ def _provenance(
         "source_version_id": str(evidence.source_version_id),
         "evidence_id": str(evidence.evidence_id),
         "coverage_policy": (
-            "selected spans must be covered to within one evidence step at each boundary; "
+            "selected spans must be covered to within one local evidence step at each boundary; "
             "only fully-contained beat-relative density windows are aggregated"
         ),
         "relative_denominator_epsilon": _RELATIVE_DENOMINATOR_EPSILON,
@@ -278,22 +278,18 @@ def _validated_persistence_coverage(
     return reasons
 
 
-def _coverage_tolerance_seconds(
+def _coverage_boundary_tolerances_seconds(
     windows: Sequence[dict[str, float]],
     contract: dict[str, float | str],
-) -> float:
-    """Estimate one evidence step in seconds from the beat-relative series."""
+) -> tuple[float, float]:
+    """Estimate one local evidence step in seconds at each series boundary."""
     window_size = float(contract["window_size"])
     step_size = float(contract["step_size"])
-    duration_based_hops = [
-        (window["end"] - window["start"]) * step_size / window_size for window in windows
-    ]
-    observed_start_hops = [
-        windows[index]["start"] - windows[index - 1]["start"]
-        for index in range(1, len(windows))
-        if windows[index]["start"] > windows[index - 1]["start"]
-    ]
-    return max([*duration_based_hops, *observed_start_hops], default=0.0)
+
+    def step_seconds(window: dict[str, float]) -> float:
+        return (window["end"] - window["start"]) * step_size / window_size
+
+    return step_seconds(windows[0]), step_seconds(windows[-1])
 
 
 def _coverage_error_for_span(
@@ -302,27 +298,28 @@ def _coverage_error_for_span(
     locator: SecondsSpanLocator,
     label: str,
 ) -> str | None:
-    """Reject a span whose edges are more than one evidence step outside coverage.
+    """Reject a span whose edges are more than one local evidence step outside coverage.
 
     Beat-relative windows need not align exactly with arbitrary user-selected
     seconds boundaries, so the relation follows the existing perceptual-series
-    policy and tolerates at most one evidence step of boundary slack. This still
-    rejects a persisted prefix that is materially shorter than the requested
-    span, including historical 50-window truncation.
+    policy and tolerates at most one local evidence step of boundary slack. The
+    local estimate matters when tempo changes materially across the selection.
+    This still rejects a persisted prefix that is materially shorter than the
+    requested span, including historical 50-window truncation.
     """
     if not windows:
         return f"{label} span has no rhythm density evidence coverage"
 
     coverage_start = windows[0]["start"]
     coverage_end = max(window["end"] for window in windows)
-    boundary_tolerance = _coverage_tolerance_seconds(windows, contract) + _NUMERIC_ATOL
+    start_tolerance, end_tolerance = _coverage_boundary_tolerances_seconds(windows, contract)
     if (
-        coverage_start - locator.start_seconds > boundary_tolerance
-        or locator.end_seconds - coverage_end > boundary_tolerance
+        coverage_start - locator.start_seconds > start_tolerance + _NUMERIC_ATOL
+        or locator.end_seconds - coverage_end > end_tolerance + _NUMERIC_ATOL
     ):
         return (
             f"{label} span extends outside rhythm density evidence coverage "
-            "by more than one evidence step"
+            "by more than one local evidence step"
         )
     return None
 
@@ -363,8 +360,8 @@ def compare_rhythm_density_spans(
 ) -> RhythmDensityRelationObservation:
     """Compare promoted beat-relative event density over two explicit spans.
 
-    Each requested span boundary must be covered to within one evidence step,
-    and only complete density windows fully contained inside that span are
+    Each requested span boundary must be covered to within one local evidence
+    step, and only complete density windows fully contained inside that span are
     eligible. The relation does not infer sections, resample evidence, mix
     seconds and beat units, or attach semantic meaning to numeric direction.
     """
