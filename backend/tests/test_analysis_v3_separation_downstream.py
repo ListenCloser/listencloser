@@ -167,6 +167,11 @@ def test_babyslakh_manifest_builds_four_stem_references(monkeypatch, tmp_path):
             }
         },
     )
+    monkeypatch.setattr(
+        babyslakh,
+        "_extract_reference_beats",
+        lambda track_dir: [0.0, 0.5, 1.0],
+    )
 
     manifest_path = tmp_path / "manifest.json"
     payload = babyslakh.build_babyslakh_manifest(
@@ -179,6 +184,8 @@ def test_babyslakh_manifest_builds_four_stem_references(monkeypatch, tmp_path):
     assert len(payload["clips"]) == 1
     clip = payload["clips"][0]
     assert clip["reference_source_counts"] == {"drums": 1, "bass": 1, "other": 1}
+    assert clip["reference_beats"] == [0.0, 0.5, 1.0]
+    assert clip["reference_beats_kind"] == "symbolic_synthesis_reference"
     assert "bass" in clip["reference_midis"]
     assert set(clip["reference_stems"]) == {"drums", "bass", "other"}
     assert manifest_path.is_file()
