@@ -112,7 +112,7 @@ class BeatThisAdapter(PulseAdapter):
                 "collection excluding GTZAN. "
             )
         elif self.checkpoint_name.startswith("single_"):
-            training_datasets = _single_partition_ids("train")
+            training_datasets = _BEAT_THIS_TRAINING_DATASETS + _single_partition_ids("train")
             held_out_datasets = _single_partition_ids("val")
             training_partition = "single_split_train"
             held_out_partition = "single_split_val"
@@ -120,8 +120,9 @@ class BeatThisAdapter(PulseAdapter):
             split_version = _SPLIT_VERSION
             notes += (
                 "The single_* checkpoints use Beat This annotations v1.0 single.split. "
-                "Dataset identifiers are partition-qualified so only rows marked val are "
-                "accepted as held-out by the generic overlap guard. "
+                "Unpartitioned dataset identifiers remain marked as training-overlap so the "
+                "generic guard fails closed; only explicit *_single_split_val manifests are "
+                "recognized as held out. "
             )
 
         notes += (
