@@ -21,6 +21,7 @@ import numpy as np
 from .adapters import ADAPTERS, SeparationAdapter
 from .metrics import (
     check_determinism,
+    compare_beat_f1_mixture_vs_stem,
     generate_synthetic_audio,
     measure_latency,
 )
@@ -145,7 +146,7 @@ def run_separation_evaluation(
     manifest_path: str,
     device: str = "cpu",
 ) -> dict[str, Any]:
-    """Run separation evaluation on manifest clips."""
+    """Run separation and any available downstream MIR comparisons."""
     print(f"\n{'='*60}")
     print(f"Separation evaluation: {candidate}")
     print(f"{'='*60}")
@@ -157,6 +158,9 @@ def run_separation_evaluation(
     adapter.load()
 
     results: list[dict[str, Any]] = []
+    beat_deltas: list[float] = []
+    downstream_scored = 0
+
     for clip in manifest["clips"]:
         audio_path = _resolve_path(clip["audio_path"])
         if not os.path.exists(audio_path):
@@ -186,23 +190,53 @@ def run_separation_evaluation(
                         "duration_seconds": round(stem.shape[-1] / sr, 2),
                     }
 
-            results.append(
-                {
-                    "id": clip["id"],
-                    "stems": stem_metrics,
-                    "latency_seconds": sep_result.latency_seconds,
-                }
-            )
+            downstream: dict[str, Any] = {}
+            drums = sep_result.get_stem("drums")
+            reference_beats = clip.get("reference_beats")
+            if drums is not None and reference_beats:
+                beat_comparison = compare_beat_f1_mixture_vs_stem(
+                    audio,
+                    drums,
+                    sr,
+                    reference_beats,
+                )
+                if beat_comparison is not None:
+                    downstream["beat_f1_drums"] = beat_comparison.to_dict()
+                    beat_deltas.append(beat_comparison.delta)
+                    downstream_scored += 1
+
+            row: dict[str, Any] = {
+                "id": clip["id"],
+                "stems": stem_metrics,
+                "latency_seconds": sep_result.latency_seconds,
+            }
+            if downstream:
+                row["downstream"] = downstream
+            results.append(row)
             print(f"  OK {clip['id']}: stems={list(stem_metrics.keys())}")
 
         except Exception as e:
             results.append({"id": clip["id"], "error": str(e)})
             print(f"  FAILED {clip['id']}: {e}")
 
+    summary: dict[str, Any] = {
+        "downstream_scored_clips": downstream_scored,
+    }
+    if beat_deltas:
+        summary["beat_f1_drums_delta"] = {
+            "mean": round(float(np.mean(beat_deltas)), 4),
+            "median": round(float(np.median(beat_deltas)), 4),
+            "improved": sum(delta > 0 for delta in beat_deltas),
+            "degraded": sum(delta < 0 for delta in beat_deltas),
+            "unchanged": sum(delta == 0 for delta in beat_deltas),
+        }
+
     return {
         "candidate": candidate,
         "task": "separation",
+        "manifest": manifest.get("name", Path(manifest_path).name),
         "num_clips": len(results),
+        "summary": summary,
         "results": results,
     }
 
@@ -211,6 +245,7 @@ def run_candidate(
     candidate: str,
     task: str = "all",
     manifest_dir: str | None = None,
+    manifest_path: str | None = None,
     device: str = "cpu",
     output_dir: str = "results",
 ) -> dict[str, Any]:
@@ -229,9 +264,13 @@ def run_candidate(
         results["operational"] = run_operational_evaluation(candidate, device)
 
     if task in ("all", "separation"):
-        manifest_path = os.path.join(manifest_dir, "diversity_probe.json")
-        if os.path.exists(manifest_path):
-            results["separation"] = run_separation_evaluation(candidate, manifest_path, device)
+        selected_manifest = manifest_path or os.path.join(manifest_dir, "diversity_probe.json")
+        if os.path.exists(selected_manifest):
+            results["separation"] = run_separation_evaluation(
+                candidate,
+                selected_manifest,
+                device,
+            )
 
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"{candidate}.json")
@@ -262,6 +301,14 @@ def main() -> None:
         help="Directory containing manifests",
     )
     parser.add_argument(
+        "--manifest",
+        default=None,
+        help=(
+            "Explicit manifest path. Use an annotated pulse manifest such as "
+            "pulse/manifests/guitarset_beats.json to score downstream beat deltas."
+        ),
+    )
+    parser.add_argument(
         "--device",
         default="cpu",
         choices=["cpu", "cuda", "mps"],
@@ -280,11 +327,25 @@ def main() -> None:
     if args.candidate == "all":
         for candidate in ADAPTERS:
             try:
-                run_candidate(candidate, args.task, args.manifest_dir, args.device, args.output_dir)
+                run_candidate(
+                    candidate,
+                    args.task,
+                    args.manifest_dir,
+                    args.manifest,
+                    args.device,
+                    args.output_dir,
+                )
             except Exception as e:
                 print(f"\nFAILED {candidate}: {e}")
     else:
-        run_candidate(args.candidate, args.task, args.manifest_dir, args.device, args.output_dir)
+        run_candidate(
+            args.candidate,
+            args.task,
+            args.manifest_dir,
+            args.manifest,
+            args.device,
+            args.output_dir,
+        )
 
 
 if __name__ == "__main__":
