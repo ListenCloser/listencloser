@@ -4,6 +4,7 @@ import sys
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from backend.evaluation.analysis_v3.separation.metrics import downstream
 
@@ -41,7 +42,7 @@ def test_compare_beat_f1_uses_production_estimator_and_canonical_metric(monkeypa
     assert result is not None
     assert result.mixture_score == 0.3
     assert result.stem_score == 0.4
-    assert result.delta == 0.1
+    assert result.delta == pytest.approx(0.1)
     assert calls == [
         ([0.0, 0.5, 1.0, 1.5], [0.0, 0.5, 1.0], 0.07),
         ([0.0, 0.5, 1.0, 1.5], [0.0, 0.5, 1.0, 1.5], 0.07),
