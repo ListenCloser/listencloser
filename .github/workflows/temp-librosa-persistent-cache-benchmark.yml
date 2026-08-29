@@ -29,7 +29,7 @@ jobs:
             -e NUMBA_CACHE_DIR=/app/runtime/numba-cache \
             -v hello-ai-numba-cache:/app/runtime \
             hello-ai-librosa-persistent-bench \
-            python /app/scripts/temp_librosa_persistent_cache_benchmark.py
+            python /app/temp_librosa_persistent_cache_benchmark.py
       - name: Inspect persisted cache
         run: |
           docker run --rm --user root \
@@ -42,4 +42,4 @@ jobs:
             -e NUMBA_CACHE_DIR=/app/runtime/numba-cache \
             -v hello-ai-numba-cache:/app/runtime \
             hello-ai-librosa-persistent-bench \
-            python /app/scripts/temp_librosa_persistent_cache_benchmark.py
+            python /app/temp_librosa_persistent_cache_benchmark.py
