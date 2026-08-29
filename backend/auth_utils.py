@@ -1,7 +1,5 @@
 import hashlib
 import logging
-import os
-import threading
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -16,6 +14,8 @@ from supabase_auth.errors import (
     AuthSessionMissingError,
     AuthUnknownError,
 )
+
+from supabase_client import get_service_role_client
 
 logger = logging.getLogger("auth")
 
@@ -33,25 +33,10 @@ def _rate_limit_identity(request: Request) -> str:
 limiter = Limiter(key_func=_rate_limit_identity, default_limits=["60/minute"])
 security = HTTPBearer(auto_error=False)
 
-_sb_client = None
-_sb_lock = threading.Lock()
-
 
 def get_supabase_client():
-    global _sb_client
-    if _sb_client is not None:
-        return _sb_client
-    with _sb_lock:
-        if _sb_client is not None:
-            return _sb_client
-        from supabase import create_client
-
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
-            return None
-        _sb_client = create_client(url, key)
-        return _sb_client
+    """Compatibility seam for auth callers/tests; shared ownership lives centrally."""
+    return get_service_role_client()
 
 
 def _provider_unavailable(exc: Exception) -> bool:
