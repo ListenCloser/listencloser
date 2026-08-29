@@ -1,4 +1,4 @@
-"""Demucs adapter."""
+"""Pinned HTDemucs adapter for the Analysis V3 separation benchmark."""
 
 from __future__ import annotations
 
@@ -10,14 +10,25 @@ import numpy as np
 
 from .base import SeparationAdapter, SeparationMetadata, SeparationResult
 
+HTDEMUCS_PACKAGE_VERSION = "4.1.0"
 HTDEMUCS_CHECKPOINT_ID = "955717e8"
 HTDEMUCS_CHECKPOINT_FILE = "955717e8-8726e21a.th"
 HTDEMUCS_CHECKPOINT_SHA256_PREFIX = "8726e21a"
+HTDEMUCS_CODE_LICENSE_SOURCE = "https://pypi.org/project/demucs/4.1.0/"
+HTDEMUCS_WEIGHT_LICENSE_SOURCE = "https://huggingface.co/adefossez/HTDemucs"
+
+
+def _require_expected_package_version(installed_version: str) -> None:
+    if installed_version != HTDEMUCS_PACKAGE_VERSION:
+        raise RuntimeError(
+            "Stage 2 requires exactly "
+            f"demucs=={HTDEMUCS_PACKAGE_VERSION}; found demucs=={installed_version}"
+        )
 
 
 class DemucsAdapter(SeparationAdapter):
     name = "demucs"
-    model_id = "facebookresearch/demucs:htdemucs"
+    model_id = "demucs:htdemucs@955717e8"
 
     def __init__(self, device: str = "cpu"):
         super().__init__(device)
@@ -35,12 +46,15 @@ class DemucsAdapter(SeparationAdapter):
         if self._loaded:
             return
         try:
-            from demucs.pretrained import get_model
-
             try:
                 self._upstream_version = version("demucs")
-            except PackageNotFoundError:
-                self._upstream_version = None
+            except PackageNotFoundError as exc:
+                raise RuntimeError(
+                    f"demucs=={HTDEMUCS_PACKAGE_VERSION} is not installed"
+                ) from exc
+            _require_expected_package_version(self._upstream_version)
+
+            from demucs.pretrained import get_model
 
             self._model = get_model("htdemucs")
             checkpoint_path = self._checkpoint_path()
@@ -65,8 +79,8 @@ class DemucsAdapter(SeparationAdapter):
             self._model.eval()
             self._model.to(self.device)
             self._loaded = True
-        except Exception as e:
-            raise RuntimeError(f"Failed to load Demucs: {e}") from e
+        except Exception as error:
+            raise RuntimeError(f"Failed to load pinned HTDemucs: {error}") from error
 
     def separate(
         self,
@@ -88,7 +102,7 @@ class DemucsAdapter(SeparationAdapter):
 
             with torch.no_grad():
                 # Disable random time-shift ensembling for the scientific bakeoff.
-                # Stage-1 observed nondeterminism with the package default; a
+                # Stage 1 observed nondeterminism with the package default; a
                 # deterministic candidate is required for per-piece deltas.
                 sources = apply_model(
                     self._model,
@@ -108,14 +122,15 @@ class DemucsAdapter(SeparationAdapter):
 
             result = SeparationResult(
                 metadata={
+                    "package_version": self._upstream_version,
                     "checkpoint_id": HTDEMUCS_CHECKPOINT_ID,
                     "checkpoint_sha256": self._checkpoint_sha256,
                     "shifts": 0,
                 }
             )
-            for i, name in enumerate(stem_names):
-                if i < sources.shape[0]:
-                    stem_audio = sources[i].cpu().numpy()
+            for index, name in enumerate(stem_names):
+                if index < sources.shape[0]:
+                    stem_audio = sources[index].cpu().numpy()
                     if name == "vocals":
                         result.vocals = stem_audio
                     elif name == "drums":
@@ -126,15 +141,17 @@ class DemucsAdapter(SeparationAdapter):
                         result.other = stem_audio
 
             return result
-        except Exception as e:
-            return SeparationResult(error=str(e))
+        except Exception as error:
+            return SeparationResult(error=str(error))
 
     def metadata(self) -> SeparationMetadata:
         return SeparationMetadata(
             candidate="demucs",
             model_id=self.model_id,
             code_license="MIT",
+            code_license_source=HTDEMUCS_CODE_LICENSE_SOURCE,
             weight_license="MIT",
+            weight_license_source=HTDEMUCS_WEIGHT_LICENSE_SOURCE,
             upstream_repo="https://github.com/facebookresearch/demucs",
             upstream_version=self._upstream_version,
             checkpoint_id=HTDEMUCS_CHECKPOINT_ID,
@@ -148,7 +165,7 @@ class DemucsAdapter(SeparationAdapter):
             supports_other=True,
             num_stems=4,
             notes=(
-                "Hybrid Transformer Demucs htdemucs (official signature 955717e8). "
+                "Pinned Demucs 4.1.0 HTDemucs, official signature 955717e8. "
                 "Evaluation uses shifts=0 for deterministic per-piece comparisons."
             ),
         )
