@@ -42,15 +42,20 @@ def _minimal_claim(**overrides):
 
 def test_claim_sufficiency_contract_loads_representative_gates():
     claims = _claims_by_id()
-    assert len(claims) >= 10
+    assert len(claims) >= 15
     assert {
         "global_key_identification",
         "localized_chord_label",
+        "user_selected_perceptual_measurement_contrast",
+        "melody_register_peak",
         "named_section_density_contrast",
         "melody_transposed_return",
         "groove_anticipates_downbeat",
+        "rap_flow_metric_alignment",
+        "jazz_motivic_interaction",
         "tonal_motion_toward_dominant",
         "multidimensional_drop_change",
+        "subjective_affective_causal_explanation",
     } <= set(claims)
 
 
@@ -64,6 +69,21 @@ def test_supported_now_claims_depend_only_on_production_capabilities_and_name_do
         assert claim["validated_domains"]
         for capability in claim["required_capabilities"]:
             assert registry[capability]["status"] == "production"
+
+
+def test_supported_experimental_claims_are_bounded_to_promoted_experimental_evidence():
+    registry = load_capability_registry()
+    supported = claims_by_readiness("SUPPORTED_EXPERIMENTAL")
+    assert supported
+    for claim in supported:
+        statuses = {
+            registry[capability]["status"]
+            for capability in claim["required_capabilities"]
+        }
+        assert statuses <= {"production", "experimental"}
+        assert "experimental" in statuses
+        assert claim["planned_evidence"] == []
+        assert claim["validated_domains"]
 
 
 def test_current_withheld_or_evaluation_only_evidence_fails_closed():
@@ -103,11 +123,49 @@ def test_user_selected_spans_can_unlock_density_without_trusted_sections():
     assert "section" in named["required_capabilities"]
 
 
-def test_multidimensional_change_requires_corroborating_evidence():
-    claim = _claims_by_id()["multidimensional_drop_change"]
-    assert claim["readiness"] == "BLOCKED_BY_MISSING_EVIDENCE"
-    assert "MULTI_EVIDENCE_CORROBORATION" in claim["quality_gates"]
-    assert len(claim["planned_evidence"]) >= 3
+def test_promoted_perceptual_series_unlocks_literal_explicit_span_comparison_only():
+    claims = _claims_by_id()
+    literal = claims["user_selected_perceptual_measurement_contrast"]
+    transition = claims["multidimensional_drop_change"]
+
+    assert literal["readiness"] == "SUPPORTED_NOW"
+    assert literal["required_capabilities"] == ["perceptual_series"]
+    assert "USER_SELECTION_CAN_SUBSTITUTE_STRUCTURE" in literal["quality_gates"]
+    assert "semantic" in literal["abstention_rule"]
+
+    assert transition["readiness"] == "BLOCKED_BY_MISSING_EVIDENCE"
+    assert "perceptual_series" in transition["required_capabilities"]
+    assert "source_or_layer_activity" in transition["planned_evidence"]
+    assert "MULTI_EVIDENCE_CORROBORATION" in transition["quality_gates"]
+
+
+def test_experimental_melody_register_claim_preserves_domain_boundary():
+    claim = _claims_by_id()["melody_register_peak"]
+    assert claim["readiness"] == "SUPPORTED_EXPERIMENTAL"
+    assert claim["required_capabilities"] == ["melody", "melody_register_peak"]
+    assert "pop/arranged symbolic MIDI" in claim["validated_domains"][0]
+
+
+def test_rap_and_jazz_relations_remain_blocked_on_missing_evidence():
+    claims = _claims_by_id()
+    rap = claims["rap_flow_metric_alignment"]
+    jazz = claims["jazz_motivic_interaction"]
+
+    assert rap["readiness"] == "BLOCKED_BY_MISSING_EVIDENCE"
+    assert "localized_vocal_or_syllable_onsets" in rap["planned_evidence"]
+    assert "EVENT_COVERAGE_REQUIRED" in rap["quality_gates"]
+
+    assert jazz["readiness"] == "BLOCKED_BY_MISSING_EVIDENCE"
+    assert "source_or_performer_identity" in jazz["planned_evidence"]
+    assert "validated_phrase_or_motif_correspondence" in jazz["planned_evidence"]
+
+
+def test_subjective_affective_claim_is_never_promoted_from_descriptor_availability():
+    claim = _claims_by_id()["subjective_affective_causal_explanation"]
+    assert claim["readiness"] == "SEMANTIC_ONLY"
+    assert "perceptual_series" in claim["required_capabilities"]
+    assert "SEMANTIC_HYPOTHESIS_ONLY" in claim["quality_gates"]
+    assert "Never treat" in claim["abstention_rule"]
 
 
 def test_supported_claim_must_require_at_least_one_capability(monkeypatch, tmp_path):
@@ -131,6 +189,33 @@ def test_supported_claim_must_declare_validated_domain(monkeypatch, tmp_path):
     monkeypatch.setattr(claim_sufficiency, "_CONTRACT_PATH", path)
 
     with pytest.raises(ValueError, match="must declare a validated domain"):
+        load_claim_sufficiency_contract()
+
+
+def test_experimental_claim_cannot_smuggle_evaluation_only_capability(monkeypatch, tmp_path):
+    path = _write_contract(
+        tmp_path,
+        _minimal_claim(
+            readiness="SUPPORTED_EXPERIMENTAL",
+            required_capabilities=["melody_motif"],
+        ),
+    )
+    monkeypatch.setattr(claim_sufficiency, "_CONTRACT_PATH", path)
+
+    with pytest.raises(ValueError, match="unpromoted capabilities"):
+        load_claim_sufficiency_contract()
+
+
+def test_experimental_claim_must_actually_depend_on_experimental_capability(
+    monkeypatch, tmp_path
+):
+    path = _write_contract(
+        tmp_path,
+        _minimal_claim(readiness="SUPPORTED_EXPERIMENTAL", required_capabilities=["key"]),
+    )
+    monkeypatch.setattr(claim_sufficiency, "_CONTRACT_PATH", path)
+
+    with pytest.raises(ValueError, match="at least one experimental capability"):
         load_claim_sufficiency_contract()
 
 
