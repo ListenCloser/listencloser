@@ -15,7 +15,7 @@ type RequestState = "idle" | "loading" | "error";
 
 function performanceRange(selection: MusicalSelection | null): PassageRange | null {
   const range = selection?.timeRange;
-  if (!range || range.domain !== "performance") return null;
+  if (!range || range.domain !== "performance" || selection?.provenance.timeExact !== true) return null;
   if (!Number.isFinite(range.start) || !Number.isFinite(range.end)) return null;
   if (range.start < 0 || range.end <= range.start) return null;
   return { start: range.start, end: range.end };
@@ -195,7 +195,7 @@ export default function PassageCompare() {
           <p>
             {comparisonRange
               ? `Selected passage B: ${passageLabel(comparisonRange)}.`
-              : "Select a different passage in the Waveform or Piano Roll to use as passage B."}
+              : "Select a different exact passage in the Waveform or Piano Roll to use as passage B."}
           </p>
           {unavailableMessage && <p>{unavailableMessage}</p>}
           {requestState === "error" && <p>The comparison request could not be completed.</p>}
@@ -210,9 +210,11 @@ export default function PassageCompare() {
                 {requestState === "loading" ? "Checking evidence…" : "Check against selected passage"}
               </button>
             )}
-            <button type="button" className="inspector-breakdown-action" onClick={captureReference}>
-              Replace reference
-            </button>
+            {selectedRange && (
+              <button type="button" className="inspector-breakdown-action" onClick={captureReference}>
+                Replace reference
+              </button>
+            )}
             <button type="button" className="inspector-breakdown-action" onClick={resetComparison}>
               Cancel
             </button>
