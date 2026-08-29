@@ -6,6 +6,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from .models import Reference
+from .structure_metrics import compute_structure_boundary_metrics
+
+
+def _round4(value: float | None) -> float | None:
+    return round(value, 4) if value is not None else None
 
 
 @dataclass(frozen=True)
@@ -13,9 +18,20 @@ class AnalysisMetrics:
     key_correct: bool | None = None
     bpm_absolute_error: float | None = None
     meter_correct: bool | None = None
+    # Primary section fields mirror MIREX/SongFormBench untrimmed hit rates.
+    # Trimmed companions measure only interior structural boundaries.
     section_precision: float | None = None
     section_recall: float | None = None
     section_f1: float | None = None
+    section_precision_3s: float | None = None
+    section_recall_3s: float | None = None
+    section_f1_3s: float | None = None
+    section_precision_trimmed: float | None = None
+    section_recall_trimmed: float | None = None
+    section_f1_trimmed: float | None = None
+    section_precision_trimmed_3s: float | None = None
+    section_recall_trimmed_3s: float | None = None
+    section_f1_trimmed_3s: float | None = None
     chord_precision: float | None = None
     chord_recall: float | None = None
     chord_f1: float | None = None
@@ -27,20 +43,21 @@ class AnalysisMetrics:
                 round(self.bpm_absolute_error, 3) if self.bpm_absolute_error is not None else None
             ),
             "meter_correct": self.meter_correct,
-            "section_precision": (
-                round(self.section_precision, 4) if self.section_precision is not None else None
-            ),
-            "section_recall": (
-                round(self.section_recall, 4) if self.section_recall is not None else None
-            ),
-            "section_f1": (round(self.section_f1, 4) if self.section_f1 is not None else None),
-            "chord_precision": (
-                round(self.chord_precision, 4) if self.chord_precision is not None else None
-            ),
-            "chord_recall": (
-                round(self.chord_recall, 4) if self.chord_recall is not None else None
-            ),
-            "chord_f1": (round(self.chord_f1, 4) if self.chord_f1 is not None else None),
+            "section_precision": _round4(self.section_precision),
+            "section_recall": _round4(self.section_recall),
+            "section_f1": _round4(self.section_f1),
+            "section_precision_3s": _round4(self.section_precision_3s),
+            "section_recall_3s": _round4(self.section_recall_3s),
+            "section_f1_3s": _round4(self.section_f1_3s),
+            "section_precision_trimmed": _round4(self.section_precision_trimmed),
+            "section_recall_trimmed": _round4(self.section_recall_trimmed),
+            "section_f1_trimmed": _round4(self.section_f1_trimmed),
+            "section_precision_trimmed_3s": _round4(self.section_precision_trimmed_3s),
+            "section_recall_trimmed_3s": _round4(self.section_recall_trimmed_3s),
+            "section_f1_trimmed_3s": _round4(self.section_f1_trimmed_3s),
+            "chord_precision": _round4(self.chord_precision),
+            "chord_recall": _round4(self.chord_recall),
+            "chord_f1": _round4(self.chord_f1),
         }
 
 
@@ -65,26 +82,26 @@ def compute_analysis_metrics(
         meter_correct = predicted_meter.strip() == reference.meter.strip()
 
     section_p = section_r = section_f1 = None
-    if reference.sections and predicted_sections:
-        ref_labels = [
-            (s["start"], s["end"], s.get("label", ""))
-            for s in reference.sections
-            if "start" in s and "end" in s
-        ]
-        pred_labels = [(s["start"], s["end"], s.get("label", "")) for s in predicted_sections]
-        matched = sum(
-            1
-            for r in ref_labels
-            for p in pred_labels
-            if abs(r[0] - p[0]) <= 1.0 and abs(r[1] - p[1]) <= 1.0
+    section_p3 = section_r3 = section_f13 = None
+    section_tp = section_tr = section_tf1 = None
+    section_tp3 = section_tr3 = section_tf13 = None
+    if reference.sections:
+        boundary_metrics = compute_structure_boundary_metrics(
+            predicted_sections,
+            reference.sections,
         )
-        section_p = matched / len(pred_labels) if pred_labels else 0.0
-        section_r = matched / len(ref_labels) if ref_labels else 0.0
-        section_f1 = (
-            2 * section_p * section_r / (section_p + section_r)
-            if (section_p + section_r) > 0
-            else 0.0
-        )
+        section_p = boundary_metrics.precision_05
+        section_r = boundary_metrics.recall_05
+        section_f1 = boundary_metrics.f1_05
+        section_p3 = boundary_metrics.precision_3
+        section_r3 = boundary_metrics.recall_3
+        section_f13 = boundary_metrics.f1_3
+        section_tp = boundary_metrics.precision_trimmed_05
+        section_tr = boundary_metrics.recall_trimmed_05
+        section_tf1 = boundary_metrics.f1_trimmed_05
+        section_tp3 = boundary_metrics.precision_trimmed_3
+        section_tr3 = boundary_metrics.recall_trimmed_3
+        section_tf13 = boundary_metrics.f1_trimmed_3
 
     chord_p = chord_r = chord_f1 = None
     if reference.chords:
@@ -106,6 +123,15 @@ def compute_analysis_metrics(
         section_precision=section_p,
         section_recall=section_r,
         section_f1=section_f1,
+        section_precision_3s=section_p3,
+        section_recall_3s=section_r3,
+        section_f1_3s=section_f13,
+        section_precision_trimmed=section_tp,
+        section_recall_trimmed=section_tr,
+        section_f1_trimmed=section_tf1,
+        section_precision_trimmed_3s=section_tp3,
+        section_recall_trimmed_3s=section_tr3,
+        section_f1_trimmed_3s=section_tf13,
         chord_precision=chord_p,
         chord_recall=chord_r,
         chord_f1=chord_f1,
