@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAuth } from "@/components/AuthProvider";
 import TabStrip from "@/components/ui/TabStrip";
 import { availableRepresentations, type RepresentationId } from "@/lib/representations";
-import { useLibraryProject, useProjectWorks } from "@/lib/server-state";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
@@ -57,15 +55,7 @@ function WorkspaceLoadingSkeleton() {
 }
 
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
-  const { user } = useAuth();
   const { workspace, requestImport, setActiveRepresentation } = useWorkspace();
-  const projectQuery = useLibraryProject(signedIn ? user?.id ?? "" : "");
-  const projectId = projectQuery.data?.id ?? "";
-  const worksQuery = useProjectWorks(projectId);
-  const durableWorks = worksQuery.data ?? [];
-  const libraryLoading = signedIn && (projectQuery.isPending || (Boolean(projectId) && worksQuery.isPending));
-  const librarySettled = signedIn && !projectQuery.isPending && !worksQuery.isPending && !projectQuery.isError && !worksQuery.isError;
-  const libraryHasWorks = durableWorks.length > 0;
   const [mountedViews, setMountedViews] = useState<Set<RepresentationId>>(() => new Set());
   const [orientationCue, setOrientationCue] = useState(false);
   const orientationFrame = useRef<number | null>(null);
@@ -138,13 +128,14 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     });
   }, [activeView]);
 
-  if (workspace.isLoadingWork || libraryLoading) return <WorkspaceLoadingSkeleton />;
+  if (workspace.isLoadingWork) return <WorkspaceLoadingSkeleton />;
   if (!available.length || !activeView) {
-    // No hydrated representation is not the same thing as an empty library.
-    // During selection, deletion recovery, or a transient Work refresh, keep a
-    // neutral opening state as long as durable Works still exist. The first-run
-    // import CTA is reserved for a settled, genuinely empty library.
-    if (libraryHasWorks || !librarySettled) return <WorkspaceLoadingSkeleton />;
+    // A selected durable Work can temporarily have no hydrated representation
+    // while its bundle opens. That is not the first-run empty-library state.
+    // HomeContent keeps activeWorkId non-null for every non-empty-library
+    // transition, including delete-with-siblings; only a settled null selection
+    // may expose the signed-in import CTA.
+    if (signedIn && workspace.activeWorkId) return <WorkspaceLoadingSkeleton />;
     return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
   }
 
