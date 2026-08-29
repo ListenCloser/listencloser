@@ -1,7 +1,15 @@
-"""Source separation metrics using mir_eval."""
+"""Objective source-separation metrics.
+
+The stage-1 harness exposed legacy BSS Eval helpers but did not wire them to a
+reference-stem corpus.  This module keeps those helpers for compatibility and
+adds a deterministic SI-SDR comparison that answers a more useful question for
+#334: does the separated stem move closer to the isolated reference than the
+original mixture did?
+"""
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,11 +32,110 @@ class SeparationMetrics:
         }
 
 
+@dataclass(frozen=True)
+class SeparationQualityDelta:
+    """Objective gain from mixture audio to a separated stem."""
+
+    mixture_si_sdr_db: float
+    stem_si_sdr_db: float
+
+    @property
+    def improvement_db(self) -> float:
+        return self.stem_si_sdr_db - self.mixture_si_sdr_db
+
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "mixture_si_sdr_db": round(self.mixture_si_sdr_db, 3),
+            "stem_si_sdr_db": round(self.stem_si_sdr_db, 3),
+            "improvement_db": round(self.improvement_db, 3),
+        }
+
+
+def _as_channel_first(audio: np.ndarray) -> np.ndarray:
+    samples = np.asarray(audio, dtype=np.float64)
+    if samples.ndim == 1:
+        return samples.reshape(1, -1)
+    if samples.ndim != 2:
+        raise ValueError(f"Unsupported audio rank: {samples.ndim}")
+
+    if samples.shape[0] <= 8 and samples.shape[0] < samples.shape[1]:
+        return samples
+    if samples.shape[1] <= 8 and samples.shape[1] < samples.shape[0]:
+        return samples.T
+    raise ValueError(f"Ambiguous audio channel layout: {samples.shape}")
+
+
+def compute_si_sdr(
+    estimated: np.ndarray,
+    reference: np.ndarray,
+    epsilon: float = 1e-8,
+) -> float | None:
+    """Compute mean scale-invariant SDR in dB.
+
+    Inputs may be mono, channel-first, or channel-last. If mixture/reference
+    channel counts differ, both are folded to mono so that channel layout does
+    not masquerade as separation quality. Silent reference channels are omitted;
+    a completely silent reference is unscored.
+    """
+    estimated_channels = _as_channel_first(estimated)
+    reference_channels = _as_channel_first(reference)
+    sample_count = min(estimated_channels.shape[-1], reference_channels.shape[-1])
+    if sample_count == 0:
+        return None
+
+    estimated_channels = estimated_channels[..., :sample_count]
+    reference_channels = reference_channels[..., :sample_count]
+
+    if estimated_channels.shape[0] != reference_channels.shape[0]:
+        estimated_channels = estimated_channels.mean(axis=0, keepdims=True)
+        reference_channels = reference_channels.mean(axis=0, keepdims=True)
+
+    scores: list[float] = []
+    for estimated_channel, reference_channel in zip(
+        estimated_channels,
+        reference_channels,
+        strict=True,
+    ):
+        estimated_channel = estimated_channel - np.mean(estimated_channel)
+        reference_channel = reference_channel - np.mean(reference_channel)
+        reference_energy = float(np.dot(reference_channel, reference_channel))
+        if reference_energy <= epsilon:
+            continue
+
+        scale = float(np.dot(estimated_channel, reference_channel)) / (
+            reference_energy + epsilon
+        )
+        target = scale * reference_channel
+        residual = estimated_channel - target
+        target_energy = float(np.dot(target, target))
+        residual_energy = float(np.dot(residual, residual))
+        ratio = (target_energy + epsilon) / (residual_energy + epsilon)
+        scores.append(10.0 * math.log10(ratio))
+
+    return float(np.mean(scores)) if scores else None
+
+
+def compare_si_sdr_mixture_vs_stem(
+    mixture: np.ndarray,
+    estimated_stem: np.ndarray,
+    reference_stem: np.ndarray,
+) -> SeparationQualityDelta | None:
+    """Measure how much separation improves SI-SDR against a reference stem."""
+    mixture_score = compute_si_sdr(mixture, reference_stem)
+    stem_score = compute_si_sdr(estimated_stem, reference_stem)
+    if mixture_score is None or stem_score is None:
+        return None
+    return SeparationQualityDelta(
+        mixture_si_sdr_db=mixture_score,
+        stem_si_sdr_db=stem_score,
+    )
+
+
 def compute_sdr(
     estimated: np.ndarray,
     reference: np.ndarray,
 ) -> float | None:
-    """Compute Signal-to-Distortion Ratio."""
+    """Compute legacy BSS Eval Signal-to-Distortion Ratio."""
     try:
         from mir_eval.separation import bss_eval_sources
 
@@ -41,7 +148,7 @@ def compute_sdr(
         estimated = estimated[..., :min_len]
         reference = reference[..., :min_len]
 
-        sdr, sir, sar, _ = bss_eval_sources(reference, estimated)
+        sdr, _, _, _ = bss_eval_sources(reference, estimated)
         return float(np.mean(sdr))
     except Exception:
         return None
@@ -51,7 +158,7 @@ def compute_sir(
     estimated: np.ndarray,
     reference: np.ndarray,
 ) -> float | None:
-    """Compute Signal-to-Interference Ratio."""
+    """Compute legacy BSS Eval Signal-to-Interference Ratio."""
     try:
         from mir_eval.separation import bss_eval_sources
 
@@ -64,7 +171,7 @@ def compute_sir(
         estimated = estimated[..., :min_len]
         reference = reference[..., :min_len]
 
-        sdr, sir, sar, _ = bss_eval_sources(reference, estimated)
+        _, sir, _, _ = bss_eval_sources(reference, estimated)
         return float(np.mean(sir))
     except Exception:
         return None
@@ -74,7 +181,7 @@ def compute_sar(
     estimated: np.ndarray,
     reference: np.ndarray,
 ) -> float | None:
-    """Compute Signal-to-Artifact Ratio."""
+    """Compute legacy BSS Eval Signal-to-Artifact Ratio."""
     try:
         from mir_eval.separation import bss_eval_sources
 
@@ -87,7 +194,7 @@ def compute_sar(
         estimated = estimated[..., :min_len]
         reference = reference[..., :min_len]
 
-        sdr, sir, sar, _ = bss_eval_sources(reference, estimated)
+        _, _, sar, _ = bss_eval_sources(reference, estimated)
         return float(np.mean(sar))
     except Exception:
         return None
@@ -97,14 +204,10 @@ def compute_separation_metrics(
     estimated: np.ndarray,
     reference: np.ndarray,
 ) -> SeparationMetrics:
-    """Compute all separation metrics."""
-    sdr = compute_sdr(estimated, reference)
-    sir = compute_sir(estimated, reference)
-    sar = compute_sar(estimated, reference)
-
+    """Compute legacy separation metrics for compatibility."""
     return SeparationMetrics(
-        sdr=sdr,
-        sir=sir,
-        sar=sar,
+        sdr=compute_sdr(estimated, reference),
+        sir=compute_sir(estimated, reference),
+        sar=compute_sar(estimated, reference),
         stoi=None,
     )
