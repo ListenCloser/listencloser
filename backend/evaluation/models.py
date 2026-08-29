@@ -45,6 +45,7 @@ class EvalClip:
     split: str | None = None
     source_id: str | None = None
     license: str | None = None
+    audio_provenance: str | None = None
     metrics: list[str] = field(default_factory=list)
     excerpt_start: float | None = None
     excerpt_end: float | None = None
@@ -87,6 +88,7 @@ class EvalClip:
             split=data.get("split"),
             source_id=data.get("source_id"),
             license=data.get("license"),
+            audio_provenance=data.get("audio_provenance"),
             metrics=data.get("metrics", []),
             excerpt_start=data.get("excerpt_start"),
             excerpt_end=data.get("excerpt_end"),
