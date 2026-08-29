@@ -344,9 +344,7 @@ def compare_perceptual_spans(
             continue
         reasons.extend(_series_contract_reasons(feature, series, report))
         subject_values, subject_error = _values_for_span(feature, series, subject_locator)
-        comparison_values, comparison_error = _values_for_span(
-            feature, series, comparison_locator
-        )
+        comparison_values, comparison_error = _values_for_span(feature, series, comparison_locator)
         if subject_error:
             reasons.append(f"subject: {subject_error}")
         if comparison_error:
