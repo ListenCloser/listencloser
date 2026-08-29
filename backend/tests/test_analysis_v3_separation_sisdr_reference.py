@@ -3,11 +3,11 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
+import numpy as np
+import soundfile as sf
 from backend.evaluation.analysis_v3.separation.datasets import babyslakh_reference
 from backend.evaluation.analysis_v3.separation.metrics import si_sdr
 from backend.evaluation.analysis_v3.separation.run_sisdr_reference import _summarize
-import numpy as np
-import soundfile as sf
 
 
 def test_si_sdr_comparison_uses_fast_bss_eval_and_reports_gain(monkeypatch):
