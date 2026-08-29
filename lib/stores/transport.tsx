@@ -139,15 +139,32 @@ export function TransportProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const replaceSources = useCallback((sources: PlaybackSource[], activeId?: string, preservePosition = false) => {
-    sourcesRef.current = sources;
-    const fallbackActive = sources.find((item) => item.id === activeId) ?? sources[0] ?? null;
+    const previousSources = sourcesRef.current;
+    // Same-Work bundle refreshes may mint a fresh signed URL for the same
+    // immutable Version. Keep the already-loaded URL while that Version ID is
+    // unchanged so background processing polls do not look like source changes.
+    const stableSources = preservePosition
+      ? sources.map((source) => {
+          const previous = previousSources.find((item) => item.id === source.id);
+          return previous ? { ...source, url: previous.url } : source;
+        })
+      : sources;
+    sourcesRef.current = stableSources;
+
+    const fallbackActive = stableSources.find((item) => item.id === activeId) ?? stableSources[0] ?? null;
     const active = preservePosition
-      ? (sources.find((item) => item.id === activeSourceIdRef.current) ?? fallbackActive)
+      ? (stableSources.find((item) => item.id === activeSourceIdRef.current) ?? fallbackActive)
       : fallbackActive;
+    const previousActiveId = activeSourceIdRef.current;
+    const sameActiveVersion = preservePosition && previousActiveId !== null && active?.id === previousActiveId;
     const audio = audioRef.current;
     const previousPosition = positionRef.current;
     const wasPlaying = audio ? !audio.paused && !audio.ended : false;
-    if (audio) {
+
+    // Polling the same Work must be a state reconciliation, not a media reload.
+    // Only touch the audio element when the immutable active Version actually
+    // changes (or when opening a different Work with preservePosition=false).
+    if (audio && !sameActiveVersion) {
       audio.pause();
       audio.src = active?.url ?? "";
       if (active) audio.load();
@@ -155,13 +172,13 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     const compareStillValid =
       compareRef.current.aId !== null &&
       compareRef.current.bId !== null &&
-      sources.some((item) => item.id === compareRef.current.aId) &&
-      sources.some((item) => item.id === compareRef.current.bId);
+      stableSources.some((item) => item.id === compareRef.current.aId) &&
+      stableSources.some((item) => item.id === compareRef.current.bId);
     const keepCompare = preservePosition && compareStillValid;
     if (!keepCompare) {
       compareRef.current = { aId: null, bId: null, side: "A" };
     }
-    if (preservePosition && audio && active) {
+    if (preservePosition && audio && active && !sameActiveVersion) {
       audio.addEventListener("loadedmetadata", () => {
         audio.currentTime = Math.min(previousPosition, audio.duration || previousPosition);
         if (wasPlaying) {
@@ -175,7 +192,7 @@ export function TransportProvider({ children }: { children: ReactNode }) {
     positionRef.current = preservePosition ? previousPosition : 0;
     setTransport((prev) => ({
       ...prev,
-      sources,
+      sources: stableSources,
       activeSource: active,
       position: preservePosition ? previousPosition : 0,
       isPlaying: preservePosition ? wasPlaying : false,

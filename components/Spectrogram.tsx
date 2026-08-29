@@ -57,9 +57,16 @@ export default function Spectrogram({
 
   useEffect(() => {
     let cancelled = false;
+    // A new source must never inherit pixels, duration, or drag state from the
+    // prior recording. Keep a neutral canvas until this exact URL is decoded.
+    dataRef.current = null;
+    draggingRef.current = null;
+    setDuration(0);
+    setPreview(null);
+    setStatus("loading");
+    setProgress(0);
+
     const decodeAndCompute = async () => {
-      setStatus("loading");
-      setProgress(0);
       try {
         const buffer = await getDecodedAudio(url);
         const result = await computeSpectrogram(mergedSamples(buffer), buffer.sampleRate, {
@@ -82,8 +89,7 @@ export default function Spectrogram({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const data = dataRef.current;
-    if (!canvas || !data) return;
+    if (!canvas) return;
     const context = canvas.getContext("2d");
     if (!context) return;
     const styles = getComputedStyle(document.documentElement);
@@ -98,6 +104,9 @@ export default function Spectrogram({
     const height = canvas.height;
     context.fillStyle = panel;
     context.fillRect(0, 0, width, height);
+
+    const data = dataRef.current;
+    if (!data) return;
 
     const image = context.createImageData(data.columns, data.bins);
     for (let column = 0; column < data.columns; column += 1) {
@@ -206,10 +215,12 @@ export default function Spectrogram({
         ref={canvasRef}
         className="spectrogram-canvas"
         data-testid="spectrogram-canvas"
+        data-spectrogram-state={status}
         width={900}
         height={420}
         role="slider"
         aria-label="Spectrogram selection"
+        aria-busy={status === "loading"}
         aria-valuetext={duration > 0 ? `${duration.toFixed(1)} seconds` : "Loading spectrogram"}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
