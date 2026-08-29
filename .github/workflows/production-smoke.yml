@@ -159,28 +159,44 @@ jobs:
                       time.sleep(2)
               raise RuntimeError(f"{path} did not become healthy: {last_error}")
 
+          def wait_for_json(path: str, predicate, description: str):
+              last = None
+              for attempt in range(60):
+                  try:
+                      last = json.loads(fetch(path))
+                      if predicate(last):
+                          return last
+                  except (json.JSONDecodeError, ValueError) as exc:
+                      last = repr(exc)
+                  if attempt % 5 == 0:
+                      print(f"waiting for {description}; observed={last}", flush=True)
+                  time.sleep(2)
+              raise RuntimeError(f"{description} did not become ready: {last}")
+
           root = fetch("/")
           if "<html" not in root.lower():
               raise RuntimeError("production alias did not return the frontend document")
 
-          live = json.loads(fetch("/api/health/live"))
-          ready = json.loads(fetch("/api/health/ready"))
-          queue = json.loads(fetch("/api/health/queue"))
-
-          if live.get("status") != "alive" or not live.get("release"):
-              raise RuntimeError(f"unexpected live health: {live}")
-          if expected_release and live.get("release") != expected_release:
-              raise RuntimeError(
-                  f"backend release drift: expected {expected_release}, "
-                  f"observed {live.get('release')}"
-              )
-          if ready.get("status") != "ready":
-              raise RuntimeError(f"unexpected readiness: {ready}")
-          for dependency in ("supabase", "database", "storage"):
-              if ready.get(dependency) is not True:
-                  raise RuntimeError(f"readiness missing {dependency}: {ready}")
-          if queue.get("status") != "ready":
-              raise RuntimeError(f"queue is not ready: {queue}")
+          live = wait_for_json(
+              "/api/health/live",
+              lambda payload: payload.get("status") == "alive"
+              and bool(payload.get("release"))
+              and (expected_release is None or payload.get("release") == expected_release),
+              "live backend health",
+          )
+          ready = wait_for_json(
+              "/api/health/ready",
+              lambda payload: payload.get("status") == "ready"
+              and all(payload.get(name) is True for name in ("supabase", "database", "storage")),
+              "backend dependency readiness",
+          )
+          queue = wait_for_json(
+              "/api/health/queue",
+              lambda payload: payload.get("status") == "ready"
+              and int(payload.get("workers") or 0) > 0
+              and int(payload.get("stale_leases") or 0) == 0,
+              "worker queue readiness",
+          )
 
           print(
               "production smoke passed:",
@@ -188,6 +204,9 @@ jobs:
                   "backend_release": live["release"],
                   "workers": queue.get("workers"),
                   "expected_release": expected_release,
+                  "dependencies": {
+                      name: ready.get(name) for name in ("supabase", "database", "storage")
+                  },
               },
           )
           PY
