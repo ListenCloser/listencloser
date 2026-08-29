@@ -150,14 +150,17 @@ Escalate only for genuine blockers such as:
 - major architecture changes with broad consequences,
 - required secrets/credentials unavailable to the agent.
 
-## 12. Parallel work and the merge lane
+## 12. Parallel work and repository merge automation
 
-Parallel research and implementation branches are encouraged, but merge traffic must be serialized so autonomous agents do not invalidate each other's CI.
+Parallel implementation is the default. Unrelated autonomous agents should not wait for each other merely because another PR is open or because `main` moved.
 
-- Keep at most one PR non-draft / merge-ready at a time. Other parallel PRs stay draft until the active merge-lane PR lands.
-- Refresh the merge-lane branch onto current `main` immediately before its final required-check cycle. Do not repeatedly rebase draft work merely because `main` moves.
-- Once the active PR is on current `main` and its required/relevant evidence is green, merge it promptly before promoting the next PR.
-- Do not merge docs, research, or low-risk cleanup while another runtime/security/data PR is in its final check window; doing so forces expensive revalidation without improving the runtime change.
+- Multiple production PRs may be non-draft and validate concurrently when they own bounded, independent changes.
+- Prefer small PRs with clear ownership domains. Direct same-file edits are an obvious overlap; shared contracts such as `lib/`, API/state layers, backend runtime/database surfaces, dependency/config files, CI, and tests are broader integration surfaces and should be treated more conservatively.
+- Do not reserve broad areas of the repository preemptively. Two leaf UI components, two independent evaluation experiments, or other demonstrably disjoint files may proceed in parallel.
+- A production merge-intended PR opts into repository merge automation by checking `Merge automatically when green` in the PR template. Research, design/reference, experiment-only, or intentionally held PRs leave it unchecked.
+- The protected `Build` remains the evidence gate. After it succeeds, the `Merge Ready` workflow re-checks the PR against the current base branch at merge time.
+- If intervening `main` changes are disjoint leaf work, the repository may merge the green PR without a redundant rebase/CI cycle.
+- If intervening changes touch the same file or a shared/global integration surface, the repository updates the PR branch automatically so the required checks re-run on current `main`.
+- Agents should not manually rebase just because `main` advanced, should not wait for unrelated PRs to merge, and should not act as global merge coordinators. Intervene only when the automated update cannot resolve a genuine conflict or CI exposes a real integration regression.
 - Use the smallest evidence tier that proves the diff. Real-stack E2E is required for critical cross-boundary product/runtime changes, not automatically for static docs, dead-code deletion, or tooling-only edits whose behavior is already covered by build/typecheck/unit/browser checks.
 - A heavyweight optional check may continue after a low-risk PR merges when the required and risk-relevant gates already prove the change; never skip a check that is required by branch protection or materially relevant to the changed behavior.
-- If multiple PRs become ready simultaneously, prioritize production correctness/security/data migrations, then user-facing runtime changes, then tooling/cleanup, then docs/research-only changes.
