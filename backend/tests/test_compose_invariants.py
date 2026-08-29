@@ -1,10 +1,7 @@
 """Docker Compose configuration invariants.
 
-The backend container must receive the LLM provider configuration
-(LLM_BASE_URL, LLM_API_KEY, LLM_MODEL) so the Ask feature can
-reach the configured LLM provider. The worker container does NOT
-need these credentials because no worker-invoked code path touches
-the ask/ package.
+The backend container must receive configuration required by API-only features.
+The worker container should not receive API-only credentials or policy values.
 """
 
 from __future__ import annotations
@@ -29,6 +26,15 @@ def test_backend_service_has_llm_environment_variables() -> None:
             f"Backend service is missing {var} in docker-compose.yml environment. "
             f"The Ask endpoint requires this to reach the LLM provider."
         )
+
+
+def test_backend_service_receives_upload_size_policy() -> None:
+    """Direct-upload authorization must use the configured deployment limit."""
+    compose = _load_compose()
+    backend_env = compose["services"]["backend"]["environment"]
+    assert backend_env["MAX_UPLOAD_BYTES"] == "${MAX_UPLOAD_BYTES:-26214400}", (
+        "Backend service must receive MAX_UPLOAD_BYTES with the documented 25 MB fallback."
+    )
 
 
 def test_worker_service_does_not_have_llm_credentials() -> None:
