@@ -59,7 +59,8 @@ export function measureStructuralBox(group: SVGGraphicsElement): MeasureBox | nu
   const staveBoxes = staveGroups(group)
     .map((stave) => {
       try {
-        return stave.getBBox();
+        const box = stave.getBBox();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
       } catch {
         return null;
       }
