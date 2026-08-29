@@ -102,6 +102,39 @@ jobs:
           uv run python -c "from beat_this.inference import load_checkpoint; load_checkpoint('final0')"
           echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  $HOME/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
 
+      - name: Prepare persistent Numba cache
+        run: |
+          NUMBA_CACHE_DIR="$RUNNER_TEMP/hello-ai-numba-cache/$GITHUB_SHA"
+          mkdir -p "$NUMBA_CACHE_DIR"
+          echo "NUMBA_CACHE_DIR=$NUMBA_CACHE_DIR" >> "$GITHUB_ENV"
+
+      - name: Preseed librosa beat cache before worker switch
+        working-directory: backend
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          import time
+          from pathlib import Path
+
+          from domain.worker_warmup import prewarm_librosa_beat_tracking
+
+          started = time.perf_counter()
+          prewarm_librosa_beat_tracking()
+          duration = time.perf_counter() - started
+          cache_dir = Path(os.environ["NUMBA_CACHE_DIR"])
+          cache_files = sum(1 for path in cache_dir.rglob("*") if path.is_file())
+          if cache_files == 0:
+              raise SystemExit("librosa preseed produced no persistent Numba cache files")
+          record = {
+              "msg": "librosa_beat_preseed_complete",
+              "duration_seconds": round(duration, 6),
+              "cache_files": cache_files,
+          }
+          Path("/tmp/librosa-preseed.json").write_text(json.dumps(record, sort_keys=True))
+          print(json.dumps(record, sort_keys=True))
+          PY
+
       - name: Start backend API
         run: |
           cd backend
@@ -176,6 +209,10 @@ jobs:
           from pathlib import Path
 
           output = []
+          preseed_path = Path('/tmp/librosa-preseed.json')
+          if preseed_path.exists():
+              output.append(json.loads(preseed_path.read_text()))
+
           for line in Path('/tmp/worker.log').read_text().splitlines():
               try:
                   record = json.loads(line)
