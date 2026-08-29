@@ -17,20 +17,23 @@
     "model": "htdemucs",
     "model_signature": "955717e8",
     "inference_shifts": 0,
-    "model_prepare_seconds": 1.738,
-    "checkpoint": {
-      "filename": "955717e8-8726e21a.th",
-      "present_before_load": false,
-      "present_after_load": false
+    "model_prepare_seconds": 0.355,
+    "weight_artifact": {
+      "repository": "adefossez/HTDemucs",
+      "filename": "955717e8.safetensors",
+      "sha256": "d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd",
+      "size_mb": 80.13,
+      "download_seconds": 1.145,
+      "verification": "sha256_fail_closed"
     }
   },
   "sample_rate": 44100,
   "measurements": [
     {
       "audio_duration_seconds": 10.0,
-      "latency_seconds": 12.897,
-      "real_time_factor": 1.2897,
-      "process_max_rss_mb": 1394.29,
+      "latency_seconds": 13.384,
+      "real_time_factor": 1.3384,
+      "process_max_rss_mb": 1420.54,
       "output_shape": [
         4,
         2,
@@ -45,9 +48,9 @@
     },
     {
       "audio_duration_seconds": 30.0,
-      "latency_seconds": 16.462,
-      "real_time_factor": 0.5487,
-      "process_max_rss_mb": 1499.79,
+      "latency_seconds": 16.534,
+      "real_time_factor": 0.5511,
+      "process_max_rss_mb": 1510.75,
       "output_shape": [
         4,
         2,
@@ -62,9 +65,9 @@
     },
     {
       "audio_duration_seconds": 180.0,
-      "latency_seconds": 84.873,
-      "real_time_factor": 0.4715,
-      "process_max_rss_mb": 1767.35,
+      "latency_seconds": 86.394,
+      "real_time_factor": 0.48,
+      "process_max_rss_mb": 1794.07,
       "output_shape": [
         4,
         2,
@@ -82,7 +85,7 @@
     "duration_seconds": 10.0,
     "shifts": 0,
     "first_stem_sha256_equal": true,
-    "repeat_latency_seconds": 5.483
+    "repeat_latency_seconds": 5.611
   },
   "success": true,
   "failures": []
