@@ -254,8 +254,6 @@ def test_persisted_rhythm_density_windows_are_machine_readable(monkeypatch) -> N
     assert window["step_size"] == 1.0
 
 
-
-
 def test_persisted_rhythm_density_keeps_complete_series_and_declares_coverage(
     monkeypatch,
 ) -> None:
