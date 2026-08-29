@@ -21,6 +21,7 @@ import numpy as np
 from .adapters import ADAPTERS, SeparationAdapter
 from .metrics import (
     check_determinism,
+    compare_bass_note_f1_mixture_vs_stem,
     compare_beat_f1_mixture_vs_stem,
     compare_si_sdr_mixture_vs_stem,
     generate_synthetic_audio,
@@ -156,6 +157,8 @@ def run_separation_evaluation(
     candidate: str,
     manifest_path: str,
     device: str = "cpu",
+    *,
+    with_bass_amt: bool = False,
 ) -> dict[str, Any]:
     """Run separation, objective quality, and available downstream comparisons."""
     print(f"\n{'='*60}")
@@ -170,8 +173,12 @@ def run_separation_evaluation(
 
     results: list[dict[str, Any]] = []
     beat_deltas: list[float] = []
+    bass_amt_deltas: list[float] = []
     quality_deltas: dict[str, list[float]] = {}
-    downstream_scored = 0
+    downstream_scored_clip_ids: set[str] = set()
+    beat_scored_clips = 0
+    bass_amt_scored_clips = 0
+    bass_amt_missing_references = 0
     objective_scored_stems = 0
     objective_missing_references = 0
 
@@ -246,7 +253,32 @@ def run_separation_evaluation(
                 if beat_comparison is not None:
                     downstream["beat_f1_drums"] = beat_comparison.to_dict()
                     beat_deltas.append(beat_comparison.delta)
-                    downstream_scored += 1
+                    beat_scored_clips += 1
+                    downstream_scored_clip_ids.add(str(clip["id"]))
+
+            bass = sep_result.get_stem("bass")
+            bass_reference_values = (clip.get("reference_midis") or {}).get("bass") or []
+            if with_bass_amt and bass is not None and bass_reference_values:
+                bass_reference_paths = [
+                    Path(_resolve_path(str(value))) for value in bass_reference_values
+                ]
+                missing_bass_references = [
+                    path for path in bass_reference_paths if not path.is_file()
+                ]
+                if missing_bass_references:
+                    bass_amt_missing_references += len(missing_bass_references)
+                else:
+                    bass_comparison = compare_bass_note_f1_mixture_vs_stem(
+                        audio,
+                        bass,
+                        sr,
+                        bass_reference_paths,
+                    )
+                    if bass_comparison is not None:
+                        downstream["bass_note_f1"] = bass_comparison.to_dict()
+                        bass_amt_deltas.append(bass_comparison.delta)
+                        bass_amt_scored_clips += 1
+                        downstream_scored_clip_ids.add(str(clip["id"]))
 
             row: dict[str, Any] = {
                 "id": clip["id"],
@@ -265,12 +297,17 @@ def run_separation_evaluation(
             print(f"  FAILED {clip['id']}: {e}")
 
     summary: dict[str, Any] = {
-        "downstream_scored_clips": downstream_scored,
+        "downstream_scored_clips": len(downstream_scored_clip_ids),
+        "beat_scored_clips": beat_scored_clips,
+        "bass_amt_scored_clips": bass_amt_scored_clips,
+        "bass_amt_missing_references": bass_amt_missing_references,
         "objective_scored_stems": objective_scored_stems,
         "objective_missing_references": objective_missing_references,
     }
     if beat_deltas:
         summary["beat_f1_drums_delta"] = _summarize_deltas(beat_deltas)
+    if bass_amt_deltas:
+        summary["bass_note_f1_delta"] = _summarize_deltas(bass_amt_deltas)
     if quality_deltas:
         summary["si_sdr_improvement_db_by_stem"] = {
             stem_name: _summarize_deltas(deltas, digits=3)
@@ -294,6 +331,8 @@ def run_candidate(
     manifest_path: str | None = None,
     device: str = "cpu",
     output_dir: str = "results",
+    *,
+    with_bass_amt: bool = False,
 ) -> dict[str, Any]:
     """Run evaluation for a candidate."""
     if manifest_dir is None:
@@ -316,6 +355,7 @@ def run_candidate(
                 candidate,
                 selected_manifest,
                 device,
+                with_bass_amt=with_bass_amt,
             )
 
     os.makedirs(output_dir, exist_ok=True)
@@ -350,9 +390,14 @@ def main() -> None:
         "--manifest",
         default=None,
         help=(
-            "Explicit manifest path. Annotated manifests may include reference_beats "
-            "for downstream beat scoring and reference_stems for objective SI-SDR scoring."
+            "Explicit manifest path. Annotated manifests may include reference_beats, "
+            "reference_stems, and reference_midis."
         ),
+    )
+    parser.add_argument(
+        "--with-bass-amt",
+        action="store_true",
+        help="Also run production Basic Pitch on mixture vs bass stem when bass MIDI exists.",
     )
     parser.add_argument(
         "--device",
@@ -380,6 +425,7 @@ def main() -> None:
                     args.manifest,
                     args.device,
                     args.output_dir,
+                    with_bass_amt=args.with_bass_amt,
                 )
             except Exception as e:
                 print(f"\nFAILED {candidate}: {e}")
@@ -391,6 +437,7 @@ def main() -> None:
             args.manifest,
             args.device,
             args.output_dir,
+            with_bass_amt=args.with_bass_amt,
         )
 
 
