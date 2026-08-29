@@ -8,6 +8,7 @@ import domain.capabilities as capability_module
 from domain.job_worker import JobWorker
 from domain.perceptual_capability import register_perceptual_capability
 from domain.performance_instrumentation import install_understand_instrumentation
+from domain.worker_warmup import prewarm_librosa_beat_tracking
 from observability import configure_logging, init_sentry, init_telemetry
 
 
@@ -16,6 +17,16 @@ def main() -> None:
     logger = logging.getLogger("worker")
     init_telemetry("hello-ai-worker")
     init_sentry(logger)
+
+    # Score's default librosa beat tracker lazily compiles expensive runtime
+    # paths on its first non-empty call. Pay that process-local cold cost before
+    # JobWorker.run() publishes the first heartbeat or claims a user's job.
+    # Warmup is optimization-only: failure must never make the worker unavailable.
+    try:
+        prewarm_librosa_beat_tracking()
+    except Exception:
+        logger.exception("librosa_beat_prewarm_failed")
+
     worker = JobWorker(max_workers=int(os.environ.get("WORKER_CONCURRENCY", "1")))
     install_understand_instrumentation(capability_module)
     capability_module.register_all_capabilities(worker)
