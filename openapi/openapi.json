@@ -1102,6 +1102,32 @@
         "title": "EntityKind",
         "type": "string"
       },
+      "EvidenceRef": {
+        "description": "#371-compatible namespaced reference to one series inside an analysis report.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "namespace": {
+            "const": "perceptual_series",
+            "default": "perceptual_series",
+            "title": "Namespace",
+            "type": "string"
+          },
+          "type": {
+            "const": "external",
+            "default": "external",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "EvidenceRef",
+        "type": "object"
+      },
       "FinalizeUploadBody": {
         "properties": {
           "byte_size": {
@@ -1152,6 +1178,215 @@
           "storage_key"
         ],
         "title": "FinalizeUploadBody",
+        "type": "object"
+      },
+      "GroundedFindingMeasurement": {
+        "description": "One user-facing literal clause tied to the exact evidence reference.",
+        "properties": {
+          "comparison_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Comparison Value"
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Delta"
+          },
+          "direction": {
+            "enum": [
+              "higher",
+              "lower",
+              "mixed",
+              "unchanged"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "feature": {
+            "enum": [
+              "rms",
+              "spectral_centroid",
+              "relative_band_energy",
+              "onset_strength"
+            ],
+            "title": "Feature",
+            "type": "string"
+          },
+          "normalization": {
+            "title": "Normalization",
+            "type": "string"
+          },
+          "subject_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Subject Value"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "support_ref": {
+            "$ref": "#/components/schemas/EvidenceRef"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "support_ref",
+          "feature",
+          "direction",
+          "summary",
+          "unit",
+          "normalization",
+          "subject_value",
+          "comparison_value",
+          "delta"
+        ],
+        "title": "GroundedFindingMeasurement",
+        "type": "object"
+      },
+      "GroundedRelationFinding": {
+        "description": "Relation-first product finding with enough support to audit every clause.",
+        "properties": {
+          "available_actions": {
+            "items": {
+              "enum": [
+                "focus",
+                "compare",
+                "evidence"
+              ],
+              "type": "string"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
+          "comparison_locator": {
+            "$ref": "#/components/schemas/SecondsSpanLocator"
+          },
+          "evidence_summary": {
+            "title": "Evidence Summary",
+            "type": "string"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "perceptual_span_comparison",
+            "default": "perceptual_span_comparison",
+            "title": "Kind",
+            "type": "string"
+          },
+          "maturity": {
+            "const": "production",
+            "default": "production",
+            "title": "Maturity",
+            "type": "string"
+          },
+          "measurements": {
+            "items": {
+              "$ref": "#/components/schemas/GroundedFindingMeasurement"
+            },
+            "title": "Measurements",
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "title": "Provenance",
+            "type": "object"
+          },
+          "relation_kind": {
+            "const": "compare",
+            "default": "compare",
+            "title": "Relation Kind",
+            "type": "string"
+          },
+          "source_relation_id": {
+            "format": "uuid",
+            "title": "Source Relation Id",
+            "type": "string"
+          },
+          "subject_locator": {
+            "$ref": "#/components/schemas/SecondsSpanLocator"
+          },
+          "sufficiency": {
+            "$ref": "#/components/schemas/RelationSufficiency"
+          },
+          "support_refs": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "title": "Support Refs",
+            "type": "array"
+          },
+          "trust_class": {
+            "const": "deterministic_derived",
+            "default": "deterministic_derived",
+            "title": "Trust Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_relation_id",
+          "subject_locator",
+          "comparison_locator",
+          "support_refs",
+          "measurements",
+          "sufficiency",
+          "headline",
+          "evidence_summary",
+          "available_actions"
+        ],
+        "title": "GroundedRelationFinding",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1689,6 +1924,89 @@
         "title": "NoteEntity",
         "type": "object"
       },
+      "PerceptualSpanComparisonBody": {
+        "description": "Compare two explicit seconds-authoritative spans in one audio Version.",
+        "properties": {
+          "comparison_end_seconds": {
+            "title": "Comparison End Seconds",
+            "type": "number"
+          },
+          "comparison_start_seconds": {
+            "title": "Comparison Start Seconds",
+            "type": "number"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          },
+          "subject_end_seconds": {
+            "title": "Subject End Seconds",
+            "type": "number"
+          },
+          "subject_start_seconds": {
+            "title": "Subject Start Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "subject_start_seconds",
+          "subject_end_seconds",
+          "comparison_start_seconds",
+          "comparison_end_seconds"
+        ],
+        "title": "PerceptualSpanComparisonBody",
+        "type": "object"
+      },
+      "PerceptualSpanComparisonResponse": {
+        "properties": {
+          "evidence_report_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Report Version Id"
+          },
+          "finding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroundedRelationFinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "unavailable",
+              "withheld",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PerceptualSpanComparisonResponse",
+        "type": "object"
+      },
       "ProcessingStatus": {
         "properties": {
           "completed_at": {
@@ -1785,6 +2103,72 @@
           "name"
         ],
         "title": "Project",
+        "type": "object"
+      },
+      "RelationSufficiency": {
+        "properties": {
+          "gate": {
+            "const": "USER_SELECTION_CAN_SUBSTITUTE_STRUCTURE",
+            "default": "USER_SELECTION_CAN_SUBSTITUTE_STRUCTURE",
+            "title": "Gate",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "experimental",
+              "withhold"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RelationSufficiency",
+        "type": "object"
+      },
+      "SecondsSpanLocator": {
+        "description": "Seconds-authoritative span whose validity is decided by sufficiency logic.",
+        "properties": {
+          "authority": {
+            "default": "explicit",
+            "enum": [
+              "explicit",
+              "user_selected",
+              "trusted"
+            ],
+            "title": "Authority",
+            "type": "string"
+          },
+          "end_seconds": {
+            "title": "End Seconds",
+            "type": "number"
+          },
+          "source_artifact_version_id": {
+            "format": "uuid",
+            "title": "Source Artifact Version Id",
+            "type": "string"
+          },
+          "start_seconds": {
+            "title": "Start Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "start_seconds",
+          "end_seconds",
+          "source_artifact_version_id"
+        ],
+        "title": "SecondsSpanLocator",
         "type": "object"
       },
       "Span": {
@@ -3328,6 +3712,62 @@
           }
         ],
         "summary": "Get Work Bundle"
+      }
+    },
+    "/api/v1/works/{work_id}/relations/perceptual-span-comparison": {
+      "post": {
+        "description": "Compare two user-selected spans using persisted, lineage-checked evidence.",
+        "operationId": "compare_perceptual_spans_api_v1_works__work_id__relations_perceptual_span_comparison_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PerceptualSpanComparisonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerceptualSpanComparisonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Compare Perceptual Spans"
       }
     },
     "/health": {
