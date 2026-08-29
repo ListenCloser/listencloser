@@ -189,7 +189,7 @@ status_lanes() {
     if [[ -n "$repo" ]]; then
       printf '\nOpen PRs from agent/* branches:\n'
       local prs
-      prs="$(gh pr list --repo "$repo" --state open --limit 100 \
+      prs="$(gh pr list --repo "$repo" --state open --limit 500 \
         --json number,headRefName,title,url \
         --jq '.[] | select(.headRefName | startswith("agent/")) | "#\(.number)\t\(.headRefName)\t\(.title)\t\(.url)"' \
         2>/dev/null || true)"
@@ -218,7 +218,7 @@ paths_overlap() {
   done
 
   local rows
-  rows="$(gh pr list --repo "$repo" --state open --limit 100 \
+  rows="$(gh pr list --repo "$repo" --state open --limit 500 \
     --json number,headRefName,title,url \
     --jq '.[] | [.number, .headRefName, .title, .url] | @tsv')"
 
@@ -227,7 +227,9 @@ paths_overlap() {
   while IFS=$'\t' read -r number branch title url; do
     [[ -n "$number" ]] || continue
     local files
-    files="$(gh pr view "$number" --repo "$repo" --json files --jq '.files[].path' 2>/dev/null || true)"
+    if ! files="$(gh pr view "$number" --repo "$repo" --json files --jq '.files[].path' 2>/dev/null)"; then
+      die "could not read changed files for open PR #$number; overlap result would be incomplete"
+    fi
     [[ -n "$files" ]] || continue
 
     local -a hits=()
