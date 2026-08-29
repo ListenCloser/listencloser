@@ -13,6 +13,7 @@ import json
 import os
 import platform
 import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -133,6 +134,7 @@ def run_operational_evaluation(
         adapter.load()
         result["load_success"] = True
         result["load_time_seconds"] = round(time.monotonic() - t0, 2)
+        result["provenance"] = asdict(adapter.metadata())
     except Exception as e:
         result["load_success"] = False
         result["load_error"] = str(e)
@@ -143,7 +145,13 @@ def run_operational_evaluation(
         metrics = measure_latency(adapter, audio, 44100, num_runs=1 if duration >= 180 else 2)
         result[f"cpu_latency_{duration_label}"] = {
             "latency_seconds": metrics.latency_seconds,
+            "latency_min": metrics.latency_min,
+            "latency_max": metrics.latency_max,
+            "latency_p95": metrics.latency_p95,
+            "real_time_factor": metrics.real_time_factor,
             "audio_duration_seconds": metrics.audio_duration_seconds,
+            "process_max_rss_mb": metrics.process_max_rss_mb,
+            "cuda_peak_allocated_mb": metrics.cuda_peak_allocated_mb,
             "error": metrics.error,
         }
 
@@ -170,6 +178,7 @@ def run_separation_evaluation(
 
     adapter = _load_adapter(candidate, device)
     adapter.load()
+    candidate_provenance = asdict(adapter.metadata())
 
     results: list[dict[str, Any]] = []
     beat_deltas: list[float] = []
@@ -190,7 +199,9 @@ def run_separation_evaluation(
 
         try:
             audio, sr = _load_audio(audio_path, target_sr=44100)
+            started = time.monotonic()
             sep_result = adapter.separate(audio, sr)
+            separation_latency = time.monotonic() - started
 
             if not sep_result.ok:
                 results.append(
@@ -283,8 +294,10 @@ def run_separation_evaluation(
             row: dict[str, Any] = {
                 "id": clip["id"],
                 "stems": stem_metrics,
-                "latency_seconds": sep_result.latency_seconds,
+                "latency_seconds": round(separation_latency, 4),
             }
+            if sep_result.metadata:
+                row["separation_metadata"] = sep_result.metadata
             if objective_quality:
                 row["objective_quality"] = objective_quality
             if downstream:
@@ -318,6 +331,7 @@ def run_separation_evaluation(
         "candidate": candidate,
         "task": "separation",
         "manifest": manifest.get("name", Path(manifest_path).name),
+        "candidate_provenance": candidate_provenance,
         "num_clips": len(results),
         "summary": summary,
         "results": results,
