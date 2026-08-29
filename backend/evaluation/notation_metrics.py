@@ -10,9 +10,13 @@ from typing import Any
 class NotationDiagnostics:
     parse_valid: bool
     total_note_count: int
+    pitched_note_count: int
+    logical_pitched_note_count: int
     measure_count: int
     short_note_count: int
     tie_count: int
+    tie_start_count: int
+    tie_fragment_overhead: float | None
     tuplet_count: int
     voice_count: int
     measure_duration_min: float | None
@@ -24,9 +28,17 @@ class NotationDiagnostics:
         return {
             "parse_valid": self.parse_valid,
             "total_note_count": self.total_note_count,
+            "pitched_note_count": self.pitched_note_count,
+            "logical_pitched_note_count": self.logical_pitched_note_count,
             "measure_count": self.measure_count,
             "short_note_count": self.short_note_count,
             "tie_count": self.tie_count,
+            "tie_start_count": self.tie_start_count,
+            "tie_fragment_overhead": (
+                round(self.tie_fragment_overhead, 3)
+                if self.tie_fragment_overhead is not None
+                else None
+            ),
             "tuplet_count": self.tuplet_count,
             "voice_count": self.voice_count,
             "measure_duration_min": (
@@ -49,7 +61,14 @@ class NotationDiagnostics:
 
 
 def diagnose_musicxml(musicxml_bytes: bytes) -> NotationDiagnostics:
-    """Inspect a MusicXML string for structural diagnostics."""
+    """Inspect a MusicXML string for structural diagnostics.
+
+    ``tie_start_count`` is the number of extra written fragments introduced by
+    tie chains: each connection from one written pitch fragment to the next has
+    exactly one MusicXML ``<tie type="start">``. Subtracting those starts from
+    the pitched written-note count reconstructs the number of logical pitched
+    notes without guessing at note durations.
+    """
     import math
     import re
 
@@ -65,6 +84,8 @@ def diagnose_musicxml(musicxml_bytes: bytes) -> NotationDiagnostics:
 
     notes = re.findall(r"<note[ >]", text)
     total_note_count = len(notes)
+    note_blocks = re.findall(r"<note\b[^>]*>.*?</note>", text, re.DOTALL)
+    pitched_note_count = sum(1 for block in note_blocks if re.search(r"<pitch\b", block))
 
     # Count measures per part, not total. Grand-staff scores have 1 part with
     # 2 staves; non-grand-staff scores may have multiple parts. All parts in a
@@ -83,6 +104,15 @@ def diagnose_musicxml(musicxml_bytes: bytes) -> NotationDiagnostics:
     )
 
     tie_count = len(re.findall(r"<tie\b", text))
+    tie_start_count = len(
+        re.findall(r"<tie\b[^>]*\btype=[\"']start[\"'][^>]*>", text)
+    )
+    logical_pitched_note_count = max(0, pitched_note_count - tie_start_count)
+    tie_fragment_overhead = (
+        tie_start_count / logical_pitched_note_count
+        if logical_pitched_note_count > 0
+        else None
+    )
     tuplet_count = len(re.findall(r"<tuplet", text))
     voice_count = len(set(re.findall(r"<voice>(\d+)</voice>", text)))
 
@@ -106,9 +136,13 @@ def diagnose_musicxml(musicxml_bytes: bytes) -> NotationDiagnostics:
     return NotationDiagnostics(
         parse_valid=parse_valid,
         total_note_count=total_note_count,
+        pitched_note_count=pitched_note_count,
+        logical_pitched_note_count=logical_pitched_note_count,
         measure_count=measure_count,
         short_note_count=short_note_count,
         tie_count=tie_count,
+        tie_start_count=tie_start_count,
+        tie_fragment_overhead=tie_fragment_overhead,
         tuplet_count=tuplet_count,
         voice_count=voice_count,
         measure_duration_min=dur_min,
