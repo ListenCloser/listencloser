@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    TORCH_HOME=/app/.cache/torch
 
 RUN uv sync --locked --no-dev
 
@@ -28,6 +29,15 @@ RUN if [ "$(uname -m)" = "aarch64" ]; then \
     fi \
     && /app/.venv/bin/python -c "from basic_pitch import ICASSP_2022_MODEL_PATH; from basic_pitch.inference import predict; assert ICASSP_2022_MODEL_PATH"
 
+# Beat This otherwise downloads its ~78 MB final0 checkpoint on the first user
+# analysis via torch.hub. Bake the exact model into the image so a fresh worker
+# does not depend on external network availability or spend the request budget
+# downloading weights. Keep the digest pinned because the upstream URL is not
+# content-addressed.
+RUN /app/.venv/bin/python -c "from beat_this.inference import load_checkpoint; load_checkpoint('final0')" \
+    && sha256sum /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt \
+    && echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
+
 
 FROM python:3.11-slim
 
@@ -38,7 +48,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+COPY --from=builder /app/.cache /app/.cache
+ENV PATH="/app/.venv/bin:$PATH" \
+    TORCH_HOME=/app/.cache/torch
 
 COPY . .
 
