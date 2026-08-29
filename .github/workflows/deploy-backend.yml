@@ -18,6 +18,7 @@ on:
       - 'backend/docker-compose.yml'
       - '.github/workflows/deploy-backend.yml'
       - 'scripts/deploy.sh'
+      - 'scripts/deploy-preflight.sh'
       - 'supabase/migrations/**'
 
 concurrency:
@@ -100,6 +101,7 @@ jobs:
           host: ${{ secrets.ORACLE_VM_HOST }}
           username: ${{ secrets.ORACLE_VM_USER }}
           key: ${{ secrets.ORACLE_VM_SSH_KEY }}
+          command_timeout: 18m
           envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA,LLM_BASE_URL,LLM_API_KEY,LLM_MODEL,OTEL_EXPORTER_OTLP_ENDPOINT,OTEL_EXPORTER_OTLP_HEADERS,BACKEND_IMAGE_REPOSITORY,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -euo pipefail
@@ -115,7 +117,8 @@ jobs:
             git cat-file -e "${DEPLOY_SHA}^{commit}"
             git reset --hard "$DEPLOY_SHA"
             test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
-            sudo chmod +x scripts/deploy.sh
+            sudo chmod +x scripts/deploy-preflight.sh scripts/deploy.sh
+            scripts/deploy-preflight.sh
             exec scripts/deploy.sh
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
