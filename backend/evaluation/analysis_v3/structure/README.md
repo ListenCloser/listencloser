@@ -5,101 +5,79 @@ It depends on the boundary metric contract introduced by #505.
 
 ## Why this is isolated
 
-Structure candidates currently have very different runtime stacks:
-
-- `allin1` can be imported directly in a dedicated research environment;
-- SongFormer uses its own research stack, including MuQ, MusicFM, SongFormer checkpoints/config,
-  and the upstream inference/post-processing code;
-- future candidates may expose a CLI rather than a Python package.
-
-Do not add those stacks to the production backend lock just to benchmark them.
+Structure candidates have very different runtime stacks. Do not add All-In-One, SongFormer, MuQ,
+MusicFM, or research checkpoints to the production backend lock just to benchmark them.
 
 ## Candidates
 
 ### `allin1`
 
-The adapter lazily imports the upstream package. The default checkpoint is `harmonix-all` and can
-be changed with `STRUCTURE_ALLIN1_MODEL`.
+The adapter lazily imports the upstream package in a dedicated research environment. The default
+checkpoint is `harmonix-all`, configurable with `STRUCTURE_ALLIN1_MODEL`.
 
-`harmonix-all` must not be treated as independent held-out evidence on ordinary HarmonixSet rows:
-it is an ensemble across HarmonixSet folds. The runner therefore withholds matching dataset-family
-rows by default.
+`harmonix-all` is an ensemble across HarmonixSet folds. The runner therefore treats matching
+HarmonixSet-family rows as training-overlapping unless explicit held-out provenance says otherwise.
+
+### `songformer`
+
+The adapter mirrors the official Hugging Face one-click contract:
+
+1. use a configured local snapshot or materialize `ASLP-lab/SongFormer`;
+2. add the snapshot to `sys.path` and set `SONGFORMER_LOCAL_DIR`;
+3. load with `AutoModel.from_pretrained(..., trust_remote_code=True)`;
+4. pass the audio filepath to the remote-code model;
+5. normalize the returned `{start, end, label}` segments.
+
+This remains research-only. Remote-code trust, checkpoint/commercial-use licensing, CPU/ARM
+feasibility, model-load cost, RAM/VRAM, and training-corpus overlap remain adoption gates.
+
+The default provenance conservatively marks HarmonixSet as training-overlapping. Checkpoint-specific
+published split evidence can be supplied with the `STRUCTURE_SONGFORMER_*` provenance environment
+variables before treating any same-family result as independent.
 
 ### `external_json`
 
-This adapter runs a command with `shell=False` and expects JSON on stdout. It is the preferred seam
-for heavyweight research systems such as SongFormer.
+This generic fallback runs a candidate command with `shell=False` and expects a JSON list of segment
+dicts, or `{"segments": [...]}`, on stdout. It is useful for heavyweight or non-Python systems that
+should remain in their own environment.
 
-Set:
+## SongFormBench materialization
 
-```bash
-export STRUCTURE_EXTERNAL_NAME=songformer
-export STRUCTURE_EXTERNAL_COMMAND='python /path/to/songformer_wrapper.py {audio}'
-export STRUCTURE_EXTERNAL_REPO='https://github.com/ASLP-lab/SongFormer'
-export STRUCTURE_EXTERNAL_CODE_LICENSE='CC-BY-4.0'
-export STRUCTURE_EXTERNAL_CHECKPOINT='SongFormer.safetensors'
-export STRUCTURE_EXTERNAL_TRAINING_DATASETS='HarmonixSet'
-```
+`datasets/songformbench.py` supports the benchmark's canonical manual index
+`data/SongFormBench.jsonl` as well as timestamp/label text annotations.
 
-The command must print either:
+The canonical index fields used by the upstream dataset loader include `id`, `subset`, `audio_path`,
+`mel_path`, `label_path`, and `labels` containing `start`/`label` rows.
 
-```json
-[
-  {"start": 0.0, "end": 12.4, "label": "intro"},
-  {"start": 12.4, "end": 31.8, "label": "verse"}
-]
-```
+Audio is **never downloaded or reconstructed implicitly**. Only already-materialized local audio is
+placed in a manifest. Missing audio is reported together with the expected mel path. Every clip also
+records `audio_provenance` as one of:
 
-or:
+- `original`;
+- `mel_reconstruction`;
+- `local_unknown`.
 
-```json
-{"segments": [{"start": 0.0, "end": 12.4}]}
-```
-
-Labels are retained for diagnostics but are **not** scored as validated semantics.
-
-For SongFormer, wrap the released upstream inference implementation rather than inventing a simple
-`AutoModel(audio)` call. The upstream path in `src/SongFormer/infer/infer.py` loads MuQ, MusicFM,
-SongFormer configuration/checkpoint state, and functional-structure post-processing.
-
-## Manifest
-
-The runner reuses `evaluation.models.CorpusManifest`. A scored clip needs:
-
-- an accessible local audio path;
-- `reference.sections` containing `start`/`end` spans;
-- dataset/split provenance when known.
+If mel reconstruction is used, candidates being compared must receive the same reconstruction
+provenance. Do not present reconstructed audio as original source audio.
 
 Example:
 
-```json
-{
-  "name": "structure-held-out-v1",
-  "clips": [
-    {
-      "id": "track-001",
-      "audio": "/data/track-001.wav",
-      "category": "full_mix",
-      "dataset": "IndependentSet",
-      "split": "test",
-      "reference": {
-        "sections": [
-          {"start": 0.0, "end": 14.2},
-          {"start": 14.2, "end": 42.8}
-        ]
-      }
-    }
-  ]
-}
+```bash
+cd backend
+python -m evaluation.analysis_v3.structure.datasets.songformbench \
+  --index /data/SongFormBench/data/SongFormBench.jsonl \
+  --audio-dir /data/SongFormBench \
+  --subset BC \
+  --audio-provenance mel_reconstruction \
+  --output /tmp/songformbench-bc.json
 ```
 
 ## Run
 
 ```bash
-cd backend
 python -m evaluation.analysis_v3.structure.run \
   --candidate allin1 \
-  --manifest /path/to/manifest.json \
+  --manifest /tmp/songformbench-bc.json \
   --device cpu
 ```
 
@@ -107,23 +85,29 @@ or:
 
 ```bash
 python -m evaluation.analysis_v3.structure.run \
-  --candidate external_json \
-  --manifest /path/to/manifest.json \
+  --candidate songformer \
+  --manifest /tmp/songformbench-bc.json \
   --device cuda
 ```
 
-Outputs include per-clip metrics, inference latency, process peak RSS, candidate provenance, and
-macro 0.5 s / 3 s boundary F1. Both task-standard start/end-inclusive scores and trimmed interior
-boundary diagnostics are retained.
+Outputs include per-clip task-standard 0.5 s / 3 s boundary metrics, trimmed interior-boundary
+diagnostics, latency, load time, process peak RSS, candidate provenance, dataset/split/license/audio
+provenance, and explicit withheld/error states.
+
+Labels are retained for diagnostics but are **not** scored as validated section semantics.
 
 ## Training-overlap rule
 
 If candidate metadata names the same dataset family as a clip, the runner emits
-`withheld_training_overlap` and does not even run candidate inference for that row.
+`withheld_training_overlap` and does not run inference for that row by default.
 
-A published held-out split can be declared with the external adapter's held-out metadata fields.
-Otherwise `--allow-training-overlap` is available only for an explicitly labeled in-sample
-diagnostic; such rows are emitted with `evaluation_validity = in_sample_override`.
+A documented held-out dataset/partition can be declared in candidate provenance. Otherwise
+`--allow-training-overlap` is only an explicitly labeled in-sample diagnostic; scored rows carry
+`evaluation_validity = in_sample_override`.
+
+For the first All-In-One cross-model gate, SongFormBench-CN (`BC`) is cleaner than BHX because BHX
+comes from HarmonixSet. SongFormer independence still depends on the exact checkpoint's documented
+training sources; do not assume BC or BHX is held out without that evidence.
 
 ## Non-goals
 
@@ -132,9 +116,10 @@ This harness does not:
 - enable Structure in production;
 - validate `verse`/`chorus` labels;
 - evaluate repeated-section grouping;
-- claim a candidate is production-ready from paper numbers;
-- install All-In-One, SongFormer, or their checkpoints in the production environment.
+- infer model quality from paper numbers;
+- redistribute benchmark audio;
+- change production dependencies, worker routing, schema, or UI.
 
-The next result-bearing step is to materialize a small, legitimate annotated corpus and run the same
-manifest through All-In-One and the real SongFormer upstream pipeline, reporting quality, runtime,
-RAM/VRAM, licensing, and per-track failures before any product exposure.
+The next result-bearing step is a same-manifest All-In-One/SongFormer run on legitimately
+materialized annotated audio, with per-track failures, quality, latency, RAM/VRAM, installation
+friction, licensing, and overlap validity reported before any product exposure.
