@@ -122,6 +122,46 @@ describe("fresh upload Work invalidation", () => {
     expect(workFetches).toBe(2);
   });
 
+  it("invalidates a source-only Work fetch that starts while workflow creation is in flight", async () => {
+    installUploadResult();
+    await uploadArtifact("project-1", new File(["audio"], "source.wav", { type: "audio/wav" }));
+
+    const workflow = deferred<{ workflow: object; job: object }>();
+    const stale = deferred<WorkBundle>();
+    let workFetches = 0;
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
+        return workflow.promise;
+      }
+      if (url === "/api/v1/works/work-1") {
+        workFetches += 1;
+        return workFetches === 1 ? stale.promise : sourceBundle("After workflow commit");
+      }
+      throw new Error(`Unexpected API call: ${url}`);
+    });
+
+    // Workflow creation has invalidated the previous generation, but the server
+    // has not committed the workflow yet. Selecting the newly uploaded Work can
+    // therefore legitimately start a source-only read in this window.
+    const workflowStart = startUnderstandWorkflow("source-1", "project-1", "auto");
+    const duringMutation = getWorkBundle("work-1");
+    expect(workFetches).toBe(1);
+
+    workflow.resolve({ workflow: {}, job: {} });
+    await workflowStart;
+
+    // Successful commit must invalidate the read that began during the POST, so
+    // the caller observes the active workflow instead of joining stale data.
+    const afterCommit = getWorkBundle("work-1");
+    expect(workFetches).toBe(2);
+    expect((await afterCommit).work.title).toBe("After workflow commit");
+
+    stale.resolve(sourceBundle("Before workflow commit"));
+    await duringMutation;
+    expect((await getWorkBundle("work-1")).work.title).toBe("After workflow commit");
+    expect(workFetches).toBe(2);
+  });
+
   it("preserves upload ownership when workflow start fails so a retry invalidates an in-flight source bundle", async () => {
     installUploadResult();
     await uploadArtifact("project-1", new File(["audio"], "source.wav", { type: "audio/wav" }));

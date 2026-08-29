@@ -306,8 +306,12 @@ export async function startUnderstandWorkflow(
   projectId: string,
   transcriptionProfile?: string,
 ): Promise<{ workflow: Workflow; job: Job }> {
+  // Invalidate before the mutation so an already-cached source-only bundle
+  // cannot mask workflow creation. Invalidate again after the server commits:
+  // selecting the Work can start a fetch while this POST is in flight, and that
+  // pre-commit response must not become the stable bundle after creation.
   invalidateVersionWork(versionId);
-  return apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/understand", {
+  const result = await apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/understand", {
     method: "POST",
     body: JSON.stringify({
       version_id: versionId,
@@ -315,6 +319,8 @@ export async function startUnderstandWorkflow(
       ...(transcriptionProfile ? { transcription_profile: transcriptionProfile } : {}),
     }),
   });
+  invalidateVersionWork(versionId);
+  return result;
 }
 
 export async function startVariationWorkflow(
