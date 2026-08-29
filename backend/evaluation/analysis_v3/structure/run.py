@@ -83,9 +83,7 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
         return round(mean(values), 4) if values else None
 
     latencies = [
-        float(row["latency_seconds"])
-        for row in rows
-        if row.get("latency_seconds") is not None
+        float(row["latency_seconds"]) for row in rows if row.get("latency_seconds") is not None
     ]
     return {
         "clips_total": len(rows),
