@@ -4,7 +4,6 @@ import sys
 from types import SimpleNamespace
 
 import numpy as np
-import pytest
 import soundfile as sf
 
 from backend.evaluation.analysis_v3.separation.datasets import babyslakh_reference
@@ -38,10 +37,13 @@ def test_si_sdr_comparison_uses_fast_bss_eval_and_reports_gain(monkeypatch):
 
 
 def test_si_sdr_withholds_completely_silent_reference():
-    assert si_sdr.compute_si_sdr(
-        np.ones(100, dtype=np.float32),
-        np.zeros(100, dtype=np.float32),
-    ) is None
+    assert (
+        si_sdr.compute_si_sdr(
+            np.ones(100, dtype=np.float32),
+            np.zeros(100, dtype=np.float32),
+        )
+        is None
+    )
 
 
 def test_si_sdr_folds_mismatched_channels_to_mono(monkeypatch):
@@ -62,18 +64,30 @@ def test_si_sdr_folds_mismatched_channels_to_mono(monkeypatch):
 
 
 def test_reference_path_filter_only_allows_required_track_files():
-    assert babyslakh_reference._safe_selected_relative_path(
-        "babyslakh_16k/Track00001/mix.wav", "Track00001"
-    ).as_posix() == "mix.wav"
-    assert babyslakh_reference._safe_selected_relative_path(
-        "babyslakh_16k/Track00001/stems/S01.wav", "Track00001"
-    ).as_posix() == "stems/S01.wav"
-    assert babyslakh_reference._safe_selected_relative_path(
-        "babyslakh_16k/Track00002/stems/S01.wav", "Track00001"
-    ) is None
-    assert babyslakh_reference._safe_selected_relative_path(
-        "babyslakh_16k/Track00001/MIDI/S01.mid", "Track00001"
-    ) is None
+    assert (
+        babyslakh_reference._safe_selected_relative_path(
+            "babyslakh_16k/Track00001/mix.wav", "Track00001"
+        ).as_posix()
+        == "mix.wav"
+    )
+    assert (
+        babyslakh_reference._safe_selected_relative_path(
+            "babyslakh_16k/Track00001/stems/S01.wav", "Track00001"
+        ).as_posix()
+        == "stems/S01.wav"
+    )
+    assert (
+        babyslakh_reference._safe_selected_relative_path(
+            "babyslakh_16k/Track00002/stems/S01.wav", "Track00001"
+        )
+        is None
+    )
+    assert (
+        babyslakh_reference._safe_selected_relative_path(
+            "babyslakh_16k/Track00001/MIDI/S01.mid", "Track00001"
+        )
+        is None
+    )
 
 
 def test_build_reference_stems_groups_exact_isolated_sources(monkeypatch, tmp_path):
