@@ -127,12 +127,20 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   async function handleDelete(workId: string) {
     if (deletingId || !project) return;
     const deletingActiveWork = workspace.activeWorkId === workId;
+    const deletingIndex = works.findIndex((work) => work.id === workId);
+    const successor = deletingIndex >= 0
+      ? works[deletingIndex + 1] ?? works[deletingIndex - 1] ?? null
+      : null;
+
     setDeletingId(workId);
     setDeleteError(null);
     if (deletingActiveWork) {
       clearActiveSource();
       resetTimeline();
-      setActiveWorkId(null);
+      // A non-empty durable library should transition directly to another
+      // recording. Never create a transient first-run/empty-library state just
+      // because the selected row is being deleted.
+      setActiveWorkId(successor?.id ?? null);
     }
     clearSelection();
     try {
