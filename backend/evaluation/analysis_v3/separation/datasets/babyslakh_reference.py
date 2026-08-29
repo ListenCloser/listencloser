@@ -22,6 +22,7 @@ BABYSLAKH_TAR_URL = (
 )
 BABYSLAKH_TAR_MD5 = "311096dc2bde7d61c97e930edbfc7f78"
 TARGET_STEMS = ("vocals", "drums", "bass", "other")
+_AUDIO_SUFFIXES = (".wav", ".flac")
 
 
 def _md5(path: Path) -> str:
@@ -41,11 +42,38 @@ def _safe_selected_relative_path(member_name: str, track_id: str) -> Path | None
         return None
 
     parts = relative.parts
-    if parts in {("mix.wav",), ("metadata.yaml",)}:
+    if parts in {("mix.wav",), ("mix.flac",), ("metadata.yaml",)}:
         return Path(*parts)
-    if len(parts) == 2 and parts[0] == "stems" and parts[1].endswith(".wav"):
+    if (
+        len(parts) == 2
+        and parts[0] == "stems"
+        and Path(parts[1]).suffix.lower() in _AUDIO_SUFFIXES
+    ):
         return Path(*parts)
     return None
+
+
+def _mix_path(track_dir: Path) -> Path | None:
+    for filename in ("mix.wav", "mix.flac"):
+        path = track_dir / filename
+        if path.is_file():
+            return path
+    return None
+
+
+def _source_audio_path(track_dir: Path, source_id: str) -> Path | None:
+    for suffix in _AUDIO_SUFFIXES:
+        path = track_dir / "stems" / f"{source_id}{suffix}"
+        if path.is_file():
+            return path
+    return None
+
+
+def _has_isolated_audio(track_dir: Path) -> bool:
+    stems_dir = track_dir / "stems"
+    return stems_dir.is_dir() and any(
+        path.is_file() and path.suffix.lower() in _AUDIO_SUFFIXES for path in stems_dir.iterdir()
+    )
 
 
 def materialize_tracks(track_ids: tuple[str, ...]) -> dict[str, Path]:
@@ -64,10 +92,9 @@ def materialize_tracks(track_ids: tuple[str, ...]) -> dict[str, Path]:
     output_root = dataset_dir / "objective_reference"
     resolved = {track_id: output_root / track_id for track_id in track_ids}
     complete = all(
-        (track_dir / "mix.wav").is_file()
+        _mix_path(track_dir) is not None
         and (track_dir / "metadata.yaml").is_file()
-        and (track_dir / "stems").is_dir()
-        and any((track_dir / "stems").glob("*.wav"))
+        and _has_isolated_audio(track_dir)
         for track_dir in resolved.values()
     )
     if complete:
@@ -90,9 +117,9 @@ def materialize_tracks(track_ids: tuple[str, ...]) -> dict[str, Path]:
                 break
 
     for track_id, track_dir in resolved.items():
-        if not (track_dir / "mix.wav").is_file() or not (track_dir / "metadata.yaml").is_file():
+        if _mix_path(track_dir) is None or not (track_dir / "metadata.yaml").is_file():
             raise ValueError(f"BabySlakh track {track_id} missing mix or metadata after extraction")
-        if not any((track_dir / "stems").glob("*.wav")):
+        if not _has_isolated_audio(track_dir):
             raise ValueError(f"BabySlakh track {track_id} has no isolated stems after extraction")
     return resolved
 
@@ -176,11 +203,18 @@ def build_reference_stems(
         raise ValueError(f"BabySlakh metadata has no stems mapping: {track_dir}")
 
     grouped: dict[str, list[Path]] = {target: [] for target in TARGET_STEMS}
+    missing_audio_ids: list[str] = []
+    skipped_not_rendered: list[str] = []
     for source_id, raw_info in sorted(source_metadata.items()):
-        if not isinstance(raw_info, dict) or raw_info.get("audio_rendered") is False:
+        source_id = str(source_id)
+        if not isinstance(raw_info, dict):
             continue
-        source_path = track_dir / "stems" / f"{source_id}.wav"
-        if not source_path.is_file():
+        if raw_info.get("audio_rendered") is False:
+            skipped_not_rendered.append(source_id)
+            continue
+        source_path = _source_audio_path(track_dir, source_id)
+        if source_path is None:
+            missing_audio_ids.append(source_id)
             continue
         grouped[_canonical_target(raw_info)].append(source_path)
 
@@ -196,5 +230,19 @@ def build_reference_stems(
         counts[target] = len(sources)
 
     if not references:
-        raise ValueError(f"No reference source families found for {track_dir.name}")
-    return track_dir / "mix.wav", references, counts
+        extracted = sorted(path.name for path in (track_dir / "stems").iterdir() if path.is_file())
+        classes = {
+            str(source_id): raw_info.get("inst_class")
+            for source_id, raw_info in source_metadata.items()
+            if isinstance(raw_info, dict)
+        }
+        raise ValueError(
+            "No reference source families found for "
+            f"{track_dir.name}; metadata_ids={sorted(map(str, source_metadata))}; "
+            f"extracted_stems={extracted}; missing_audio_ids={missing_audio_ids}; "
+            f"skipped_not_rendered={skipped_not_rendered}; inst_classes={classes}"
+        )
+    mix_path = _mix_path(track_dir)
+    if mix_path is None:
+        raise ValueError(f"Missing mixture for {track_dir.name}")
+    return mix_path, references, counts
