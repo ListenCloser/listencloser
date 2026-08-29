@@ -141,6 +141,7 @@ OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
 HARMONY_ENGINE=lv_chordia
 RELEASE=${TARGET_HEAD}
 BACKEND_IMAGE=${BACKEND_IMAGE:-hello-ai-backend:local}
+NUMBA_CACHE_DIR=${TARGET_NUMBA_CACHE_DIR}
 ENVEOF
   fi
 }
@@ -157,9 +158,28 @@ set_runtime_env_value() {
   fi
 }
 
+preseed_librosa_numba_cache() {
+  echo "[deploy] preseeding target worker Numba cache while current release stays online"
+
+  if ! docker compose -f "$COMPOSE" run --rm --no-deps --user root --entrypoint sh worker \
+    -c 'mkdir -p "$NUMBA_CACHE_DIR" && chown -R 1001:1001 /app/runtime'; then
+    echo "[deploy] warning: could not initialize Numba cache directory; replacement worker will warm it itself" >&2
+    return 0
+  fi
+
+  local started=$SECONDS
+  if docker compose -f "$COMPOSE" run --rm --no-deps --entrypoint python worker \
+    -c 'from domain.worker_warmup import prewarm_librosa_beat_tracking; prewarm_librosa_beat_tracking()'; then
+    echo "[deploy] target Numba cache preseeded in $((SECONDS - started))s"
+  else
+    echo "[deploy] warning: Numba cache preseed failed; replacement worker will retry before readiness" >&2
+  fi
+}
+
 echo "[deploy] starting deploy at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ensure_repo
 TARGET_HEAD="$(git rev-parse HEAD)"
+TARGET_NUMBA_CACHE_DIR="/app/runtime/numba-cache/${TARGET_HEAD}"
 export BACKEND_IMAGE="${BACKEND_IMAGE:-hello-ai-backend:local}"
 USE_PREBUILT_IMAGE=0
 if resolve_prebuilt_image "$TARGET_HEAD"; then
@@ -168,6 +188,7 @@ else
   echo "[deploy] using compatibility VM-build path"
 fi
 write_runtime_env
+set_runtime_env_value NUMBA_CACHE_DIR "$TARGET_NUMBA_CACHE_DIR"
 
 echo "[deploy] running pytest gate"
 cd "$REPO_DIR/backend"
@@ -184,6 +205,8 @@ else
   echo "[deploy] building replacement images while the current release stays online"
   docker compose -f "$COMPOSE" build backend worker
 fi
+
+preseed_librosa_numba_cache
 
 echo "[deploy] switching API and worker to $(git rev-parse --short HEAD)"
 docker compose -f "$COMPOSE" run --rm --no-deps --user root --entrypoint sh worker \
@@ -211,8 +234,10 @@ rollback() {
     rollback_prebuilt=1
     set_runtime_env_value RELEASE "$PREV_HEAD"
     set_runtime_env_value BACKEND_IMAGE "$BACKEND_IMAGE"
+    set_runtime_env_value NUMBA_CACHE_DIR "/app/runtime/numba-cache/${PREV_HEAD}"
     docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans --no-build backend worker
   else
+    set_runtime_env_value NUMBA_CACHE_DIR "/app/runtime/numba-cache/${PREV_HEAD}"
     git reset --hard "$PREV_HEAD"
     if [ -f "$REPO_DIR/backend/.env" ]; then
       sed -i "s/^RELEASE=.*/RELEASE=${PREV_HEAD}/" "$REPO_DIR/backend/.env"
