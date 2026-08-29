@@ -113,9 +113,17 @@ create_lane() {
 
   # Fetching only main does not populate every refs/remotes/origin/* entry. Ask
   # the remote directly so an agent cannot accidentally recreate a lane that
-  # exists on GitHub but has never been fetched into this checkout.
+  # exists on GitHub but has never been fetched into this checkout. Exit code 2
+  # means "no matching ref"; transport/auth failures must fail closed instead
+  # of being mistaken for branch absence.
+  local remote_check_status=0
   if git -C "$root" ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
     die "remote branch already exists: $branch"
+  else
+    remote_check_status=$?
+    if [[ "$remote_check_status" -ne 2 ]]; then
+      die "could not verify remote branch uniqueness for $branch (git ls-remote exit $remote_check_status)"
+    fi
   fi
 
   mkdir -p "$wt_root"
@@ -289,30 +297,38 @@ cleanup_lane() {
   [[ -n "$branch" ]] || die "worktree is detached; inspect manually before cleanup"
   [[ -z "$(git -C "$path" status --porcelain)" ]] || die "worktree is dirty; commit/stash/remove changes first"
 
+  local current_head
+  current_head="$(git -C "$path" rev-parse HEAD)"
   local repo=""
-  local pr_number=""
-  local pr_state=""
-  local merged_at=""
+  local merged_head_proven=0
   if have gh; then
     repo="$(repo_slug "$root" || true)"
     if [[ -n "$repo" ]]; then
-      local pr_row
-      pr_row="$(gh pr list --repo "$repo" --head "$branch" --state all --limit 1 \
+      local pr_rows
+      pr_rows="$(gh pr list --repo "$repo" --head "$branch" --state all --limit 100 \
         --json number,state,mergedAt \
-        --jq 'if length == 0 then "" else "\(.[0].number)\t\(.[0].state)\t\(.[0].mergedAt // "")" end' \
+        --jq '.[] | [.number, .state, (.mergedAt // "")] | @tsv' \
         2>/dev/null || true)"
-      IFS=$'\t' read -r pr_number pr_state merged_at <<<"$pr_row"
+
+      local pr_number pr_state merged_at
+      while IFS=$'\t' read -r pr_number pr_state merged_at; do
+        [[ -n "$pr_number" ]] || continue
+        if [[ "$pr_state" == "OPEN" ]]; then
+          die "PR #$pr_number is still open; merge or close it before cleanup"
+        fi
+        if [[ -n "$merged_at" && "$abandon" -ne 1 ]]; then
+          local reviewed_head
+          reviewed_head="$(gh pr view "$pr_number" --repo "$repo" --json headRefOid --jq '.headRefOid' 2>/dev/null || true)"
+          if [[ "$reviewed_head" == "$current_head" ]]; then
+            merged_head_proven=1
+          fi
+        fi
+      done <<<"$pr_rows"
     fi
   fi
 
-  if [[ -n "$pr_number" && "$pr_state" == "OPEN" ]]; then
-    die "PR #$pr_number is still open; merge or close it before cleanup"
-  fi
-  if [[ -z "$merged_at" && "$abandon" -ne 1 ]]; then
-    if [[ -n "$pr_number" ]]; then
-      die "PR #$pr_number was not merged; pass --abandon only if intentionally discarding the lane"
-    fi
-    die "no merged PR found for $branch; pass --abandon only if intentionally discarding the lane"
+  if [[ "$abandon" -ne 1 && "$merged_head_proven" -ne 1 ]]; then
+    die "current HEAD $current_head is not proven as the reviewed head of a merged PR; pass --abandon only if intentionally discarding the lane"
   fi
 
   git -C "$root" worktree remove "$path"
