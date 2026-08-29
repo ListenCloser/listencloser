@@ -1,7 +1,7 @@
 """Prepare BabySlakh references for the source-separation downstream bakeoff.
 
 BabySlakh stores isolated source audio plus the exact per-source MIDI used to
-synthesize it.  This helper groups those sources into the four HTDemucs target
+synthesize it. This helper groups those sources into the four HTDemucs target
 families (vocals/drums/bass/other), writes deterministic reference submixes, and
 emits one manifest that can drive both objective SI-SDR and downstream AMT
 comparisons.
@@ -78,8 +78,16 @@ def _mix_reference_sources(paths: list[Path], output_path: Path) -> None:
     for audio in loaded:
         mixed[: len(audio)] += audio
 
+    if sample_rate is None:
+        raise ValueError("Cannot determine sample rate for empty reference submix")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(output_path, mixed.astype(np.float32), sample_rate, format="WAV", subtype="FLOAT")
+    sf.write(
+        output_path,
+        mixed.astype(np.float32),
+        sample_rate,
+        format="WAV",
+        subtype="FLOAT",
+    )
 
 
 def _manifest_path(root: Path, path: Path, env_var: str) -> str:
@@ -105,10 +113,8 @@ def build_babyslakh_manifest(
         if path.is_dir() and (path / "metadata.yaml").is_file()
     )
     for track_dir in track_dirs:
-        mix_path = next(
-            (candidate for candidate in (track_dir / "mix.wav", track_dir / "mix.flac") if candidate.is_file()),
-            None,
-        )
+        mix_candidates = (track_dir / "mix.wav", track_dir / "mix.flac")
+        mix_path = next((path for path in mix_candidates if path.is_file()), None)
         if mix_path is None:
             continue
 
