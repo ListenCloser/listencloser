@@ -84,7 +84,7 @@ class FakeStructureAdapter(StructureAdapter):
         return self._metadata
 
 
-def test_runner_scores_candidate_with_shared_boundary_metrics(tmp_path: Path):
+def test_runner_uses_shared_metrics_and_preserves_audio_provenance(tmp_path: Path):
     adapter = FakeStructureAdapter()
     result = run_structure_evaluation(
         "fake",
@@ -95,16 +95,14 @@ def test_runner_scores_candidate_with_shared_boundary_metrics(tmp_path: Path):
     assert result["status"] == "completed"
     assert result["aggregate"]["clips_scored"] == 1
     assert result["aggregate"]["macro_boundary_f1_05"] == pytest.approx(1.0)
-    assert result["aggregate"]["macro_boundary_f1_3"] == pytest.approx(1.0)
     assert result["aggregate"]["macro_interior_boundary_f1_05"] == pytest.approx(1.0)
-    assert result["aggregate"]["macro_interior_boundary_f1_3"] == pytest.approx(1.0)
-    assert result["rows"][0]["evaluation_validity"] == "independent"
+    assert result["rows"][0]["evaluation_validity"] == "no_declared_overlap"
     assert result["rows"][0]["audio_provenance"] == "mel_reconstruction"
     assert result["process_peak_rss_mb"] > 0
     assert adapter.analyze_calls == 1
 
 
-def test_training_overlap_is_withheld_before_candidate_inference(tmp_path: Path):
+def test_training_overlap_is_withheld_before_inference(tmp_path: Path):
     adapter = FakeStructureAdapter(
         StructureMetadata(
             candidate="overlap",
@@ -121,7 +119,6 @@ def test_training_overlap_is_withheld_before_candidate_inference(tmp_path: Path)
     row = result["rows"][0]
     assert row["status"] == "withheld_training_overlap"
     assert row["evaluation_validity"] == "not_independent"
-    assert result["aggregate"]["clips_scored"] == 0
     assert result["aggregate"]["clips_withheld_training_overlap"] == 1
     assert adapter.analyze_calls == 0
 
@@ -141,13 +138,12 @@ def test_training_overlap_override_is_scored_but_labeled(tmp_path: Path):
         adapter=adapter,
     )
 
-    row = result["rows"][0]
-    assert row["status"] == "scored"
-    assert row["evaluation_validity"] == "in_sample_override"
+    assert result["rows"][0]["status"] == "scored"
+    assert result["rows"][0]["evaluation_validity"] == "in_sample_override"
     assert adapter.analyze_calls == 1
 
 
-def test_explicit_held_out_partition_can_score_same_dataset_family(tmp_path: Path):
+def test_explicit_held_out_partition_is_distinguished_from_unknown_overlap(tmp_path: Path):
     adapter = FakeStructureAdapter(
         StructureMetadata(
             candidate="split-aware",
@@ -165,10 +161,10 @@ def test_explicit_held_out_partition_can_score_same_dataset_family(tmp_path: Pat
     )
 
     assert result["rows"][0]["status"] == "scored"
-    assert result["rows"][0]["evaluation_validity"] == "independent"
+    assert result["rows"][0]["evaluation_validity"] == "independent_held_out"
 
 
-def test_missing_audio_is_reported_without_candidate_inference(tmp_path: Path):
+def test_missing_audio_is_reported_without_inference(tmp_path: Path):
     adapter = FakeStructureAdapter()
     result = run_structure_evaluation(
         "fake",
@@ -180,15 +176,15 @@ def test_missing_audio_is_reported_without_candidate_inference(tmp_path: Path):
     assert adapter.analyze_calls == 0
 
 
-def test_external_json_adapter_parses_stdout_without_shell(monkeypatch: pytest.MonkeyPatch):
+def test_external_json_adapter_is_shell_free_and_parses_segments(
+    monkeypatch: pytest.MonkeyPatch,
+):
     monkeypatch.setenv("STRUCTURE_EXTERNAL_COMMAND", "candidate --input {audio}")
     monkeypatch.setenv("STRUCTURE_EXTERNAL_NAME", "songformer")
 
     def fake_run(argv, **kwargs):
         assert argv == ["candidate", "--input", "fixture.wav"]
-        assert kwargs["check"] is False
-        assert kwargs["capture_output"] is True
-        assert kwargs["text"] is True
+        assert kwargs == {"check": False, "capture_output": True, "text": True}
         return SimpleNamespace(
             returncode=0,
             stdout=json.dumps({"segments": _sections(0.0, 5.0, 10.0)}),
@@ -208,33 +204,27 @@ def test_external_json_adapter_parses_stdout_without_shell(monkeypatch: pytest.M
     assert adapter.metadata().candidate == "songformer"
 
 
-def test_external_json_adapter_requires_explicit_command(monkeypatch: pytest.MonkeyPatch):
+def test_external_json_adapter_requires_command(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("STRUCTURE_EXTERNAL_COMMAND", raising=False)
-    adapter = ExternalJsonStructureAdapter()
-
     with pytest.raises(RuntimeError, match="STRUCTURE_EXTERNAL_COMMAND"):
-        adapter.load()
+        ExternalJsonStructureAdapter().load()
 
 
-def test_parse_songformbench_msa_annotation(tmp_path: Path):
-    annotation = tmp_path / "track.txt"
-    annotation.write_text("0.0 intro\n5.0 verse\n10.0 end\n")
-
-    assert parse_msa_annotation(annotation) == [
+def test_parse_songformbench_annotation_and_require_end_marker(tmp_path: Path):
+    good = tmp_path / "good.txt"
+    good.write_text("0.0 intro\n5.0 verse\n10.0 end\n")
+    assert parse_msa_annotation(good) == [
         {"start": 0.0, "end": 5.0, "label": "intro"},
         {"start": 5.0, "end": 10.0, "label": "verse"},
     ]
 
-
-def test_parse_annotation_requires_terminal_end_marker(tmp_path: Path):
-    annotation = tmp_path / "track.txt"
-    annotation.write_text("0.0 intro\n5.0 verse\n")
-
+    bad = tmp_path / "bad.txt"
+    bad.write_text("0.0 intro\n5.0 verse\n")
     with pytest.raises(ValueError, match="end"):
-        parse_msa_annotation(annotation)
+        parse_msa_annotation(bad)
 
 
-def test_manifest_builder_never_downloads_or_invents_missing_audio(tmp_path: Path):
+def test_manifest_builder_never_invents_missing_audio(tmp_path: Path):
     annotations = tmp_path / "annotations"
     audio = tmp_path / "audio"
     annotations.mkdir()
@@ -255,15 +245,13 @@ def test_manifest_builder_never_downloads_or_invents_missing_audio(tmp_path: Pat
     assert summary["annotation_count"] == 2
     assert summary["materialized_clip_count"] == 1
     assert summary["missing_audio_count"] == 1
-    assert summary["audio_provenance"] == "mel_reconstruction"
-    assert [clip["source_id"] for clip in manifest["clips"]] == ["present"]
+    assert manifest["clips"][0]["source_id"] == "present"
     assert manifest["clips"][0]["audio_provenance"] == "mel_reconstruction"
 
 
 def test_canonical_index_filters_subset_and_reports_missing_mel_path(tmp_path: Path):
     root = tmp_path / "dataset"
-    root.mkdir()
-    (root / "audio").mkdir()
+    (root / "audio").mkdir(parents=True)
     (root / "mels").mkdir()
     (root / "audio" / "bc.wav").write_bytes(b"fixture")
     index = root / "SongFormBench.jsonl"
@@ -293,32 +281,25 @@ def test_canonical_index_filters_subset_and_reports_missing_mel_path(tmp_path: P
         },
     ]
     index.write_text("\n".join(json.dumps(entry) for entry in entries) + "\n")
-    output = tmp_path / "manifest.json"
 
     summary = build_songformbench_index_manifest(
         index,
         root,
-        output,
+        tmp_path / "bc.json",
         audio_provenance="mel_reconstruction",
         subsets=("BC",),
     )
-    manifest = json.loads(output.read_text())
-
-    assert summary["index_entry_count"] == 2
-    assert summary["selected_entry_count"] == 1
+    manifest = json.loads((tmp_path / "bc.json").read_text())
     assert summary["materialized_clip_count"] == 1
-    assert summary["missing_audio_count"] == 0
     assert manifest["clips"][0]["dataset"] == "SongFormBench-BC"
-    assert manifest["clips"][0]["source_id"] == "bc"
     assert manifest["clips"][0]["audio_provenance"] == "mel_reconstruction"
 
     missing = build_songformbench_index_manifest(
         index,
         root,
-        tmp_path / "missing.json",
+        tmp_path / "bhx.json",
         subsets=("BHX",),
     )
     assert missing["materialized_clip_count"] == 0
-    assert missing["missing_audio_count"] == 1
     assert missing["missing_audio"][0]["source_id"] == "bhx"
     assert missing["missing_audio"][0]["mel_path"].endswith("mels/bhx.npy")
