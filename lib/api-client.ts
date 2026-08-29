@@ -189,8 +189,15 @@ export async function getWorkBundle(workId: string): Promise<WorkBundle> {
       }
 
       indexBundle(workId, bundle);
+      const midiVersionId = currentMidiVersionId(bundle);
+      if (midiVersionId) {
+        // A network-fresh Work snapshot is also a child-evidence freshness
+        // boundary. During understand jobs, entities/insights can be appended
+        // after the MIDI version first appears. Do not let an empty or partial
+        // child read survive the next Work poll (or the final terminal read).
+        invalidateVersionData(midiVersionId);
+      }
       if (!hasActiveJob(bundle)) {
-        const midiVersionId = currentMidiVersionId(bundle);
         if (midiVersionId) {
           await Promise.allSettled([getEntities(midiVersionId), getInsights(midiVersionId)]);
         }
