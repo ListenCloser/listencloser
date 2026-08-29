@@ -44,10 +44,11 @@ function selection(
   start: number,
   end: number,
   domain: "performance" | "notation" = "performance",
+  timeExact = true,
 ): MusicalSelection {
   return {
     timeRange: { start, end, domain },
-    provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
+    provenance: { origin: "waveform", timeExact, measureApproximate: !timeExact },
   };
 }
 
@@ -171,6 +172,13 @@ describe("PassageCompare", () => {
 
   it("does not offer measured-audio comparison for notation-domain selections", () => {
     mocks.workspace.selection = selection(10, 14, "notation");
+    render(<PassageCompare />);
+
+    expect(screen.queryByRole("region", { name: "Compare passages" })).not.toBeInTheDocument();
+  });
+
+  it("does not treat approximate performance spans as measured-audio selections", () => {
+    mocks.workspace.selection = selection(10, 14, "performance", false);
     render(<PassageCompare />);
 
     expect(screen.queryByRole("region", { name: "Compare passages" })).not.toBeInTheDocument();
