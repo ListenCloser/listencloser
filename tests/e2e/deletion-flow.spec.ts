@@ -26,6 +26,14 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await expect(page.getByText("No recordings yet", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible();
 
+  // The first-use visual is a truthful structural scaffold, not generic music
+  // clip-art or fake waveform/analysis data.
+  const emptySignal = page.getByTestId("empty-workspace-signal");
+  await expect(emptySignal).toBeVisible();
+  await expect(emptySignal).toHaveAttribute("aria-hidden", "true");
+  await expect(page.getByText("Move through waveform, notes, notation, and evidence without losing your place.", { exact: true })).toBeVisible();
+  await expect(page.locator(".empty-note, .empty-staff-line")).toHaveCount(0);
+
   // No stale transport state: deleting the active work removes the source
   // controls entirely rather than leaving a disabled playhead behind.
   await expect(page.getByRole("slider", { name: "Playback position" })).toHaveCount(0);
