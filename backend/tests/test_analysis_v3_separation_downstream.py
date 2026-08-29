@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from backend.evaluation.analysis_v3.separation.metrics import downstream
+from backend.evaluation.analysis_v3.separation.metrics import downstream, separation
 
 
 def test_compare_beat_f1_uses_production_estimator_and_canonical_metric(monkeypatch):
@@ -59,3 +59,44 @@ def test_audio_to_wav_bytes_accepts_channel_first_stereo():
     audio = np.zeros((2, 100), dtype=np.float32)
     wav_bytes = downstream._audio_to_wav_bytes(audio, 44100)
     assert wav_bytes.startswith(b"RIFF")
+
+
+def test_si_sdr_comparison_measures_gain_over_mixture():
+    sample_rate = 8000
+    time = np.arange(sample_rate, dtype=np.float64) / sample_rate
+    reference = np.sin(2.0 * np.pi * 220.0 * time)
+    interference = 0.7 * np.sin(2.0 * np.pi * 440.0 * time)
+    mixture = reference + interference
+    estimated_stem = reference + 0.1 * interference
+
+    result = separation.compare_si_sdr_mixture_vs_stem(
+        mixture,
+        estimated_stem,
+        reference,
+    )
+
+    assert result is not None
+    assert result.stem_si_sdr_db > result.mixture_si_sdr_db
+    assert result.improvement_db == pytest.approx(20.0, abs=0.01)
+
+
+def test_si_sdr_withholds_completely_silent_reference():
+    audio = np.ones(100, dtype=np.float32)
+    silent_reference = np.zeros(100, dtype=np.float32)
+    assert separation.compute_si_sdr(audio, silent_reference) is None
+
+
+def test_si_sdr_accepts_mismatched_channel_layouts_by_folding_to_mono():
+    reference = np.stack(
+        [
+            np.linspace(-1.0, 1.0, 100),
+            np.linspace(1.0, -1.0, 100),
+        ],
+        axis=1,
+    )
+    estimated = reference.mean(axis=1)
+
+    score = separation.compute_si_sdr(estimated, reference)
+
+    assert score is not None
+    assert np.isfinite(score)
