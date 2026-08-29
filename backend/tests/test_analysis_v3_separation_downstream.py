@@ -87,13 +87,8 @@ def test_si_sdr_withholds_completely_silent_reference():
 
 
 def test_si_sdr_accepts_mismatched_channel_layouts_by_folding_to_mono():
-    reference = np.stack(
-        [
-            np.linspace(-1.0, 1.0, 100),
-            np.linspace(1.0, -1.0, 100),
-        ],
-        axis=1,
-    )
+    base = np.linspace(-1.0, 1.0, 100)
+    reference = np.stack([base, 0.5 * base], axis=1)
     estimated = reference.mean(axis=1)
 
     score = separation.compute_si_sdr(estimated, reference)
