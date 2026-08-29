@@ -1,9 +1,6 @@
-import builtins
 import logging
 
 import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastAPIIntegration
-from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from observability import init_sentry
 
@@ -42,7 +39,6 @@ def test_init_sentry_uses_shared_worker_environment_contract(monkeypatch):
         {
             "dsn": "https://public@example.invalid/1",
             "environment": "staging",
-            "integrations": None,
             "traces_sample_rate": 0.25,
             "send_default_pii": False,
             "release": "worker@abc123",
@@ -50,24 +46,7 @@ def test_init_sentry_uses_shared_worker_environment_contract(monkeypatch):
     ]
 
 
-def test_worker_sentry_does_not_import_api_framework_integrations(monkeypatch):
-    _clear_sentry_env(monkeypatch)
-    monkeypatch.setenv("SENTRY_DSN", "https://public@example.invalid/1")
-    monkeypatch.setattr(sentry_sdk, "init", lambda **_kwargs: None)
-
-    original_import = builtins.__import__
-
-    def guarded_import(name, *args, **kwargs):
-        if name.startswith("sentry_sdk.integrations."):
-            raise AssertionError(f"worker unexpectedly imported {name}")
-        return original_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", guarded_import)
-
-    assert init_sentry(logging.getLogger("test")) is True
-
-
-def test_init_sentry_preserves_api_integrations_and_default_release(monkeypatch):
+def test_init_sentry_preserves_api_default_release(monkeypatch):
     _clear_sentry_env(monkeypatch)
     monkeypatch.setenv("SENTRY_DSN_BACKEND", "https://backend@example.invalid/2")
     calls = []
@@ -76,16 +55,15 @@ def test_init_sentry_preserves_api_integrations_and_default_release(monkeypatch)
     initialized = init_sentry(
         logging.getLogger("test"),
         default_release="backend@2.0.0",
-        include_fastapi_integrations=True,
     )
 
     assert initialized is True
-    kwargs = calls[0]
-    assert kwargs["dsn"] == "https://backend@example.invalid/2"
-    assert kwargs["environment"] == "production"
-    assert kwargs["traces_sample_rate"] == 0.1
-    assert kwargs["send_default_pii"] is False
-    assert kwargs["release"] == "backend@2.0.0"
-    integration_types = {item.__class__ for item in kwargs["integrations"]}
-    assert StarletteIntegration in integration_types
-    assert FastAPIIntegration in integration_types
+    assert calls == [
+        {
+            "dsn": "https://backend@example.invalid/2",
+            "environment": "production",
+            "traces_sample_rate": 0.1,
+            "send_default_pii": False,
+            "release": "backend@2.0.0",
+        }
+    ]
