@@ -1,0 +1,46 @@
+{
+  "dataset": "candombe",
+  "evaluation_dataset": "candombe_single_split_val",
+  "split_source": "https://github.com/CPJKU/beat_this_annotations",
+  "split_version": "v1.0",
+  "audio_license": "CC BY 4.0",
+  "primary_dataset_doi": "https://doi.org/10.60895/redata/AY9CGZ",
+  "canonical_archive": {
+    "url": "https://zenodo.org/record/6533068/files/candombe_audio.zip",
+    "md5": "ccd7f437024807b1a52c0818aa0b7f06",
+    "note": "Canonical mirdata-pinned archive. Large (~658.5 MB); individual public FLACs are also exposed by the ReData mirror."
+  },
+  "validation_files": [
+    {
+      "id": "csic.1995_ansina1_03",
+      "filename": "csic.1995_ansina1_03.flac",
+      "md5": "fffe0c4677d994cbc16e7009b7cad982",
+      "approx_size_mb": 20.8
+    },
+    {
+      "id": "csic.1995_ansina2_01",
+      "filename": "csic.1995_ansina2_01.flac",
+      "md5": "1131da5060d9a55675563fd0d9754bce",
+      "approx_size_mb": 23.7
+    },
+    {
+      "id": "csic.1995_ansina2_04",
+      "filename": "csic.1995_ansina2_04.flac",
+      "md5": "ea6d50a23fe392aa2c0059378e86c5e1",
+      "approx_size_mb": 28.8
+    },
+    {
+      "id": "csic.1995_cuareim_02",
+      "filename": "csic.1995_cuareim_02.flac",
+      "md5": "73aa793b6810118dc19e0f50d63ddcbd",
+      "approx_size_mb": 25.4
+    },
+    {
+      "id": "zavala.muniz.2014_41",
+      "filename": "zavala.muniz.2014_41.flac",
+      "md5": "a305627f4549d364a9627e5e507b1046",
+      "approx_size_mb": 13.9
+    }
+  ],
+  "policy": "Do not commit the audio. A benchmark runner should verify each local FLAC against the recorded MD5 before scoring."
+}

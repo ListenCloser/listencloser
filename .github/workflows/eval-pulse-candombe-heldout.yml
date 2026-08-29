@@ -1,0 +1,134 @@
+name: Pulse Candombe Held-out Evaluation
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/eval-pulse-candombe-heldout.yml'
+      - 'backend/evaluation/analysis_v3/pulse/**'
+      - 'backend/tests/test_pulse_candombe_*.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-candombe-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  heldout:
+    name: heldout-candombe
+    if: github.event.pull_request.head.ref == 'eval-pulse-candombe-heldout'
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+
+      - name: Acquire exact Beat This v1.0 validation inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/candombe-heldout"
+          audio_dir="$root/audio"
+          ann_dir="$root/annotations"
+          mkdir -p "$audio_dir" "$ann_dir"
+
+          base_audio='https://www.eumus.edu.uy/candombe/datasets/ISMIR2015'
+          base_ann='https://raw.githubusercontent.com/CPJKU/beat_this_annotations/v1.0/candombe'
+
+          tracks=(
+            csic.1995_ansina1_03
+            csic.1995_ansina2_01
+            csic.1995_ansina2_04
+            csic.1995_cuareim_02
+            zavala.muniz.2014_41
+          )
+          md5s=(
+            fffe0c4677d994cbc16e7009b7cad982
+            1131da5060d9a55675563fd0d9754bce
+            ea6d50a23fe392aa2c0059378e86c5e1
+            73aa793b6810118dc19e0f50d63ddcbd
+            a305627f4549d364a9627e5e507b1046
+          )
+
+          curl --fail --location --retry 4 --retry-all-errors \
+            "$base_ann/single.split" \
+            --output "$root/single.split"
+
+          for i in "${!tracks[@]}"; do
+            track="${tracks[$i]}"
+            audio="$audio_dir/$track.flac"
+            annotation="$ann_dir/$track.beats"
+
+            curl --fail --location --retry 4 --retry-all-errors \
+              "$base_audio/$track.flac" \
+              --output "$audio"
+            echo "${md5s[$i]}  $audio" | md5sum --check --strict -
+
+            curl --fail --location --retry 4 --retry-all-errors \
+              "$base_ann/annotations/beats/$track.beats" \
+              --output "$annotation"
+          done
+
+          echo "CANDOMBE_ROOT=$root" >> "$GITHUB_ENV"
+
+      - name: Build exact held-out manifest
+        run: |
+          uv run --project backend python -m backend.evaluation.analysis_v3.pulse.datasets.candombe \
+            "$CANDOMBE_ROOT/annotations" \
+            "$CANDOMBE_ROOT/single.split" \
+            "$CANDOMBE_ROOT/audio" \
+            "$CANDOMBE_ROOT/manifest.json"
+
+      - name: Score production baseline on identical audio
+        run: |
+          uv run --project backend python -m backend.evaluation.analysis_v3.pulse.run_manifest \
+            --candidate current \
+            --manifest "$CANDOMBE_ROOT/manifest.json" \
+            --output-dir "$CANDOMBE_ROOT/results"
+
+      - name: Score Beat This single_final0 on identical audio
+        run: |
+          uv run --project backend python -m backend.evaluation.analysis_v3.pulse.run_manifest \
+            --candidate beat_this_single_final0 \
+            --manifest "$CANDOMBE_ROOT/manifest.json" \
+            --output-dir "$CANDOMBE_ROOT/results"
+
+      - name: Print machine-readable results
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "$CANDOMBE_ROOT/results" ]; then
+            for result in "$CANDOMBE_ROOT"/results/*.json; do
+              [ -e "$result" ] || continue
+              echo "===== $result ====="
+              cat "$result"
+            done
+          fi
+
+      - name: Upload evaluation outputs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: candombe-heldout-${{ github.event.pull_request.head.sha }}
+          path: |
+            ${{ runner.temp }}/candombe-heldout/manifest.json
+            ${{ runner.temp }}/candombe-heldout/results/*.json
+          if-no-files-found: warn
+          retention-days: 14
