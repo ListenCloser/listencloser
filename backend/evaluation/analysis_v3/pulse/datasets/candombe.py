@@ -139,9 +139,11 @@ def extract_candombe_single_val_manifest(
     for track_id in validation_ids:
         annotation_path = annotation_root / f"{track_id}.beats"
         if not annotation_path.exists():
-            raise FileNotFoundError(
-                f"Missing Beat This v1.0 Candombe annotation for validation track: {annotation_path}"
+            message = (
+                "Missing Beat This v1.0 Candombe annotation for validation track: "
+                f"{annotation_path}"
             )
+            raise FileNotFoundError(message)
         audio_path = resolve_candombe_audio_path(audio_dir, track_id)
         clips.append(
             {
