@@ -53,7 +53,9 @@ def test_compare_mixture_vs_bass_stem_runs_same_basic_pitch_contract(monkeypatch
     assert calls == [((100,), 30.0), ((2, 100), 30.0)]
 
 
-def test_score_basic_pitch_audio_calls_production_adapter_and_existing_matcher(monkeypatch, tmp_path):
+def test_score_basic_pitch_audio_calls_production_adapter_and_existing_matcher(
+    monkeypatch, tmp_path
+):
     reference = tmp_path / "bass.mid"
     reference.write_bytes(b"reference")
     run_calls: list[str] = []
