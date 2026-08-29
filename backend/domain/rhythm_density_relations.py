@@ -88,7 +88,10 @@ def _provenance(
         "aggregate": "median",
         "source_version_id": str(evidence.source_version_id),
         "evidence_id": str(evidence.evidence_id),
-        "coverage_policy": "only fully-contained beat-relative density windows",
+        "coverage_policy": (
+            "selected spans must remain inside the stored evidence envelope; "
+            "only fully-contained beat-relative density windows are aggregated"
+        ),
         "relative_denominator_epsilon": _RELATIVE_DENOMINATOR_EPSILON,
         "semantic_interpretation_emitted": False,
     }
@@ -219,6 +222,34 @@ def _validated_windows(
     return normalized, contract, []
 
 
+def _coverage_error_for_span(
+    windows: Sequence[dict[str, float]],
+    locator: SecondsSpanLocator,
+    label: str,
+) -> str | None:
+    """Reject a span that reaches beyond the stored density evidence envelope.
+
+    A persisted series may be shorter than the requested source span because the
+    beat grid itself is partial or because an older persistence policy truncated
+    the series. In either case, aggregating the available prefix and labeling the
+    result as a comparison over the full requested locator would be misleading.
+    """
+    if not windows:
+        return f"{label} span has no rhythm density evidence coverage"
+
+    coverage_start = windows[0]["start"]
+    coverage_end = max(window["end"] for window in windows)
+    if (
+        locator.start_seconds < coverage_start - _NUMERIC_ATOL
+        or locator.end_seconds > coverage_end + _NUMERIC_ATOL
+    ):
+        return (
+            f"{label} span extends outside rhythm density evidence coverage "
+            f"[{coverage_start}, {coverage_end}]"
+        )
+    return None
+
+
 def _values_for_span(
     windows: Sequence[dict[str, float]],
     locator: SecondsSpanLocator,
@@ -255,9 +286,10 @@ def compare_rhythm_density_spans(
 ) -> RhythmDensityRelationObservation:
     """Compare promoted beat-relative event density over two explicit spans.
 
-    Only complete density windows fully contained inside each selected seconds
-    span are eligible. The relation does not infer sections, resample evidence,
-    mix seconds and beat units, or attach semantic meaning to numeric direction.
+    Each requested span must remain inside the stored density evidence envelope,
+    and only complete density windows fully contained inside that span are
+    eligible. The relation does not infer sections, resample evidence, mix
+    seconds and beat units, or attach semantic meaning to numeric direction.
     """
 
     reasons = [
@@ -266,6 +298,16 @@ def compare_rhythm_density_spans(
     ]
     windows, contract, contract_reasons = _validated_windows(evidence)
     reasons.extend(contract_reasons)
+    if reasons:
+        return _withheld(evidence, subject_locator, comparison_locator, reasons, contract)
+
+    for label, locator in (
+        ("subject", subject_locator),
+        ("comparison", comparison_locator),
+    ):
+        coverage_error = _coverage_error_for_span(windows, locator, label)
+        if coverage_error:
+            reasons.append(coverage_error)
     if reasons:
         return _withheld(evidence, subject_locator, comparison_locator, reasons, contract)
 
