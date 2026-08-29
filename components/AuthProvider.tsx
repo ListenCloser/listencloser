@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { clearWorkDataCache } from "@/lib/api-client";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 type AuthCtx = {
@@ -25,6 +26,22 @@ export function useAuth() {
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const authenticatedUserId = useRef<string | null | undefined>(undefined);
+
+  const applySession = useCallback((nextSession: Session | null) => {
+    const nextUserId = nextSession?.user.id ?? null;
+    const previousUserId = authenticatedUserId.current;
+
+    // Work/entity/insight caches are module-global and contain user-owned data.
+    // Treat an authenticated identity transition as a hard cache boundary, but
+    // keep same-user token refreshes from disrupting the active workspace.
+    if (previousUserId !== undefined && previousUserId !== nextUserId) {
+      clearWorkDataCache();
+    }
+
+    authenticatedUserId.current = nextUserId;
+    setSession(nextSession);
+  }, []);
 
   const fetchSession = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -32,14 +49,14 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       return;
     }
     const { data } = await supabase!.auth.getSession();
-    setSession(data.session);
+    applySession(data.session);
     setLoading(false);
-  }, []);
+  }, [applySession]);
 
   const signOut = useCallback(async () => {
     await supabase?.auth.signOut();
-    setSession(null);
-  }, []);
+    applySession(null);
+  }, [applySession]);
 
   useEffect(() => {
     fetchSession();
@@ -48,13 +65,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     const {
       data: { subscription },
-    } = supabase!.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    } = supabase!.auth.onAuthStateChange((_event, nextSession) => {
+      applySession(nextSession);
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchSession]);
+  }, [applySession, fetchSession]);
 
   return (
     <AuthContext.Provider
