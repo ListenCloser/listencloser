@@ -1,0 +1,115 @@
+name: Analysis V3 MR-MT3 persistent runtime
+
+on:
+  push:
+    branches:
+      - eval/mr-mt3-persistent-runtime-v1
+    paths:
+      - '.github/workflows/eval-multitrack-mr-mt3-persistent.yml'
+      - 'backend/evaluation/analysis_v3/multitrack_transcription/persistent_runtime.py'
+      - 'backend/tests/test_analysis_v3_multitrack_persistent_runtime.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: analysis-v3-mr-mt3-persistent-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+
+      - name: Sync locked hello-ai backend
+        run: uv sync --project backend --locked
+
+      - name: Run focused contract tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          backend/.venv/bin/python -m pytest \
+            backend/tests/test_analysis_v3_multitrack_persistent_runtime.py -q
+
+      - name: Create isolated pinned CPU MR-MT3 environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          MT3_VENV="$RUNNER_TEMP/mt3-venv"
+          uv venv "$MT3_VENV" --python 3.11
+          uv pip install --python "$MT3_VENV/bin/python" \
+            --index-url https://download.pytorch.org/whl/cpu \
+            'torch==2.6.0' 'torchvision==0.21.0' 'torchaudio==2.6.0'
+          uv pip install --python "$MT3_VENV/bin/python" \
+            'mt3-infer @ git+https://github.com/openmirlab/mt3-infer.git@2d20ee5bb6ca727968bd23c6100fd2a35154166b'
+          "$MT3_VENV/bin/python" - <<'PY'
+          import importlib.metadata as metadata
+          import torch
+
+          assert metadata.version('mt3-infer') == '0.2.0'
+          assert torch.__version__ == '2.6.0+cpu'
+          print({'mt3_infer': metadata.version('mt3-infer'), 'torch': torch.__version__})
+          PY
+          test -x "$MT3_VENV/bin/mt3-infer"
+
+      - name: Acquire exact canonical Slakh runtime audio
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          backend/.venv/bin/python -m \
+            backend.evaluation.analysis_v3.multitrack_transcription.persistent_runtime \
+            prepare \
+            --output-root "$RUNNER_TEMP/mr-mt3-runtime"
+
+      - name: Prefetch and verify exact MR-MT3 checkpoint
+        shell: bash
+        env:
+          MT3_CHECKPOINT_DIR: ${{ runner.temp }}/mt3-checkpoints
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/mt3-venv/bin/mt3-infer" download mr_mt3
+          CHECKPOINT="$MT3_CHECKPOINT_DIR/mr_mt3/mt3.pth"
+          test -f "$CHECKPOINT"
+          ACTUAL="$(sha256sum "$CHECKPOINT" | cut -d' ' -f1)"
+          EXPECTED="b8a3807ed265059abd25ad7f68142c06c35e8f6144dcaa45bd55946a3745398f"
+          test "$ACTUAL" = "$EXPECTED"
+          ls -lh "$CHECKPOINT"
+
+      - name: Run paired process-vs-persistent benchmark
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          MT3_CHECKPOINT_DIR: ${{ runner.temp }}/mt3-checkpoints
+        run: |
+          "$RUNNER_TEMP/mt3-venv/bin/python" -m \
+            backend.evaluation.analysis_v3.multitrack_transcription.persistent_runtime \
+            benchmark \
+            --manifest "$RUNNER_TEMP/mr-mt3-runtime/audio_manifest.json" \
+            --output-root "$RUNNER_TEMP/mr-mt3-runtime" \
+            --mt3-binary "$RUNNER_TEMP/mt3-venv/bin/mt3-infer" \
+            --checkpoint-root "$MT3_CHECKPOINT_DIR" \
+            --output backend/evaluation/analysis_v3/multitrack_transcription/results/mr_mt3_persistent_runtime_v1.json
+
+      - name: Upload metrics and logs only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: analysis-v3-mr-mt3-persistent-runtime
+          path: |
+            backend/evaluation/analysis_v3/multitrack_transcription/results/mr_mt3_persistent_runtime_v1.json
+            ${{ runner.temp }}/mr-mt3-runtime/cli_control/*.log
+          if-no-files-found: warn
+          retention-days: 7
