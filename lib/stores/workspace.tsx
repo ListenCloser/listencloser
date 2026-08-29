@@ -114,6 +114,24 @@ function representationKindToKnown(kind: RepresentationKind): RepresentationId |
   }
 }
 
+function preserveImmutableRepresentationUrls(
+  previous: RepresentationEntry[],
+  incoming: RepresentationEntry[],
+): RepresentationEntry[] {
+  return incoming.map((next) => {
+    if (!next.versionId) return next;
+    const existing = previous.find(
+      (item) => item.kind === next.kind && item.versionId === next.versionId,
+    );
+    if (!existing) return next;
+    return {
+      ...next,
+      sourceUrl: existing.sourceUrl,
+      ...(existing.audioUrl ? { audioUrl: existing.audioUrl } : {}),
+    };
+  });
+}
+
 export function useWorkspace(): WorkspaceContextValue {
   const ctx = useContext(WorkspaceContext);
   if (!ctx) throw new Error("useWorkspace must be used within WorkspaceProvider");
@@ -180,7 +198,8 @@ export function WorkspaceProvider({
     setWorkspace((prev) => {
       const existing = prev.representations.find((item) => item.kind === rep.kind);
       if (existing) {
-        return { ...prev, representations: prev.representations.map((item) => item.kind === rep.kind ? rep : item) };
+        const [stable] = preserveImmutableRepresentationUrls([existing], [rep]);
+        return { ...prev, representations: prev.representations.map((item) => item.kind === rep.kind ? stable : item) };
       }
       return {
         ...prev,
@@ -195,7 +214,11 @@ export function WorkspaceProvider({
   const requestVariation = useCallback((versionId: string, semitones: number) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "variation", versionIds: [versionId], semitones } })), []);
   const requestComparison = useCallback((versionIdA: string, versionIdB: string) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "compare", versionIds: [versionIdA, versionIdB] } })), []);
   const setStudioOperation = useCallback((studioOperation: StudioOperation) => setWorkspace((prev) => ({ ...prev, studioOperation })), []);
-  const replaceRepresentations = useCallback((representations: RepresentationEntry[]) => setWorkspace((prev) => ({ ...prev, representations, activeRepresentation: prev.activeRepresentation ?? null })), []);
+  const replaceRepresentations = useCallback((representations: RepresentationEntry[]) => setWorkspace((prev) => ({
+    ...prev,
+    representations: preserveImmutableRepresentationUrls(prev.representations, representations),
+    activeRepresentation: prev.activeRepresentation ?? null,
+  })), []);
   const setActiveRepresentation = useCallback((activeRepresentation: RepresentationId | null) => setWorkspace((prev) => prev.activeRepresentation === activeRepresentation ? prev : { ...prev, activeRepresentation }), []);
   const setSelection = useCallback((selection: MusicalSelection | null) => setWorkspace((prev) => ({ ...prev, selection })), []);
   const clearSelection = useCallback(() => setWorkspace((prev) => ({ ...prev, selection: null })), []);

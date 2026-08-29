@@ -1,0 +1,97 @@
+.anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.tooltip {
+  --tooltip-closed-x: -50%;
+  --tooltip-closed-y: 4px;
+  --tooltip-open-x: -50%;
+  --tooltip-open-y: 0;
+  position: absolute;
+  z-index: 80;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: min(240px, 70vw);
+  padding: 5px 7px;
+  border: 1px solid rgba(241, 237, 228, 0.11);
+  border-radius: 5px;
+  background: #25231f;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.18);
+  color: #e7e2d8;
+  font-size: 11px;
+  font-weight: 520;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(var(--tooltip-closed-x), var(--tooltip-closed-y));
+  transition:
+    opacity 110ms ease-out,
+    transform 110ms ease-out,
+    visibility 0s linear 110ms;
+}
+
+.tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid rgba(241, 237, 228, 0.11);
+  border-bottom: 1px solid rgba(241, 237, 228, 0.11);
+  background: #25231f;
+  transform: translate(-50%, -4px) rotate(45deg);
+}
+
+.tooltipLeft {
+  --tooltip-closed-x: 4px;
+  --tooltip-closed-y: -50%;
+  --tooltip-open-x: 0;
+  --tooltip-open-y: -50%;
+  top: 50%;
+  right: calc(100% + 8px);
+  bottom: auto;
+  left: auto;
+}
+
+.tooltipLeft::after {
+  display: none;
+}
+
+.anchor:hover > .tooltip,
+.anchor:has(> :focus-visible) > .tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(var(--tooltip-open-x), var(--tooltip-open-y));
+}
+
+.anchor:hover > .tooltip {
+  transition-delay: 280ms, 280ms, 0s;
+}
+
+.anchor:has(> :focus-visible) > .tooltip {
+  transition-delay: 0s;
+}
+
+@media (hover: none) {
+  .anchor:hover > .tooltip {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip,
+  .anchor:hover > .tooltip,
+  .anchor:has(> :focus-visible) > .tooltip {
+    transform: translate(var(--tooltip-open-x), var(--tooltip-open-y));
+    transition: none;
+  }
+}

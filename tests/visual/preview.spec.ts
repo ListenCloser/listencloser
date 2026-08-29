@@ -73,6 +73,18 @@ test("app studio — desktop", async ({ page }) => {
   }
 });
 
+// First-use identity is now a product surface in its own right. Capture the
+// real deletion -> empty-workspace state so generic clip-art/fake-data drift is
+// visible in review instead of hiding outside the visual regression suite.
+test("app studio — empty workspace", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openDesktopWorkspace(page);
+  await page.getByRole("button", { name: "Delete Test Work" }).click();
+  await expect(page.getByTestId("empty-workspace-signal")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible();
+  await argosScreenshot(page, "app-studio-empty-desktop", { fullPage: true });
+});
+
 test("app studio — narrow desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
   await openDesktopWorkspace(page);
