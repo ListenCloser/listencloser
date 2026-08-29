@@ -1,0 +1,42 @@
+name: Scratch Demucs ARM sphn install
+
+on:
+  push:
+    branches:
+      - scratch/demucs-arm-sphn-install
+    paths:
+      - '.github/workflows/scratch-demucs-arm-sphn-install.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  arm-install:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: '.python-version'
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+      - run: uv sync --project backend --locked
+      - name: Install upstream-documented CMake 3.x workaround
+        run: uv pip install --python backend/.venv/bin/python 'cmake<4'
+      - name: Install Demucs with declared dependencies
+        run: |
+          CMAKE="$PWD/backend/.venv/bin/cmake" \
+            uv pip install --python backend/.venv/bin/python 'demucs==4.1.0'
+          backend/.venv/bin/python - <<'PY'
+          import importlib.metadata
+          import demucs
+          import sphn
+          print('demucs', importlib.metadata.version('demucs'))
+          print('sphn', importlib.metadata.version('sphn'))
+          print('demucs module', demucs.__file__)
+          print('sphn module', sphn.__file__)
+          PY
