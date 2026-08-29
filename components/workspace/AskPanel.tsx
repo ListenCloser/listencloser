@@ -6,6 +6,7 @@ import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 import { deriveAskContext } from "@/lib/ask/context";
 import { askMusic } from "@/lib/ask/client";
+import { deriveAskStarterPrompts } from "@/lib/ask/prompts";
 import {
   actionLabel,
   describeAskContext,
@@ -17,18 +18,6 @@ import {
 import { composeNoteSelection } from "@/lib/selection";
 import type { PlaybackSource } from "@/lib/stores/transport";
 import type { AskAction, AskMessage, AskReference, AskResponse } from "@/lib/ask/types";
-
-const WHOLE_WORK_PROMPTS = [
-  "What stands out in this recording?",
-  "Where does the music change?",
-  "Explain the harmony in plain language.",
-];
-
-const SELECTION_PROMPTS = [
-  "Explain this moment.",
-  "What changes in this selection?",
-  "Why does this passage sound different?",
-];
 
 function makeId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -171,7 +160,16 @@ export default function AskPanel() {
 
   const scope = describeAskContext(workspace.selection);
   const showScope = Boolean(workspace.selection && scope);
-  const starterPrompts = showScope ? SELECTION_PROMPTS : WHOLE_WORK_PROMPTS;
+  const starterContext = deriveAskContext(
+    activeWorkId,
+    workspace.activeRepresentation,
+    transport.position,
+    activeSource,
+    workspace.selection,
+    workspace.insights,
+    timeline.bpm,
+  );
+  const starterPrompts = deriveAskStarterPrompts(starterContext);
   const conversation = workspace.askConversation;
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -193,14 +191,16 @@ export default function AskPanel() {
         {conversation.length === 0 && (
           <div className="ask-empty">
             <strong>Ask about the current music</strong>
-            <p>Ask for an explanation, comparison, or a closer look at the current selection.</p>
-            <div className="ask-prompts">
-              {starterPrompts.map((prompt) => (
-                <button type="button" className="ask-prompt" key={prompt} onClick={() => void handleAsk(prompt)}>
-                  {prompt}
-                </button>
-              ))}
-            </div>
+            <p>Questions are grounded in analysis currently available for this recording and selection.</p>
+            {starterPrompts.length > 0 && (
+              <div className="ask-prompts">
+                {starterPrompts.map((prompt) => (
+                  <button type="button" className="ask-prompt" key={prompt} onClick={() => void handleAsk(prompt)}>
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
