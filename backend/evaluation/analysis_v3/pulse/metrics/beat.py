@@ -88,10 +88,7 @@ def match_timestamps(
     reference: list[float],
     tolerance: float = 0.07,
 ) -> tuple[int, list[float], list[float]]:
-    """Greedy timestamp matching for debugging/diagnostics.
-
-    Returns (matched_count, unmatched_pred, unmatched_ref).
-    """
+    """Greedy timestamp matching retained only for legacy debugging tests."""
     pred = sorted(predicted)
     ref = sorted(reference)
     matched = 0
@@ -109,6 +106,20 @@ def match_timestamps(
     return matched, unmatched_pred, unmatched_ref
 
 
+def _canonical_matching(
+    predicted: list[float],
+    reference: list[float],
+    tolerance: float,
+) -> tuple[np.ndarray, np.ndarray, list[tuple[int, int]]]:
+    if tolerance < 0:
+        raise ValueError("tolerance must be non-negative")
+    pred_arr = np.asarray(sorted(predicted), dtype=float)
+    ref_arr = np.asarray(sorted(reference), dtype=float)
+    if pred_arr.size == 0 or ref_arr.size == 0:
+        return pred_arr, ref_arr, []
+    return pred_arr, ref_arr, mir_eval.util.match_events(ref_arr, pred_arr, tolerance)
+
+
 def compute_event_timing(
     predicted: list[float],
     reference: list[float],
@@ -121,22 +132,11 @@ def compute_event_timing(
     Coverage is retained because timing statistics over matched events alone
     would be misleading for a tracker that misses or mis-phases most events.
     """
-    if tolerance < 0:
-        raise ValueError("tolerance must be non-negative")
-
-    pred_arr = np.asarray(sorted(predicted), dtype=float)
-    ref_arr = np.asarray(sorted(reference), dtype=float)
-    if pred_arr.size == 0 or ref_arr.size == 0:
-        return EventTimingResult(
-            tolerance_seconds=tolerance,
-            matched=0,
-            predicted=len(predicted),
-            reference=len(reference),
-            signed_errors_seconds=(),
-        )
-
-    matching = mir_eval.util.match_events(ref_arr, pred_arr, tolerance)
-    errors = tuple(float(pred_arr[pred_index] - ref_arr[ref_index]) for ref_index, pred_index in matching)
+    pred_arr, ref_arr, matching = _canonical_matching(predicted, reference, tolerance)
+    errors = tuple(
+        float(pred_arr[pred_index] - ref_arr[ref_index])
+        for ref_index, pred_index in matching
+    )
     return EventTimingResult(
         tolerance_seconds=tolerance,
         matched=len(matching),
@@ -153,7 +153,8 @@ def compute_beat_f1(
 ) -> BeatF1Result:
     """Compute beat F-measure using canonical mir_eval.beat.f_measure.
 
-    Uses the standard MIREX convention with 70ms tolerance.
+    Uses the standard MIREX convention with 70ms tolerance. Diagnostic match
+    counts use the same maximum one-to-one event matching contract.
     """
     if not reference:
         return BeatF1Result(
@@ -174,21 +175,16 @@ def compute_beat_f1(
             reference=len(reference),
         )
 
-    pred_arr = np.array(sorted(predicted))
-    ref_arr = np.array(sorted(reference))
-
+    pred_arr, ref_arr, matching = _canonical_matching(predicted, reference, tolerance)
     try:
         f1 = mir_eval.beat.f_measure(ref_arr, pred_arr, f_measure_threshold=tolerance)
     except Exception:
         f1 = 0.0
 
-    matched, _, _ = match_timestamps(predicted, reference, tolerance)
-    p = matched / len(predicted) if predicted else 0.0
-    r = matched / len(reference) if reference else 0.0
-
+    matched = len(matching)
     return BeatF1Result(
-        precision=p,
-        recall=r,
+        precision=matched / len(predicted),
+        recall=matched / len(reference),
         f1=f1,
         matched=matched,
         predicted=len(predicted),
