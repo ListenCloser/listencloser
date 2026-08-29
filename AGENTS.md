@@ -150,17 +150,16 @@ Escalate only for genuine blockers such as:
 - major architecture changes with broad consequences,
 - required secrets/credentials unavailable to the agent.
 
-## 12. Parallel work and repository merge automation
+## 12. Parallel work and merge integration
 
-Parallel implementation is the default. Unrelated autonomous agents should not wait for each other merely because another PR is open or because `main` moved.
+Parallel implementation and validation are the default. Unrelated autonomous agents should not wait for each other merely because another PR is open.
 
-- Multiple production PRs may be non-draft and validate concurrently when they own bounded, independent changes.
-- Prefer small PRs with clear ownership domains. Direct same-file edits are an obvious overlap; shared contracts such as `lib/`, API/state layers, backend runtime/database surfaces, dependency/config files, CI, and tests are broader integration surfaces and should be treated more conservatively.
-- Do not reserve broad areas of the repository preemptively. Two leaf UI components, two independent evaluation experiments, or other demonstrably disjoint files may proceed in parallel.
-- A production merge-intended PR opts into repository merge automation by checking `Merge automatically when green` in the PR template. Research, design/reference, experiment-only, or intentionally held PRs leave it unchecked.
-- The protected `Build` remains the evidence gate. After it succeeds, the `Merge Ready` workflow re-checks the PR against the current base branch at merge time.
-- If intervening `main` changes are disjoint leaf work, the repository may merge the green PR without a redundant rebase/CI cycle.
-- If intervening changes touch the same file or a shared/global integration surface, the repository updates the PR branch automatically so the required checks re-run on current `main`.
-- Agents should not manually rebase just because `main` advanced, should not wait for unrelated PRs to merge, and should not act as global merge coordinators. Intervene only when the automated update cannot resolve a genuine conflict or CI exposes a real integration regression.
+- Multiple production PRs may be non-draft and run CI concurrently when they own bounded, independent changes.
+- Prefer small PRs with clear ownership domains. Direct same-file edits are an obvious overlap; shared contracts such as `lib/`, API/state layers, backend runtime/database surfaces, dependency/config files, CI, and cross-cutting tests are broader integration surfaces and should be treated more conservatively.
+- Do not reserve broad areas of the repository preemptively. Two leaf UI components, two independent evaluation experiments, or other demonstrably disjoint changes may proceed in parallel.
+- Do not rebase or restart work merely because `main` moved while development or CI is in progress. Finish the branch and its relevant evidence first.
+- The protected `Build` context remains the merge gate. The repository currently requires an up-to-date base before final merge, so when another PR lands GitHub may require the stale-but-ready branch to refresh and run a final check cycle. Perform that refresh mechanically; it is an integration constraint, not a reason to serialize development beforehand.
+- Enable native GitHub auto-merge for ordinary production PRs once their required evidence is green. If GitHub invalidates the required check after `main` advances, update the branch and let the checks rerun; do not ask another agent to stop unrelated work.
+- Never add an Actions workflow that merges or updates PRs using only the repository `GITHUB_TOKEN`: workflow-created updates require approval-gated CI, and workflow-created merges suppress normal push-triggered workflows. A future automated merge coordinator must use a dedicated GitHub App/PAT or GitHub's native merge queue and must preserve production deploy/smoke triggers.
 - Use the smallest evidence tier that proves the diff. Real-stack E2E is required for critical cross-boundary product/runtime changes, not automatically for static docs, dead-code deletion, or tooling-only edits whose behavior is already covered by build/typecheck/unit/browser checks.
 - A heavyweight optional check may continue after a low-risk PR merges when the required and risk-relevant gates already prove the change; never skip a check that is required by branch protection or materially relevant to the changed behavior.
