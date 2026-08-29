@@ -28,6 +28,7 @@ HF_WEIGHT_FILENAME = "955717e8.safetensors"
 HF_WEIGHT_SHA256 = "d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd"
 DURATIONS_SECONDS = (10.0, 30.0, 180.0)
 SAMPLE_RATE = 44100
+TORCH_NUM_THREADS = 2
 
 
 def _max_rss_mb() -> float:
@@ -134,6 +135,11 @@ def run_operational_probe(*, device: str = "cpu") -> dict[str, Any]:
         raise ValueError("This operational gate is intentionally CPU-only")
 
     import torch
+
+    # Keep the hosted architecture comparison controlled. Runner images have
+    # different PyTorch thread defaults (observed x86=2, ARM=4), which would
+    # otherwise confound the latency comparison.
+    torch.set_num_threads(TORCH_NUM_THREADS)
 
     weight_path, weight_metadata = _verified_weight_path()
     started = time.monotonic()
