@@ -18,6 +18,10 @@ Required for substantial algorithmic/domain logic. If not applicable, say why.
 
 What did this PR intentionally not change?
 
+## Parallelism / ownership
+
+What files, contracts, or product domain does this PR own? Note any known overlap with another open PR. Independent work should remain non-draft and validate concurrently rather than waiting for unrelated PRs.
+
 ## Verification
 
 Check the applicable evidence tiers and provide concrete results.
@@ -53,14 +57,6 @@ Otherwise: N/A.
 ## Deployment / configuration impact
 
 List new environment variables, dependencies, migrations, model/checkpoint requirements, or deployment changes. Confirm configuration reaches the actual runtime/container where applicable.
-
-## Merge policy
-
-- [ ] Merge automatically when green
-
-Check this only for a production merge-intended PR. The repository merge coordinator will re-check the current `main` at merge time: disjoint leaf work may merge without a redundant rebase, while overlapping/shared integration surfaces are refreshed automatically and re-run through CI.
-
-Leave it unchecked for research, design/reference, experiment, or intentionally held PRs.
 
 ## Remaining limitations / rollback
 
