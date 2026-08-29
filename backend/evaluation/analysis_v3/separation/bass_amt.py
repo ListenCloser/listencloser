@@ -27,6 +27,7 @@ class BassAmtScore:
     runtime_seconds: float | None
     process_max_rss_mb: float | None
     predicted_notes_reported: int | None
+    provenance: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -35,6 +36,7 @@ class BassAmtScore:
             "runtime_seconds": self.runtime_seconds,
             "process_max_rss_mb": self.process_max_rss_mb,
             "predicted_notes_reported": self.predicted_notes_reported,
+            "provenance": self.provenance,
         }
 
 
@@ -144,6 +146,7 @@ def score_basic_pitch_audio(
         runtime_seconds=measurement.get("runtime_seconds"),
         process_max_rss_mb=measurement.get("process_max_rss_mb"),
         predicted_notes_reported=measurement.get("predicted_notes"),
+        provenance=dict(measurement.get("provenance") or {}),
     )
 
 
