@@ -47,7 +47,8 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
   const handleAction = (action: LiveBreakdownAction) => {
     switch (action.type) {
       case "loop":
-        focusFinding();
+        seek(finding.startSeconds);
+        selectFinding();
         setLoop(finding.startSeconds, finding.endSeconds);
         if (!transport.loopEnabled) toggleLoop();
         break;
