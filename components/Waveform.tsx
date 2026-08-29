@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getDecodedAudio } from "@/lib/audio-buffer-cache";
 import { withAlpha } from "@/lib/color";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
@@ -46,14 +47,7 @@ export default function Waveform({
     if (!url) return;
     let cancelled = false;
     setStatus("loading");
-    const audioCtx = new AudioContext();
-    window
-      .fetch(url)
-      .then((response) => {
-        if (!response.ok) throw new Error("waveform request failed");
-        return response.arrayBuffer();
-      })
-      .then((buffer) => audioCtx.decodeAudioData(buffer))
+    getDecodedAudio(url)
       .then((decoded) => {
         if (cancelled) return;
         const channel = decoded.getChannelData(0);
@@ -76,13 +70,9 @@ export default function Waveform({
       })
       .catch(() => {
         if (!cancelled) setStatus("error");
-      })
-      .finally(() => {
-        void audioCtx.close();
       });
     return () => {
       cancelled = true;
-      void audioCtx.close();
     };
   }, [url]);
 
@@ -195,7 +185,6 @@ export default function Waveform({
       });
       canvasCtx.globalAlpha = 1;
     } else if (status === "ready") {
-      // Empty state: faint center line
       canvasCtx.fillStyle = trace;
       canvasCtx.globalAlpha = 0.15;
       canvasCtx.fillRect(0, h / 2 - 1, w, 2);

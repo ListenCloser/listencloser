@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getDecodedAudio } from "@/lib/audio-buffer-cache";
 import { withAlpha } from "@/lib/color";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 import type { MusicalSelection } from "@/lib/stores/workspace";
@@ -13,15 +14,6 @@ import {
 } from "@/lib/spectrogram";
 
 type Range = { start: number; end: number };
-
-const audioCache = new Map<string, AudioBuffer>();
-const CACHE_LIMIT = 3;
-
-function cacheAudio(url: string, buffer: AudioBuffer): void {
-  audioCache.delete(url);
-  audioCache.set(url, buffer);
-  if (audioCache.size > CACHE_LIMIT) audioCache.delete(audioCache.keys().next().value as string);
-}
 
 function mergedSamples(buffer: AudioBuffer): Float32Array {
   if (buffer.numberOfChannels === 1) return buffer.getChannelData(0);
@@ -69,18 +61,7 @@ export default function Spectrogram({
       setStatus("loading");
       setProgress(0);
       try {
-        let buffer = audioCache.get(url);
-        if (!buffer) {
-          const response = await fetch(url);
-          if (!response.ok) throw new Error("spectrogram request failed");
-          const context = new AudioContext();
-          try {
-            buffer = await context.decodeAudioData(await response.arrayBuffer());
-          } finally {
-            void context.close();
-          }
-          cacheAudio(url, buffer);
-        }
+        const buffer = await getDecodedAudio(url);
         const result = await computeSpectrogram(mergedSamples(buffer), buffer.sampleRate, {
           onProgress: (complete, total) => {
             if (!cancelled && complete % 12 === 0) setProgress(complete / total);
