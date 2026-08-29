@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#11110f"/><stop offset="1" stop-color="#191814"/></linearGradient>
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#8d887e"/><stop offset=".48" stop-color="#f0eadf"/><stop offset=".52" stop-color="#d6b56d"/><stop offset="1" stop-color="#777168"/></linearGradient>
+  </defs>
+  <rect width="1440" height="900" fill="url(#bg)"/>
+  <text x="54" y="58" fill="#d6b56d" font-family="ui-monospace, monospace" font-size="12" letter-spacing="3">HELLO-AI · PRODUCT-NATIVE HERO PROTOTYPE</text>
+  <rect x="1218" y="34" width="168" height="30" rx="15" fill="#2a261d" stroke="#d6b56d" stroke-opacity=".35"/>
+  <text x="1302" y="54" text-anchor="middle" fill="#d6b56d" font-family="system-ui" font-size="11" font-weight="700">PROTOTYPE NEXT</text>
+
+  <text x="54" y="150" fill="#f0eadf" font-family="Georgia, serif" font-size="66">Same moment.</text>
+  <text x="54" y="215" fill="#f0eadf" font-family="Georgia, serif" font-size="66">Different views.</text>
+  <text x="54" y="280" fill="#d6b56d" font-family="Georgia, serif" font-size="66">One shared time.</text>
+  <text x="58" y="330" fill="#a19a8e" font-family="system-ui" font-size="16">A product-specific alternative to generic hero art: one real recording, aligned representations,</text>
+  <text x="58" y="355" fill="#a19a8e" font-family="system-ui" font-size="16">and an explanation that points back to the exact musical moment.</text>
+
+  <g transform="translate(530 105)">
+    <rect width="850" height="640" rx="24" fill="#1d1c18" stroke="#f0eadf" stroke-opacity=".09"/>
+    <text x="32" y="42" fill="#8d867b" font-family="ui-monospace, monospace" font-size="11" letter-spacing="2">DEMO PASSAGE · 00:12–00:24 · USE REAL DATA IN IMPLEMENTATION</text>
+    <line x1="32" y1="72" x2="818" y2="72" stroke="#f0eadf" stroke-opacity=".08"/>
+
+    <!-- shared ruler -->
+    <g font-family="ui-monospace, monospace" font-size="10" fill="#716b62">
+      <text x="150" y="99">00:12</text><text x="320" y="99">00:15</text><text x="490" y="99">00:18</text><text x="660" y="99">00:21</text><text x="790" y="99">00:24</text>
+    </g>
+    <line x1="160" y1="110" x2="160" y2="555" stroke="#f0eadf" stroke-opacity=".045"/>
+    <line x1="330" y1="110" x2="330" y2="555" stroke="#f0eadf" stroke-opacity=".045"/>
+    <line x1="500" y1="110" x2="500" y2="555" stroke="#f0eadf" stroke-opacity=".045"/>
+    <line x1="670" y1="110" x2="670" y2="555" stroke="#f0eadf" stroke-opacity=".045"/>
+
+    <!-- labels -->
+    <g font-family="ui-monospace, monospace" font-size="10.5" fill="#8b857a" letter-spacing="1.4">
+      <text x="32" y="156">AUDIO</text><text x="32" y="257">NOTES</text><text x="32" y="357">NOTATION</text><text x="32" y="457">STRUCTURE</text><text x="32" y="548">EVIDENCE</text>
+    </g>
+
+    <!-- waveform -->
+    <path d="M130 166 C144 165 149 140 163 140 C176 140 183 195 196 195 C210 195 214 121 229 121 C243 121 248 182 263 182 C279 182 283 151 297 151 C314 151 318 205 333 205 C349 205 354 125 369 125 C385 125 390 181 406 181 C422 181 427 146 443 146 C459 146 464 204 481 204 C498 204 501 111 519 111 C536 111 541 186 557 186 C574 186 579 153 595 153 C611 153 617 198 633 198 C649 198 654 133 671 133 C689 133 692 185 709 185 C726 185 733 154 747 154 C762 154 769 178 789 178" fill="none" stroke="url(#wave)" stroke-width="2.8" stroke-linecap="round"/>
+    <line x1="130" y1="166" x2="790" y2="166" stroke="#f0eadf" stroke-opacity=".05"/>
+
+    <!-- notes -->
+    <g fill="#d6b56d">
+      <rect x="146" y="242" width="56" height="9" rx="3" opacity=".65"/><rect x="214" y="225" width="44" height="9" rx="3" opacity=".78"/>
+      <rect x="270" y="207" width="72" height="9" rx="3" opacity=".9"/><rect x="354" y="234" width="52" height="9" rx="3" opacity=".72"/>
+      <rect x="423" y="197" width="83" height="9" rx="3"/><rect x="520" y="220" width="55" height="9" rx="3" opacity=".85"/>
+      <rect x="588" y="236" width="88" height="9" rx="3" opacity=".72"/><rect x="696" y="214" width="65" height="9" rx="3" opacity=".82"/>
+    </g>
+    <g fill="#72a9c4" opacity=".6"><rect x="180" y="266" width="90" height="7" rx="3"/><rect x="303" y="272" width="84" height="7" rx="3"/><rect x="452" y="260" width="104" height="7" rx="3"/><rect x="626" y="266" width="110" height="7" rx="3"/></g>
+
+    <!-- notation -->
+    <g stroke="#aaa397" stroke-opacity=".26"><path d="M130 328h660M130 338h660M130 348h660M130 358h660M130 368h660"/></g>
+    <g fill="#e4ddd0">
+      <ellipse cx="178" cy="348" rx="6" ry="4" transform="rotate(-18 178 348)"/><path d="M184 347v-30" stroke="#e4ddd0" stroke-width="1.8"/>
+      <ellipse cx="266" cy="338" rx="6" ry="4" transform="rotate(-18 266 338)"/><path d="M272 337v-30" stroke="#e4ddd0" stroke-width="1.8"/>
+      <ellipse cx="366" cy="358" rx="6" ry="4" transform="rotate(-18 366 358)"/><path d="M372 357v-30" stroke="#e4ddd0" stroke-width="1.8"/>
+      <ellipse cx="487" cy="333" rx="6" ry="4" transform="rotate(-18 487 333)"/><path d="M493 332v-30" stroke="#e4ddd0" stroke-width="1.8"/>
+      <ellipse cx="603" cy="353" rx="6" ry="4" transform="rotate(-18 603 353)"/><path d="M609 352v-30" stroke="#e4ddd0" stroke-width="1.8"/>
+      <ellipse cx="727" cy="343" rx="6" ry="4" transform="rotate(-18 727 343)"/><path d="M733 342v-30" stroke="#e4ddd0" stroke-width="1.8"/>
+    </g>
+
+    <!-- structure -->
+    <rect x="130" y="424" width="230" height="28" rx="6" fill="#302d26"/><rect x="360" y="424" width="240" height="28" rx="6" fill="#2b3234"/><rect x="600" y="424" width="190" height="28" rx="6" fill="#302d26"/>
+    <text x="145" y="443" fill="#aaa397" font-family="system-ui" font-size="11">A · lower activity</text><text x="376" y="443" fill="#9ec1cf" font-family="system-ui" font-size="11">B · activity increases</text><text x="616" y="443" fill="#aaa397" font-family="system-ui" font-size="11">A′ · returns</text>
+
+    <!-- playhead -->
+    <line x1="500" y1="106" x2="500" y2="575" stroke="#d6b56d" stroke-width="2"/>
+    <circle cx="500" cy="108" r="5" fill="#d6b56d"/>
+    <rect x="466" y="82" width="68" height="22" rx="11" fill="#d6b56d"/>
+    <text x="500" y="97" text-anchor="middle" fill="#211f1b" font-family="ui-monospace" font-size="10" font-weight="700">00:18.4</text>
+
+    <!-- evidence -->
+    <rect x="372" y="490" width="335" height="76" rx="12" fill="#25231f" stroke="#d6b56d" stroke-opacity=".28"/>
+    <circle cx="394" cy="512" r="4" fill="#d6b56d"/>
+    <text x="408" y="516" fill="#9d968a" font-family="ui-monospace" font-size="10" letter-spacing="1">EVIDENCE · 00:17.6–00:19.2</text>
+    <text x="394" y="541" fill="#f0eadf" font-family="system-ui" font-size="14">Activity increases around this moment.</text>
+    <text x="394" y="559" fill="#8e887d" font-family="system-ui" font-size="11.5">Explanation remains attached to the same time range.</text>
+  </g>
+
+  <g transform="translate(58 430)" font-family="system-ui">
+    <text x="0" y="0" fill="#d6b56d" font-family="ui-monospace" font-size="11" letter-spacing="1.8">WHY THIS IS MORE PRODUCT-SPECIFIC</text>
+    <text x="0" y="34" fill="#c8c1b5" font-size="15">• The stable object is musical time, not an abstract brand shape.</text>
+    <text x="0" y="62" fill="#c8c1b5" font-size="15">• Waveform, notes, notation, structure, and explanation remain aligned.</text>
+    <text x="0" y="90" fill="#c8c1b5" font-size="15">• One playhead explains continuity without pretending the views are equivalent.</text>
+    <text x="0" y="118" fill="#c8c1b5" font-size="15">• Use one real demo recording + real derived evidence in any implementation.</text>
+
+    <text x="0" y="184" fill="#d6b56d" font-family="ui-monospace" font-size="11" letter-spacing="1.8">MOTION RULE</text>
+    <text x="0" y="217" fill="#c8c1b5" font-size="15">Keep the ruler/playhead stable. Recompose or crossfade views around it.</text>
+    <text x="0" y="245" fill="#8d867b" font-size="13">No literal waveform→MIDI→score morph; confidence and information loss differ by representation.</text>
+  </g>
+
+  <rect x="54" y="828" width="1332" height="40" rx="10" fill="#211f1b" stroke="#f0eadf" stroke-opacity=".07"/>
+  <text x="74" y="853" fill="#9b9489" font-family="system-ui" font-size="12">Prototype classification: PROTOTYPE NEXT · visual precedent: shared time-axis systems (Sonic Visualiser / Ableton) + evidence-adjacent explanation (Hooktheory), but with hello-ai’s calmer editorial language.</text>
+</svg>
