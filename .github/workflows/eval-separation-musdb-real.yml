@@ -1,0 +1,64 @@
+name: Separation MUSDB18 Real-Recording Gate
+
+on:
+  push:
+    branches:
+      - eval/separation-musdb-real-v1
+    paths:
+      - '.github/workflows/eval-separation-musdb-real.yml'
+      - 'backend/evaluation/analysis_v3/separation/run_musdb_real.py'
+      - 'backend/tests/test_analysis_v3_separation_musdb_real.py'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  real-recording:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+      - name: Sync locked backend
+        run: uv sync --project backend --locked
+      - name: Verify ffmpeg
+        run: ffmpeg -version | head -1
+      - name: Add evaluation-only packages
+        run: |
+          uv pip install --python backend/.venv/bin/python \
+            'demucs==4.1.0' \
+            'fast-bss-eval==0.1.4' \
+            'musdb==0.4.3'
+      - name: Run focused helper tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
+        run: |
+          backend/.venv/bin/python -m pytest \
+            backend/tests/test_analysis_v3_separation_musdb_real.py -q
+      - name: Run held-out MUSDB18 preview gate
+        env:
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
+        run: |
+          backend/.venv/bin/python -m backend.evaluation.analysis_v3.separation.run_musdb_real \
+            --device cpu \
+            --output backend/evaluation/analysis_v3/separation/results/musdb18_real_v1.json
+      - name: Upload metrics only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: separation-musdb18-real-metrics
+          path: backend/evaluation/analysis_v3/separation/results/musdb18_real_v1.json
+          if-no-files-found: warn
+          retention-days: 7
