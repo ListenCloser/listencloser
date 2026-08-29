@@ -123,7 +123,11 @@ def main() -> None:
         description="Select a fixed SongFormBench subset before audio reconstruction"
     )
     parser.add_argument("--index", required=True, help="Canonical data/SongFormBench.jsonl")
-    parser.add_argument("--output-index", required=True, help="Filtered JSONL consumed by the builder")
+    parser.add_argument(
+        "--output-index",
+        required=True,
+        help="Filtered JSONL consumed by the builder",
+    )
     parser.add_argument("--provenance", required=True, help="Selection/provenance JSON output")
     parser.add_argument("--subset", default="BC")
     parser.add_argument("--count", type=int, default=8)
