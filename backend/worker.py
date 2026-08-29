@@ -8,7 +8,10 @@ import domain.capabilities as capability_module
 from domain.job_worker import JobWorker
 from domain.perceptual_capability import register_perceptual_capability
 from domain.performance_instrumentation import install_understand_instrumentation
-from domain.worker_warmup import prewarm_basic_pitch_inference, prewarm_librosa_beat_tracking
+from domain.worker_warmup import (
+    prewarm_basic_pitch_inference,
+    prewarm_librosa_beat_tracking,
+)
 from observability import configure_logging, init_sentry, init_telemetry
 
 
