@@ -178,6 +178,13 @@ jobs:
                       'outcome': record.get('outcome'),
                       'duration_seconds': record.get('duration_seconds'),
                   })
+              elif record.get('msg') == 'understand_operation_timing':
+                  output.append({
+                      'msg': 'understand_operation_timing',
+                      'operation': record.get('operation'),
+                      'outcome': record.get('outcome'),
+                      'duration_seconds': record.get('duration_seconds'),
+                  })
 
           if not output:
               raise SystemExit('no understand performance records found')
