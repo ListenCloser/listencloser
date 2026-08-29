@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Tooltip from "@/components/ui/Tooltip";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
@@ -31,11 +32,20 @@ function referenceLabel(ref: AskReference, insights: { id: string; claim: string
 }
 
 function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; blocked: boolean; reason?: string; onClick: (action: AskAction) => void }) {
-  return (
-    <button type="button" className="ask-action-chip" disabled={blocked} title={reason} onClick={() => onClick(action)}>
+  const chip = (
+    <button
+      type="button"
+      className="ask-action-chip"
+      aria-disabled={blocked || undefined}
+      onClick={() => {
+        if (!blocked) onClick(action);
+      }}
+    >
       {actionLabel(action)}
     </button>
   );
+
+  return blocked && reason ? <Tooltip content={reason}>{chip}</Tooltip> : chip;
 }
 
 export default function AskPanel() {
@@ -283,18 +293,23 @@ function AskMessageView({
             {response.references.map((ref, index) => {
               const resolution = resolveReference(ref, referenceContext);
               const blocked = resolution.kind === "blocked";
-              return (
+              const chip = (
                 <button
                   type="button"
                   className="ask-ref-chip"
                   key={`${ref.type}-${index}`}
-                  disabled={blocked}
-                  title={blocked ? resolution.reason : undefined}
-                  onClick={() => onReference(ref)}
+                  aria-disabled={blocked || undefined}
+                  onClick={() => {
+                    if (!blocked) onReference(ref);
+                  }}
                 >
                   {referenceLabel(ref, insights)}
                 </button>
               );
+
+              return blocked
+                ? <Tooltip key={`${ref.type}-${index}`} content={resolution.reason}>{chip}</Tooltip>
+                : chip;
             })}
           </div>
         </div>
