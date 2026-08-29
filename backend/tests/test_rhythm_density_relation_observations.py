@@ -1,8 +1,8 @@
 from uuid import uuid4
 
-from domain.relation_observations import (
+from domain.relation_observations import RelationObservation, SecondsSpanLocator
+from domain.rhythm_density_relations import (
     RhythmDensityEvidence,
-    SecondsSpanLocator,
     compare_rhythm_density_spans,
 )
 
@@ -51,6 +51,7 @@ def _locator(source_version_id, start: float, end: float):
 
 
 def _measurement(result):
+    assert isinstance(result, RelationObservation)
     assert len(result.measurements) == 1
     measurement = result.measurements[0]
     assert measurement.feature == "rhythm_density"
