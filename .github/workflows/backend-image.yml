@@ -108,24 +108,34 @@ jobs:
           run_probe second
           first="$(grep '^NUMBA_BENCHMARK=' /tmp/numba-first.log | tail -1 | cut -d= -f2-)"
           second="$(grep '^NUMBA_BENCHMARK=' /tmp/numba-second.log | tail -1 | cut -d= -f2-)"
+          mkdir -p performance-results
           python - "$first" "$second" <<'PY'
           import json
           import os
           import sys
+          from pathlib import Path
 
           first = json.loads(sys.argv[1])
           second = json.loads(sys.argv[2])
           if first["cache_files"] <= 0 or second["cache_files"] <= 0:
               raise SystemExit("Numba benchmark produced no persistent cache files")
-          print(
-              json.dumps(
-                  {
-                      "msg": "numba_cache_persistence",
-                      "arch": os.environ["ARCH"],
-                      "first_fresh_container": first,
-                      "second_fresh_container": second,
-                  },
-                  sort_keys=True,
-              )
-          )
+          record = {
+              "schema_version": 1,
+              "scenario": "native_numba_cache_persistence",
+              "thresholds_enforced": False,
+              "arch": os.environ["ARCH"],
+              "first_fresh_container": first,
+              "second_fresh_container": second,
+          }
+          output = json.dumps(record, indent=2, sort_keys=True) + "\n"
+          path = Path("performance-results") / f"numba-cache-{os.environ['ARCH']}.json"
+          path.write_text(output)
+          print(output, end="")
           PY
+      - name: Upload native Numba cache benchmark
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: numba-cache-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: performance-results/numba-cache-${{ matrix.arch }}.json
+          if-no-files-found: error
+          retention-days: 30
