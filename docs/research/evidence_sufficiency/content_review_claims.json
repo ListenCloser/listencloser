@@ -1,0 +1,97 @@
+{
+  "issue": 457,
+  "status": "derived_from_content_reviewed_456_rows",
+  "source": "#456 content_review_annotations.json",
+  "claims": [
+    {
+      "id": "style_scoped_harmonic_function",
+      "claim": "This harmony plays a named functional role within the surrounding phrase and applicable tonal framework.",
+      "required_evidence": [
+        "trusted_chord_sequence",
+        "trusted_tonal_context",
+        "phrase_or_local_context",
+        "explicit_framework_scope"
+      ],
+      "optional_evidence": ["cadence_evidence", "symbolic_score", "historical_or_style_context"],
+      "localization_requirement": "phrase_level",
+      "quality_gate": "FRAMEWORK_REQUIRED",
+      "current_readiness": "SUPPORTED_EXPERIMENTAL",
+      "validated_scope": "current chord/key prerequisites can support narrow common-practice-derived interpretation where upstream evidence is trusted; applicability is not universal across styles",
+      "abstain_when": "chord/key evidence is weak, phrase context is unavailable, or the named framework is not justified for the passage",
+      "highest_value_blocker": "better phrase/context relations and explicit framework applicability; not another isolated chord label",
+      "product_note": "Expose the supporting succession and framework. A chord identity alone is not a functional explanation."
+    },
+    {
+      "id": "section_repetition_variation_contrast",
+      "claim": "Two sections repeat, vary, or contrast one another along one or more measured musical dimensions.",
+      "required_evidence": ["two_explicit_or_trusted_spans", "at_least_one_comparable_feature_family"],
+      "optional_evidence": [
+        "repetition_similarity",
+        "perceptual_audio",
+        "metric_grid",
+        "harmony_tonality",
+        "source_layer_activity",
+        "melody_or_pitch"
+      ],
+      "localization_requirement": "section_level",
+      "quality_gate": "LOCALIZATION_TOLERANT",
+      "current_readiness": "PARTIALLY_SUPPORTED",
+      "validated_scope": "explicit user-selected A/B spans can support bounded comparisons before automatic structure is trustworthy; automatic recurrence/grouping remains research",
+      "abstain_when": "the comparison dimension is unvalidated or the spans are too poorly localized for the reported aggregate",
+      "highest_value_blocker": "#455 perceptual evidence plus trusted repetition/structure; user-selected spans are a valid interim path",
+      "product_note": "Structure should include relations among sections, not only boundary labels."
+    },
+    {
+      "id": "timbre_texture_formal_contrast",
+      "claim": "A section differs from another in measured timbral, spectral, dynamic, or layer/texture evidence.",
+      "required_evidence": ["two_explicit_or_trusted_spans", "validated_perceptual_or_layer_evidence"],
+      "optional_evidence": ["source_layer_activity", "section_identity", "context_style"],
+      "localization_requirement": "section_level",
+      "quality_gate": "LOCALIZATION_TOLERANT",
+      "current_readiness": "SUPPORTED_EVALUATION_ONLY",
+      "validated_scope": "#455 can provide raw RMS, spectral-centroid, coarse-band, and onset-activity comparisons; these do not yet equal semantic timbre labels or full texture understanding",
+      "abstain_when": "a low-level descriptor is being used as a direct synonym for a perceptual/semantic category, or span stability has not been established",
+      "highest_value_blocker": "real-music stability/diversity for #455 and source/layer activity from #334/#337",
+      "product_note": "Prefer 'high-band energy increased' over 'became brighter' unless a semantic layer is separately validated."
+    },
+    {
+      "id": "rap_flow_metric_alignment",
+      "claim": "Localized vocal/syllable events occur at measurable offsets from a trusted metric grid, and that alignment pattern differs across phrases or spans.",
+      "required_evidence": ["trusted_metric_grid", "localized_vocal_or_syllable_onsets"],
+      "optional_evidence": ["lyrics_alignment", "vocal_separation", "phrase_spans"],
+      "localization_requirement": "exact_event_required",
+      "quality_gate": "EXACT_EVENT_REQUIRED",
+      "current_readiness": "BLOCKED_BY_EVIDENCE_QUALITY",
+      "validated_scope": "#472 measures generic timing-error propagation, but production does not yet provide sufficiently validated syllable localization and #335 metric-grid promotion is unresolved",
+      "abstain_when": "grid phase or syllable/event timing uncertainty is comparable to the claimed offset",
+      "highest_value_blocker": "#335 trusted local metric grid plus a validated vocal/syllable onset path",
+      "product_note": "This is a measured coordination relation. Do not collapse it into generic 'syncopation' or expressive meaning."
+    },
+    {
+      "id": "flow_lyric_expressive_interpretation",
+      "claim": "A measured change in flow/beat relationship plausibly reinforces or contrasts with a lyrical idea.",
+      "required_evidence": ["measured_flow_metric_relation", "localized_lyrics_text"],
+      "optional_evidence": ["broader_work_context", "section_comparison"],
+      "localization_requirement": "phrase_plus_text_context",
+      "quality_gate": "SEMANTIC_HYPOTHESIS_ONLY",
+      "current_readiness": "BLOCKED_BY_MISSING_EVIDENCE",
+      "validated_scope": "even with accurate timing and lyrics, the music-text interpretation remains a hypothesis with alternative readings",
+      "abstain_when": "the measured rhythmic relation is weak/unreliable or the interpretation is presented as a universal causal meaning",
+      "highest_value_blocker": "first satisfy rap_flow_metric_alignment; then add an explicitly interpretive evidence-composition layer",
+      "product_note": "Keep measured relation and interpretive meaning as different truth tiers in the UI and data model."
+    },
+    {
+      "id": "jazz_motivic_interaction",
+      "claim": "One performer responds to another through a localized motivic or phrase-level relationship.",
+      "required_evidence": ["source_or_performer_identity", "localized_phrase_or_motif_evidence", "temporal_ordering"],
+      "optional_evidence": ["repetition_similarity", "metric_grid", "perceptual_intensity", "source_activity"],
+      "localization_requirement": "event_to_phrase_level",
+      "quality_gate": "MULTI_EVIDENCE_CORROBORATION",
+      "current_readiness": "BLOCKED_BY_MISSING_EVIDENCE",
+      "validated_scope": "current system lacks trusted performer/source identity plus motif recurrence; simultaneity or generic timing correlation is insufficient",
+      "abstain_when": "performer identity is ambiguous, motif similarity is unvalidated, or the evidence shows only co-occurrence rather than response",
+      "highest_value_blocker": "#334/#337 source identity/activity plus validated motif/recurrence evidence",
+      "product_note": "Do not build one generic 'interaction score'; distinguish source coordination, intensity response, and motivic response."
+    }
+  ]
+}
