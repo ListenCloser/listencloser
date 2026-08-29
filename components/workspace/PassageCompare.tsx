@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { formatTime } from "@/lib/format";
 import { requestWorkspaceOrientation } from "@/lib/inspector/orientation";
 import {
@@ -12,6 +12,7 @@ import { useWorkspace, type MusicalSelection } from "@/lib/stores/workspace";
 
 type PassageRange = { start: number; end: number };
 type RequestState = "idle" | "loading" | "error";
+type SetSelection = (selection: MusicalSelection | null) => void;
 
 function performanceRange(selection: MusicalSelection | null): PassageRange | null {
   const range = selection?.timeRange;
@@ -44,26 +45,42 @@ function unavailableCopy(status: PerceptualSpanComparisonResponse["status"]): st
 
 export default function PassageCompare() {
   const { workspace, setSelection } = useWorkspace();
-  const { seek } = useTransport();
   const workId = workspace.activeWorkId;
   const sourceVersionId = workspace.representations.find(
     (representation) => representation.kind === "waveform" && representation.versionId,
   )?.versionId ?? null;
-  const selectedRange = performanceRange(workspace.selection);
-  const contextKey = `${workId ?? ""}:${sourceVersionId ?? ""}`;
-  const latestContextKey = useRef(contextKey);
+
+  if (!workId || !sourceVersionId) return null;
+
+  return (
+    <PassageCompareForSource
+      key={`${workId}:${sourceVersionId}`}
+      workId={workId}
+      sourceVersionId={sourceVersionId}
+      selectedRange={performanceRange(workspace.selection)}
+      setSelection={setSelection}
+    />
+  );
+}
+
+function PassageCompareForSource({
+  workId,
+  sourceVersionId,
+  selectedRange,
+  setSelection,
+}: {
+  workId: string;
+  sourceVersionId: string;
+  selectedRange: PassageRange | null;
+  setSelection: SetSelection;
+}) {
+  const { seek } = useTransport();
+  const requestGeneration = useRef(0);
   const [referenceRange, setReferenceRange] = useState<PassageRange | null>(null);
   const [result, setResult] = useState<PerceptualSpanComparisonResponse | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
 
-  useEffect(() => {
-    latestContextKey.current = contextKey;
-    setReferenceRange(null);
-    setResult(null);
-    setRequestState("idle");
-  }, [contextKey]);
-
-  if (!workId || !sourceVersionId || (!referenceRange && !selectedRange)) return null;
+  if (!referenceRange && !selectedRange) return null;
 
   const comparisonRange = referenceRange && selectedRange && !sameRange(referenceRange, selectedRange)
     ? selectedRange
@@ -71,14 +88,20 @@ export default function PassageCompare() {
   const groundedFinding = result?.status === "supported" ? result.finding : null;
   const unavailableMessage = result ? unavailableCopy(result.status) : null;
 
+  const invalidatePendingRequest = () => {
+    requestGeneration.current += 1;
+  };
+
   const captureReference = () => {
     if (!selectedRange) return;
+    invalidatePendingRequest();
     setReferenceRange(selectedRange);
     setResult(null);
     setRequestState("idle");
   };
 
   const resetComparison = () => {
+    invalidatePendingRequest();
     setReferenceRange(null);
     setResult(null);
     setRequestState("idle");
@@ -86,7 +109,8 @@ export default function PassageCompare() {
 
   const runComparison = async () => {
     if (!referenceRange || !comparisonRange) return;
-    const requestContextKey = contextKey;
+    const generation = requestGeneration.current + 1;
+    requestGeneration.current = generation;
     setRequestState("loading");
     setResult(null);
     try {
@@ -97,11 +121,11 @@ export default function PassageCompare() {
         comparison_start_seconds: comparisonRange.start,
         comparison_end_seconds: comparisonRange.end,
       });
-      if (latestContextKey.current !== requestContextKey) return;
+      if (requestGeneration.current !== generation) return;
       setResult(response);
       setRequestState("idle");
     } catch {
-      if (latestContextKey.current !== requestContextKey) return;
+      if (requestGeneration.current !== generation) return;
       setRequestState("error");
     }
   };
