@@ -152,7 +152,10 @@ async function measureImportToUsable(
   await expect(page.locator(".sheet-music-container g.vf-measure").first()).toBeVisible({ timeout: 30_000 });
   const scoreRenderReady = elapsed();
 
-  await expect(page.locator(".workspace-processing-notice")).toBeHidden({ timeout: 300_000 });
+  // The same progressbar used to establish processing start remains the current
+  // user-visible job lifecycle signal. Waiting for it to disappear avoids the
+  // stale pre-V3 `.workspace-processing-notice` selector from #497.
+  await expect(page.getByRole("progressbar")).toBeHidden({ timeout: 300_000 });
   const workflowTerminal = elapsed();
 
   return {
