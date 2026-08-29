@@ -54,7 +54,9 @@ test.describe("workspace ergonomics (MSW)", () => {
     const transport = page.getByRole("contentinfo", { name: "Playback" });
     const compare = transport.getByRole("button", { name: "Compare", exact: true });
     await expect(compare).toBeVisible();
-    await expect(compare).toHaveAttribute("title", /Compare .+ with .+/);
+    await expect(compare).not.toHaveAttribute("title");
+    await compare.hover();
+    await expect(page.getByRole("tooltip", { name: /Compare .+ with .+/ })).toBeVisible();
   });
 
   test("completed analysis is presented as a Breakdown with factual context", async ({ page }) => {
@@ -75,16 +77,21 @@ test.describe("workspace ergonomics (MSW)", () => {
     const loopBtn = page.getByRole("button", { name: "Toggle loop" });
     await expect(loopBtn).toBeVisible();
     await expect(loopBtn).toHaveAttribute("aria-pressed", "false");
-    await expect(loopBtn).toHaveAttribute("title", "Loop entire source");
+    await expect(loopBtn).not.toHaveAttribute("title");
+    await loopBtn.hover();
+    await expect(page.getByRole("tooltip", { name: "Loop entire source" })).toBeVisible();
     await expect(loopBtn.getByText("Loop", { exact: true })).toBeVisible();
 
     const playBtn = page.getByRole("button", { name: "Play", exact: true });
     await expect(playBtn).toBeVisible();
-    await expect(playBtn).toHaveAttribute("title", "Play recording");
+    await expect(playBtn).not.toHaveAttribute("title");
+    await playBtn.focus();
+    await expect(page.getByRole("tooltip", { name: "Play recording" })).toBeVisible();
 
     await loopBtn.click();
     await expect(loopBtn).toHaveAttribute("aria-pressed", "true");
-    await expect(loopBtn).toHaveAttribute("title", "Turn loop off");
+    await loopBtn.hover();
+    await expect(page.getByRole("tooltip", { name: "Turn loop off" })).toBeVisible();
   });
 
   test("library keeps the import action explicit on desktop", async ({ page }) => {
