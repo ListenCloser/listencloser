@@ -1,0 +1,67 @@
+# Evaluation decision ledger
+
+Last reviewed: 2026-08-29
+
+This is the short decision-oriented index for recent evaluation work. It exists so a new agent can answer two questions before adding evaluation code:
+
+1. **What have we already learned?**
+2. **What is the next result that would actually change a production/product decision?**
+
+It is intentionally not another benchmark specification. Detailed methodology and provenance stay in the owning issue, PR, and evaluation report.
+
+## Operating rule
+
+Evaluation work is valuable when it changes a decision, invalidates a tempting conclusion, or produces a bounded production contract. Negative results count.
+
+After a runnable harness exists for a decision, the default next PR should be **result-bearing**, not another harness extension.
+
+A harness-only PR is justified only when it is a necessary first prerequisite and names the immediate dataset/run that will consume it. Once that prerequisite exists, further infrastructure work should stop until the run happens or a concrete external blocker is recorded.
+
+Use task-standard metrics where practical, preserve per-piece/failure distributions, and fail closed on training/evaluation overlap. An aggregate score without dataset/checkpoint provenance is not promotion evidence.
+
+## Current decisions
+
+| Area | Current state | Concrete knowledge already produced | Production/product consequence | Next result that can change the decision |
+| --- | --- | --- | --- | --- |
+| Foundation representations / embeddings | **RESEARCH — decision reached for now** | #341 ran MERT, MuQ, MusicFM, CLaMP3 and CLAP. CLaMP3 is strategically interesting for audio/text/symbolic retrieval, but the aligned audio↔MIDI probe was only five pairs. No candidate demonstrated enough product value to justify a production embedding layer. | **Do not build vector/search infrastructure merely because embeddings are available.** Keep specialized MIR as the factual substrate. | Only reopen when a concrete retrieval/similarity product capability is prioritized; then evaluate that task on a materially larger legitimate corpus. Do not broaden the generic embedding bakeoff first. |
+| Beat / downbeat / MetricGrid | **LEADING CANDIDATE, promotion not complete** | #344 initially reported Beat This ≈0.94 beat F1 vs librosa ≈0.30 on GuitarSet. #425 correctly invalidated that as held-out promotion evidence because the checkpoint trained on GuitarSet. #474 then scored the published `single_final0` validation split: mean beat F1 **0.9989 vs 0.3847**, reference-beat coverage **100% vs 33.46%**, and Beat This downbeat F1 **1.0**. Both systems could still estimate global tempo reasonably, proving BPM correctness is insufficient for localized groove/bar reasoning. | Beat This is the leading MetricGrid candidate, but **do not globally switch the engine yet**. The original GuitarSet headline must never be cited as generalization evidence. | One genuinely independent annotated corpus/split not used for checkpoint training/validation, plus explicit worker runtime/fallback behavior and downstream regression probes. **No more scorer/harness generalization before this run.** |
+| Perceptual audio evidence | **BOUNDED ADOPT — already crossed into production** | #468 found native-rate descriptor comparisons unstable and established canonical mono / 22.05 kHz preprocessing. It bounded RMS as an amplitude proxy and retained spectral centroid, relative coarse-band energy and onset strength as literal measurements. #487 shipped those four typed series as production evidence; #506 shipped the first deterministic same-work A/B relation over them. | This is the clearest evaluation → production chain. The safe contract is measured evidence and literal comparison, **not semantic labels such as warm/bright/energetic**. | Product integration: expose supported relation results through Breakdown/Compare/Ask with both spans and all evidence refs. Do not add a wider descriptor catalog before a named claim needs it. |
+| Source separation | **RESEARCH — strong conditional decision** | #480 showed large controlled BabySlakh SI-SDR gains, and #521 showed the objective source-quality gain broadly survives 50 held-out MUSDB18 preview tracks, with important negative-tail failures. But #477 found drum stems do **not** improve aggregate production beat F1, and #486 found bass AMT precision gains bought with substantial recall loss. #507 showed controlled x86/ARM CPU feasibility for asynchronous use, not Oracle production economics. | **Do not make source separation universal preprocessing.** Keep mixture evidence primary; retain stems only as optional, cached, task-conditioned evidence with fallback/abstention. #534 is consolidating this decision into the canonical separation report. | Reopen candidate comparison only when a concrete source-aware claim family has a promotion target or a demonstrated HTDemucs failure worth fixing. Then measure downstream claim quality first. A new separator bakeoff by itself is not the next step. |
+| Import / processing performance | **RESULT-BEARING — optimize now** | #497/#501 measured the canonical real-stack path: Original/Waveform ≈0.9 s, Piano Roll/transcription ≈31.9 s, first evidence ≈60.5 s, Score/full enrichment ≈61.1 s. Worker decomposition showed transcription ≈30.1 s, Analyze ≈7.7 s, Score ≈12.5 s; Score beat tracking alone ≈11.5 s while notation conversion was ≈0.27 s. Queue/ingress were not dominant. | We know where the time goes. **Do not add broad performance telemetry until a new unknown appears.** Current work should reduce Basic Pitch time and the redundant/cold Score beat pass while preserving semantics. | Acceptance evidence from the active optimization experiments: same-output Basic Pitch cold→warm improvement and materially reduced Score beat-tracking latency after worker readiness. If either does not move the named metric, record the negative result and stop that optimization. |
+| Notation / Score fidelity | **PARTIAL RESULT; core benchmark still unfinished** | #509 found a real notation-stage correctness bug: grand-staff reconstruction reinterpreted source-aligned note seconds through placeholder transcription-MIDI tempo/meter. A controlled 60 BPM example changed from four incorrect half notes across two measures to four quarter notes in one measure when source MetricGrid timing was preserved. | Keep the #509 production fix. Do not assume Score quality is solved or blame OSMD for upstream event/timing errors. | **Finish the result-bearing #502 audio → predicted MIDI → Score baseline.** Attribute error to transcription vs MetricGrid vs quantization/staffing/rendering, then fix exactly the largest measured contributor. No more notation-eval abstraction before the corpus report. |
+| Structure / form boundaries | **NO CANDIDATE RESULT YET** | #505 established task-standard 0.5 s / 3 s boundary scoring plus an interior-boundary diagnostic. #516 now has candidate-neutral All-In-One/SongFormer execution, provenance, overlap and SongFormBench materialization logic. It explicitly has no model winner or product-quality result yet. | Structure remains evaluation-only. The harness is sufficiently sophisticated to answer the next question; more infrastructure has no product value until it runs. | **Materialize a legitimate annotated corpus and run the same manifest through the candidates.** Report per-track + macro boundary quality, interior quality, failures, latency/RSS, licensing and overlap validity. Do not extend #516 again merely to make the harness more general. |
+| Piano transcription profiles | **NO DECISION RESULT YET** | #540 is correcting an important evaluation seam so Basic Pitch vs Transkun uses the exact production profile registry/cleanup rather than duplicated raw model wrappers. It intentionally contains no real-model corpus result. | Do not change default routing or add bespoke cleanup based on the tooling PR alone. | Run `auto` vs `solo_piano` on the prepared aligned-reference corpus and publish per-piece onset/onset+offset F1, spurious/missed counts, duration/release pathologies and runtime. After the runner exists, **the result—not another adapter—is the deliverable.** |
+| Generic multi-instrument AMT | **RESEARCH** | Earlier MR-MT3 work produced enough quality signal to keep it alive as an optional evidence hypothesis, but CPU wrapper cost and downstream product value remain promotion gaps. #541 is explicitly testing whether persistent model reuse removes process/model-load overhead. | Do not replace Basic Pitch globally or treat symbolic transcription as the universal music representation. | Finish the persistent-runtime result. If operationally viable, the next gate is a named downstream arrangement/instrument/source claim, not another generic AMT benchmark expansion. |
+
+## What counts as a useful evaluation PR
+
+Prefer one of these shapes:
+
+- **RESULT_BEARING** — runs a legitimate fixed corpus through an already-defined decision contract and commits/publishes machine-readable results plus `ADOPT / RESEARCH / REJECT / REVISIT` implications.
+- **VALIDITY_CORRECTION** — proves an earlier conclusion was invalid or overstated (for example train/eval overlap) and fixes the durable report so agents cannot reuse the bad conclusion.
+- **PRODUCTIONIZATION** — implements a narrowly validated winner/contract without widening claims beyond the evidence.
+- **NECESSARY_PREREQUISITE** — creates the minimum scorer/adapter/materializer required for a named immediate run. This should be uncommon once a track already has a harness.
+
+Avoid:
+
+- adding candidates because they are interesting rather than because they can change a named decision;
+- adding another metric when an existing task-standard metric already answers the gate;
+- refactoring an evaluation harness before the first legitimate result;
+- calling a model better from a training-overlap or tiny qualitative probe;
+- productionizing from objective model quality without downstream product-value evidence;
+- treating a green harness CI run as a benchmark result.
+
+## Highest-leverage current sequence
+
+Assuming the existing agents keep their current lanes, the repository should favor conversion of evidence into decisions/product value in roughly this order:
+
+1. **Get the #502 audio→Piano Roll→Score stage-attribution result** and use it to choose the next representation-quality fix.
+2. **Complete the final independent MetricGrid gate** and either promote Beat This with an explicit runtime/fallback contract or document why not.
+3. **Run #516 instead of extending it** so Structure finally has candidate data.
+4. **Finish the measured latency experiments** (#530/#531 family) and merge only optimizations that materially move the named real-stack stage without semantic drift.
+5. **Carry the already-promoted perceptual/relation substrate into the product** rather than widening the evidence catalog.
+6. Treat source separation and generic embeddings as **closed-for-now research decisions** until a concrete product claim/retrieval capability creates a new decision question.
+
+## Maintenance
+
+Update an existing row when its decision changes. Do not create a second parallel evaluation-status document for an individual agent. Detailed evidence remains in the owning evaluation report; this file records the cross-track decision and the next allowed result.
