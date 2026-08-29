@@ -4,8 +4,9 @@ import logging
 import os
 import signal
 
-from domain.capabilities import register_all_capabilities
+import domain.capabilities as capability_module
 from domain.job_worker import JobWorker
+from domain.performance_instrumentation import install_understand_instrumentation
 from observability import configure_logging, init_sentry, init_telemetry
 
 
@@ -15,7 +16,8 @@ def main() -> None:
     init_telemetry("hello-ai-worker")
     init_sentry(logger)
     worker = JobWorker(max_workers=int(os.environ.get("WORKER_CONCURRENCY", "1")))
-    register_all_capabilities(worker)
+    install_understand_instrumentation(capability_module)
+    capability_module.register_all_capabilities(worker)
 
     def stop(_signum, _frame) -> None:
         worker.stop()
