@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1280">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#11110f"/>
+      <stop offset="1" stop-color="#171612"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#eee9de"/>
+      <stop offset="1" stop-color="#e4dfd4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="1280" fill="url(#bg)"/>
+  <text x="56" y="54" fill="#d6b56d" font-family="ui-monospace, monospace" font-size="12" letter-spacing="2.8">HELLO-AI · LANDING PRODUCT STORYBOARD · R&amp;D ONLY</text>
+  <text x="56" y="92" fill="#8d887e" font-family="system-ui, sans-serif" font-size="13">Composition prototype. Replace all example geometry with one real demo recording + real evidence before production.</text>
+
+  <!-- 01 HERO -->
+  <g transform="translate(56 132)">
+    <text x="0" y="0" fill="#777168" font-family="ui-monospace, monospace" font-size="11" letter-spacing="2">01 · ORIENT</text>
+    <text x="0" y="70" fill="#f0eadf" font-family="Georgia, serif" font-size="66" letter-spacing="-2.5">Hear a moment.</text>
+    <text x="0" y="132" fill="#f0eadf" font-family="Georgia, serif" font-size="66" letter-spacing="-2.5">Keep your place.</text>
+    <text x="0" y="184" fill="#aaa398" font-family="system-ui, sans-serif" font-size="16">Move between the recording, musical representations, and evidence-backed explanation</text>
+    <text x="0" y="207" fill="#aaa398" font-family="system-ui, sans-serif" font-size="16">without losing the musical moment you are listening to.</text>
+    <rect x="0" y="244" width="166" height="44" rx="7" fill="#d6b56d"/>
+    <text x="83" y="272" text-anchor="middle" fill="#1d1b17" font-family="system-ui, sans-serif" font-size="13" font-weight="650">Continue with Google</text>
+
+    <!-- shared-time object -->
+    <g transform="translate(690 12)">
+      <rect width="620" height="282" rx="14" fill="#1d1c18" stroke="#f0eadf" stroke-opacity=".08"/>
+      <text x="20" y="30" fill="#7f796f" font-family="ui-monospace, monospace" font-size="10.5" letter-spacing="1.7">ONE RECORDING · ONE MUSICAL TIME</text>
+      <g stroke="#f0eadf" stroke-opacity=".05"><path d="M20 76h580M20 124h580M20 172h580M20 220h580"/></g>
+      <text x="20" y="67" fill="#777168" font-family="system-ui" font-size="10">AUDIO</text>
+      <path d="M86 78 C103 55 116 101 134 72 C154 42 168 110 188 73 C207 38 223 113 245 69 C265 31 281 105 302 74 C324 41 339 109 360 70 C379 36 398 101 418 74 C440 47 459 99 482 72 C506 43 528 99 548 70" fill="none" stroke="#b6b0a5" stroke-width="2"/>
+      <text x="20" y="115" fill="#777168" font-family="system-ui" font-size="10">EVENTS</text>
+      <g fill="#d6b56d"><rect x="103" y="103" width="44" height="9" rx="3"/><rect x="171" y="93" width="69" height="9" rx="3"/><rect x="263" y="108" width="37" height="9" rx="3"/><rect x="323" y="88" width="82" height="9" rx="3"/><rect x="431" y="101" width="61" height="9" rx="3"/></g>
+      <text x="20" y="163" fill="#777168" font-family="system-ui" font-size="10">NOTATION</text>
+      <g stroke="#9a9388" stroke-opacity=".3"><path d="M86 145h462M86 151h462M86 157h462M86 163h462M86 169h462"/></g>
+      <g fill="#d3cdc1"><ellipse cx="166" cy="157" rx="5" ry="3.5"/><ellipse cx="241" cy="151" rx="5" ry="3.5"/><ellipse cx="330" cy="164" rx="5" ry="3.5"/><ellipse cx="406" cy="154" rx="5" ry="3.5"/></g>
+      <text x="20" y="211" fill="#777168" font-family="system-ui" font-size="10">EVIDENCE</text>
+      <path d="M86 215h462" stroke="#d6b56d" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+      <path d="M296 215h120" stroke="#d6b56d" stroke-opacity=".8" stroke-width="6" stroke-linecap="round"/>
+      <path d="M356 50v190" stroke="#8db2c7" stroke-width="2"/>
+      <circle cx="356" cy="50" r="4" fill="#8db2c7"/>
+      <text x="356" y="260" text-anchor="middle" fill="#8db2c7" font-family="ui-monospace, monospace" font-size="10">00:18.42</text>
+    </g>
+  </g>
+
+  <line x1="56" y1="466" x2="1384" y2="466" stroke="#f0eadf" stroke-opacity=".08"/>
+
+  <!-- 02 SAME MOMENT -->
+  <g transform="translate(56 510)">
+    <text x="0" y="0" fill="#777168" font-family="ui-monospace, monospace" font-size="11" letter-spacing="2">02 · SEE THE SAME MOMENT DIFFERENTLY</text>
+    <text x="0" y="43" fill="#f0eadf" font-family="Georgia, serif" font-size="34">The view changes. Musical time does not.</text>
+    <text x="0" y="72" fill="#918b80" font-family="system-ui" font-size="14">Representation continuity around one stable playhead — not a fake waveform → MIDI → score morph.</text>
+    <g transform="translate(0 105)">
+      <rect width="1328" height="210" rx="13" fill="#1b1a17" stroke="#f0eadf" stroke-opacity=".07"/>
+      <path d="M0 49h1328M0 101h1328M0 153h1328" stroke="#f0eadf" stroke-opacity=".055"/>
+      <text x="18" y="31" fill="#777168" font-family="ui-monospace" font-size="10">WAVEFORM</text>
+      <text x="18" y="83" fill="#777168" font-family="ui-monospace" font-size="10">PIANO ROLL</text>
+      <text x="18" y="135" fill="#777168" font-family="ui-monospace" font-size="10">SCORE</text>
+      <text x="18" y="187" fill="#777168" font-family="ui-monospace" font-size="10">BREAKDOWN</text>
+      <path d="M123 31 C148 12 167 47 190 27 C214 5 235 51 258 26 C285 2 304 49 330 29 C354 11 381 45 405 25 C431 4 455 53 481 27 C504 8 532 48 557 27 C582 4 607 51 632 26 C657 6 680 45 705 28 C730 8 755 47 780 25 C807 4 831 50 856 28 C881 8 905 45 930 28 C955 8 981 49 1006 26 C1030 7 1056 45 1082 28 C1106 9 1130 47 1155 27 C1180 8 1202 47 1229 28" fill="none" stroke="#a7a197" stroke-width="1.8"/>
+      <g fill="#d6b56d"><rect x="166" y="70" width="55" height="8" rx="2"/><rect x="250" y="78" width="82" height="8" rx="2"/><rect x="370" y="66" width="46" height="8" rx="2"/><rect x="458" y="81" width="94" height="8" rx="2"/><rect x="615" y="72" width="67" height="8" rx="2"/><rect x="752" y="64" width="97" height="8" rx="2"/><rect x="918" y="78" width="72" height="8" rx="2"/><rect x="1060" y="69" width="105" height="8" rx="2"/></g>
+      <g stroke="#8f887d" stroke-opacity=".32"><path d="M123 120h1106M123 126h1106M123 132h1106M123 138h1106M123 144h1106"/></g>
+      <g fill="#d7d0c4"><ellipse cx="278" cy="132" rx="5" ry="3"/><ellipse cx="421" cy="126" rx="5" ry="3"/><ellipse cx="694" cy="138" rx="5" ry="3"/><ellipse cx="921" cy="129" rx="5" ry="3"/></g>
+      <rect x="720" y="166" width="320" height="28" rx="5" fill="#d6b56d" fill-opacity=".08" stroke="#d6b56d" stroke-opacity=".2"/>
+      <text x="734" y="184" fill="#bdb6aa" font-family="system-ui" font-size="11">Evidence-backed finding · selected span</text>
+      <path d="M785 13v182" stroke="#8db2c7" stroke-width="2"/>
+      <circle cx="785" cy="13" r="4" fill="#8db2c7"/>
+    </g>
+  </g>
+
+  <line x1="56" y1="858" x2="1384" y2="858" stroke="#f0eadf" stroke-opacity=".08"/>
+
+  <!-- 03 ARRIVAL + 04 ACTION -->
+  <g transform="translate(56 902)">
+    <g>
+      <text x="0" y="0" fill="#777168" font-family="ui-monospace, monospace" font-size="11" letter-spacing="2">03 · UNDERSTANDING ARRIVES WITHOUT INTERRUPTING</text>
+      <text x="0" y="43" fill="#f0eadf" font-family="Georgia, serif" font-size="31">The recording is usable first.</text>
+      <text x="0" y="70" fill="#918b80" font-family="system-ui" font-size="13">Later capabilities appear only when their real persisted artifacts exist.</text>
+      <g transform="translate(0 95)" font-family="system-ui">
+        <rect width="620" height="178" rx="12" fill="#1b1a17" stroke="#f0eadf" stroke-opacity=".07"/>
+        <circle cx="24" cy="31" r="5" fill="#8fb58a"/><text x="42" y="35" fill="#d9d4cb" font-size="12">Original recording · usable</text>
+        <circle cx="24" cy="68" r="5" fill="#8fb58a"/><text x="42" y="72" fill="#d9d4cb" font-size="12">Waveform · real decoded peaks</text>
+        <circle cx="24" cy="105" r="5" fill="#d6b56d"/><text x="42" y="109" fill="#b7b0a4" font-size="12">Transcription · available when persisted</text>
+        <circle cx="24" cy="142" r="5" fill="#6f6b62"/><text x="42" y="146" fill="#888278" font-size="12">Additional evidence · arrives progressively</text>
+        <path d="M370 31h210M370 68h210M370 105h210M370 142h210" stroke="#f0eadf" stroke-opacity=".055"/>
+        <text x="370" y="165" fill="#6f6b62" font-family="ui-monospace" font-size="9.5">NO FAKE PERCENT · NO BLOCKING JOB MODAL</text>
+      </g>
+    </g>
+
+    <g transform="translate(690 0)">
+      <text x="0" y="0" fill="#777168" font-family="ui-monospace, monospace" font-size="11" letter-spacing="2">04 · EXPLANATION RETURNS TO THE MUSIC</text>
+      <text x="0" y="43" fill="#f0eadf" font-family="Georgia, serif" font-size="31">Text is not the endpoint.</text>
+      <text x="0" y="70" fill="#918b80" font-family="system-ui" font-size="13">Focus, Show, Loop, and Ask should preserve the same supported musical span.</text>
+      <g transform="translate(0 95)">
+        <rect width="638" height="178" rx="12" fill="#1b1a17" stroke="#f0eadf" stroke-opacity=".07"/>
+        <text x="18" y="29" fill="#d6b56d" font-family="ui-monospace" font-size="10">SUPPORTED FINDING · SELECTED TIME RANGE</text>
+        <rect x="18" y="49" width="602" height="44" rx="6" fill="#d6b56d" fill-opacity=".055"/>
+        <text x="32" y="76" fill="#d8d2c8" font-family="system-ui" font-size="13">Finding copy comes from real persisted evidence; prototype does not invent one.</text>
+        <g transform="translate(18 112)" font-family="system-ui" font-size="11.5">
+          <rect width="72" height="31" rx="6" fill="#d6b56d" fill-opacity=".1" stroke="#d6b56d" stroke-opacity=".24"/><text x="36" y="20" text-anchor="middle" fill="#dfc88f">Focus</text>
+          <rect x="82" width="72" height="31" rx="6" fill="#24231f" stroke="#f0eadf" stroke-opacity=".1"/><text x="118" y="20" text-anchor="middle" fill="#c5bfb4">Show</text>
+          <rect x="164" width="72" height="31" rx="6" fill="#24231f" stroke="#f0eadf" stroke-opacity=".1"/><text x="200" y="20" text-anchor="middle" fill="#c5bfb4">Loop</text>
+          <rect x="246" width="72" height="31" rx="6" fill="#24231f" stroke="#f0eadf" stroke-opacity=".1"/><text x="282" y="20" text-anchor="middle" fill="#c5bfb4">Ask</text>
+        </g>
+        <text x="356" y="132" fill="#8db2c7" font-family="ui-monospace" font-size="9.5">SEEK → ORIENT → SETTLE</text>
+        <path d="M356 145h245" stroke="#8db2c7" stroke-opacity=".35"/>
+        <path d="M500 139v12" stroke="#8db2c7" stroke-width="2"/>
+      </g>
+    </g>
+  </g>
+
+  <text x="56" y="1248" fill="#6f6a61" font-family="system-ui" font-size="11.5">Design rule: the landing borrows its excitement from real product relationships. The workspace does not inherit marketing spectacle.</text>
+</svg>
