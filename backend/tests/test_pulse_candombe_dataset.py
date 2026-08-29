@@ -7,6 +7,7 @@ import json
 import pytest
 from backend.evaluation.analysis_v3.pulse.datasets.candombe import (
     EVALUATION_DATASET,
+    EXPECTED_SINGLE_VAL_IDS_V1,
     extract_candombe_single_val_manifest,
     parse_candombe_beats,
     parse_single_split,
@@ -49,13 +50,16 @@ def test_resolve_candombe_audio_path_supports_official_archive_layout(tmp_path):
     assert resolve_candombe_audio_path(tmp_path, "piece") == audio
 
 
-def test_manifest_contains_only_single_split_validation_rows(tmp_path):
+def test_manifest_contains_exact_v1_single_split_validation_rows(tmp_path):
     annotations = tmp_path / "annotations"
     annotations.mkdir()
-    for stem in ("train_piece", "val_b", "val_a"):
+    for stem in EXPECTED_SINGLE_VAL_IDS_V1:
         (annotations / f"{stem}.beats").write_text("0.0\t1\n0.5\t2\n1.0\t3\n1.5\t4\n")
     split = tmp_path / "single.split"
-    split.write_text("train_piece\ttrain\nval_b\tval\nval_a\tval\n")
+    split.write_text(
+        "train_piece\ttrain\n"
+        + "".join(f"{stem}\tval\n" for stem in reversed(EXPECTED_SINGLE_VAL_IDS_V1))
+    )
     output = tmp_path / "manifest.json"
 
     manifest = extract_candombe_single_val_manifest(
@@ -65,7 +69,7 @@ def test_manifest_contains_only_single_split_validation_rows(tmp_path):
         str(output),
     )
 
-    assert [clip["id"] for clip in manifest["clips"]] == ["val_a", "val_b"]
+    assert [clip["id"] for clip in manifest["clips"]] == sorted(EXPECTED_SINGLE_VAL_IDS_V1)
     assert manifest["dataset"] == EVALUATION_DATASET
     assert manifest["source_dataset"] == "candombe"
     assert manifest["split_partition"] == "single_split_val"
@@ -77,11 +81,28 @@ def test_manifest_contains_only_single_split_validation_rows(tmp_path):
     assert json.loads(output.read_text()) == manifest
 
 
-def test_manifest_fails_if_a_validation_annotation_is_missing(tmp_path):
+def test_manifest_rejects_split_that_does_not_match_published_v1_validation_ids(tmp_path):
     annotations = tmp_path / "annotations"
     annotations.mkdir()
     split = tmp_path / "single.split"
-    split.write_text("missing_piece\tval\n")
+    split.write_text("wrong_piece\tval\n")
+
+    with pytest.raises(ValueError, match="do not match Beat This annotations v1.0"):
+        extract_candombe_single_val_manifest(
+            str(annotations),
+            str(split),
+            str(tmp_path / "audio"),
+            str(tmp_path / "manifest.json"),
+        )
+
+
+def test_manifest_fails_if_a_published_validation_annotation_is_missing(tmp_path):
+    annotations = tmp_path / "annotations"
+    annotations.mkdir()
+    for stem in EXPECTED_SINGLE_VAL_IDS_V1[1:]:
+        (annotations / f"{stem}.beats").write_text("0.0\t1\n0.5\t2\n1.0\t3\n1.5\t4\n")
+    split = tmp_path / "single.split"
+    split.write_text("".join(f"{stem}\tval\n" for stem in EXPECTED_SINGLE_VAL_IDS_V1))
 
     with pytest.raises(FileNotFoundError, match="validation track"):
         extract_candombe_single_val_manifest(
