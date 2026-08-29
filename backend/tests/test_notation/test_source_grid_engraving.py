@@ -94,7 +94,7 @@ def test_music21_engine_uses_source_grid_without_mutating_note_evidence():
 
     from music21 import converter
 
-    score = converter.parse(io.BytesIO(result.musicxml))
+    score = converter.parseData(result.musicxml.decode("utf-8"), format="musicxml")
     assert _note_quarter_lengths(score) == [1.0, 1.0, 1.0, 1.0]
     assert _midi_note_tuples(result.notation_midi) == original_notes
     assert result.quantization_report["timing_mode"] == "metrical_grid"
