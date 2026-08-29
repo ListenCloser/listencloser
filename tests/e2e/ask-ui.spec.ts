@@ -7,7 +7,7 @@ import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures
  * Runs against the MSW mock for the POST /api/v1/ask endpoint so the suite is
  * deterministic and does not require a real LLM provider. This spec proves the
  * Ask mode is a real, frontend-only UI against that mock: conversation,
- * evidence chips, safe reference resolution, and disabled cross-domain
+ * evidence chips, safe reference resolution, and explained cross-domain
  * actions/references.
  */
 test.describe("contextual Ask inspector (MSW)", () => {
@@ -96,13 +96,12 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
   });
 
-  test("domain-mismatched loop and seek actions are disabled", async ({ page }) => {
+  test("domain-mismatched actions remain focusable, explained, and inert", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    // Switch the playback source to the Score so the active timeline
-    // is notation time. The mocked suggested actions are performance-domain,
-    // so Loop passage and Jump to time must render disabled (not clickable
-    // no-ops), while the representation action stays enabled.
+    // Switch playback to Score/notation time. The mocked time reference and
+    // suggested seek/loop actions use performance time, so they must remain
+    // discoverable but refuse execution with an explicit reason.
     await page.getByRole("button", { name: /Playback source:/ }).click();
     await page.getByRole("option", { name: "Score", exact: true }).click();
     await expect(page.getByRole("button", { name: "Playback source: Score", exact: true })).toBeVisible();
@@ -113,16 +112,32 @@ test.describe("contextual Ask inspector (MSW)", () => {
 
     const toggleLoop = page.getByRole("button", { name: "Toggle loop" });
     const loopPressedBefore = (await toggleLoop.getAttribute("aria-pressed")) === "true";
+    const jump = page.getByRole("button", { name: "Jump to time" });
+    const loop = page.getByRole("button", { name: "Loop passage" });
+    const timeReference = page.getByRole("button", { name: "0:04–0:08" });
 
-    await expect(page.getByRole("button", { name: "Jump to time" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Loop passage" })).toBeDisabled();
+    await expect(jump).toHaveAttribute("aria-disabled", "true");
+    await expect(loop).toHaveAttribute("aria-disabled", "true");
+    await expect(timeReference).toHaveAttribute("aria-disabled", "true");
+    await expect(jump).not.toBeDisabled();
+    await expect(loop).not.toBeDisabled();
+    await expect(timeReference).not.toBeDisabled();
     await expect(page.getByRole("button", { name: "Open Score" })).toBeEnabled();
 
-    // The disabled state is stable: no transport change happens while in it.
+    await jump.hover();
+    await expect(page.getByRole("tooltip", { name: "This matches a different timeline than the active source." })).toBeVisible();
+    await timeReference.hover();
+    await expect(page.getByRole("tooltip", { name: "This reference uses a different timeline than the active source." })).toBeVisible();
+
     const posBefore = await transportPos(page);
+    await jump.click();
+    await loop.click();
+    await timeReference.click();
     await expect.poll(() => transportPos(page)).toBe(posBefore);
     if (loopPressedBefore) {
       await expect(toggleLoop).toHaveAttribute("aria-pressed", "true");
+    } else {
+      await expect(toggleLoop).toHaveAttribute("aria-pressed", "false");
     }
   });
 });
