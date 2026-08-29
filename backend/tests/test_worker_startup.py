@@ -23,7 +23,11 @@ def _stub_worker_runtime(monkeypatch, events: list[str]) -> None:
         "JobWorker",
         lambda **kwargs: _FakeWorker(events, **kwargs),
     )
-    monkeypatch.setattr(worker_entry, "register_all_capabilities", lambda _worker: None)
+    monkeypatch.setattr(
+        worker_entry.capability_module,
+        "register_all_capabilities",
+        lambda _worker: None,
+    )
     monkeypatch.setattr(worker_entry, "register_perceptual_capability", lambda _worker: None)
     monkeypatch.setattr(worker_entry.signal, "signal", lambda *_args: None)
 
