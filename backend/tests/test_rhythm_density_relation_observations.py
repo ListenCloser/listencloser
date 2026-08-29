@@ -271,6 +271,29 @@ def test_span_edges_within_one_density_hop_are_supported():
     assert measurement.comparison_value == 1.0
 
 
+def test_span_end_uses_local_density_hop_tolerance_under_tempo_change():
+    evidence, source_version_id = _evidence(
+        [
+            _window(0.0, 4.0, 1.0),
+            _window(2.0, 4.5, 2.0),
+            _window(4.0, 5.0, 3.0),
+        ]
+    )
+
+    result = compare_rhythm_density_spans(
+        evidence,
+        subject_locator=_locator(source_version_id, 0.0, 6.0),
+        comparison_locator=_locator(source_version_id, 0.0, 4.0),
+    )
+
+    assert result.sufficiency.status == "withhold"
+    assert result.measurements == []
+    assert any(
+        "outside rhythm density evidence coverage" in reason
+        for reason in result.sufficiency.reasons
+    )
+
+
 def test_complete_persistence_coverage_is_preserved_and_validated():
     coverage = {
         "policy_version": "complete_series_v1",
