@@ -74,7 +74,9 @@ def load_claim_sufficiency_contract() -> dict[str, Any]:
         if not isinstance(claim_text, str) or not claim_text.strip():
             raise ValueError(f"claim {claim_id!r} must define claim_text")
         temporal_granularity = claim.get("temporal_granularity")
-        if not isinstance(temporal_granularity, str) or not temporal_granularity.strip():
+        if not isinstance(
+            temporal_granularity, str
+        ) or not temporal_granularity.strip():
             raise ValueError(f"claim {claim_id!r} must define temporal_granularity")
 
         readiness = claim.get("readiness")
