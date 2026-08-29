@@ -29,7 +29,7 @@ jobs:
             install_mode: declared-dependencies
           - arch: arm64
             runner: ubuntu-24.04-arm
-            install_mode: core-model-no-deps-after-sphn-packaging-blocker
+            install_mode: declared-dependencies-sphn-cmake3
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
@@ -45,21 +45,21 @@ jobs:
           cache-dependency-glob: 'backend/uv.lock'
       - name: Sync locked backend
         run: uv sync --project backend --locked
-      - name: Add evaluation-only Demucs package
-        if: matrix.arch == 'amd64'
-        run: uv pip install --python backend/.venv/bin/python 'demucs==4.1.0'
-      - name: Add ARM core-model dependency slice
+      - name: Pin CMake 3.x for sphn on ARM
         if: matrix.arch == 'arm64'
         run: |
-          # Run 33276414848 established that Demucs' declared sphn dependency
-          # fails to build on ubuntu-24.04-arm before inference. Preserve that
-          # packaging blocker while separately testing the model/API itself.
-          uv pip install --python backend/.venv/bin/python \
-            'huggingface-hub==1.29.0' \
-            'julius==0.2.8' \
-            'lameenc==1.8.4' \
-            'safetensors==0.8.0'
-          uv pip install --python backend/.venv/bin/python --no-deps 'demucs==4.1.0'
+          # sphn upstream documents that its Opus source build is incompatible
+          # with CMake 4.x. Linux ARM has no sphn wheel, so pin the documented
+          # CMake 3.x build tool while keeping Demucs' declared dependency graph.
+          uv pip install --python backend/.venv/bin/python 'cmake==3.31.10'
+      - name: Add evaluation-only Demucs package (x86)
+        if: matrix.arch == 'amd64'
+        run: uv pip install --python backend/.venv/bin/python 'demucs==4.1.0'
+      - name: Add evaluation-only Demucs package (ARM)
+        if: matrix.arch == 'arm64'
+        run: |
+          CMAKE="$PWD/backend/.venv/bin/cmake" \
+            uv pip install --python backend/.venv/bin/python 'demucs==4.1.0'
       - name: Run focused helper tests
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
