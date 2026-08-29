@@ -41,9 +41,7 @@ def _require_nonempty_strings(claim_id: str, field: str, value: Any) -> list[str
         else True
     )
     if invalid_item:
-        raise ValueError(
-            f"claim {claim_id!r} {field} must be a list of non-empty strings"
-        )
+        raise ValueError(f"claim {claim_id!r} {field} must be a list of non-empty strings")
     return value
 
 
@@ -74,18 +72,14 @@ def load_claim_sufficiency_contract() -> dict[str, Any]:
         if not isinstance(claim_text, str) or not claim_text.strip():
             raise ValueError(f"claim {claim_id!r} must define claim_text")
         temporal_granularity = claim.get("temporal_granularity")
-        if not isinstance(
-            temporal_granularity, str
-        ) or not temporal_granularity.strip():
+        if not isinstance(temporal_granularity, str) or not temporal_granularity.strip():
             raise ValueError(f"claim {claim_id!r} must define temporal_granularity")
 
         readiness = claim.get("readiness")
         if readiness not in _ALLOWED_READINESS:
             raise ValueError(f"claim {claim_id!r} has invalid readiness {readiness!r}")
 
-        gates = _require_nonempty_strings(
-            claim_id, "quality_gates", claim.get("quality_gates")
-        )
+        gates = _require_nonempty_strings(claim_id, "quality_gates", claim.get("quality_gates"))
         if not gates:
             raise ValueError(f"claim {claim_id!r} must define quality_gates")
         unknown_gates = set(gates) - _ALLOWED_GATES
@@ -105,9 +99,7 @@ def load_claim_sufficiency_contract() -> dict[str, Any]:
             "optional_capabilities",
             claim.get("optional_capabilities", []),
         )
-        unknown_capabilities = (set(required) | set(optional)) - set(
-            capability_registry
-        )
+        unknown_capabilities = (set(required) | set(optional)) - set(capability_registry)
         if unknown_capabilities:
             raise ValueError(
                 f"claim {claim_id!r} references unregistered capabilities: "
@@ -138,24 +130,14 @@ def load_claim_sufficiency_contract() -> dict[str, Any]:
 
         if "STYLE_CONTEXT_REQUIRED" in gates and not claim.get("framework"):
             raise ValueError(f"claim {claim_id!r} requires an explicit framework")
-        if (
-            readiness == "STYLE_SPECIFIC_RESEARCH"
-            and "STYLE_CONTEXT_REQUIRED" not in gates
-        ):
-            raise ValueError(
-                f"style-specific claim {claim_id!r} must require style context"
-            )
-        if (
-            readiness == "SEMANTIC_ONLY"
-            and "SEMANTIC_HYPOTHESIS_ONLY" not in gates
-        ):
+        if readiness == "STYLE_SPECIFIC_RESEARCH" and "STYLE_CONTEXT_REQUIRED" not in gates:
+            raise ValueError(f"style-specific claim {claim_id!r} must require style context")
+        if readiness == "SEMANTIC_ONLY" and "SEMANTIC_HYPOTHESIS_ONLY" not in gates:
             raise ValueError(
                 f"semantic-only claim {claim_id!r} must use the semantic hypothesis gate"
             )
         if readiness == "BLOCKED_BY_MISSING_EVIDENCE" and not planned:
-            raise ValueError(
-                f"missing-evidence claim {claim_id!r} must name planned evidence"
-            )
+            raise ValueError(f"missing-evidence claim {claim_id!r} must name planned evidence")
 
         required_statuses = {
             capability: capability_registry[capability]["status"]
@@ -172,13 +154,9 @@ def load_claim_sufficiency_contract() -> dict[str, Any]:
                     f"supported claim {claim_id!r} must require at least one capability"
                 )
             if planned:
-                raise ValueError(
-                    f"supported claim {claim_id!r} cannot depend on planned evidence"
-                )
+                raise ValueError(f"supported claim {claim_id!r} cannot depend on planned evidence")
             if not validated_domains:
-                raise ValueError(
-                    f"supported claim {claim_id!r} must declare a validated domain"
-                )
+                raise ValueError(f"supported claim {claim_id!r} must declare a validated domain")
 
         if readiness == "SUPPORTED_NOW" and non_production:
             raise ValueError(
