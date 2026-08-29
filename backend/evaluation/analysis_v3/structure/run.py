@@ -122,6 +122,62 @@ def run_structure_evaluation(
         raise ValueError(f"Unknown structure candidate: {candidate}")
 
     candidate_adapter = adapter or ADAPTERS[candidate](device=device)
+    metadata = candidate_adapter.metadata()
+
+    rows: list[dict[str, Any]] = []
+    eligible: list[tuple[Any, dict[str, Any], Path]] = []
+    for clip in manifest.clips:
+        row: dict[str, Any] = {
+            "clip_id": clip.id,
+            "dataset": clip.dataset,
+            "split": clip.split,
+            "source_id": clip.source_id,
+            "license": clip.license,
+            "audio_provenance": clip.audio_provenance,
+        }
+        rows.append(row)
+
+        if not clip.reference.sections:
+            row["status"] = "withheld_no_reference_sections"
+            continue
+
+        overlap = _has_training_overlap(metadata, clip.dataset, clip.split)
+        row["evaluation_validity"] = _evaluation_validity(
+            metadata,
+            clip.dataset,
+            clip.split,
+            overlap=overlap,
+            allow_training_overlap=allow_training_overlap,
+        )
+        if overlap and not allow_training_overlap:
+            row["status"] = "withheld_training_overlap"
+            continue
+
+        audio_path = Path(clip.audio)
+        if not audio_path.is_file():
+            row["status"] = "blocked_missing_audio"
+            row["audio_path"] = str(audio_path)
+            continue
+
+        eligible.append((clip, row, audio_path))
+
+    # Heavyweight research candidates can require multi-GB checkpoints. Do not
+    # load them when every row is already known to be unscorable/withheld.
+    if not eligible:
+        return {
+            "task": "structure_boundary_detection",
+            "candidate": candidate,
+            "manifest": manifest.name,
+            "status": "completed",
+            "device": device,
+            "allow_training_overlap": allow_training_overlap,
+            "load_seconds": 0.0,
+            "process_peak_rss_mb": _peak_rss_mb(),
+            "candidate_metadata": asdict(metadata),
+            "aggregate": _aggregate(rows),
+            "rows": rows,
+        }
+
     load_start = time.monotonic()
     try:
         candidate_adapter.load()
@@ -135,57 +191,20 @@ def run_structure_evaluation(
             "candidate_metadata": asdict(candidate_adapter.metadata()),
         }
     load_seconds = round(time.monotonic() - load_start, 4)
-    metadata = candidate_adapter.metadata()
 
-    rows: list[dict[str, Any]] = []
-    for clip in manifest.clips:
-        row: dict[str, Any] = {
-            "clip_id": clip.id,
-            "dataset": clip.dataset,
-            "split": clip.split,
-            "source_id": clip.source_id,
-            "license": clip.license,
-            "audio_provenance": clip.audio_provenance,
-        }
-        if not clip.reference.sections:
-            row["status"] = "withheld_no_reference_sections"
-            rows.append(row)
-            continue
-
-        overlap = _has_training_overlap(metadata, clip.dataset, clip.split)
-        row["evaluation_validity"] = _evaluation_validity(
-            metadata,
-            clip.dataset,
-            clip.split,
-            overlap=overlap,
-            allow_training_overlap=allow_training_overlap,
-        )
-        if overlap and not allow_training_overlap:
-            row["status"] = "withheld_training_overlap"
-            rows.append(row)
-            continue
-
-        audio_path = Path(clip.audio)
-        if not audio_path.is_file():
-            row["status"] = "blocked_missing_audio"
-            row["audio_path"] = str(audio_path)
-            rows.append(row)
-            continue
-
+    for clip, row, audio_path in eligible:
         result = candidate_adapter.timed_analyze(str(audio_path))
         row["latency_seconds"] = result.latency_seconds
         row["candidate_output_metadata"] = result.metadata
         if not result.ok:
             row["status"] = "candidate_error"
             row["error"] = result.error
-            rows.append(row)
             continue
 
         metrics = compute_structure_boundary_metrics(result.segments, clip.reference.sections)
         row["status"] = "scored"
         row["predicted_segments"] = result.segments
         row["metrics"] = metrics.to_dict()
-        rows.append(row)
 
     return {
         "task": "structure_boundary_detection",
