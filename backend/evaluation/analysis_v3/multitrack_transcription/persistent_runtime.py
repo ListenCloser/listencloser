@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import io
 import json
 import os
 import platform
@@ -325,6 +324,7 @@ def _persistent_model_run(
         midi.save(str(output_midi))
         runtime = time.perf_counter() - started
         semantic_hash = _midi_semantic_sha256(output_midi)
+        note_ons = _count_note_ons(output_midi)
         control = controls[track_id]
         rows.append(
             {
@@ -334,9 +334,9 @@ def _persistent_model_run(
                 "process_max_rss_mb_cumulative": round(_max_rss_mb(), 2),
                 "midi_sha256": sha256(output_midi),
                 "midi_semantic_sha256": semantic_hash,
-                "note_ons": _count_note_ons(output_midi),
+                "note_ons": note_ons,
                 "matches_cli_semantics": semantic_hash == control["midi_semantic_sha256"],
-                "matches_cli_note_count": _count_note_ons(output_midi) == control["note_ons"],
+                "matches_cli_note_count": note_ons == control["note_ons"],
             }
         )
 
@@ -348,12 +348,13 @@ def _persistent_model_run(
     repeat_midi.save(str(repeat_path))
     repeat_seconds = time.perf_counter() - started
     first_row = rows[0]
+    repeat_semantic_hash = _midi_semantic_sha256(repeat_path)
     repeat = {
         "id": repeat_entry["id"],
         "runtime_seconds": round(repeat_seconds, 3),
-        "midi_semantic_sha256": _midi_semantic_sha256(repeat_path),
+        "midi_semantic_sha256": repeat_semantic_hash,
         "matches_first_persistent_semantics": (
-            _midi_semantic_sha256(repeat_path) == first_row["midi_semantic_sha256"]
+            repeat_semantic_hash == first_row["midi_semantic_sha256"]
         ),
         "note_ons": _count_note_ons(repeat_path),
     }
