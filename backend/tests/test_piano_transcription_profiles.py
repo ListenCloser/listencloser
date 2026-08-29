@@ -41,9 +41,7 @@ class _FakeEngine:
             {"pitch": 60, "start": 0.0, "end": 0.5, "velocity": 80},
         ]
         if self.profile == "auto":
-            notes.append(
-                {"pitch": 72, "start": 0.75, "end": 0.9, "velocity": 55}
-            )
+            notes.append({"pitch": 72, "start": 0.75, "end": 0.9, "velocity": 55})
         engine = "transkun" if self.profile == "solo_piano" else "basic_pitch"
         model = "transkun_2.0" if engine == "transkun" else None
         return TranscriptionResult(
