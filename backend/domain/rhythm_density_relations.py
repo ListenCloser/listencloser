@@ -89,7 +89,7 @@ def _provenance(
         "source_version_id": str(evidence.source_version_id),
         "evidence_id": str(evidence.evidence_id),
         "coverage_policy": (
-            "selected spans must remain inside the stored evidence envelope; "
+            "selected spans must be covered to within one evidence step at each boundary; "
             "only fully-contained beat-relative density windows are aggregated"
         ),
         "relative_denominator_epsilon": _RELATIVE_DENOMINATOR_EPSILON,
@@ -222,30 +222,51 @@ def _validated_windows(
     return normalized, contract, []
 
 
+def _coverage_tolerance_seconds(
+    windows: Sequence[dict[str, float]],
+    contract: dict[str, float | str],
+) -> float:
+    """Estimate one evidence step in seconds from the beat-relative series."""
+    window_size = float(contract["window_size"])
+    step_size = float(contract["step_size"])
+    duration_based_hops = [
+        (window["end"] - window["start"]) * step_size / window_size for window in windows
+    ]
+    observed_start_hops = [
+        windows[index]["start"] - windows[index - 1]["start"]
+        for index in range(1, len(windows))
+        if windows[index]["start"] > windows[index - 1]["start"]
+    ]
+    return max([*duration_based_hops, *observed_start_hops], default=0.0)
+
+
 def _coverage_error_for_span(
     windows: Sequence[dict[str, float]],
+    contract: dict[str, float | str],
     locator: SecondsSpanLocator,
     label: str,
 ) -> str | None:
-    """Reject a span that reaches beyond the stored density evidence envelope.
+    """Reject a span whose edges are more than one evidence step outside coverage.
 
-    A persisted series may be shorter than the requested source span because the
-    beat grid itself is partial or because an older persistence policy truncated
-    the series. In either case, aggregating the available prefix and labeling the
-    result as a comparison over the full requested locator would be misleading.
+    Beat-relative windows need not align exactly with arbitrary user-selected
+    seconds boundaries, so the relation follows the existing perceptual-series
+    policy and tolerates at most one evidence step of boundary slack. This still
+    rejects a persisted prefix that is materially shorter than the requested
+    span, including historical 50-window truncation.
     """
     if not windows:
         return f"{label} span has no rhythm density evidence coverage"
 
     coverage_start = windows[0]["start"]
     coverage_end = max(window["end"] for window in windows)
+    boundary_tolerance = _coverage_tolerance_seconds(windows, contract) + _NUMERIC_ATOL
     if (
-        locator.start_seconds < coverage_start - _NUMERIC_ATOL
-        or locator.end_seconds > coverage_end + _NUMERIC_ATOL
+        coverage_start - locator.start_seconds > boundary_tolerance
+        or locator.end_seconds - coverage_end > boundary_tolerance
     ):
         return (
             f"{label} span extends outside rhythm density evidence coverage "
-            f"[{coverage_start}, {coverage_end}]"
+            "by more than one evidence step"
         )
     return None
 
@@ -286,7 +307,7 @@ def compare_rhythm_density_spans(
 ) -> RhythmDensityRelationObservation:
     """Compare promoted beat-relative event density over two explicit spans.
 
-    Each requested span must remain inside the stored density evidence envelope,
+    Each requested span boundary must be covered to within one evidence step,
     and only complete density windows fully contained inside that span are
     eligible. The relation does not infer sections, resample evidence, mix
     seconds and beat units, or attach semantic meaning to numeric direction.
@@ -301,11 +322,12 @@ def compare_rhythm_density_spans(
     if reasons:
         return _withheld(evidence, subject_locator, comparison_locator, reasons, contract)
 
+    assert contract is not None
     for label, locator in (
         ("subject", subject_locator),
         ("comparison", comparison_locator),
     ):
-        coverage_error = _coverage_error_for_span(windows, locator, label)
+        coverage_error = _coverage_error_for_span(windows, contract, locator, label)
         if coverage_error:
             reasons.append(coverage_error)
     if reasons:
@@ -319,7 +341,7 @@ def compare_rhythm_density_spans(
         reasons.append(subject_error)
     if comparison_error:
         reasons.append(comparison_error)
-    if subject_values is None or comparison_values is None or contract is None:
+    if subject_values is None or comparison_values is None:
         return _withheld(
             evidence,
             subject_locator,
