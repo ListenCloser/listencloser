@@ -18,14 +18,16 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
     setInspectorMode,
   } = useWorkspace();
   const { transport, seek, setLoop, toggleLoop } = useTransport();
-  const sourceInsightKind = workspace.insights.find((insight) => insight.id === finding.sourceInsightId)?.kind ?? null;
+  const supportInsightKinds = finding.supportInsightIds.map(
+    (supportId) => workspace.insights.find((insight) => insight.id === supportId)?.kind ?? null,
+  );
   const actions = resolveBreakdownFindingActions(finding, {
     activeSourceRole: transport.activeSource?.role ?? null,
     durationSeconds: transport.duration,
     availableRepresentationKinds: workspace.representations.map((entry) => entry.kind),
     activeRepresentation: workspace.activeRepresentation,
     activeWorkId: workspace.activeWorkId,
-    sourceInsightKind,
+    supportInsightKinds,
   });
 
   const selectFinding = () => {

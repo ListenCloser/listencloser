@@ -15,7 +15,7 @@ export type BreakdownActionContext = {
   availableRepresentationKinds: readonly RepresentationKind[];
   activeRepresentation: RepresentationId | null;
   activeWorkId: string | null;
-  sourceInsightKind: string | null;
+  supportInsightKinds: readonly (string | null)[];
 };
 
 function preferredRepresentationId(finding: BreakdownFinding): RepresentationId {
@@ -33,13 +33,21 @@ function hasLoopablePerformanceSpan(
   return finding.endSeconds <= context.durationSeconds;
 }
 
+function supportsAsk(context: BreakdownActionContext): boolean {
+  // A relational finding is only Ask-safe when every persisted observation
+  // required for the claim resolves and is explicitly Ask-exposed. This is the
+  // conservative policy: partial exposure must not silently widen Ask access.
+  return context.supportInsightKinds.length > 0
+    && context.supportInsightKinds.every((kind) => kind !== null && isAskExposed(kind));
+}
+
 /**
  * Resolve the actions the live workspace can truthfully execute for a finding.
  *
  * The pure ranking adapter deliberately guarantees only Focus. This resolver
  * composes that evidence with live playback/representation/workspace state.
- * It never invents a fallback representation or exposes an Ask path for a
- * capability the backend registry marks `ask: false`.
+ * It never invents a fallback representation or exposes an Ask path unless all
+ * evidence required by the finding is allowed by the capability policy.
  */
 export function resolveBreakdownFindingActions(
   finding: BreakdownFinding,
@@ -59,11 +67,7 @@ export function resolveBreakdownFindingActions(
     actions.push({ type: "show", representationId });
   }
 
-  if (
-    context.activeWorkId
-    && context.sourceInsightKind
-    && isAskExposed(context.sourceInsightKind)
-  ) {
+  if (context.activeWorkId && supportsAsk(context)) {
     actions.push({ type: "ask" });
   }
 
