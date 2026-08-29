@@ -7,6 +7,7 @@ from uuid import uuid4
 import numpy as np
 import pytest
 import soundfile as sf
+
 from domain import perceptual_capability
 from domain.models import Artifact, ArtifactKind, Capability, Job, Version
 from perceptual_evidence import (
@@ -185,7 +186,9 @@ class _FakeClient:
 def test_worker_capability_persists_report_with_source_lineage_and_no_insight(monkeypatch) -> None:
     owner_id = "owner"
     work_id = uuid4()
-    source_artifact = Artifact(work_id=work_id, kind=ArtifactKind.audio_original, mime_type="audio/wav")
+    source_artifact = Artifact(
+        work_id=work_id, kind=ArtifactKind.audio_original, mime_type="audio/wav"
+    )
     source_version = Version(
         artifact_id=source_artifact.id,
         storage_key="source.wav",
