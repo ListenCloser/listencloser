@@ -35,9 +35,10 @@ function WorkspaceContent({
 
   const inspectorOpen = !workspace.inspectorCollapsed;
   const analysisAvailable = workspace.analysisState === "completed" && Boolean(workspace.activeWorkId);
-  // Saving a recording and processing it are separate durability boundaries.
-  // A missing worker may delay enrichment, but it must not disable import.
-  const canImport = signedIn;
+  // Import is a processing-dependent action. "Checking" is not equivalent to
+  // ready: enabling the control optimistically creates a race where health can
+  // resolve unavailable between the click and file selection.
+  const canImport = serviceStatus === "ready";
 
   return (
     <div className="studio-shell studio-shell-v3">
