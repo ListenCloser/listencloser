@@ -54,7 +54,7 @@ function WorkRow({
         </span>
       </button>
 
-      <Tooltip content="Delete recording">
+      <Tooltip content="Delete recording" placement="left">
         <button
           type="button"
           className="library-row-delete"
