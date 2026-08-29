@@ -122,10 +122,7 @@ def _validate_locator(
     label: str,
 ) -> list[str]:
     reasons: list[str] = []
-    if (
-        not math.isfinite(locator.start_seconds)
-        or not math.isfinite(locator.end_seconds)
-    ):
+    if not math.isfinite(locator.start_seconds) or not math.isfinite(locator.end_seconds):
         reasons.append(f"{label} span boundaries must be finite")
         return reasons
     if locator.start_seconds < 0:
@@ -133,9 +130,7 @@ def _validate_locator(
     if locator.end_seconds <= locator.start_seconds:
         reasons.append(f"{label} span must have positive duration")
     if locator.source_artifact_version_id != evidence.source_version_id:
-        reasons.append(
-            f"{label} span source version does not match rhythm density evidence"
-        )
+        reasons.append(f"{label} span source version does not match rhythm density evidence")
     return reasons
 
 
@@ -171,15 +166,11 @@ def _validated_windows(
         if unit != "events_per_beat":
             reasons.append(f"rhythm density window {index} is not events_per_beat")
         if coordinate_unit != "beats":
-            reasons.append(
-                f"rhythm density window {index} coordinate unit is not beats"
-            )
+            reasons.append(f"rhythm density window {index} coordinate unit is not beats")
 
         numeric_keys = ("start", "end", "density", "window_size", "step_size")
         if any(not _finite_number(raw_window.get(key)) for key in numeric_keys):
-            reasons.append(
-                f"rhythm density window {index} has non-finite numeric fields"
-            )
+            reasons.append(f"rhythm density window {index} has non-finite numeric fields")
             continue
 
         start = float(raw_window["start"])
@@ -194,9 +185,7 @@ def _validated_windows(
         if density < 0:
             reasons.append(f"rhythm density window {index} has negative density")
         if window_size <= 0 or step_size <= 0:
-            reasons.append(
-                f"rhythm density window {index} has invalid window or step size"
-            )
+            reasons.append(f"rhythm density window {index} has invalid window or step size")
         if previous_start is not None and start < previous_start:
             reasons.append("rhythm density windows are not ordered by start time")
         previous_start = start
@@ -278,13 +267,9 @@ def compare_rhythm_density_spans(
     windows, contract, contract_reasons = _validated_windows(evidence)
     reasons.extend(contract_reasons)
     if reasons:
-        return _withheld(
-            evidence, subject_locator, comparison_locator, reasons, contract
-        )
+        return _withheld(evidence, subject_locator, comparison_locator, reasons, contract)
 
-    subject_values, subject_error = _values_for_span(
-        windows, subject_locator, "subject"
-    )
+    subject_values, subject_error = _values_for_span(windows, subject_locator, "subject")
     comparison_values, comparison_error = _values_for_span(
         windows, comparison_locator, "comparison"
     )
@@ -327,9 +312,7 @@ def compare_rhythm_density_spans(
     return RhythmDensityRelationObservation(
         subject_locator=subject_locator,
         comparison_locator=comparison_locator,
-        support_refs=[
-            RhythmDensityEvidenceRef(id=f"{evidence.evidence_id}:rhythm_density")
-        ],
+        support_refs=[RhythmDensityEvidenceRef(id=f"{evidence.evidence_id}:rhythm_density")],
         measurements=[measurement],
         sufficiency=RelationSufficiency(status="supported"),
         provenance=_provenance(evidence, contract),
