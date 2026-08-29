@@ -19,10 +19,11 @@ def main() -> None:
     init_sentry(logger)
 
     # Pay expensive process-local cold paths before JobWorker.run() publishes
-    # its first heartbeat or claims a user's job. Warm Basic Pitch first because
-    # it initializes shared audio/runtime dependencies that reduce the remaining
-    # librosa beat-tracking startup cost. Each warmup is optimization-only: one
-    # failure must not suppress the other or make the worker unavailable.
+    # its first heartbeat or claims a user's job. Basic Pitch runs first so the
+    # benchmark can measure the combined startup and ready-path effect of this
+    # ordering without changing per-job model lifetime. Each warmup is
+    # optimization-only: one failure must not suppress the other or make the
+    # worker unavailable.
     try:
         prewarm_basic_pitch_inference()
     except Exception:
