@@ -7,6 +7,7 @@ describe("Breakdown action truthfulness", () => {
     const finding: TemporalFinding = {
       id: "density-peak",
       sourceInsightId: "density-source",
+      supportInsightIds: ["density-source"],
       kind: "density_peak",
       category: "rhythm",
       startSeconds: 12,
