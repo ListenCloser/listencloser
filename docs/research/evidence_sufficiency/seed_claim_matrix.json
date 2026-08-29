@@ -1,0 +1,163 @@
+{
+  "issue": 457,
+  "status": "provisional_seed",
+  "source_of_truth": {
+    "capability_registry": "backend/config/capabilities.json",
+    "research_parent": 327,
+    "roadmap": 458
+  },
+  "readiness_values": [
+    "SUPPORTED_NOW",
+    "SUPPORTED_EXPERIMENTAL",
+    "BLOCKED_BY_EVIDENCE_QUALITY",
+    "BLOCKED_BY_MISSING_EVIDENCE",
+    "FRAMEWORK_SPECIFIC_RESEARCH",
+    "SEMANTIC_ONLY_NOT_SAFE"
+  ],
+  "claims": [
+    {
+      "id": "melody_register_peak",
+      "claim": "The melody reaches its highest register here.",
+      "required_evidence": ["melody", "melody_register_peak"],
+      "optional_evidence": ["structure_sections"],
+      "localization_requirement": "tight_span",
+      "quality_gate": "LOCALIZATION_TOLERANT",
+      "current_readiness": "SUPPORTED_EXPERIMENTAL",
+      "validated_scope": "pop/arranged symbolic MIDI via LStoM",
+      "abstain_when": "melody extraction is unavailable/out of validated domain or peak span cannot be localized",
+      "highest_value_blocker": "broader melody-domain validation rather than new relation logic"
+    },
+    {
+      "id": "symbolic_density_change",
+      "claim": "This selected passage is denser than the comparison passage.",
+      "required_evidence": ["rhythm_density", "two_explicit_spans"],
+      "optional_evidence": ["perceptual_audio", "source_layer_activity"],
+      "localization_requirement": "section_level",
+      "quality_gate": "USER_SELECTION_CAN_SUBSTITUTE_STRUCTURE",
+      "current_readiness": "SUPPORTED_NOW",
+      "validated_scope": "MIDI+beat-derived note density only; not full audio texture density",
+      "abstain_when": "no comparable spans or MIDI-derived density is not meaningful for the source",
+      "highest_value_blocker": "generic span-comparison relation and broader perceptual/source density evidence"
+    },
+    {
+      "id": "automatic_section_density_change",
+      "claim": "The chorus/next section becomes denser than the previous section.",
+      "required_evidence": ["trusted_structure_sections", "activity_or_density"],
+      "optional_evidence": ["perceptual_audio", "source_layer_activity"],
+      "localization_requirement": "section_level",
+      "quality_gate": "LOCALIZATION_TOLERANT",
+      "current_readiness": "BLOCKED_BY_EVIDENCE_QUALITY",
+      "validated_scope": "automatic section evidence is evaluation-only; symbolic density exists",
+      "abstain_when": "automatic section boundary is untrusted; user-selected spans may substitute",
+      "highest_value_blocker": "#321 trusted structure boundaries"
+    },
+    {
+      "id": "melody_returns_transposed",
+      "claim": "This melodic idea returns later in transposed form.",
+      "required_evidence": ["trusted_melody", "motif_or_passage_correspondence", "transposition_normalized_comparison"],
+      "optional_evidence": ["structure_sections", "repetition_similarity"],
+      "localization_requirement": "tight_span",
+      "quality_gate": "MULTI_EVIDENCE_CORROBORATION",
+      "current_readiness": "BLOCKED_BY_EVIDENCE_QUALITY",
+      "validated_scope": "melody is experimental; current melody_motif is evaluation-only custom matching",
+      "abstain_when": "motif correspondence or melody extraction is unstable",
+      "highest_value_blocker": "validated recurrence/motif similarity rather than another prose detector"
+    },
+    {
+      "id": "groove_anticipates_downbeat",
+      "claim": "This onset pattern repeatedly anticipates the downbeat.",
+      "required_evidence": ["trusted_metric_grid_with_downbeats", "localized_onsets"],
+      "optional_evidence": ["drum_source_activity"],
+      "localization_requirement": "exact_event",
+      "quality_gate": "EXACT_EVENT_REQUIRED",
+      "current_readiness": "BLOCKED_BY_EVIDENCE_QUALITY",
+      "validated_scope": "production tempo/beat path lacks validated production downbeat/bar-phase evidence",
+      "abstain_when": "downbeat/bar phase or onset localization is uncertain",
+      "highest_value_blocker": "#335 held-out metric-grid/downbeat validation"
+    },
+    {
+      "id": "low_end_drops_before_transition",
+      "claim": "Low-frequency activity drops before this transition.",
+      "required_evidence": ["perceptual_low_band_activity", "transition_or_explicit_span"],
+      "optional_evidence": ["bass_stem_activity", "structure_sections"],
+      "localization_requirement": "tight_span",
+      "quality_gate": "USER_SELECTION_CAN_SUBSTITUTE_STRUCTURE",
+      "current_readiness": "BLOCKED_BY_MISSING_EVIDENCE",
+      "validated_scope": "no production perceptual low-band series; stems remain research",
+      "abstain_when": "low-band evidence is unavailable or transition span cannot be identified/selected",
+      "highest_value_blocker": "#455 perceptual band-energy validation"
+    },
+    {
+      "id": "multi_dimension_transition",
+      "claim": "Several independent dimensions change together at this transition.",
+      "required_evidence": ["localized_transition_or_span", "at_least_two_independent_evidence_series"],
+      "optional_evidence": ["metric_grid", "source_layer_activity", "structure_sections"],
+      "localization_requirement": "tight_span",
+      "quality_gate": "MULTI_EVIDENCE_CORROBORATION",
+      "current_readiness": "BLOCKED_BY_MISSING_EVIDENCE",
+      "validated_scope": "current production evidence is too tonal/symbolic to support broad convergence claims",
+      "abstain_when": "fewer than two independently validated evidence dimensions support the change",
+      "highest_value_blocker": "#455 perceptual evidence, then #334 source activity / #321 structure"
+    },
+    {
+      "id": "functional_harmony_motion",
+      "claim": "In a functional-tonal reading, this harmony intensifies motion toward the dominant.",
+      "required_evidence": ["trusted_chord", "trusted_key", "harmonic_function", "phrase_context"],
+      "optional_evidence": ["structure_sections", "symbolic_score"],
+      "localization_requirement": "tight_span",
+      "quality_gate": "STYLE_CONTEXT_REQUIRED",
+      "current_readiness": "FRAMEWORK_SPECIFIC_RESEARCH",
+      "validated_scope": "Roman numeral/function oracle validation exists, but upstream chord/key errors and phrase/framework applicability remain claim-critical",
+      "abstain_when": "key/chord evidence is weak, phrase context is absent, or functional-tonal framework is inappropriate",
+      "highest_value_blocker": "explicit framework/applicability + end-to-end error propagation, not a new harmonic label"
+    },
+    {
+      "id": "cadence_claim",
+      "claim": "This passage closes with a cadence of a specific type.",
+      "required_evidence": ["trusted_chord", "trusted_key", "phrase_context", "cadence_detector"],
+      "optional_evidence": ["melody", "bass", "symbolic_score"],
+      "localization_requirement": "tight_span",
+      "quality_gate": "EXACT_EVENT_REQUIRED",
+      "current_readiness": "BLOCKED_BY_EVIDENCE_QUALITY",
+      "validated_scope": "cadence capability is explicitly withheld at held-out F1 0.266",
+      "abstain_when": "always under current production policy",
+      "highest_value_blocker": "cadence research redesign/benchmark; do not expose existing heuristic"
+    },
+    {
+      "id": "rap_flow_behind_beat",
+      "claim": "The vocal delivery shifts behind the beat here.",
+      "required_evidence": ["trusted_metric_grid", "vocal_or_syllable_onsets", "beat_relative_timing"],
+      "optional_evidence": ["lyrics", "source_separation"],
+      "localization_requirement": "exact_event",
+      "quality_gate": "EXACT_EVENT_REQUIRED",
+      "current_readiness": "BLOCKED_BY_MISSING_EVIDENCE",
+      "validated_scope": "no production syllable/vocal-event evidence and metric-grid promotion is unfinished",
+      "abstain_when": "vocal onset or beat phase cannot be measured precisely",
+      "highest_value_blocker": "vocal event/syllable timing evidence plus #335 metric grid"
+    },
+    {
+      "id": "jazz_motivic_response",
+      "claim": "One player responds to another player's motif.",
+      "required_evidence": ["source_identity", "phrase_or_motif_events", "motif_similarity", "temporal_order"],
+      "optional_evidence": ["structure_sections", "performance_timing"],
+      "localization_requirement": "tight_span",
+      "quality_gate": "MULTI_EVIDENCE_CORROBORATION",
+      "current_readiness": "BLOCKED_BY_MISSING_EVIDENCE",
+      "validated_scope": "source separation/identity and motif correspondence are not production-ready",
+      "abstain_when": "performer/source attribution or motif correspondence is ambiguous",
+      "highest_value_blocker": "source-aware evidence + validated motif/repetition relation"
+    },
+    {
+      "id": "why_passage_feels_exciting",
+      "claim": "This passage feels more exciting because of feature X.",
+      "required_evidence": ["measured_change", "perceptual_or_context_model", "interpretive_support"],
+      "optional_evidence": ["comparison_span", "style_context"],
+      "localization_requirement": "section_level",
+      "quality_gate": "SEMANTIC_HYPOTHESIS_ONLY",
+      "current_readiness": "SEMANTIC_ONLY_NOT_SAFE",
+      "validated_scope": "no universal mapping from low-level descriptor to subjective affect",
+      "abstain_when": "causal/affective wording is unsupported by context or multiple evidence sources",
+      "highest_value_blocker": "do not solve as detector accuracy; treat as qualified interpretation after factual relations"
+    }
+  ]
+}
