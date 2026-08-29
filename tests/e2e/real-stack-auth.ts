@@ -74,13 +74,14 @@ export async function injectAuth(page: Page) {
 
 /**
  * Dismiss the "saved analysis could not be loaded" workspace notice if it
- * appears. This notice blocks pointer events on underlying UI elements,
- * causing Playwright click timeouts.
+ * appears. Processing/recovery notices intentionally share the workspace-notice
+ * container but are not dismissible, so probe the dismiss control itself.
  */
 export async function dismissWorkspaceNotice(page: Page) {
-  const notice = page.locator(".workspace-notice");
-  if (await notice.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await notice.getByRole("button", { name: "Dismiss notice" }).click();
+  const dismiss = page.getByRole("button", { name: "Dismiss notice" });
+  if (await dismiss.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    const notice = dismiss.locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' workspace-notice ')][1]");
+    await dismiss.click();
     await expect(notice).toBeHidden({ timeout: 5_000 });
   }
 }
