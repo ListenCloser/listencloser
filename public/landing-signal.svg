@@ -1,43 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" aria-hidden="true">
-<defs>
-  <linearGradient id="r" x1="0" x2="1"><stop offset="0" stop-color="#d8d1c4" stop-opacity="0"/><stop offset=".28" stop-color="#d8d1c4" stop-opacity=".28"/><stop offset=".72" stop-color="#eee7da" stop-opacity=".58"/><stop offset="1" stop-color="#d6b56d" stop-opacity=".20"/></linearGradient>
-  <linearGradient id="a" x1="0" x2="1"><stop offset="0" stop-color="#d6b56d" stop-opacity="0"/><stop offset=".45" stop-color="#d6b56d" stop-opacity=".28"/><stop offset=".72" stop-color="#ead19a" stop-opacity=".88"/><stop offset="1" stop-color="#d6b56d" stop-opacity=".12"/></linearGradient>
-  <radialGradient id="h" cx=".7" cy=".55" r=".35"><stop offset="0" stop-color="#d6b56d" stop-opacity=".09"/><stop offset="1" stop-color="#d6b56d" stop-opacity="0"/></radialGradient>
-  <filter id="b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="12"/></filter>
-  <style>
-    .ridge{fill:none;stroke:url(#r);stroke-width:1.25;vector-effect:non-scaling-stroke;animation:breathe 16s ease-in-out infinite alternate}
-    .ridge:nth-of-type(3n){animation-duration:20s}.ridge:nth-of-type(4n){animation-duration:24s}
-    .accent{fill:none;stroke:url(#a);stroke-width:1.9;stroke-linecap:round;stroke-dasharray:8 17;animation:travel 28s linear infinite}
-    .dot{fill:#d6b56d;opacity:.65;animation:pulse 8s ease-in-out infinite}
-    @keyframes breathe{from{transform:translateY(-1.5px);opacity:.72}to{transform:translateY(2px);opacity:1}}
-    @keyframes travel{to{stroke-dashoffset:-300}}
-    @keyframes pulse{0%,100%{opacity:.3}50%{opacity:.84}}
-    @media(prefers-reduced-motion:reduce){.ridge,.accent,.dot{animation:none}}
-  </style>
-</defs>
-<ellipse cx="690" cy="350" rx="300" ry="210" fill="url(#h)" filter="url(#b)"/>
-<g>
-<path class="ridge" d="M 80,520.0 115,519.9 150,518.9 185,517.1 220,514.8 255,509.8 290,504.5 325,501.6 360,497.3 395,492.9 430,495.8 465,501.8 500,500.8 535,493.9 570,485.9 605,479.9 640,481.2 675,488.5 710,492.1 745,492.0 780,498.2 815,508.9 850,513.7 885,514.6" opacity="0.20"/>
-<path class="ridge" d="M 80,503.0 115,502.9 150,501.7 185,499.8 220,497.2 255,491.2 290,485.1 325,481.9 360,476.8 395,471.8 430,475.4 465,482.1 500,481.0 535,473.5 570,464.2 605,456.5 640,457.8 675,466.8 710,471.0 745,470.7 780,477.8 815,489.7 850,495.1 885,496.5" opacity="0.24"/>
-<path class="ridge" d="M 80,486.0 115,485.9 150,484.6 185,482.6 220,479.6 255,472.5 290,465.7 325,462.2 360,456.3 395,450.8 430,455.1 465,462.4 500,461.2 535,453.3 570,442.5 605,432.9 640,434.4 675,445.0 710,449.9 745,449.4 780,457.4 815,470.5 850,476.3 885,478.3" opacity="0.27"/>
-<path class="ridge" d="M 80,469.0 115,468.9 150,467.5 185,465.5 220,462.0 255,453.8 290,446.2 325,442.4 360,435.7 395,429.9 430,434.8 465,442.6 500,441.4 535,433.2 570,421.0 605,409.3 640,410.8 675,423.2 710,428.7 745,428.1 780,436.9 815,451.1 850,457.3 885,460.0" opacity="0.31"/>
-<path class="ridge" d="M 80,452.0 115,451.9 150,450.4 185,448.4 220,444.5 255,435.2 290,426.8 325,422.7 360,415.2 395,409.0 430,414.6 465,422.8 500,421.5 535,413.3 570,399.5 605,385.6 640,387.1 675,401.4 710,407.6 745,406.8 780,416.5 815,431.6 850,438.2 885,441.7" opacity="0.34"/>
-<path class="ridge" d="M 80,435.0 115,434.9 150,433.4 185,431.4 220,427.0 255,416.5 290,407.4 325,402.9 360,394.6 395,388.2 430,394.5 465,403.0 500,401.7 535,393.4 570,378.2 605,361.9 640,363.4 675,379.5 710,386.4 745,385.6 780,396.1 815,411.9 850,418.8 885,423.3" opacity="0.38"/>
-<path class="ridge" d="M 80,418.0 115,417.9 150,416.3 185,414.4 220,409.5 255,397.7 290,387.9 325,383.1 360,373.9 395,367.5 430,374.5 465,383.1 500,381.9 535,373.7 570,356.9 605,338.1 640,339.6 675,357.6 710,365.2 745,364.4 780,375.6 815,392.1 850,399.3 885,404.9" opacity="0.41"/>
-<path class="ridge" d="M 80,401.0 115,400.9 150,399.3 185,397.4 220,392.1 255,379.0 290,368.5 325,363.3 360,353.3 395,346.8 430,354.5 465,363.2 500,362.0 535,354.2 570,335.7 605,314.4 640,315.8 675,335.6 710,344.0 745,343.3 780,355.2 815,372.0 850,379.6 885,386.4" opacity="0.45"/>
-<path class="ridge" d="M 80,384.0 115,383.9 150,382.3 185,380.5 220,374.7 255,360.3 290,349.1 325,343.4 360,332.6 395,326.3 430,334.6 465,343.2 500,342.1 535,334.7 570,314.7 605,290.6 640,291.9 675,313.6 710,322.7 745,322.3 780,334.8 815,351.8 850,359.7 885,367.8" opacity="0.48"/>
-<path class="ridge" d="M 80,367.0 115,366.9 150,365.3 185,363.7 220,357.2 255,341.6 290,329.8 325,323.5 360,311.9 395,305.9 430,314.8 465,323.2 500,322.3 535,315.3 570,293.7 605,266.9 640,268.0 675,291.5 710,301.4 745,301.3 780,314.4 815,331.5 850,339.7 885,349.2" opacity="0.52"/>
-<path class="ridge" d="M 80,350.0 115,349.9 150,348.3 185,346.9 220,339.8 255,323.0 290,310.4 325,303.5 360,291.2 395,285.6 430,295.1 465,303.1 500,302.4 535,296.0 570,272.7 605,243.2 640,244.1 675,269.3 710,280.1 745,280.3 780,293.9 815,310.9 850,319.4 885,330.5" opacity="0.55"/>
-<path class="ridge" d="M 80,333.0 115,332.9 150,331.3 185,330.1 220,322.5 255,304.3 290,291.1 325,283.5 360,270.5 395,265.4 430,275.4 465,282.9 500,282.5 535,276.8 570,251.9 605,219.6 640,220.2 675,247.0 710,258.7 745,259.5 780,273.5 815,290.2 850,299.1 885,311.7" opacity="0.59"/>
-<path class="ridge" d="M 80,316.0 115,315.8 150,314.4 185,313.4 220,305.1 255,285.7 290,271.8 325,263.4 360,249.8 395,245.3 430,255.8 465,262.7 500,262.5 535,257.6 570,231.1 605,196.0 640,196.4 675,224.6 710,237.3 745,238.7 780,253.1 815,269.3 850,278.5 885,292.9" opacity="0.62"/>
-<path class="ridge" d="M 80,299.0 115,298.8 150,297.4 185,296.6 220,287.7 255,267.1 290,252.5 325,243.3 360,229.1 395,225.4 430,236.2 465,242.5 500,242.6 535,238.5 570,210.3 605,172.5 640,172.5 675,202.1 710,215.8 745,218.0 780,232.7 815,248.2 850,257.8 885,274.0" opacity="0.66"/>
-<path class="ridge" d="M 80,282.0 115,281.8 150,280.5 185,280.0 220,270.3 255,248.5 290,233.2 325,223.1 360,208.3 395,205.6 430,216.7 465,222.1 500,222.7 535,219.4 570,189.7 605,149.1 640,148.7 675,179.5 710,194.2 745,197.4 780,212.3 815,226.9 850,236.9 885,255.0" opacity="0.69"/>
-<path class="ridge" d="M 80,265.0 115,264.8 150,263.6 185,263.3 220,253.0 255,230.0 290,214.0 325,202.8 360,187.6 395,185.9 430,197.2 465,201.7 500,202.7 535,200.3 570,169.0 605,125.9 640,124.9 675,156.8 710,172.6 745,176.9 780,191.9 815,205.5 850,215.9 885,236.0" opacity="0.73"/>
-<path class="ridge" d="M 80,248.0 115,247.8 150,246.8 185,246.6 220,235.6 255,211.5 290,194.8 325,182.5 360,166.9 395,166.3 430,177.8 465,181.3 500,182.8 535,181.3 570,148.4 605,102.8 640,101.2 675,133.9 710,150.9 745,156.5 780,171.4 815,183.8 850,194.8 885,216.9" opacity="0.76"/>
-<path class="ridge" d="M 80,231.0 115,230.8 150,229.9 185,230.0 220,218.3 255,193.1 290,175.6 325,162.0 360,146.2 395,146.9 430,158.4 465,160.8 500,162.9 535,162.2 570,127.8 605,79.8 640,77.6 675,110.9 710,129.2 745,136.2 780,151.0 815,162.0 850,173.5 885,197.6" opacity="0.80"/>
-</g>
-<path class="accent" d="M 80,316.0 115,315.8 150,314.4 185,313.4 220,305.1 255,285.7 290,271.8 325,263.4 360,249.8 395,245.3 430,255.8 465,262.7 500,262.5 535,257.6 570,231.1 605,196.0 640,196.4 675,224.6 710,237.3 745,238.7 780,253.1 815,269.3 850,278.5 885,292.9"/>
-<circle class="dot" cx="500" cy="255" r="2.7"/><circle class="dot" cx="675" cy="205" r="2.7"/><circle class="dot" cx="815" cy="245" r="2.7"/>
-<path d="M80 548H900" stroke="#f1ece3" stroke-opacity=".045"/>
-<text x="82" y="578" fill="#817a6f" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10.5" letter-spacing="2.2">SIGNAL / STRUCTURE / EVIDENCE</text>
+  <defs>
+    <linearGradient id="ridge" x1="0" x2="1">
+      <stop offset="0" stop-color="#d8d1c4" stop-opacity="0"/>
+      <stop offset=".28" stop-color="#d8d1c4" stop-opacity=".26"/>
+      <stop offset=".72" stop-color="#eee7da" stop-opacity=".58"/>
+      <stop offset="1" stop-color="#d6b56d" stop-opacity=".18"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1">
+      <stop offset="0" stop-color="#d6b56d" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#d6b56d" stop-opacity=".42"/>
+      <stop offset=".78" stop-color="#ead19a" stop-opacity=".88"/>
+      <stop offset="1" stop-color="#d6b56d" stop-opacity=".08"/>
+    </linearGradient>
+    <style>
+      .landscape{animation:breathe 20s ease-in-out infinite alternate;transform-origin:50% 50%}
+      .r{fill:none;stroke:url(#ridge);stroke-width:1.35;vector-effect:non-scaling-stroke}
+      .a{fill:none;stroke:url(#accent);stroke-width:2;stroke-linecap:round;stroke-dasharray:760;stroke-dashoffset:760;animation:reveal 1.8s .35s cubic-bezier(.22,1,.36,1) forwards}
+      @keyframes breathe{from{transform:translateY(-1.5px);opacity:.9}to{transform:translateY(1.5px);opacity:1}}
+      @keyframes reveal{to{stroke-dashoffset:0}}
+      @media(prefers-reduced-motion:reduce){.landscape,.a{animation:none}.a{stroke-dashoffset:0}}
+    </style>
+  </defs>
+  <g class="landscape">
+    <path class="r" opacity=".24" d="M80 495 C150 493 205 482 258 459 C314 434 354 440 409 419 C470 396 518 419 568 377 C622 331 663 359 713 334 C770 306 821 330 884 290"/>
+    <path class="r" opacity=".34" d="M80 463 C150 461 206 448 260 421 C315 394 356 401 412 374 C473 344 520 372 571 319 C625 263 667 297 716 265 C772 230 824 261 884 214"/>
+    <path class="r" opacity=".44" d="M80 431 C151 429 207 414 262 382 C318 350 359 361 415 329 C476 293 523 325 574 262 C629 197 669 235 719 196 C776 154 827 194 884 139"/>
+    <path class="r" opacity=".60" d="M80 399 C151 397 208 380 264 344 C321 307 361 322 418 284 C479 242 526 279 577 206 C633 130 671 173 722 128 C779 80 830 129 884 74"/>
+    <path class="r" opacity=".48" d="M80 447 C149 444 204 432 258 403 C314 373 354 381 410 350 C472 316 519 347 569 289 C624 227 664 264 714 229 C770 191 820 225 884 181"/>
+    <path class="r" opacity=".30" d="M80 479 C150 477 205 466 258 442 C314 416 354 423 409 398 C470 370 518 398 568 349 C622 296 663 330 713 300 C770 267 821 296 884 253"/>
+    <path class="r" opacity=".18" d="M80 511 C149 509 205 500 258 480 C314 458 354 465 409 444 C470 421 518 445 568 405 C622 361 663 390 713 367 C770 341 821 366 884 328"/>
+  </g>
+  <path class="a" d="M80 399 C151 397 208 380 264 344 C321 307 361 322 418 284 C479 242 526 279 577 206 C633 130 671 173 722 128 C779 80 830 129 884 74"/>
+  <circle cx="418" cy="284" r="3" fill="#72a9c4" opacity=".65"/>
+  <circle cx="577" cy="206" r="3" fill="#d6b56d" opacity=".76"/>
+  <circle cx="722" cy="128" r="3" fill="#f0eadf" opacity=".72"/>
+  <text x="82" y="575" fill="#817a6f" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10.5" letter-spacing="2.2">SIGNAL LANDSCAPE · SECONDARY PROTOTYPE</text>
 </svg>
