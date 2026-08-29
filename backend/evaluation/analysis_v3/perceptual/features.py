@@ -160,8 +160,7 @@ def relative_band_energy_series(
             "n_fft": n_fft,
             "hop_length": hop_length,
             "bands": [
-                {"name": name, "low_hz": low, "high_hz": high}
-                for name, low, high in bands_hz
+                {"name": name, "low_hz": low, "high_hz": high} for name, low, high in bands_hz
             ],
             "band_order": band_names,
         },
