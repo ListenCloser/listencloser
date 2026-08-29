@@ -9,6 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   contents: read
   statuses: read
 
@@ -86,6 +87,59 @@ jobs:
             esac
             if [ "$attempt" -eq 60 ]; then
               echo "Vercel did not report success for exact main SHA within 10 minutes" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Wait for exact backend deploy workflow to finish
+        if: steps.scope.outputs.backend == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${GITHUB_SHA}&event=push&per_page=100"
+          for attempt in $(seq 1 210); do
+            payload="$(curl -fsSL \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$api")"
+            state="$(RUNS_PAYLOAD="$payload" EXPECTED_SHA="$GITHUB_SHA" python3 - <<'PY'
+          import json
+          import os
+
+          payload = json.loads(os.environ["RUNS_PAYLOAD"])
+          expected_sha = os.environ["EXPECTED_SHA"]
+          runs = [
+              run
+              for run in payload.get("workflow_runs", [])
+              if run.get("head_sha") == expected_sha
+              and run.get("path") == ".github/workflows/deploy-backend.yml"
+              and run.get("event") == "push"
+          ]
+          if not runs:
+              print("missing")
+          else:
+              run = max(runs, key=lambda item: item.get("id", 0))
+              if run.get("status") == "completed":
+                  conclusion = run.get("conclusion") or "unknown"
+                  print("success" if conclusion == "success" else f"failed:{conclusion}")
+              else:
+                  print(run.get("status") or "unknown")
+          PY
+            )"
+            echo "Deploy Backend state for ${GITHUB_SHA}: ${state}"
+            case "$state" in
+              success) break ;;
+              failed:*)
+                echo "Deploy Backend did not succeed for exact main SHA: ${state}" >&2
+                exit 1
+                ;;
+            esac
+            if [ "$attempt" -eq 210 ]; then
+              echo "Deploy Backend did not finish for exact main SHA within 35 minutes" >&2
               exit 1
             fi
             sleep 10
