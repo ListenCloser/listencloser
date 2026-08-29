@@ -33,7 +33,10 @@ from typing import Any, Literal
 
 import pretty_midi
 
-from evaluation.analysis_v3.multitrack_transcription.metrics import NoteEvent, match_notes
+from evaluation.analysis_v3.multitrack_transcription.metrics import (
+    NoteEvent,
+    match_notes,
+)
 from evaluation.models import CorpusManifest, EvalClip
 from evaluation.notation_metrics import diagnose_musicxml
 
@@ -236,9 +239,13 @@ def run_notation_evaluation(
                     "total_note_count", "?"
                 )
                 gen_meas = eval_result["structural"]["measure_count"]
-                ref_meas = eval_result.get("reference_structural", {}).get("measure_count", "?")
+                ref_meas = eval_result.get("reference_structural", {}).get(
+                    "measure_count", "?"
+                )
                 gen_ties = eval_result["structural"]["tie_count"]
-                ref_ties = eval_result.get("reference_structural", {}).get("tie_count", "?")
+                ref_ties = eval_result.get("reference_structural", {}).get(
+                    "tie_count", "?"
+                )
                 print(f"  Notes: {gen_notes} (ref: {ref_notes})")
                 print(f"  Measures: {gen_meas} (ref: {ref_meas})")
                 print(f"  Ties: {gen_ties} (ref: {ref_ties})")
