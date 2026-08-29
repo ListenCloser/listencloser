@@ -66,9 +66,7 @@ class PerceptualSeriesEvidence(MeasuredFeatureSeries):
     sample_rate: Literal[22050] = CANONICAL_SAMPLE_RATE
     source_version_id: UUID
     provenance: PerceptualProvenance
-    validated_scope: Literal["within_work_same_preprocessing"] = (
-        "within_work_same_preprocessing"
-    )
+    validated_scope: Literal["within_work_same_preprocessing"] = "within_work_same_preprocessing"
     limitations: list[str] = Field(default_factory=list)
 
 
@@ -240,8 +238,7 @@ def relative_band_energy_series(
             "n_fft": n_fft,
             "hop_length": hop_length,
             "bands": [
-                {"name": name, "low_hz": low, "high_hz": high}
-                for name, low, high in bands_hz
+                {"name": name, "low_hz": low, "high_hz": high} for name, low, high in bands_hz
             ],
             "band_order": band_names,
         },
