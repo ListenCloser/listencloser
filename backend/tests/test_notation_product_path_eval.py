@@ -55,6 +55,15 @@ def _clip(tmp_path: Path, reference_midi: bytes) -> EvalClip:
     )
 
 
+def _metric_grid(*, bpm: float = 120.0) -> dict:
+    return {
+        "bpm": bpm,
+        "beats": [0.0, 0.5, 1.0],
+        "downbeats": [0.0, 1.0],
+        "provenance": {"engine": "librosa"},
+    }
+
+
 def test_score_transcription_reuses_canonical_analysis_v3_matcher():
     reference = _midi_bytes(pitch=60)
     identical = notation_eval._score_transcription(reference, reference)
@@ -69,20 +78,18 @@ def test_reference_mode_never_invokes_transcription(tmp_path, monkeypatch):
     reference_midi = _midi_bytes()
     clip = _clip(tmp_path, reference_midi)
     notation_inputs: list[bytes] = []
+    notation_downbeats: list[list[float] | None] = []
 
-    monkeypatch.setattr(
-        notation_eval,
-        "_production_audio_grid",
-        lambda _audio_path: (120.0, [0.0, 0.5, 1.0]),
-    )
+    monkeypatch.setattr(notation_eval, "_production_metric_grid", lambda _path: _metric_grid())
 
     def fail_if_transcribed(_audio_path, _output_path):
         raise AssertionError("reference MIDI ceiling must not invoke transcription")
 
     monkeypatch.setattr(notation_eval, "_run_product_transcription", fail_if_transcribed)
 
-    def fake_notation(midi_bytes, _beat_times):
+    def fake_notation(midi_bytes, _beat_times, *, downbeats):
         notation_inputs.append(midi_bytes)
+        notation_downbeats.append(downbeats)
         return MUSICXML, {"profile": "test"}
 
     monkeypatch.setattr(notation_eval, "_notation_from_midi", fake_notation)
@@ -90,9 +97,13 @@ def test_reference_mode_never_invokes_transcription(tmp_path, monkeypatch):
     result = notation_eval.evaluate_clip(clip, "reference_midi_to_score")
 
     assert notation_inputs == [reference_midi]
+    assert notation_downbeats == [[0.0, 1.0]]
     assert result["accuracy"] is None
     assert result["stages"]["transcription"]["status"] == "not_run"
-    assert result["stages"]["metric_grid"]["source"] == "production_audio_librosa"
+    assert result["stages"]["metric_grid"]["source"] == "production_score_beat_engine"
+    assert result["stages"]["metric_grid"]["downbeat_count"] == 2
+    assert result["stages"]["notation"]["adaptive"] is True
+    assert result["stages"]["notation"]["piano_grand_staff"] is True
 
 
 def test_product_mode_transcribes_audio_then_scores_and_notates_prediction(
@@ -107,8 +118,8 @@ def test_product_mode_transcribes_audio_then_scores_and_notates_prediction(
 
     monkeypatch.setattr(
         notation_eval,
-        "_production_audio_grid",
-        lambda _audio_path: (118.0, [0.0, 0.51, 1.02]),
+        "_production_metric_grid",
+        lambda _path: _metric_grid(bpm=118.0),
     )
 
     def fake_transcription(audio_path: Path, output_path: Path):
@@ -123,7 +134,8 @@ def test_product_mode_transcribes_audio_then_scores_and_notates_prediction(
 
     monkeypatch.setattr(notation_eval, "_run_product_transcription", fake_transcription)
 
-    def fake_notation(midi_bytes, _beat_times):
+    def fake_notation(midi_bytes, _beat_times, *, downbeats):
+        assert downbeats == [0.0, 1.0]
         notation_inputs.append(midi_bytes)
         return MUSICXML, {"profile": "test"}
 
@@ -137,6 +149,7 @@ def test_product_mode_transcribes_audio_then_scores_and_notates_prediction(
     assert result["accuracy"]["note_flat"]["f1"] == 1.0
     assert result["stages"]["transcription"]["provenance"]["engine"] == "basic_pitch"
     assert result["stages"]["metric_grid"]["tempo_bpm"] == 118.0
+    assert result["stages"]["metric_grid"]["provenance"] == {"engine": "librosa"}
     assert result["stages"]["notation"]["quantization"] == {"profile": "test"}
 
 
