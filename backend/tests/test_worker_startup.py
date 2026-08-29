@@ -59,7 +59,11 @@ def test_worker_continues_to_beats_and_run_when_basic_pitch_prewarm_fails(monkey
         events.append("basic_pitch")
         raise RuntimeError("synthetic Basic Pitch warmup failure")
 
-    monkeypatch.setattr(worker_entry, "prewarm_basic_pitch_inference", fail_basic_pitch_prewarm)
+    monkeypatch.setattr(
+        worker_entry,
+        "prewarm_basic_pitch_inference",
+        fail_basic_pitch_prewarm,
+    )
     monkeypatch.setattr(
         worker_entry,
         "prewarm_librosa_beat_tracking",
