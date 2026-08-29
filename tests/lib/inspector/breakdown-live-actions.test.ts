@@ -10,6 +10,7 @@ function rankedFinding(overrides: Partial<TemporalFinding> = {}) {
   const source: TemporalFinding = {
     id: "density-peak",
     sourceInsightId: "density-source",
+    supportInsightIds: ["density-source"],
     kind: "density_peak",
     category: "rhythm",
     startSeconds: 12,
@@ -74,6 +75,7 @@ describe("live Breakdown action resolution", () => {
     const harmonic = rankedFinding({
       id: "harmonic",
       sourceInsightId: "chord-source",
+      supportInsightIds: ["chord-source"],
       kind: "harmonic_activity",
       category: "harmony",
       label: "Harmonic changes become more frequent",
