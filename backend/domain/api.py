@@ -295,18 +295,18 @@ async def get_work_bundle(
     auth=Depends(verify_token),
 ):
     """Return a work and its complete immutable artifact/version graph."""
+    from domain.work_bundle_repository import WorkBundleRepository
+
     sb = _sb()
     owner_id = _owner_id(auth)
     try:
-        work = WorkRepo(sb).get(work_id, owner_id)
-        if not work:
+        snapshot = WorkBundleRepository(sb).load(work_id, owner_id)
+        if not snapshot:
             raise HTTPException(status_code=404, detail="Work not found")
 
-        artifacts = ArtifactRepo(sb).list_by_work(work_id, owner_id)
         items = []
-        version_repo = VersionRepo(sb)
-        for artifact in artifacts:
-            versions = version_repo.list_by_artifact(artifact.id, owner_id)
+        for artifact in snapshot.artifacts:
+            versions = snapshot.versions_by_artifact.get(artifact.id, [])
             latest = versions[0] if versions else None
             signed_url = None
             if latest:
@@ -328,19 +328,7 @@ async def get_work_bundle(
                     "signed_url": signed_url,
                 }
             )
-        version_ids = {version.id for item in items for version in item["versions"]}
-        workflows = [
-            workflow
-            for workflow in WorkflowRepo(sb).list_by_project(work.project_id, owner_id)
-            if workflow.target_version_id in version_ids
-        ]
-        jobs = [
-            job
-            for workflow in workflows
-            for job in JobRepo(sb).list_by_workflow(workflow.id, owner_id)
-        ]
-        jobs.sort(key=lambda job: job.created_at, reverse=True)
-        return {"work": work, "artifacts": items, "jobs": jobs}
+        return {"work": snapshot.work, "artifacts": items, "jobs": snapshot.jobs}
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:

@@ -33,15 +33,15 @@ export function insightStartSeconds(
 export function categorizeInsights(
   insights: Insight[],
   selection: MusicalSelection | null,
-  bpm: number,
+  _bpm: number,
 ): CategorizedInsight[] {
   return insights.map((insight) => {
-    const category = categorizeInsight(insight, selection, bpm);
+    const category = categorizeInsight(insight, selection);
     return { insight, category };
   });
 }
 
-function categorizeInsight(insight: Insight, selection: MusicalSelection | null, bpm: number): InsightCategory {
+function categorizeInsight(insight: Insight, selection: MusicalSelection | null): InsightCategory {
   if (!selection) return "whole-work";
   const selStart = selection.timeRange?.start ?? null;
   const selEnd = selection.timeRange?.end ?? null;

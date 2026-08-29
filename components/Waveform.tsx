@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getDecodedAudio } from "@/lib/audio-buffer-cache";
 import { withAlpha } from "@/lib/color";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
@@ -16,6 +17,7 @@ export default function Waveform({
   position,
   durationOverride,
   selection,
+  emphasizeSelection = false,
   annotations,
   focusedAnnotationId,
   onSeek,
@@ -26,6 +28,7 @@ export default function Waveform({
   position: number;
   durationOverride?: number | null;
   selection?: MusicalSelection | null;
+  emphasizeSelection?: boolean;
   annotations?: AnalysisAnnotation[];
   focusedAnnotationId?: string | null;
   onSeek?: (time: number) => void;
@@ -43,15 +46,17 @@ export default function Waveform({
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
+
+    // A new source must never inherit the prior recording's visual evidence.
+    // Keep the same canvas object in place, but return it to a truthful neutral
+    // frame until this exact source has decoded.
+    peaksRef.current = [];
+    durationRef.current = 0;
+    draggingRef.current = null;
+    setPreview(null);
     setStatus("loading");
-    const audioCtx = new AudioContext();
-    window
-      .fetch(url)
-      .then((response) => {
-        if (!response.ok) throw new Error("waveform request failed");
-        return response.arrayBuffer();
-      })
-      .then((buffer) => audioCtx.decodeAudioData(buffer))
+
+    getDecodedAudio(url)
       .then((decoded) => {
         if (cancelled) return;
         const channel = decoded.getChannelData(0);
@@ -74,13 +79,9 @@ export default function Waveform({
       })
       .catch(() => {
         if (!cancelled) setStatus("error");
-      })
-      .finally(() => {
-        void audioCtx.close();
       });
     return () => {
       cancelled = true;
-      void audioCtx.close();
     };
   }, [url]);
 
@@ -118,10 +119,8 @@ export default function Waveform({
 
     for (let t = 0; t <= duration; t += interval) {
       const x = (t / duration) * w;
-      // Subtle tick
       ctx.globalAlpha = 0.3;
       ctx.fillRect(x, h - 2, 1, 2);
-      // Label
       ctx.globalAlpha = 0.5;
       const m = Math.floor(t / 60);
       const s = Math.floor(t % 60);
@@ -151,7 +150,6 @@ export default function Waveform({
     canvasCtx.fillStyle = bg;
     canvasCtx.fillRect(0, 0, w, h);
 
-    // Draw annotation bands (behind waveform, above background)
     if (annotations && annotations.length > 0 && duration > 0) {
       for (const ann of annotations) {
         const x1 = timeToX(ann.startSeconds);
@@ -178,7 +176,6 @@ export default function Waveform({
       }
     }
 
-    // Draw waveform — muted, quiet, not heavy
     const peaks = peaksRef.current;
     if (peaks.length > 0) {
       const mid = h / 2;
@@ -192,27 +189,28 @@ export default function Waveform({
         canvasCtx.fillRect(x, mid - topPeak, Math.max(barW - 1, 1), topPeak + bottomPeak);
       });
       canvasCtx.globalAlpha = 1;
-    } else if (status === "ready") {
-      // Empty state: faint center line
-      canvasCtx.fillStyle = trace;
-      canvasCtx.globalAlpha = 0.15;
-      canvasCtx.fillRect(0, h / 2 - 1, w, 2);
-      canvasCtx.globalAlpha = 1;
+    } else {
+      // A center hairline is a neutral track frame, not fabricated waveform
+      // evidence. It gives the saved recording a stable object while decoding.
+      canvasCtx.strokeStyle = withAlpha(trace, status === "loading" ? 0.16 : 0.1);
+      canvasCtx.lineWidth = 1;
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(0, h / 2 + 0.5);
+      canvasCtx.lineTo(w, h / 2 + 0.5);
+      canvasCtx.stroke();
     }
 
-    // Selection (terracotta) — clear but not harsh
     const range = preview ?? selection?.timeRange ?? null;
     if (range && duration > 0) {
       const x1 = timeToX(range.start);
       const x2 = timeToX(range.end);
-      canvasCtx.fillStyle = withAlpha(accent, 0.15);
+      canvasCtx.fillStyle = withAlpha(accent, emphasizeSelection ? 0.24 : 0.15);
       canvasCtx.fillRect(x1, 0, Math.max(x2 - x1, 1), h);
-      canvasCtx.strokeStyle = withAlpha(accent, 0.6);
-      canvasCtx.lineWidth = 1;
+      canvasCtx.strokeStyle = withAlpha(accent, emphasizeSelection ? 0.9 : 0.6);
+      canvasCtx.lineWidth = emphasizeSelection ? 1.8 : 1;
       canvasCtx.strokeRect(x1, 0, Math.max(x2 - x1, 1), h);
     }
 
-    // Playhead (blue) — clear, not heavy
     if (position > 0 && duration > 0) {
       const x = timeToX(position);
       canvasCtx.strokeStyle = playhead;
@@ -222,7 +220,7 @@ export default function Waveform({
       canvasCtx.lineTo(x, h);
       canvasCtx.stroke();
     }
-  }, [position, selection, preview, status, duration, timeToX, annotations, focusedAnnotationId]);
+  }, [position, selection, preview, status, duration, timeToX, annotations, focusedAnnotationId, emphasizeSelection]);
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
@@ -265,7 +263,6 @@ export default function Waveform({
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const clickTime = (x / rect.width) * duration;
-      // Check if click is on an annotation
       if (onAnnotationClick && annotations) {
         for (const ann of annotations) {
           if (clickTime >= ann.startSeconds && clickTime <= ann.endSeconds) {
@@ -293,11 +290,15 @@ export default function Waveform({
         ref={canvasRef}
         className="waveform"
         data-testid="waveform-canvas"
+        data-waveform-state={status}
+        data-waveform-segments={status === "ready" ? peaksRef.current.length : 0}
+        data-selection-emphasized={emphasizeSelection ? "true" : undefined}
         width={900}
         height={220}
         style={{ height: 220 }}
         role="slider"
         aria-label="Waveform selection"
+        aria-busy={status === "loading"}
         aria-valuetext={`${duration.toFixed(1)} seconds`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -309,7 +310,7 @@ export default function Waveform({
       />
       {status === "loading" && (
         <p className="muted" style={{ fontSize: "var(--fs-xs)", marginTop: 4 }}>
-          Loading waveform&hellip;
+          Decoding recording&hellip;
         </p>
       )}
       {status === "error" && (

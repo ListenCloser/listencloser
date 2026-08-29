@@ -18,6 +18,10 @@ Required for substantial algorithmic/domain logic. If not applicable, say why.
 
 What did this PR intentionally not change?
 
+## Parallelism / ownership
+
+What files, contracts, or product domain does this PR own? Note any known overlap with another open PR. Independent work should remain non-draft and validate concurrently rather than waiting for unrelated PRs.
+
 ## Verification
 
 Check the applicable evidence tiers and provide concrete results.

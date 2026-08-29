@@ -38,12 +38,20 @@ class TempoResult:
         }
 
 
+def _validate_tolerance_pct(tolerance_pct: float) -> None:
+    if tolerance_pct < 0:
+        raise ValueError("Tempo tolerance must be non-negative")
+
+
 def compute_tempo_error(
     predicted_bpm: float | None,
     reference_bpm: float | None,
+    tolerance_pct: float = 4.0,
 ) -> TempoResult:
-    """Compute tempo error metrics."""
-    if predicted_bpm is None or reference_bpm is None:
+    """Compute tempo error metrics using a percentage tolerance."""
+    _validate_tolerance_pct(tolerance_pct)
+
+    if predicted_bpm is None or reference_bpm is None or reference_bpm <= 0:
         return TempoResult(
             absolute_error=None,
             relative_error_pct=None,
@@ -55,12 +63,12 @@ def compute_tempo_error(
         )
 
     abs_error = abs(predicted_bpm - reference_bpm)
-    rel_error = abs_error / reference_bpm * 100 if reference_bpm > 0 else 0.0
+    rel_error = abs_error / reference_bpm * 100
+    tolerance = tolerance_pct / 100.0
 
-    is_correct = rel_error <= 4.0
-
-    is_octave = check_octave_errors(predicted_bpm, reference_bpm)
-    is_half_double = check_half_double_errors(predicted_bpm, reference_bpm)
+    is_correct = rel_error <= tolerance_pct
+    is_octave = check_octave_errors(predicted_bpm, reference_bpm, tolerance)
+    is_half_double = check_half_double_errors(predicted_bpm, reference_bpm, tolerance)
 
     return TempoResult(
         absolute_error=abs_error,
@@ -77,23 +85,59 @@ def compute_tempo_accuracy(
     results: list[TempoResult],
     tolerance_pct: float = 4.0,
 ) -> dict[str, Any]:
-    """Compute aggregate tempo accuracy."""
-    valid = [r for r in results if r.is_correct is not None]
+    """Compute aggregate strict and octave-aware tempo accuracy."""
+    _validate_tolerance_pct(tolerance_pct)
+    valid = [r for r in results if r.relative_error_pct is not None]
     if not valid:
-        return {"accuracy": None, "count": 0}
+        return {
+            "accuracy": None,
+            "octave_aware_accuracy": None,
+            "count": 0,
+            "correct": 0,
+            "total": 0,
+            "octave_errors": 0,
+            "half_double_errors": 0,
+            "mean_absolute_error": None,
+            "mean_relative_error_pct": None,
+        }
 
-    correct = sum(1 for r in valid if r.is_correct)
-    octave_errors = sum(1 for r in valid if r.is_octave_error)
-    half_double_errors = sum(1 for r in valid if r.is_half_double_error)
+    tolerance = tolerance_pct / 100.0
+    strict_correct = [
+        r.relative_error_pct is not None and r.relative_error_pct <= tolerance_pct for r in valid
+    ]
+    octave_flags = [
+        check_octave_errors(r.predicted_bpm, r.reference_bpm, tolerance)
+        if r.predicted_bpm is not None and r.reference_bpm is not None
+        else False
+        for r in valid
+    ]
+    half_double_flags = [
+        check_half_double_errors(r.predicted_bpm, r.reference_bpm, tolerance)
+        if r.predicted_bpm is not None and r.reference_bpm is not None
+        else False
+        for r in valid
+    ]
+
+    correct = sum(strict_correct)
+    octave_aware_correct = sum(
+        is_correct or is_octave
+        for is_correct, is_octave in zip(strict_correct, octave_flags, strict=True)
+    )
 
     return {
         "accuracy": round(correct / len(valid), 4),
+        "octave_aware_accuracy": round(octave_aware_correct / len(valid), 4),
+        "count": len(valid),
         "correct": correct,
         "total": len(valid),
-        "octave_errors": octave_errors,
-        "half_double_errors": half_double_errors,
+        "octave_errors": sum(octave_flags),
+        "half_double_errors": sum(half_double_flags),
         "mean_absolute_error": round(
             np.mean([r.absolute_error for r in valid if r.absolute_error is not None]), 2
+        ),
+        "mean_relative_error_pct": round(
+            np.mean([r.relative_error_pct for r in valid if r.relative_error_pct is not None]),
+            2,
         ),
     }
 
@@ -106,8 +150,12 @@ def check_octave_errors(
     """Check if predicted tempo is an octave error (2x or 0.5x)."""
     if reference_bpm <= 0:
         return False
-    ratio = predicted_bpm / reference_bpm
-    return abs(ratio - 2.0) <= tolerance or abs(ratio - 0.5) <= tolerance
+    for factor in (0.5, 2.0):
+        target_bpm = reference_bpm * factor
+        relative_error = abs(predicted_bpm - target_bpm) / target_bpm
+        if relative_error <= tolerance:
+            return True
+    return False
 
 
 def check_half_double_errors(

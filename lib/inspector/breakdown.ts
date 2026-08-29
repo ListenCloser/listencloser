@@ -7,6 +7,7 @@ export type BreakdownRepresentation = "waveform" | "piano_roll";
 export interface BreakdownFinding {
   id: string;
   sourceInsightId: string;
+  supportInsightIds: string[];
   kind: TemporalFinding["kind"];
   lens: BreakdownLens;
   startSeconds: number;
@@ -143,6 +144,7 @@ function toBreakdownFinding(
   return {
     id: `breakdown-${finding.id}`,
     sourceInsightId: finding.sourceInsightId,
+    supportInsightIds: [...finding.supportInsightIds],
     kind: finding.kind,
     lens: finding.category === "rhythm" ? "pulse" : "pitch",
     startSeconds: finding.startSeconds,
