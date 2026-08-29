@@ -64,9 +64,7 @@ def parse_candombe_beats(annotation_path: str | Path) -> dict[str, Any]:
 
     intervals = np.diff(np.asarray(beats, dtype=float))
     positive_intervals = intervals[intervals > 0]
-    reference_bpm = (
-        float(60.0 / np.median(positive_intervals)) if positive_intervals.size else None
-    )
+    reference_bpm = float(60.0 / np.median(positive_intervals)) if positive_intervals.size else None
 
     positive_positions = [position for position in positions if 0 < position <= 12]
     meter_numerator = max(positive_positions) if positive_positions else None
@@ -125,9 +123,7 @@ def extract_candombe_single_val_manifest(
     """Create the exact Beat This v1.0 Candombe single-split validation manifest."""
     annotation_root = Path(annotation_dir)
     assignments = parse_single_split(split_path)
-    validation_ids = sorted(
-        stem for stem, partition in assignments.items() if partition == "val"
-    )
+    validation_ids = sorted(stem for stem, partition in assignments.items() if partition == "val")
     expected_validation_ids = sorted(EXPECTED_SINGLE_VAL_IDS_V1)
     if validation_ids != expected_validation_ids:
         raise ValueError(
