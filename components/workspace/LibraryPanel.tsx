@@ -12,15 +12,12 @@ import {
   useProjectWorks,
 } from "@/lib/server-state";
 import { presentableTitle } from "@/lib/format";
-import { deriveAvailability } from "@/lib/representation-availability";
 
 function WorkRow({
   work,
   selected,
   isLoading,
   isDeleting,
-  hasAnalysis,
-  hasRepresentations,
   onDelete,
   onOpen,
 }: {
@@ -28,21 +25,15 @@ function WorkRow({
   selected: boolean;
   isLoading: boolean;
   isDeleting: boolean;
-  hasAnalysis: boolean;
-  hasRepresentations: boolean;
   onDelete: () => void;
   onOpen: () => void;
 }) {
   const title = presentableTitle(work.title);
-  const status = isDeleting
-    ? "Deleting"
-    : isLoading
-      ? "Opening"
-      : hasAnalysis
-        ? "Analyzed"
-        : hasRepresentations
-          ? "Ready"
-          : "Imported";
+  // A library row describes durable availability, not whatever part of the
+  // selected work happens to have hydrated into the workspace store. The old
+  // Imported/Ready/Analyzed labels therefore changed as you clicked between
+  // rows even though nothing about the saved recording had changed.
+  const status = isDeleting ? "Deleting" : isLoading ? "Opening" : "Ready";
 
   return (
     <div className={`library-work-row${selected ? " selected" : ""}`}>
@@ -201,9 +192,6 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
           </div>
         ) : works.map((work) => {
           const selected = workspace.activeWorkId === work.id;
-          const availability = selected
-            ? deriveAvailability(workspace.representations, workspace.insights.length)
-            : null;
           return (
             <WorkRow
               key={work.id}
@@ -211,8 +199,6 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               selected={selected}
               isLoading={workspace.isLoadingWork && selected}
               isDeleting={deletingId === work.id}
-              hasAnalysis={workspace.insights.length > 0 && selected}
-              hasRepresentations={availability ? availability.availableKinds.length > 0 : false}
               onDelete={() => void handleDelete(work.id)}
               onOpen={() => {
                 if (!selected) clearActiveSource();

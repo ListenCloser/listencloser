@@ -5,8 +5,9 @@ import { expect, test, type Page } from "@playwright/test";
  *
  * Validates the Breakdown Inspector hierarchy:
  *   - Context shows interpretable Key, Tempo, Meter as quiet inline metadata
- *   - Evidence details can be expanded to Harmony → Chords, Roman numerals, Function
- *   - Clicking a chord/RN sets a selection
+ *   - Evidence details stays secondary and does not expose raw category counts
+ *   - Parallel chord / Roman numeral / function labels collapse into one harmonic moment
+ *   - Clicking a harmonic moment sets a selection
  *   - Withheld capabilities (cadence, key_region) never appear
  */
 test.describe("theory annotations (MSW)", () => {
@@ -67,15 +68,11 @@ test.describe("theory annotations (MSW)", () => {
       await harmony.locator(":scope > summary").click();
     }
     await expect(harmony).toHaveAttribute("open", "");
-    return harmony;
+    return { evidenceRoot, harmony };
   }
 
-  test("Inspector shows interpretable Key, Tempo, Meter metadata", async ({
-    page,
-  }) => {
-    await expect(
-      page.getByRole("button", { name: /^Test Work\b/ }),
-    ).toBeVisible({ timeout: 20_000 });
+  test("Inspector shows interpretable Key, Tempo, Meter metadata", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByRole("tab", { name: "Breakdown", selected: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Context" })).toBeVisible();
@@ -91,71 +88,69 @@ test.describe("theory annotations (MSW)", () => {
     await expect(metadata).toHaveCount(3);
   });
 
-  test("Inspector shows Harmony section with Chords, Roman numerals, Function sub-sections", async ({
-    page,
-  }) => {
-    await expect(
-      page.getByRole("button", { name: /^Test Work\b/ }),
-    ).toBeVisible({ timeout: 20_000 });
+  test("Evidence details removes raw counts and collapses parallel harmony labels", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    const harmony = await openHarmonyEvidence(page);
+    const { evidenceRoot, harmony } = await openHarmonyEvidence(page);
+    const moments = harmony.locator(".inspector-harmony-moment");
 
-    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "C maj" }).first()).toBeVisible();
+    await expect(evidenceRoot.locator(":scope > summary")).toHaveText("Evidence details");
+    await expect(harmony.locator(":scope > summary")).toHaveText("Harmony");
+    await expect(moments).toHaveCount(6);
+    await expect(moments.first()).toContainText("C maj");
+    await expect(moments.first()).toContainText("I (A minor)");
+    await expect(moments.first()).toContainText("TONIC (I)");
 
-    await expect(harmony.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
-
-    await expect(harmony.getByRole("heading", { name: "Function" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "TONIC (I)" }).first()).toBeVisible();
+    await expect(harmony.getByRole("heading", { name: "Chords" })).toHaveCount(0);
+    await expect(harmony.getByRole("heading", { name: "Roman numerals" })).toHaveCount(0);
+    await expect(harmony.getByRole("heading", { name: "Function" })).toHaveCount(0);
   });
 
-  test("all 6 chord entries rendered in Inspector", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: /^Test Work\b/ }),
-    ).toBeVisible({ timeout: 20_000 });
+  test("all 6 chord labels remain visible in the collapsed harmony timeline", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    const harmony = await openHarmonyEvidence(page);
-    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
+    const { harmony } = await openHarmonyEvidence(page);
+    const moments = harmony.locator(".inspector-harmony-moment");
+    await expect(moments).toHaveCount(6);
 
-    await expect(harmony.getByRole("button", { name: "C maj" }).first()).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "G min" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "F maj" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "G7" })).toBeVisible();
+    await expect(moments.filter({ hasText: "C maj" }).first()).toBeVisible();
+    await expect(moments.filter({ hasText: "G min" })).toBeVisible();
+    await expect(moments.filter({ hasText: "F maj" })).toBeVisible();
+    await expect(moments.filter({ hasText: "G7" })).toBeVisible();
   });
 
-  test("all 6 roman numeral entries rendered in Inspector", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: /^Test Work\b/ }),
-    ).toBeVisible({ timeout: 20_000 });
+  test("Roman numeral context remains attached to the matching harmonic moments", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    const harmony = await openHarmonyEvidence(page);
-    await expect(harmony.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
+    const { harmony } = await openHarmonyEvidence(page);
+    const moments = harmony.locator(".inspector-harmony-moment");
+    await expect(moments).toHaveCount(6);
 
-    await expect(harmony.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "v (A minor)", exact: true })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "iv (A minor)", exact: true })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "V7 (A minor)" })).toBeVisible();
+    const cMajor = moments.filter({ has: page.locator(".inspector-harmony-primary", { hasText: "C maj" }) }).first();
+    const gMinor = moments.filter({ has: page.locator(".inspector-harmony-primary", { hasText: "G min" }) }).first();
+    const fMajor = moments.filter({ has: page.locator(".inspector-harmony-primary", { hasText: "F maj" }) }).first();
+    const g7 = moments.filter({ has: page.locator(".inspector-harmony-primary", { hasText: "G7" }) }).first();
+
+    await expect(cMajor.locator(".inspector-harmony-context")).toContainText("I (A minor)");
+    await expect(gMinor.locator(".inspector-harmony-context")).toContainText("v (A minor)");
+    await expect(fMajor.locator(".inspector-harmony-context")).toContainText("iv (A minor)");
+    await expect(g7.locator(".inspector-harmony-context")).toContainText("V7 (A minor)");
   });
 
-  test("Clicking a chord in Inspector sets selection", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: /^Test Work\b/ }),
-    ).toBeVisible({ timeout: 20_000 });
+  test("Clicking a harmonic moment sets selection", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    const harmony = await openHarmonyEvidence(page);
-    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
-
-    await harmony.getByRole("button", { name: "C maj" }).first().click();
+    const { harmony } = await openHarmonyEvidence(page);
+    const firstCMajor = harmony.locator(".inspector-harmony-moment").filter({ hasText: "C maj" }).first();
+    await expect(firstCMajor).toBeVisible();
+    await firstCMajor.click();
 
     await expect(page.locator(".inspector-scope-value")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("0:00–0:02")).toBeVisible();
   });
 
   test("no cadence or key_region insights appear", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: /^Test Work\b/ }),
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     await openHarmonyEvidence(page);
     await expect(page.getByRole("heading", { name: "Cadences" })).toHaveCount(0);
