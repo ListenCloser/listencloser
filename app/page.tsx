@@ -29,7 +29,6 @@ import {
 } from "@/lib/stores/workspace";
 
 const ACCEPT = ".wav,.mp3,.m4a,.flac,.ogg,.aac,audio/*";
-const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["wav", "mp3", "m4a", "flac", "ogg", "aac"]);
 const ACTIVE_JOB_STATES = new Set(["queued", "claimed", "running"]);
 const PROCESSING_REFRESH_MS = 1200;
@@ -428,11 +427,6 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
     if (!ALLOWED_EXTENSIONS.has(extension)) {
       setError("Choose a WAV, MP3, M4A, FLAC, OGG, or AAC audio file.");
-      setStage("error");
-      return;
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setError("Audio files must be 4 MB or smaller.");
       setStage("error");
       return;
     }
