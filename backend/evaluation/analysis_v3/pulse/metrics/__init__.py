@@ -1,6 +1,8 @@
 from .beat import (
+    EventTimingResult,
     compute_beat_f1,
     compute_downbeat_f1,
+    compute_event_timing,
     match_timestamps,
 )
 from .meter import (
@@ -19,8 +21,10 @@ from .tempo import (
 )
 
 __all__ = [
+    "EventTimingResult",
     "compute_beat_f1",
     "compute_downbeat_f1",
+    "compute_event_timing",
     "match_timestamps",
     "compute_tempo_accuracy",
     "compute_tempo_error",
