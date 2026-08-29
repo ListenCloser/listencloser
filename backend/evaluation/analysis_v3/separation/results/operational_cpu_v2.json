@@ -1,0 +1,89 @@
+{
+  "experiment": "separation_operational_cpu_v2",
+  "evidence_scope": "synthetic operational timing/memory only; not separation quality or downstream value",
+  "topology": {
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "cpu_count": 4,
+    "device": "cpu",
+    "python_version": "3.11.16",
+    "torch_version": "2.6.0+cpu",
+    "torch_num_threads": 2
+  },
+  "separator": {
+    "candidate": "HTDemucs",
+    "demucs_package_version": "4.1.0",
+    "model": "htdemucs",
+    "model_signature": "955717e8",
+    "inference_shifts": 0,
+    "model_prepare_seconds": 1.738,
+    "checkpoint": {
+      "filename": "955717e8-8726e21a.th",
+      "present_before_load": false,
+      "present_after_load": false
+    }
+  },
+  "sample_rate": 44100,
+  "measurements": [
+    {
+      "audio_duration_seconds": 10.0,
+      "latency_seconds": 12.897,
+      "real_time_factor": 1.2897,
+      "process_max_rss_mb": 1394.29,
+      "output_shape": [
+        4,
+        2,
+        441000
+      ],
+      "source_names": [
+        "drums",
+        "bass",
+        "other",
+        "vocals"
+      ]
+    },
+    {
+      "audio_duration_seconds": 30.0,
+      "latency_seconds": 16.462,
+      "real_time_factor": 0.5487,
+      "process_max_rss_mb": 1499.79,
+      "output_shape": [
+        4,
+        2,
+        1323000
+      ],
+      "source_names": [
+        "drums",
+        "bass",
+        "other",
+        "vocals"
+      ]
+    },
+    {
+      "audio_duration_seconds": 180.0,
+      "latency_seconds": 84.873,
+      "real_time_factor": 0.4715,
+      "process_max_rss_mb": 1767.35,
+      "output_shape": [
+        4,
+        2,
+        7938000
+      ],
+      "source_names": [
+        "drums",
+        "bass",
+        "other",
+        "vocals"
+      ]
+    }
+  ],
+  "determinism": {
+    "duration_seconds": 10.0,
+    "shifts": 0,
+    "first_stem_sha256_equal": true,
+    "repeat_latency_seconds": 5.483
+  },
+  "success": true,
+  "failures": []
+}
