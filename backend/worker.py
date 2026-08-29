@@ -8,7 +8,7 @@ import domain.capabilities as capability_module
 from domain.job_worker import JobWorker
 from domain.perceptual_capability import register_perceptual_capability
 from domain.performance_instrumentation import install_understand_instrumentation
-from domain.worker_warmup import prewarm_librosa_beat_tracking
+from domain.worker_warmup import prewarm_basic_pitch, prewarm_librosa_beat_tracking
 from observability import configure_logging, init_sentry, init_telemetry
 
 
@@ -18,10 +18,18 @@ def main() -> None:
     init_telemetry("hello-ai-worker")
     init_sentry(logger)
 
+    # The default Basic Pitch transcription path has a large process-cold
+    # TensorFlow/inference cost even though later calls in the same worker are
+    # fast. Pay that runtime initialization before the first heartbeat/job.
+    try:
+        prewarm_basic_pitch()
+    except Exception:
+        logger.exception("basic_pitch_prewarm_failed")
+
     # Score's default librosa beat tracker lazily compiles expensive runtime
     # paths on its first non-empty call. Pay that process-local cold cost before
     # JobWorker.run() publishes the first heartbeat or claims a user's job.
-    # Warmup is optimization-only: failure must never make the worker unavailable.
+    # Warmups are optimization-only: failure must never make the worker unavailable.
     try:
         prewarm_librosa_beat_tracking()
     except Exception:
