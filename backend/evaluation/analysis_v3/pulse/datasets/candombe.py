@@ -25,6 +25,13 @@ AUDIO_LICENSE = "CC BY 4.0"
 SOURCE_DATASET = "candombe"
 EVALUATION_DATASET = "candombe_single_split_val"
 SPLIT_PARTITION = "single_split_val"
+EXPECTED_SINGLE_VAL_IDS_V1 = (
+    "csic.1995_ansina1_03",
+    "csic.1995_ansina2_01",
+    "csic.1995_ansina2_04",
+    "csic.1995_cuareim_02",
+    "zavala.muniz.2014_41",
+)
 
 
 def parse_candombe_beats(annotation_path: str | Path) -> dict[str, Any]:
@@ -121,8 +128,12 @@ def extract_candombe_single_val_manifest(
     validation_ids = sorted(
         stem for stem, partition in assignments.items() if partition == "val"
     )
-    if not validation_ids:
-        raise ValueError("single split contains no Candombe validation rows")
+    expected_validation_ids = sorted(EXPECTED_SINGLE_VAL_IDS_V1)
+    if validation_ids != expected_validation_ids:
+        raise ValueError(
+            "Candombe validation IDs do not match Beat This annotations v1.0 single.split: "
+            f"expected {expected_validation_ids}, got {validation_ids}"
+        )
 
     clips: list[dict[str, Any]] = []
     for track_id in validation_ids:
