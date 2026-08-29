@@ -206,9 +206,11 @@
   }
 
   .welcome-hero-v4::after {
-    width: calc(100% + 8px);
+    width: min(100%, 360px);
+    aspect-ratio: 360 / 430;
     margin-top: 34px;
-    margin-left: -4px;
+    margin-left: 0;
+    background-image: url("/landing-shared-time-mobile.svg");
     filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.18));
   }
 }
