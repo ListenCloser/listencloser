@@ -42,8 +42,10 @@ import { formatTime } from "@/lib/format";
 
 export interface TemporalFinding {
   id: string;
-  /** The persisted measurement this view-level finding is derived from. */
+  /** Legacy primary persisted measurement for compatibility with existing view code. */
   sourceInsightId: string;
+  /** Persisted measurements actually required to support this view-level finding. */
+  supportInsightIds: string[];
   kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low" | "melody_contour_ascending" | "melody_contour_descending" | "melody_activity_dense" | "melody_activity_sparse";
   category: "rhythm" | "harmony" | "melody";
   startSeconds: number;
@@ -91,6 +93,7 @@ function deriveDensityFindings(insights: Insight[]): TemporalFinding[] {
     findings.push({
       id: `density-peak-${insight.id}`,
       sourceInsightId: insight.id,
+      supportInsightIds: [insight.id],
       kind: "density_peak",
       category: "rhythm",
       startSeconds: peak.start,
@@ -109,6 +112,7 @@ function deriveDensityFindings(insights: Insight[]): TemporalFinding[] {
     findings.push({
       id: `density-valley-${insight.id}`,
       sourceInsightId: insight.id,
+      supportInsightIds: [insight.id],
       kind: "density_valley",
       category: "rhythm",
       startSeconds: valley.start,
@@ -136,6 +140,7 @@ function deriveRestFindings(insights: Insight[]): TemporalFinding[] {
     findings.push({
       id: `rest-${insight.id}`,
       sourceInsightId: insight.id,
+      supportInsightIds: [insight.id],
       kind: "rest",
       category: "rhythm",
       startSeconds: longest.start,
@@ -148,64 +153,68 @@ function deriveRestFindings(insights: Insight[]): TemporalFinding[] {
   return findings;
 }
 
+type ChordActivityWindow = {
+  start: number;
+  end: number;
+  density: number;
+  insightIds: string[];
+};
+
 function deriveHarmonicActivityFindings(insights: Insight[]): TemporalFinding[] {
   const findings: TemporalFinding[] = [];
-  const chordInsights = insights.filter((i) => i.kind === "chord");
-
-  // Need at least 4 chords to detect meaningful activity patterns
-  if (chordInsights.length < 4) return findings;
-
-  const sortedChords = chordInsights
-    .filter((i) => i.span.start_seconds != null)
+  const sortedChords = insights
+    .filter((i) => i.kind === "chord" && i.span.start_seconds != null)
     .sort((a, b) => a.span.start_seconds! - b.span.start_seconds!);
 
-  // Need at least 3 chords with valid timestamps for sliding window
-  if (sortedChords.length < 3) return findings;
+  // The relational claim needs enough timestamped evidence to compare passages.
+  if (sortedChords.length < 4) return findings;
 
-  // Find most active passage (highest chord-change density)
-  let maxDensity = 0;
-  let maxStart = 0;
-  let maxEnd = 0;
+  let maxWindow: ChordActivityWindow | null = null;
+  let minWindow: ChordActivityWindow | null = null;
 
   for (let i = 0; i <= sortedChords.length - 3; i++) {
-    const windowStart = sortedChords[i].span.start_seconds!;
-    const windowEnd = sortedChords[i + 2].span.end_seconds ?? sortedChords[i + 2].span.start_seconds! + 2;
+    const windowChords = sortedChords.slice(i, i + 3);
+    const windowStart = windowChords[0].span.start_seconds!;
+    const lastChord = windowChords[2];
+    const windowEnd = lastChord.span.end_seconds ?? lastChord.span.start_seconds! + 2;
     const windowDuration = windowEnd - windowStart;
     if (windowDuration <= 0) continue;
 
-    const density = 3 / windowDuration; // chords per second
-    if (density > maxDensity) {
-      maxDensity = density;
-      maxStart = windowStart;
-      maxEnd = windowEnd;
-    }
+    const window: ChordActivityWindow = {
+      start: windowStart,
+      end: windowEnd,
+      density: 3 / windowDuration,
+      insightIds: windowChords.map((chord) => chord.id),
+    };
+
+    if (!maxWindow || window.density > maxWindow.density) maxWindow = window;
+    if (!minWindow || window.density < minWindow.density) minWindow = window;
   }
 
-  // Find least active passage
-  let minDensity = Infinity;
-  for (let i = 0; i <= sortedChords.length - 3; i++) {
-    const windowStart = sortedChords[i].span.start_seconds!;
-    const windowEnd = sortedChords[i + 2].span.end_seconds ?? sortedChords[i + 2].span.start_seconds! + 2;
-    const windowDuration = windowEnd - windowStart;
-    if (windowDuration <= 0) continue;
+  // Only emit if there's a meaningful difference (1.5x ratio).
+  if (maxWindow && minWindow && maxWindow.density > minWindow.density * 1.5) {
+    const supportInsightIds = [...new Set([
+      ...maxWindow.insightIds,
+      ...minWindow.insightIds,
+    ])];
 
-    const density = 3 / windowDuration;
-    if (density < minDensity) {
-      minDensity = density;
-    }
-  }
-
-  // Only emit if there's a meaningful difference (1.5x ratio)
-  if (maxDensity > 0 && minDensity < Infinity && maxDensity > minDensity * 1.5) {
     findings.push({
       id: "harmonic-activity-peak",
-      sourceInsightId: sortedChords[0].id,
+      sourceInsightId: maxWindow.insightIds[0],
+      supportInsightIds,
       kind: "harmonic_activity",
       category: "harmony",
-      startSeconds: maxStart,
-      endSeconds: maxEnd,
-      label: `Harmonic changes become more frequent around ${formatTime(maxStart)}`,
-      evidence: { chordDensity: maxDensity, windowStart: maxStart, windowEnd: maxEnd },
+      startSeconds: maxWindow.start,
+      endSeconds: maxWindow.end,
+      label: `Harmonic changes become more frequent around ${formatTime(maxWindow.start)}`,
+      evidence: {
+        chordDensity: maxWindow.density,
+        windowStart: maxWindow.start,
+        windowEnd: maxWindow.end,
+        baselineChordDensity: minWindow.density,
+        baselineWindowStart: minWindow.start,
+        baselineWindowEnd: minWindow.end,
+      },
     });
   }
 
@@ -263,6 +272,7 @@ function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
       findings.push({
         id: `${kind}-${insight.id}`,
         sourceInsightId: insight.id,
+        supportInsightIds: [insight.id],
         kind: kind as TemporalFinding["kind"],
         category,
         startSeconds: insight.span.start_seconds,

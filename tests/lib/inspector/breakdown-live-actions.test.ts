@@ -7,9 +7,11 @@ import { rankBreakdownFindings } from "@/lib/inspector/breakdown";
 import type { TemporalFinding } from "@/lib/inspector/findings";
 
 function rankedFinding(overrides: Partial<TemporalFinding> = {}) {
+  const sourceInsightId = overrides.sourceInsightId ?? "density-source";
   const source: TemporalFinding = {
     id: "density-peak",
-    sourceInsightId: "density-source",
+    sourceInsightId,
+    supportInsightIds: overrides.supportInsightIds ?? [sourceInsightId],
     kind: "density_peak",
     category: "rhythm",
     startSeconds: 12,
@@ -28,7 +30,7 @@ function context(overrides: Partial<BreakdownActionContext> = {}): BreakdownActi
     availableRepresentationKinds: ["waveform", "piano_roll"],
     activeRepresentation: "piano_roll",
     activeWorkId: "work-1",
-    sourceInsightKind: "rhythm_density",
+    supportInsightKinds: ["rhythm_density"],
     ...overrides,
   };
 }
@@ -66,14 +68,15 @@ describe("live Breakdown action resolution", () => {
     expect(resolveBreakdownFindingActions(finding, context()).map((action) => action.type)).not.toContain("ask");
     expect(resolveBreakdownFindingActions(
       finding,
-      context({ sourceInsightKind: "rhythm_rests" }),
+      context({ supportInsightKinds: ["rhythm_rests"] }),
     ).map((action) => action.type)).not.toContain("ask");
   });
 
-  it("offers Ask for an Ask-exposed source capability when a work is open", () => {
+  it("requires every supporting capability to be Ask-exposed", () => {
     const harmonic = rankedFinding({
       id: "harmonic",
       sourceInsightId: "chord-source",
+      supportInsightIds: ["chord-source", "density-source"],
       kind: "harmonic_activity",
       category: "harmony",
       label: "Harmonic changes become more frequent",
@@ -81,18 +84,38 @@ describe("live Breakdown action resolution", () => {
 
     expect(resolveBreakdownFindingActions(
       harmonic,
-      context({ sourceInsightKind: "chord" }),
+      context({ supportInsightKinds: ["chord", "rhythm_density"] }),
+    ).map((action) => action.type)).not.toContain("ask");
+    expect(resolveBreakdownFindingActions(
+      harmonic,
+      context({ supportInsightKinds: ["chord", null] }),
+    ).map((action) => action.type)).not.toContain("ask");
+  });
+
+  it("offers Ask when all required supporting capabilities are Ask-exposed", () => {
+    const harmonic = rankedFinding({
+      id: "harmonic",
+      sourceInsightId: "chord-source",
+      supportInsightIds: ["chord-source", "roman-source"],
+      kind: "harmonic_activity",
+      category: "harmony",
+      label: "Harmonic changes become more frequent",
+    });
+
+    expect(resolveBreakdownFindingActions(
+      harmonic,
+      context({ supportInsightKinds: ["chord", "roman_numeral"] }),
     ).map((action) => action.type)).toContain("ask");
     expect(resolveBreakdownFindingActions(
       harmonic,
-      context({ sourceInsightKind: "chord", activeWorkId: null }),
+      context({ supportInsightKinds: ["chord", "roman_numeral"], activeWorkId: null }),
     ).map((action) => action.type)).not.toContain("ask");
   });
 
   it("never invents Compare from a single finding", () => {
     const actions = resolveBreakdownFindingActions(
-      rankedFinding(),
-      context({ sourceInsightKind: "chord" }),
+      rankedFinding({ supportInsightIds: ["chord-source"] }),
+      context({ supportInsightKinds: ["chord"] }),
     );
 
     expect(actions.map((action) => action.type)).toEqual(["loop", "show", "ask"]);
