@@ -14,7 +14,9 @@ class SeparationMetadata:
     candidate: str
     model_id: str
     code_license: str | None = None
+    code_license_source: str | None = None
     weight_license: str | None = None
+    weight_license_source: str | None = None
     upstream_repo: str | None = None
     upstream_version: str | None = None
     checkpoint_id: str | None = None
