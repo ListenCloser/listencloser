@@ -12,6 +12,10 @@
   --v6-control-text: #a9a399;
   --v6-control-text-strong: #f0ece3;
   --v6-control-muted: #78736a;
+  /* Keep compact editor density without falling into 9px generated-UI type. */
+  --v6-type-control: 12px;
+  --v6-type-meta: 11px;
+  --v6-type-micro: 10.5px;
 }
 
 /* Shared tabs: underline for view/content switching, compact like a creative tool. */
@@ -34,7 +38,7 @@
   background: transparent;
   box-shadow: none;
   color: var(--v6-control-muted);
-  font-size: 10.75px;
+  font-size: var(--v6-type-control);
   font-weight: 560;
   letter-spacing: -0.005em;
   cursor: pointer;
@@ -142,7 +146,7 @@
   background: transparent;
   box-shadow: none;
   color: var(--v6-control-muted);
-  font-size: 10.75px;
+  font-size: var(--v6-type-control);
 }
 
 .inspector-mode-tabs.ui-tab-strip > .ui-tab:hover {
@@ -165,7 +169,14 @@
   border: 1px solid transparent;
   border-radius: 6px;
   color: var(--v6-control-text);
+  font-size: var(--v6-type-control);
   transition: background 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out;
+}
+
+.piece-source-trigger > svg {
+  flex: none;
+  opacity: 0.72;
+  transition: transform 140ms ease-out, opacity 120ms ease-out;
 }
 
 .piece-source-trigger:hover:not(:disabled) {
@@ -173,10 +184,19 @@
   color: #d8d3ca;
 }
 
+.piece-source-trigger:hover:not(:disabled) > svg,
+.piece-source-trigger[aria-expanded="true"] > svg {
+  opacity: 1;
+}
+
 .piece-source-trigger[aria-expanded="true"] {
   border-color: var(--v6-menu-border);
   background: rgba(255, 255, 255, 0.045);
   color: var(--v6-control-text-strong);
+}
+
+.piece-source-trigger[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
 }
 
 .piece-source-menu {
@@ -186,6 +206,8 @@
   border-radius: 7px;
   background: var(--v6-menu-bg);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34), 0 2px 8px rgba(0, 0, 0, 0.18);
+  transform-origin: bottom left;
+  animation: v6-menu-enter 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .piece-source-menu button {
@@ -194,7 +216,7 @@
   padding: 0 26px 0 9px;
   border-radius: 5px;
   color: #bbb5aa;
-  font-size: 10.5px;
+  font-size: var(--v6-type-control);
 }
 
 .piece-source-menu button:hover,
@@ -222,6 +244,17 @@
   border-bottom: 1.5px solid #cbae69;
   transform: translateY(-62%) rotate(45deg);
   transform-origin: center;
+}
+
+@keyframes v6-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* Evidence stays semantic native disclosure, but reads as a compact inspector
@@ -283,12 +316,47 @@
   min-width: 18px;
   text-align: right;
   color: var(--v6-control-muted);
-  font-size: 9.5px;
+  font-size: var(--v6-type-meta);
   font-variant-numeric: tabular-nums;
 }
 
 .inspector-evidence-group > .inspector-evidence-body {
   padding: 2px 0 10px 17px;
+}
+
+/* Typography is part of the interaction system. V5 deliberately removed card
+ * chrome; V6 keeps that hierarchy while bringing recurring labels back into a
+ * readable editor-scale range. */
+.inspector-section-heading h3 {
+  font-size: 11.5px;
+  letter-spacing: 0.055em;
+}
+
+.inspector-meta-item dt {
+  font-size: var(--v6-type-micro);
+}
+
+.inspector-meta-item dd,
+.ask-empty p,
+.ask-prompt {
+  font-size: 11.5px;
+}
+
+.transport-time {
+  font-size: var(--v6-type-micro);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.018em;
+}
+
+.transport-ctrl-text,
+.transport-compare-side-label {
+  font-size: var(--v6-type-micro);
+}
+
+.transport-compare-trigger,
+.score-playback-action,
+.score-playback-state {
+  font-size: var(--v6-type-meta);
 }
 
 /* Reduce visual competition in toolbar chrome. */
@@ -317,6 +385,7 @@
 
 .library-row-menu-item {
   border-radius: 5px;
+  font-size: var(--v6-type-control);
 }
 
 /* Dense creative tools benefit from restrained, consistent focus treatment. */
@@ -333,8 +402,13 @@
   .ui-tab,
   .ui-tab::after,
   .piece-source-trigger,
+  .piece-source-trigger > svg,
   .inspector-evidence-group summary,
   .inspector-evidence-group summary::before {
     transition: none;
+  }
+
+  .piece-source-menu {
+    animation: none;
   }
 }
