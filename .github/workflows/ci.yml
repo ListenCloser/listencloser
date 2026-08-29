@@ -41,7 +41,9 @@ jobs:
       - name: Sync locked backend environment
         run: uv sync --project backend --locked
       - name: Measure Basic Pitch cold-to-warm reuse
-        run: uv run --project backend python -m pytest backend/tests/test_basic_pitch_cache_acceptance.py -s -q
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          uv run --project backend python -m pytest backend/tests/test_basic_pitch_cache_acceptance.py -s -q
       - name: Ruff (Python)
         working-directory: backend
         run: |
