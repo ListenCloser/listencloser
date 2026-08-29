@@ -18,6 +18,8 @@ import numpy as np
 
 from .features import FeatureSeries, extract_baseline_perceptual_evidence
 
+CANONICAL_SAMPLE_RATE = 22_050
+
 
 def _load_mono(path: Path) -> tuple[np.ndarray, int]:
     audio, sample_rate = librosa.load(path, sr=None, mono=True)
@@ -27,6 +29,16 @@ def _load_mono(path: Path) -> tuple[np.ndarray, int]:
     if not np.isfinite(samples).all():
         raise ValueError(f"decoded audio contains non-finite samples: {path}")
     return samples, int(sample_rate)
+
+
+def _resample(audio: np.ndarray, sample_rate: int, target_sample_rate: int) -> np.ndarray:
+    if sample_rate == target_sample_rate:
+        return np.asarray(audio, dtype=np.float32)
+    return librosa.resample(
+        audio,
+        orig_sr=sample_rate,
+        target_sr=target_sample_rate,
+    ).astype(np.float32)
 
 
 def _feature_values(series: FeatureSeries) -> np.ndarray:
@@ -132,21 +144,26 @@ def _boundary_sensitivity(
     }
 
 
+def _canonical_evidence(audio: np.ndarray, sample_rate: int) -> dict[str, FeatureSeries]:
+    canonical_audio = _resample(audio, sample_rate, CANONICAL_SAMPLE_RATE)
+    return extract_baseline_perceptual_evidence(canonical_audio, CANONICAL_SAMPLE_RATE)
+
+
 def probe_track(path: Path, *, codec_variant: Path | None = None) -> dict[str, Any]:
-    """Run raw stability measurements for one real recording."""
+    """Run raw and canonicalized stability measurements for one real recording."""
     audio, sample_rate = _load_mono(path)
     duration_seconds = float(len(audio) / sample_rate)
     baseline = extract_baseline_perceptual_evidence(audio, sample_rate)
+    canonical = _canonical_evidence(audio, sample_rate)
 
     gain_scaled = extract_baseline_perceptual_evidence(audio * 0.5, sample_rate)
 
-    target_sample_rate = 16_000 if sample_rate != 16_000 else 22_050
-    resampled_audio = librosa.resample(
-        audio,
-        orig_sr=sample_rate,
-        target_sr=target_sample_rate,
-    ).astype(np.float32)
-    resampled = extract_baseline_perceptual_evidence(resampled_audio, target_sample_rate)
+    diagnostic_sample_rate = 16_000 if sample_rate != 16_000 else CANONICAL_SAMPLE_RATE
+    diagnostic_audio = _resample(audio, sample_rate, diagnostic_sample_rate)
+    diagnostic_resampled = extract_baseline_perceptual_evidence(
+        diagnostic_audio,
+        diagnostic_sample_rate,
+    )
 
     result: dict[str, Any] = {
         "path": str(path),
@@ -154,20 +171,27 @@ def probe_track(path: Path, *, codec_variant: Path | None = None) -> dict[str, A
         "duration_seconds": duration_seconds,
         "baseline": summarize_evidence(baseline),
         "gain_x0_5": _aggregate_delta(baseline, gain_scaled),
-        "resampled": {
-            "target_sample_rate": target_sample_rate,
-            "aggregate_delta": _aggregate_delta(baseline, resampled),
+        "native_sample_rate_diagnostic": {
+            "target_sample_rate": diagnostic_sample_rate,
+            "aggregate_delta": _aggregate_delta(baseline, diagnostic_resampled),
         },
         "boundary_shift": _boundary_sensitivity(baseline, duration_seconds),
+        "canonical_preprocessing": {
+            "sample_rate": CANONICAL_SAMPLE_RATE,
+            "channel_mode": "mono",
+            "baseline": summarize_evidence(canonical),
+        },
     }
 
     if codec_variant is not None:
         codec_audio, codec_sample_rate = _load_mono(codec_variant)
         codec_evidence = extract_baseline_perceptual_evidence(codec_audio, codec_sample_rate)
+        canonical_codec = _canonical_evidence(codec_audio, codec_sample_rate)
         result["codec_variant"] = {
             "path": str(codec_variant),
             "sample_rate": codec_sample_rate,
-            "aggregate_delta": _aggregate_delta(baseline, codec_evidence),
+            "native_aggregate_delta": _aggregate_delta(baseline, codec_evidence),
+            "canonical_aggregate_delta": _aggregate_delta(canonical, canonical_codec),
         }
 
     return result
@@ -181,6 +205,11 @@ def run_probe(
         "evidence_class": "REAL_AUDIO_DESCRIPTOR_STABILITY",
         "scope": "evaluation_only",
         "semantic_claims": "none; literal descriptor sensitivity only",
+        "canonical_preprocessing_candidate": {
+            "sample_rate": CANONICAL_SAMPLE_RATE,
+            "channel_mode": "mono",
+            "comparison_scope": "within_work",
+        },
         "versions": {
             "librosa": version("librosa"),
             "numpy": version("numpy"),
