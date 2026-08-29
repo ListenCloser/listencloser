@@ -25,7 +25,7 @@ from evaluation.analysis_v3.structure.run import run_structure_evaluation
 def _sections(*boundaries: float) -> list[dict[str, float]]:
     return [
         {"start": start, "end": end}
-        for start, end in zip(boundaries, boundaries[1:], strict=True)
+        for start, end in zip(boundaries, boundaries[1:], strict=False)
     ]
 
 
