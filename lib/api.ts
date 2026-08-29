@@ -23,6 +23,27 @@ export function clearTokenCache(): void {
   tokenExpiry = 0;
 }
 
+export function apiErrorMessage(body: unknown, status: number): string {
+  const fallback = `Request failed: ${status}`;
+  if (typeof body !== "object" || body === null) return fallback;
+
+  const payload = body as Record<string, unknown>;
+  if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+  if (typeof payload.detail === "string" && payload.detail.trim()) return payload.detail;
+
+  if (Array.isArray(payload.detail)) {
+    const messages = payload.detail.flatMap((item) => {
+      if (typeof item === "string" && item.trim()) return [item];
+      if (typeof item !== "object" || item === null) return [];
+      const message = (item as Record<string, unknown>).msg;
+      return typeof message === "string" && message.trim() ? [message] : [];
+    });
+    if (messages.length > 0) return messages.join("; ");
+  }
+
+  return fallback;
+}
+
 async function getToken(): Promise<string | null> {
   if (!supabase) return null;
   const now = Date.now();
@@ -47,10 +68,7 @@ export async function apiFetch<T = unknown>(url: string, options?: RequestInit):
   if (!res.ok) {
     if (res.status === 401) cachedToken = null;
     const body = await res.json().catch(() => ({}));
-    const error = typeof body === "object" && body !== null && "error" in body
-      ? (body as { error?: unknown }).error
-      : undefined;
-    throw new Error(typeof error === "string" ? error : `Request failed: ${res.status}`);
+    throw new Error(apiErrorMessage(body, res.status));
   }
   return res.json();
 }
