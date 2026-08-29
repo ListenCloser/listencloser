@@ -200,3 +200,28 @@ def test_unknown_work_returns_404(client, monkeypatch, override_auth):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Work not found"
+
+
+@pytest.mark.asyncio
+async def test_repository_validation_failure_is_not_rewritten_as_client_404(monkeypatch):
+    class BrokenWorkBundleRepository:
+        def __init__(self, client):
+            self.client = client
+
+        def load(self, work_id, owner_id):
+            raise ValueError("sensitive persistence validation detail")
+
+    monkeypatch.setattr(relation_api, "WorkBundleRepository", BrokenWorkBundleRepository)
+    monkeypatch.setattr(relation_api, "get_supabase", lambda: SimpleNamespace())
+
+    body = relation_api.PerceptualSpanComparisonBody(
+        source_version_id=uuid4(),
+        subject_start_seconds=2.0,
+        subject_end_seconds=4.0,
+        comparison_start_seconds=8.0,
+        comparison_end_seconds=10.0,
+    )
+    auth = SimpleNamespace(user=SimpleNamespace(id="owner-1"))
+
+    with pytest.raises(ValueError, match="sensitive persistence validation detail"):
+        await relation_api.compare_perceptual_spans(uuid4(), body, auth)
