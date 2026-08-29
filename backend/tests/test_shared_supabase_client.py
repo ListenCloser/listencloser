@@ -37,7 +37,7 @@ def test_shared_client_is_constructed_once_under_concurrent_first_access(monkeyp
 
     assert clients == [sentinel] * 16
     assert constructed == [
-        ("https://project.supabase.invalid", "service-role-test-key")
+        ("https://project.supabase.invalid", "service-role-test-key"),
     ]
     assert auth_utils.get_supabase_client() is sentinel
 
