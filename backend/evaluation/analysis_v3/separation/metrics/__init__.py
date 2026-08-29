@@ -12,12 +12,23 @@ from .runtime import (
     generate_synthetic_audio,
     measure_latency,
 )
-from .separation import compute_sar, compute_sdr, compute_separation_metrics, compute_sir
+from .separation import (
+    SeparationQualityDelta,
+    compare_si_sdr_mixture_vs_stem,
+    compute_sar,
+    compute_sdr,
+    compute_separation_metrics,
+    compute_si_sdr,
+    compute_sir,
+)
 
 __all__ = [
     "compute_sdr",
     "compute_sir",
     "compute_sar",
+    "compute_si_sdr",
+    "compare_si_sdr_mixture_vs_stem",
+    "SeparationQualityDelta",
     "compute_separation_metrics",
     "compute_chord_accuracy_on_stem",
     "compute_beat_f1_on_stem",
