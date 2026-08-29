@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    TORCH_HOME=/app/.cache/torch
+    TORCH_HOME=/app/.cache/torch \
+    NUMBA_CACHE_DIR=/app/.cache/numba
 
 RUN uv sync --locked --no-dev
 
@@ -38,6 +39,13 @@ RUN /app/.venv/bin/python -c "from beat_this.inference import load_checkpoint; l
     && sha256sum /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt \
     && echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
 
+# Populate the cacheable portions of librosa's beat tracker during the native
+# per-architecture image build. Use Numba's generic CPU target so the cached
+# machine code can be tested for portability to a different runtime CPU model.
+RUN mkdir -p "$NUMBA_CACHE_DIR" \
+    && NUMBA_CPU_NAME=generic /app/.venv/bin/python -c "import numpy as np, librosa; sr=22050; y=np.zeros(sr*4,dtype=np.float32); y[np.arange(sr//4,sr*4,int(sr*60/120))]=1.0; librosa.beat.beat_track(y=y,sr=sr,trim=False)" \
+    && find "$NUMBA_CACHE_DIR" -type f | head
+
 
 FROM python:3.11-slim
 
@@ -50,7 +58,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/.cache /app/.cache
 ENV PATH="/app/.venv/bin:$PATH" \
-    TORCH_HOME=/app/.cache/torch
+    TORCH_HOME=/app/.cache/torch \
+    NUMBA_CACHE_DIR=/app/.cache/numba
 
 COPY . .
 
