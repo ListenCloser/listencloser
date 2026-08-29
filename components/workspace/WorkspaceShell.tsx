@@ -35,7 +35,10 @@ function WorkspaceContent({
 
   const inspectorOpen = !workspace.inspectorCollapsed;
   const analysisAvailable = workspace.analysisState === "completed" && Boolean(workspace.activeWorkId);
-  const canImport = serviceStatus !== "unavailable";
+  // Import is a processing-dependent action. "Checking" is not equivalent to
+  // ready: enabling the control optimistically creates a race where health can
+  // resolve unavailable between the click and file selection.
+  const canImport = serviceStatus === "ready";
 
   return (
     <div className="studio-shell studio-shell-v3">
@@ -48,7 +51,7 @@ function WorkspaceContent({
 
         <div className="studio-header-actions">
           {serviceStatus === "unavailable" && (
-            <span className="studio-service-state studio-service-unavailable" title="Audio processing is temporarily unavailable">
+            <span className="studio-service-state studio-service-unavailable">
               <span className="studio-service-dot" aria-hidden="true" />
               <span className="studio-service-label">Processing offline</span>
             </span>

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import TabStrip from "@/components/ui/TabStrip";
+import Tooltip from "@/components/ui/Tooltip";
+import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
 import { availableRepresentations, type RepresentationId } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
@@ -18,16 +20,16 @@ function TranscriptionModeToggle() {
   return (
     <div className="transcription-mode" role="group" aria-label="Transcription mode">
       {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          aria-pressed={workspace.transcriptionProfile === option.id}
-          className={workspace.transcriptionProfile === option.id ? "active" : ""}
-          onClick={() => setTranscriptionProfile(option.id)}
-          title={option.description}
-        >
-          {option.label}
-        </button>
+        <Tooltip key={option.id} content={option.description}>
+          <button
+            type="button"
+            aria-pressed={workspace.transcriptionProfile === option.id}
+            className={workspace.transcriptionProfile === option.id ? "active" : ""}
+            onClick={() => setTranscriptionProfile(option.id)}
+          >
+            {option.label}
+          </button>
+        </Tooltip>
       ))}
     </div>
   );
@@ -70,7 +72,12 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     : available[0]?.id ?? null;
 
   useEffect(() => {
-    if (available.some((view) => view.id === workspace.activeRepresentation)) return;
+    // Initialize selection when a Work first exposes representations, but do
+    // not erase an explicit user choice just because one progressive refresh
+    // temporarily omits that representation. `activeView` may fall back for
+    // the transient frame; the shared preference should return when evidence
+    // becomes available again.
+    if (workspace.activeRepresentation !== null) return;
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
 
@@ -129,8 +136,13 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   }, [activeView]);
 
   if (workspace.isLoadingWork) return <WorkspaceLoadingSkeleton />;
-  if (!available.length) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
-  if (!activeView) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
+  if (!available.length || !activeView) {
+    // A durable selection whose representations are still hydrating is an
+    // existing recording opening, not a first-run workspace. Keep the empty
+    // import CTA reserved for a settled library with no active Work.
+    if (signedIn && workspace.activeWorkId) return <WorkspaceLoadingSkeleton />;
+    return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
+  }
 
   const renderedViews = available.filter((definition) => definition.id === activeView || mountedViews.has(definition.id));
 
@@ -168,14 +180,12 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canImport: boolean; onImport: () => void }) {
   return (
     <main className="piece-desk piece-empty piece-empty-v3">
-      <div className="empty-desk-art" aria-hidden="true">
-        <span className="empty-staff-line" /><span className="empty-staff-line" /><span className="empty-staff-line" /><span className="empty-staff-line" /><span className="empty-staff-line" />
-        <span className="empty-note empty-note-one">♪</span>
-        <span className="empty-note empty-note-two">♫</span>
+      <div className="empty-desk-art">
+        <EmptyWorkspaceSignal />
       </div>
       <div className="empty-desk-copy">
         <h1>Import a recording</h1>
-        <p>Listen, transcribe, inspect notation, and analyze the same piece in one workspace.</p>
+        <p>Move through waveform, notes, notation, and evidence without losing your place.</p>
         <button className="btn btn-primary empty-import-primary" onClick={onImport} disabled={!signedIn || !canImport}>
           Import audio
         </button>
