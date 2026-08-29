@@ -2,6 +2,7 @@
 
 import { resolveBreakdownFindingActions, type LiveBreakdownAction } from "@/lib/inspector/breakdown-actions";
 import type { BreakdownFinding } from "@/lib/inspector/breakdown";
+import { requestWorkspaceOrientation } from "@/lib/inspector/orientation";
 import { formatTime } from "@/lib/format";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
@@ -40,12 +41,14 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
   const focusFinding = () => {
     seek(finding.startSeconds);
     selectFinding();
+    requestWorkspaceOrientation();
   };
 
   const handleAction = (action: LiveBreakdownAction) => {
     switch (action.type) {
       case "loop":
-        focusFinding();
+        seek(finding.startSeconds);
+        selectFinding();
         setLoop(finding.startSeconds, finding.endSeconds);
         if (!transport.loopEnabled) toggleLoop();
         break;

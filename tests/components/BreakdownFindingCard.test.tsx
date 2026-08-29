@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import BreakdownFindingCard from "@/components/workspace/BreakdownFindingCard";
 import { rankBreakdownFindings } from "@/lib/inspector/breakdown";
 import type { TemporalFinding } from "@/lib/inspector/findings";
+import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
 
 const mocks = vi.hoisted(() => ({
   workspace: {
@@ -74,8 +75,27 @@ beforeEach(() => {
 });
 
 describe("BreakdownFindingCard live actions", () => {
-  it("wires Loop to selection, seek, and the authoritative transport loop", async () => {
+  it("uses the finding row as Focus and requests destination orientation", async () => {
     const user = userEvent.setup();
+    const orientationListener = vi.fn();
+    window.addEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
+    render(<BreakdownFindingCard finding={finding()} />);
+
+    await user.click(screen.getByRole("button", { name: /^Focus / }));
+
+    expect(mocks.seek).toHaveBeenCalledWith(0.2);
+    expect(mocks.setSelection).toHaveBeenCalledWith({
+      timeRange: { start: 0.2, end: 0.5, domain: "performance" },
+      provenance: { origin: null, timeExact: false, measureApproximate: true },
+    });
+    expect(orientationListener).toHaveBeenCalledTimes(1);
+    window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
+  });
+
+  it("keeps Loop transport-only while preserving the shared selection", async () => {
+    const user = userEvent.setup();
+    const orientationListener = vi.fn();
+    window.addEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
     render(<BreakdownFindingCard finding={finding()} />);
 
     await user.click(screen.getByRole("button", { name: /^Loop / }));
@@ -87,10 +107,14 @@ describe("BreakdownFindingCard live actions", () => {
       timeRange: { start: 0.2, end: 0.5, domain: "performance" },
       provenance: { origin: null, timeExact: false, measureApproximate: true },
     });
+    expect(orientationListener).not.toHaveBeenCalled();
+    window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
   });
 
   it("wires Show and Ask only for capabilities the live workspace can execute", async () => {
     const user = userEvent.setup();
+    const orientationListener = vi.fn();
+    window.addEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
     render(<BreakdownFindingCard finding={finding()} />);
 
     expect(screen.queryByRole("button", { name: /Compare/i })).not.toBeInTheDocument();
@@ -98,6 +122,7 @@ describe("BreakdownFindingCard live actions", () => {
     await user.click(screen.getByRole("button", { name: "Show piano roll" }));
     expect(mocks.setActiveRepresentation).toHaveBeenCalledWith("piano_roll");
     expect(mocks.seek).toHaveBeenCalledWith(0.2);
+    expect(orientationListener).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", { name: "Ask about this finding" }));
     expect(mocks.setInspectorMode).toHaveBeenCalledWith("ask");
@@ -105,6 +130,8 @@ describe("BreakdownFindingCard live actions", () => {
       timeRange: { start: 0.2, end: 0.5, domain: "performance" },
       provenance: { origin: null, timeExact: false, measureApproximate: true },
     });
+    expect(orientationListener).toHaveBeenCalledTimes(1);
+    window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
   });
 
   it("withholds Show and Ask when the finding is already visible and its source is ask:false", () => {
