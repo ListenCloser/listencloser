@@ -72,7 +72,12 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     : available[0]?.id ?? null;
 
   useEffect(() => {
-    if (available.some((view) => view.id === workspace.activeRepresentation)) return;
+    // Initialize selection when a Work first exposes representations, but do
+    // not erase an explicit user choice just because one progressive refresh
+    // temporarily omits that representation. `activeView` may fall back for
+    // the transient frame; the shared preference should return when evidence
+    // becomes available again.
+    if (workspace.activeRepresentation !== null) return;
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
 
