@@ -23,6 +23,7 @@ import io
 import logging
 import os
 import tempfile
+import threading
 from typing import Any
 
 import numpy as np
@@ -398,6 +399,33 @@ def _clean_midi(midi_bytes: bytes) -> tuple[bytes, dict[str, int | str]]:
 # ---------------------------------------------------------------------------
 # Audio -> MIDI (basic-pitch)
 # ---------------------------------------------------------------------------
+_basic_pitch_model: Any | None = None
+_basic_pitch_model_lock = threading.Lock()
+
+
+def _get_basic_pitch_model() -> Any:
+    """Load Basic Pitch's TensorFlow model once per worker process.
+
+    Basic Pitch 0.4 constructs ``Model(ICASSP_2022_MODEL_PATH)`` whenever
+    ``predict`` receives the default model path. Durable workers process many
+    jobs in one process, so keep the immutable inference model resident and
+    reuse it while thresholds remain per-call prediction parameters.
+    """
+    global _basic_pitch_model
+
+    if _basic_pitch_model is not None:
+        return _basic_pitch_model
+
+    with _basic_pitch_model_lock:
+        if _basic_pitch_model is None:
+            from basic_pitch import ICASSP_2022_MODEL_PATH
+            from basic_pitch.inference import Model
+
+            _basic_pitch_model = Model(ICASSP_2022_MODEL_PATH)
+            logger.info("basic_pitch_model_loaded")
+    return _basic_pitch_model
+
+
 def transcribe_audio(
     audio_bytes: bytes,
     fmt: str = "wav",
@@ -424,6 +452,7 @@ def transcribe_audio(
         os.makedirs(out_dir, exist_ok=True)
         _model_output, midi_data, note_events = predict(
             in_path,
+            model_or_model_path=_get_basic_pitch_model(),
             onset_threshold=onset_threshold,
             frame_threshold=frame_threshold,
         )
