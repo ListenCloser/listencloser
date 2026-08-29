@@ -6,31 +6,14 @@ import signal
 
 from domain.capabilities import register_all_capabilities
 from domain.job_worker import JobWorker
-from observability import configure_logging, init_telemetry
-
-
-def _init_sentry() -> None:
-    dsn = os.environ.get("SENTRY_DSN_BACKEND") or os.environ.get("SENTRY_DSN")
-    if not dsn:
-        return
-    try:
-        import sentry_sdk
-
-        sentry_sdk.init(
-            dsn=dsn,
-            environment=os.environ.get("SENTRY_ENV", "production"),
-            release=os.environ.get("RELEASE", "development"),
-            traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
-            send_default_pii=False,
-        )
-    except ImportError:
-        logging.getLogger("worker").warning("sentry_sdk_not_installed")
+from observability import configure_logging, init_sentry, init_telemetry
 
 
 def main() -> None:
     configure_logging("hello-ai-worker")
+    logger = logging.getLogger("worker")
     init_telemetry("hello-ai-worker")
-    _init_sentry()
+    init_sentry(logger)
     worker = JobWorker(max_workers=int(os.environ.get("WORKER_CONCURRENCY", "1")))
     register_all_capabilities(worker)
 
