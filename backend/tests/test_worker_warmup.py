@@ -1,8 +1,46 @@
 from __future__ import annotations
 
+import sys
+import types
+
 import numpy as np
 
 from domain import worker_warmup
+
+
+def test_basic_pitch_prewarm_uses_short_non_silent_inference(monkeypatch):
+    captured: dict[str, object] = {}
+
+    package = types.ModuleType("basic_pitch")
+    package.__path__ = []
+    inference = types.ModuleType("basic_pitch.inference")
+
+    def fake_predict(path: str):
+        import soundfile as sf
+
+        signal, sample_rate = sf.read(path, dtype="float32")
+        captured.update({"signal": signal, "sample_rate": sample_rate})
+        return {}, object(), [(0.0, 1.0, 69, 0.8, None)]
+
+    inference.predict = fake_predict
+    monkeypatch.setitem(sys.modules, "basic_pitch", package)
+    monkeypatch.setitem(sys.modules, "basic_pitch.inference", inference)
+    monkeypatch.delenv("TRANSCRIPTION_ENGINE", raising=False)
+
+    assert worker_warmup.prewarm_basic_pitch() is True
+
+    signal = captured["signal"]
+    assert isinstance(signal, np.ndarray)
+    assert signal.dtype == np.float32
+    assert signal.shape == (22050,)
+    assert np.max(np.abs(signal)) > 0.0
+    assert captured["sample_rate"] == 22050
+
+
+def test_basic_pitch_prewarm_skips_when_default_engine_changes(monkeypatch):
+    monkeypatch.setenv("TRANSCRIPTION_ENGINE", "transkun")
+
+    assert worker_warmup.prewarm_basic_pitch() is False
 
 
 def test_librosa_prewarm_uses_non_silent_score_call_shape(monkeypatch):
