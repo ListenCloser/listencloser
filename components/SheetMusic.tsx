@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { measureIndexAt, measureGroupsForIndex } from "@/lib/measure";
 import { annotationToMeasureRange, ANNOTATION_COLORS } from "@/lib/analysis-annotations";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
+import {
+  measureInteractionClientRect,
+  measureStructuralBox,
+  measureStructuralClientRect,
+  unionMeasureClientRects,
+} from "@/lib/score-measure-geometry";
 
 type Props = {
   musicXml: string;
@@ -23,7 +29,7 @@ type Props = {
   onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 };
 
-/** Insert an overlay inside the actual OSMD measure bounds. */
+/** Insert an overlay inside the structural OSMD/VexFlow measure bounds. */
 export function insertHighlightRect(
   group: SVGGraphicsElement,
   dataAttr: string,
@@ -34,20 +40,8 @@ export function insertHighlightRect(
   strokeDasharray: string,
 ): boolean {
   if (group.querySelector(`[${dataAttr}]`)) return true;
-  let box = group.getBBox();
-  if (box.width === 0 && box.height === 0) return false;
-
-  // OSMD measure groups include barline/staff extents. Keep overlays slightly
-  // inset so selection never visually spills beyond the real measure boundary.
-  const insetX = Math.min(1.5, box.width / 8);
-  const insetY = Math.min(0.75, box.height / 10);
-  box = {
-    x: box.x + insetX,
-    y: box.y + insetY,
-    width: Math.max(0, box.width - insetX * 2),
-    height: Math.max(0, box.height - insetY * 2),
-  } as DOMRect;
-  if (box.width === 0 || box.height === 0) return false;
+  const box = measureStructuralBox(group);
+  if (!box || box.width === 0 || box.height === 0) return false;
 
   const NS = "http://www.w3.org/2000/svg";
   const rect = document.createElementNS(NS, "rect");
@@ -74,17 +68,6 @@ function svgPoint(svg: SVGSVGElement, clientX: number, clientY: number) {
   point.x = clientX;
   point.y = clientY;
   return point.matrixTransform(matrix.inverse());
-}
-
-function unionClientRect(groups: SVGGraphicsElement[]) {
-  const rects = groups.map((group) => group.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0);
-  if (rects.length === 0) return null;
-  return {
-    left: Math.min(...rects.map((rect) => rect.left)),
-    right: Math.max(...rects.map((rect) => rect.right)),
-    top: Math.min(...rects.map((rect) => rect.top)),
-    bottom: Math.max(...rects.map((rect) => rect.bottom)),
-  };
 }
 
 export default function SheetMusic({
@@ -157,9 +140,9 @@ export default function SheetMusic({
     return () => { cancelled = true; };
   }, [musicXml]);
 
-  // Playback follows the score using the measured OSMD geometry. This avoids
-  // depending on the internal OSMD cursor iterator, which was resetting on
-  // every React playhead update and often left no visible cursor at all.
+  // Playback follows the score using structural VexFlow stave geometry. Ties,
+  // slurs, lyrics, and other descendants can extend the enclosing vf-measure
+  // box, but they must not change measure progress or cursor height.
   useEffect(() => {
     const container = containerRef.current;
     if (!osmdReady || !container || !measureStarts?.length || !isScoreActive) {
@@ -176,7 +159,7 @@ export default function SheetMusic({
     if (groups.length === 0) return;
 
     const svg = container.querySelector("svg");
-    const bounds = unionClientRect(groups);
+    const bounds = unionMeasureClientRects(groups);
     if (!svg || !bounds) return;
 
     const start = measureStarts[measureIdx];
@@ -216,9 +199,12 @@ export default function SheetMusic({
 
       const first = groups[0];
       const containerRect = container.getBoundingClientRect();
-      const measureRect = first.getBoundingClientRect();
+      const measureRect = measureStructuralClientRect(first);
       const margin = 64;
-      if (measureRect.top < containerRect.top + margin || measureRect.bottom > containerRect.bottom - margin) {
+      if (
+        measureRect
+        && (measureRect.top < containerRect.top + margin || measureRect.bottom > containerRect.bottom - margin)
+      ) {
         const jumped = previousMeasure < 0 || Math.abs(measureIdx - previousMeasure) > 1;
         first.scrollIntoView({ behavior: jumped ? "auto" : "smooth", block: "center" });
       }
@@ -279,13 +265,14 @@ export default function SheetMusic({
     const container = containerRef.current;
     if (!container) return;
 
-    const allGroups = container.querySelectorAll("g.vf-measure");
+    const allGroups = container.querySelectorAll<SVGGraphicsElement>("g.vf-measure");
     const seen = new Set<string>();
     for (const measureEl of allGroups) {
       const id = measureEl.getAttribute("id");
       if (!id || seen.has(id)) continue;
       seen.add(id);
-      const rect = measureEl.getBoundingClientRect();
+      const rect = measureInteractionClientRect(measureEl);
+      if (!rect) continue;
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) continue;
 
       const index = Number(id) - 1;
