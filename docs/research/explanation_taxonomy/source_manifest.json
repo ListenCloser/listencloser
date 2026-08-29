@@ -1,0 +1,118 @@
+{
+  "issue": 456,
+  "policy": {
+    "annotation_content": "paraphrase_only",
+    "no_script_reproduction": true,
+    "purpose": "derive claim/evidence/relation patterns, not creator wording"
+  },
+  "sources": [
+    {
+      "id": "video_cadence_hira_lava",
+      "title": "Why Does Lava Level Music Sound HOT?",
+      "creator": "Cadence Hira",
+      "type": "video_essay",
+      "url": "https://www.youtube.com/watch?v=zfD_r9X_VRk",
+      "coverage": ["comparative", "style_context", "timbre", "harmony", "perception"],
+      "review_status": "seed_metadata_verified"
+    },
+    {
+      "id": "video_8bit_underground",
+      "title": "Explaining Super Mario Bros.' Underground Theme",
+      "creator": "8-bit Music Theory",
+      "type": "single_work_video_analysis",
+      "url": "https://www.youtube.com/watch?v=ItIqoBR0cP8",
+      "coverage": ["meter", "harmony", "composition", "single_work_explanation"],
+      "review_status": "seed_metadata_verified"
+    },
+    {
+      "id": "video_neely_jazz_harmony",
+      "title": "The 7 Levels of Jazz Harmony",
+      "creator": "Adam Neely",
+      "type": "pedagogical_video",
+      "url": "https://www.youtube.com/watch?v=lz3WR-F_pnM",
+      "coverage": ["harmony", "reharmonization", "counterfactual", "historical_context", "perception"],
+      "review_status": "seed_metadata_verified"
+    },
+    {
+      "id": "video_12tone_analyze_songs",
+      "title": "How To Analyze Songs",
+      "creator": "12tone",
+      "type": "method_video",
+      "url": "https://www.youtube.com/watch?v=rP6WrG_Nq9E",
+      "coverage": ["analysis_method", "editorial_selection", "cross_domain"],
+      "review_status": "seed_metadata_verified"
+    },
+    {
+      "id": "video_nahre_reich",
+      "title": "How to Sound Like Steve Reich",
+      "creator": "Nahre Sol",
+      "type": "analysis_plus_recreation_video",
+      "url": "https://www.youtube.com/watch?v=PsKP_dpNlxg",
+      "coverage": ["style", "composition", "recreation", "pattern_extraction"],
+      "review_status": "seed_metadata_verified"
+    },
+    {
+      "id": "omt_functions",
+      "title": "Introduction to musical functions",
+      "creator": "Open Music Theory",
+      "type": "open_textbook",
+      "url": "https://openmusictheory.github.io/functions.html",
+      "coverage": ["function", "expectation", "style_dependence", "analysis_method"],
+      "review_status": "seed_content_reviewed"
+    },
+    {
+      "id": "omt_harmonic_analysis",
+      "title": "Performing a harmonic analysis",
+      "creator": "Open Music Theory",
+      "type": "open_textbook",
+      "url": "https://openmusictheory.github.io/harmonicAnalysis.html",
+      "coverage": ["harmony", "phrase", "function", "historical_context"],
+      "review_status": "seed_content_reviewed"
+    },
+    {
+      "id": "fmp_mit_course",
+      "title": "Fundamentals of Music Processing",
+      "creator": "MIT Music Technology",
+      "type": "college_course",
+      "url": "https://musictech.mit.edu/fmp/",
+      "coverage": ["signal_evidence", "structure", "alignment", "retrieval", "beat", "harmony"],
+      "review_status": "seed_content_reviewed"
+    },
+    {
+      "id": "mto_givan_interaction",
+      "title": "Rethinking Interaction in Jazz Improvisation",
+      "creator": "Benjamin Givan",
+      "type": "open_academic_analysis",
+      "url": "https://mtosmt.org/issues/mto.16.22.3/mto.16.22.3.givan.php",
+      "coverage": ["jazz", "interaction", "motif", "performance", "intensity"],
+      "review_status": "seed_content_reviewed"
+    },
+    {
+      "id": "mto_ohriner_momma",
+      "title": "Lyric, Rhythm, and Non-alignment in the Second Verse of Kendrick Lamar's Momma",
+      "creator": "Mitchell S. Ohriner",
+      "type": "open_academic_analysis",
+      "url": "https://mtosmt.org/issues/mto.19.25.1/mto.19.25.1.ohriner.html",
+      "coverage": ["rap", "flow", "beat_alignment", "lyrics", "expressive_timing"],
+      "review_status": "seed_content_reviewed"
+    },
+    {
+      "id": "tips_corpus",
+      "title": "The Timbre in Popular Song (TiPS) Corpus",
+      "creator": "TiPS project team",
+      "type": "corpus_methodology",
+      "url": "https://timbreandorchestration.org/writings/project-reports/timbre-in-popular-song",
+      "coverage": ["timbre", "texture", "form", "popular_music", "corpus_annotation"],
+      "review_status": "seed_content_reviewed"
+    },
+    {
+      "id": "fmp_structure_chapter",
+      "title": "Music Structure Analysis",
+      "creator": "Meinard Müller",
+      "type": "textbook_chapter",
+      "url": "https://doi.org/10.1007/978-3-319-21945-5_4",
+      "coverage": ["structure", "repetition", "homogeneity", "novelty", "relations"],
+      "review_status": "seed_abstract_reviewed"
+    }
+  ]
+}
