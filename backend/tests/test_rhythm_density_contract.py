@@ -254,6 +254,36 @@ def test_persisted_rhythm_density_windows_are_machine_readable(monkeypatch) -> N
     assert window["step_size"] == 1.0
 
 
+
+
+def test_persisted_rhythm_density_keeps_complete_series_and_declares_coverage(
+    monkeypatch,
+) -> None:
+    beats = [float(index) for index in range(82)]
+    onsets = [float(index) + 0.25 for index in range(81)]
+    beat_windows = analyze._compute_beat_relative_density(
+        onsets,
+        beats,
+        window_beats=2,
+        step_beats=1,
+    )
+    assert len(beat_windows) > 50
+
+    persisted = _patch_handle_analyze_shell(monkeypatch, _minimal_analysis(beat_windows))
+    density = next(item for item in persisted if item["kind"] == "rhythm_density")
+    evidence = density["evidence"]
+
+    assert evidence["windows"] == beat_windows
+    assert evidence["coverage"] == {
+        "policy_version": "complete_series_v1",
+        "total_generated_window_count": len(beat_windows),
+        "stored_window_count": len(beat_windows),
+        "start_seconds": beat_windows[0]["start"],
+        "end_seconds": beat_windows[-1]["end"],
+        "truncated": False,
+    }
+
+
 def test_rhythm_density_capability_maturity_is_unchanged() -> None:
     registry_path = Path(__file__).parents[1] / "config" / "capabilities.json"
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
