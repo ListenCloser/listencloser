@@ -17,9 +17,7 @@ import soundfile as sf
 from evaluation.datasets import cache
 from evaluation.datasets._download import download
 
-BABYSLAKH_TAR_URL = (
-    "https://zenodo.org/records/4603870/files/babyslakh_16k.tar.gz?download=1"
-)
+BABYSLAKH_TAR_URL = "https://zenodo.org/records/4603870/files/babyslakh_16k.tar.gz?download=1"
 BABYSLAKH_TAR_MD5 = "311096dc2bde7d61c97e930edbfc7f78"
 TARGET_STEMS = ("vocals", "drums", "bass", "other")
 _AUDIO_SUFFIXES = (".wav", ".flac")
