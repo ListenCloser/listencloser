@@ -1,4 +1,7 @@
 from .downstream import (
+    DownstreamDelta,
+    DownstreamMetrics,
+    compare_beat_f1_mixture_vs_stem,
     compute_beat_f1_on_stem,
     compute_chord_accuracy_on_stem,
     compute_melody_accuracy_on_stem,
@@ -18,7 +21,10 @@ __all__ = [
     "compute_separation_metrics",
     "compute_chord_accuracy_on_stem",
     "compute_beat_f1_on_stem",
+    "compare_beat_f1_mixture_vs_stem",
     "compute_melody_accuracy_on_stem",
+    "DownstreamMetrics",
+    "DownstreamDelta",
     "RuntimeMetrics",
     "measure_latency",
     "check_determinism",
