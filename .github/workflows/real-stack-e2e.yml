@@ -89,6 +89,19 @@ jobs:
           fi
           uv sync --project backend --locked
 
+      - name: Restore Beat This checkpoint
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/torch/hub/checkpoints/beat_this-final0.ckpt
+          key: ${{ runner.os }}-beat-this-final0-8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331
+
+      - name: Preload pinned Beat This checkpoint
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          uv run python -c "from beat_this.inference import load_checkpoint; load_checkpoint('final0')"
+          echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  $HOME/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
+
       - name: Start backend API
         run: |
           cd backend
@@ -151,6 +164,55 @@ jobs:
         run: |
           npx playwright install chromium --with-deps
           npx playwright test --config=playwright.realstack.config.ts
+
+      - name: Extract understand performance timings
+        run: |
+          mkdir -p performance-results
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          output = []
+          for line in Path('/tmp/worker.log').read_text().splitlines():
+              try:
+                  record = json.loads(line)
+              except json.JSONDecodeError:
+                  continue
+              if record.get('msg') == 'worker_queue_wait':
+                  output.append({
+                      'msg': 'worker_queue_wait',
+                      'capability': record.get('capability'),
+                      'duration_seconds': record.get('duration_seconds'),
+                  })
+              elif record.get('msg') == 'understand_stage_timing':
+                  output.append({
+                      'msg': 'understand_stage_timing',
+                      'stage': record.get('stage'),
+                      'outcome': record.get('outcome'),
+                      'duration_seconds': record.get('duration_seconds'),
+                  })
+              elif record.get('msg') == 'understand_operation_timing':
+                  output.append({
+                      'msg': 'understand_operation_timing',
+                      'operation': record.get('operation'),
+                      'outcome': record.get('outcome'),
+                      'duration_seconds': record.get('duration_seconds'),
+                  })
+
+          if not output:
+              raise SystemExit('no understand performance records found')
+          path = Path('performance-results/understand-stage-timing.jsonl')
+          path.write_text(''.join(json.dumps(item, sort_keys=True) + '\n' for item in output))
+          print(path.read_text(), end='')
+          PY
+
+      - name: Upload understand performance timings
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: understand-stage-timing-${{ github.run_attempt }}
+          path: performance-results/understand-stage-timing.jsonl
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Collect service logs on failure
         if: failure()
