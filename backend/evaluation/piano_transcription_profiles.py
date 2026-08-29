@@ -23,6 +23,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import time
 from collections.abc import Callable, Sequence
 from functools import lru_cache
@@ -188,7 +189,23 @@ def evaluate_profile(
         row["error"] = f"source audio missing: {audio_path}"
         return row
 
-    reference, reference_meta = _reference_notes(clip)
+    audio_format = audio_path.suffix.lstrip(".").lower() or "wav"
+    row["source_audio"] = {
+        "path": str(audio_path),
+        "sha256": _sha256_file(audio_path),
+        "format": audio_format,
+    }
+
+    try:
+        reference, reference_meta = _reference_notes(clip)
+    except Exception as error:
+        row["reference_midi"] = {
+            "status": "invalid",
+            "path": clip.reference_midi,
+            "error": str(error),
+        }
+        row["error"] = f"reference MIDI could not be read: {error}"
+        return row
     row["reference_midi"] = reference_meta
 
     try:
@@ -196,29 +213,35 @@ def evaluate_profile(
         started = time.monotonic()
         result = engine.transcribe(
             audio_path.read_bytes(),
-            fmt=audio_path.suffix.lstrip(".").lower() or "wav",
+            fmt=audio_format,
         )
         runtime_seconds = time.monotonic() - started
     except Exception as error:
         row["error"] = str(error)
         return row
 
-    provenance = result.provenance.to_dict()
-    predicted = [Note.from_dict(note) for note in result.notes]
-    row.update(
-        {
-            "effective_engine": provenance.get("engine"),
-            "runtime_seconds": round(runtime_seconds, 4),
-            "provenance": provenance,
-            "checkpoint": checkpoint_resolver(provenance),
-            "cleanup_report": result.cleanup_report,
-            "predicted_note_count": len(predicted),
-            "predicted_duration": _duration_summary(predicted),
-            "tempo_is_placeholder": result.tempo_is_placeholder,
-            "meter_is_placeholder": result.meter_is_placeholder,
-            "supports_meter": result.supports_meter,
-        }
-    )
+    try:
+        provenance = result.provenance.to_dict()
+        predicted = [Note.from_dict(note) for note in result.notes]
+        row.update(
+            {
+                "effective_engine": provenance.get("engine"),
+                "runtime_seconds": round(runtime_seconds, 4),
+                "provenance": provenance,
+                "checkpoint": checkpoint_resolver(provenance),
+                "cleanup_report": result.cleanup_report,
+                "reported_num_notes": result.num_notes,
+                "predicted_note_count": len(predicted),
+                "predicted_midi_sha256": hashlib.sha256(result.midi).hexdigest(),
+                "predicted_duration": _duration_summary(predicted),
+                "tempo_is_placeholder": result.tempo_is_placeholder,
+                "meter_is_placeholder": result.meter_is_placeholder,
+                "supports_meter": result.supports_meter,
+            }
+        )
+    except Exception as error:
+        row["error"] = f"transcription result could not be normalized: {error}"
+        return row
 
     if reference is None:
         row.update(
@@ -323,6 +346,9 @@ def run_profile_comparison(
             "clips": len(clips),
         },
         "profiles": list(profiles),
+        "routing_environment": {
+            "TRANSCRIPTION_ENGINE": os.environ.get("TRANSCRIPTION_ENGINE"),
+        },
         "rows": rows,
         "summary": _aggregate(rows, profiles),
         "notes": [
