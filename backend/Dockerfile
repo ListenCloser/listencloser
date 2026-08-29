@@ -15,6 +15,19 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 RUN uv sync --locked --no-dev
 
+# TensorFlow 2.15 publishes a tiny Linux ARM64 metapackage whose wheel-specific
+# dependency points at the real AWS-maintained runtime. The current uv lock does
+# not carry that wheel-specific edge, so an ARM image can otherwise contain the
+# 2 KB `tensorflow` shim without an importable TensorFlow implementation. Basic
+# Pitch then has no available model runtime and crashes while defining its
+# default model path (`_default_model_type`). Install the matching ARM runtime
+# explicitly in the image; all of its Python dependencies are already present
+# from the locked TensorFlow dependency set above.
+RUN if [ "$(uname -m)" = "aarch64" ]; then \
+      uv pip install --python /app/.venv/bin/python --no-deps tensorflow-cpu-aws==2.15.0; \
+    fi \
+    && /app/.venv/bin/python -c "from basic_pitch import ICASSP_2022_MODEL_PATH; from basic_pitch.inference import predict; assert ICASSP_2022_MODEL_PATH"
+
 
 FROM python:3.11-slim
 
