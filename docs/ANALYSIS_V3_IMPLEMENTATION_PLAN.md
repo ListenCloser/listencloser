@@ -2,7 +2,7 @@
 
 > **Status:** Post-bakeoff convergence plan, updated 2026-08-29.
 >
-> **Authority:** `MASTER_SPEC.md` defines product direction. `RESEARCH_LANDSCAPE.md` records the larger technical landscape and measured adoption conclusions. `docs/EVALUATION_DECISIONS.md` is the compact cross-track result ledger. This document defines the current engine/evidence architecture, remaining result gates, and the order in which evidence should reach the product.
+> **Authority:** `MASTER_SPEC.md` defines product direction. `RESEARCH_LANDSCAPE.md` records the larger technical landscape and measured adoption conclusions. #543 proposes a compact cross-track result ledger. This document does not depend on that PR; it defines the current engine/evidence architecture, remaining result gates, and the order in which evidence should reach the product.
 >
 > **Important:** V3 is no longer “run every candidate bakeoff.” Several tracks have already produced negative or conditional decisions. Implementation agents should preserve those conclusions and spend effort on the next result that can change a product/architecture decision.
 
@@ -658,8 +658,8 @@ It is **not** necessary to solve every future genre, model, or analysis mode bef
 
 Before starting Analysis work:
 
-1. read `docs/EVALUATION_DECISIONS.md`;
-2. read the relevant section here and the owning issue/REPORT;
+1. read the relevant section here and the owning issue/REPORT;
+2. consult the compact decision ledger from #543 if/when it is merged;
 3. search open PRs for overlap;
 4. ask: **what decision will my result change?**
 5. if a runnable harness already exists, run it and produce evidence instead of extending it;
