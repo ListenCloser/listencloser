@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -133,6 +134,10 @@ def test_profile_comparison_uses_exact_requested_profiles_and_records_evidence(
     assert auto["effective_engine"] == "basic_pitch"
     assert auto["cleanup_report"] == {"profile": "product-auto"}
     assert auto["checkpoint"]["sha256"] == "fake-basic_pitch"
+    assert auto["reported_num_notes"] == 2
+    assert auto["predicted_note_count"] == 2
+    assert auto["predicted_midi_sha256"] == hashlib.sha256(b"midi").hexdigest()
+    assert len(auto["source_audio"]["sha256"]) == 64
     assert auto["metrics"]["onset_precision"] == 0.5
     assert auto["metrics"]["onset_recall"] == 1.0
     assert auto["metrics"]["onset_f1"] == 0.6667
