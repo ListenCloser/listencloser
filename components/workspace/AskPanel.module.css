@@ -1,0 +1,29 @@
+.blockedAction,
+.blockedReference {
+  opacity: 0.45;
+  cursor: default;
+  color: var(--muted);
+}
+
+.blockedAction[aria-disabled="true"]:hover:not(:disabled),
+.blockedAction[aria-disabled="true"]:active:not(:disabled) {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--muted);
+}
+
+.blockedReference {
+  border-color: var(--border);
+}
+
+.blockedReference[aria-disabled="true"]:hover:not(:disabled),
+.blockedReference[aria-disabled="true"]:active:not(:disabled) {
+  border-color: var(--border);
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.blockedAction:focus-visible,
+.blockedReference:focus-visible {
+  opacity: 0.72;
+}
