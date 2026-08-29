@@ -7,9 +7,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-import soundfile as sf
-
 from backend.evaluation.analysis_v3.multitrack_transcription.adapters.basic_pitch import (
     run_basic_pitch,
 )
@@ -18,6 +15,8 @@ from backend.evaluation.analysis_v3.multitrack_transcription.metrics import (
     NoteEvent,
     match_notes,
 )
+import numpy as np
+import soundfile as sf
 
 
 @dataclass(frozen=True)
