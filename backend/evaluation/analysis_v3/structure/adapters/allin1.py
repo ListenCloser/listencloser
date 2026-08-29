@@ -26,9 +26,7 @@ def _normalize_segments(raw_segments: Any) -> list[dict[str, Any]]:
         end_s = float(end)
         if start_s < 0 or end_s <= start_s:
             continue
-        segments.append(
-            {"start": start_s, "end": end_s, "label": str(label).strip().lower()}
-        )
+        segments.append({"start": start_s, "end": end_s, "label": str(label).strip().lower()})
     return segments
 
 
