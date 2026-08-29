@@ -1,0 +1,79 @@
+{
+  "track": "analysis_v3_source_separation",
+  "issue": 334,
+  "decision": "RESEARCH",
+  "decision_date": "2026-08-29",
+  "architecture": {
+    "mixture_evidence_primary": true,
+    "stem_reference_role": "optional_cached_task_conditioned_evidence",
+    "universal_preprocessing": false,
+    "request_policy": "downstream_claim_sufficiency_and_expected_value",
+    "failure_policy_required": true,
+    "fallback": [
+      "mixture_evidence",
+      "abstain_or_withhold_when_claim_specific_quality_is_not_met"
+    ]
+  },
+  "candidate_status": {
+    "htdemucs_955717e8": "RESEARCH",
+    "roformer_family": "REVISIT_DEFER_UNTIL_CONCRETE_PROMOTION_TARGET"
+  },
+  "evidence": {
+    "objective_synthetic": {
+      "pr": 480,
+      "dataset": "BabySlakh",
+      "drums_mean_delta_si_sdr_db": 13.983,
+      "bass_mean_delta_si_sdr_db": 12.9,
+      "other_mean_delta_si_sdr_db": 7.042
+    },
+    "objective_real": {
+      "pr": 521,
+      "dataset": "MUSDB18 7-second preview test subset",
+      "tracks": 50,
+      "drums_mean_delta_si_sdr_db": 13.3558,
+      "drums_improved": 50,
+      "bass_mean_delta_si_sdr_db": 12.9033,
+      "bass_improved": 47,
+      "other_mean_delta_si_sdr_db": 8.9048,
+      "other_improved": 49,
+      "vocals_mean_delta_si_sdr_db": 12.0349,
+      "vocals_improved": 48,
+      "worst_bass_delta_si_sdr_db": -27.1231,
+      "worst_vocals_delta_si_sdr_db": -23.0183
+    },
+    "beat_downstream": {
+      "pr": 477,
+      "mean_f1_delta": -0.0045,
+      "interpretation": "do_not_require_separation_for_coarse_beat_tracking"
+    },
+    "bass_amt_downstream": {
+      "pr": 486,
+      "mean_onset_f1_delta": 0.0578,
+      "median_onset_f1_delta": 0.1041,
+      "mean_onset_offset_f1_delta": -0.0088,
+      "interpretation": "precision_oriented_secondary_evidence_with_recall_loss"
+    },
+    "operations": {
+      "pr": 507,
+      "x86_180s_latency_seconds": 85.918,
+      "x86_180s_rtf": 0.4773,
+      "x86_peak_rss_mb": 1792.81,
+      "arm_180s_latency_seconds": 152.278,
+      "arm_180s_rtf": 0.846,
+      "arm_peak_rss_mb": 1604.45,
+      "oracle_topology_measured": false
+    }
+  },
+  "adopt_gates": [
+    "concrete_source_aware_claim_with_measured_downstream_gain",
+    "claim_specific_stem_failure_disagreement_fallback_or_abstention",
+    "real_or_out_of_domain_validation_for_promoted_claim",
+    "evidence_sufficiency_request_policy_in_issue_457",
+    "actual_oracle_worker_cold_start_concurrency_queue_memory_storage_cost_replay",
+    "perceptual_user_value_gate_if_stems_are_user_audible",
+    "challenger_comparison_only_if_htdemucs_quality_remains_a_blocker"
+  ],
+  "result_prs": [477, 480, 486, 507, 521],
+  "canonical_contract_issue": 336,
+  "sufficiency_issue": 457
+}
