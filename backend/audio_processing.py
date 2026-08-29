@@ -2,7 +2,8 @@
 
 This module owns container sanitization and audio-only subprocess work. The
 legacy ``music_features`` module re-exports the public helpers while callers
-migrate toward narrower module boundaries.
+migrate toward narrower module boundaries. Callers intentionally remain on the
+compatibility surface during this extraction.
 """
 
 from __future__ import annotations
