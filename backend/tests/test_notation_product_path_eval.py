@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pretty_midi
 
-from evaluation import notation_eval
 from evaluation.models import EvalClip
+from evaluation import notation_eval
 
 
 MUSICXML = b"""<?xml version="1.0" encoding="UTF-8"?>
