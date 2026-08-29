@@ -6,8 +6,7 @@ import io
 from pathlib import Path
 
 import pretty_midi
-
-import evaluation.notation_eval as notation_eval
+from evaluation import notation_eval
 from evaluation.models import EvalClip
 
 
