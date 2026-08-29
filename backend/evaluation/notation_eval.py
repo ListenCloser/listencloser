@@ -11,7 +11,7 @@ Measures score quality in two explicit modes:
 
 Keeping both modes on the same source-audio beat grid lets the report attribute
 how much degradation is already present in note evidence versus how much is
-introduced by notation.  This module is evaluation-only; it does not change
+introduced by notation. This module is evaluation-only; it does not change
 production routing or score-generation behavior.
 
 Usage:
@@ -23,12 +23,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 import io
 import json
 import os
-from pathlib import Path
 import tempfile
+from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Literal
 
 import pretty_midi
