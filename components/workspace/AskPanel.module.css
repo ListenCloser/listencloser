@@ -1,0 +1,29 @@
+.blockedAction,
+.blockedReference {
+  opacity: 0.45;
+  cursor: default;
+  color: var(--muted);
+}
+
+.blockedAction:hover,
+.blockedAction:active {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--muted);
+}
+
+.blockedReference {
+  border-color: var(--border);
+}
+
+.blockedReference:hover,
+.blockedReference:active {
+  border-color: var(--border);
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.blockedAction:focus-visible,
+.blockedReference:focus-visible {
+  opacity: 0.72;
+}
