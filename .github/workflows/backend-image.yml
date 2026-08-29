@@ -75,3 +75,57 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production backend image natively
         run: docker build --tag hello-ai-backend:${{ matrix.arch }} backend
+      - name: Measure persistent Numba cache across fresh native containers
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          volume="hello-ai-numba-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ARCH}"
+          cleanup() {
+            docker volume rm -f "$volume" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker volume create "$volume" >/dev/null
+          docker run --rm \
+            --user root \
+            -v "$volume:/app/runtime/numba-cache" \
+            --entrypoint sh \
+            "hello-ai-backend:${ARCH}" \
+            -c 'chown -R 1001:1001 /app/runtime/numba-cache'
+
+          run_probe() {
+            local label="$1"
+            docker run --rm \
+              -e NUMBA_CACHE_DIR=/app/runtime/numba-cache \
+              -v "$volume:/app/runtime/numba-cache" \
+              --entrypoint python \
+              "hello-ai-backend:${ARCH}" \
+              -c 'import json, os, time; from pathlib import Path; from domain.worker_warmup import prewarm_librosa_beat_tracking; started=time.perf_counter(); prewarm_librosa_beat_tracking(); prewarm=time.perf_counter()-started; started=time.perf_counter(); prewarm_librosa_beat_tracking(); hot=time.perf_counter()-started; cache_files=sum(1 for path in Path(os.environ["NUMBA_CACHE_DIR"]).rglob("*") if path.is_file()); print("NUMBA_BENCHMARK=" + json.dumps({"prewarm_seconds": round(prewarm, 6), "hot_call_seconds": round(hot, 6), "cache_files": cache_files}, sort_keys=True))' \
+              2>&1 | tee "/tmp/numba-${label}.log"
+          }
+
+          run_probe first
+          run_probe second
+          first="$(grep '^NUMBA_BENCHMARK=' /tmp/numba-first.log | tail -1 | cut -d= -f2-)"
+          second="$(grep '^NUMBA_BENCHMARK=' /tmp/numba-second.log | tail -1 | cut -d= -f2-)"
+          python - "$first" "$second" <<'PY'
+          import json
+          import os
+          import sys
+
+          first = json.loads(sys.argv[1])
+          second = json.loads(sys.argv[2])
+          if first["cache_files"] <= 0 or second["cache_files"] <= 0:
+              raise SystemExit("Numba benchmark produced no persistent cache files")
+          print(
+              json.dumps(
+                  {
+                      "msg": "numba_cache_persistence",
+                      "arch": os.environ["ARCH"],
+                      "first_fresh_container": first,
+                      "second_fresh_container": second,
+                  },
+                  sort_keys=True,
+              )
+          )
+          PY
