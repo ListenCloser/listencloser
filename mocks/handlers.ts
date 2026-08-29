@@ -10,8 +10,6 @@ const fakeNotes = Array.from({ length: 42 }, (_, i) => {
   return { pitch, start, end, velocity: 80 + (i % 40) };
 });
 
-const wavBase64 = sampleWavBase64;
-
 const PITCH_STEPS = ["C", "D", "E", "F", "G", "A"];
 const musicxml = `<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list><part id="P1">${PITCH_STEPS.map(
   (step, i) =>

@@ -57,7 +57,6 @@ function injectSession() {
 
 test("A: signed-in production page loads with service online", async ({
   page,
-  request,
 }) => {
   const s = await createSession();
 

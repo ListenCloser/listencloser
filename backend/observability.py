@@ -1,4 +1,4 @@
-"""Shared logging and OpenTelemetry bootstrap for API and worker processes."""
+"""Shared logging and telemetry bootstrap for API and worker processes."""
 
 from __future__ import annotations
 
@@ -83,6 +83,39 @@ def configure_logging(service_name: str) -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
+
+
+def init_sentry(
+    logger: logging.Logger,
+    *,
+    default_release: str = "development",
+) -> bool:
+    """Initialize Sentry from the shared backend environment contract.
+
+    The pinned Sentry SDK auto-enables installed framework integrations by
+    default, including FastAPI and Starlette. Keeping that responsibility in
+    the SDK avoids coupling process entrypoints to integration class names.
+    """
+
+    dsn = os.environ.get("SENTRY_DSN_BACKEND") or os.environ.get("SENTRY_DSN")
+    if not dsn:
+        return False
+
+    try:
+        import sentry_sdk
+    except ImportError:
+        logger.warning("sentry_sdk_not_installed")
+        return False
+
+    sentry_sdk.init(
+        dsn=dsn,
+        environment=os.environ.get("SENTRY_ENV", "production"),
+        traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        send_default_pii=False,
+        release=os.environ.get("RELEASE", default_release),
+    )
+    logger.info("sentry_initialized")
+    return True
 
 
 def _telemetry_resource(service_name: str) -> Resource:

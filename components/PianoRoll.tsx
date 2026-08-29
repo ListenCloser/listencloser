@@ -13,7 +13,6 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { pitchToName } from "@/lib/notes";
-import { withAlpha } from "@/lib/color";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 
 type Note = { id?: string; pitch: number; start: number; end: number; velocity: number };
@@ -33,7 +32,6 @@ export default function PianoRoll({
   selectionTimeRange,
   selectedNoteIds,
   onSelectRange,
-  onSelectNotes,
   onAnnotationClick,
 }: {
   notes: Note[];
