@@ -4,15 +4,79 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 import time
 
 import numpy as np
 
 logger = logging.getLogger("worker_warmup")
 
+_BASIC_PITCH_PREWARM_SAMPLE_RATE = 22050
+_BASIC_PITCH_PREWARM_SECONDS = 1
+_BASIC_PITCH_PREWARM_FREQUENCY_HZ = 440.0
 _LIBROSA_PREWARM_SAMPLE_RATE = 22050
 _LIBROSA_PREWARM_SECONDS = 4
 _LIBROSA_PREWARM_BPM = 120
+
+
+def _basic_pitch_prewarm_signal() -> np.ndarray:
+    """Build a tiny deterministic tone that traverses Basic Pitch inference."""
+
+    sample_count = _BASIC_PITCH_PREWARM_SAMPLE_RATE * _BASIC_PITCH_PREWARM_SECONDS
+    times = np.arange(sample_count, dtype=np.float32) / _BASIC_PITCH_PREWARM_SAMPLE_RATE
+    return (0.08 * np.sin(2 * np.pi * _BASIC_PITCH_PREWARM_FREQUENCY_HZ * times)).astype(
+        np.float32
+    )
+
+
+def prewarm_basic_pitch() -> bool:
+    """Pay Basic Pitch/TensorFlow process-cold cost before worker readiness.
+
+    The production transcription default is Basic Pitch. A controlled benchmark
+    on ``real-piano.m4a`` showed the first full transcription taking many
+    seconds while a second call in the same process falls to roughly 1-2 s even
+    without retaining the model object. Running one tiny inference therefore
+    targets process/runtime warm state rather than adding a model singleton.
+
+    Returns ``True`` when the warmup ran and ``False`` when another configured
+    transcription engine made it unnecessary. Exceptions intentionally
+    propagate so the worker entrypoint can log them while continuing startup.
+    """
+
+    transcription_engine = os.environ.get("TRANSCRIPTION_ENGINE", "basic_pitch")
+    if transcription_engine != "basic_pitch":
+        logger.info(
+            "basic_pitch_prewarm_skipped",
+            extra={"transcription_engine": transcription_engine},
+        )
+        return False
+
+    import soundfile as sf
+    from basic_pitch.inference import predict
+
+    signal = _basic_pitch_prewarm_signal()
+    with tempfile.TemporaryDirectory() as td:
+        input_path = os.path.join(td, "warmup.wav")
+        sf.write(
+            input_path,
+            signal,
+            _BASIC_PITCH_PREWARM_SAMPLE_RATE,
+            format="WAV",
+            subtype="PCM_16",
+        )
+        started = time.perf_counter()
+        _model_output, midi_data, note_events = predict(input_path)
+        duration_s = time.perf_counter() - started
+
+    logger.info(
+        "basic_pitch_prewarm_complete",
+        extra={
+            "duration_s": round(duration_s, 3),
+            "event_count": len(note_events),
+            "midi_present": midi_data is not None,
+        },
+    )
+    return True
 
 
 def _librosa_prewarm_signal() -> np.ndarray:
