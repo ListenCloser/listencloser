@@ -170,6 +170,29 @@ describe("PassageCompare", () => {
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
   });
 
+  it("invalidates a late response when the user cancels an in-flight comparison", async () => {
+    const user = userEvent.setup();
+    let resolveRequest: ((value: ReturnType<typeof supportedResponse>) => void) | undefined;
+    mocks.comparePerceptualSpans.mockImplementation(
+      () => new Promise((resolve) => {
+        resolveRequest = resolve;
+      }),
+    );
+    const view = render(<PassageCompare />);
+
+    await user.click(screen.getByRole("button", { name: "Use selection as reference" }));
+    mocks.workspace.selection = selection(20, 24);
+    view.rerender(<PassageCompare />);
+    await user.click(screen.getByRole("button", { name: "Check against selected passage" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    resolveRequest?.(supportedResponse());
+    await Promise.resolve();
+
+    expect(screen.getByRole("button", { name: "Use selection as reference" })).toBeVisible();
+    expect(screen.queryByText("The selected passages differ in measured perceptual evidence.")).not.toBeInTheDocument();
+  });
+
   it("does not offer measured-audio comparison for notation-domain selections", () => {
     mocks.workspace.selection = selection(10, 14, "notation");
     render(<PassageCompare />);
