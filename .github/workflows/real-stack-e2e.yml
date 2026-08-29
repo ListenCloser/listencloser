@@ -89,6 +89,9 @@ jobs:
           fi
           uv sync --project backend --locked
 
+      - name: Measure Basic Pitch cold-to-warm reuse
+        run: uv run --project backend python -m pytest backend/tests/test_basic_pitch_cache_acceptance.py -s -q
+
       - name: Restore Beat This checkpoint
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
