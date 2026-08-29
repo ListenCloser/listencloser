@@ -6,6 +6,10 @@
 }
 
 .tooltip {
+  --tooltip-closed-x: -50%;
+  --tooltip-closed-y: 4px;
+  --tooltip-open-x: -50%;
+  --tooltip-open-y: 0;
   position: absolute;
   z-index: 80;
   left: 50%;
@@ -26,7 +30,7 @@
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transform: translate(-50%, 4px);
+  transform: translate(var(--tooltip-closed-x), var(--tooltip-closed-y));
   transition:
     opacity 110ms ease-out,
     transform 110ms ease-out,
@@ -46,11 +50,26 @@
   transform: translate(-50%, -4px) rotate(45deg);
 }
 
+.tooltipLeft {
+  --tooltip-closed-x: 4px;
+  --tooltip-closed-y: -50%;
+  --tooltip-open-x: 0;
+  --tooltip-open-y: -50%;
+  top: 50%;
+  right: calc(100% + 8px);
+  bottom: auto;
+  left: auto;
+}
+
+.tooltipLeft::after {
+  display: none;
+}
+
 .anchor:hover > .tooltip,
 .anchor:has(> :focus-visible) > .tooltip {
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, 0);
+  transform: translate(var(--tooltip-open-x), var(--tooltip-open-y));
 }
 
 .anchor:hover > .tooltip {
@@ -72,7 +91,7 @@
   .tooltip,
   .anchor:hover > .tooltip,
   .anchor:has(> :focus-visible) > .tooltip {
-    transform: translate(-50%, 0);
+    transform: translate(var(--tooltip-open-x), var(--tooltip-open-y));
     transition: none;
   }
 }
