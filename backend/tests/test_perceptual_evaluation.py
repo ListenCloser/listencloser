@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from backend.evaluation.analysis_v3.perceptual.features import (
     extract_baseline_perceptual_evidence,
     onset_strength_series,
@@ -10,7 +9,6 @@ from backend.evaluation.analysis_v3.perceptual.features import (
     rms_series,
     spectral_centroid_series,
 )
-
 
 SAMPLE_RATE = 22_050
 
