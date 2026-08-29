@@ -202,14 +202,13 @@ def build_reference_stems(
 
     grouped: dict[str, list[Path]] = {target: [] for target in TARGET_STEMS}
     missing_audio_ids: list[str] = []
-    skipped_not_rendered: list[str] = []
     for source_id, raw_info in sorted(source_metadata.items()):
         source_id = str(source_id)
         if not isinstance(raw_info, dict):
             continue
-        if raw_info.get("audio_rendered") is False:
-            skipped_not_rendered.append(source_id)
-            continue
+        # The released BabySlakh archive is file-authoritative for reference
+        # existence: some metadata marks audio_rendered false while distributing
+        # the corresponding isolated WAV. The archive checksum guards identity.
         source_path = _source_audio_path(track_dir, source_id)
         if source_path is None:
             missing_audio_ids.append(source_id)
@@ -238,7 +237,7 @@ def build_reference_stems(
             "No reference source families found for "
             f"{track_dir.name}; metadata_ids={sorted(map(str, source_metadata))}; "
             f"extracted_stems={extracted}; missing_audio_ids={missing_audio_ids}; "
-            f"skipped_not_rendered={skipped_not_rendered}; inst_classes={classes}"
+            f"inst_classes={classes}"
         )
     mix_path = _mix_path(track_dir)
     if mix_path is None:

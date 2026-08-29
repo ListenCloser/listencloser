@@ -108,9 +108,9 @@ def test_build_reference_stems_groups_exact_isolated_sources(monkeypatch, tmp_pa
         "_load_metadata",
         lambda path: {
             "stems": {
-                "S00": {"audio_rendered": True, "inst_class": "Bass", "is_drum": False},
-                "S01": {"audio_rendered": True, "inst_class": "Drums", "is_drum": True},
-                "S02": {"audio_rendered": True, "inst_class": "Piano", "is_drum": False},
+                "S00": {"audio_rendered": False, "inst_class": "Bass", "is_drum": False},
+                "S01": {"audio_rendered": False, "inst_class": "Drums", "is_drum": True},
+                "S02": {"audio_rendered": False, "inst_class": "Piano", "is_drum": False},
             }
         },
     )
