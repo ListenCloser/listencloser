@@ -227,18 +227,18 @@ def test_span_extending_past_stored_coverage_withholds_even_with_complete_window
     )
 
 
-def test_span_starting_before_stored_coverage_withholds_even_with_complete_windows():
+def test_span_starting_well_before_stored_coverage_withholds_even_with_complete_windows():
     evidence, source_version_id = _evidence(
         [
-            _window(1.0, 3.0, 1.0),
-            _window(2.0, 4.0, 2.0),
+            _window(3.0, 5.0, 1.0),
+            _window(4.0, 6.0, 2.0),
         ]
     )
 
     result = compare_rhythm_density_spans(
         evidence,
-        subject_locator=_locator(source_version_id, 0.0, 4.0),
-        comparison_locator=_locator(source_version_id, 1.0, 3.0),
+        subject_locator=_locator(source_version_id, 0.0, 6.0),
+        comparison_locator=_locator(source_version_id, 3.0, 5.0),
     )
 
     assert result.sufficiency.status == "withhold"
@@ -247,6 +247,27 @@ def test_span_starting_before_stored_coverage_withholds_even_with_complete_windo
         "outside rhythm density evidence coverage" in reason
         for reason in result.sufficiency.reasons
     )
+
+
+def test_span_edges_within_one_density_hop_are_supported():
+    evidence, source_version_id = _evidence(
+        [
+            _window(1.0, 3.0, 1.0),
+            _window(2.0, 4.0, 3.0),
+        ]
+    )
+
+    result = compare_rhythm_density_spans(
+        evidence,
+        subject_locator=_locator(source_version_id, 0.0, 5.0),
+        comparison_locator=_locator(source_version_id, 1.0, 3.0),
+    )
+
+    measurement = _measurement(result)
+    assert result.sufficiency.status == "supported"
+    assert measurement.subject_window_count == 2
+    assert measurement.subject_value == 2.0
+    assert measurement.comparison_value == 1.0
 
 
 def test_boundary_aligned_complete_windows_are_supported():
