@@ -40,8 +40,21 @@ export function insertHighlightRect(
   strokeDasharray: string,
 ): boolean {
   if (group.querySelector(`[${dataAttr}]`)) return true;
-  const box = measureStructuralBox(group);
-  if (!box || box.width === 0 || box.height === 0) return false;
+  const structuralBox = measureStructuralBox(group);
+  if (!structuralBox || structuralBox.width === 0 || structuralBox.height === 0) return false;
+
+  // Preserve the existing overlay contract: after selecting the structural
+  // stave footprint, inset slightly so selection never visually spills beyond
+  // its measure boundary.
+  const insetX = Math.min(1.5, structuralBox.width / 8);
+  const insetY = Math.min(0.75, structuralBox.height / 10);
+  const box = {
+    x: structuralBox.x + insetX,
+    y: structuralBox.y + insetY,
+    width: Math.max(0, structuralBox.width - insetX * 2),
+    height: Math.max(0, structuralBox.height - insetY * 2),
+  };
+  if (box.width === 0 || box.height === 0) return false;
 
   const NS = "http://www.w3.org/2000/svg";
   const rect = document.createElementNS(NS, "rect");
