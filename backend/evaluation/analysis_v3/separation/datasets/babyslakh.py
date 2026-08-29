@@ -3,7 +3,7 @@
 BabySlakh stores isolated source audio plus the exact per-source MIDI used to
 synthesize it. This helper groups those sources into the four HTDemucs target
 families (vocals/drums/bass/other), writes deterministic reference submixes, and
-emits one manifest that can drive both objective SI-SDR and downstream AMT
+emits one manifest that can drive objective SI-SDR, beat, and downstream AMT
 comparisons.
 """
 
@@ -90,6 +90,19 @@ def _mix_reference_sources(paths: list[Path], output_path: Path) -> None:
     )
 
 
+def _extract_reference_beats(track_dir: Path) -> list[float] | None:
+    """Read the exact synthesis beat grid from Slakh's combined source MIDI."""
+    all_src_midi = track_dir / "all_src.mid"
+    if not all_src_midi.is_file():
+        return None
+
+    import pretty_midi
+
+    midi = pretty_midi.PrettyMIDI(str(all_src_midi))
+    beats = [float(value) for value in midi.get_beats()]
+    return beats or None
+
+
 def _manifest_path(root: Path, path: Path, env_var: str) -> str:
     relative = path.relative_to(root).as_posix()
     return f"${{{env_var}}}/{relative}"
@@ -157,17 +170,22 @@ def build_babyslakh_manifest(
         if not reference_stems:
             continue
 
-        entries.append(
-            {
-                "id": track_dir.name,
-                "audio_path": _manifest_path(dataset_root, mix_path, env_var),
-                "dataset": "babyslakh",
-                "dataset_license": "CC BY 4.0",
-                "reference_stems": reference_stems,
-                "reference_midis": reference_midis,
-                "reference_source_counts": source_counts,
-            }
-        )
+        entry: dict[str, Any] = {
+            "id": track_dir.name,
+            "audio_path": _manifest_path(dataset_root, mix_path, env_var),
+            "dataset": "babyslakh",
+            "dataset_license": "CC BY 4.0",
+            "reference_stems": reference_stems,
+            "reference_midis": reference_midis,
+            "reference_source_counts": source_counts,
+        }
+        reference_beats = _extract_reference_beats(track_dir)
+        if reference_beats:
+            entry["reference_beats"] = reference_beats
+            entry["reference_beats_source"] = "all_src.mid synthesis tempo/beat grid"
+            entry["reference_beats_kind"] = "symbolic_synthesis_reference"
+
+        entries.append(entry)
         if len(entries) >= limit:
             break
 
@@ -177,8 +195,8 @@ def build_babyslakh_manifest(
     payload = {
         "name": "babyslakh_4stem_reference_v1",
         "description": (
-            "BabySlakh mixtures with deterministic four-family reference submixes and aligned "
-            "per-source MIDI references for Analysis V3 source-separation evaluation."
+            "BabySlakh mixtures with deterministic four-family reference submixes, aligned "
+            "per-source MIDI, and synthesis-grid beats for Analysis V3 separation evaluation."
         ),
         "dataset": "BabySlakh",
         "dataset_source": "https://zenodo.org/records/4603870",
