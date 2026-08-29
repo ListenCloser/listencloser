@@ -9,34 +9,36 @@
     color-scheme: dark;
     --bg:#181713; --panel:#211f1b; --panel2:#26231e; --line:#39352e;
     --text:#f1ece3; --muted:#aaa398; --dim:#787168; --paper:#eee8dc;
-    --ink:#27241f; --brass:#d6b56d; --blue:#79a8c7; --blue-soft:#79a8c733;
+    --ink:#27241f; --brass:#d6b56d; --blue:#79a8c7;
     --brass-soft:#d6b56d24; --radius:10px;
   }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:13px/1.45 Inter, ui-sans-serif, system-ui, sans-serif; }
+  body { margin:0; background:var(--bg); color:var(--text); font:13px/1.45 Inter,ui-sans-serif,system-ui,sans-serif; }
   button { font:inherit; }
   .app { min-height:100dvh; display:grid; grid-template-rows:46px minmax(0,1fr) 54px; }
   header { display:flex; align-items:center; gap:12px; padding:0 16px; border-bottom:1px solid var(--line); }
   .mark { width:22px; height:22px; border:1px solid #655d50; border-radius:6px; display:grid; place-items:center; color:var(--brass); }
   .track { font-weight:620; letter-spacing:-.01em; }
-  .header-meta { margin-left:auto; color:var(--dim); font:11px ui-monospace, monospace; }
+  .header-meta { margin-left:auto; color:var(--dim); font:11px ui-monospace,monospace; }
+
   main { min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 330px; }
   .canvas { min-width:0; display:grid; grid-template-rows:auto minmax(0,1fr); border-right:1px solid var(--line); }
   .tabs { display:flex; gap:2px; padding:10px 12px; border-bottom:1px solid var(--line); }
-  .tabs button, .finding-actions button { border:0; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; }
+  .tabs button,.finding-actions button { border:0; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; }
   .tabs button { padding:7px 10px; }
   .tabs button[aria-selected="true"] { background:#2b2823; color:var(--text); }
+
   .stage { position:relative; min-height:0; overflow:hidden; padding:20px; }
   .stage-shell { height:100%; min-height:420px; position:relative; border:1px solid var(--line); border-radius:var(--radius); background:#1d1b18; overflow:hidden; }
-  .ruler { position:absolute; inset:0 0 auto 0; height:28px; border-bottom:1px solid #312e29; color:var(--dim); font:10px ui-monospace, monospace; }
+  .ruler { position:absolute; inset:0 0 auto 0; height:28px; z-index:6; border-bottom:1px solid #312e29; color:var(--dim); font:10px ui-monospace,monospace; }
   .tick { position:absolute; top:7px; transform:translateX(-50%); }
-  .selection { position:absolute; top:28px; bottom:0; background:var(--brass-soft); border-left:1px solid #d6b56d99; border-right:1px solid #d6b56d99; pointer-events:none; transition:left 120ms ease-out,width 120ms ease-out,background 160ms ease-out; }
+  .selection { position:absolute; z-index:4; top:28px; bottom:0; background:var(--brass-soft); border-left:1px solid #d6b56d99; border-right:1px solid #d6b56d99; pointer-events:none; transition:left 120ms ease-out,width 120ms ease-out,background 160ms ease-out; }
   .playhead { position:absolute; z-index:5; top:28px; bottom:0; width:1px; background:var(--blue); box-shadow:0 0 0 1px #79a8c722; transition:left 120ms ease-out; pointer-events:none; }
   .playhead::before { content:""; position:absolute; top:0; left:-3px; width:7px; height:7px; border-radius:50%; background:var(--blue); }
-  .orientation-label { position:absolute; z-index:7; top:40px; left:50%; transform:translateX(-50%); padding:5px 8px; border:1px solid #d6b56d55; border-radius:5px; background:#201e1acc; color:#e4cf9d; font:10px ui-monospace, monospace; opacity:0; pointer-events:none; }
+  .orientation-label { position:absolute; z-index:7; top:40px; left:50%; transform:translateX(-50%); padding:5px 8px; border:1px solid #d6b56d55; border-radius:5px; background:#201e1acc; color:#e4cf9d; font:10px ui-monospace,monospace; opacity:0; pointer-events:none; }
   .stage[data-orient="true"] .selection { animation:orient 520ms ease-out both; }
   .stage[data-orient="true"] .orientation-label { animation:label 720ms ease-out both; }
-  @keyframes orient { 0%{ background:#d6b56d50; box-shadow:inset 0 0 0 1px #d6b56daa,0 0 0 4px #d6b56d12 } 100%{ background:var(--brass-soft); box-shadow:none } }
+  @keyframes orient { 0%{background:#d6b56d50;box-shadow:inset 0 0 0 1px #d6b56daa,0 0 0 4px #d6b56d12} 100%{background:var(--brass-soft);box-shadow:none} }
   @keyframes label { 0%,15%{opacity:0;transform:translate(-50%,-4px)} 30%,70%{opacity:1;transform:translate(-50%,0)} 100%{opacity:0} }
 
   .representation { position:absolute; inset:29px 0 0; display:none; }
@@ -47,36 +49,50 @@
   .bar { flex:1; min-width:2px; background:#c6bfb1; border-radius:2px; }
   .piano { padding:22px 18px; background:repeating-linear-gradient(to bottom,#24211d 0 22px,#2a2722 22px 23px); }
   .note { position:absolute; height:10px; border-radius:3px; background:#c9b06f; opacity:.82; }
+
   .score { padding:30px; background:var(--paper); color:var(--ink); }
   .system { height:104px; position:relative; margin:22px 10px; border-top:1px solid #8f887d; border-bottom:1px solid #8f887d; background:repeating-linear-gradient(to bottom,transparent 0 20px,#aaa298 20px 21px); }
   .measure { position:absolute; top:0; bottom:0; border-right:1px solid #817a70; }
   .head { position:absolute; width:12px; height:8px; border-radius:50%; background:#292622; transform:rotate(-18deg); }
-  .score-warning { position:absolute; right:12px; bottom:10px; color:#716a61; font:10px ui-monospace, monospace; }
+  .score-focus { display:none; position:absolute; z-index:2; top:-1px; bottom:-1px; width:25%; background:#d6b56d20; border:1px solid #a98845; pointer-events:none; }
+  .score-cursor { display:none; position:absolute; z-index:3; top:-1px; bottom:-1px; width:2px; background:#628ca5; pointer-events:none; }
+  .score-focus.visible,.score-cursor.visible { display:block; }
+  .stage[data-view="score"] .selection,.stage[data-view="score"] .playhead { display:none; }
+  .stage[data-view="score"][data-orient="true"] .score-focus.visible { animation:score-orient 520ms ease-out both; }
+  @keyframes score-orient { 0%{background:#d6b56d48;box-shadow:0 0 0 4px #d6b56d14} 100%{background:#d6b56d20;box-shadow:none} }
+  .score-warning { position:absolute; right:12px; bottom:10px; max-width:60ch; color:#716a61; font:10px ui-monospace,monospace; text-align:right; }
 
   aside { min-height:0; overflow:auto; background:#1c1a17; }
   .inspector-head { padding:16px 16px 12px; border-bottom:1px solid var(--line); }
-  .eyebrow { color:var(--dim); font:10px ui-monospace, monospace; letter-spacing:.08em; text-transform:uppercase; }
-  h2 { margin:4px 0 0; font:500 22px/1.2 Georgia, serif; letter-spacing:-.02em; }
-  .scope { margin-top:10px; display:flex; justify-content:space-between; color:var(--muted); font-size:11px; }
+  .eyebrow { color:var(--dim); font:10px ui-monospace,monospace; letter-spacing:.08em; text-transform:uppercase; }
+  h2 { margin:4px 0 0; font:500 22px/1.2 Georgia,serif; letter-spacing:-.02em; }
+  .scope { margin-top:10px; display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:11px; }
   .findings { padding:8px; }
-  .finding { width:100%; text-align:left; border:1px solid transparent; border-radius:8px; background:transparent; color:inherit; padding:11px; cursor:pointer; }
+  .finding { width:100%; border:1px solid transparent; border-radius:8px; background:transparent; color:inherit; padding:8px; }
   .finding:hover { background:#24211d; }
   .finding.active { border-color:#d6b56d40; background:#26231e; }
-  .finding-time { color:var(--blue); font:10px ui-monospace, monospace; }
+  .finding-focus { width:100%; display:block; padding:3px; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; border-radius:5px; }
+  .finding-focus:focus-visible,.finding-actions button:focus-visible,.tabs button:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  .finding-time { color:var(--blue); font:10px ui-monospace,monospace; }
   .finding h3 { margin:5px 0 4px; font-size:12.5px; line-height:1.35; }
   .finding p { margin:0; color:var(--muted); font-size:11px; line-height:1.45; }
-  .finding-tag { display:inline-block; margin-top:7px; color:#cdbd9b; font:9.5px ui-monospace, monospace; }
-  .finding-actions { display:flex; gap:4px; margin-top:8px; }
-  .finding-actions button { padding:5px 7px; color:#b9b1a4; background:#211f1b; border:1px solid #37332d; }
+  .finding-tag { display:inline-block; margin-top:7px; color:#cdbd9b; font:9.5px ui-monospace,monospace; }
+  .finding-actions { display:flex; flex-wrap:wrap; gap:4px; margin-top:7px; padding:0 3px 3px; }
+  .finding-actions button { min-height:30px; padding:5px 8px; color:#b9b1a4; background:#211f1b; border:1px solid #37332d; }
   .finding-actions button:hover { color:var(--text); border-color:#625a4d; }
-  .finding-actions button.primary { color:#dfc98f; border-color:#725f36; }
-  .principle { margin:10px 16px 18px; padding:10px 11px; border-left:2px solid #5e5548; background:#211f1b; color:var(--muted); font-size:11px; }
+  .finding-actions button[data-action="loop"][aria-pressed="true"] { color:#dfc98f; border-color:#725f36; background:#2a251b; }
+  .principle,.ask-note { margin:10px 16px 0; padding:10px 11px; border-left:2px solid #5e5548; background:#211f1b; color:var(--muted); font-size:11px; }
+  .ask-note { display:none; border-left-color:#597f96; }
+  .ask-note.visible { display:block; }
+  .principle { margin-bottom:18px; }
 
   footer { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:16px; padding:0 16px; border-top:1px solid var(--line); background:#1d1b18; }
   .play { width:30px; height:30px; border-radius:50%; border:1px solid #514b41; background:#24211d; color:var(--text); }
-  .transport-line { height:3px; position:relative; background:#34302a; border-radius:3px; }
-  .transport-line > span { position:absolute; left:0; top:0; bottom:0; width:31%; background:#6f94aa; border-radius:3px; }
-  .time { color:var(--muted); font:11px ui-monospace, monospace; }
+  .transport-line { height:5px; position:relative; background:#34302a; border-radius:3px; overflow:hidden; }
+  .transport-progress { position:absolute; left:0; top:1px; bottom:1px; width:31%; background:#6f94aa; border-radius:3px; }
+  .transport-loop { position:absolute; top:0; bottom:0; display:none; background:#d6b56d44; border-left:1px solid #d6b56d; border-right:1px solid #d6b56d; }
+  .transport-loop.visible { display:block; }
+  .time { color:var(--muted); font:11px ui-monospace,monospace; }
 
   @media(max-width:800px) {
     .app { grid-template-rows:44px auto 54px; }
@@ -85,46 +101,55 @@
     .stage { padding:10px; }
     .stage-shell { min-height:390px; }
     aside { border-top:1px solid var(--line); max-height:none; }
+    .header-meta { display:none; }
+    .finding-actions button { min-height:44px; padding-inline:12px; }
   }
   @media(prefers-reduced-motion:reduce) {
     .selection,.playhead { transition:none; }
     .stage[data-orient="true"] .selection { animation:none; background:#d6b56d34; box-shadow:inset 0 0 0 1px #d6b56d99; }
+    .stage[data-view="score"][data-orient="true"] .score-focus.visible { animation:none; background:#d6b56d34; box-shadow:inset 0 0 0 1px #a98845; }
     .stage[data-orient="true"] .orientation-label { animation:none; opacity:1; }
   }
 </style>
 </head>
 <body>
 <div class="app">
-<header><div class="mark">◫</div><div class="track">A saved recording</div><div class="header-meta">EVIDENCE-JUMP PROTOTYPE · NOT PRODUCTION UI</div></header>
+<header><div class="mark" aria-hidden="true">◫</div><div class="track">A saved recording</div><div class="header-meta">EVIDENCE-JUMP PROTOTYPE · NOT PRODUCTION UI</div></header>
 <main>
   <section class="canvas">
     <nav class="tabs" aria-label="Representation">
       <button data-view="waveform" aria-selected="true">Waveform</button>
-      <button data-view="piano">Piano Roll</button>
-      <button data-view="score">Score</button>
+      <button data-view="piano" aria-selected="false">Piano Roll</button>
+      <button data-view="score" aria-selected="false">Score</button>
     </nav>
-    <div class="stage" id="stage">
+    <div class="stage" id="stage" data-view="waveform" data-orient="false">
       <div class="stage-shell" aria-label="Shared musical time">
         <div class="ruler" id="ruler"></div>
         <div class="representation waveform active" id="waveform"><div class="wave-mid"></div><div class="bars" id="bars"></div></div>
         <div class="representation piano" id="piano"></div>
         <div class="representation score" id="score">
-          <div class="system" id="system1"></div><div class="system" id="system2"></div>
-          <div class="score-warning">Notation layout is measure-based; performance-time selection requires alignment evidence.</div>
+          <div class="system" id="system1"><div class="score-focus" id="scoreFocus1"></div><div class="score-cursor" id="scoreCursor1"></div></div>
+          <div class="system" id="system2"><div class="score-focus" id="scoreFocus2"></div><div class="score-cursor" id="scoreCursor2"></div></div>
+          <div class="score-warning">Coarse measure alignment only. This mock intentionally does not draw a second-level time rectangle or free-running playhead over notation.</div>
         </div>
         <div class="selection" id="selection"></div>
         <div class="playhead" id="playhead"></div>
-        <div class="orientation-label" id="orientation">Evidence span · 00:18.4–00:21.2</div>
+        <div class="orientation-label" id="orientation">Evidence span</div>
       </div>
     </div>
   </section>
   <aside>
     <div class="inspector-head"><div class="eyebrow">Breakdown</div><h2>What stands out</h2><div class="scope"><span id="scope">Whole recording</span><span>evidence-backed</span></div></div>
     <div class="findings" id="findings"></div>
-    <div class="principle"><strong>Interaction rule:</strong> clicking a finding changes shared time/selection only. It does not silently switch playback source or representation. “Show” is the explicit representation-changing action.</div>
+    <div class="ask-note" id="askNote" role="status" aria-live="polite"></div>
+    <div class="principle"><strong>Interaction rule:</strong> Focus changes shared time/selection only. It never switches playback source or representation. Show is the explicit representation-changing action; Score only claims the alignment precision it actually has.</div>
   </aside>
 </main>
-<footer><button class="play" aria-label="Play">▶</button><div class="transport-line"><span id="progress"></span></div><div class="time" id="time">00:18.4 / 01:00.0</div></footer>
+<footer>
+  <button class="play" aria-label="Play">▶</button>
+  <div class="transport-line" aria-label="Transport overview"><span class="transport-loop" id="loopRegion"></span><span class="transport-progress" id="progress"></span></div>
+  <div class="time" id="time">00:18.4 / 01:00.0</div>
+</footer>
 </div>
 <script>
 const duration=60;
@@ -133,20 +158,115 @@ const findings=[
   {id:'melody',start:31.0,end:34.5,headline:'The detected melody moves upward through this passage.',support:'Derived from experimental melody extraction; inspect the piano roll before treating the line as authoritative.',view:'piano',tag:'experimental melody evidence'},
   {id:'harmony',start:45.1,end:49.0,headline:'Chord changes become more frequent in this passage.',support:'Derived from chord-boundary timing; this is change rate, not harmonic tension.',view:'piano',tag:'production harmony evidence'}
 ];
-let active=findings[0], view='waveform', orientTimer;
-const q=s=>document.querySelector(s), qa=s=>[...document.querySelectorAll(s)];
+let active=findings[0],view='waveform',loopedId=null,orientTimer;
+const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
 const pct=t=>`${(100*t/duration).toFixed(3)}%`;
 const fmt=t=>`00:${String(Math.floor(t)).padStart(2,'0')}.${Math.round((t%1)*10)}`;
+
 for(let i=0;i<=6;i++){const s=document.createElement('span');s.className='tick';s.style.left=`${i*100/6}%`;s.textContent=`${i*10}s`;q('#ruler').appendChild(s)}
 for(let i=0;i<96;i++){const b=document.createElement('i');b.className='bar';const x=i/7;b.style.height=`${18+Math.abs(Math.sin(x)*46)+Math.abs(Math.sin(x*.37))*28}%`;q('#bars').appendChild(b)}
 for(let i=0;i<42;i++){const n=document.createElement('i');n.className='note';n.style.left=`${5+(i*8.7)%88}%`;n.style.top=`${12+((i*17)%74)}%`;n.style.width=`${2.4+(i%4)*.75}%`;q('#piano').appendChild(n)}
 for(const [si,id] of [[0,'#system1'],[1,'#system2']]){const el=q(id);for(let m=0;m<4;m++){const v=document.createElement('i');v.className='measure';v.style.left=`${(m+1)*25}%`;el.appendChild(v)}for(let i=0;i<20;i++){const h=document.createElement('i');h.className='head';h.style.left=`${4+(i*4.6)%90}%`;h.style.top=`${12+((i*13+si*9)%72)}px`;el.appendChild(h)}}
-function renderFindings(){q('#findings').innerHTML=findings.map(f=>`<button class="finding ${f.id===active.id?'active':''}" data-id="${f.id}"><span class="finding-time">${fmt(f.start)}–${fmt(f.end)}</span><h3>${f.headline}</h3><p>${f.support}</p><span class="finding-tag">${f.tag}</span><span class="finding-actions"><button class="primary" data-action="focus" data-id="${f.id}">Focus</button><button data-action="show" data-id="${f.id}">Show</button><button data-action="ask" data-id="${f.id}">Ask</button></span></button>`).join('')}
-function setView(next){view=next;qa('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===view)));qa('.representation').forEach(r=>r.classList.toggle('active',r.id===view));}
-function orient(f,{switchView=false}={}){active=f;if(switchView)setView(f.view);q('#selection').style.left=pct(f.start);q('#selection').style.width=pct(f.end-f.start);q('#playhead').style.left=pct(f.start);q('#progress').style.width=pct(f.start);q('#time').textContent=`${fmt(f.start)} / 01:00.0`;q('#scope').textContent=`Selected · ${fmt(f.start)}–${fmt(f.end)}`;q('#orientation').textContent=`Evidence span · ${fmt(f.start)}–${fmt(f.end)}`;renderFindings();clearTimeout(orientTimer);q('#stage').dataset.orient='false';requestAnimationFrame(()=>{q('#stage').dataset.orient='true';orientTimer=setTimeout(()=>q('#stage').dataset.orient='false',760)});}
-q('.tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(b)setView(b.dataset.view)});
-q('#findings').addEventListener('click',e=>{const a=e.target.closest('[data-id]');if(!a)return;const f=findings.find(x=>x.id===a.dataset.id);const action=e.target.closest('[data-action]')?.dataset.action;if(action==='show')orient(f,{switchView:true});else if(action==='ask'){orient(f);alert(`Ask opens with the shared selection ${fmt(f.start)}–${fmt(f.end)}. It should not invent evidence outside this scope.`)}else orient(f)});
-renderFindings();orient(active);
+
+function renderFindings(){
+  q('#findings').innerHTML=findings.map(f=>`
+    <article class="finding ${f.id===active.id?'active':''}" data-id="${f.id}">
+      <button class="finding-focus" data-action="focus" data-id="${f.id}" aria-label="Focus ${fmt(f.start)} to ${fmt(f.end)}: ${f.headline}">
+        <span class="finding-time">${fmt(f.start)}–${fmt(f.end)}</span>
+        <h3>${f.headline}</h3>
+        <p>${f.support}</p>
+        <span class="finding-tag">${f.tag}</span>
+      </button>
+      <div class="finding-actions" aria-label="Actions for this finding">
+        <button data-action="loop" data-id="${f.id}" aria-pressed="${loopedId===f.id}">${loopedId===f.id?'Looping':'Loop'}</button>
+        <button data-action="show" data-id="${f.id}">Show</button>
+        <button data-action="ask" data-id="${f.id}">Ask</button>
+      </div>
+    </article>`).join('');
+}
+
+function updateScoreAlignment(f){
+  const measureIndex=Math.min(7,Math.max(0,Math.floor((f.start/duration)*8)));
+  const systemIndex=Math.floor(measureIndex/4);
+  const localMeasure=measureIndex%4;
+  for(let i=0;i<2;i++){
+    const focus=q(`#scoreFocus${i+1}`),cursor=q(`#scoreCursor${i+1}`);
+    const visible=i===systemIndex;
+    focus.classList.toggle('visible',visible);
+    cursor.classList.toggle('visible',visible);
+    if(visible){
+      focus.style.left=`${localMeasure*25}%`;
+      cursor.style.left=`${localMeasure*25}%`;
+    }
+  }
+}
+
+function setView(next){
+  view=next;
+  q('#stage').dataset.view=view;
+  qa('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===view)));
+  qa('.representation').forEach(r=>r.classList.toggle('active',r.id===view));
+  updateScoreAlignment(active);
+  if(view==='score') q('#orientation').textContent=`Aligned notation area for ${fmt(active.start)}–${fmt(active.end)}`;
+  else q('#orientation').textContent=`Evidence span · ${fmt(active.start)}–${fmt(active.end)}`;
+}
+
+function flashOrientation(){
+  clearTimeout(orientTimer);
+  q('#stage').dataset.orient='false';
+  requestAnimationFrame(()=>{
+    q('#stage').dataset.orient='true';
+    orientTimer=setTimeout(()=>q('#stage').dataset.orient='false',760);
+  });
+}
+
+function orient(f,{switchView=false}={}){
+  active=f;
+  if(switchView)setView(f.view);
+  q('#selection').style.left=pct(f.start);
+  q('#selection').style.width=pct(f.end-f.start);
+  q('#playhead').style.left=pct(f.start);
+  q('#progress').style.width=pct(f.start);
+  q('#time').textContent=`${fmt(f.start)} / 01:00.0`;
+  q('#scope').textContent=`Selected · ${fmt(f.start)}–${fmt(f.end)}`;
+  q('#askNote').classList.remove('visible');
+  updateScoreAlignment(f);
+  if(view==='score') q('#orientation').textContent=`Aligned notation area for ${fmt(f.start)}–${fmt(f.end)}`;
+  else q('#orientation').textContent=`Evidence span · ${fmt(f.start)}–${fmt(f.end)}`;
+  renderFindings();
+  flashOrientation();
+}
+
+function toggleLoop(f){
+  active=f;
+  loopedId=loopedId===f.id?null:f.id;
+  const region=q('#loopRegion');
+  region.classList.toggle('visible',Boolean(loopedId));
+  if(loopedId){region.style.left=pct(f.start);region.style.width=pct(f.end-f.start)}
+  renderFindings();
+}
+
+function showAsk(f){
+  orient(f);
+  const note=q('#askNote');
+  note.textContent=`Ask opens scoped to ${fmt(f.start)}–${fmt(f.end)}. Evidence outside this span still requires its own support and capability exposure.`;
+  note.classList.add('visible');
+}
+
+q('.tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;setView(b.dataset.view);flashOrientation()});
+q('#findings').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-action][data-id]');
+  if(!b)return;
+  const f=findings.find(x=>x.id===b.dataset.id);
+  if(!f)return;
+  if(b.dataset.action==='show')orient(f,{switchView:true});
+  else if(b.dataset.action==='ask')showAsk(f);
+  else if(b.dataset.action==='loop')toggleLoop(f);
+  else orient(f);
+});
+
+renderFindings();
+orient(active);
 </script>
 </body>
 </html>
