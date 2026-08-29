@@ -1,0 +1,42 @@
+{
+  "issue": 456,
+  "status": "supporting_not_counted_as_primary_corpus_artifacts",
+  "sources": [
+    {
+      "id": "kondo_2014_interview_summary",
+      "title": "Koji Kondo shares music trivia about various Nintendo games",
+      "creator": "Nintendo Everything / Koji Kondo",
+      "type": "composer_interview_summary",
+      "url": "https://nintendoeverything.com/koji-kondo-shares-music-trivia-about-various-nintendo-games/",
+      "supports": ["composer intent for mixed 3/4 and 4/4 in the original Underground Theme"],
+      "review_status": "relevant_content_reviewed"
+    },
+    {
+      "id": "twenty_thousand_hertz_mario",
+      "title": "Super Mario Bros: Koji Kondo’s 8-Bit Masterpiece",
+      "creator": "Twenty Thousand Hertz",
+      "type": "audio_documentary_analysis",
+      "url": "https://www.20k.org/episodes/super-mario-bros",
+      "supports": ["mixed-meter explanation", "cross-arrangement comparison to later 4/4 versions"],
+      "review_status": "relevant_section_reviewed"
+    },
+    {
+      "id": "nahre_reich_process_blog",
+      "title": "Steps that Went into Creating the Steve Reich Video",
+      "creator": "Nahre Sol",
+      "type": "creator_process_blog",
+      "url": "https://www.nahresol.com/blog/2019/10/5/steps-that-went-into-creating-how-to-sound-like-steve-reich",
+      "supports": ["analysis-to-recreation method", "concentrated listening", "property note-taking", "iterative composition"],
+      "review_status": "content_reviewed"
+    },
+    {
+      "id": "nyu_reharmonization_course",
+      "title": "TPII: Popular Music — Reharmonization",
+      "creator": "NYU Theory & Practice II",
+      "type": "college_course_lesson",
+      "url": "https://sites.google.com/nyu.edu/theoryandpractice2-pop/course-content/unit-4-melody/reharmonization",
+      "supports": ["reharmonization as controlled comparison", "melody-harmony relationship pedagogy", "Adam Neely video as teaching reference"],
+      "review_status": "content_reviewed"
+    }
+  ]
+}
