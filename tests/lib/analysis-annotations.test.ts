@@ -3,7 +3,6 @@ import {
   extractAnnotations,
   extractDensityWindows,
   extractRestSegments,
-  type AnalysisAnnotation,
 } from "@/lib/analysis-annotations";
 import type { Insight } from "@/lib/domain.types";
 

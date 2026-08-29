@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveFindings, type TemporalFinding } from "@/lib/inspector/findings";
+import { deriveFindings } from "@/lib/inspector/findings";
 import type { Insight } from "@/lib/domain.types";
 
 function insight(overrides: Partial<Insight>): Insight {
@@ -397,7 +397,6 @@ describe("deriveFindings", () => {
         span: makeSpan(0, 0.5),
         evidence: { pitch: 48, pitch_name: "C3", type: "lowest" },
       });
-
       const findings = deriveFindings([registerLow]);
       expect(findings[0].sourceInsightId).toBe("low-1");
     });
