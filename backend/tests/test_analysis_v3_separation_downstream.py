@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from backend.evaluation.analysis_v3.multitrack_transcription import metrics as amt_metrics
 from backend.evaluation.analysis_v3.multitrack_transcription.adapters import (
     basic_pitch as basic_pitch_adapter,
 )
@@ -117,10 +116,13 @@ def test_bass_amt_comparison_reuses_basic_pitch_and_amt_metric(monkeypatch, tmp_
     monkeypatch.setattr(basic_pitch_adapter, "run_basic_pitch", fake_run_basic_pitch)
     monkeypatch.setattr(downstream, "_load_midi_events", lambda paths: [str(paths[0])])
     scores = iter([0.2, 0.7])
-    monkeypatch.setattr(
-        amt_metrics,
-        "match_notes",
-        lambda reference, predicted: SimpleNamespace(f1=next(scores)),
+    fake_amt_metrics = SimpleNamespace(
+        match_notes=lambda reference, predicted: SimpleNamespace(f1=next(scores))
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "backend.evaluation.analysis_v3.multitrack_transcription.metrics",
+        fake_amt_metrics,
     )
 
     audio = np.zeros(8000, dtype=np.float32)
