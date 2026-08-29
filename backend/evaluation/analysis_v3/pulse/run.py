@@ -19,14 +19,17 @@ from typing import Any
 import numpy as np
 
 from .adapters import ADAPTERS, PulseAdapter
+from .adapters.base import PulseMetadata
 from .metrics import (
     check_determinism,
     compute_beat_f1,
     compute_downbeat_f1,
+    compute_tempo_accuracy,
     compute_tempo_error,
     generate_synthetic_audio,
     measure_latency,
 )
+from .metrics.tempo import TempoResult
 
 
 def _load_adapter(candidate: str, device: str = "cpu") -> PulseAdapter:
@@ -46,6 +49,113 @@ def _resolve_path(path: str) -> str:
             if expanded:
                 return expanded + rest
     return path
+
+
+def _normalize_dataset_name(name: str) -> str:
+    """Normalize dataset identifiers used for provenance checks."""
+    return name.strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _manifest_dataset_names(manifest: dict[str, Any]) -> list[str]:
+    """Return normalized dataset identifiers represented by a manifest."""
+    names = {
+        _normalize_dataset_name(str(clip["dataset"]))
+        for clip in manifest.get("clips", [])
+        if clip.get("dataset")
+    }
+    if not names and manifest.get("dataset"):
+        names.add(_normalize_dataset_name(str(manifest["dataset"])))
+    return sorted(names)
+
+
+def _assess_training_overlap(
+    metadata: PulseMetadata,
+    manifest: dict[str, Any],
+) -> dict[str, Any]:
+    """Assess whether evaluation data overlaps a checkpoint's training corpora."""
+    datasets = _manifest_dataset_names(manifest)
+    training = {_normalize_dataset_name(name) for name in metadata.training_datasets}
+    held_out = {_normalize_dataset_name(name) for name in metadata.held_out_datasets}
+    overlap = sorted(set(datasets) & training)
+    held_out_matches = sorted(set(datasets) & held_out)
+
+    return {
+        "datasets": datasets,
+        "checkpoint_name": metadata.checkpoint_name,
+        "training_overlap": overlap,
+        "held_out_matches": held_out_matches,
+        "generalization_safe": not overlap,
+    }
+
+
+def _validate_training_overlap(
+    metadata: PulseMetadata,
+    manifest: dict[str, Any],
+    *,
+    allow_training_overlap: bool,
+) -> dict[str, Any]:
+    """Reject silent train/eval overlap unless explicitly requested."""
+    assessment = _assess_training_overlap(metadata, manifest)
+    if assessment["training_overlap"] and not allow_training_overlap:
+        overlap = ", ".join(assessment["training_overlap"])
+        checkpoint = metadata.checkpoint_name or metadata.candidate
+        raise ValueError(
+            f"Refusing to score {checkpoint} on training dataset(s): {overlap}. "
+            "Use a held-out/unseen corpus, a checkpoint with a compatible split, "
+            "or pass --allow-training-overlap for an explicitly in-sample probe."
+        )
+    return assessment
+
+
+def _distribution(values: list[float]) -> dict[str, float | int | None]:
+    """Return deterministic descriptive statistics for per-piece metrics."""
+    if not values:
+        return {
+            "count": 0,
+            "mean": None,
+            "median": None,
+            "min": None,
+            "p25": None,
+            "p75": None,
+            "max": None,
+        }
+
+    array = np.asarray(values, dtype=float)
+    return {
+        "count": len(values),
+        "mean": round(float(np.mean(array)), 4),
+        "median": round(float(np.median(array)), 4),
+        "min": round(float(np.min(array)), 4),
+        "p25": round(float(np.percentile(array, 25)), 4),
+        "p75": round(float(np.percentile(array, 75)), 4),
+        "max": round(float(np.max(array)), 4),
+    }
+
+
+def _summarize_beat_evaluation(
+    results: list[dict[str, Any]],
+    beat_f1_values: list[float],
+    downbeat_f1_values: list[float],
+    tempo_results: list[TempoResult],
+) -> dict[str, Any]:
+    """Summarize scored pieces without discarding the per-piece evidence."""
+    failed = sum(1 for result in results if result.get("error"))
+    completed = len(results) - failed
+    latency_values = [
+        float(result["latency_seconds"])
+        for result in results
+        if result.get("latency_seconds") is not None
+    ]
+
+    return {
+        "completed": completed,
+        "failed": failed,
+        "failure_rate": round(failed / len(results), 4) if results else 0.0,
+        "beat_f1": _distribution(beat_f1_values),
+        "downbeat_f1": _distribution(downbeat_f1_values),
+        "tempo": compute_tempo_accuracy(tempo_results, tolerance_pct=4.0),
+        "latency_seconds": _distribution(latency_values),
+    }
 
 
 def _load_audio(
@@ -114,6 +224,9 @@ def run_operational_evaluation(
         result["engine"] = meta.engine
         result["code_license"] = meta.code_license
         result["checkpoint_license"] = meta.checkpoint_license
+        result["checkpoint_name"] = meta.checkpoint_name
+        result["training_datasets"] = list(meta.training_datasets)
+        result["held_out_datasets"] = list(meta.held_out_datasets)
         result["supports_beats"] = meta.supports_beats
         result["supports_downbeats"] = meta.supports_downbeats
         result["supports_tempo"] = meta.supports_tempo
@@ -154,6 +267,8 @@ def run_beat_evaluation(
     candidate: str,
     manifest_path: str,
     device: str = "cpu",
+    *,
+    allow_training_overlap: bool = False,
 ) -> dict[str, Any]:
     """Run beat tracking evaluation."""
     print(f"\n{'='*60}")
@@ -164,12 +279,24 @@ def run_beat_evaluation(
         manifest = json.load(f)
 
     adapter = _load_adapter(candidate, device)
+    metadata = adapter.metadata()
+    data_validity = _validate_training_overlap(
+        metadata,
+        manifest,
+        allow_training_overlap=allow_training_overlap,
+    )
     adapter.load()
 
     results: list[dict[str, Any]] = []
+    beat_f1_values: list[float] = []
+    downbeat_f1_values: list[float] = []
+    tempo_results: list[TempoResult] = []
+    skipped_missing_audio = 0
+
     for clip in manifest["clips"]:
         audio_path = _resolve_path(clip["audio_path"])
         if not os.path.exists(audio_path):
+            skipped_missing_audio += 1
             print(f"  SKIP {clip['id']}: audio not found at {audio_path}")
             continue
 
@@ -197,6 +324,7 @@ def run_beat_evaluation(
                     clip["reference_beats"],
                     tolerance=0.07,
                 )
+                beat_f1_values.append(beat_f1.f1)
 
             if "reference_downbeats" in clip and pulse_result.downbeats:
                 downbeat_f1 = compute_downbeat_f1(
@@ -204,12 +332,14 @@ def run_beat_evaluation(
                     clip["reference_downbeats"],
                     tolerance=0.07,
                 )
+                downbeat_f1_values.append(downbeat_f1.f1)
 
             if "reference_bpm" in clip:
                 tempo_result = compute_tempo_error(
                     pulse_result.tempo_bpm,
                     clip["reference_bpm"],
                 )
+                tempo_results.append(tempo_result)
 
             results.append(
                 {
@@ -231,7 +361,16 @@ def run_beat_evaluation(
     return {
         "candidate": candidate,
         "task": "beat",
+        "data_validity": data_validity,
+        "num_manifest_clips": len(manifest["clips"]),
         "num_clips": len(results),
+        "num_skipped_missing_audio": skipped_missing_audio,
+        "summary": _summarize_beat_evaluation(
+            results,
+            beat_f1_values,
+            downbeat_f1_values,
+            tempo_results,
+        ),
         "results": results,
     }
 
@@ -242,6 +381,8 @@ def run_candidate(
     manifest_dir: str | None = None,
     device: str = "cpu",
     output_dir: str = "results",
+    *,
+    allow_training_overlap: bool = False,
 ) -> dict[str, Any]:
     """Run evaluation for a candidate."""
     if manifest_dir is None:
@@ -260,7 +401,12 @@ def run_candidate(
     if task in ("all", "beat"):
         manifest_path = os.path.join(manifest_dir, "diversity_probe.json")
         if os.path.exists(manifest_path):
-            results["beat"] = run_beat_evaluation(candidate, manifest_path, device)
+            results["beat"] = run_beat_evaluation(
+                candidate,
+                manifest_path,
+                device,
+                allow_training_overlap=allow_training_overlap,
+            )
 
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"{candidate}.json")
@@ -301,6 +447,11 @@ def main() -> None:
         default=None,
         help="Output directory",
     )
+    parser.add_argument(
+        "--allow-training-overlap",
+        action="store_true",
+        help="Allow explicitly in-sample evaluation on checkpoint training datasets",
+    )
     args = parser.parse_args()
 
     if args.output_dir is None:
@@ -309,11 +460,25 @@ def main() -> None:
     if args.candidate == "all":
         for candidate in ADAPTERS:
             try:
-                run_candidate(candidate, args.task, args.manifest_dir, args.device, args.output_dir)
+                run_candidate(
+                    candidate,
+                    args.task,
+                    args.manifest_dir,
+                    args.device,
+                    args.output_dir,
+                    allow_training_overlap=args.allow_training_overlap,
+                )
             except Exception as e:
                 print(f"\nFAILED {candidate}: {e}")
     else:
-        run_candidate(args.candidate, args.task, args.manifest_dir, args.device, args.output_dir)
+        run_candidate(
+            args.candidate,
+            args.task,
+            args.manifest_dir,
+            args.device,
+            args.output_dir,
+            allow_training_overlap=args.allow_training_overlap,
+        )
 
 
 if __name__ == "__main__":

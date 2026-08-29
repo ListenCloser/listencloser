@@ -17,7 +17,10 @@ class PulseMetadata:
     checkpoint_license: str | None = None
     upstream_repo: str | None = None
     upstream_version: str | None = None
+    checkpoint_name: str | None = None
     checkpoint_size_mb: float | None = None
+    training_datasets: tuple[str, ...] = ()
+    held_out_datasets: tuple[str, ...] = ()
     supports_beats: bool = True
     supports_downbeats: bool = False
     supports_tempo: bool = True
