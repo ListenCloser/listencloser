@@ -37,9 +37,7 @@ UPSTREAM_DATASET_SOURCE = "https://zenodo.org/records/4599666"
 UPSTREAM_DATASET_LICENSE = "CC BY 4.0"
 MT3_INFER_REVISION = "2d20ee5bb6ca727968bd23c6100fd2a35154166b"
 MT3_INFER_VERSION = "0.2.0"
-MR_MT3_CHECKPOINT_SHA256 = (
-    "b8a3807ed265059abd25ad7f68142c06c35e8f6144dcaa45bd55946a3745398f"
-)
+MR_MT3_CHECKPOINT_SHA256 = "b8a3807ed265059abd25ad7f68142c06c35e8f6144dcaa45bd55946a3745398f"
 EXPECTED_CROPPED_MIX_SHA256 = {
     "Track01876": "b7f3a32155a14e7a2e8ea3c8d46e4fd924384d28f20de214945302004a236d9a",
     "Track01877": "620b11c7bc00e494d609d9145a715927cf0b429dc865af73d37bee67e1a9b1d4",
@@ -61,8 +59,7 @@ def _mirror_url(track_id: str) -> str:
     relative = f"data/Slakh2100_redux/test/{track_id}/mix.flac"
     encoded = quote(relative, safe="/")
     return (
-        f"https://huggingface.co/datasets/{MIRROR_REPO_ID}/resolve/"
-        f"{MIRROR_REVISION}/{encoded}"
+        f"https://huggingface.co/datasets/{MIRROR_REPO_ID}/resolve/" f"{MIRROR_REVISION}/{encoded}"
     )
 
 
@@ -453,8 +450,7 @@ def benchmark(
             "load overhead versus one resident model reused across requests?"
         ),
         "scope": (
-            "operational evidence only; canonical quality remains the #404 "
-            "decoder-sidecar run"
+            "operational evidence only; canonical quality remains the #404 " "decoder-sidecar run"
         ),
         "dataset": manifest,
         "candidate": {
