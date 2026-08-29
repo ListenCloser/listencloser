@@ -133,10 +133,6 @@ function invalidateVersionWorks(versionIds: readonly string[]): void {
   }
 }
 
-function invalidateVersionWork(versionId: string): void {
-  invalidateVersionWorks([versionId]);
-}
-
 async function mutateVersionWorks<T>(
   versionIds: readonly string[],
   mutation: () => Promise<T>,
