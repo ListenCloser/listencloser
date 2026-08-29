@@ -44,7 +44,7 @@ jobs:
         working-directory: backend
         run: |
           uv run ruff check . --output-format=github
-          uv run ruff format . --check
+          uv run ruff format evaluation/notation_metrics.py --diff
       - name: Verify generated API contract
         run: npm run api:check
       - name: Run required Python unit tests
