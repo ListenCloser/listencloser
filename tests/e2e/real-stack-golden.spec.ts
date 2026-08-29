@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { injectAuth, dismissWorkspaceNotice } from "./real-stack-auth";
+import {
+  beginImportPerformanceAttempt,
+  type ImportPerformanceTracker,
+} from "./import-performance";
 
 /**
  * Real-stack golden-path test.
@@ -16,6 +20,18 @@ const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+type ImportUiMilestones = {
+  durable_work_visible_ms: number;
+  original_source_ready_ms: number;
+  waveform_ready_ms: number;
+  transcription_playback_ready_ms: number;
+  piano_roll_ready_ms: number;
+  first_evidence_ready_ms: number;
+  score_xml_ready_ms: number;
+  score_render_ready_ms: number;
+  workflow_terminal_ms: number;
+};
 
 async function transportPosition(page: import("@playwright/test").Page): Promise<number> {
   return Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
@@ -70,7 +86,7 @@ async function waitForProjectReady(page: import("@playwright/test").Page) {
   ).toBeEnabled({ timeout: 30_000 });
 }
 
-async function importWithRetry(page: import("@playwright/test").Page) {
+async function importWithRetry(page: import("@playwright/test").Page): Promise<ImportPerformanceTracker> {
   await waitForProjectReady(page);
   for (let attempt = 0; attempt < 5; attempt++) {
     const importButton = page
@@ -78,6 +94,10 @@ async function importWithRetry(page: import("@playwright/test").Page) {
       .getByRole("button", { name: "Import audio" });
     await expect(importButton).toBeEnabled({ timeout: 30_000 });
     await importButton.click();
+
+    // Start the product clock at file selection and keep it alive through the
+    // progressive polling/reveal path so this measures the user's journey.
+    const tracker = beginImportPerformanceAttempt(page);
     await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
 
     const processing = page.getByRole("progressbar");
@@ -86,11 +106,66 @@ async function importWithRetry(page: import("@playwright/test").Page) {
       processing.waitFor({ state: "visible", timeout: 15_000 }).then(() => "started"),
       failed.waitFor({ state: "visible", timeout: 15_000 }).then(() => "failed"),
     ]);
-    if (outcome === "started") return;
+    if (outcome === "started") return tracker;
+    tracker.stop();
     await failed.getByRole("button", { name: "Try another file" }).click();
     await expect(failed).toBeHidden({ timeout: 10_000 });
   }
   throw new Error("import did not start after retries");
+}
+
+async function measureImportToUsable(
+  page: import("@playwright/test").Page,
+  tracker: ImportPerformanceTracker,
+): Promise<ImportUiMilestones> {
+  const elapsed = () => tracker.elapsedMs();
+
+  const selectedWork = page.locator(".library-work-btn[aria-current='true']").first();
+  await expect(selectedWork).toBeVisible({ timeout: 30_000 });
+  const durableWorkVisible = elapsed();
+
+  await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible({ timeout: 30_000 });
+  const originalSourceReady = elapsed();
+  const waveform = page.getByTestId("waveform-canvas");
+  await expect(waveform).toHaveAttribute("data-waveform-state", "ready", { timeout: 30_000 });
+  const waveformReady = elapsed();
+
+  await openSourceSelector(page);
+  await expect(page.getByRole("option", { name: "Transcription", exact: true })).toBeVisible({ timeout: 300_000 });
+  const transcriptionPlaybackReady = elapsed();
+  await page.keyboard.press("Escape");
+
+  const pianoRollTab = page.getByRole("tab", { name: "Piano Roll" });
+  await expect(pianoRollTab).toBeVisible({ timeout: 300_000 });
+  await pianoRollTab.click();
+  await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("piano-roll").getByText(/\d+ notes/)).toBeVisible();
+  const pianoRollReady = elapsed();
+
+  await expect(page.getByText("Key", { exact: true }).first()).toBeVisible({ timeout: 300_000 });
+  const firstEvidenceReady = elapsed();
+
+  const scoreTab = page.getByRole("tab", { name: "Score" });
+  await expect(scoreTab).toBeVisible({ timeout: 300_000 });
+  const scoreXmlReady = elapsed();
+  await scoreTab.click();
+  await expect(page.locator(".sheet-music-container g.vf-measure").first()).toBeVisible({ timeout: 30_000 });
+  const scoreRenderReady = elapsed();
+
+  await expect(page.locator(".workspace-processing-notice")).toBeHidden({ timeout: 300_000 });
+  const workflowTerminal = elapsed();
+
+  return {
+    durable_work_visible_ms: durableWorkVisible,
+    original_source_ready_ms: originalSourceReady,
+    waveform_ready_ms: waveformReady,
+    transcription_playback_ready_ms: transcriptionPlaybackReady,
+    piano_roll_ready_ms: pianoRollReady,
+    first_evidence_ready_ms: firstEvidenceReady,
+    score_xml_ready_ms: scoreXmlReady,
+    score_render_ready_ms: scoreRenderReady,
+    workflow_terminal_ms: workflowTerminal,
+  };
 }
 
 async function selectWaveformRegion(page: import("@playwright/test").Page, startFrac: number, endFrac: number) {
@@ -106,7 +181,7 @@ async function selectWaveformRegion(page: import("@playwright/test").Page, start
   await page.mouse.up();
 }
 
-test("real audio golden path", async ({ page }) => {
+test("real audio golden path", async ({ page }, testInfo) => {
   test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required");
   test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
   test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
@@ -116,9 +191,32 @@ test("real audio golden path", async ({ page }) => {
 
   // ── Import and processing ────────────────────────────────────────────
   await test.step("import and processing", async () => {
-    await importWithRetry(page);
-    await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
-    await expect(page.getByText("Operation failed")).not.toBeVisible();
+    const tracker = await importWithRetry(page);
+    try {
+      const uiMilestones = await measureImportToUsable(page, tracker);
+      await expect(page.getByText("Operation failed")).not.toBeVisible();
+
+      const report = {
+        schema_version: 1,
+        scenario: "real_import_to_usable",
+        fixture: "real-piano.m4a",
+        release_sha: process.env.GITHUB_SHA ?? null,
+        thresholds_enforced: false,
+        clock: "node_performance_now",
+        network_milestones: tracker.networkMilestones,
+        ui_milestones: uiMilestones,
+        work_bundle_response_count: tracker.workBundleResponses.length,
+        work_bundle_response_ms: tracker.workBundleResponses,
+      };
+      const reportPath = testInfo.outputPath("import-performance.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+      await testInfo.attach("import-performance.json", {
+        path: reportPath,
+        contentType: "application/json",
+      });
+    } finally {
+      tracker.stop();
+    }
     await dismissWorkspaceNotice(page);
   });
 
