@@ -21,9 +21,11 @@ import numpy as np
 from .adapters import ADAPTERS, PulseAdapter
 from .adapters.base import PulseMetadata
 from .metrics import (
+    EventTimingResult,
     check_determinism,
     compute_beat_f1,
     compute_downbeat_f1,
+    compute_event_timing,
     compute_tempo_accuracy,
     compute_tempo_error,
     generate_synthetic_audio,
@@ -132,11 +134,54 @@ def _distribution(values: list[float]) -> dict[str, float | int | None]:
     }
 
 
+def _summarize_event_timing(
+    timing_results: list[EventTimingResult],
+) -> dict[str, Any]:
+    """Aggregate matched-event timing while preserving total match coverage."""
+    if not timing_results:
+        return {
+            "matched": 0,
+            "predicted": 0,
+            "reference": 0,
+            "reference_coverage": None,
+            "predicted_coverage": None,
+            "signed_error_seconds": _distribution([]),
+            "absolute_error_seconds": _distribution([]),
+            "absolute_p95_seconds": None,
+        }
+
+    matched = sum(result.matched for result in timing_results)
+    predicted = sum(result.predicted for result in timing_results)
+    reference = sum(result.reference for result in timing_results)
+    signed_errors = [
+        error
+        for result in timing_results
+        for error in result.signed_errors_seconds
+    ]
+    absolute_errors = [abs(error) for error in signed_errors]
+    return {
+        "matched": matched,
+        "predicted": predicted,
+        "reference": reference,
+        "reference_coverage": round(matched / reference, 4) if reference else None,
+        "predicted_coverage": round(matched / predicted, 4) if predicted else None,
+        "signed_error_seconds": _distribution(signed_errors),
+        "absolute_error_seconds": _distribution(absolute_errors),
+        "absolute_p95_seconds": (
+            round(float(np.percentile(np.asarray(absolute_errors), 95)), 6)
+            if absolute_errors
+            else None
+        ),
+    }
+
+
 def _summarize_beat_evaluation(
     results: list[dict[str, Any]],
     beat_f1_values: list[float],
     downbeat_f1_values: list[float],
     tempo_results: list[TempoResult],
+    beat_timing_results: list[EventTimingResult] | None = None,
+    downbeat_timing_results: list[EventTimingResult] | None = None,
 ) -> dict[str, Any]:
     """Summarize scored pieces without discarding the per-piece evidence."""
     failed = sum(1 for result in results if result.get("error"))
@@ -153,6 +198,8 @@ def _summarize_beat_evaluation(
         "failure_rate": round(failed / len(results), 4) if results else 0.0,
         "beat_f1": _distribution(beat_f1_values),
         "downbeat_f1": _distribution(downbeat_f1_values),
+        "beat_timing": _summarize_event_timing(beat_timing_results or []),
+        "downbeat_timing": _summarize_event_timing(downbeat_timing_results or []),
         "tempo": compute_tempo_accuracy(tempo_results, tolerance_pct=4.0),
         "latency_seconds": _distribution(latency_values),
     }
@@ -290,6 +337,8 @@ def run_beat_evaluation(
     results: list[dict[str, Any]] = []
     beat_f1_values: list[float] = []
     downbeat_f1_values: list[float] = []
+    beat_timing_results: list[EventTimingResult] = []
+    downbeat_timing_results: list[EventTimingResult] = []
     tempo_results: list[TempoResult] = []
     skipped_missing_audio = 0
 
@@ -302,7 +351,7 @@ def run_beat_evaluation(
 
         try:
             audio, sr = _load_audio(audio_path, target_sr=22050)
-            pulse_result = adapter.analyze(audio, sr)
+            pulse_result = adapter._timed_analyze(audio, sr)
 
             if not pulse_result.ok:
                 results.append(
@@ -315,7 +364,9 @@ def run_beat_evaluation(
                 continue
 
             beat_f1 = None
+            beat_timing = None
             downbeat_f1 = None
+            downbeat_timing = None
             tempo_result = None
 
             if "reference_beats" in clip:
@@ -324,7 +375,13 @@ def run_beat_evaluation(
                     clip["reference_beats"],
                     tolerance=0.07,
                 )
+                beat_timing = compute_event_timing(
+                    pulse_result.beats,
+                    clip["reference_beats"],
+                    tolerance=0.07,
+                )
                 beat_f1_values.append(beat_f1.f1)
+                beat_timing_results.append(beat_timing)
 
             if "reference_downbeats" in clip and pulse_result.downbeats:
                 downbeat_f1 = compute_downbeat_f1(
@@ -332,7 +389,13 @@ def run_beat_evaluation(
                     clip["reference_downbeats"],
                     tolerance=0.07,
                 )
+                downbeat_timing = compute_event_timing(
+                    pulse_result.downbeats,
+                    clip["reference_downbeats"],
+                    tolerance=0.07,
+                )
                 downbeat_f1_values.append(downbeat_f1.f1)
+                downbeat_timing_results.append(downbeat_timing)
 
             if "reference_bpm" in clip:
                 tempo_result = compute_tempo_error(
@@ -345,7 +408,9 @@ def run_beat_evaluation(
                 {
                     "id": clip["id"],
                     "beat_f1": beat_f1.to_dict() if beat_f1 else None,
+                    "beat_timing": beat_timing.to_dict() if beat_timing else None,
                     "downbeat_f1": downbeat_f1.to_dict() if downbeat_f1 else None,
+                    "downbeat_timing": downbeat_timing.to_dict() if downbeat_timing else None,
                     "tempo": tempo_result.to_dict() if tempo_result else None,
                     "predicted_beats": len(pulse_result.beats),
                     "predicted_downbeats": len(pulse_result.downbeats),
@@ -370,6 +435,8 @@ def run_beat_evaluation(
             beat_f1_values,
             downbeat_f1_values,
             tempo_results,
+            beat_timing_results,
+            downbeat_timing_results,
         ),
         "results": results,
     }
