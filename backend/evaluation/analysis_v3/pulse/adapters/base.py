@@ -21,6 +21,10 @@ class PulseMetadata:
     checkpoint_size_mb: float | None = None
     training_datasets: tuple[str, ...] = ()
     held_out_datasets: tuple[str, ...] = ()
+    training_partition: str | None = None
+    held_out_partition: str | None = None
+    split_source: str | None = None
+    split_version: str | None = None
     supports_beats: bool = True
     supports_downbeats: bool = False
     supports_tempo: bool = True

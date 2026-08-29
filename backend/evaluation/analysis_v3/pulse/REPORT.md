@@ -1,209 +1,127 @@
 # Analysis V3 Pulse / Beat / Meter Bakeoff
 
-## Executive Decision
+## Executive decision
 
-**Recommendation: Beat This is a strong leading candidate for future production promotion. Broader annotated evaluation required before switching defaults.**
+**Beat This `single_final0` is the leading MetricGrid candidate, but it should not replace the global production default yet.**
 
-Beat This materially outperforms the exact production baseline on GuitarSet (beat F1=0.94 vs 0.30, downbeat F1=0.86, tempo error=1.87 vs 17.19 BPM). However, the scored corpus is limited to 5 GuitarSet clips. Generalization to other styles (piano, electronic, Latin, etc.) remains unevaluated.
+The earlier GuitarSet probe showed a large quality advantage over the exact production librosa baseline. This branch adds a split-aware evaluation gate and scores five Candombe performances from the Beat This v1.0 published `single.split` validation partition on identical audio for both candidates.
 
-## Product Question
+On that validation partition, Beat This is nearly perfect: mean beat F1 **0.9989**, mean downbeat F1 **1.0000**, **100% reference-beat coverage**, median absolute beat localization error **10.9 ms**, and median absolute downbeat localization error **11.4 ms**. The production librosa path reaches mean beat F1 **0.3847**, matches only **33.46%** of reference beats, and exposes no downbeats. Both candidates estimate global tempo accurately on these files, which demonstrates that BPM accuracy alone is not a sufficient quality gate for groove-, phase-, or bar-relative reasoning.
 
-Which OSS system should provide beat positions, downbeat positions, tempo, and meter evidence for hello-ai's rhythm, groove, structure, notation, and style-aware analysis?
+This is strong promotion evidence for the Beat This model family, but it is **not an independent-corpus generalization result**: the five tracks are the published validation split associated with `single_final0`. Before changing the global default, evaluate at least one genuinely independent annotated corpus/split and make an explicit latency/deployment decision.
 
-## Existing Production Baseline
+## Product question
 
-- **Engine**: librosa (via `backend/engines/beats/librosa_engine.py`)
-- **Function**: `music_features.estimate_beat_grid(wav_bytes)` → `librosa.beat.beat_track(y=audio, sr=sr, trim=False)`
-- **Preprocessing**: `soundfile.read()` → mono float32
-- **Output**: beats (seconds), tempo (BPM from librosa)
-- **Downbeats**: Not supported
-- **Meter**: Not supported
-- **Production default**: `BEAT_ENGINE=librosa` in `backend/engines/registry.py`
+Which OSS system should provide beat positions, downbeat positions, tempo, and eventually meter evidence for hello-ai's rhythm, groove, structure, notation, and style-aware analysis?
 
-## Evaluation Environment
+## Existing production baseline
 
-- **Platform**: macOS-15.3.1-arm64-arm-64bit (Apple Silicon)
-- **Arch**: arm64
-- **Python**: 3.9.6
-- **Device**: CPU (no GPU)
-- **PyTorch**: 2.8.0
-- **mir_eval**: 0.8.2
-- **hello-ai commit**: `05b5641f775d1d3bd28682ba2eb688337fca0669`
-- **Branch**: `eval/analysis-v3-pulse-bakeoff`
+- **Engine**: librosa via the production beat path.
+- **Function**: `music_features.estimate_beat_grid(wav_bytes)` / librosa beat tracking.
+- **Preprocessing**: decoded mono audio; the evaluation runner canonicalizes to 22.05 kHz for identical candidate input.
+- **Output**: beat positions and tempo.
+- **Downbeats**: unsupported.
+- **Meter**: unsupported.
+- **Production default**: remains librosa on this research branch.
 
-## Candidate Matrix
+## Candidate matrix
 
-| Candidate | Engine | Code License | Checkpoint License | Supports Beats | Supports Downbeats | Supports Tempo | Supports Meter |
-|---|---|---|---|---|---|---|---|
-| current | librosa | ISC | N/A | ✓ | ✗ | ✓ (derived) | ✗ |
-| beat_this | beat_this | MIT | MIT | ✓ | ✓ | ✓ (derived) | ✗ |
-| beatnet | BeatNet+mommom | MIT | MIT | ✓ | ✓ | ✓ | ✗ (blocked) |
+| Candidate | Code / checkpoint license | Beats | Downbeats | Tempo | Meter | Current decision |
+| --- | --- | --- | --- | --- | --- | --- |
+| current | librosa ISC / N/A | yes | no | yes | no | retain production default until promotion gate closes |
+| Beat This `single_final0` | MIT / MIT | yes | yes | derived | no | leading promotion candidate |
+| BeatNet | MIT / MIT | yes | yes | yes | no | REVISIT; compatibility friction |
 
-## Datasets and Licensing
+## Evaluation validity
 
-| Dataset | Source | License | Tracks | Annotations | Notes |
-|---|---|---|---|---|---|
-| GuitarSet | https://github.com/marl/GuitarSet | MIT | 5 | beats, downbeats, tempo | Guitar comping/solo styles |
-| MAESTRO | https://magenta.tensorflow.org/datasets/maestro | CC BY-NC-SA 4.0 | 5 | MIDI-derived beats | Not suitable for beat evaluation (derived annotations) |
+The evaluation code records checkpoint training datasets and held-out datasets and rejects silent scoring on a declared training corpus unless `--allow-training-overlap` is supplied explicitly.
 
-**Note**: MAESTRO beat annotations are derived from MIDI onset density, not ground-truth beat annotations. They are not suitable for beat evaluation and are excluded from scored results.
+For Beat This `single_final0`:
 
-## Methodology
+- dataset id: `candombe_single_split_val`;
+- checkpoint: `single_final0`;
+- declared training overlap: none;
+- declared held-out/validation match: `candombe_single_split_val`;
+- five exact validation recordings acquired from the public Candombe site;
+- each audio file is MD5-verified before scoring;
+- Beat This and the production baseline receive the same decoded/canonicalized audio;
+- the workflow stores machine-readable results as an Actions artifact.
 
-Evidence classes:
-- **LOCAL MEASUREMENT**: CPU latency, load time, beat F1, downbeat F1, tempo error measured on this machine
-- **QUALITATIVE PRODUCT PROBE**: Downbeat detection quality
+The term **held-out** here means held out from the checkpoint's training rows according to the published split metadata. It does not mean an unrelated dataset. This distinction is why another independent corpus remains a promotion requirement.
 
-Metrics:
-- Beat F1 using `mir_eval.beat.f_measure` with 70ms tolerance (standard MIREX convention)
-- Downbeat F1 using `mir_eval.beat.f_measure` with 70ms tolerance
-- Tempo absolute error (BPM) - derived from median inter-beat interval for Beat This
-- Tempo relative error (%)
-- Octave/half-double error detection
+See `VALIDITY.md` for the provenance contract and `.github/workflows/eval-pulse-candombe-heldout.yml` for the exact acquisition/scoring path.
 
-## Beat Metrics (LOCAL MEASUREMENT — GuitarSet only)
+## Canonical metrics
 
-| Candidate | Mean Beat F1 | Clips Scored | Notes |
-|---|---|---|---|
-| current (librosa) | 0.30 | 5 | Poor on guitar comping |
-| beat_this | 0.94 | 5 | Strong across GuitarSet styles |
+Beat and downbeat F1 use `mir_eval.beat.f_measure` with a 70 ms threshold. Diagnostic precision/recall, match counts, and localization errors use `mir_eval.util.match_events` with the same 70 ms one-to-one matching window, so the displayed diagnostics do not rely on a separate greedy matcher.
 
-Per-clip results:
+Localization reporting always includes match coverage. Timing error over matched events alone is misleading when a tracker misses or mis-phases most events.
 
-| Clip | current F1 | beat_this F1 | current Matched | beat_this Matched |
-|---|---|---|---|---|
-| guitarset_bn1_comp | 0.00 | 0.90 | 0/48 | 39/48 |
-| guitarset_rock2_comp | 0.31 | 0.99 | 17/64 | 64/64 |
-| guitarset_jazz1_comp | 0.16 | 0.86 | 7/48 | 36/48 |
-| guitarset_funk1_comp | 0.36 | 1.00 | 18/48 | 48/48 |
-| guitarset_ss3_solo | 0.69 | 0.95 | 44/64 | 61/64 |
+## Candombe validation result
 
-**Observation**: librosa struggles with guitar comping (especially bossa nova and jazz), while Beat This achieves near-perfect tracking on funk and rock.
+Five published `single.split` validation performances were scored with zero candidate failures.
 
-## Downbeat Metrics (LOCAL MEASUREMENT — GuitarSet only)
+| Metric | production librosa | Beat This `single_final0` |
+| --- | ---: | ---: |
+| Mean beat F1 | 0.3847 | **0.9989** |
+| Median beat F1 | 0.1710 | **0.9993** |
+| Minimum beat F1 | 0.0379 | **0.9971** |
+| Reference beats matched | 1,122 / 3,353 | **3,353 / 3,353** |
+| Reference-beat coverage | 33.46% | **100.00%** |
+| Predicted-beat coverage | 33.27% | **99.82%** |
+| Median absolute beat error | 40.6 ms | **10.9 ms** |
+| p95 absolute beat error | 56.6 ms | **44.9 ms** |
+| Mean downbeat F1 | unsupported | **1.0000** |
+| Reference downbeats matched | unsupported | **842 / 842** |
+| Median absolute downbeat error | unsupported | **11.4 ms** |
+| p95 absolute downbeat error | unsupported | **47.4 ms** |
+| Tempo accuracy at 4% | 100% | 100% |
+| Mean relative tempo error | 1.47% | 1.44% |
 
-| Candidate | Mean Downbeat F1 | Clips Scored | Notes |
-|---|---|---|---|
-| current (librosa) | N/A | 0 | Not supported |
-| beat_this | 0.86 | 5 | Strong downbeat detection |
+### Why tempo is not the decision metric
 
-Per-clip downbeat results:
+Both systems estimate the global tempo rate correctly on these recordings, yet the production tracker often places beats at the wrong local phase. That difference is decisive for downstream claims such as:
 
-| Clip | beat_this Downbeat F1 | Matched | Predicted | Reference |
-|---|---|---|---|---|
-| guitarset_bn1_comp | 0.96 | 12 | 13 | 12 |
-| guitarset_rock2_comp | 1.00 | 12 | 12 | 12 |
-| guitarset_jazz1_comp | 0.88 | 11 | 13 | 12 |
-| guitarset_funk1_comp | 1.00 | 12 | 12 | 12 |
-| guitarset_ss3_solo | 0.49 | 13 | 37 | 16 |
+- an onset anticipates a beat or downbeat;
+- a drum pattern emphasizes beat 2 or beat 4;
+- a fill leads into the next bar;
+- two rhythmic events align or offset;
+- a groove changes within a section.
 
-**Observation**: Beat This downbeat detection is strong on comping styles but less accurate on solo guitar (ss3_solo has many false positive downbeats).
+A correct BPM scalar cannot support those claims without a trustworthy localized metric grid.
 
-## Tempo Metrics (LOCAL MEASUREMENT — GuitarSet only)
+## CPU latency
 
-**Note**: Beat This does not independently predict tempo. BPM is derived from median inter-beat interval.
+The candidate is materially more expensive than librosa on CPU. Recent GitHub-hosted Ubuntu runs place Beat This inference on these roughly 3–5 minute recordings around the low tens of seconds per track, while the warm-state librosa path is sub-second on most files. Earlier runs varied materially with runner state, checkpoint/cache state, and host load.
 
-| Candidate | Mean Tempo Error | Clips Scored | Notes |
-|---|---|---|---|
-| current (librosa) | 17.19 BPM | 5 | Large errors on rock/funk |
-| beat_this (derived) | 1.87 BPM | 5 | Consistent accuracy |
+Therefore latency is recorded as **operational evidence, not a stable universal benchmark**. The quality result is clear; production promotion still needs a deliberate deployment choice such as worker-side asynchronous analysis, model reuse, or a faster execution target. There is no evidence here that a synchronous request path should block on the model.
 
-Per-clip tempo results:
+## Earlier GuitarSet probe
 
-| Clip | Reference BPM | current Error | beat_this Error (derived) |
-|---|---|---|---|
-| guitarset_bn1_comp | 129.0 | 0.2 BPM | 1.4 BPM |
-| guitarset_rock2_comp | 142.0 | 46.3 BPM | 0.9 BPM |
-| guitarset_jazz1_comp | 130.0 | 0.8 BPM | 5.0 BPM |
-| guitarset_funk1_comp | 114.0 | 38.0 BPM | 1.4 BPM |
-| guitarset_ss3_solo | 84.0 | 0.7 BPM | 0.7 BPM |
+The initial five-clip GuitarSet probe remains useful as a separate repertoire signal:
 
-**Observation**: librosa has catastrophic tempo errors on rock and funk (likely octave/half-time errors), while Beat This derived tempo maintains consistent accuracy.
+| Candidate | Mean beat F1 | Mean downbeat F1 | Mean tempo error |
+| --- | ---: | ---: | ---: |
+| production librosa | 0.30 | unsupported | 17.19 BPM |
+| Beat This | **0.94** | **0.86** | **1.87 BPM** |
 
-## Meter Metrics
+The result should not be treated as a broad genre benchmark; it contains only a handful of guitar comping/solo examples. Its value is that it independently showed the same large direction-of-effect before the split-aware Candombe gate was added.
 
-| Candidate | Supports Meter | Notes |
-|---|---|---|
-| current (librosa) | ✗ | Not supported |
-| beat_this | ✗ | Not supported |
-| beatnet | ✗ | Blocked by madmom/numpy compatibility |
+## Product implications
 
-## Difficult-Case Probes (QUALITATIVE PRODUCT PROBE)
+A high-quality MetricGrid unlocks substantially more than a BPM badge. It can become upstream evidence for:
 
-Based on GuitarSet evaluation:
-- **Bossa nova comping**: librosa F1=0.00, beat_this F1=0.90
-- **Rock comping**: librosa F1=0.31, beat_this F1=0.99
-- **Jazz comping**: librosa F1=0.16, beat_this F1=0.86
-- **Funk comping**: librosa F1=0.36, beat_this F1=1.00
-- **Guitar solo**: librosa F1=0.69, beat_this F1=0.95
+- beat/bar aligned playback and looping;
+- beat-relative onset and source-activity measurements;
+- groove and syncopation relations;
+- downbeat-aware section and transition evidence;
+- notation/quantization support;
+- drum/bass pattern comparison;
+- later rap-flow or ensemble-coordination analysis when their additional prerequisites exist.
 
-**Note**: These results are specific to guitar comping/solo styles. Generalization to other styles (piano, electronic, Latin, etc.) is not evaluated.
+These downstream claims must still declare their own evidence-sufficiency gates. A good beat tracker does not by itself make genre- or theory-specific interpretation safe.
 
-## Operational Evaluation (LOCAL MEASUREMENT)
-
-| Metric | current (librosa) | beat_this |
-|---|---|---|
-| Install success | Yes | Yes |
-| Load time | 0.01s | 0.72s |
-| CPU latency 10s | N/A* | 0.12s |
-| CPU latency 30s | N/A* | 0.90s |
-| Determinism | False** | True |
-| ARM feasibility | Confirmed | Confirmed |
-
-*librosa latency measurement failed due to synthetic audio issues.
-**librosa determinism check failed on synthetic audio.
-
-## Licensing Findings
-
-| Candidate | Code License | Checkpoint License | Commercial Use |
-|---|---|---|---|
-| current (librosa) | ISC | N/A | ✓ |
-| beat_this | MIT | MIT | ✓ |
-| beatnet | MIT | MIT | ✓ |
-
-## Failure Analysis
-
-- **current (librosa)**: Poor beat tracking on guitar comping styles (bossa nova, jazz, funk). Large tempo errors on rock/funk (likely octave errors).
-- **beat_this**: Minor beat count differences on some clips (39 vs 48 on bossa nova), but high F1 due to tolerance. Downbeat detection less accurate on solo guitar.
-- **beatnet**: Blocked by madmom/numpy compatibility issue. Marked as REVISIT.
-
-## Per-Candidate Decisions
-
-| Candidate | Decision | Rationale |
-|---|---|---|
-| current (librosa) | RESEARCH | Poor beat tracking quality on guitar styles. Non-trivial tempo errors. |
-| beat_this | RESEARCH | Strong leading candidate for future production promotion. Beat F1=0.94, downbeat F1=0.86, tempo error=1.87 BPM on GuitarSet. MIT license. CPU feasible. Broader annotated evaluation required before switching defaults. |
-| beatnet | REVISIT | Blocked by madmom/numpy compatibility issue. |
-
-## Product Implications
-
-Beat This provides:
-- Beat positions for beat/bar grid, looping, section navigation
-- Downbeat positions for bar-phase alignment
-- Accurate derived tempo for groove analysis
-- Strong performance on guitar-based styles (bossa nova, rock, jazz, funk)
-
-This supports downstream:
-- beat/bar grid representation
-- beat-relative onset measurements
-- groove/style modules
-- notation quantization
-- section alignment
-- drum/bass pattern analysis
-
-## Architecture Recommendation
-
-**Beat This is a strong leading candidate for future production promotion. Broader annotated evaluation required before switching defaults.**
-
-Rationale:
-1. Beat This F1=0.94 vs librosa F1=0.30 on GuitarSet (5 clips)
-2. Beat This downbeat F1=0.86 (librosa does not support downbeats)
-3. Beat This derived tempo error=1.87 BPM vs librosa 17.19 BPM
-4. Beat This MIT license permits commercial use
-5. Beat This CPU latency 0.12s for 10s audio is production-feasible
-6. **Limitation**: Results are specific to guitar comping/solo styles. Generalization to other styles is not evaluated.
-
-## Proposed PulseEvidence Contract
+## Proposed PulseEvidence contract
 
 ```typescript
 type PulseEvidence = {
@@ -245,59 +163,40 @@ type PulseEvidence = {
 }
 ```
 
-This contract is proposed for Architecture #336. Do not create DB tables or migrate schema.
+This is an architecture input for #336 rather than a request to create a parallel database schema.
 
-## Remaining Uncertainty
+## Promotion gate
 
-- Limited evaluation corpus (5 GuitarSet clips with beat annotations)
-- No evaluation on non-guitar styles (piano, electronic, Latin, etc.)
-- No evaluation on compound meter or unusual time signatures
-- BeatNet blocked by compatibility issue
-- No reference downstream MIR contextualization
+Beat This should move from generic **RESEARCH** to **PROMOTION CANDIDATE** status, with these remaining gates:
 
-## What Should Happen Next
+1. Score at least one genuinely independent annotated corpus/split not listed as checkpoint training or validation data.
+2. Preserve event-level localization metrics and coverage; do not regress to BPM-only evaluation.
+3. Confirm the production execution model and acceptable worker latency/resource cost.
+4. Decide failure/fallback behavior when the model cannot load or analyze a file.
+5. Keep meter unsupported unless separately measured.
+6. Only after those gates, consider changing the global `MetricGrid`/beat default.
 
-1. Evaluate Beat This on broader corpus (Ballroom, Hainsworth, SMC, etc.)
-2. Score downbeat detection where annotations exist
-3. Investigate BeatNet compatibility fix or alternative
-4. Design production integration for Beat This as beat/downbeat engine
-5. Implement PulseEvidence persistence in #336
+The validation result is strong enough that additional broad candidate shopping is lower priority than validating this candidate's generalization and production ergonomics.
 
-## Reproduction Instructions
+## Reproduction
 
-```bash
-# Set cache directory
-export MUSIC_EVAL_CACHE_DIR=/path/to/backend/evaluation/.cache
+The branch-scoped workflow acquires and verifies the five exact Candombe recordings, builds the v1.0 validation manifest, and scores `current` and `beat_this_single_final0` on identical inputs. Local scoring can also use the manifest runner once the same audio/annotation assets are available.
 
-# Run all candidates
-python3 -m backend.evaluation.analysis_v3.pulse.run --candidate all
+Results are machine-readable and include:
 
-# Run specific candidate
-python3 -m backend.evaluation.analysis_v3.pulse.run --candidate beat_this
+- per-piece beat/downbeat F1;
+- canonical matched counts;
+- reference and predicted coverage;
+- signed and absolute timing error summaries;
+- tempo error;
+- per-file inference latency;
+- checkpoint/dataset validity metadata.
 
-# Run specific task
-python3 -m backend.evaluation.analysis_v3.pulse.run --candidate beat_this --task operational
+## Remaining uncertainty
 
-# Results saved to backend/evaluation/analysis_v3/pulse/results/{candidate}.json
-```
-
-## CI Classification
-
-| Check | Status | Notes |
-|---|---|---|
-| Build | pending | |
-| E2E (test) | pending | |
-| Real-stack E2E | pending | |
-| CodeQL | pending | |
-| Dependency Review | pending | |
-| Gitleaks | pending | |
-| Argos | pending | |
-| Lint (Ruff) | pending | |
-
-## Unfinished Work
-
-- Larger evaluation corpus with more diverse styles
-- Downbeat scoring with reference annotations
-- Meter evaluation
-- BeatNet compatibility fix
-- Reference downstream MIR contextualization
+- Candombe is checkpoint validation data, not an independent external corpus.
+- Five Candombe + five GuitarSet examples are not broad genre coverage.
+- Meter remains unsupported.
+- CPU latency is materially higher and environment-dependent.
+- No source-aware groove or microtiming claims are validated merely by this benchmark.
+- BeatNet remains a low-priority revisit unless it offers a concrete advantage over a now-strong Beat This candidate.
