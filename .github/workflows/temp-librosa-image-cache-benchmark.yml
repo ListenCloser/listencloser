@@ -19,6 +19,6 @@ jobs:
       - name: Inspect baked Numba cache
         run: docker run --rm hello-ai-librosa-cache-bench sh -lc 'find "$NUMBA_CACHE_DIR" -type f | wc -l'
       - name: Measure fresh process with native runtime CPU target
-        run: docker run --rm hello-ai-librosa-cache-bench python /app/scripts/temp_librosa_image_benchmark.py
+        run: docker run --rm hello-ai-librosa-cache-bench python /app/temp_librosa_image_benchmark.py
       - name: Measure fresh process with generic runtime CPU target
-        run: docker run --rm -e NUMBA_CPU_NAME=generic hello-ai-librosa-cache-bench python /app/scripts/temp_librosa_image_benchmark.py
+        run: docker run --rm -e NUMBA_CPU_NAME=generic hello-ai-librosa-cache-bench python /app/temp_librosa_image_benchmark.py
