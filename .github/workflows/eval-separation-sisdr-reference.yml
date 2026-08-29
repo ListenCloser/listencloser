@@ -46,7 +46,7 @@ jobs:
             --output backend/evaluation/analysis_v3/separation/results/sisdr_babyslakh_v2.json
       - name: Upload result
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: separation-sisdr-reference-result
           path: backend/evaluation/analysis_v3/separation/results/sisdr_babyslakh_v2.json
