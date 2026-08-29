@@ -16,9 +16,17 @@ async function openWorkspace(page: Page) {
 test("deleting the active work clears it and leaves no stale transport state", async ({ page }) => {
   await openWorkspace(page);
 
+  // The icon-only destructive action gets deliberate help rather than a
+  // browser-native title bubble. Side placement keeps that help inside the
+  // narrow Library rail instead of pushing it into the scroll boundary.
+  const deleteButton = page.getByRole("button", { name: "Delete Test Work" });
+  await expect(deleteButton).not.toHaveAttribute("title");
+  await deleteButton.hover();
+  await expect(page.getByRole("tooltip", { name: "Delete recording" })).toBeVisible();
+
   // Delete is a direct row action. A one-command overflow menu added friction
   // on desktop and was effectively hidden behind hover on touch devices.
-  await page.getByRole("button", { name: "Delete Test Work" }).click();
+  await deleteButton.click();
 
   // The query-backed mutation removes the row optimistically while both the
   // Library and Canvas move to their real empty states.
@@ -33,6 +41,15 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await expect(emptySignal).toHaveAttribute("aria-hidden", "true");
   await expect(page.getByText("Move through waveform, notes, notation, and evidence without losing your place.", { exact: true })).toBeVisible();
   await expect(page.locator(".empty-note, .empty-staff-line")).toHaveCount(0);
+
+  // Terse transcription modes explain the model choice deliberately. Visible
+  // control copy stays unchanged and the help is linked via aria-describedby.
+  await page.getByText("Transcription", { exact: true }).last().click();
+  const autoMode = page.getByRole("button", { name: "Auto", exact: true }).last();
+  await expect(autoMode).not.toHaveAttribute("title");
+  await autoMode.hover();
+  await expect(page.getByRole("tooltip", { name: "Best default for most recordings" })).toBeVisible();
+  await expect(autoMode).toHaveAttribute("aria-describedby");
 
   // No stale transport state: deleting the active work removes the source
   // controls entirely rather than leaving a disabled playhead behind.

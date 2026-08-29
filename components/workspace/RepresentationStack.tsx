@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import TabStrip from "@/components/ui/TabStrip";
+import Tooltip from "@/components/ui/Tooltip";
 import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
 import { availableRepresentations, type RepresentationId } from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
@@ -19,16 +20,16 @@ function TranscriptionModeToggle() {
   return (
     <div className="transcription-mode" role="group" aria-label="Transcription mode">
       {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          aria-pressed={workspace.transcriptionProfile === option.id}
-          className={workspace.transcriptionProfile === option.id ? "active" : ""}
-          onClick={() => setTranscriptionProfile(option.id)}
-          title={option.description}
-        >
-          {option.label}
-        </button>
+        <Tooltip key={option.id} content={option.description}>
+          <button
+            type="button"
+            aria-pressed={workspace.transcriptionProfile === option.id}
+            className={workspace.transcriptionProfile === option.id ? "active" : ""}
+            onClick={() => setTranscriptionProfile(option.id)}
+          >
+            {option.label}
+          </button>
+        </Tooltip>
       ))}
     </div>
   );
@@ -75,6 +76,8 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
 
+  // The shared selection is authoritative. This local cue only strengthens the
+  // actual selected destination after Focus/Show and then returns it to quiet.
   useEffect(() => {
     const cancelPendingCue = () => {
       if (orientationFrame.current !== null) {
@@ -108,6 +111,10 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     };
   }, []);
 
+  // Representation canvases are expensive client-side objects: OSMD builds a
+  // full score SVG, WaveSurfer owns waveform state, and the spectrogram decodes
+  // audio. Preserve views after their first visit within a work session so a
+  // tab switch is a visibility change rather than a destroy/rebuild cycle.
   useEffect(() => {
     setMountedViews(new Set());
     setOrientationCue(false);
@@ -124,10 +131,8 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   }, [activeView]);
 
   if (workspace.isLoadingWork) return <WorkspaceLoadingSkeleton />;
-  if (!available.length || !activeView) {
-    if (signedIn && workspace.activeWorkId) return <WorkspaceLoadingSkeleton />;
-    return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
-  }
+  if (!available.length) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
+  if (!activeView) return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
 
   const renderedViews = available.filter((definition) => definition.id === activeView || mountedViews.has(definition.id));
 

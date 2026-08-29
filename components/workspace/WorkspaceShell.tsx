@@ -51,7 +51,7 @@ function WorkspaceContent({
 
         <div className="studio-header-actions">
           {serviceStatus === "unavailable" && (
-            <span className="studio-service-state studio-service-unavailable" title="Audio processing is temporarily unavailable">
+            <span className="studio-service-state studio-service-unavailable">
               <span className="studio-service-dot" aria-hidden="true" />
               <span className="studio-service-label">Processing offline</span>
             </span>
