@@ -1,428 +1,195 @@
-# Current Visual / Interaction R&D Source of Truth
+# Visual / Interaction R&D Source of Truth
 
-> **Status:** active, revisable R&D for PR #405. Keep #405 draft; it is not a production UI lane.
->
-> This file is the current consolidated design source for visual enhancement, interaction identity, references, guardrails, and unresolved hypotheses. Older #405 experiments and closed design-spec PRs are historical evidence, not parallel sources of truth.
+> **Status:** active, revisable R&D for PR #405. Keep #405 draft; it is not a production merge lane.
 
-## 1. Objective
+## Thesis
 
-Make hello-ai feel unusually considered, contemporary, and memorable **without maximizing visual effects** or drifting into generic AI/startup chrome.
+Make hello-ai feel unusually considered and contemporary **without maximizing visual effects**.
 
-The current thesis is:
+> **Shared musical time, representation continuity, and evidence-linked interaction are the product identity.**
 
-> **Make shared musical time, representation continuity, and evidence-linked interaction the visual identity of hello-ai.**
+The signed-out edge may be expressive. The signed-in workspace remains a calm creative instrument.
 
-The signed-out edge may be art-directed. The signed-in workspace remains a calm, precise creative instrument.
+A visual treatment earns its place only when it explains the product, communicates real state, improves manipulation/orientation, establishes identity without competing with music, or reduces uncertainty.
 
-A visual treatment earns its place when it does at least one of these:
-
-1. explains the product faster;
-2. communicates real state;
-3. improves manipulation or orientation;
-4. makes relationships between representations clearer;
-5. establishes memorable identity without competing with the recording;
-6. reduces uncertainty while processing.
-
-If it only looks impressive in a component gallery, it is not enough.
-
-## 2. Implementation ledger
-
-These ideas are **already shipped** and must no longer be treated as speculative design.
+## Shipped design ledger
 
 | Area | Status | Production work |
 |---|---|---|
 | Baseline craft / legibility | **SHIPPED** | #446 |
 | Actionable Breakdown | **SHIPPED** | #439 |
 | Evidence-grounded Ask starters | **SHIPPED** | #448 |
-| Multi-evidence Breakdown provenance | **SHIPPED** | #449 |
+| Multi-evidence provenance | **SHIPPED** | #449 |
 | Focus / Show destination orientation | **SHIPPED** | #450 |
 | Truthful waveform decode continuity | **SHIPPED** | #464 |
-| Progressive evidence arrival after source durability | **SHIPPED** | #463 |
+| Progressive evidence arrival | **SHIPPED** | #463 |
+| Shared Transport tooltip craft | **SHIPPED** | #479 |
 
-### What that means in the product
+Historical design lanes #401, #433, #437, #438, #440, and #478 stay closed/superseded.
 
-- a durable uploaded recording can become the usable Work before understanding finishes;
-- source audio remains available while persisted representations/evidence arrive;
-- later Piano Roll / Score / Breakdown availability does not steal the current representation or playback source;
-- a new source never shows the previous recording's waveform peaks while decoding;
-- real waveform peaks appear only after that exact source decodes;
-- Breakdown Focus / Show preserve the real shared selection and use a short orientation cue;
-- Ask entry points are capability/evidence-gated rather than generic AI affordances.
+## Product grammar
 
-### Superseded design lanes
+1. **One recording becomes the object.** Import places a durable recording into the workspace; it is not a theatrical job submission.
+2. **Everything refers to the same musical time.** Waveform, notes, score where alignment supports it, selection, loop, Breakdown, Ask, and playback should preserve orientation.
+3. **Representations are related, not equivalent.** Never imply `waveform == MIDI == score`; preserve uncertainty, information loss, and timing-domain differences.
+4. **Explanation returns to evidence and action.** Useful findings lead to Focus, Show, Loop, Ask, and later Compare only when capability truth supports it.
+5. **Idle is quiet; real state changes are clear.** Signed-in motion should communicate state or orientation rather than decorate chrome.
 
-These PRs should remain closed/historical:
+## Expression budget
 
-- #401 — replayed and shipped through #446;
-- #433 — evidence-orientation prototype, shipped through #450;
-- #437 — progressive-evidence design spec, shipped through #463;
-- #438 — upload/waveform continuity spec, truth-critical behavior shipped through #464 + #463;
-- #440 — hero comparison experiment absorbed into this SOT.
-
-Do not reopen them as competing design lanes.
-
-## 3. Current product-specific visual grammar
-
-The product should increasingly communicate five invariants.
-
-### 3.1 One recording becomes the object
-
-Import should feel like placing a recording into the workspace, not submitting a job and waiting for a new app state.
-
-Stable anchors:
-
-- Work title / filename;
-- Library row;
-- Canvas region;
-- Original playback source;
-- real waveform once decoded.
-
-### 3.2 Everything refers to the same musical time
-
-Waveform, Piano Roll, Score where alignment supports it, selection, loop, Breakdown findings, Ask citations, and playback should feel related through one temporal model.
-
-This is a stronger product identity than an abstract marketing motif.
-
-### 3.3 Representations are related but not equivalent
-
-Do not visually imply:
-
-`waveform == MIDI == score`
-
-Different representations have different confidence, information loss, and timing domains.
-
-The stable object is **musical time / selected span**, not a literal shape morph.
-
-When switching representations:
-
-- preserve the playhead when supported;
-- preserve the selected musical span;
-- preserve playback source unless the user changes it;
-- recompose/crossfade the view rather than pretending one representation transforms losslessly into another.
-
-### 3.4 Explanation points back to evidence and action
-
-A finding should not end as a text card.
-
-Useful actions include:
-
-- Focus;
-- Show;
-- Loop;
-- Ask;
-- later Compare only when capability truth supports it.
-
-The visual response should make the target evidence obvious and then become quiet again.
-
-### 3.5 Quiet idle state, clear state-linked response
-
-Avoid interpreting “calm workspace” as “visually inert workspace.”
-
-| Surface | Ambient expression | State-linked expression |
+| Surface | Ambient | State-linked |
 |---|---:|---:|
-| Hero | 7–8 | 2 |
-| Import | 1 | 5 |
+| Hero | 7 | 2 |
+| Import / first-use | 1 | 5 |
 | Processing | 1 | 5 |
 | Workspace idle | 1 | 1 |
 | Workspace interaction | 1 | 4 |
 | Breakdown jump | 0 | 4 |
 | Playback | 0 | 3 |
 
-The workspace stays quiet until something meaningful happens, then responds clearly.
+## Active production design lane
 
-## 4. Current R&D hypotheses
+### #489 — product-native empty workspace
 
-### 4.1 Shared Time / Evidence Ribbon — **PROTOTYPE NEXT**
+Replace generic staff + `♪ / ♫` decoration with a **static neutral shared-time scaffold**.
 
-Visual artifact:
+The empty canvas may show capability lanes such as `Audio / Notes / Notation / Evidence` aligned to one coordinate, but it must not invent:
+
+- waveform peaks;
+- note events;
+- findings or confidence;
+- processing percentage;
+- section labels;
+- active playback or selection state.
+
+Semantic color stays quiet until real state exists. No ambient animation.
+
+## Current visual hypotheses
+
+### Full landing product storyboard
+
+![Landing product storyboard](./visual-rd/landing-product-storyboard.svg)
+
+Preferred signed-out story:
+
+**Hear a moment → see the same moment differently → understanding arrives without interrupting → explanation returns to the music.**
+
+Production must replace illustrative geometry with one known recording and real decoded/derived evidence.
+
+### Shared Time / Evidence Ribbon — **PROTOTYPE NEXT**
 
 ![Shared Time / Evidence Ribbon](./visual-rd/shared-time-evidence-ribbon.svg)
 
-Conceptual payload:
+Concept:
 
-> **one musical moment → multiple representations → one shared time → one explanation grounded in evidence**
+**one musical moment → multiple representations → one shared time → one evidence-backed explanation**
 
-This is the strongest current landing/system hypothesis because it remains product-specific without becoming a miniature dashboard.
+The stable object is musical time / supported span, not a literal waveform→MIDI→score morph.
 
-Production requirements:
+Hard test: remove logo and marketing copy. The visual should still plausibly read as recorded music, multiple musical representations, shared time, and grounded understanding.
 
-- use one real known demo recording;
-- use real decoded waveform evidence;
-- use real detected events / transcription only when available;
-- use notation only where the demo's supported alignment is honest;
-- use a real evidence-backed finding;
-- preserve uncertainty/provenance rather than inventing polished labels.
-
-Hard specificity test:
-
-> If the logo and copy were removed, would a viewer plausibly infer recorded music, multiple musical representations, shared musical time, and evidence-backed understanding?
-
-If not, modify or replace the direction.
-
-### 4.2 Signal Landscape — **SECONDARY PROTOTYPE / TEXTURE**
-
-Visual artifact:
+### Signal Landscape — **SECONDARY TEXTURE ONLY**
 
 ![Signal Landscape](../../public/landing-signal.svg)
 
-Keep:
+Keep possible topology, negative space, graphite restraint, and one-object composition. Do not treat it as identity: without copy it still reads as generic premium data visualization.
 
-- topographic layering;
-- warm graphite / restrained brass;
-- negative space;
-- low-gloss rendering;
-- one-object composition.
+### Brand / favicon — **UNRESOLVED**
 
-Do not treat the abstract landscape as the product identity. Without copy it can still plausibly belong to generic AI, data, climate, finance, or analytics products.
+Do not force a replacement. A future mark must work at 16×16 monochrome, avoid waveform/note/sparkle clichés, and be materially better than the current production mark.
 
-Potential future use:
+Interaction identity remains higher priority.
 
-- quiet landing texture;
-- data-derived secondary visualization grammar;
-- sparse section transition;
-- never a persistent animated workspace background.
-
-Current implementation is intentionally reduced from the earlier experiment: fewer layers, group-level drift, short trace reveal, static evidence points.
-
-### 4.3 Brand / favicon — **UNRESOLVED**
-
-Visual artifact:
-
-![Brand sketches](./visual-rd/brand-directions.svg)
-
-Do not force a replacement.
-
-Rejected / sketch-only directions:
-
-- Contour Fold — still compresses toward generic waveform/squiggle;
-- Playhead Notch — generic media/control iconography;
-- Continuous → Discrete — conceptually interesting but poor favicon compression target.
-
-A future mark must:
-
-1. work at 16×16 in pure monochrome;
-2. have a recognizable silhouette without internal micro-detail;
-3. not read primarily as waveform, equalizer, music note, or AI sparkle;
-4. not depend on gradients or animation;
-5. fit both expressive landing and restrained app chrome;
-6. be materially better than leaving the current production mark alone.
-
-Interaction identity is higher priority than logo redesign.
-
-## 5. Current active implementation lane
-
-### #479 — shared Transport tooltip craft
-
-Status: active production-design PR.
-
-Goal:
-
-- replace browser-native Transport `title` bubbles with one consistent shared tooltip primitive;
-- show supplementary help on pointer hover and keyboard focus;
-- preserve accessible names and use `aria-describedby`;
-- keep motion short/reduced-motion-safe;
-- add no UI library and no new global CSS layer;
-- do not change playback or transport semantics.
-
-This is the kind of modernization to prefer: a small reusable primitive that improves clarity and craft without making the workspace louder.
-
-## 6. Interaction details worth preserving
+## Interaction contracts
 
 ### Upload → waveform
 
-Current truth model:
+Truthful sequence:
 
 `file → durable Work → neutral decode frame → real waveform → later evidence`
 
-Do not add:
+Never add fake peaks or fabricated decode percentage.
 
-- fake waveform bars;
-- fabricated percent complete;
-- particle/morph theater;
-- silent source switching after transcription arrives.
+### Processing
 
-Any additional polish must preserve the already-shipped truth boundary.
+Post-durability processing stays non-blocking. New capabilities appear only when real artifacts/evidence exist and never steal the user's active representation or playback source.
 
-### Processing / evidence arrival
+### Evidence orientation
 
-State transitions come from the pipeline, not from an animation storyboard.
+1. select/seek the supported span;
+2. Focus preserves representation/source;
+3. Show may explicitly switch representation while preserving time/source/selection;
+4. briefly emphasize the real destination;
+5. settle back to quiet.
 
-Useful states may include:
+### Color semantics
 
-- recording saved;
-- source usable;
-- transcription available;
-- notation available;
-- Breakdown evidence available;
-- recovery needed.
+- **blue** = current playback/time relationships;
+- **brass** = identity, evidence, selection emphasis;
+- **neutral graphite/white** = unavailable/empty structural scaffolding.
 
-Animation may clarify a real transition. Never invent a transition to accommodate an animation.
+Do not use blue/brass to imply state that does not exist.
 
-### Evidence-linked orientation
+## Reference roles
 
-Target behavior remains:
+Product precedents:
 
-1. action selects/seeks the supported musical span;
-2. Show may explicitly switch representation;
-3. destination becomes visible;
-4. brief emphasis establishes orientation;
-5. emphasis ends.
+- **Sonic Visualiser** — aligned analytical layers on one time axis;
+- **Hooktheory TheoryTab** — explanation synchronized with playback/evidence;
+- **Moises** — analysis becomes immediate musical action;
+- **Ableton Arrangement View** — stable time orientation and music as a continuous object.
 
-Avoid persistent glow or “AI highlighting.”
+Construction references only:
 
-### Shared time
+- selected **21st.dev** components for SVG/motion construction;
+- **Motion Primitives** for specific interaction primitives;
+- **Mobbin** for shipped-product hierarchy and interaction patterns.
 
-Blue remains appropriate for current playback/time relationships.
-Brass remains appropriate for identity, evidence, and selection emphasis.
+Do not turn reference research into component shopping.
 
-Do not force exact score/performance-time equivalence where mapping is approximate.
+## Anti-slop gate
 
-## 7. Landing direction
-
-The landing body matters more than another isolated hero effect.
-
-Preferred editorial story:
-
-1. **Bring in a recording.**
-2. **See the same moment differently.**
-3. **Understand what changed.**
-4. **Act on / ask about the evidence.**
-
-Prefer 2–4 large editorial product moments using real product behavior over a generic 8-card feature bento.
-
-The landing should explain the actual product model, not create a separate marketing metaphor that disappears after sign-in.
-
-A merely very-good landing page + unusually excellent signed-in interactions beats an extraordinary hero attached to a normal-feeling app.
-
-## 8. Reference matrix
-
-References are construction material, not aesthetic authority. `DESIGN.md` remains authoritative.
-
-### Product-domain precedents
-
-| Reference | Borrow | Do not borrow |
-|---|---|---|
-| Sonic Visualiser | analytical layers aligned to one time axis; one object through multiple lenses | dense legacy desktop styling |
-| Hooktheory TheoryTab | explanation synchronized with musical playback/evidence | universal tonal/theory assumptions |
-| Moises | analysis becomes immediate musical action (selection/looping/etc.) | consumer-app aesthetic wholesale |
-| Ableton Arrangement View | stable time orientation; music as continuous manipulable object | DAW complexity / chrome |
-
-### Visual / implementation precedents
-
-| Reference | Role | Borrow | Avoid |
-|---|---|---|---|
-| 21st.dev / Kokonut Background Paths | implementation reference | SVG path construction, masking, easing, layering | stock gradient-startup identity |
-| 21st.dev / Entropy | motion reference | organic order→structure feeling | permanent busy full-screen effect |
-| Halide Topo | aesthetic reference | topology, grain, technical depth | persistent parallax / 3D theater |
-| Liquid Metal Hero | composition reference | one focal object + negative space | literal shader identity |
-| Motion Primitives | primitive pool | selected high-quality state/microinteraction patterns | applying motion everywhere |
-| Magic UI / similar OSS pools | prototype pool | specific component only when materially better | assembling a template from trendy parts |
-| Mobbin | shipped-product pattern reference | hierarchy / interaction precedents | visual cloning |
-
-### OSS rule
-
-Do not add a component simply because it looks good in a gallery.
-
-A third-party component enters production only when:
-
-1. it solves a concrete product interaction better than the local implementation;
-2. its source/upstream license is verified;
-3. its visual language can be normalized to local tokens;
-4. accessibility/mobile/reduced-motion behavior meets product requirements;
-5. it does not pull a large dependency for a trivial effect.
-
-## 9. Anti-slop gate
-
-Reject by default unless a concrete product need overturns the decision:
+Reject by default:
 
 - generic aurora / AI blobs;
-- neural-network / particle backgrounds;
-- glass-card stacks;
-- border beams / shiny borders everywhere;
+- neural/particle fields;
+- glass stacks;
+- border-beam everything;
 - magnetic buttons;
-- typewriter/text scramble for core copy;
-- marquee content;
+- core-copy typewriter/scramble;
+- marquees;
 - primary dock navigation;
-- persistent cursor-follow spotlight;
-- persistent parallax;
+- persistent parallax / cursor spotlights;
 - heavy 3D galleries;
-- forced smooth scrolling / scroll hijacking;
+- forced smooth scrolling;
 - autoplay media;
 - multiple ambient animations in one viewport;
-- visual claims that imply evidence the system does not actually have.
+- visual claims stronger than the evidence available.
 
 ### One-effect rule
 
-Do not stack shader + blur + glass + border beam + cursor spotlight + floating animation.
+A composition should normally have **one dominant visual idea**, supported by typography, spacing, and meaningful state feedback.
 
-A polished composition should normally have **one dominant visual idea**, supported by typography, spacing, and meaningful state feedback.
-
-## 10. Motion contract
+## Motion / craft contract
 
 - one moving focal region at a time;
 - user-triggered motion beats ambient motion;
-- signed-in motion should usually communicate state or orientation;
-- entrance motion is one-shot;
-- ordinary control motion should generally stay around 100–180ms;
-- no animation is necessary to discover a control;
-- reduced-motion must remain fully understandable;
-- mobile may remove decorative motion rather than preserve desktop spectacle;
-- continuous animation must justify continuous CPU usage.
+- signed-in motion normally communicates state/orientation;
+- ordinary control motion ~100–180ms;
+- no animation is required to discover a control;
+- reduced-motion stays fully understandable;
+- mobile may remove decorative motion;
+- do not add Motion/GSAP/Three for effects CSS/SVG can already express well.
 
-## 11. Baseline craft contract
+Preserve the #446 baseline: editor-scale typography, compact but readable geometry, ~44px mobile action targets, warm graphite workspace, paper score surface, minimal card count, and music as the largest object.
 
-Preserve the merged #446 direction:
+## Next order of work
 
-- controls/body roughly editor-scale rather than sub-10px generated UI;
-- metadata generally 11–12px where practical;
-- mobile action targets around 44px where applicable;
-- compact geometry without cramped labels;
-- warm graphite workspace;
-- paper-like score surface;
-- restrained brass identity;
-- blue reserved for time/playback relationships where useful;
-- minimal card count;
-- music representation remains the largest object.
-
-## 12. Next design work
-
-Current order:
-
-1. **Finish #479** and verify desktop/mobile/focus/reduced-motion behavior.
-2. Audit remaining native-title / microinteraction inconsistencies; migrate only high-value cases.
-3. Audit the **landing body** against the product-native four-part story.
-4. Prototype Shared Time with one real demo excerpt and real evidence.
+1. Finish and merge **#489** on exact-head + visual evidence.
+2. Audit ambiguous icon-only and terse mode-help interactions; do **not** blanket-add tooltips to visible-text controls.
+3. Refine the **landing product storyboard**, not another hero-only effect.
+4. Build a real-data Shared Time prototype only when one canonical demo excerpt can truthfully support every visible layer.
 5. Keep logo/favicon unchanged while interaction identity matures.
-6. Treat CSS-layer consolidation as a separate refactor with regression evidence, not a visual-polish patch.
+6. Keep CSS-layer consolidation as a separate refactor with regression evidence.
 
-## 13. Review protocol
-
-For every major recommendation classify it as:
-
-**KEEP / MODIFY / REPLACE / DELETE / PROTOTYPE / BUILD / SHIPPED**
-
-For anything marked REPLACE or PROTOTYPE, provide a specific precedent, OSS implementation reference, or concrete artifact rather than prose-only taste commentary.
-
-Challenge specifically:
-
-1. Is Shared Time genuinely product-specific or still too diagrammatic?
-2. Does the persistent time ruler feel musical and editorial rather than DAW-like?
-3. What remaining signed-in interaction feels generic or under-crafted?
-4. Which visual effect in this document is still hype and should be removed?
-5. Can landing → workspace continuity improve without importing marketing motion into the editor?
-6. Is there a specific OSS primitive materially better than our current implementation for a concrete interaction?
-7. Is any proposed visual treatment making stronger evidence claims than the product can support?
-
-Update #405 / this file after a material decision so the repo does not accumulate competing design documents.
-
-## 14. Change log
-
-- Initial #405 mini-workspace hero: **REJECTED** as literal/generic.
-- Initial waveform/staff favicon revision: **REVERTED / REJECTED**.
-- Signal Landscape: **DEMOTED** from leading identity to secondary prototype/texture.
-- Shared Time / Evidence Ribbon: **PROMOTED** to next product-native visual hypothesis.
-- Progressive evidence arrival: **SHIPPED #463**.
-- Truthful waveform decode continuity: **SHIPPED #464**.
-- Evidence destination orientation: **SHIPPED #450**.
-- Baseline craft: **SHIPPED #446**.
-- Current implementation lane: **#479 Transport tooltip craft**.
+For every major recommendation use **KEEP / MODIFY / REPLACE / DELETE / PROTOTYPE / BUILD / SHIPPED** and update this file after material decisions so the repository does not accumulate parallel design truths.
