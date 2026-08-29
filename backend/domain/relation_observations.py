@@ -9,13 +9,18 @@ values instead of falling back to weaker evidence or semantic interpretation.
 from __future__ import annotations
 
 import math
-from typing import Any, Literal, Sequence
+from collections.abc import Sequence
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
-from perceptual_evidence import FeatureName, PerceptualEvidenceReport, PerceptualSeriesEvidence
+from perceptual_evidence import (
+    FeatureName,
+    PerceptualEvidenceReport,
+    PerceptualSeriesEvidence,
+)
 
 _RELATION_ENGINE_VERSION = "1.0"
 _RELATIVE_DENOMINATOR_EPSILON = 1e-9
@@ -125,7 +130,9 @@ def _base_provenance(
         "preprocessing_version": report.preprocessing_version,
         "sample_rate": report.sample_rate,
         "channel_mode": report.channel_mode,
-        "coverage_policy": "selected frames must reach both span boundaries within one evidence hop",
+        "coverage_policy": (
+            "selected frames must reach both span boundaries within one evidence hop"
+        ),
         "relative_denominator_epsilon": _RELATIVE_DENOMINATOR_EPSILON,
         "semantic_interpretation_emitted": False,
     }
@@ -172,7 +179,7 @@ def _series_hop_seconds(series: PerceptualSeriesEvidence) -> float | None:
     hop_length = series.parameters.get("hop_length")
     if hop_length is None:
         hop_length = series.provenance.parameters.get("hop_length")
-    if not isinstance(hop_length, (int, float)) or hop_length <= 0:
+    if not isinstance(hop_length, int | float) or hop_length <= 0:
         return None
     return float(hop_length) / float(series.sample_rate)
 
@@ -239,7 +246,9 @@ def _median(values: np.ndarray) -> float | np.ndarray:
     return np.asarray(result, dtype=float)
 
 
-def _direction(delta: float | np.ndarray) -> Literal["higher", "lower", "mixed", "unchanged"]:
+def _direction(
+    delta: float | np.ndarray,
+) -> Literal["higher", "lower", "mixed", "unchanged"]:
     array = np.asarray(delta, dtype=float)
     close = np.isclose(array, 0.0, atol=_NUMERIC_ATOL, rtol=_NUMERIC_RTOL)
     if bool(np.all(close)):
