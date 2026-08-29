@@ -17,6 +17,10 @@ class StructureMetadata:
     upstream_version: str | None = None
     checkpoint_name: str | None = None
     training_datasets: tuple[str, ...] = ()
+    held_out_datasets: tuple[str, ...] = ()
+    training_partition: str | None = None
+    held_out_partition: str | None = None
+    split_source: str | None = None
     notes: str = ""
 
 
