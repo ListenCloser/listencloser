@@ -16,6 +16,7 @@ export default function Waveform({
   position,
   durationOverride,
   selection,
+  emphasizeSelection = false,
   annotations,
   focusedAnnotationId,
   onSeek,
@@ -26,6 +27,7 @@ export default function Waveform({
   position: number;
   durationOverride?: number | null;
   selection?: MusicalSelection | null;
+  emphasizeSelection?: boolean;
   annotations?: AnalysisAnnotation[];
   focusedAnnotationId?: string | null;
   onSeek?: (time: number) => void;
@@ -200,15 +202,15 @@ export default function Waveform({
       canvasCtx.globalAlpha = 1;
     }
 
-    // Selection (terracotta) — clear but not harsh
+    // Selection (terracotta) — briefly stronger after an evidence jump, then quiet.
     const range = preview ?? selection?.timeRange ?? null;
     if (range && duration > 0) {
       const x1 = timeToX(range.start);
       const x2 = timeToX(range.end);
-      canvasCtx.fillStyle = withAlpha(accent, 0.15);
+      canvasCtx.fillStyle = withAlpha(accent, emphasizeSelection ? 0.24 : 0.15);
       canvasCtx.fillRect(x1, 0, Math.max(x2 - x1, 1), h);
-      canvasCtx.strokeStyle = withAlpha(accent, 0.6);
-      canvasCtx.lineWidth = 1;
+      canvasCtx.strokeStyle = withAlpha(accent, emphasizeSelection ? 0.9 : 0.6);
+      canvasCtx.lineWidth = emphasizeSelection ? 1.8 : 1;
       canvasCtx.strokeRect(x1, 0, Math.max(x2 - x1, 1), h);
     }
 
@@ -222,7 +224,7 @@ export default function Waveform({
       canvasCtx.lineTo(x, h);
       canvasCtx.stroke();
     }
-  }, [position, selection, preview, status, duration, timeToX, annotations, focusedAnnotationId]);
+  }, [position, selection, preview, status, duration, timeToX, annotations, focusedAnnotationId, emphasizeSelection]);
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
@@ -293,6 +295,7 @@ export default function Waveform({
         ref={canvasRef}
         className="waveform"
         data-testid="waveform-canvas"
+        data-selection-emphasized={emphasizeSelection ? "true" : undefined}
         width={900}
         height={220}
         style={{ height: 220 }}

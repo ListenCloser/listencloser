@@ -31,6 +31,7 @@ export default function PianoRoll({
   onSeek,
   selectionTimeRange,
   selectedNoteIds,
+  emphasizeSelection = false,
   onSelectRange,
   onAnnotationClick,
 }: {
@@ -42,6 +43,7 @@ export default function PianoRoll({
   onSeek?: (seconds: number) => void;
   selectionTimeRange?: TimeRange | null;
   selectedNoteIds?: string[];
+  emphasizeSelection?: boolean;
   onSelectRange?: (start: number, end: number) => void;
   onSelectNotes?: (ids: string[]) => void;
   onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
@@ -269,15 +271,16 @@ export default function PianoRoll({
           {/* Selected time range highlight (terracotta) */}
           {visibleTimeRange && (
             <rect
+              data-selection-emphasized={emphasizeSelection ? "true" : undefined}
               x={timeToX(visibleTimeRange.start)}
               y={0}
               width={Math.max(timeToX(visibleTimeRange.end) - timeToX(visibleTimeRange.start), 2)}
               height={h}
               fill="var(--accent)"
-              fillOpacity={0.1}
+              fillOpacity={emphasizeSelection ? 0.2 : 0.1}
               stroke="var(--accent)"
-              strokeWidth={0.8}
-              strokeOpacity={0.4}
+              strokeWidth={emphasizeSelection ? 1.5 : 0.8}
+              strokeOpacity={emphasizeSelection ? 0.85 : 0.4}
             />
           )}
 
