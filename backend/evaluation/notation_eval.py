@@ -9,7 +9,7 @@ Measures score quality in two explicit modes:
   transcription seam first, then feeds that predicted MIDI through the same
   metric grid and notation path.
 
-Keeping both modes on the same source-audio beat grid lets the report attribute
+Keeping both modes on the same source-audio metric grid lets the report attribute
 how much degradation is already present in note evidence versus how much is
 introduced by notation. This module is evaluation-only; it does not change
 production routing or score-generation behavior.
@@ -117,26 +117,34 @@ def _run_product_transcription(audio_path: Path, output_midi: Path) -> dict[str,
     return run_basic_pitch(audio_path, output_midi)
 
 
-def _production_audio_grid(audio_path: Path) -> tuple[float, list[float]]:
-    """Decode upload audio and run the production librosa beat-grid estimator."""
-    from music_features import decode_audio_to_wav, estimate_beat_grid
+def _production_metric_grid(audio_path: Path) -> dict[str, Any]:
+    """Decode source audio and run the exact beat-engine seam used by Score."""
+    from music_features import decode_audio_to_wav, estimate_beats_with_engine
 
     raw = audio_path.read_bytes()
     fmt = audio_path.suffix.lstrip(".") or "wav"
     decoded_wav = decode_audio_to_wav(raw, fmt=fmt)
-    return estimate_beat_grid(decoded_wav)
+    return estimate_beats_with_engine(decoded_wav)
 
 
 def _notation_from_midi(
     midi_bytes: bytes,
     beat_times: list[float],
+    *,
+    downbeats: list[float] | None,
 ) -> tuple[bytes, dict[str, Any]]:
-    """Run the current production notation reduction/engine without modification."""
-    from music_features import notation_midi_from_performance, notation_with_engine
+    """Mirror the production Score worker's notation-engine invocation."""
+    from music_features import notation_with_engine
 
-    notation_midi, quantization = notation_midi_from_performance(midi_bytes, beat_times)
-    result = notation_with_engine(notation_midi, beat_times)
-    return result.get("musicxml", b""), dict(quantization)
+    result = notation_with_engine(
+        midi_bytes,
+        beat_times,
+        downbeats=downbeats,
+        adaptive=True,
+        notation_ready=True,
+        piano_grand_staff=True,
+    )
+    return result.get("musicxml", b""), dict(result.get("quantization_report", {}))
 
 
 def evaluate_clip(clip: EvalClip, mode: NotationEvalMode) -> dict[str, Any]:
@@ -151,7 +159,11 @@ def evaluate_clip(clip: EvalClip, mode: NotationEvalMode) -> dict[str, Any]:
     audio_path = Path(clip.audio)
     reference_midi = Path(clip.reference_midi).read_bytes()
     reference_musicxml = Path(clip.reference_musicxml).read_bytes()
-    tempo_bpm, beat_times = _production_audio_grid(audio_path)
+    grid = _production_metric_grid(audio_path)
+    tempo_bpm = float(grid["bpm"])
+    beat_times = [float(value) for value in grid.get("beats", [])]
+    raw_downbeats = grid.get("downbeats")
+    downbeats = [float(value) for value in raw_downbeats] if raw_downbeats else None
 
     transcription_stage: dict[str, Any]
     if mode == "reference_midi_to_score":
@@ -178,7 +190,11 @@ def evaluate_clip(clip: EvalClip, mode: NotationEvalMode) -> dict[str, Any]:
     else:  # pragma: no cover - Literal callers and argparse choices constrain this.
         raise ValueError(f"unsupported notation evaluation mode: {mode}")
 
-    generated_musicxml, quantization = _notation_from_midi(notation_input, beat_times)
+    generated_musicxml, quantization = _notation_from_midi(
+        notation_input,
+        beat_times,
+        downbeats=downbeats,
+    )
     if not generated_musicxml:
         raise ValueError("notation engine returned no MusicXML")
 
@@ -194,11 +210,15 @@ def evaluate_clip(clip: EvalClip, mode: NotationEvalMode) -> dict[str, Any]:
             "stages": {
                 "transcription": transcription_stage,
                 "metric_grid": {
-                    "source": "production_audio_librosa",
-                    "tempo_bpm": round(float(tempo_bpm), 4),
+                    "source": "production_score_beat_engine",
+                    "tempo_bpm": round(tempo_bpm, 4),
                     "beat_count": len(beat_times),
+                    "downbeat_count": len(downbeats) if downbeats else 0,
+                    "provenance": grid.get("provenance", {}),
                 },
                 "notation": {
+                    "adaptive": True,
+                    "piano_grand_staff": True,
                     "quantization": quantization,
                     "structural": result["structural"],
                     "reference_structural": result.get("reference_structural"),
