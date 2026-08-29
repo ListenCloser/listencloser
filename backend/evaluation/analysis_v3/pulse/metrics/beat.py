@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import mir_eval.beat
+import mir_eval.util
 import numpy as np
 
 
@@ -26,6 +27,59 @@ class BeatF1Result:
             "matched": self.matched,
             "predicted": self.predicted,
             "reference": self.reference,
+        }
+
+
+@dataclass(frozen=True)
+class EventTimingResult:
+    """One-to-one matched event timing errors under an explicit window."""
+
+    tolerance_seconds: float
+    matched: int
+    predicted: int
+    reference: int
+    signed_errors_seconds: tuple[float, ...]
+
+    @property
+    def reference_coverage(self) -> float:
+        return self.matched / self.reference if self.reference else 0.0
+
+    @property
+    def predicted_coverage(self) -> float:
+        return self.matched / self.predicted if self.predicted else 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        errors = np.asarray(self.signed_errors_seconds, dtype=float)
+        absolute = np.abs(errors)
+        if errors.size == 0:
+            return {
+                "tolerance_seconds": self.tolerance_seconds,
+                "matched": self.matched,
+                "predicted": self.predicted,
+                "reference": self.reference,
+                "reference_coverage": round(self.reference_coverage, 4),
+                "predicted_coverage": round(self.predicted_coverage, 4),
+                "signed_mean_seconds": None,
+                "signed_median_seconds": None,
+                "absolute_mean_seconds": None,
+                "absolute_median_seconds": None,
+                "absolute_p95_seconds": None,
+                "absolute_max_seconds": None,
+            }
+
+        return {
+            "tolerance_seconds": self.tolerance_seconds,
+            "matched": self.matched,
+            "predicted": self.predicted,
+            "reference": self.reference,
+            "reference_coverage": round(self.reference_coverage, 4),
+            "predicted_coverage": round(self.predicted_coverage, 4),
+            "signed_mean_seconds": round(float(np.mean(errors)), 6),
+            "signed_median_seconds": round(float(np.median(errors)), 6),
+            "absolute_mean_seconds": round(float(np.mean(absolute)), 6),
+            "absolute_median_seconds": round(float(np.median(absolute)), 6),
+            "absolute_p95_seconds": round(float(np.percentile(absolute, 95)), 6),
+            "absolute_max_seconds": round(float(np.max(absolute)), 6),
         }
 
 
@@ -53,6 +107,43 @@ def match_timestamps(
                 break
 
     return matched, unmatched_pred, unmatched_ref
+
+
+def compute_event_timing(
+    predicted: list[float],
+    reference: list[float],
+    tolerance: float = 0.07,
+) -> EventTimingResult:
+    """Measure localization error for canonical one-to-one event matches.
+
+    Matching uses ``mir_eval.util.match_events`` with the same window used by
+    beat/downbeat F-measure. Signed error is ``predicted - reference``.
+    Coverage is retained because timing statistics over matched events alone
+    would be misleading for a tracker that misses or mis-phases most events.
+    """
+    if tolerance < 0:
+        raise ValueError("tolerance must be non-negative")
+
+    pred_arr = np.asarray(sorted(predicted), dtype=float)
+    ref_arr = np.asarray(sorted(reference), dtype=float)
+    if pred_arr.size == 0 or ref_arr.size == 0:
+        return EventTimingResult(
+            tolerance_seconds=tolerance,
+            matched=0,
+            predicted=len(predicted),
+            reference=len(reference),
+            signed_errors_seconds=(),
+        )
+
+    matching = mir_eval.util.match_events(ref_arr, pred_arr, tolerance)
+    errors = tuple(float(pred_arr[pred_index] - ref_arr[ref_index]) for ref_index, pred_index in matching)
+    return EventTimingResult(
+        tolerance_seconds=tolerance,
+        matched=len(matching),
+        predicted=len(predicted),
+        reference=len(reference),
+        signed_errors_seconds=errors,
+    )
 
 
 def compute_beat_f1(
