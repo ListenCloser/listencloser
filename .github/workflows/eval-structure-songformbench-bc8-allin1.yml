@@ -27,6 +27,7 @@ jobs:
     env:
       SFB_REPO: ASLP-lab/SongFormBench
       SFB_REVISION: acd574ecbf666be535b0d051b71936f6ec9956ec
+      SFB_SOURCE_SUBSET: CN
       ALLIN1_COMMIT: c04f37609e2c7ba5d3b333d6d69a7e3c429dafc9
       MADMOM_COMMIT: 27f032e8947204902c675e5e341a3faf5dc86dae
       STRUCTURE_ALLIN1_MODEL: harmonix-all
@@ -51,9 +52,155 @@ jobs:
           root="$RUNNER_TEMP/structure-bc8"
           mkdir -p "$root/dataset" "$root/results" "$root/provenance"
           echo "STRUCTURE_ROOT=$root" >> "$GITHUB_ENV"
+          echo "DATA_VENV=$root/data-venv" >> "$GITHUB_ENV"
           echo "AIO_VENV=$root/allin1-venv" >> "$GITHUB_ENV"
           echo "HF_HOME=$root/hf-home" >> "$GITHUB_ENV"
           echo "TORCH_HOME=$root/torch-home" >> "$GITHUB_ENV"
+
+      - name: Install lightweight dataset client
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv venv "$DATA_VENV" --python 3.11
+          uv pip install --python "$DATA_VENV/bin/python" 'huggingface_hub==1.29.0'
+
+      - name: Acquire pinned SongFormBench index
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$DATA_VENV/bin/python" - <<'PY'
+          import os
+          from huggingface_hub import hf_hub_download
+
+          root = os.environ['STRUCTURE_ROOT'] + '/dataset'
+          path = hf_hub_download(
+              repo_id=os.environ['SFB_REPO'],
+              repo_type='dataset',
+              revision=os.environ['SFB_REVISION'],
+              filename='data/SongFormBench.jsonl',
+              local_dir=root,
+          )
+          print(path)
+          PY
+
+      - name: Verify canonical subset literals
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$DATA_VENV/bin/python" - <<'PY'
+          import collections
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['STRUCTURE_ROOT'])
+          index = root / 'dataset/data/SongFormBench.jsonl'
+          rows = [json.loads(line) for line in index.read_text().splitlines() if line.strip()]
+          counts = collections.Counter(str(row.get('subset', '')).strip() for row in rows)
+          payload = {
+              'dataset_revision': os.environ['SFB_REVISION'],
+              'row_count': len(rows),
+              'subset_counts': dict(sorted(counts.items())),
+              'required_source_subset': os.environ['SFB_SOURCE_SUBSET'],
+          }
+          (root / 'provenance/songformbench-index-schema.json').write_text(
+              json.dumps(payload, indent=2) + '\n'
+          )
+          print(json.dumps(payload, indent=2))
+          if counts.get(os.environ['SFB_SOURCE_SUBSET'], 0) < 8:
+              raise SystemExit(
+                  f"canonical index has only {counts.get(os.environ['SFB_SOURCE_SUBSET'], 0)} "
+                  f"rows for source subset {os.environ['SFB_SOURCE_SUBSET']}; counts={dict(counts)}"
+              )
+          PY
+
+      - name: Freeze deterministic BC8 selection from canonical CN rows
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd backend
+          "$DATA_VENV/bin/python" -m evaluation.analysis_v3.structure.datasets.songformbench_subset \
+            --index "$STRUCTURE_ROOT/dataset/data/SongFormBench.jsonl" \
+            --subset "$SFB_SOURCE_SUBSET" \
+            --count 8 \
+            --upstream-revision "$SFB_REVISION" \
+            --output-index "$STRUCTURE_ROOT/provenance/songformbench-bc8.jsonl" \
+            --provenance "$STRUCTURE_ROOT/provenance/songformbench-bc8-selection.json"
+
+      - name: Acquire exact BC8 dataset-published audio and hash it
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$DATA_VENV/bin/python" - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from huggingface_hub import hf_hub_download
+
+          root = Path(os.environ['STRUCTURE_ROOT'])
+          dataset_root = root / 'dataset'
+          selected = [
+              json.loads(line)
+              for line in (root / 'provenance/songformbench-bc8.jsonl').read_text().splitlines()
+              if line.strip()
+          ]
+
+          def sha256(path: Path) -> str:
+              digest = hashlib.sha256()
+              with path.open('rb') as handle:
+                  for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          files = []
+          for entry in selected:
+              relative = str(entry['audio_path'])
+              downloaded = Path(
+                  hf_hub_download(
+                      repo_id=os.environ['SFB_REPO'],
+                      repo_type='dataset',
+                      revision=os.environ['SFB_REVISION'],
+                      filename=relative,
+                      local_dir=str(dataset_root),
+                  )
+              )
+              files.append(
+                  {
+                      'source_id': entry['id'],
+                      'source_subset': entry['subset'],
+                      'relative_path': relative,
+                      'sha256': sha256(downloaded),
+                      'size_bytes': downloaded.stat().st_size,
+                  }
+              )
+
+          provenance = {
+              'schema_version': 1,
+              'dataset': os.environ['SFB_REPO'],
+              'dataset_revision': os.environ['SFB_REVISION'],
+              'acquisition': 'huggingface_dataset_published_audio',
+              'semantic_audio_provenance': 'local_unknown',
+              'files': files,
+          }
+          destination = root / 'provenance/songformbench-bc8-audio.json'
+          destination.write_text(json.dumps(provenance, indent=2) + '\n')
+          print(json.dumps(provenance, indent=2))
+          if len(files) != 8:
+              raise SystemExit(f'expected 8 audio files, acquired {len(files)}')
+          PY
+
+      - name: Build fixed BC8 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd backend
+          "$DATA_VENV/bin/python" -m evaluation.analysis_v3.structure.datasets.songformbench \
+            --index "$STRUCTURE_ROOT/provenance/songformbench-bc8.jsonl" \
+            --audio-dir "$STRUCTURE_ROOT/dataset" \
+            --subset "$SFB_SOURCE_SUBSET" \
+            --audio-provenance local_unknown \
+            --output "$STRUCTURE_ROOT/provenance/songformbench-bc8-manifest.json"
 
       - name: Install pinned All-In-One research environment
         shell: bash
@@ -110,110 +257,6 @@ jobs:
             uv pip freeze --python "$AIO_VENV/bin/python"
           } > "$STRUCTURE_ROOT/provenance/environment.txt"
 
-      - name: Acquire pinned SongFormBench index
-        shell: bash
-        run: |
-          set -euo pipefail
-          "$AIO_VENV/bin/python" - <<'PY'
-          import os
-          from huggingface_hub import hf_hub_download
-
-          root = os.environ['STRUCTURE_ROOT'] + '/dataset'
-          path = hf_hub_download(
-              repo_id=os.environ['SFB_REPO'],
-              repo_type='dataset',
-              revision=os.environ['SFB_REVISION'],
-              filename='data/SongFormBench.jsonl',
-              local_dir=root,
-          )
-          print(path)
-          PY
-
-      - name: Freeze deterministic BC8 selection
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd backend
-          "$AIO_VENV/bin/python" -m evaluation.analysis_v3.structure.datasets.songformbench_subset \
-            --index "$STRUCTURE_ROOT/dataset/data/SongFormBench.jsonl" \
-            --subset BC \
-            --count 8 \
-            --upstream-revision "$SFB_REVISION" \
-            --output-index "$STRUCTURE_ROOT/provenance/songformbench-bc8.jsonl" \
-            --provenance "$STRUCTURE_ROOT/provenance/songformbench-bc8-selection.json"
-
-      - name: Acquire exact BC8 dataset-published audio and hash it
-        shell: bash
-        run: |
-          set -euo pipefail
-          "$AIO_VENV/bin/python" - <<'PY'
-          import hashlib
-          import json
-          import os
-          from pathlib import Path
-          from huggingface_hub import hf_hub_download
-
-          root = Path(os.environ['STRUCTURE_ROOT'])
-          dataset_root = root / 'dataset'
-          selected = [
-              json.loads(line)
-              for line in (root / 'provenance/songformbench-bc8.jsonl').read_text().splitlines()
-              if line.strip()
-          ]
-
-          def sha256(path: Path) -> str:
-              digest = hashlib.sha256()
-              with path.open('rb') as handle:
-                  for chunk in iter(lambda: handle.read(1024 * 1024), b''):
-                      digest.update(chunk)
-              return digest.hexdigest()
-
-          files = []
-          for entry in selected:
-              relative = str(entry['audio_path'])
-              downloaded = Path(
-                  hf_hub_download(
-                      repo_id=os.environ['SFB_REPO'],
-                      repo_type='dataset',
-                      revision=os.environ['SFB_REVISION'],
-                      filename=relative,
-                      local_dir=str(dataset_root),
-                  )
-              )
-              files.append(
-                  {
-                      'source_id': entry['id'],
-                      'relative_path': relative,
-                      'sha256': sha256(downloaded),
-                      'size_bytes': downloaded.stat().st_size,
-                  }
-              )
-
-          provenance = {
-              'schema_version': 1,
-              'dataset': os.environ['SFB_REPO'],
-              'dataset_revision': os.environ['SFB_REVISION'],
-              'acquisition': 'huggingface_dataset_published_audio',
-              'semantic_audio_provenance': 'local_unknown',
-              'files': files,
-          }
-          destination = root / 'provenance/songformbench-bc8-audio.json'
-          destination.write_text(json.dumps(provenance, indent=2) + '\n')
-          print(json.dumps(provenance, indent=2))
-          PY
-
-      - name: Build fixed BC8 manifest
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd backend
-          "$AIO_VENV/bin/python" -m evaluation.analysis_v3.structure.datasets.songformbench \
-            --index "$STRUCTURE_ROOT/provenance/songformbench-bc8.jsonl" \
-            --audio-dir "$STRUCTURE_ROOT/dataset" \
-            --subset BC \
-            --audio-provenance local_unknown \
-            --output "$STRUCTURE_ROOT/provenance/songformbench-bc8-manifest.json"
-
       - name: Run All-In-One on identical BC8 manifest
         shell: bash
         run: |
@@ -230,6 +273,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [ ! -x "$AIO_VENV/bin/python" ]; then
+            echo 'All-In-One environment was not created; no model artifacts to record.'
+            exit 0
+          fi
           "$AIO_VENV/bin/python" - <<'PY'
           import hashlib
           import json
@@ -297,6 +344,7 @@ jobs:
           assert aggregate.get('clips_scored') == 8, aggregate
           assert len(rows) == 8, len(rows)
           assert all(row.get('status') == 'scored' for row in rows), rows
+          assert all(row.get('dataset') == 'SongFormBench-CN' for row in rows), rows
           assert all(row.get('evaluation_validity') == 'no_declared_overlap' for row in rows), rows
           print(json.dumps(payload, indent=2))
           PY

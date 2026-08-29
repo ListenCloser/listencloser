@@ -15,6 +15,7 @@ from typing import Any
 
 _SELECTION_POLICY = "lexicographic_source_id_v1"
 _DATASET = "ASLP-lab/SongFormBench"
+_DEFAULT_SOURCE_SUBSET = "CN"
 
 
 def _annotation_end_seconds(entry: dict[str, Any], source_id: str) -> float:
@@ -34,11 +35,15 @@ def select_songformbench_subset(
     output_index_path: str | Path,
     provenance_path: str | Path,
     *,
-    subset: str = "BC",
+    subset: str = _DEFAULT_SOURCE_SUBSET,
     count: int = 8,
     upstream_revision: str | None = None,
 ) -> dict[str, Any]:
     """Write a fixed subset selected only by canonical source ID ordering.
+
+    ``subset`` is the literal value stored in SongFormBench.jsonl. The benchmark
+    documentation abbreviates SongFormBench-CN as BC, but this helper deliberately
+    does not silently translate benchmark abbreviations into source metadata.
 
     The canonical index SHA-256 plus ordered source IDs make the selection
     reproducible even when the upstream repository later moves.
@@ -101,7 +106,7 @@ def select_songformbench_subset(
     provenance = {
         "schema_version": 1,
         "dataset": _DATASET,
-        "subset": subset,
+        "source_subset": subset,
         "selection_policy": _SELECTION_POLICY,
         "requested_count": count,
         "selected_count": len(selected),
@@ -129,7 +134,11 @@ def main() -> None:
         help="Filtered JSONL consumed by the builder",
     )
     parser.add_argument("--provenance", required=True, help="Selection/provenance JSON output")
-    parser.add_argument("--subset", default="BC")
+    parser.add_argument(
+        "--subset",
+        default=_DEFAULT_SOURCE_SUBSET,
+        help="Literal canonical index subset value (default: CN; benchmark abbreviation: BC)",
+    )
     parser.add_argument("--count", type=int, default=8)
     parser.add_argument(
         "--upstream-revision",

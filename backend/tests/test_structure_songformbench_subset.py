@@ -13,7 +13,7 @@ from evaluation.analysis_v3.structure.datasets.songformbench_subset import (
 )
 
 
-def _entry(source_id: str, subset: str = "BC", *, terminal_label: str = "end") -> dict:
+def _entry(source_id: str, subset: str = "CN", *, terminal_label: str = "end") -> dict:
     return {
         "id": source_id,
         "subset": subset,
@@ -39,7 +39,7 @@ def test_subset_selection_is_source_id_deterministic_and_pins_index_hash(tmp_pat
         index,
         [
             _entry("BC_z"),
-            _entry("BHX_a", subset="BHX"),
+            _entry("BHX_a", subset="HarmonixSet"),
             _entry("BC_a"),
             _entry("BC_m"),
         ],
@@ -51,12 +51,13 @@ def test_subset_selection_is_source_id_deterministic_and_pins_index_hash(tmp_pat
         index,
         filtered,
         provenance_path,
-        subset="BC",
+        subset="CN",
         count=2,
         upstream_revision="example-revision",
     )
 
     assert result["selection_policy"] == "lexicographic_source_id_v1"
+    assert result["source_subset"] == "CN"
     assert result["selected_source_ids"] == ["BC_a", "BC_m"]
     assert result["canonical_index_sha256"] == hashlib.sha256(raw).hexdigest()
     assert result["upstream_revision"] == "example-revision"
@@ -94,6 +95,20 @@ def test_subset_selection_does_not_depend_on_canonical_index_row_order(tmp_path:
     assert first_result["canonical_index_sha256"] != second_result["canonical_index_sha256"]
 
 
+def test_subset_selection_does_not_silently_map_bc_to_cn(tmp_path: Path) -> None:
+    index = tmp_path / "SongFormBench.jsonl"
+    _write_index(index, [_entry("BC_a")])
+
+    with pytest.raises(ValueError, match="Requested 1 BC rows.*only 0"):
+        select_songformbench_subset(
+            index,
+            tmp_path / "selected.jsonl",
+            tmp_path / "selection.json",
+            subset="BC",
+            count=1,
+        )
+
+
 def test_subset_selection_fails_closed_on_bad_annotations_or_too_few_rows(tmp_path: Path) -> None:
     bad_index = tmp_path / "bad.jsonl"
     _write_index(bad_index, [_entry("BC_bad", terminal_label="chorus")])
@@ -108,7 +123,7 @@ def test_subset_selection_fails_closed_on_bad_annotations_or_too_few_rows(tmp_pa
 
     small_index = tmp_path / "small.jsonl"
     _write_index(small_index, [_entry("BC_only")])
-    with pytest.raises(ValueError, match="Requested 2 BC rows"):
+    with pytest.raises(ValueError, match="Requested 2 CN rows"):
         select_songformbench_subset(
             small_index,
             tmp_path / "small-selected.jsonl",
