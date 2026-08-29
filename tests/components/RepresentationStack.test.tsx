@@ -13,7 +13,11 @@ vi.mock("@/lib/representations", () => {
       description: "test waveform",
       temporal: true,
       available: () => true,
-      component: () => <input aria-label="Waveform local state" />,
+      component: ({ orientationCue = false }: { orientationCue?: boolean }) => (
+        <div data-testid="waveform-view" data-selection-emphasized={orientationCue ? "true" : undefined}>
+          <input aria-label="Waveform local state" />
+        </div>
+      ),
     },
     {
       id: "score",
@@ -21,7 +25,11 @@ vi.mock("@/lib/representations", () => {
       description: "test score",
       temporal: true,
       available: () => true,
-      component: () => <input aria-label="Score local state" />,
+      component: ({ orientationCue = false }: { orientationCue?: boolean }) => (
+        <div data-testid="score-view" data-selection-emphasized={orientationCue ? "true" : undefined}>
+          <input aria-label="Score local state" />
+        </div>
+      ),
     },
   ];
 
@@ -34,7 +42,15 @@ vi.mock("@/lib/representations", () => {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
+
+function mockAnimationFrame() {
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => (
+    window.setTimeout(() => callback(0), 1)
+  ));
+  vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => window.clearTimeout(id));
+}
 
 describe("RepresentationStack", () => {
   it("keeps visited representation DOM mounted across tab switches", async () => {
@@ -57,12 +73,9 @@ describe("RepresentationStack", () => {
     expect(screen.getByRole("textbox", { name: "Waveform local state" })).toHaveValue("preserved-view-state");
   });
 
-  it("briefly emphasizes the active Canvas without remounting its representation", () => {
+  it("briefly strengthens the active representation's real selection without remounting it", () => {
     vi.useFakeTimers();
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => (
-      window.setTimeout(() => callback(0), 1)
-    ));
-    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => window.clearTimeout(id));
+    mockAnimationFrame();
 
     render(
       <WorkspaceProvider>
@@ -70,22 +83,41 @@ describe("RepresentationStack", () => {
       </WorkspaceProvider>,
     );
 
-    const waveformSection = screen.getByLabelText("Waveform");
+    const waveformView = screen.getByTestId("waveform-view");
     const waveformState = screen.getByRole("textbox", { name: "Waveform local state" });
-    expect(waveformSection).not.toHaveClass("piece-active-view-oriented");
+    expect(waveformView).not.toHaveAttribute("data-selection-emphasized");
 
     act(() => {
       window.dispatchEvent(new Event(WORKSPACE_ORIENTATION_EVENT));
       vi.advanceTimersByTime(1);
     });
 
-    expect(waveformSection).toHaveClass("piece-active-view-oriented");
+    expect(waveformView).toHaveAttribute("data-selection-emphasized", "true");
     expect(screen.getByRole("textbox", { name: "Waveform local state" })).toBe(waveformState);
 
     act(() => {
-      vi.advanceTimersByTime(640);
+      vi.advanceTimersByTime(560);
     });
 
-    expect(waveformSection).not.toHaveClass("piece-active-view-oriented");
+    expect(waveformView).not.toHaveAttribute("data-selection-emphasized");
+  });
+
+  it("skips the transient cue for reduced-motion users", () => {
+    vi.useFakeTimers();
+    mockAnimationFrame();
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+
+    render(
+      <WorkspaceProvider>
+        <RepresentationStack signedIn canImport />
+      </WorkspaceProvider>,
+    );
+
+    act(() => {
+      window.dispatchEvent(new Event(WORKSPACE_ORIENTATION_EVENT));
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(screen.getByTestId("waveform-view")).not.toHaveAttribute("data-selection-emphasized");
   });
 });
