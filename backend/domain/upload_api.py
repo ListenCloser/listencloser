@@ -27,7 +27,7 @@ _STORAGE_BUCKET = "artifacts"
 _PENDING_SEGMENT = "pending"
 _ALLOWED_AUDIO_EXTENSIONS = {"wav", "mp3", "m4a", "flac", "ogg", "aac"}
 _PENDING_BASENAME = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]+$")
-_DEFAULT_MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+_DEFAULT_MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
 class CreateUploadIntentBody(BaseModel):
@@ -73,6 +73,13 @@ def _max_upload_bytes() -> int:
     return value
 
 
+def _upload_limit_label(max_bytes: int) -> str:
+    mebibyte = 1024 * 1024
+    if max_bytes >= mebibyte:
+        return f"{max_bytes / mebibyte:g} MB"
+    return f"{max_bytes} bytes"
+
+
 def _audio_descriptor(filename: str, byte_size: int, content_type: str | None) -> tuple[str, str]:
     safe_name = Path(filename).name
     if not safe_name or safe_name != filename:
@@ -84,7 +91,10 @@ def _audio_descriptor(filename: str, byte_size: int, content_type: str | None) -
 
     max_bytes = _max_upload_bytes()
     if byte_size > max_bytes:
-        raise HTTPException(status_code=413, detail="File exceeds upload size limit")
+        raise HTTPException(
+            status_code=413,
+            detail=f"Audio files must be {_upload_limit_label(max_bytes)} or smaller",
+        )
 
     guessed = mimetypes.guess_type(safe_name)[0]
     mime_type = guessed or content_type or "application/octet-stream"
