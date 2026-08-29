@@ -10,6 +10,10 @@ from typing import Any
 
 from .base import StructureAdapter, StructureMetadata, StructureResult
 
+_SONGFORMER_RELEASED_TRAINING_FAMILIES = (
+    "HarmonixSet,SongFormDB-HX,SongFormDB-Ext,SongFormDB-Hook,SongFormDB-Gem"
+)
+
 
 def _csv_env(name: str, default: str = "") -> tuple[str, ...]:
     return tuple(
@@ -126,7 +130,7 @@ class SongFormerStructureAdapter(StructureAdapter):
             checkpoint_name=self.model_id,
             training_datasets=_csv_env(
                 "STRUCTURE_SONGFORMER_TRAINING_DATASETS",
-                "HarmonixSet",
+                _SONGFORMER_RELEASED_TRAINING_FAMILIES,
             ),
             held_out_datasets=_csv_env("STRUCTURE_SONGFORMER_HELD_OUT_DATASETS"),
             training_partition=os.environ.get("STRUCTURE_SONGFORMER_TRAINING_PARTITION") or None,
@@ -134,8 +138,11 @@ class SongFormerStructureAdapter(StructureAdapter):
             split_source=os.environ.get("STRUCTURE_SONGFORMER_SPLIT_SOURCE") or None,
             notes=(
                 "Official loading requires a local model snapshot on sys.path plus "
-                "SONGFORMER_LOCAL_DIR and trust_remote_code. The default provenance marks "
-                "HarmonixSet as training-overlapping; override only with checkpoint-specific "
-                "published split evidence. Checkpoint/commercial-use licensing requires review."
+                "SONGFORMER_LOCAL_DIR and trust_remote_code. The one-click model card does not "
+                "identify the exact released training mixture, while published SongFormer "
+                "variants use HX with optional E/H/G SongFormDB families. Default provenance "
+                "therefore treats every released training family as potentially overlapping; "
+                "override only with checkpoint-specific lineage evidence. Checkpoint/commercial-"
+                "use licensing also requires separate review."
             ),
         )
