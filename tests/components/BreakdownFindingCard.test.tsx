@@ -47,6 +47,7 @@ function finding(overrides: Partial<TemporalFinding> = {}) {
   const source: TemporalFinding = {
     id: "melody-peak",
     sourceInsightId: "source-insight",
+    supportInsightIds: ["source-insight"],
     kind: "melody_register_peak",
     category: "melody",
     startSeconds: 0.2,
