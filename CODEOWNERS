@@ -1,7 +1,16 @@
-# Default reviewers for all changes.
+# Default reviewer for all changes.
 * @gr-rr
 
-# Backend security-critical paths — require the security test to stay green.
+# Security/runtime/control-plane paths. These explicit entries are intentional:
+# they make high-contention surfaces visible even though the default owner is
+# currently the same person.
 /backend/ @gr-rr
-/.github/workflows/ @gr-rr
-/docs/AGENTS.md @gr-rr
+/supabase/migrations/ @gr-rr
+/.github/ @gr-rr
+/AGENTS.md @gr-rr
+/CODEOWNERS @gr-rr
+/scripts/check_merge_evidence.py @gr-rr
+/scripts/check_actions_pinned.py @gr-rr
+/scripts/check.sh @gr-rr
+/scripts/deploy.sh @gr-rr
+/scripts/deploy-preflight.sh @gr-rr
