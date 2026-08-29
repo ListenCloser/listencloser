@@ -14,6 +14,7 @@ from evaluation.analysis_v3.structure.adapters.base import (
     StructureResult,
 )
 from evaluation.analysis_v3.structure.adapters.external_json import ExternalJsonStructureAdapter
+from evaluation.analysis_v3.structure.adapters.songformer import SongFormerStructureAdapter
 from evaluation.analysis_v3.structure.datasets.songformbench import (
     build_songformbench_index_manifest,
     build_songformbench_manifest,
@@ -122,6 +123,26 @@ def test_training_overlap_is_withheld_before_inference(tmp_path: Path):
     assert adapter.analyze_calls == 0
 
 
+def test_songformbench_bhx_is_treated_as_harmonix_overlap(tmp_path: Path):
+    adapter = FakeStructureAdapter(
+        StructureMetadata(
+            candidate="overlap",
+            engine="fake",
+            training_datasets=("HarmonixSet",),
+        )
+    )
+    result = run_structure_evaluation(
+        "fake",
+        str(_manifest(tmp_path, dataset="SongFormBench-BHX")),
+        adapter=adapter,
+    )
+
+    row = result["rows"][0]
+    assert row["status"] == "withheld_training_overlap"
+    assert row["evaluation_validity"] == "not_independent"
+    assert adapter.analyze_calls == 0
+
+
 def test_training_overlap_override_is_scored_but_labeled(tmp_path: Path):
     adapter = FakeStructureAdapter(
         StructureMetadata(
@@ -161,6 +182,22 @@ def test_explicit_held_out_partition_is_distinguished_from_unknown_overlap(tmp_p
 
     assert result["rows"][0]["status"] == "scored"
     assert result["rows"][0]["evaluation_validity"] == "independent_held_out"
+
+
+def test_songformer_default_metadata_fails_closed_on_released_training_families(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.delenv("STRUCTURE_SONGFORMER_TRAINING_DATASETS", raising=False)
+    metadata = SongFormerStructureAdapter().metadata()
+
+    assert set(metadata.training_datasets) == {
+        "HarmonixSet",
+        "SongFormDB-HX",
+        "SongFormDB-Ext",
+        "SongFormDB-Hook",
+        "SongFormDB-Gem",
+    }
+    assert metadata.checkpoint_license is None
 
 
 def test_missing_audio_is_reported_without_inference(tmp_path: Path):
