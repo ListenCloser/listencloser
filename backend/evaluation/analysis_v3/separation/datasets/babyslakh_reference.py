@@ -42,11 +42,7 @@ def _safe_selected_relative_path(member_name: str, track_id: str) -> Path | None
     parts = relative.parts
     if parts in {("mix.wav",), ("mix.flac",), ("metadata.yaml",)}:
         return Path(*parts)
-    if (
-        len(parts) == 2
-        and parts[0] == "stems"
-        and Path(parts[1]).suffix.lower() in _AUDIO_SUFFIXES
-    ):
+    if len(parts) == 2 and parts[0] == "stems" and Path(parts[1]).suffix.lower() in _AUDIO_SUFFIXES:
         return Path(*parts)
     return None
 
@@ -70,8 +66,7 @@ def _source_audio_path(track_dir: Path, source_id: str) -> Path | None:
 def _has_isolated_audio(track_dir: Path) -> bool:
     stems_dir = track_dir / "stems"
     return stems_dir.is_dir() and any(
-        path.is_file() and path.suffix.lower() in _AUDIO_SUFFIXES
-        for path in stems_dir.iterdir()
+        path.is_file() and path.suffix.lower() in _AUDIO_SUFFIXES for path in stems_dir.iterdir()
     )
 
 
@@ -228,9 +223,7 @@ def build_reference_stems(
         counts[target] = len(sources)
 
     if not references:
-        extracted = sorted(
-            path.name for path in (track_dir / "stems").iterdir() if path.is_file()
-        )
+        extracted = sorted(path.name for path in (track_dir / "stems").iterdir() if path.is_file())
         classes = {
             str(source_id): raw_info.get("inst_class")
             for source_id, raw_info in source_metadata.items()
