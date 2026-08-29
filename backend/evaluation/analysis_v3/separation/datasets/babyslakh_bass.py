@@ -113,8 +113,9 @@ def bass_reference_midis(track_dir: Path) -> list[Path]:
         instrument_class = str(raw_info.get("inst_class") or "").strip().lower()
         if "bass" not in instrument_class or bool(raw_info.get("is_drum")):
             continue
-        if raw_info.get("midi_saved") is False:
-            continue
+        # The released BabySlakh archive is file-authoritative for aligned MIDI
+        # existence: some metadata marks midi_saved false while distributing the
+        # corresponding source MIDI. The archive checksum guards identity.
         midi_path = track_dir / "MIDI" / f"{source_id}.mid"
         if midi_path.is_file():
             paths.append(midi_path)

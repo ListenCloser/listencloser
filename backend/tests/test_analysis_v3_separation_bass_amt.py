@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 from backend.evaluation.analysis_v3.multitrack_transcription.metrics import MatchMetrics
 from backend.evaluation.analysis_v3.separation import bass_amt
 from backend.evaluation.analysis_v3.separation.datasets import babyslakh_bass
@@ -48,8 +49,8 @@ def test_compare_mixture_vs_bass_stem_runs_same_basic_pitch_contract(monkeypatch
         excerpt_seconds=30.0,
     )
 
-    assert comparison.onset_f1_delta == 0.5
-    assert comparison.onset_offset_f1_delta == 0.3
+    assert comparison.onset_f1_delta == pytest.approx(0.5)
+    assert comparison.onset_offset_f1_delta == pytest.approx(0.3)
     assert calls == [((100,), 30.0), ((2, 100), 30.0)]
 
 
@@ -124,8 +125,8 @@ def test_bass_reference_selection_uses_metadata_and_source_midi(monkeypatch, tmp
         "_load_metadata",
         lambda path: {
             "stems": {
-                "S00": {"inst_class": "Bass", "is_drum": False, "midi_saved": True},
-                "S01": {"inst_class": "Piano", "is_drum": False, "midi_saved": True},
+                "S00": {"inst_class": "Bass", "is_drum": False, "midi_saved": False},
+                "S01": {"inst_class": "Piano", "is_drum": False, "midi_saved": False},
             }
         },
     )
