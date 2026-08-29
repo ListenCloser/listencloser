@@ -30,12 +30,13 @@ def _window(
     }
 
 
-def _evidence(windows: list[dict]):
+def _evidence(windows: list[dict], *, coverage: dict | None = None):
     source_version_id = uuid4()
     evidence = RhythmDensityEvidence(
         evidence_id=uuid4(),
         source_version_id=source_version_id,
         windows=windows,
+        coverage=coverage,
         pulse_provenance={"engine": "beat_this", "engine_version": "1.1.0"},
     )
     return evidence, source_version_id
@@ -268,6 +269,65 @@ def test_span_edges_within_one_density_hop_are_supported():
     assert measurement.subject_window_count == 2
     assert measurement.subject_value == 2.0
     assert measurement.comparison_value == 1.0
+
+
+def test_complete_persistence_coverage_is_preserved_and_validated():
+    coverage = {
+        "policy_version": "complete_series_v1",
+        "total_generated_window_count": 2,
+        "stored_window_count": 2,
+        "start_seconds": 0.0,
+        "end_seconds": 3.0,
+        "truncated": False,
+    }
+    evidence, source_version_id = _evidence(
+        [
+            _window(0.0, 2.0, 1.0),
+            _window(1.0, 3.0, 3.0),
+        ],
+        coverage=coverage,
+    )
+
+    result = compare_rhythm_density_spans(
+        evidence,
+        subject_locator=_locator(source_version_id, 0.0, 3.0),
+        comparison_locator=_locator(source_version_id, 0.0, 2.0),
+    )
+
+    measurement = _measurement(result)
+    assert result.sufficiency.status == "supported"
+    assert measurement.subject_value == 2.0
+    assert result.provenance["persistence_coverage"] == coverage
+
+
+def test_inconsistent_complete_persistence_coverage_withholds():
+    evidence, source_version_id = _evidence(
+        [
+            _window(0.0, 2.0, 1.0),
+            _window(1.0, 3.0, 3.0),
+        ],
+        coverage={
+            "policy_version": "complete_series_v1",
+            "total_generated_window_count": 3,
+            "stored_window_count": 2,
+            "start_seconds": 0.0,
+            "end_seconds": 99.0,
+            "truncated": True,
+        },
+    )
+
+    result = compare_rhythm_density_spans(
+        evidence,
+        subject_locator=_locator(source_version_id, 0.0, 3.0),
+        comparison_locator=_locator(source_version_id, 0.0, 2.0),
+    )
+
+    assert result.sufficiency.status == "withhold"
+    assert result.measurements == []
+    reasons = " ".join(result.sufficiency.reasons)
+    assert "generated window count" in reasons
+    assert "marked truncated" in reasons
+    assert "coverage end disagrees" in reasons
 
 
 def test_boundary_aligned_complete_windows_are_supported():
