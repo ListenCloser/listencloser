@@ -1,1 +1,0 @@
-This result-bearing branch is temporarily stacked on #550 only so the fixed BC8 selector is available to its CI run. Before merge, refresh it onto the `main` commit containing #550 and verify that the remaining diff is limited to the BC8 execution workflow, run contract, and committed non-audio result evidence.
