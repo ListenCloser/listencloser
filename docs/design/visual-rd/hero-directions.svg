@@ -7,14 +7,12 @@
   <text x="54" y="108" fill="#f0eadf" font-family="Georgia, serif" font-size="44">Current hypotheses, not approvals</text>
   <text x="54" y="140" fill="#8f897e" font-family="system-ui" font-size="14">The winner must communicate hello-ai’s product logic without relying on generic premium-AI aesthetics.</text>
 
-  <!-- Shared Time -->
   <g transform="translate(54 188)">
     <rect width="850" height="480" rx="22" fill="#1d1c18" stroke="#d6b56d" stroke-opacity=".38"/>
     <rect x="22" y="20" width="158" height="28" rx="14" fill="#d6b56d"/>
     <text x="101" y="39" text-anchor="middle" fill="#211f1b" font-family="system-ui" font-size="11" font-weight="700">PROTOTYPE NEXT</text>
     <text x="28" y="92" fill="#f0eadf" font-family="Georgia, serif" font-size="40">Shared Time / Evidence Ribbon</text>
     <text x="28" y="123" fill="#a09a8f" font-family="system-ui" font-size="14">One real musical moment aligned across waveform, notes, notation, structure, and explanation.</text>
-
     <g transform="translate(34 158)">
       <g font-family="ui-monospace" font-size="10" fill="#777168"><text x="0" y="24">AUDIO</text><text x="0" y="82">NOTES</text><text x="0" y="140">SCORE</text><text x="0" y="198">STRUCTURE</text><text x="0" y="256">EVIDENCE</text></g>
       <path d="M95 24 C110 24 115 7 130 7 C145 7 150 42 165 42 C180 42 185 0 200 0 C215 0 220 37 235 37 C250 37 255 16 270 16 C285 16 290 45 305 45 C320 45 325 6 340 6 C355 6 360 35 375 35 C390 35 395 17 410 17 C425 17 430 42 445 42 C460 42 465 3 480 3 C495 3 500 37 515 37 C530 37 535 18 550 18 C565 18 570 31 585 31 C600 31 605 23 620 23" fill="none" stroke="#e9e2d6" stroke-width="2.2"/>
@@ -26,28 +24,21 @@
       <text x="346" y="246" fill="#8f897e" font-family="ui-monospace" font-size="9.5">EVIDENCE · 00:18.4</text><text x="346" y="263" fill="#f0eadf" font-family="system-ui" font-size="11.5">Activity increases around this moment.</text>
       <line x1="390" y1="-6" x2="390" y2="284" stroke="#d6b56d" stroke-width="2"/><circle cx="390" cy="-5" r="4" fill="#d6b56d"/>
     </g>
-
     <text x="28" y="430" fill="#d6b56d" font-family="ui-monospace" font-size="11">WHY THIS CURRENTLY LEADS THE NEXT TEST</text>
     <text x="28" y="455" fill="#c6c0b5" font-family="system-ui" font-size="13">Product-specific invariant: everything refers to the same musical time. Use real demo data; do not literal-morph representations.</text>
   </g>
 
-  <!-- Signal Landscape -->
   <g transform="translate(930 188)">
     <rect width="456" height="226" rx="18" fill="#1d1c18" stroke="#f0eadf" stroke-opacity=".1"/>
     <text x="22" y="32" fill="#d6b56d" font-family="ui-monospace" font-size="11">PROTOTYPE / MODIFY</text>
     <text x="22" y="66" fill="#f0eadf" font-family="Georgia, serif" font-size="27">Signal Landscape</text>
-    <g transform="translate(220 48)">
-      <path d="M0 125 C38 104 58 111 86 86 C114 61 137 76 165 49 C191 24 212 34 230 9" fill="none" stroke="#f0eadf" stroke-opacity=".7"/>
-      <path d="M0 139 C40 118 60 125 88 100 C116 75 139 90 167 63 C193 38 214 48 232 23" fill="none" stroke="#d6b56d" stroke-opacity=".5"/>
-      <path d="M0 153 C42 132 62 139 90 114 C118 89 141 104 169 77 C195 52 216 62 234 37" fill="none" stroke="#f0eadf" stroke-opacity=".25"/>
-    </g>
+    <g transform="translate(220 48)"><path d="M0 125 C38 104 58 111 86 86 C114 61 137 76 165 49 C191 24 212 34 230 9" fill="none" stroke="#f0eadf" stroke-opacity=".7"/><path d="M0 139 C40 118 60 125 88 100 C116 75 139 90 167 63 C193 38 214 48 232 23" fill="none" stroke="#d6b56d" stroke-opacity=".5"/><path d="M0 153 C42 132 62 139 90 114 C118 89 141 104 169 77 C195 52 216 62 234 37" fill="none" stroke="#f0eadf" stroke-opacity=".25"/></g>
     <text x="22" y="108" fill="#9d968a" font-family="system-ui" font-size="12.5">Keep: topology, palette, negative space.</text>
     <text x="22" y="131" fill="#9d968a" font-family="system-ui" font-size="12.5">Problem: still plausible for AI/data/finance/climate.</text>
     <text x="22" y="158" fill="#777168" font-family="system-ui" font-size="11.5">Best future role: secondary texture or truthful data-derived grammar.</text>
     <text x="22" y="191" fill="#777168" font-family="system-ui" font-size="11.5">Motion simplified: group drift + one-shot trace; no 18 independent loops.</text>
   </g>
 
-  <!-- references -->
   <g transform="translate(930 438)">
     <rect width="456" height="230" rx="18" fill="#1d1c18" stroke="#f0eadf" stroke-opacity=".1"/>
     <text x="22" y="32" fill="#d6b56d" font-family="ui-monospace" font-size="11">REFERENCE POOL</text>
@@ -60,17 +51,9 @@
     <text x="22" y="219" fill="#777168" font-family="system-ui" font-size="10.5">References enter the SOT only when materially stronger for a real product need.</text>
   </g>
 
-  <!-- priority footer -->
   <g transform="translate(54 710)">
     <text x="0" y="0" fill="#f0eadf" font-family="Georgia, serif" font-size="28">Design-engineering priority is signed-in coherence, not hero spectacle</text>
     <rect x="0" y="30" width="1332" height="124" rx="16" fill="#211f1b" stroke="#f0eadf" stroke-opacity=".08"/>
-    <g font-family="system-ui" font-size="13">
-      <text x="22" y="62" fill="#d6b56d">1 · Upload → real waveform continuity</text>
-      <text x="350" y="62" fill="#d6b56d">2 · Truthful evidence-arriving states</text>
-      <text x="704" y="62" fill="#d6b56d">3 · Shared playhead coherence</text>
-      <text x="1020" y="62" fill="#d6b56d">4 · Evidence-linked jumps</text>
-      <text x="22" y="95" fill="#a49d91">Hero may be excellent, but it loses if the signed-in app still feels like unrelated widgets.</text>
-      <text x="22" y="122" fill="#a49d91">Stable identity candidate: “everything refers to the same musical time.”</text>
-    </g>
+    <g font-family="system-ui" font-size="13"><text x="22" y="62" fill="#d6b56d">1 · Upload → real waveform continuity</text><text x="350" y="62" fill="#d6b56d">2 · Truthful evidence-arriving states</text><text x="704" y="62" fill="#d6b56d">3 · Shared playhead coherence</text><text x="1020" y="62" fill="#d6b56d">4 · Evidence-linked jumps</text><text x="22" y="95" fill="#a49d91">Hero may be excellent, but it loses if the signed-in app still feels like unrelated widgets.</text><text x="22" y="122" fill="#a49d91">Stable identity candidate: “everything refers to the same musical time.”</text></g>
   </g>
 </svg>
