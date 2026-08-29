@@ -33,8 +33,14 @@ jobs:
           cache-dependency-glob: 'backend/uv.lock'
       - name: Sync locked backend
         run: uv sync --project backend --locked
-      - name: Verify ffmpeg
-        run: ffmpeg -version | head -1
+      - name: Install ffmpeg and ffprobe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -version
+          ffprobe -version
       - name: Add evaluation-only packages
         run: |
           uv pip install --python backend/.venv/bin/python \
