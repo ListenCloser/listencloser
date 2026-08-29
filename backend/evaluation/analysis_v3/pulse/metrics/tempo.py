@@ -103,8 +103,7 @@ def compute_tempo_accuracy(
 
     tolerance = tolerance_pct / 100.0
     strict_correct = [
-        r.relative_error_pct is not None and r.relative_error_pct <= tolerance_pct
-        for r in valid
+        r.relative_error_pct is not None and r.relative_error_pct <= tolerance_pct for r in valid
     ]
     octave_flags = [
         check_octave_errors(r.predicted_bpm, r.reference_bpm, tolerance)
@@ -137,9 +136,7 @@ def compute_tempo_accuracy(
             np.mean([r.absolute_error for r in valid if r.absolute_error is not None]), 2
         ),
         "mean_relative_error_pct": round(
-            np.mean(
-                [r.relative_error_pct for r in valid if r.relative_error_pct is not None]
-            ),
+            np.mean([r.relative_error_pct for r in valid if r.relative_error_pct is not None]),
             2,
         ),
     }
