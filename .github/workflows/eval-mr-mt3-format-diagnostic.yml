@@ -8,7 +8,7 @@ on:
       - '.github/workflows/eval-mr-mt3-format-diagnostic.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   format:
@@ -26,10 +26,16 @@ jobs:
           cache-dependency-glob: 'backend/uv.lock'
       - name: Sync locked backend
         run: uv sync --project backend --locked
-      - name: Show exact Ruff formatter diff
+      - name: Persist exact Ruff formatter output
         shell: bash
         run: |
           set -euo pipefail
           cd backend
           uv run ruff format evaluation/analysis_v3/multitrack_transcription/persistent_runtime.py
+          git diff --check
           git diff -- evaluation/analysis_v3/multitrack_transcription/persistent_runtime.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add evaluation/analysis_v3/multitrack_transcription/persistent_runtime.py
+          git commit -m 'chore(eval): apply exact Ruff formatter'
+          git push origin HEAD:eval/mr-mt3-format-diagnostic
