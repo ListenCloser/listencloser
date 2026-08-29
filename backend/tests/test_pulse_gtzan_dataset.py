@@ -49,15 +49,9 @@ def test_extract_gtzan_manifest_is_deterministic_and_does_not_redistribute_audio
 ):
     annotations = tmp_path / "annotations"
     annotations.mkdir()
-    (annotations / "gtzan_blues_00000.beats").write_text(
-        "0.0\t1\n0.5\t2\n1.0\t3\n1.5\t4\n"
-    )
-    (annotations / "gtzan_blues_00001.beats").write_text(
-        "0.0\t1\n0.6\t2\n1.2\t3\n1.8\t4\n"
-    )
-    (annotations / "gtzan_jazz_00000.beats").write_text(
-        "0.0\t1\n0.4\t2\n0.8\t3\n1.2\t4\n"
-    )
+    (annotations / "gtzan_blues_00000.beats").write_text("0.0\t1\n0.5\t2\n1.0\t3\n1.5\t4\n")
+    (annotations / "gtzan_blues_00001.beats").write_text("0.0\t1\n0.6\t2\n1.2\t3\n1.8\t4\n")
+    (annotations / "gtzan_jazz_00000.beats").write_text("0.0\t1\n0.4\t2\n0.8\t3\n1.2\t4\n")
     output = tmp_path / "gtzan.json"
 
     manifest = extract_gtzan_annotations(
