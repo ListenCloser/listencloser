@@ -9,6 +9,7 @@ import "./visual-language-v6.css";
 import "./mobile-workspace.css";
 import "./readiness-polish-v6.css";
 import "./breakdown-v3.css";
+import "./breakdown-actions-v3.css";
 import { Geist } from "next/font/google";
 import MSWInit from "@/components/MSWInit";
 import AuthProvider from "@/components/AuthProvider";
