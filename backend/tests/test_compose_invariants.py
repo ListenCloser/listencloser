@@ -32,9 +32,9 @@ def test_backend_service_receives_upload_size_policy() -> None:
     """Direct-upload authorization must use the configured deployment limit."""
     compose = _load_compose()
     backend_env = compose["services"]["backend"]["environment"]
-    assert backend_env["MAX_UPLOAD_BYTES"] == "${MAX_UPLOAD_BYTES:-26214400}", (
-        "Backend service must receive MAX_UPLOAD_BYTES with the documented 25 MB fallback."
-    )
+    expected = "${MAX_UPLOAD_BYTES:-26214400}"
+    message = "Backend service must receive MAX_UPLOAD_BYTES with the documented 25 MB fallback."
+    assert backend_env["MAX_UPLOAD_BYTES"] == expected, message
 
 
 def test_worker_service_does_not_have_llm_credentials() -> None:
