@@ -17,6 +17,8 @@ checkpoint is `harmonix-all`, configurable with `STRUCTURE_ALLIN1_MODEL`.
 
 `harmonix-all` is an ensemble across HarmonixSet folds. The runner therefore treats matching
 HarmonixSet-family rows as training-overlapping unless explicit held-out provenance says otherwise.
+Canonical BHX names such as `SongFormBench-BHX` are normalized to the Harmonix family so naming
+aliases cannot bypass the gate.
 
 ### `songformer`
 
@@ -31,9 +33,13 @@ The adapter mirrors the official Hugging Face one-click contract:
 This remains research-only. Remote-code trust, checkpoint/commercial-use licensing, CPU/ARM
 feasibility, model-load cost, RAM/VRAM, and training-corpus overlap remain adoption gates.
 
-The default provenance conservatively marks HarmonixSet as training-overlapping. Checkpoint-specific
-published split evidence can be supplied with the `STRUCTURE_SONGFORMER_*` provenance environment
-variables before treating any same-family result as independent.
+The one-click checkpoint does not expose sufficiently precise training-lineage metadata to infer one
+published variant safely. Published SongFormer variants use Harmonix/HX with optional SongFormDB
+Ext/Hook/Gem families, so the default provenance treats the **union of those released training
+families** as potentially overlapping. Narrow that list or declare a held-out partition with the
+`STRUCTURE_SONGFORMER_*` provenance variables only when checkpoint-specific evidence supports it.
+The repository code license and checkpoint license are also tracked separately; an unresolved
+checkpoint license must not be inferred from the repository's CC BY 4.0 code license.
 
 ### `external_json`
 
