@@ -87,6 +87,9 @@ function PassageCompareForSource({
     : null;
   const groundedFinding = result?.status === "supported" ? result.finding : null;
   const unavailableMessage = result ? unavailableCopy(result.status) : null;
+  const protocolError = result?.status === "supported" && !result.finding
+    ? "The comparison response was incomplete and could not be shown."
+    : null;
 
   const invalidatePendingRequest = () => {
     requestGeneration.current += 1;
@@ -222,6 +225,7 @@ function PassageCompareForSource({
               : "Select a different exact passage in the Waveform or Piano Roll to use as passage B."}
           </p>
           {unavailableMessage && <p>{unavailableMessage}</p>}
+          {protocolError && <p>{protocolError}</p>}
           {requestState === "error" && <p>The comparison request could not be completed.</p>}
           <div className="inspector-breakdown-actions">
             {comparisonRange && (

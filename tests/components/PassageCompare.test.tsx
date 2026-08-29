@@ -170,6 +170,25 @@ describe("PassageCompare", () => {
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
   });
 
+  it("fails closed when a supported response is missing its grounded finding", async () => {
+    const user = userEvent.setup();
+    mocks.comparePerceptualSpans.mockResolvedValue({
+      status: "supported",
+      evidence_report_version_id: "00000000-0000-0000-0000-000000000010",
+      finding: null,
+      reasons: [],
+    });
+    const view = render(<PassageCompare />);
+
+    await user.click(screen.getByRole("button", { name: "Use selection as reference" }));
+    mocks.workspace.selection = selection(20, 24);
+    view.rerender(<PassageCompare />);
+    await user.click(screen.getByRole("button", { name: "Check against selected passage" }));
+
+    expect(await screen.findByText(/comparison response was incomplete/i)).toBeVisible();
+    expect(screen.queryByRole("article")).not.toBeInTheDocument();
+  });
+
   it("invalidates a late response when the user cancels an in-flight comparison", async () => {
     const user = userEvent.setup();
     let resolveRequest: ((value: ReturnType<typeof supportedResponse>) => void) | undefined;
