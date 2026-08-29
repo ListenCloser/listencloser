@@ -1,0 +1,113 @@
+name: Refactor audio processing boundary
+
+on:
+  push:
+    branches:
+      - refactor/extract-audio-processing
+
+permissions:
+  contents: write
+
+jobs:
+  rewrite-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refactor/extract-audio-processing
+
+      - name: Audit audio helper references
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          for path in sorted(Path('.').rglob('*.py')):
+              if '.venv' in path.parts:
+                  continue
+              text = path.read_text(encoding='utf-8', errors='ignore')
+              if 'enhance_audio' in text or 'decode_audio_to_wav' in text:
+                  print(path)
+                  for number, line in enumerate(text.splitlines(), 1):
+                      if 'enhance_audio' in line or 'decode_audio_to_wav' in line:
+                          print(f'  {number}: {line.strip()}')
+          PY
+
+      - name: Extract exact FFmpeg block
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('backend/music_features.py')
+          text = path.read_text()
+
+          subprocess_import = 'import subprocess\n'
+          timeout_block = '# Subprocess timeout (seconds)\n_FFMPEG_TIMEOUT = 120\n\n'
+          start_marker = (
+              '# ---------------------------------------------------------------------------\n'
+              '# Audio cleanup (ffmpeg pipeline, hidden preprocessing step)\n'
+              '# ---------------------------------------------------------------------------\n'
+          )
+          end_marker = (
+              '# ---------------------------------------------------------------------------\n'
+              '# Format conversion (MIDI <-> MusicXML)\n'
+              '# ---------------------------------------------------------------------------\n'
+          )
+          import_anchor = 'import soundfile as sf\n\n'
+          compatibility_imports = (
+              'import soundfile as sf\n\n'
+              'from audio_processing import decode_audio_to_wav as decode_audio_to_wav\n'
+              'from audio_processing import enhance_audio as enhance_audio\n\n'
+          )
+
+          for name, needle in (
+              ('subprocess import', subprocess_import),
+              ('timeout block', timeout_block),
+              ('audio block start', start_marker),
+              ('format block start', end_marker),
+              ('third-party import anchor', import_anchor),
+          ):
+              count = text.count(needle)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one {name}; found {count}')
+
+          text = text.replace(subprocess_import, '', 1)
+          text = text.replace(timeout_block, '', 1)
+          text = text.replace(import_anchor, compatibility_imports, 1)
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          text = text[:start] + text[end:]
+          path.write_text(text)
+          PY
+          git diff --check
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.6'
+
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+
+      - name: Verify extraction
+        shell: bash
+        run: |
+          cd backend
+          uv run ruff check audio_processing.py music_features.py tests/test_audio_decode.py
+          uv run pytest tests/test_audio_decode.py -q
+
+      - name: Commit mechanical rewrite
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/music_features.py
+          git commit -m 'refactor: delegate audio processing helpers'
+          git push origin HEAD:refactor/extract-audio-processing
