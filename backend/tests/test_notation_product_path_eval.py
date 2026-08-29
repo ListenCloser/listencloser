@@ -6,7 +6,6 @@ import io
 from pathlib import Path
 
 import pretty_midi
-
 from evaluation import models, notation_eval
 
 
