@@ -107,12 +107,31 @@ jobs:
           test "${{ needs.frontend-tests.result }}" = "success"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 1
       - name: Require risk-relevant workflow evidence on exact PR head
         if: github.event_name == 'pull_request'
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          python3 scripts/check_merge_evidence.py
-          --repo "${{ github.repository }}"
-          --pr "${{ github.event.pull_request.number }}"
-          --sha "${{ github.event.pull_request.head.sha }}"
+        run: |
+          set -euo pipefail
+
+          # A PR may strengthen the merge classifier, but it must not be able to
+          # weaken the policy that approves that same PR. Run the protected base
+          # revision first, then the proposed head revision. The effective gate is
+          # therefore at least as strict as the policy already on main.
+          base_checker="$(mktemp)"
+          trap 'rm -f "$base_checker"' EXIT
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          git show "FETCH_HEAD:scripts/check_merge_evidence.py" > "$base_checker"
+
+          python3 "$base_checker" \
+            --repo "${{ github.repository }}" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --sha "${{ github.event.pull_request.head.sha }}"
+
+          python3 scripts/check_merge_evidence.py \
+            --repo "${{ github.repository }}" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --sha "${{ github.event.pull_request.head.sha }}"
