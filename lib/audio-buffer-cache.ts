@@ -44,7 +44,8 @@ export async function getDecodedAudio(url: string): Promise<AudioBuffer> {
     }
   })();
 
-  const ownedRequest = request.finally(() => {
+  let ownedRequest: Promise<AudioBuffer>;
+  ownedRequest = request.finally(() => {
     if (audioBufferInflight.get(url) === ownedRequest) {
       audioBufferInflight.delete(url);
     }
