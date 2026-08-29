@@ -1,0 +1,133 @@
+{
+  "experiment": "separation_musdb18_real_recording_v1",
+  "source_full_result_sha256": "a5499da8c0fddf61ffb5964305d8801570359e5f8e7bf9f8fa0d57f029b224a0",
+  "source_actions_artifact": {
+    "workflow_run_id": 33277448298,
+    "artifact_id": 9721997702,
+    "artifact_zip_sha256": "5fe358a637ffc012db248b9eabd915f746c50e335957cb69da1bd0ca2be156e9"
+  },
+  "dataset": {
+    "name": "MUSDB18 7-second preview",
+    "subset": "test",
+    "access": "musdb.DB(download=True, subsets='test')",
+    "sample_url": "https://github.com/sigsep/sigsep-mus-db/releases/download/v0.4.0/MUSDB18-7-STEMS.zip",
+    "usage_terms": "audio restricted to academic purposes per musdb documentation",
+    "audio_committed_or_uploaded": false,
+    "available_test_tracks": 50,
+    "evaluated_tracks": 50,
+    "download_and_eval_seconds": 223.413
+  },
+  "candidate": {
+    "name": "HTDemucs",
+    "demucs_version": "4.1.0",
+    "model": "htdemucs",
+    "model_signature": "955717e8",
+    "inference_shifts": 0,
+    "torch_version": "2.6.0+cpu",
+    "torch_num_threads": 2,
+    "device": "cpu",
+    "weight_artifact": {
+      "repository": "adefossez/HTDemucs",
+      "filename": "955717e8.safetensors",
+      "sha256": "d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd",
+      "size_mb": 80.13,
+      "download_seconds": 2.951,
+      "verification": "sha256_fail_closed"
+    }
+  },
+  "metric": {
+    "name": "SI-SDR gain over mixture baseline",
+    "implementation": "fast_bss_eval.si_sdr",
+    "zero_mean": true,
+    "clamp_db": 100.0,
+    "stereo_policy": "score channels independently and average; withhold silent reference channels"
+  },
+  "summary": {
+    "drums": {
+      "scored": 50,
+      "mean_delta_si_sdr_db": 13.3558,
+      "median_delta_si_sdr_db": 13.4134,
+      "min_delta_si_sdr_db": 4.0237,
+      "max_delta_si_sdr_db": 23.6036,
+      "improved": 50,
+      "degraded": 0,
+      "unchanged": 0
+    },
+    "bass": {
+      "scored": 50,
+      "mean_delta_si_sdr_db": 12.9033,
+      "median_delta_si_sdr_db": 14.313,
+      "min_delta_si_sdr_db": -27.1231,
+      "max_delta_si_sdr_db": 23.6753,
+      "improved": 47,
+      "degraded": 3,
+      "unchanged": 0
+    },
+    "other": {
+      "scored": 50,
+      "mean_delta_si_sdr_db": 8.9048,
+      "median_delta_si_sdr_db": 8.7463,
+      "min_delta_si_sdr_db": -4.043,
+      "max_delta_si_sdr_db": 19.6995,
+      "improved": 49,
+      "degraded": 1,
+      "unchanged": 0
+    },
+    "vocals": {
+      "scored": 50,
+      "mean_delta_si_sdr_db": 12.0349,
+      "median_delta_si_sdr_db": 13.1413,
+      "min_delta_si_sdr_db": -23.0183,
+      "max_delta_si_sdr_db": 26.4917,
+      "improved": 48,
+      "degraded": 2,
+      "unchanged": 0
+    }
+  },
+  "degraded_rows": [
+    {
+      "track": "Arise - Run Run Run",
+      "stem": "other",
+      "mixture_si_sdr_db": -2.0812,
+      "stem_si_sdr_db": -6.1241,
+      "delta_si_sdr_db": -4.043
+    },
+    {
+      "track": "Juliet's Rescue - Heartbeats",
+      "stem": "bass",
+      "mixture_si_sdr_db": -13.1661,
+      "stem_si_sdr_db": -14.6601,
+      "delta_si_sdr_db": -1.494
+    },
+    {
+      "track": "Motor Tapes - Shore",
+      "stem": "vocals",
+      "mixture_si_sdr_db": -11.4619,
+      "stem_si_sdr_db": -34.4803,
+      "delta_si_sdr_db": -23.0183
+    },
+    {
+      "track": "PR - Oh No",
+      "stem": "bass",
+      "mixture_si_sdr_db": -5.6573,
+      "stem_si_sdr_db": -24.1993,
+      "delta_si_sdr_db": -18.5421
+    },
+    {
+      "track": "Skelpolu - Resurrection",
+      "stem": "vocals",
+      "mixture_si_sdr_db": -5.1452,
+      "stem_si_sdr_db": -10.1065,
+      "delta_si_sdr_db": -4.9614
+    },
+    {
+      "track": "Tom McKenzie - Directions",
+      "stem": "bass",
+      "mixture_si_sdr_db": -6.5636,
+      "stem_si_sdr_db": -33.6867,
+      "delta_si_sdr_db": -27.1231
+    }
+  ],
+  "track_failures": [],
+  "success": true
+}
