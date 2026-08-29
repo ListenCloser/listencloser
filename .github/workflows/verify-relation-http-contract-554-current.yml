@@ -1,0 +1,42 @@
+name: Verify current relation HTTP contract 554
+
+on:
+  push:
+    branches: [verify/relation-http-contract-554-current]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Sync locked toolchains
+        run: |
+          uv sync --project backend --locked
+          npm ci
+      - name: Ruff current HTTP slice
+        run: uv run --project backend ruff check backend/domain/relation_api.py backend/domain/api_schemas.py backend/main.py backend/tests/test_relation_api.py backend/tests/test_api_surface.py
+      - name: Run current HTTP and relation tests
+        run: |
+          uv run --project backend python -m pytest \
+            backend/tests/test_relation_api.py \
+            backend/tests/test_api_surface.py \
+            backend/tests/test_openapi_contract.py \
+            backend/tests/test_relation_query.py \
+            backend/tests/test_relation_findings.py \
+            backend/tests/test_relation_observations.py -q
+      - name: Verify generated contract has no drift
+        run: npm run api:check
