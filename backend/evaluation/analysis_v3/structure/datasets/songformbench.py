@@ -176,9 +176,7 @@ def build_songformbench_index_manifest(
 
     root = Path(dataset_root).resolve()
     entries = [
-        json.loads(line)
-        for line in Path(index_path).read_text().splitlines()
-        if line.strip()
+        json.loads(line) for line in Path(index_path).read_text().splitlines() if line.strip()
     ]
     if not entries:
         raise ValueError(f"No SongFormBench entries found in {index_path}")
