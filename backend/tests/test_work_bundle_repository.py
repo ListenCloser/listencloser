@@ -33,7 +33,9 @@ class FakeQuery:
         return self
 
     def in_(self, column: str, values):
+        values = list(values)
         self.filters.append(("in", column, values))
+        self.client.in_filter_sizes.append((self.table, column, len(values)))
         return self
 
     def order(self, column: str, *, desc: bool = False):
@@ -66,6 +68,7 @@ class FakeClient:
     def __init__(self, rows=None):
         self.rows = rows or {}
         self.executed: list[str] = []
+        self.in_filter_sizes: list[tuple[str, str, int]] = []
 
     def table(self, table: str):
         return FakeQuery(self, table)
@@ -152,6 +155,20 @@ def test_bulk_descendant_reads_page_instead_of_truncating(monkeypatch):
     assert len(snapshot.versions_by_artifact[audio.id]) == 1
     assert len(snapshot.versions_by_artifact[midi.id]) == 2
     assert client.executed.count("artifact_versions") == 2
+
+
+def test_bulk_descendant_reads_bound_in_filter_sizes(monkeypatch):
+    client, _project, work, audio, midi, _workflow, _job = _fixture_graph()
+    monkeypatch.setattr("domain.work_bundle_repository._ID_CHUNK_SIZE", 1)
+
+    snapshot = WorkBundleRepository(client).load(work.id, "user-1")
+
+    assert snapshot is not None
+    assert len(snapshot.versions_by_artifact[audio.id]) == 1
+    assert len(snapshot.versions_by_artifact[midi.id]) == 2
+    assert client.executed.count("artifact_versions") == 2
+    assert client.executed.count("workflows") == 3
+    assert all(size <= 1 for _table, _column, size in client.in_filter_sizes)
 
 
 def test_unauthorized_work_stops_before_descendant_reads():
