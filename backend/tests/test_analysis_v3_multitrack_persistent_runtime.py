@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from backend.evaluation.analysis_v3.multitrack_transcription import persistent_runtime
 
 
