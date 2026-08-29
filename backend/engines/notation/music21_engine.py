@@ -49,19 +49,86 @@ class Music21NotationEngine(NotationEngine):
             )
         else:
             notation_midi, quant_report = mf.notation_midi_from_performance(midi_bytes, beat_times)
-        musicxml = mf.convert_format(
-            notation_midi,
-            "midi",
-            "musicxml",
-            notation_ready=notation_ready,
-            piano_grand_staff=piano_grand_staff,
-        )
+
+        if piano_grand_staff:
+            musicxml = _grand_staff_musicxml(
+                notation_midi,
+                beat_times=beat_times,
+                downbeats=downbeats,
+                beat_positions=beat_positions,
+            )
+        else:
+            musicxml = mf.convert_format(
+                notation_midi,
+                "midi",
+                "musicxml",
+                notation_ready=notation_ready,
+                piano_grand_staff=False,
+            )
         return NotationResult(
             notation_midi=notation_midi,
             musicxml=musicxml,
             quantization_report=quant_report,
             provenance=self.provenance,
         )
+
+
+def _grand_staff_musicxml(
+    midi_bytes: bytes,
+    *,
+    beat_times: list[float],
+    downbeats: list[float] | None,
+    beat_positions: list[int] | None,
+) -> bytes:
+    """Engrave grand staff using source-grid timing when meter is supported.
+
+    Basic Pitch MIDI carries placeholder tempo/meter metadata. The Score worker
+    already has source-audio beat/downbeat evidence, so pass that evidence into
+    grand-staff reconstruction instead of silently reinterpreting note seconds
+    against the placeholder MIDI tempo. If no trustworthy meter can be inferred,
+    retain the historical path rather than inventing one here.
+    """
+    import contextlib
+    import copy
+    import os
+    import tempfile
+
+    from notation.grid import build_metrical_grid
+    from notation.staffing import grand_staff_from_midi
+
+    metric_grid = build_metrical_grid(
+        beat_times,
+        downbeats=downbeats,
+        beat_positions=beat_positions,
+    )
+    if metric_grid.inferred_meter is not None and metric_grid.global_beats():
+        score = grand_staff_from_midi(
+            midi_bytes,
+            beat_times=metric_grid.beats,
+            meter_signature=metric_grid.inferred_meter,
+        )
+    else:
+        score = grand_staff_from_midi(midi_bytes)
+
+    # Preserve the existing truthfulness gate for key signatures. This mirrors
+    # music_features.convert_format without routing grand-staff timing back
+    # through the placeholder MIDI metadata.
+    with contextlib.suppress(Exception):
+        analyzed = score.analyze("key")
+        corr = analyzed.correlationCoefficient
+        if corr is not None and corr >= 0.8:
+            from music21 import key as key_mod
+
+            signature = key_mod.KeySignature(analyzed.sharps)
+            for part in score.parts:
+                first_measure = part.getElementsByClass("Measure")[0]
+                first_measure.insert(0, copy.deepcopy(signature))
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = os.path.join(td, "output.xml")
+        score.write("musicxml", fp=out_path)
+        with open(out_path, "rb") as file_handle:
+            return file_handle.read()
 
 
 def _music21_version() -> str:
