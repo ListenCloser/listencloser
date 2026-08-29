@@ -17,6 +17,10 @@ class SeparationMetadata:
     weight_license: str | None = None
     upstream_repo: str | None = None
     upstream_version: str | None = None
+    checkpoint_id: str | None = None
+    checkpoint_file: str | None = None
+    checkpoint_sha256: str | None = None
+    checkpoint_sha256_prefix: str | None = None
     checkpoint_size_mb: float | None = None
     supports_vocals: bool = True
     supports_drums: bool = True
