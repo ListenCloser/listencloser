@@ -78,9 +78,7 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     def macro(key: str) -> float | None:
         values = [
-            float(row["metrics"][key])
-            for row in scored
-            if row["metrics"].get(key) is not None
+            float(row["metrics"][key]) for row in scored if row["metrics"].get(key) is not None
         ]
         return round(mean(values), 4) if values else None
 
