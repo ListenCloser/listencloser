@@ -118,7 +118,9 @@ def extract_candombe_single_val_manifest(
     """Create the exact Beat This v1.0 Candombe single-split validation manifest."""
     annotation_root = Path(annotation_dir)
     assignments = parse_single_split(split_path)
-    validation_ids = sorted(stem for stem, partition in assignments.items() if partition == "val")
+    validation_ids = sorted(
+        stem for stem, partition in assignments.items() if partition == "val"
+    )
     if not validation_ids:
         raise ValueError("single split contains no Candombe validation rows")
 
