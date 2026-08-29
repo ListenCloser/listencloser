@@ -3,6 +3,7 @@ import wave
 
 import pytest
 
+import audio_processing
 import music_features
 
 
@@ -14,6 +15,11 @@ def _tiny_wav() -> bytes:
         wav.setframerate(8000)
         wav.writeframes(b"\x00\x00" * 800)
     return output.getvalue()
+
+
+def test_music_features_reexports_audio_processing_helpers():
+    assert music_features.decode_audio_to_wav is audio_processing.decode_audio_to_wav
+    assert music_features.enhance_audio is audio_processing.enhance_audio
 
 
 def test_decode_audio_to_wav_returns_valid_pcm():
