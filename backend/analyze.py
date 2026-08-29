@@ -331,7 +331,12 @@ def _compute_beat_relative_density(
     expressed explicitly in beats. Incomplete tail windows are omitted rather
     than changing the denominator silently.
     """
-    if not onsets or window_beats <= 0 or step_beats <= 0 or len(beats) < window_beats + 1:
+    if (
+        not onsets
+        or window_beats <= 0
+        or step_beats <= 0
+        or len(beats) < window_beats + 1
+    ):
         return []
 
     beat_grid = [float(value) for value in beats]
