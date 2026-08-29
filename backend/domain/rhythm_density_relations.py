@@ -26,6 +26,7 @@ _RELATION_ENGINE_VERSION = "1.0"
 _RELATIVE_DENOMINATOR_EPSILON = 1e-9
 _NUMERIC_ATOL = 1e-12
 _NUMERIC_RTOL = 1e-9
+_COMPLETE_SERIES_POLICY = "complete_series_v1"
 
 
 class RhythmDensityEvidenceRef(BaseModel):
@@ -75,6 +76,7 @@ class RhythmDensityEvidence(BaseModel):
     evidence_id: UUID
     source_version_id: UUID
     windows: list[dict[str, Any]] = Field(default_factory=list)
+    coverage: dict[str, Any] | None = None
     pulse_provenance: dict[str, Any] | None = None
 
 
@@ -97,6 +99,8 @@ def _provenance(
     }
     if contract:
         provenance["evidence_contract"] = dict(contract)
+    if evidence.coverage is not None:
+        provenance["persistence_coverage"] = dict(evidence.coverage)
     if evidence.pulse_provenance is not None:
         provenance["pulse_provenance"] = evidence.pulse_provenance
     return provenance
@@ -222,6 +226,58 @@ def _validated_windows(
     return normalized, contract, []
 
 
+def _validated_persistence_coverage(
+    evidence: RhythmDensityEvidence,
+    windows: Sequence[dict[str, float]],
+) -> list[str]:
+    """Validate #558 complete-series metadata when the persisted Insight has it."""
+    coverage = evidence.coverage
+    if coverage is None:
+        return []
+
+    reasons: list[str] = []
+    if coverage.get("policy_version") != _COMPLETE_SERIES_POLICY:
+        reasons.append("rhythm density persistence coverage policy is unsupported")
+
+    count_values: dict[str, int] = {}
+    for key in ("total_generated_window_count", "stored_window_count"):
+        value = coverage.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            reasons.append(f"rhythm density persistence coverage has invalid {key}")
+        else:
+            count_values[key] = value
+
+    generated_count = count_values.get("total_generated_window_count")
+    stored_count = count_values.get("stored_window_count")
+    if generated_count is not None and generated_count != len(windows):
+        reasons.append("rhythm density generated window count disagrees with stored evidence")
+    if stored_count is not None and stored_count != len(windows):
+        reasons.append("rhythm density stored window count disagrees with stored evidence")
+    if generated_count is not None and stored_count is not None and generated_count != stored_count:
+        reasons.append("rhythm density persistence coverage declares truncated window counts")
+
+    if coverage.get("truncated") is not False:
+        reasons.append("rhythm density complete-series persistence is marked truncated")
+
+    start_seconds = coverage.get("start_seconds")
+    end_seconds = coverage.get("end_seconds")
+    if not _finite_number(start_seconds) or not _finite_number(end_seconds):
+        reasons.append("rhythm density persistence coverage has invalid seconds bounds")
+    else:
+        expected_start = windows[0]["start"]
+        expected_end = max(window["end"] for window in windows)
+        if not math.isclose(
+            float(start_seconds), expected_start, rel_tol=_NUMERIC_RTOL, abs_tol=_NUMERIC_ATOL
+        ):
+            reasons.append("rhythm density persistence coverage start disagrees with windows")
+        if not math.isclose(
+            float(end_seconds), expected_end, rel_tol=_NUMERIC_RTOL, abs_tol=_NUMERIC_ATOL
+        ):
+            reasons.append("rhythm density persistence coverage end disagrees with windows")
+
+    return reasons
+
+
 def _coverage_tolerance_seconds(
     windows: Sequence[dict[str, float]],
     contract: dict[str, float | str],
@@ -319,6 +375,8 @@ def compare_rhythm_density_spans(
     ]
     windows, contract, contract_reasons = _validated_windows(evidence)
     reasons.extend(contract_reasons)
+    if not contract_reasons:
+        reasons.extend(_validated_persistence_coverage(evidence, windows))
     if reasons:
         return _withheld(evidence, subject_locator, comparison_locator, reasons, contract)
 
