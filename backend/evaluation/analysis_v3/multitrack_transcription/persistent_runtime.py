@@ -452,7 +452,10 @@ def benchmark(
             "How much of stock process-per-track MR-MT3 CPU cost is repeated process/model "
             "load overhead versus one resident model reused across requests?"
         ),
-        "scope": "operational evidence only; canonical quality remains the #404 decoder-sidecar run",
+        "scope": (
+            "operational evidence only; canonical quality remains the #404 "
+            "decoder-sidecar run"
+        ),
         "dataset": manifest,
         "candidate": {
             "name": "MR-MT3",
