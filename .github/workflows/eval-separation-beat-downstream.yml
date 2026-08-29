@@ -22,16 +22,16 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           version: '0.12.6'
-      - name: Sync backend
+      - name: Sync locked backend
         run: uv sync --project backend --locked
+      - name: Add evaluation-only Demucs package
+        run: uv pip install --python backend/.venv/bin/python 'demucs==4.1.0'
       - name: Run fixed BabySlakh separation-to-beat gate
         env:
           MUSIC_EVAL_CACHE_DIR: ${{ runner.temp }}/music-eval-cache
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
         run: |
-          uv run --project backend \
-            --with 'demucs==4.1.0' \
-            --with 'mir_eval==0.8.2' \
-            python -m backend.evaluation.analysis_v3.separation.run_beat_downstream \
+          backend/.venv/bin/python -m backend.evaluation.analysis_v3.separation.run_beat_downstream \
             --device cpu \
             --output backend/evaluation/analysis_v3/separation/results/beat_downstream_babyslakh_v2.json
       - name: Upload result
