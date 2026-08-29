@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import numpy as np
-
 from backend.evaluation.analysis_v3.multitrack_transcription.metrics import MatchMetrics
 from backend.evaluation.analysis_v3.separation import bass_amt
 from backend.evaluation.analysis_v3.separation.datasets import babyslakh_bass
 from backend.evaluation.analysis_v3.separation.run_bass_amt import _summary
+import numpy as np
 
 
 def _metrics(f1: float) -> MatchMetrics:
