@@ -34,6 +34,9 @@ const entityInflight = new Map<string, Promise<Entity[]>>();
 const insightCache = new Map<string, CacheEntry<Insight[]>>();
 const insightInflight = new Map<string, Promise<Insight[]>>();
 const versionWorkIndex = new Map<string, string>();
+const workCacheGeneration = new Map<string, number>();
+const versionCacheGeneration = new Map<string, number>();
+let cacheEpoch = 0;
 
 function readCache<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
   const entry = cache.get(key);
@@ -49,6 +52,23 @@ function readCache<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null 
 
 function writeCache<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T): void {
   cache.set(key, { value, expiresAt: Date.now() + WORK_CACHE_TTL_MS });
+}
+
+function generationFor(generations: Map<string, number>, key: string): number {
+  return generations.get(key) ?? 0;
+}
+
+function bumpGeneration(generations: Map<string, number>, key: string): void {
+  generations.set(key, generationFor(generations, key) + 1);
+}
+
+function generationIsCurrent(
+  epoch: number,
+  generations: Map<string, number>,
+  key: string,
+  generation: number,
+): boolean {
+  return cacheEpoch === epoch && generationFor(generations, key) === generation;
 }
 
 function hasActiveJob(bundle: WorkBundle): boolean {
@@ -72,25 +92,36 @@ function currentMidiVersionId(bundle: WorkBundle): string | null {
   return corrected?.latest_version?.id ?? null;
 }
 
+function invalidateVersionData(versionId: string): void {
+  bumpGeneration(versionCacheGeneration, versionId);
+  entityCache.delete(versionId);
+  entityInflight.delete(versionId);
+  insightCache.delete(versionId);
+  insightInflight.delete(versionId);
+}
+
 function invalidateWorkCache(workId: string): void {
+  bumpGeneration(workCacheGeneration, workId);
   workBundleCache.delete(workId);
   workBundleInflight.delete(workId);
   for (const [versionId, indexedWorkId] of versionWorkIndex) {
     if (indexedWorkId !== workId) continue;
     versionWorkIndex.delete(versionId);
-    entityCache.delete(versionId);
-    insightCache.delete(versionId);
+    invalidateVersionData(versionId);
   }
 }
 
 function invalidateVersionWork(versionId: string): void {
   const workId = versionWorkIndex.get(versionId);
-  if (workId) invalidateWorkCache(workId);
-  entityCache.delete(versionId);
-  insightCache.delete(versionId);
+  if (workId) {
+    invalidateWorkCache(workId);
+    return;
+  }
+  invalidateVersionData(versionId);
 }
 
 export function clearWorkDataCache(): void {
+  cacheEpoch += 1;
   workBundleCache.clear();
   workBundleInflight.clear();
   entityCache.clear();
@@ -98,6 +129,8 @@ export function clearWorkDataCache(): void {
   insightCache.clear();
   insightInflight.clear();
   versionWorkIndex.clear();
+  workCacheGeneration.clear();
+  versionCacheGeneration.clear();
 }
 
 export async function createProject(name: string, description?: string): Promise<Project> {
@@ -129,20 +162,31 @@ export async function getWorkBundle(workId: string): Promise<WorkBundle> {
   const pending = workBundleInflight.get(workId);
   if (pending) return pending;
 
-  const request = apiFetch<WorkBundle>(`/api/v1/works/${workId}`)
+  const epoch = cacheEpoch;
+  const generation = generationFor(workCacheGeneration, workId);
+  let request: Promise<WorkBundle>;
+  request = apiFetch<WorkBundle>(`/api/v1/works/${workId}`)
     .then(async (bundle) => {
+      if (!generationIsCurrent(epoch, workCacheGeneration, workId, generation)) {
+        return bundle;
+      }
+
       indexBundle(workId, bundle);
       if (!hasActiveJob(bundle)) {
         const midiVersionId = currentMidiVersionId(bundle);
         if (midiVersionId) {
           await Promise.allSettled([getEntities(midiVersionId), getInsights(midiVersionId)]);
         }
-        writeCache(workBundleCache, workId, bundle);
+        if (generationIsCurrent(epoch, workCacheGeneration, workId, generation)) {
+          writeCache(workBundleCache, workId, bundle);
+        }
       }
       return bundle;
     })
     .finally(() => {
-      workBundleInflight.delete(workId);
+      if (workBundleInflight.get(workId) === request) {
+        workBundleInflight.delete(workId);
+      }
     });
 
   workBundleInflight.set(workId, request);
@@ -317,12 +361,21 @@ export async function getEntities(versionId: string): Promise<Entity[]> {
   const pending = entityInflight.get(versionId);
   if (pending) return pending;
 
-  const request = apiFetch<Entity[]>(`/api/v1/versions/${versionId}/entities`)
+  const epoch = cacheEpoch;
+  const generation = generationFor(versionCacheGeneration, versionId);
+  let request: Promise<Entity[]>;
+  request = apiFetch<Entity[]>(`/api/v1/versions/${versionId}/entities`)
     .then((entities) => {
-      writeCache(entityCache, versionId, entities);
+      if (generationIsCurrent(epoch, versionCacheGeneration, versionId, generation)) {
+        writeCache(entityCache, versionId, entities);
+      }
       return entities;
     })
-    .finally(() => entityInflight.delete(versionId));
+    .finally(() => {
+      if (entityInflight.get(versionId) === request) {
+        entityInflight.delete(versionId);
+      }
+    });
   entityInflight.set(versionId, request);
   return request;
 }
@@ -333,12 +386,21 @@ export async function getInsights(versionId: string): Promise<Insight[]> {
   const pending = insightInflight.get(versionId);
   if (pending) return pending;
 
-  const request = apiFetch<Insight[]>(`/api/v1/versions/${versionId}/insights`)
+  const epoch = cacheEpoch;
+  const generation = generationFor(versionCacheGeneration, versionId);
+  let request: Promise<Insight[]>;
+  request = apiFetch<Insight[]>(`/api/v1/versions/${versionId}/insights`)
     .then((insights) => {
-      writeCache(insightCache, versionId, insights);
+      if (generationIsCurrent(epoch, versionCacheGeneration, versionId, generation)) {
+        writeCache(insightCache, versionId, insights);
+      }
       return insights;
     })
-    .finally(() => insightInflight.delete(versionId));
+    .finally(() => {
+      if (insightInflight.get(versionId) === request) {
+        insightInflight.delete(versionId);
+      }
+    });
   insightInflight.set(versionId, request);
   return request;
 }
