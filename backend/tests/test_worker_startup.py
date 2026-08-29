@@ -37,25 +37,55 @@ def test_worker_prewarms_before_run(monkeypatch):
     _stub_worker_runtime(monkeypatch, events)
     monkeypatch.setattr(
         worker_entry,
+        "prewarm_basic_pitch",
+        lambda: events.append("basic_pitch") or True,
+    )
+    monkeypatch.setattr(
+        worker_entry,
         "prewarm_librosa_beat_tracking",
-        lambda: events.append("prewarm") or True,
+        lambda: events.append("librosa") or True,
     )
 
     worker_entry.main()
 
-    assert events == ["prewarm", "run"]
+    assert events == ["basic_pitch", "librosa", "run"]
 
 
-def test_worker_still_runs_when_prewarm_fails(monkeypatch):
+def test_worker_still_runs_remaining_warmup_when_basic_pitch_fails(monkeypatch):
     events: list[str] = []
     _stub_worker_runtime(monkeypatch, events)
 
-    def fail_prewarm() -> bool:
-        events.append("prewarm")
-        raise RuntimeError("synthetic warmup failure")
+    def fail_basic_pitch() -> bool:
+        events.append("basic_pitch")
+        raise RuntimeError("synthetic Basic Pitch warmup failure")
 
-    monkeypatch.setattr(worker_entry, "prewarm_librosa_beat_tracking", fail_prewarm)
+    monkeypatch.setattr(worker_entry, "prewarm_basic_pitch", fail_basic_pitch)
+    monkeypatch.setattr(
+        worker_entry,
+        "prewarm_librosa_beat_tracking",
+        lambda: events.append("librosa") or True,
+    )
 
     worker_entry.main()
 
-    assert events == ["prewarm", "run"]
+    assert events == ["basic_pitch", "librosa", "run"]
+
+
+def test_worker_still_runs_when_librosa_prewarm_fails(monkeypatch):
+    events: list[str] = []
+    _stub_worker_runtime(monkeypatch, events)
+    monkeypatch.setattr(
+        worker_entry,
+        "prewarm_basic_pitch",
+        lambda: events.append("basic_pitch") or True,
+    )
+
+    def fail_librosa() -> bool:
+        events.append("librosa")
+        raise RuntimeError("synthetic librosa warmup failure")
+
+    monkeypatch.setattr(worker_entry, "prewarm_librosa_beat_tracking", fail_librosa)
+
+    worker_entry.main()
+
+    assert events == ["basic_pitch", "librosa", "run"]
