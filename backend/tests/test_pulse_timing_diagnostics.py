@@ -8,8 +8,8 @@ from backend.evaluation.analysis_v3.pulse.metrics.beat import (
     compute_beat_f1,
     compute_event_timing,
 )
-from backend.evaluation.analysis_v3.pulse.run import _summarize_beat_evaluation
 from backend.evaluation.analysis_v3.pulse.metrics.tempo import compute_tempo_error
+from backend.evaluation.analysis_v3.pulse.run import _summarize_beat_evaluation
 
 
 def test_event_timing_reports_signed_error_and_match_coverage() -> None:
