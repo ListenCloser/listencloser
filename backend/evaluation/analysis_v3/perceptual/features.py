@@ -7,8 +7,12 @@ the exact production math instead of a forked copy.
 """
 
 from perceptual_evidence import (
-    extract_measured_perceptual_series as extract_baseline_perceptual_evidence,
     MeasuredFeatureSeries as FeatureSeries,
+)
+from perceptual_evidence import (
+    extract_measured_perceptual_series as extract_baseline_perceptual_evidence,
+)
+from perceptual_evidence import (
     onset_strength_series,
     relative_band_energy_series,
     rms_series,
