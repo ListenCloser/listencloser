@@ -36,6 +36,8 @@ export type RepresentationId = "listen" | "piano_roll" | "score" | "spectrogram"
 export type RepresentationViewProps = {
   /** Whether this representation is the currently visible workspace tab. */
   active: boolean;
+  /** Briefly strengthen the real shared selection after an evidence jump. */
+  orientationCue?: boolean;
 };
 
 export type RepresentationDefinition = {
@@ -48,7 +50,7 @@ export type RepresentationDefinition = {
   component: ComponentType<RepresentationViewProps>;
 };
 
-function WaveformView({ active }: RepresentationViewProps) {
+function WaveformView({ active, orientationCue = false }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
@@ -79,6 +81,7 @@ function WaveformView({ active }: RepresentationViewProps) {
         url={waveform.audioUrl}
         position={active ? transport.position : 0}
         selection={workspace.selection}
+        emphasizeSelection={active && orientationCue}
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
@@ -96,7 +99,7 @@ function WaveformView({ active }: RepresentationViewProps) {
   );
 }
 
-function PianoRollView({ active }: RepresentationViewProps) {
+function PianoRollView({ active, orientationCue = false }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const { timeline } = useTimeline();
@@ -131,6 +134,7 @@ function PianoRollView({ active }: RepresentationViewProps) {
         onSeek={seek}
         selectionTimeRange={selection?.timeRange}
         selectedNoteIds={selection?.noteIds ?? selectedNoteIds}
+        emphasizeSelection={active && orientationCue}
         onSelectRange={(start, end) =>
           setSelection(composeTimeSelection(start, end, notes, "piano_roll"))
         }
@@ -184,7 +188,7 @@ function SpectrogramView({ active }: RepresentationViewProps) {
   );
 }
 
-function ScoreView({ active }: RepresentationViewProps) {
+function ScoreView({ active, orientationCue = false }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek, setActiveSource } = useTransport();
   const entry = workspace.representations.find((item) => item.kind === "score");
@@ -241,6 +245,7 @@ function ScoreView({ active }: RepresentationViewProps) {
         measureApproximate={Boolean(
           selection?.timeRange && !selection?.measureRange,
         )}
+        emphasizeSelection={active && orientationCue}
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
