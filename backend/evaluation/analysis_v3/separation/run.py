@@ -22,6 +22,7 @@ from .adapters import ADAPTERS, SeparationAdapter
 from .metrics import (
     check_determinism,
     compare_beat_f1_mixture_vs_stem,
+    compare_si_sdr_mixture_vs_stem,
     generate_synthetic_audio,
     measure_latency,
 )
@@ -81,6 +82,16 @@ def _load_audio(
     return data, sr
 
 
+def _summarize_deltas(values: list[float], digits: int = 4) -> dict[str, Any]:
+    return {
+        "mean": round(float(np.mean(values)), digits),
+        "median": round(float(np.median(values)), digits),
+        "improved": sum(delta > 0 for delta in values),
+        "degraded": sum(delta < 0 for delta in values),
+        "unchanged": sum(delta == 0 for delta in values),
+    }
+
+
 def run_operational_evaluation(
     candidate: str,
     device: str = "cpu",
@@ -126,9 +137,9 @@ def run_operational_evaluation(
         result["load_error"] = str(e)
         return result
 
-    for duration_label, duration in [("10s", 10.0), ("30s", 30.0)]:
+    for duration_label, duration in [("10s", 10.0), ("30s", 30.0), ("3min", 180.0)]:
         audio = generate_synthetic_audio(duration_seconds=duration)
-        metrics = measure_latency(adapter, audio, 44100, num_runs=2)
+        metrics = measure_latency(adapter, audio, 44100, num_runs=1 if duration >= 180 else 2)
         result[f"cpu_latency_{duration_label}"] = {
             "latency_seconds": metrics.latency_seconds,
             "audio_duration_seconds": metrics.audio_duration_seconds,
@@ -146,7 +157,7 @@ def run_separation_evaluation(
     manifest_path: str,
     device: str = "cpu",
 ) -> dict[str, Any]:
-    """Run separation and any available downstream MIR comparisons."""
+    """Run separation, objective quality, and available downstream comparisons."""
     print(f"\n{'='*60}")
     print(f"Separation evaluation: {candidate}")
     print(f"{'='*60}")
@@ -159,7 +170,10 @@ def run_separation_evaluation(
 
     results: list[dict[str, Any]] = []
     beat_deltas: list[float] = []
+    quality_deltas: dict[str, list[float]] = {}
     downstream_scored = 0
+    objective_scored_stems = 0
+    objective_missing_references = 0
 
     for clip in manifest["clips"]:
         audio_path = _resolve_path(clip["audio_path"])
@@ -190,6 +204,35 @@ def run_separation_evaluation(
                         "duration_seconds": round(stem.shape[-1] / sr, 2),
                     }
 
+            objective_quality: dict[str, Any] = {}
+            for stem_name, reference_path_value in (clip.get("reference_stems") or {}).items():
+                estimated_stem = sep_result.get_stem(stem_name)
+                if estimated_stem is None:
+                    continue
+
+                reference_path = _resolve_path(str(reference_path_value))
+                if not os.path.exists(reference_path):
+                    objective_missing_references += 1
+                    continue
+
+                reference_stem, reference_sr = _load_audio(reference_path, target_sr=sr)
+                if reference_sr != sr:
+                    raise RuntimeError(
+                        f"Reference resample mismatch for {clip['id']}:{stem_name}: "
+                        f"{reference_sr} != {sr}"
+                    )
+                quality_comparison = compare_si_sdr_mixture_vs_stem(
+                    audio,
+                    estimated_stem,
+                    reference_stem,
+                )
+                if quality_comparison is not None:
+                    objective_quality[stem_name] = quality_comparison.to_dict()
+                    quality_deltas.setdefault(stem_name, []).append(
+                        quality_comparison.improvement_db
+                    )
+                    objective_scored_stems += 1
+
             downstream: dict[str, Any] = {}
             drums = sep_result.get_stem("drums")
             reference_beats = clip.get("reference_beats")
@@ -210,6 +253,8 @@ def run_separation_evaluation(
                 "stems": stem_metrics,
                 "latency_seconds": sep_result.latency_seconds,
             }
+            if objective_quality:
+                row["objective_quality"] = objective_quality
             if downstream:
                 row["downstream"] = downstream
             results.append(row)
@@ -221,14 +266,15 @@ def run_separation_evaluation(
 
     summary: dict[str, Any] = {
         "downstream_scored_clips": downstream_scored,
+        "objective_scored_stems": objective_scored_stems,
+        "objective_missing_references": objective_missing_references,
     }
     if beat_deltas:
-        summary["beat_f1_drums_delta"] = {
-            "mean": round(float(np.mean(beat_deltas)), 4),
-            "median": round(float(np.median(beat_deltas)), 4),
-            "improved": sum(delta > 0 for delta in beat_deltas),
-            "degraded": sum(delta < 0 for delta in beat_deltas),
-            "unchanged": sum(delta == 0 for delta in beat_deltas),
+        summary["beat_f1_drums_delta"] = _summarize_deltas(beat_deltas)
+    if quality_deltas:
+        summary["si_sdr_improvement_db_by_stem"] = {
+            stem_name: _summarize_deltas(deltas, digits=3)
+            for stem_name, deltas in sorted(quality_deltas.items())
         }
 
     return {
@@ -304,8 +350,8 @@ def main() -> None:
         "--manifest",
         default=None,
         help=(
-            "Explicit manifest path. Use an annotated pulse manifest such as "
-            "pulse/manifests/guitarset_beats.json to score downstream beat deltas."
+            "Explicit manifest path. Annotated manifests may include reference_beats "
+            "for downstream beat scoring and reference_stems for objective SI-SDR scoring."
         ),
     )
     parser.add_argument(
