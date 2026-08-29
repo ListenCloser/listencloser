@@ -11,6 +11,7 @@ import { rankBreakdownFindings, type BreakdownFinding } from "@/lib/inspector/br
 import { formatTime } from "@/lib/format";
 import TabStrip from "@/components/ui/TabStrip";
 import AskPanel from "./AskPanel";
+import BreakdownFindingCard from "./BreakdownFindingCard";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
 
@@ -276,11 +277,9 @@ function overlapsSelection(finding: BreakdownFinding, selection: MusicalSelectio
 function BreakdownSection({
   findings,
   selection,
-  onFocus,
 }: {
   findings: BreakdownFinding[];
   selection: MusicalSelection | null;
-  onFocus: (finding: BreakdownFinding) => void;
 }) {
   return (
     <section className="inspector-section inspector-breakdown-section">
@@ -299,20 +298,7 @@ function BreakdownSection({
       ) : (
         <div className="inspector-breakdown-findings">
           {findings.map((finding) => (
-            <button
-              key={finding.id}
-              type="button"
-              className="inspector-breakdown-finding"
-              onClick={() => onFocus(finding)}
-              aria-label={`Focus ${formatTime(finding.startSeconds)} to ${formatTime(finding.endSeconds)}: ${finding.headline}`}
-            >
-              <span className="inspector-breakdown-time">{formatTime(finding.startSeconds)}–{formatTime(finding.endSeconds)}</span>
-              <span className="inspector-breakdown-headline">{finding.headline}</span>
-              <span className="inspector-breakdown-support">{finding.evidenceSummary}</span>
-              {finding.maturity === "experimental" && (
-                <span className="inspector-breakdown-maturity">Experimental melody evidence</span>
-              )}
-            </button>
+            <BreakdownFindingCard key={finding.id} finding={finding} />
           ))}
         </div>
       )}
@@ -414,17 +400,9 @@ function BreakdownContent({
     );
   }
 
-  const focusFinding = (finding: BreakdownFinding) => {
-    seek(finding.startSeconds);
-    setSelection({
-      timeRange: { start: finding.startSeconds, end: finding.endSeconds, domain: "performance" },
-      provenance: { origin: null, timeExact: false, measureApproximate: true },
-    });
-  };
-
   return (
     <div className="inspector-content inspector-analysis-content inspector-breakdown-content">
-      <BreakdownSection findings={rankedFindings} selection={workspace.selection} onFocus={focusFinding} />
+      <BreakdownSection findings={rankedFindings} selection={workspace.selection} />
 
       {contextCount > 0 && <ContextSection insights={contextInsights} />}
 
