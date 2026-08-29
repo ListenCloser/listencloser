@@ -23,6 +23,7 @@ class FakeQuery:
         self.table = table
         self.filters: list[tuple[str, str, object]] = []
         self.ordering: tuple[str, bool] | None = None
+        self.window: tuple[int, int] | None = None
 
     def select(self, *_args, **_kwargs):
         return self
@@ -39,6 +40,10 @@ class FakeQuery:
         self.ordering = (column, desc)
         return self
 
+    def range(self, start: int, end: int):
+        self.window = (start, end)
+        return self
+
     def execute(self):
         rows = [dict(row) for row in self.client.rows.get(self.table, [])]
         for op, column, value in self.filters:
@@ -50,6 +55,9 @@ class FakeQuery:
         if self.ordering:
             column, desc = self.ordering
             rows.sort(key=lambda row: str(row.get(column) or ""), reverse=desc)
+        if self.window:
+            start, end = self.window
+            rows = rows[start : end + 1]
         self.client.executed.append(self.table)
         return SimpleNamespace(data=rows)
 
@@ -132,6 +140,18 @@ def test_loads_complete_work_graph_in_six_queries():
         "workflows",
         "jobs",
     ]
+
+
+def test_bulk_descendant_reads_page_instead_of_truncating(monkeypatch):
+    client, _project, work, audio, midi, _workflow, _job = _fixture_graph()
+    monkeypatch.setattr("domain.work_bundle_repository._PAGE_SIZE", 3)
+
+    snapshot = WorkBundleRepository(client).load(work.id, "user-1")
+
+    assert snapshot is not None
+    assert len(snapshot.versions_by_artifact[audio.id]) == 1
+    assert len(snapshot.versions_by_artifact[midi.id]) == 2
+    assert client.executed.count("artifact_versions") == 2
 
 
 def test_unauthorized_work_stops_before_descendant_reads():
