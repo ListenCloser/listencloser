@@ -26,8 +26,10 @@ jobs:
         include:
           - arch: amd64
             runner: ubuntu-24.04
+            install_mode: declared-dependencies
           - arch: arm64
             runner: ubuntu-24.04-arm
+            install_mode: core-model-no-deps-after-sphn-packaging-blocker
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
@@ -44,7 +46,20 @@ jobs:
       - name: Sync locked backend
         run: uv sync --project backend --locked
       - name: Add evaluation-only Demucs package
+        if: matrix.arch == 'amd64'
         run: uv pip install --python backend/.venv/bin/python 'demucs==4.1.0'
+      - name: Add ARM core-model dependency slice
+        if: matrix.arch == 'arm64'
+        run: |
+          # Run 33276414848 established that Demucs' declared sphn dependency
+          # fails to build on ubuntu-24.04-arm before inference. Preserve that
+          # packaging blocker while separately testing the model/API itself.
+          uv pip install --python backend/.venv/bin/python \
+            'huggingface-hub==1.29.0' \
+            'julius==0.2.8' \
+            'lameenc==1.8.4' \
+            'safetensors==0.8.0'
+          uv pip install --python backend/.venv/bin/python --no-deps 'demucs==4.1.0'
       - name: Run focused helper tests
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
@@ -54,6 +69,7 @@ jobs:
       - name: Run 10s/30s/180s CPU operational gate
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
+          DEMUCS_PACKAGE_INSTALL_MODE: ${{ matrix.install_mode }}
           RESULT_PATH: backend/evaluation/analysis_v3/separation/results/operational_cpu_${{ matrix.arch }}_v2.json
         run: |
           backend/.venv/bin/python -m backend.evaluation.analysis_v3.separation.run_operational_v2 \
