@@ -108,7 +108,8 @@ def run_babyslakh_beat_gate(
         "selection": f"first {excerpt_seconds:g}s of fixed tracks Track00001-Track00005",
         "reference_kind": "symbolic_synthesis_beat_grid_from_all_src_midi",
         "reference_limitation": (
-            "Controlled synthetic-mixture evidence; not human-annotated real-recording generalization."
+            "Controlled synthetic-mixture evidence; not human-annotated "
+            "real-recording generalization."
         ),
         "separator": {
             "candidate": "HTDemucs",
