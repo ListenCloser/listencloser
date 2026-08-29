@@ -1,0 +1,45 @@
+name: Temporary librosa persistent-cache benchmark
+
+on:
+  push:
+    branches:
+      - bench/librosa-persistent-numba-cache
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build production backend image
+        run: docker build --tag hello-ai-librosa-persistent-bench backend
+      - name: Initialize persistent runtime volume
+        run: |
+          docker volume create hello-ai-numba-cache
+          docker run --rm --user root \
+            -v hello-ai-numba-cache:/app/runtime \
+            hello-ai-librosa-persistent-bench \
+            sh -lc 'mkdir -p /app/runtime/numba-cache && chown -R 1001:1001 /app/runtime'
+      - name: Measure first fresh container
+        run: |
+          docker run --rm \
+            -e NUMBA_CACHE_DIR=/app/runtime/numba-cache \
+            -v hello-ai-numba-cache:/app/runtime \
+            hello-ai-librosa-persistent-bench \
+            python /app/scripts/temp_librosa_persistent_cache_benchmark.py
+      - name: Inspect persisted cache
+        run: |
+          docker run --rm --user root \
+            -v hello-ai-numba-cache:/app/runtime \
+            hello-ai-librosa-persistent-bench \
+            sh -lc 'find /app/runtime/numba-cache -type f | wc -l'
+      - name: Measure second fresh container
+        run: |
+          docker run --rm \
+            -e NUMBA_CACHE_DIR=/app/runtime/numba-cache \
+            -v hello-ai-numba-cache:/app/runtime \
+            hello-ai-librosa-persistent-bench \
+            python /app/scripts/temp_librosa_persistent_cache_benchmark.py
