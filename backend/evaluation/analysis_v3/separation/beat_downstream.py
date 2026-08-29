@@ -11,9 +11,9 @@ import io
 from dataclasses import dataclass
 from typing import Any
 
-from backend.evaluation.analysis_v3.pulse.metrics import compute_beat_f1, compute_event_timing
 import numpy as np
 import soundfile as sf
+from backend.evaluation.analysis_v3.pulse.metrics import compute_beat_f1, compute_event_timing
 
 
 @dataclass(frozen=True)
