@@ -1,9 +1,9 @@
 """Deterministic relation observations over promoted measured evidence.
 
-M2 relation primitives are deliberately narrow. They compare two explicit
-seconds-authoritative spans over one compatible evidence source, emit literal
-numeric relations only, and fail closed rather than falling back to weaker
-evidence or semantic interpretation.
+The first M2 relation is deliberately narrow: compare two explicit seconds spans
+inside one canonical :class:`PerceptualEvidenceReport`. It emits literal numeric
+relations only and withholds on incompatible lineage, preprocessing, coverage, or
+values instead of falling back to weaker evidence or semantic interpretation.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from perceptual_evidence import (
     PerceptualSeriesEvidence,
 )
 
-_RELATION_ENGINE_VERSION = "1.1"
+_RELATION_ENGINE_VERSION = "1.0"
 _RELATIVE_DENOMINATOR_EPSILON = 1e-9
 _NUMERIC_ATOL = 1e-12
 _NUMERIC_RTOL = 1e-9
@@ -32,8 +32,6 @@ _SUPPORTED_FEATURES: tuple[FeatureName, ...] = (
     "relative_band_energy",
     "onset_strength",
 )
-
-RelationFeature = FeatureName | Literal["rhythm_density"]
 
 
 class SecondsSpanLocator(BaseModel):
@@ -48,17 +46,17 @@ class SecondsSpanLocator(BaseModel):
 
 
 class EvidenceRef(BaseModel):
-    """#371-compatible namespaced reference to one promoted evidence source."""
+    """#371-compatible namespaced reference to one series inside an analysis report."""
 
     model_config = ConfigDict(frozen=True)
 
     type: Literal["external"] = "external"
-    namespace: Literal["perceptual_series", "rhythm_density_insight"]
+    namespace: Literal["perceptual_series"] = "perceptual_series"
     id: str
 
 
 class RelationMeasurement(BaseModel):
-    """One literal perceptual evidence-specific A/B aggregate and relation."""
+    """One literal evidence-specific A/B aggregate and numeric relation."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -74,27 +72,6 @@ class RelationMeasurement(BaseModel):
     direction: Literal["higher", "lower", "mixed", "unchanged"]
     subject_frame_count: int = Field(ge=1)
     comparison_frame_count: int = Field(ge=1)
-
-
-class RhythmDensityMeasurement(BaseModel):
-    """Literal A/B aggregate over compatible beat-relative density windows."""
-
-    model_config = ConfigDict(frozen=True)
-
-    feature: Literal["rhythm_density"] = "rhythm_density"
-    aggregate: Literal["median"] = "median"
-    unit: Literal["events_per_beat"] = "events_per_beat"
-    normalization: Literal["events_per_beat"] = "events_per_beat"
-    coordinate_unit: Literal["beats"] = "beats"
-    window_size: float = Field(gt=0)
-    step_size: float = Field(gt=0)
-    subject_value: float
-    comparison_value: float
-    delta: float
-    relative_delta: float | None = None
-    direction: Literal["higher", "lower", "unchanged"]
-    subject_window_count: int = Field(ge=1)
-    comparison_window_count: int = Field(ge=1)
 
 
 class RelationSufficiency(BaseModel):
@@ -123,47 +100,21 @@ class RelationObservation(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: UUID = Field(default_factory=uuid4)
-    kind: Literal[
-        "perceptual_span_comparison",
-        "rhythm_density_span_comparison",
-    ] = "perceptual_span_comparison"
+    kind: Literal["perceptual_span_comparison"] = "perceptual_span_comparison"
     relation_kind: Literal["compare"] = "compare"
     trust_class: Literal["deterministic_derived"] = "deterministic_derived"
     maturity: Literal["production"] = "production"
     subject_locator: SecondsSpanLocator
     comparison_locator: SecondsSpanLocator
     support_refs: list[EvidenceRef] = Field(default_factory=list)
-    measurements: list[RelationMeasurement | RhythmDensityMeasurement] = Field(
-        default_factory=list
-    )
+    measurements: list[RelationMeasurement] = Field(default_factory=list)
     sufficiency: RelationSufficiency
     provenance: dict[str, Any] = Field(default_factory=dict)
     sensitivity: BoundarySensitivityHook = Field(default_factory=BoundarySensitivityHook)
 
 
-class RhythmDensityEvidence(BaseModel):
-    """Persisted promoted rhythm-density evidence plus authoritative lineage."""
-
-    model_config = ConfigDict(frozen=True)
-
-    evidence_id: UUID
-    source_version_id: UUID
-    windows: list[dict[str, Any]] = Field(default_factory=list)
-    pulse_provenance: dict[str, Any] | None = None
-
-
 def _support_ref(evidence_report_version_id: UUID, feature: str) -> EvidenceRef:
-    return EvidenceRef(
-        namespace="perceptual_series",
-        id=f"{evidence_report_version_id}:{feature}",
-    )
-
-
-def _rhythm_density_support_ref(evidence_id: UUID) -> EvidenceRef:
-    return EvidenceRef(
-        namespace="rhythm_density_insight",
-        id=f"{evidence_id}:rhythm_density",
-    )
+    return EvidenceRef(id=f"{evidence_report_version_id}:{feature}")
 
 
 def _base_provenance(
@@ -187,27 +138,6 @@ def _base_provenance(
     }
 
 
-def _rhythm_density_provenance(
-    evidence: RhythmDensityEvidence,
-    contract: dict[str, float | str] | None,
-) -> dict[str, Any]:
-    provenance: dict[str, Any] = {
-        "engine": "rhythm_density_span_compare",
-        "engine_version": _RELATION_ENGINE_VERSION,
-        "aggregate": "median",
-        "source_version_id": str(evidence.source_version_id),
-        "evidence_id": str(evidence.evidence_id),
-        "coverage_policy": "only fully-contained beat-relative density windows",
-        "relative_denominator_epsilon": _RELATIVE_DENOMINATOR_EPSILON,
-        "semantic_interpretation_emitted": False,
-    }
-    if contract:
-        provenance["evidence_contract"] = dict(contract)
-    if evidence.pulse_provenance is not None:
-        provenance["pulse_provenance"] = evidence.pulse_provenance
-    return provenance
-
-
 def _withheld(
     report: PerceptualEvidenceReport,
     evidence_report_version_id: UUID,
@@ -222,24 +152,6 @@ def _withheld(
         measurements=[],
         sufficiency=RelationSufficiency(status="withhold", reasons=list(reasons)),
         provenance=_base_provenance(report, evidence_report_version_id),
-    )
-
-
-def _rhythm_density_withheld(
-    evidence: RhythmDensityEvidence,
-    subject: SecondsSpanLocator,
-    comparison: SecondsSpanLocator,
-    reasons: Sequence[str],
-    contract: dict[str, float | str] | None = None,
-) -> RelationObservation:
-    return RelationObservation(
-        kind="rhythm_density_span_comparison",
-        subject_locator=subject,
-        comparison_locator=comparison,
-        support_refs=[],
-        measurements=[],
-        sufficiency=RelationSufficiency(status="withhold", reasons=list(reasons)),
-        provenance=_rhythm_density_provenance(evidence, contract),
     )
 
 
@@ -260,24 +172,6 @@ def _validate_locator(
         reasons.append(f"{label} span ends after the source duration")
     if locator.source_artifact_version_id != report.source_version_id:
         reasons.append(f"{label} span source version does not match the evidence report")
-    return reasons
-
-
-def _validate_rhythm_locator(
-    locator: SecondsSpanLocator,
-    evidence: RhythmDensityEvidence,
-    label: str,
-) -> list[str]:
-    reasons: list[str] = []
-    if not math.isfinite(locator.start_seconds) or not math.isfinite(locator.end_seconds):
-        reasons.append(f"{label} span boundaries must be finite")
-        return reasons
-    if locator.start_seconds < 0:
-        reasons.append(f"{label} span starts before the source")
-    if locator.end_seconds <= locator.start_seconds:
-        reasons.append(f"{label} span must have positive duration")
-    if locator.source_artifact_version_id != evidence.source_version_id:
-        reasons.append(f"{label} span source version does not match rhythm density evidence")
     return reasons
 
 
@@ -405,113 +299,6 @@ def _components(series: PerceptualSeriesEvidence) -> list[str]:
     return [str(item) for item in band_order]
 
 
-def _finite_number(value: Any) -> bool:
-    return (
-        isinstance(value, int | float)
-        and not isinstance(value, bool)
-        and math.isfinite(float(value))
-    )
-
-
-def _validated_rhythm_density_windows(
-    evidence: RhythmDensityEvidence,
-) -> tuple[list[dict[str, float]], dict[str, float | str] | None, list[str]]:
-    reasons: list[str] = []
-    normalized: list[dict[str, float]] = []
-    contract: dict[str, float | str] | None = None
-    previous_start: float | None = None
-
-    if not evidence.windows:
-        return [], None, ["promoted rhythm density evidence has no windows"]
-
-    for index, raw_window in enumerate(evidence.windows):
-        if not isinstance(raw_window, dict):
-            reasons.append(f"rhythm density window {index} must be an object")
-            continue
-
-        mode = raw_window.get("mode")
-        unit = raw_window.get("unit")
-        coordinate_unit = raw_window.get("coordinate_unit")
-        if mode != "beat_relative":
-            reasons.append(f"rhythm density window {index} is not beat_relative")
-        if unit != "events_per_beat":
-            reasons.append(f"rhythm density window {index} is not events_per_beat")
-        if coordinate_unit != "beats":
-            reasons.append(f"rhythm density window {index} coordinate unit is not beats")
-
-        numeric_keys = ("start", "end", "density", "window_size", "step_size")
-        if any(not _finite_number(raw_window.get(key)) for key in numeric_keys):
-            reasons.append(f"rhythm density window {index} has non-finite numeric fields")
-            continue
-
-        start = float(raw_window["start"])
-        end = float(raw_window["end"])
-        density = float(raw_window["density"])
-        window_size = float(raw_window["window_size"])
-        step_size = float(raw_window["step_size"])
-        if start < 0:
-            reasons.append(f"rhythm density window {index} starts before the source")
-        if end <= start:
-            reasons.append(f"rhythm density window {index} has non-positive duration")
-        if density < 0:
-            reasons.append(f"rhythm density window {index} has negative density")
-        if window_size <= 0 or step_size <= 0:
-            reasons.append(f"rhythm density window {index} has invalid window or step size")
-        if previous_start is not None and start < previous_start:
-            reasons.append("rhythm density windows are not ordered by start time")
-        previous_start = start
-
-        current_contract: dict[str, float | str] = {
-            "mode": str(mode),
-            "unit": str(unit),
-            "coordinate_unit": str(coordinate_unit),
-            "window_size": window_size,
-            "step_size": step_size,
-        }
-        if contract is None:
-            contract = current_contract
-        else:
-            for key in ("mode", "unit", "coordinate_unit"):
-                if current_contract[key] != contract[key]:
-                    reasons.append(f"rhythm density windows disagree on {key}")
-            for key in ("window_size", "step_size"):
-                if not math.isclose(
-                    float(current_contract[key]),
-                    float(contract[key]),
-                    rel_tol=_NUMERIC_RTOL,
-                    abs_tol=_NUMERIC_ATOL,
-                ):
-                    reasons.append(f"rhythm density windows disagree on {key}")
-
-        normalized.append(
-            {
-                "start": start,
-                "end": end,
-                "density": density,
-            }
-        )
-
-    if reasons:
-        return [], contract, reasons
-    return normalized, contract, []
-
-
-def _rhythm_density_values_for_span(
-    windows: Sequence[dict[str, float]],
-    locator: SecondsSpanLocator,
-    label: str,
-) -> tuple[np.ndarray | None, str | None]:
-    selected = [
-        window["density"]
-        for window in windows
-        if window["start"] >= locator.start_seconds - _NUMERIC_ATOL
-        and window["end"] <= locator.end_seconds + _NUMERIC_ATOL
-    ]
-    if not selected:
-        return None, f"{label} span contains no complete rhythm density windows"
-    return np.asarray(selected, dtype=float), None
-
-
 def compare_perceptual_spans(
     report: PerceptualEvidenceReport,
     *,
@@ -557,9 +344,7 @@ def compare_perceptual_spans(
             continue
         reasons.extend(_series_contract_reasons(feature, series, report))
         subject_values, subject_error = _values_for_span(feature, series, subject_locator)
-        comparison_values, comparison_error = _values_for_span(
-            feature, series, comparison_locator
-        )
+        comparison_values, comparison_error = _values_for_span(feature, series, comparison_locator)
         if subject_error:
             reasons.append(f"subject: {subject_error}")
         if comparison_error:
@@ -610,106 +395,12 @@ def compare_perceptual_spans(
     )
 
 
-def compare_rhythm_density_spans(
-    evidence: RhythmDensityEvidence,
-    *,
-    subject_locator: SecondsSpanLocator,
-    comparison_locator: SecondsSpanLocator,
-) -> RelationObservation:
-    """Compare promoted beat-relative event density over two explicit spans.
-
-    Only complete density windows fully contained inside each selected seconds
-    span are eligible. The relation does not infer sections, resample evidence,
-    mix seconds and beat units, or attach semantic meaning to numeric direction.
-    """
-
-    reasons = [
-        *_validate_rhythm_locator(subject_locator, evidence, "subject"),
-        *_validate_rhythm_locator(comparison_locator, evidence, "comparison"),
-    ]
-    windows, contract, contract_reasons = _validated_rhythm_density_windows(evidence)
-    reasons.extend(contract_reasons)
-    if reasons:
-        return _rhythm_density_withheld(
-            evidence,
-            subject_locator,
-            comparison_locator,
-            reasons,
-            contract,
-        )
-
-    subject_values, subject_error = _rhythm_density_values_for_span(
-        windows, subject_locator, "subject"
-    )
-    comparison_values, comparison_error = _rhythm_density_values_for_span(
-        windows, comparison_locator, "comparison"
-    )
-    if subject_error:
-        reasons.append(subject_error)
-    if comparison_error:
-        reasons.append(comparison_error)
-    if subject_values is None or comparison_values is None or contract is None:
-        return _rhythm_density_withheld(
-            evidence,
-            subject_locator,
-            comparison_locator,
-            reasons or ["compatible rhythm density evidence is unavailable"],
-            contract,
-        )
-
-    subject_aggregate = float(_median(subject_values))
-    comparison_aggregate = float(_median(comparison_values))
-    delta = subject_aggregate - comparison_aggregate
-    if not math.isfinite(delta):
-        return _rhythm_density_withheld(
-            evidence,
-            subject_locator,
-            comparison_locator,
-            ["rhythm density aggregate delta is non-finite"],
-            contract,
-        )
-
-    direction = _direction(delta)
-    if direction == "mixed":
-        return _rhythm_density_withheld(
-            evidence,
-            subject_locator,
-            comparison_locator,
-            ["scalar rhythm density relation produced an invalid mixed direction"],
-            contract,
-        )
-
-    measurement = RhythmDensityMeasurement(
-        window_size=float(contract["window_size"]),
-        step_size=float(contract["step_size"]),
-        subject_value=subject_aggregate,
-        comparison_value=comparison_aggregate,
-        delta=delta,
-        relative_delta=_relative_delta(delta, comparison_aggregate),
-        direction=direction,
-        subject_window_count=len(subject_values),
-        comparison_window_count=len(comparison_values),
-    )
-    return RelationObservation(
-        kind="rhythm_density_span_comparison",
-        subject_locator=subject_locator,
-        comparison_locator=comparison_locator,
-        support_refs=[_rhythm_density_support_ref(evidence.evidence_id)],
-        measurements=[measurement],
-        sufficiency=RelationSufficiency(status="supported"),
-        provenance=_rhythm_density_provenance(evidence, contract),
-    )
-
-
 __all__ = [
     "BoundarySensitivityHook",
     "EvidenceRef",
     "RelationMeasurement",
     "RelationObservation",
     "RelationSufficiency",
-    "RhythmDensityEvidence",
-    "RhythmDensityMeasurement",
     "SecondsSpanLocator",
     "compare_perceptual_spans",
-    "compare_rhythm_density_spans",
 ]
