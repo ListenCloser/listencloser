@@ -205,6 +205,44 @@ def test_partial_overlap_only_withholds():
     assert any("no complete" in reason for reason in result.sufficiency.reasons)
 
 
+def test_span_extending_past_stored_coverage_withholds_even_with_complete_windows():
+    evidence, source_version_id = _evidence(
+        [
+            _window(0.0, 2.0, 1.0),
+            _window(1.0, 3.0, 2.0),
+        ]
+    )
+
+    result = compare_rhythm_density_spans(
+        evidence,
+        subject_locator=_locator(source_version_id, 0.0, 6.0),
+        comparison_locator=_locator(source_version_id, 0.0, 2.0),
+    )
+
+    assert result.sufficiency.status == "withhold"
+    assert result.measurements == []
+    assert any("outside rhythm density evidence coverage" in reason for reason in result.sufficiency.reasons)
+
+
+def test_span_starting_before_stored_coverage_withholds_even_with_complete_windows():
+    evidence, source_version_id = _evidence(
+        [
+            _window(1.0, 3.0, 1.0),
+            _window(2.0, 4.0, 2.0),
+        ]
+    )
+
+    result = compare_rhythm_density_spans(
+        evidence,
+        subject_locator=_locator(source_version_id, 0.0, 4.0),
+        comparison_locator=_locator(source_version_id, 1.0, 3.0),
+    )
+
+    assert result.sufficiency.status == "withhold"
+    assert result.measurements == []
+    assert any("outside rhythm density evidence coverage" in reason for reason in result.sufficiency.reasons)
+
+
 def test_boundary_aligned_complete_windows_are_supported():
     evidence, source_version_id = _evidence(
         [
