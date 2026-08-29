@@ -115,9 +115,26 @@ function invalidateVersionWork(versionId: string): void {
   const workId = versionWorkIndex.get(versionId);
   if (workId) {
     invalidateWorkCache(workId);
+    // A version's Work ownership is immutable. Keep the triggering relation so
+    // a failed workflow start can be retried without losing the ability to
+    // invalidate a source-only Work bundle cached between attempts.
+    versionWorkIndex.set(versionId, workId);
     return;
   }
   invalidateVersionData(versionId);
+}
+
+function rememberUploadedVersion(result: { artifact: Artifact; version: Version }): { artifact: Artifact; version: Version } {
+  // Upload completion is itself a Work mutation. Invalidate any older bundle
+  // generation first, then retain the new version→Work relation immediately.
+  // This closes the import race where a source-only Work request starts just
+  // after upload, workflow creation begins before that request resolves, and
+  // workflow invalidation otherwise cannot discover which Work owns the new
+  // version. Without this index, the late source-only response can be cached as
+  // stable for the full Work TTL even while understanding is running.
+  invalidateWorkCache(result.artifact.work_id);
+  versionWorkIndex.set(result.version.id, result.artifact.work_id);
+  return result;
 }
 
 export function clearWorkDataCache(): void {
@@ -232,7 +249,7 @@ async function uploadArtifactViaProxy(
     throw new Error(typeof error === "string" ? error : `Upload failed: ${res.status}`);
   }
 
-  return res.json();
+  return rememberUploadedVersion(await res.json());
 }
 
 export async function uploadArtifact(
@@ -271,7 +288,7 @@ export async function uploadArtifact(
     throw new Error(`Storage upload failed: ${uploadError.message}`);
   }
 
-  return apiFetch<{ artifact: Artifact; version: Version }>(
+  const result = await apiFetch<{ artifact: Artifact; version: Version }>(
     `/api/v1/projects/${projectId}/artifacts/finalize-upload`,
     {
       method: "POST",
@@ -281,6 +298,7 @@ export async function uploadArtifact(
       }),
     },
   );
+  return rememberUploadedVersion(result);
 }
 
 export async function startUnderstandWorkflow(

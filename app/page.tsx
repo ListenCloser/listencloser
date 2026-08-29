@@ -16,7 +16,7 @@ import {
   startVariationWorkflow,
   uploadArtifact,
 } from "@/lib/api-client";
-import { JobObservationError, JobTerminalError, waitForJob, sanitizeJobError } from "@/lib/job-tracking";
+import { JobObservationError, waitForJob, sanitizeJobError } from "@/lib/job-tracking";
 import { supabase } from "@/lib/supabase";
 import { refreshProjectWorks, useLibraryProject, useProcessingHealth, useProjectWorks } from "@/lib/server-state";
 import { useTimeline } from "@/lib/stores/timeline";
@@ -31,6 +31,8 @@ import {
 const ACCEPT = ".wav,.mp3,.m4a,.flac,.ogg,.aac,audio/*";
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["wav", "mp3", "m4a", "flac", "ogg", "aac"]);
+const ACTIVE_JOB_STATES = new Set(["queued", "claimed", "running"]);
+const PROCESSING_REFRESH_MS = 1200;
 type UploadStage = "idle" | "uploading" | "processing" | "disconnected" | "success" | "error";
 
 function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
@@ -65,67 +67,61 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadSequenceRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedWorkRef = useRef<string | null>(null);
   const initializedProjectSelectionRef = useRef<string | null>(null);
 
+  const clearProcessingRefresh = useCallback(() => {
+    if (refreshTimerRef.current !== null) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+  }, []);
+
   const loadWork = useCallback(async (workId: string) => {
-    const preserveTransport = loadedWorkRef.current === workId;
+    const preserveWorkspace = loadedWorkRef.current === workId;
     loadedWorkRef.current = workId;
     const sequence = ++loadSequenceRef.current;
+    clearProcessingRefresh();
     abortRef.current?.abort();
     abortRef.current = new AbortController();
-    const signal = abortRef.current.signal;
-    setLoadingWork(true);
+
+    setLoadingWork(!preserveWorkspace);
     setError(null);
-    setActiveJobId(null);
-    setProcessingWorkId(workId);
     setLoadWarnings([]);
-    setPendingSourceVersionId(null);
-    resetTimeline();
-    replaceRepresentations([]);
-    if (!preserveTransport) replaceSources([]);
-    setInsights([]);
-    setTakes([]);
-    setAnalysisState("idle");
+    if (!preserveWorkspace) {
+      setActiveJobId(null);
+      setProcessingWorkId(null);
+      setPendingSourceVersionId(null);
+      resetTimeline();
+      replaceRepresentations([]);
+      replaceSources([]);
+      setInsights([]);
+      setTakes([]);
+      setAnalysisState("idle");
+    }
 
     try {
-      let bundle = await getWorkBundle(workId);
+      const bundle = await getWorkBundle(workId);
       if (sequence !== loadSequenceRef.current) return;
-      let latestJob = bundle.jobs[0];
-      const activeJob = latestJob && ["queued", "claimed", "running"].includes(latestJob.lifecycle.current)
+
+      const latestJob = bundle.jobs[0];
+      const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
+      const terminalJob = latestJob && ["failed", "cancelled"].includes(latestJob.lifecycle.current)
         ? latestJob
         : undefined;
-      let observationIssue: JobObservationError | null = null;
 
       if (activeJob) {
         setActiveJobId(activeJob.id);
+        setProcessingWorkId(workId);
+        setPendingSourceVersionId(null);
         setAnalysisState("analyzing");
         setFilename(bundle.work.title);
         setStage("processing");
         setProgress(Math.round(activeJob.lifecycle.progress * 100));
         setMessage(understandStageLabel(activeJob.lifecycle.progress));
-        try {
-          await waitForJob(activeJob.id, (current) => {
-            if (sequence !== loadSequenceRef.current) return;
-            setMessage(understandStageLabel(current.progress));
-            setProgress(Math.round(current.progress * 100));
-          }, { signal });
-        } catch (cause) {
-          if (cause instanceof DOMException && cause.name === "AbortError") return;
-          if (cause instanceof JobObservationError) observationIssue = cause;
-          else if (!(cause instanceof JobTerminalError)) throw cause;
-        }
-        if (!observationIssue) {
-          bundle = await getWorkBundle(workId);
-          if (sequence !== loadSequenceRef.current) return;
-          latestJob = bundle.jobs[0];
-          setActiveJobId(null);
-        }
       }
 
-      const terminalJob = latestJob && ["failed", "cancelled"].includes(latestJob.lifecycle.current)
-        ? latestJob
-        : undefined;
       const latestByKind = new Map<string, (typeof bundle.artifacts)[number]>();
       for (const item of bundle.artifacts) {
         if (item.latest_version && item.signed_url && !latestByKind.has(item.artifact.kind)) {
@@ -180,10 +176,9 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
         });
       }
 
-      // First meaningful paint: once the durable bundle returns, show playable
-      // audio immediately. Note entities, analysis, and MusicXML can hydrate in
-      // parallel instead of holding the entire workspace behind a loading view.
-      replaceSources(sources, activeId ?? undefined, preserveTransport);
+      // The durable source is the first usable workspace state. Processing may
+      // still be running, but it must not hold playback behind a job modal.
+      replaceSources(sources, activeId ?? undefined, preserveWorkspace);
       if (representations.length > 0) {
         replaceRepresentations([...representations]);
         setLoadingWork(false);
@@ -262,45 +257,68 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
       if (pendingSignature !== null) setTimeSignature(pendingSignature.numerator, pendingSignature.denominator);
       setLoadWarnings(warnings);
 
-      if (observationIssue) {
-        setAnalysisState("analyzing");
-        setProcessingWorkId(workId);
-        setError(observationIssue.message);
-        setStage("disconnected");
+      if (activeJob) {
+        // Re-fetch the source-of-truth bundle rather than inventing local stage
+        // thresholds. If MIDI/score/insights become durable mid-job they will
+        // appear on the next poll without changing the active view or source.
+        refreshTimerRef.current = setTimeout(() => {
+          if (sequence === loadSequenceRef.current && loadedWorkRef.current === workId) {
+            void loadWork(workId);
+          }
+        }, PROCESSING_REFRESH_MS);
       } else if (terminalJob) {
         setAnalysisState("completed");
+        setProcessingWorkId(workId);
         setActiveJobId(terminalJob.id);
         setError(sanitizeJobError(terminalJob.error || terminalJob.lifecycle.message || `Understanding audio ${terminalJob.lifecycle.current}`));
         setStage("error");
       } else if (original?.latest_version && !midi && !score) {
         setAnalysisState("idle");
+        setActiveJobId(null);
         setPendingSourceVersionId(original.latest_version.id);
-        setProcessingWorkId(null);
+        setProcessingWorkId(workId);
         setError(null);
         setStage("success");
       } else if (representations.length === 0) {
         setAnalysisState("idle");
+        setActiveJobId(null);
+        setProcessingWorkId(null);
         setError(null);
         setStage("success");
       } else {
         setAnalysisState("completed");
         setActiveJobId(null);
+        setPendingSourceVersionId(null);
+        setProcessingWorkId(null);
+        setError(null);
         setStage("success");
       }
     } catch (cause) {
       if (sequence !== loadSequenceRef.current) return;
-      setError(cause instanceof Error ? cause.message : "Could not load this recording");
-      setStage("error");
+      if (preserveWorkspace) {
+        setProcessingWorkId(workId);
+        setError(cause instanceof Error ? cause.message : "Could not refresh processing status");
+        setStage("disconnected");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Could not load this recording");
+        setStage("error");
+      }
     } finally {
       if (sequence === loadSequenceRef.current) setLoadingWork(false);
     }
-  }, [replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
+  }, [clearProcessingRefresh, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
 
-  useEffect(() => () => { abortRef.current?.abort(); }, []);
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    clearProcessingRefresh();
+  }, [clearProcessingRefresh]);
 
   useEffect(() => {
-    if (workspace.activeWorkId === null) abortRef.current?.abort();
-  }, [workspace.activeWorkId]);
+    if (workspace.activeWorkId === null) {
+      abortRef.current?.abort();
+      clearProcessingRefresh();
+    }
+  }, [clearProcessingRefresh, workspace.activeWorkId]);
 
   const handledStudioAction = useRef(0);
   useEffect(() => {
@@ -363,17 +381,12 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
       return;
     }
 
-    // A null selection after initial hydration is deliberate (for example,
-    // deleting the active recording). Do not race the optimistic works-cache
-    // update by reselecting the stale first row.
     if (!workspace.activeWorkId) {
       setLoadingWork(false);
       return;
     }
     if (activeWorkStillExists) return;
 
-    // If a selected work disappears outside the local delete flow, fall back
-    // to the next available server-owned work.
     if (works[0]) setActiveWorkId(works[0].id);
     else {
       setActiveWorkId(null);
@@ -400,6 +413,8 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
   }, [workspace.importRequestId]);
 
   const handleFile = useCallback(async (file: File) => {
+    setProcessingWorkId(null);
+    setActiveJobId(null);
     if (!projectId) {
       setError("Your library is still loading.");
       setStage("error");
@@ -426,46 +441,53 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
     setPendingSourceVersionId(null);
     setStage("uploading");
     setProgress(2);
+    setMessage("");
     setError(null);
     try {
       const { artifact, version } = await uploadArtifact(projectId, file);
       setPendingSourceVersionId(version.id);
       setProcessingWorkId(artifact.work_id);
       await refreshProjectWorks(queryClient, projectId);
-      setStage("processing");
-      const { job } = await startUnderstandWorkflow(version.id, projectId, transcriptionProfile);
-      setActiveJobId(job.id);
-      await waitForJob(job.id, (current) => {
-        setMessage(understandStageLabel(current.progress));
-        setProgress(5 + Math.round(current.progress * 90));
-      });
-      await refreshProjectWorks(queryClient, projectId);
-      setProgress(100);
-      setActiveJobId(null);
+
+      // Durability is the boundary for leaving the blocking import state. Open
+      // the Work before starting enrichment so workflow-start failure cannot
+      // make a successfully saved recording disappear.
       setActiveWorkId(artifact.work_id);
-      setProcessingWorkId(null);
-      setPendingSourceVersionId(null);
-    } catch (cause) {
-      if (cause instanceof JobObservationError) {
-        setError(cause.message);
-        setStage("disconnected");
-      } else {
-        setError(cause instanceof Error ? cause.message : "Import failed");
+      setStage("processing");
+      setProgress(0);
+      setMessage("Understanding audio…");
+
+      try {
+        const { job } = await startUnderstandWorkflow(version.id, projectId, transcriptionProfile);
+        setActiveJobId(job.id);
+        setPendingSourceVersionId(null);
+        await loadWork(artifact.work_id);
+      } catch (cause) {
+        setActiveJobId(null);
+        setPendingSourceVersionId(version.id);
+        setError(cause instanceof Error ? cause.message : "Could not start processing");
         setStage("error");
       }
+    } catch (cause) {
+      setProcessingWorkId(null);
+      setPendingSourceVersionId(null);
+      setError(cause instanceof Error ? cause.message : "Import failed");
+      setStage("error");
     }
-  }, [projectId, queryClient, serviceStatus, setActiveWorkId, transcriptionProfile]);
+  }, [loadWork, projectId, queryClient, serviceStatus, setActiveWorkId, transcriptionProfile]);
 
   const cancelActiveJob = useCallback(async () => {
     if (!activeJobId) return;
     setMessage("Cancelling after the current processing step");
     try {
       await cancelJob(activeJobId);
+      const workId = processingWorkId ?? workspace.activeWorkId;
+      if (workId) await loadWork(workId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not cancel the job");
       setStage("error");
     }
-  }, [activeJobId]);
+  }, [activeJobId, loadWork, processingWorkId, workspace.activeWorkId]);
 
   const retryActiveJob = useCallback(async () => {
     const workId = processingWorkId ?? workspace.activeWorkId;
@@ -476,47 +498,25 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
     try {
       const retried = await retryJob(activeJobId);
       setActiveJobId(retried.id);
-      await waitForJob(retried.id, (current) => {
-        setMessage(understandStageLabel(current.progress));
-        setProgress(Math.round(current.progress * 100));
-      });
-      setActiveJobId(null);
-      if (workspace.activeWorkId === workId) await loadWork(workId);
-      else setActiveWorkId(workId);
-      setProcessingWorkId(null);
+      await loadWork(workId);
     } catch (cause) {
-      if (cause instanceof JobObservationError) {
-        setError(cause.message);
-        setStage("disconnected");
-      } else {
-        setError(cause instanceof Error ? cause.message : "Retry failed");
-        setStage("error");
-      }
+      setError(cause instanceof Error ? cause.message : "Retry failed");
+      setStage("error");
     }
-  }, [activeJobId, loadWork, processingWorkId, setActiveWorkId, workspace.activeWorkId]);
+  }, [activeJobId, loadWork, processingWorkId, workspace.activeWorkId]);
 
   const resumeActiveJob = useCallback(async () => {
     const workId = processingWorkId ?? workspace.activeWorkId;
-    if (!activeJobId || !workId) return;
+    if (!workId) return;
     setStage("processing");
     setError(null);
     try {
-      await waitForJob(activeJobId, (current) => {
-        setMessage(understandStageLabel(current.progress));
-        setProgress(Math.round(current.progress * 100));
-      });
-      setActiveJobId(null);
       await loadWork(workId);
     } catch (cause) {
-      if (cause instanceof JobTerminalError) {
-        setError(cause.message);
-        setStage("error");
-      } else {
-        setError(cause instanceof Error ? cause.message : "Could not reconnect to this job");
-        setStage("disconnected");
-      }
+      setError(cause instanceof Error ? cause.message : "Could not reconnect to this job");
+      setStage("disconnected");
     }
-  }, [activeJobId, loadWork, processingWorkId, workspace.activeWorkId]);
+  }, [loadWork, processingWorkId, workspace.activeWorkId]);
 
   const startPendingProcessing = useCallback(async () => {
     const workId = processingWorkId ?? workspace.activeWorkId;
@@ -527,25 +527,19 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
     try {
       const { job } = await startUnderstandWorkflow(pendingSourceVersionId, projectId, transcriptionProfile);
       setActiveJobId(job.id);
-      await waitForJob(job.id, (current) => {
-        setMessage(understandStageLabel(current.progress));
-        setProgress(Math.round(current.progress * 100));
-      });
-      setActiveJobId(null);
       setPendingSourceVersionId(null);
       await loadWork(workId);
     } catch (cause) {
-      if (cause instanceof JobObservationError) {
-        setError(cause.message);
-        setStage("disconnected");
-      } else {
-        setError(cause instanceof Error ? cause.message : "Could not start processing");
-        setStage("error");
-      }
+      setError(cause instanceof Error ? cause.message : "Could not start processing");
+      setStage("error");
     }
   }, [loadWork, pendingSourceVersionId, processingWorkId, projectId, transcriptionProfile, workspace.activeWorkId]);
 
-  const showOverlay = stage === "processing" || stage === "uploading" || stage === "disconnected" || stage === "error";
+  const durableWorkVisible = Boolean(
+    processingWorkId && workspace.activeWorkId === processingWorkId && workspace.representations.length > 0,
+  );
+  const showBlockingOverlay = stage === "uploading" || ((stage === "disconnected" || stage === "error") && !durableWorkVisible);
+  const showProcessingNotice = durableWorkVisible && ["processing", "disconnected", "error"].includes(stage);
 
   return (
     <>
@@ -561,15 +555,14 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
           if (file) void handleFile(file);
         }}
       />
-      {showOverlay && (
+      {showBlockingOverlay && (
         <div className="operation-layer">
           <div className="operation-layer-inner">
-            {(stage === "uploading" || stage === "processing") && (
+            {stage === "uploading" && (
               <div className="piece-processing-card" role="status">
                 <span className="piece-processing-filename">{presentableTitle(filename)}</span>
                 <progress value={progress} max={100} />
-                <span className="piece-processing-stage">{stage === "uploading" ? "Uploading…" : message} · {Math.round(progress)}%</span>
-                {stage === "processing" && activeJobId && <button className="btn" onClick={() => void cancelActiveJob()}>Cancel</button>}
+                <span className="piece-processing-stage">Uploading…</span>
               </div>
             )}
             {stage === "disconnected" && (
@@ -588,6 +581,22 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {showProcessingNotice && (
+        <div className="workspace-notice workspace-processing-notice" role={stage === "processing" ? "status" : "alert"}>
+          <span>
+            {stage === "processing" && <><strong>Recording saved.</strong> {message || "Understanding audio…"}{progress > 0 ? ` · ${Math.round(progress)}%` : ""}</>}
+            {stage === "disconnected" && <><strong>Processing status interrupted.</strong> Your recording is saved. Available views still work.</>}
+            {stage === "error" && <><strong>Couldn’t finish understanding this recording.</strong> Your recording is saved. Available views still work.</>}
+          </span>
+          <div className="operation-card-actions">
+            {stage === "processing" && activeJobId && <button className="btn" onClick={() => void cancelActiveJob()}>Cancel</button>}
+            {stage === "disconnected" && <button className="btn btn-primary" onClick={() => void resumeActiveJob()}>Reconnect</button>}
+            {stage === "error" && activeJobId && <button className="btn btn-primary" onClick={() => void retryActiveJob()}>Retry</button>}
+            {stage === "error" && !activeJobId && pendingSourceVersionId && <button className="btn btn-primary" onClick={() => void startPendingProcessing()}>Process saved audio</button>}
+            {(stage === "disconnected" || stage === "error") && <button className="btn" onClick={() => { setStage("idle"); setError(null); }}>Dismiss</button>}
           </div>
         </div>
       )}

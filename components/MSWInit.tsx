@@ -12,9 +12,12 @@ export default function MSWInit({ children }: { children: ReactNode }) {
       return;
     }
     async function init() {
-      const { handlers } = await import("@/mocks/handlers");
+      const [{ handlers }, { directUploadHandlers }] = await Promise.all([
+        import("@/mocks/handlers"),
+        import("@/mocks/direct-upload-handlers"),
+      ]);
       const { setupWorker } = await import("msw/browser");
-      const worker = setupWorker(...handlers);
+      const worker = setupWorker(...directUploadHandlers, ...handlers);
       await worker.start({ onUnhandledRequest: "bypass" });
       setReady(true);
     }

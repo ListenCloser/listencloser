@@ -17,6 +17,36 @@ const musicxml = `<?xml version="1.0" encoding="UTF-8"?><score-partwise version=
 ).join("")}</part></score-partwise>`;
 
 const measureStartsSeconds = [0, 2, 4, 6, 8, 10];
+let understandInFlight = false;
+let understandBundlePolls = 0;
+
+function understandJob(progress: number, current: "queued" | "running" = "running") {
+  return {
+    id: "mock-job-1",
+    workflow_id: "mock-workflow-1",
+    capability: { name: "understand", version: "1.0" },
+    lifecycle: {
+      current,
+      progress,
+      message: "Understanding audio...",
+      stages: [],
+      retry_count: 0,
+      max_retries: 3,
+      lease_expires_at: null,
+      started_at: current === "running" ? new Date().toISOString() : null,
+      completed_at: null,
+    },
+    input_version_ids: ["mock-version-1"],
+    output_version_ids: [],
+    parameters: {},
+    cache_key: null,
+    error: null,
+    error_details: {},
+    provenance: {},
+    created_at: new Date().toISOString(),
+    created_by: null,
+  };
+}
 
 export const handlers = [
   // ── Domain API v1 ──────────────────────────────────────────
@@ -50,6 +80,8 @@ export const handlers = [
 
   http.post("/api/v1/projects/:projectId/artifacts/upload", async () => {
     await delay(200);
+    understandInFlight = false;
+    understandBundlePolls = 0;
     return HttpResponse.json({
       artifact: { id: "mock-artifact-1", work_id: "mock-work-1", kind: "audio_original", mime_type: "audio/wav", created_at: new Date().toISOString() },
       version: { id: "mock-version-1", artifact_id: "mock-artifact-1", storage_bucket: "artifacts", storage_key: "test/mock-version-1.wav", parent_version_id: null, lineage: [], byte_size: 44000, sha256: null, label: "", metadata: {}, created_at: new Date().toISOString(), created_by: null, produced_by_job_id: null },
@@ -58,9 +90,11 @@ export const handlers = [
 
   http.post("/api/v1/workflows/understand", async () => {
     await delay(100);
+    understandInFlight = true;
+    understandBundlePolls = 0;
     return HttpResponse.json({
       workflow: { id: "mock-workflow-1", project_id: "mock-project-1", kind: "understand", target_version_id: null, parameters: {}, created_at: new Date().toISOString() },
-      job: { id: "mock-job-1", workflow_id: "mock-workflow-1", capability: { name: "understand", version: "1.0" }, lifecycle: { current: "queued", progress: 0, message: "Understanding audio...", stages: [], retry_count: 0, max_retries: 3, lease_expires_at: null, started_at: null, completed_at: null }, input_version_ids: ["mock-version-1"], output_version_ids: [], parameters: {}, cache_key: null, error: null, error_details: {}, provenance: {}, created_at: new Date().toISOString(), created_by: null },
+      job: understandJob(0, "queued"),
     });
   }),
 
@@ -77,6 +111,7 @@ export const handlers = [
   }),
 
   http.post("/api/v1/jobs/:jobId/cancel", async ({ params }) => {
+    understandInFlight = false;
     return HttpResponse.json({
       id: String(params.jobId), workflow_id: "mock-workflow-1", capability: "understand",
       stage: "cancelled", progress: 0.5, message: "cancelled by user", error: null,
@@ -85,6 +120,8 @@ export const handlers = [
   }),
 
   http.post("/api/v1/jobs/:jobId/retry", async ({ params }) => {
+    understandInFlight = true;
+    understandBundlePolls = 0;
     return HttpResponse.json({
       id: String(params.jobId), workflow_id: "mock-workflow-1", capability: "understand",
       stage: "queued", progress: 0, message: "queued for manual retry", error: null,
@@ -113,16 +150,31 @@ export const handlers = [
       latest_version: { id, artifact_id: `artifact-${id}`, storage_bucket: "artifacts", storage_key: `mock/${id}`, parent_version_id: null, lineage: [], byte_size: 100, sha256: null, label: id, metadata, created_at: now, created_by: "mock-user-1", produced_by_job_id: "mock-job-1" },
       signed_url: signedUrl,
     });
+    const allArtifacts = [
+      item("mock-version-1", "audio_original", `data:audio/wav;base64,${sampleWavBase64}`),
+      item("mock-midi-version", "midi_performance", "https://example.com/mock.mid"),
+      item("mock-audio-version", "audio_rendered", `data:audio/wav;base64,${sampleWavOutputBase64}`),
+      item("mock-score-version", "musicxml_score", `data:application/xml,${encodeURIComponent(musicxml)}`),
+      item("mock-rendered-score-version", "rendered_score", `data:audio/wav;base64,${sampleWavOutputBase64}`, { measure_starts_seconds: measureStartsSeconds }),
+    ];
+
+    let jobs: ReturnType<typeof understandJob>[] = [];
+    let artifacts = allArtifacts;
+    if (understandInFlight) {
+      understandBundlePolls += 1;
+      if (understandBundlePolls < 4) {
+        const progress = Math.min(0.85, 0.15 + understandBundlePolls * 0.2);
+        jobs = [understandJob(progress)];
+        artifacts = [allArtifacts[0]];
+      } else {
+        understandInFlight = false;
+      }
+    }
+
     return HttpResponse.json({
       work: { id: "mock-work-1", project_id: "mock-project-1", title: "Test Work", composer: null, created_at: now, updated_at: now },
-      jobs: [],
-      artifacts: [
-        item("mock-version-1", "audio_original", `data:audio/wav;base64,${sampleWavBase64}`),
-        item("mock-midi-version", "midi_performance", "https://example.com/mock.mid"),
-        item("mock-audio-version", "audio_rendered", `data:audio/wav;base64,${sampleWavOutputBase64}`),
-        item("mock-score-version", "musicxml_score", `data:application/xml,${encodeURIComponent(musicxml)}`),
-        item("mock-rendered-score-version", "rendered_score", `data:audio/wav;base64,${sampleWavOutputBase64}`, { measure_starts_seconds: measureStartsSeconds }),
-      ],
+      jobs,
+      artifacts,
     });
   }),
 
