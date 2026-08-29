@@ -5,8 +5,8 @@
   color: var(--muted);
 }
 
-.blockedAction:hover,
-.blockedAction:active {
+.blockedAction[aria-disabled="true"]:hover:not(:disabled),
+.blockedAction[aria-disabled="true"]:active:not(:disabled) {
   border-color: var(--border);
   background: transparent;
   color: var(--muted);
@@ -16,8 +16,8 @@
   border-color: var(--border);
 }
 
-.blockedReference:hover,
-.blockedReference:active {
+.blockedReference[aria-disabled="true"]:hover:not(:disabled),
+.blockedReference[aria-disabled="true"]:active:not(:disabled) {
   border-color: var(--border);
   background: var(--panel);
   color: var(--muted);
