@@ -1,14 +1,16 @@
 """Downstream MIR metrics for separated stems.
 
 These helpers intentionally call the same production/evaluation engines used by
-hello-ai.  The separation bakeoff is meant to measure whether a stem improves a
+hello-ai. The separation bakeoff is meant to measure whether a stem improves a
 real downstream task, not whether it helps an easier proxy detector.
 """
 
 from __future__ import annotations
 
 import io
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -69,6 +71,28 @@ def _audio_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
     buffer = io.BytesIO()
     sf.write(buffer, samples, sample_rate, format="WAV", subtype="FLOAT")
     return buffer.getvalue()
+
+
+def _load_midi_events(paths: list[Path]):
+    import pretty_midi
+
+    from backend.evaluation.analysis_v3.multitrack_transcription.metrics import NoteEvent
+
+    events: list[NoteEvent] = []
+    for path in paths:
+        midi = pretty_midi.PrettyMIDI(str(path))
+        for instrument in midi.instruments:
+            for note in instrument.notes:
+                events.append(
+                    NoteEvent(
+                        pitch=int(note.pitch),
+                        start=float(note.start),
+                        end=float(note.end),
+                        program=int(instrument.program),
+                        is_drum=bool(instrument.is_drum),
+                    )
+                )
+    return events
 
 
 def compute_chord_accuracy_on_stem(
@@ -136,6 +160,65 @@ def compare_beat_f1_mixture_vs_stem(
     return DownstreamDelta(mixture_score=mixture_score, stem_score=stem_score)
 
 
+def compute_bass_note_f1_on_audio(
+    audio: np.ndarray,
+    sample_rate: int,
+    reference_midi_paths: list[Path] | None,
+) -> float | None:
+    """Score production Basic Pitch against isolated bass reference MIDI.
+
+    The metric is the existing Analysis V3 flat onset-note F1 contract: mir_eval
+    note matching at the repository's canonical tolerances, with program labels
+    ignored because production Basic Pitch is instrument-agnostic.
+    """
+    if not reference_midi_paths:
+        return None
+
+    from backend.evaluation.analysis_v3.multitrack_transcription.adapters.basic_pitch import (
+        run_basic_pitch,
+    )
+    from backend.evaluation.analysis_v3.multitrack_transcription.metrics import match_notes
+
+    for path in reference_midi_paths:
+        if not path.is_file():
+            raise ValueError(f"Missing bass reference MIDI: {path}")
+
+    with tempfile.TemporaryDirectory(prefix="hello-ai-separation-bass-") as temp_dir:
+        temp_root = Path(temp_dir)
+        audio_path = temp_root / "input.wav"
+        prediction_path = temp_root / "prediction.mid"
+        audio_path.write_bytes(_audio_to_wav_bytes(audio, sample_rate))
+        run_basic_pitch(audio_path, prediction_path)
+        reference = _load_midi_events(reference_midi_paths)
+        predicted = _load_midi_events([prediction_path])
+        return float(match_notes(reference, predicted).f1)
+
+
+def compare_bass_note_f1_mixture_vs_stem(
+    mixture_audio: np.ndarray,
+    bass_stem_audio: np.ndarray,
+    sample_rate: int,
+    reference_midi_paths: list[Path] | None,
+) -> DownstreamDelta | None:
+    """Measure whether a separated bass stem improves production AMT F1."""
+    if not reference_midi_paths:
+        return None
+
+    mixture_score = compute_bass_note_f1_on_audio(
+        mixture_audio,
+        sample_rate,
+        reference_midi_paths,
+    )
+    stem_score = compute_bass_note_f1_on_audio(
+        bass_stem_audio,
+        sample_rate,
+        reference_midi_paths,
+    )
+    if mixture_score is None or stem_score is None:
+        return None
+    return DownstreamDelta(mixture_score=mixture_score, stem_score=stem_score)
+
+
 def compute_melody_accuracy_on_stem(
     stem_audio: np.ndarray,
     sample_rate: int,
@@ -143,7 +226,7 @@ def compute_melody_accuracy_on_stem(
 ) -> float | None:
     """Compute melody accuracy on a separated stem.
 
-    Not yet implemented: the next slice should reuse the existing transcription
-    evaluation contract rather than introduce a bespoke pitch proxy.
+    Not yet implemented: a vocal/lead evaluation still needs a corpus whose
+    reference melody aligns with the selected source-separation target.
     """
     return None
