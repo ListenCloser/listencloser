@@ -6,6 +6,7 @@ function finding(overrides: Partial<TemporalFinding>): TemporalFinding {
   return {
     id: overrides.id ?? "finding-1",
     sourceInsightId: overrides.sourceInsightId ?? "insight-1",
+    supportInsightIds: overrides.supportInsightIds ?? [overrides.sourceInsightId ?? "insight-1"],
     kind: overrides.kind ?? "density_peak",
     category: overrides.category ?? "rhythm",
     startSeconds: overrides.startSeconds ?? 10,
@@ -55,6 +56,7 @@ describe("rankBreakdownFindings", () => {
     const laterHarmony = finding({
       id: "harmony",
       sourceInsightId: "chord-1",
+      supportInsightIds: ["chord-1", "chord-2", "chord-3"],
       kind: "harmonic_activity",
       category: "harmony",
       startSeconds: 30,
@@ -139,6 +141,7 @@ describe("rankBreakdownFindings", () => {
       kind: "harmonic_activity",
       category: "harmony",
       sourceInsightId: "chords",
+      supportInsightIds: ["chords", "chords-2", "chords-3"],
       startSeconds: 15,
       endSeconds: 20,
       evidence: { chordDensity: 1.8 },
@@ -148,6 +151,22 @@ describe("rankBreakdownFindings", () => {
 
     expect(ranked.headline).toBe("Chord changes become more frequent in this passage.");
     expect(ranked.evidenceSummary).toContain("change rate, not harmonic tension");
+  });
+
+  it("preserves every supporting insight on the promoted finding", () => {
+    const harmony = finding({
+      kind: "harmonic_activity",
+      category: "harmony",
+      sourceInsightId: "c4",
+      supportInsightIds: ["c4", "c5", "c6"],
+      startSeconds: 8,
+      endSeconds: 10,
+    });
+
+    const [ranked] = rankBreakdownFindings([harmony]);
+
+    expect(ranked.sourceInsightId).toBe("c4");
+    expect(ranked.supportInsightIds).toEqual(["c4", "c5", "c6"]);
   });
 
   it("caps the compact Breakdown at the requested number of promoted findings", () => {
