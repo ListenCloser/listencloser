@@ -1,6 +1,7 @@
 "use client";
 
 import ListboxMenu from "@/components/ui/ListboxMenu";
+import Tooltip from "@/components/ui/Tooltip";
 import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
 
@@ -36,18 +37,23 @@ function CompareTransportControl() {
     ?? null;
 
   if (!compareEnabled) {
+    const help = original && defaultB
+      ? `Compare ${original.label} with ${defaultB.label}`
+      : "A second playback source is required";
     return (
-      <button
-        type="button"
-        className="transport-compare-trigger"
-        disabled={!original || !defaultB}
-        title={original && defaultB ? `Compare ${original.label} with ${defaultB.label}` : "A second playback source is required"}
-        onClick={() => {
-          if (original && defaultB && original.id !== defaultB.id) startCompare(original, defaultB);
-        }}
-      >
-        Compare
-      </button>
+      <Tooltip content={help}>
+        <button
+          type="button"
+          className="transport-compare-trigger"
+          disabled={!original || !defaultB}
+          aria-label={!original || !defaultB ? "Compare unavailable: a second playback source is required" : undefined}
+          onClick={() => {
+            if (original && defaultB && original.id !== defaultB.id) startCompare(original, defaultB);
+          }}
+        >
+          Compare
+        </button>
+      </Tooltip>
     );
   }
 
@@ -58,15 +64,16 @@ function CompareTransportControl() {
         const other = side === "A" ? compareB : compareA;
         return (
           <div key={side} className={`transport-compare-side${activeSide === side ? " active" : ""}`}>
-            <button
-              type="button"
-              className="transport-compare-side-label"
-              aria-pressed={activeSide === side}
-              title={`Listen to compare side ${side}`}
-              onClick={() => setCompareSide(side)}
-            >
-              {side}
-            </button>
+            <Tooltip content={`Listen to compare side ${side}`}>
+              <button
+                type="button"
+                className="transport-compare-side-label"
+                aria-pressed={activeSide === side}
+                onClick={() => setCompareSide(side)}
+              >
+                {side}
+              </button>
+            </Tooltip>
             <ListboxMenu
               compact
               triggerLabel={source?.label ?? "Choose"}
@@ -83,11 +90,13 @@ function CompareTransportControl() {
           </div>
         );
       })}
-      <button type="button" className="transport-compare-exit" onClick={exitCompare} aria-label="Exit compare" title="Exit compare mode">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-          <path d="M2 2l8 8M10 2l-8 8" />
-        </svg>
-      </button>
+      <Tooltip content="Exit compare mode">
+        <button type="button" className="transport-compare-exit" onClick={exitCompare} aria-label="Exit compare">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+            <path d="M2 2l8 8M10 2l-8 8" />
+          </svg>
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -154,20 +163,21 @@ export default function TransportBar() {
       </div>
 
       <div className="transport-playback-zone">
-        <button
-          type="button"
-          className="transport-play-btn"
-          onClick={toggle}
-          aria-label={isPlaying ? "Pause" : "Play"}
-          title={isPlaying ? "Pause playback" : "Play recording"}
-          disabled={!hasSource}
-        >
-          {isPlaying ? (
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="4" height="12" rx="1" /><rect x="9" y="1" width="4" height="12" rx="1" /></svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M2.5 1.5v11l10-5.5z" /></svg>
-          )}
-        </button>
+        <Tooltip content={isPlaying ? "Pause playback" : "Play recording"}>
+          <button
+            type="button"
+            className="transport-play-btn"
+            onClick={toggle}
+            aria-label={isPlaying ? "Pause" : "Play"}
+            disabled={!hasSource}
+          >
+            {isPlaying ? (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="4" height="12" rx="1" /><rect x="9" y="1" width="4" height="12" rx="1" /></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M2.5 1.5v11l10-5.5z" /></svg>
+            )}
+          </button>
+        </Tooltip>
         <span className="transport-time">{formatTime(position)}</span>
         <input
           className="transport-seek"
@@ -181,38 +191,40 @@ export default function TransportBar() {
           disabled={!hasSource || duration <= 0}
         />
         <span className="transport-time transport-time-muted">{formatTime(duration)}</span>
-        <button
-          type="button"
-          className={`transport-ctrl transport-ctrl-labeled${loopEnabled ? " active" : ""}`}
-          onClick={() => {
-            if (!loopEnabled && (loopStart === null || loopEnd === null) && duration > 0) setLoop(0, duration);
-            toggleLoop();
-          }}
-          aria-label="Toggle loop"
-          aria-pressed={loopEnabled}
-          title={loopEnabled ? "Turn loop off" : "Loop entire source"}
-          disabled={!hasSource}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M11 3h3v3" /><path d="M14 3l-3.25 3.25" /><path d="M5 13H2v-3" /><path d="M2 13l3.25-3.25" /><path d="M13.5 6A5.5 5.5 0 0 0 4 3.75" /><path d="M2.5 10A5.5 5.5 0 0 0 12 12.25" />
-          </svg>
-          <span className="transport-ctrl-text">Loop</span>
-        </button>
-        {selectionTimeRange && (
+        <Tooltip content={loopEnabled ? "Turn loop off" : "Loop entire source"}>
           <button
             type="button"
-            className={`transport-ctrl transport-ctrl-labeled${loopSelectionActive ? " active" : ""}`}
-            onClick={applyLoopSelection}
-            aria-label="Loop selection"
-            aria-pressed={loopSelectionActive}
-            disabled={!hasSource || !domainMatches}
-            title={domainMatches ? "Loop selected region" : "Selection uses a different time domain"}
+            className={`transport-ctrl transport-ctrl-labeled${loopEnabled ? " active" : ""}`}
+            onClick={() => {
+              if (!loopEnabled && (loopStart === null || loopEnd === null) && duration > 0) setLoop(0, duration);
+              toggleLoop();
+            }}
+            aria-label="Toggle loop"
+            aria-pressed={loopEnabled}
+            disabled={!hasSource}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-              <rect x="3" y="5" width="10" height="6" rx="1.5" strokeDasharray="2 2" />
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11 3h3v3" /><path d="M14 3l-3.25 3.25" /><path d="M5 13H2v-3" /><path d="M2 13l3.25-3.25" /><path d="M13.5 6A5.5 5.5 0 0 0 4 3.75" /><path d="M2.5 10A5.5 5.5 0 0 0 12 12.25" />
             </svg>
-            <span className="transport-ctrl-text">Region</span>
+            <span className="transport-ctrl-text">Loop</span>
           </button>
+        </Tooltip>
+        {selectionTimeRange && (
+          <Tooltip content={domainMatches ? "Loop selected region" : "Selection uses a different time domain"}>
+            <button
+              type="button"
+              className={`transport-ctrl transport-ctrl-labeled${loopSelectionActive ? " active" : ""}`}
+              onClick={applyLoopSelection}
+              aria-label="Loop selection"
+              aria-pressed={loopSelectionActive}
+              disabled={!hasSource || !domainMatches}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                <rect x="3" y="5" width="10" height="6" rx="1.5" strokeDasharray="2 2" />
+              </svg>
+              <span className="transport-ctrl-text">Region</span>
+            </button>
+          </Tooltip>
         )}
       </div>
 
