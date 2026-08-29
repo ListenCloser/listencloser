@@ -11,8 +11,8 @@ Database round trips grow by bounded ID chunks and result pages rather than by
 individual descendants, so large graphs stay complete without reintroducing N+1.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 from uuid import UUID
 
 from supabase import Client
