@@ -64,12 +64,12 @@ async def compare_perceptual_spans(
     if not sb:
         raise HTTPException(status_code=500, detail="Supabase not configured")
 
-    try:
-        snapshot = WorkBundleRepository(sb).load(work_id, _owner_id(auth))
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    # WorkBundleRepository already uses the owned Work as its authorization
+    # root and returns None when that Work is unavailable to this owner. Do not
+    # reinterpret generic ValueError/validation failures as client-facing 404s:
+    # descendant model-validation or repository bugs are internal failures and
+    # must reach the normal server-error boundary without leaking their detail.
+    snapshot = WorkBundleRepository(sb).load(work_id, _owner_id(auth))
     if not snapshot:
         raise HTTPException(status_code=404, detail="Work not found")
 
