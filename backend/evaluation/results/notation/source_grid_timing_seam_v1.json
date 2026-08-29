@@ -3,6 +3,8 @@
   "experiment": "source_grid_timing_seam_v1",
   "scope": "controlled_notation_stage_regression",
   "not_a_corpus_baseline": true,
+  "measurement_method": "deterministic production-engine regression",
+  "regression_test": "backend/tests/test_notation/test_source_grid_engraving.py",
   "input": {
     "description": "Four one-second note events representing source-audio quarter notes at 60 BPM, carried in a Basic-Pitch-like MIDI with placeholder 120 BPM / 4/4 metadata.",
     "source_beat_times_seconds": [0.0, 1.0, 2.0, 3.0, 4.0],
