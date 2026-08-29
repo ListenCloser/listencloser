@@ -85,8 +85,7 @@ def load_claim_sufficiency_contract() -> dict[str, Any]:
         unknown_gates = set(gates) - _ALLOWED_GATES
         if unknown_gates:
             raise ValueError(
-                f"claim {claim_id!r} has unknown quality gates: "
-                f"{sorted(unknown_gates)}"
+                f"claim {claim_id!r} has unknown quality gates: " f"{sorted(unknown_gates)}"
             )
 
         required = _require_nonempty_strings(
@@ -140,13 +139,10 @@ def load_claim_sufficiency_contract() -> dict[str, Any]:
             raise ValueError(f"missing-evidence claim {claim_id!r} must name planned evidence")
 
         required_statuses = {
-            capability: capability_registry[capability]["status"]
-            for capability in required
+            capability: capability_registry[capability]["status"] for capability in required
         }
         non_production = [
-            capability
-            for capability, status in required_statuses.items()
-            if status != "production"
+            capability for capability, status in required_statuses.items() if status != "production"
         ]
         if readiness in {"SUPPORTED_NOW", "SUPPORTED_EXPERIMENTAL"}:
             if not required:
