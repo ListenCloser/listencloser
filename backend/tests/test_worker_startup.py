@@ -88,7 +88,11 @@ def test_worker_still_runs_when_librosa_prewarm_fails(monkeypatch):
         events.append("librosa")
         raise RuntimeError("synthetic librosa warmup failure")
 
-    monkeypatch.setattr(worker_entry, "prewarm_librosa_beat_tracking", fail_librosa_prewarm)
+    monkeypatch.setattr(
+        worker_entry,
+        "prewarm_librosa_beat_tracking",
+        fail_librosa_prewarm,
+    )
 
     worker_entry.main()
 
