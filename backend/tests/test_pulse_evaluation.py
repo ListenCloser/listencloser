@@ -22,6 +22,7 @@ from backend.evaluation.analysis_v3.pulse.metrics.runtime import (
 from backend.evaluation.analysis_v3.pulse.metrics.tempo import (
     TempoResult,
     check_octave_errors,
+    compute_tempo_accuracy,
     compute_tempo_error,
 )
 
@@ -113,6 +114,10 @@ class TestComputeTempoError:
         assert result.is_correct is False
         assert result.absolute_error == pytest.approx(10.0)
 
+    def test_custom_tolerance(self):
+        assert compute_tempo_error(123.6, 120.0).is_correct is True
+        assert compute_tempo_error(123.6, 120.0, tolerance_pct=2.0).is_correct is False
+
     def test_octave_error(self):
         result = compute_tempo_error(240.0, 120.0)
         assert result.is_octave_error is True
@@ -123,10 +128,49 @@ class TestComputeTempoError:
         assert result.is_octave_error is True
         assert result.is_half_double_error is True
 
+    def test_octave_tolerance_is_relative_to_target(self):
+        assert compute_tempo_error(249.6, 120.0).is_octave_error is True
+        assert compute_tempo_error(62.4, 120.0).is_octave_error is True
+        assert compute_tempo_error(250.0, 120.0).is_octave_error is False
+        assert compute_tempo_error(62.5, 120.0).is_octave_error is False
+
     def test_none_predicted(self):
         result = compute_tempo_error(None, 120.0)
         assert result.is_correct is None
         assert result.absolute_error is None
+
+    def test_nonpositive_reference_is_unscored(self):
+        result = compute_tempo_error(120.0, 0.0)
+        assert result.is_correct is None
+        assert result.relative_error_pct is None
+
+    def test_negative_tolerance_rejected(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            compute_tempo_error(120.0, 120.0, tolerance_pct=-1.0)
+
+
+class TestComputeTempoAccuracy:
+    def test_honors_custom_tolerance(self):
+        near = compute_tempo_error(123.6, 120.0)
+        doubled = compute_tempo_error(240.0, 120.0)
+
+        default = compute_tempo_accuracy([near, doubled])
+        tight = compute_tempo_accuracy([near, doubled], tolerance_pct=2.0)
+
+        assert default["accuracy"] == pytest.approx(0.5)
+        assert default["octave_aware_accuracy"] == pytest.approx(1.0)
+        assert default["octave_errors"] == 1
+        assert default["half_double_errors"] == 1
+        assert default["mean_relative_error_pct"] == pytest.approx(51.5)
+        assert tight["accuracy"] == pytest.approx(0.0)
+        assert tight["octave_aware_accuracy"] == pytest.approx(0.5)
+
+    def test_empty_or_invalid_results_are_unscored(self):
+        invalid = compute_tempo_error(120.0, 0.0)
+        summary = compute_tempo_accuracy([invalid])
+        assert summary["accuracy"] is None
+        assert summary["count"] == 0
+        assert summary["mean_absolute_error"] is None
 
 
 class TestCheckOctaveErrors:
@@ -166,6 +210,46 @@ class TestComputeMeterAccuracy:
         result = compute_meter_accuracy(None, None, 4, 4)
         assert result.meter_correct is None
         assert result.numerator_correct is None
+
+
+class TestPulseSummary:
+    def test_distribution(self):
+        from backend.evaluation.analysis_v3.pulse.run import _distribution
+
+        summary = _distribution([0.1, 0.5, 0.9])
+        assert summary["count"] == 3
+        assert summary["mean"] == pytest.approx(0.5)
+        assert summary["median"] == pytest.approx(0.5)
+        assert summary["p25"] == pytest.approx(0.3)
+        assert summary["p75"] == pytest.approx(0.7)
+
+    def test_failure_and_metric_summary(self):
+        from backend.evaluation.analysis_v3.pulse.run import _summarize_beat_evaluation
+
+        tempo_results = [
+            compute_tempo_error(120.0, 120.0),
+            compute_tempo_error(240.0, 120.0),
+        ]
+        rows = [
+            {"id": "ok-1", "latency_seconds": 0.2},
+            {"id": "ok-2", "latency_seconds": 0.4},
+            {"id": "failed", "error": "engine failed"},
+        ]
+
+        summary = _summarize_beat_evaluation(
+            rows,
+            beat_f1_values=[0.8, 1.0],
+            downbeat_f1_values=[0.6],
+            tempo_results=tempo_results,
+        )
+
+        assert summary["completed"] == 2
+        assert summary["failed"] == 1
+        assert summary["failure_rate"] == pytest.approx(1 / 3, abs=1e-4)
+        assert summary["beat_f1"]["mean"] == pytest.approx(0.9)
+        assert summary["downbeat_f1"]["count"] == 1
+        assert summary["tempo"]["octave_aware_accuracy"] == pytest.approx(1.0)
+        assert summary["latency_seconds"]["mean"] == pytest.approx(0.3)
 
 
 class TestGenerateSyntheticAudio:

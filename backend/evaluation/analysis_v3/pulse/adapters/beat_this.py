@@ -11,8 +11,9 @@ class BeatThisAdapter(PulseAdapter):
     name = "beat_this"
     engine = "beat_this"
 
-    def __init__(self, device: str = "cpu"):
+    def __init__(self, device: str = "cpu", checkpoint_name: str = "final0"):
         super().__init__(device)
+        self.checkpoint_name = checkpoint_name
         self._model = None
 
     def load(self) -> None:
@@ -21,7 +22,10 @@ class BeatThisAdapter(PulseAdapter):
         try:
             from beat_this.inference import File2Beats
 
-            self._model = File2Beats(device=self.device)
+            self._model = File2Beats(
+                checkpoint_path=self.checkpoint_name,
+                device=self.device,
+            )
             self._loaded = True
         except Exception as e:
             raise RuntimeError(f"Failed to load Beat This: {e}") from e
@@ -53,8 +57,6 @@ class BeatThisAdapter(PulseAdapter):
 
             bpm = None
             if len(beats_time) >= 2:
-                import numpy as np
-
                 intervals = np.diff(np.asarray(beats_time))
                 intervals = intervals[intervals > 0]
                 if intervals.size > 0:
@@ -70,20 +72,46 @@ class BeatThisAdapter(PulseAdapter):
             return PulseResult(error=str(e))
 
     def metadata(self) -> PulseMetadata:
+        training_datasets: tuple[str, ...] = ()
+        held_out_datasets: tuple[str, ...] = ()
+        if self.checkpoint_name.startswith(("final", "small")):
+            training_datasets = (
+                "simac",
+                "smc",
+                "hainsworth",
+                "ballroom",
+                "hjdb",
+                "beatles",
+                "harmonix",
+                "rwc",
+                "tapcorrect",
+                "jaah",
+                "filosax",
+                "asap",
+                "groove_midi",
+                "guitarset",
+                "candombe",
+            )
+            held_out_datasets = ("gtzan",)
+
         return PulseMetadata(
             candidate="beat_this",
             engine="beat_this",
             code_license="MIT",
             checkpoint_license="MIT",
-            upstream_repo="https://github.com/inria-ml/beat_this",
+            upstream_repo="https://github.com/CPJKU/beat_this",
+            checkpoint_name=self.checkpoint_name,
+            training_datasets=training_datasets,
+            held_out_datasets=held_out_datasets,
             supports_beats=True,
             supports_downbeats=True,
             supports_tempo=True,
             supports_meter=False,
             supports_local_tempo=False,
             notes=(
-                "CNN-based beat/downbeat tracker from INRIA. "
-                "Tempo is derived from median inter-beat interval, "
+                "Beat/downbeat tracker from CPJKU. The default final0 checkpoint "
+                "was trained on the published multi-dataset training collection "
+                "excluding GTZAN. Tempo is derived from median inter-beat interval, "
                 "not an independently predicted tempo output."
             ),
         )
