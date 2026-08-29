@@ -94,7 +94,9 @@ def test_metric_attributes_are_bounded() -> None:
         perf.understand_operation_metric_attributes("user-controlled-operation", "succeeded")
 
 
-def test_understand_records_queue_stages_and_operations_but_standalone_does_not(monkeypatch) -> None:
+def test_understand_records_queue_stages_and_operations_but_standalone_does_not(
+    monkeypatch,
+) -> None:
     queue_histogram = _Histogram()
     stage_histogram = _Histogram()
     operation_histogram = _Histogram()
