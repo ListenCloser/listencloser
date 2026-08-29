@@ -1,0 +1,267 @@
+{
+  "experiment": "analysis_v3_mr_mt3_persistent_runtime_v1",
+  "question": "How much of stock process-per-track MR-MT3 CPU cost is repeated process/model load overhead versus one resident model reused across requests?",
+  "scope": "operational evidence only; canonical quality remains the #404 decoder-sidecar run",
+  "dataset": {
+    "dataset": "Slakh2100-redux",
+    "split": "test",
+    "upstream": "https://zenodo.org/records/4599666",
+    "license": "CC BY 4.0",
+    "acquisition_mirror": "J1mmymm/MIMuT_Data_v2",
+    "mirror_revision": "bb320faf307f5d24aeced0e60f9445ff0abce205",
+    "selection": [
+      "Track01876",
+      "Track01877",
+      "Track01878",
+      "Track01880",
+      "Track01881"
+    ],
+    "segment_start_seconds": 0.0,
+    "segment_duration_seconds": 30.0,
+    "audio_committed_or_uploaded": false,
+    "entries": [
+      {
+        "id": "Track01876",
+        "audio": "audio/Track01876/mix.wav",
+        "duration_seconds": 30.0,
+        "cropped_sha256": "b7f3a32155a14e7a2e8ea3c8d46e4fd924384d28f20de214945302004a236d9a",
+        "source_download": {
+          "bytes": 11491982,
+          "sha256": "74044d64f7e155b3faa63565e9b9c3d8fc328b506dc5b5cdd7fee927a5a7f23c",
+          "download_seconds": 1.005
+        }
+      },
+      {
+        "id": "Track01877",
+        "audio": "audio/Track01877/mix.wav",
+        "duration_seconds": 30.0,
+        "cropped_sha256": "620b11c7bc00e494d609d9145a715927cf0b429dc865af73d37bee67e1a9b1d4",
+        "source_download": {
+          "bytes": 12053826,
+          "sha256": "da77b67eaf89ad5f5c7bda3444f04c1cae250fd29cb75df71b9e648b6a6b955b",
+          "download_seconds": 1.001
+        }
+      },
+      {
+        "id": "Track01878",
+        "audio": "audio/Track01878/mix.wav",
+        "duration_seconds": 30.0,
+        "cropped_sha256": "f2f54d66c5a1ab9ec430b8571f7fff0c7498dc4343bb1f820dd8cfe1483c0923",
+        "source_download": {
+          "bytes": 12860807,
+          "sha256": "6200c179cd0df6233bce3d6ed9a32dcc92ac684b2080dd8ab1bc8b9fd399e443",
+          "download_seconds": 1.033
+        }
+      },
+      {
+        "id": "Track01880",
+        "audio": "audio/Track01880/mix.wav",
+        "duration_seconds": 30.0,
+        "cropped_sha256": "9c632afea1f59ac23cb032d8340a096076504dabdb7d0ce8995faea9ead036f4",
+        "source_download": {
+          "bytes": 11729757,
+          "sha256": "cd7a048d1c80e5184b4a352f2a3e448ce25aa57ea0842991241acaf2b5489acf",
+          "download_seconds": 1.166
+        }
+      },
+      {
+        "id": "Track01881",
+        "audio": "audio/Track01881/mix.wav",
+        "duration_seconds": 30.0,
+        "cropped_sha256": "6762066f29458258d56b86c02f2bdbda3c713d60ea92d0526b51f227eaced992",
+        "source_download": {
+          "bytes": 18840663,
+          "sha256": "55fe50e97db9976c58a4e6365ff6d5edc3f9f0ffd877e7ae209619441730076d",
+          "download_seconds": 30.959
+        }
+      }
+    ]
+  },
+  "candidate": {
+    "name": "MR-MT3",
+    "runner": "mt3-infer",
+    "runner_version": "0.2.0",
+    "runner_revision": "2d20ee5bb6ca727968bd23c6100fd2a35154166b",
+    "checkpoint_sha256": "b8a3807ed265059abd25ad7f68142c06c35e8f6144dcaa45bd55946a3745398f",
+    "device": "cpu"
+  },
+  "environment": {
+    "python": "3.11.16",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "cpu_count": 4
+  },
+  "control": {
+    "topology": "one mt3-infer CLI process per track; checkpoint already prefetched",
+    "rows": [
+      {
+        "id": "Track01876",
+        "runtime_seconds": 90.701,
+        "rtf": 3.0234,
+        "process_max_rss_mb": 828.46,
+        "midi_sha256": "b6daf70ff552da6535b10dbbabcd9641905d10c34a5be0597c9cd388e04530b4",
+        "midi_semantic_sha256": "3f37ed26d3844d6cf817041c382261fa9bb3c56759f561609a64dc6ac12c2a61",
+        "note_ons": 300
+      },
+      {
+        "id": "Track01877",
+        "runtime_seconds": 23.564,
+        "rtf": 0.7855,
+        "process_max_rss_mb": 809.51,
+        "midi_sha256": "bc4a3028f06e8dc31475400f994087f6188e43de6dc3247f91f95e6ee4efee2f",
+        "midi_semantic_sha256": "c8eb07257838ed214aeb100eb9ab798e565719f7b82e186bed3632974d7ebb3d",
+        "note_ons": 127
+      },
+      {
+        "id": "Track01878",
+        "runtime_seconds": 40.513,
+        "rtf": 1.3504,
+        "process_max_rss_mb": 809.89,
+        "midi_sha256": "3889589280d6b0080ef48ab718adf65074d3b6ea1a355de292d44e8ce3a26999",
+        "midi_semantic_sha256": "1af6eebcddfab7bb4795316bec08f6cb8b4b2c5cbbeb46a50f3777d2cb71f4e1",
+        "note_ons": 128
+      },
+      {
+        "id": "Track01880",
+        "runtime_seconds": 117.018,
+        "rtf": 3.9006,
+        "process_max_rss_mb": 835.92,
+        "midi_sha256": "0feaa529f2a296f099f2810c20afb894ebbb0966239ed5fd7403b2871ef63d3f",
+        "midi_semantic_sha256": "12d651479252ab72de36f7a6915c89ebeac01454d2e0ff2b7a0432f206e58293",
+        "note_ons": 534
+      },
+      {
+        "id": "Track01881",
+        "runtime_seconds": 143.739,
+        "rtf": 4.7913,
+        "process_max_rss_mb": 860.13,
+        "midi_sha256": "1c0778168a763f9950ce5ca16c1e3e6d8d494e4e1666b6a6054e46863df32e6e",
+        "midi_semantic_sha256": "cc25e8c730dd9484ac85793f625c7fd3793ecf4b5b187c37dfecd424342818ac",
+        "note_ons": 594
+      }
+    ]
+  },
+  "persistent": {
+    "topology": "one process; load_model('mr_mt3') once; reuse model for all tracks",
+    "model": {
+      "load_seconds": 2.918,
+      "process_max_rss_mb_after_load": 758.65,
+      "torch_version": "2.6.0+cpu",
+      "torch_num_threads": 2,
+      "mt3_infer_version": "0.2.0",
+      "mt3_infer_revision": "2d20ee5bb6ca727968bd23c6100fd2a35154166b",
+      "checkpoint_sha256": "b8a3807ed265059abd25ad7f68142c06c35e8f6144dcaa45bd55946a3745398f",
+      "checkpoint_bytes": 183672643
+    },
+    "rows": [
+      {
+        "id": "Track01876",
+        "runtime_seconds": 83.306,
+        "rtf": 2.7769,
+        "process_max_rss_mb_cumulative": 828.61,
+        "midi_sha256": "b6daf70ff552da6535b10dbbabcd9641905d10c34a5be0597c9cd388e04530b4",
+        "midi_semantic_sha256": "3f37ed26d3844d6cf817041c382261fa9bb3c56759f561609a64dc6ac12c2a61",
+        "note_ons": 300,
+        "matches_cli_semantics": true,
+        "matches_cli_note_count": true
+      },
+      {
+        "id": "Track01877",
+        "runtime_seconds": 19.481,
+        "rtf": 0.6494,
+        "process_max_rss_mb_cumulative": 839.98,
+        "midi_sha256": "bc4a3028f06e8dc31475400f994087f6188e43de6dc3247f91f95e6ee4efee2f",
+        "midi_semantic_sha256": "c8eb07257838ed214aeb100eb9ab798e565719f7b82e186bed3632974d7ebb3d",
+        "note_ons": 127,
+        "matches_cli_semantics": true,
+        "matches_cli_note_count": true
+      },
+      {
+        "id": "Track01878",
+        "runtime_seconds": 36.652,
+        "rtf": 1.2217,
+        "process_max_rss_mb_cumulative": 840.05,
+        "midi_sha256": "3889589280d6b0080ef48ab718adf65074d3b6ea1a355de292d44e8ce3a26999",
+        "midi_semantic_sha256": "1af6eebcddfab7bb4795316bec08f6cb8b4b2c5cbbeb46a50f3777d2cb71f4e1",
+        "note_ons": 128,
+        "matches_cli_semantics": true,
+        "matches_cli_note_count": true
+      },
+      {
+        "id": "Track01880",
+        "runtime_seconds": 115.746,
+        "rtf": 3.8582,
+        "process_max_rss_mb_cumulative": 840.05,
+        "midi_sha256": "0feaa529f2a296f099f2810c20afb894ebbb0966239ed5fd7403b2871ef63d3f",
+        "midi_semantic_sha256": "12d651479252ab72de36f7a6915c89ebeac01454d2e0ff2b7a0432f206e58293",
+        "note_ons": 534,
+        "matches_cli_semantics": true,
+        "matches_cli_note_count": true
+      },
+      {
+        "id": "Track01881",
+        "runtime_seconds": 143.866,
+        "rtf": 4.7955,
+        "process_max_rss_mb_cumulative": 858.23,
+        "midi_sha256": "1c0778168a763f9950ce5ca16c1e3e6d8d494e4e1666b6a6054e46863df32e6e",
+        "midi_semantic_sha256": "cc25e8c730dd9484ac85793f625c7fd3793ecf4b5b187c37dfecd424342818ac",
+        "note_ons": 594,
+        "matches_cli_semantics": true,
+        "matches_cli_note_count": true
+      }
+    ],
+    "repeat_first_track": {
+      "id": "Track01876",
+      "runtime_seconds": 83.984,
+      "midi_semantic_sha256": "3f37ed26d3844d6cf817041c382261fa9bb3c56759f561609a64dc6ac12c2a61",
+      "matches_first_persistent_semantics": true,
+      "note_ons": 300
+    }
+  },
+  "comparison": {
+    "paired": [
+      {
+        "id": "Track01876",
+        "cli_process_seconds": 90.701,
+        "persistent_seconds": 83.306,
+        "speedup": 1.0888
+      },
+      {
+        "id": "Track01877",
+        "cli_process_seconds": 23.564,
+        "persistent_seconds": 19.481,
+        "speedup": 1.2096
+      },
+      {
+        "id": "Track01878",
+        "cli_process_seconds": 40.513,
+        "persistent_seconds": 36.652,
+        "speedup": 1.1053
+      },
+      {
+        "id": "Track01880",
+        "cli_process_seconds": 117.018,
+        "persistent_seconds": 115.746,
+        "speedup": 1.011
+      },
+      {
+        "id": "Track01881",
+        "cli_process_seconds": 143.739,
+        "persistent_seconds": 143.866,
+        "speedup": 0.9991
+      }
+    ],
+    "cli_mean_seconds": 83.107,
+    "cli_median_seconds": 90.701,
+    "persistent_mean_seconds": 79.81,
+    "persistent_median_seconds": 83.306,
+    "mean_speedup": 1.0828,
+    "median_speedup": 1.0888,
+    "cli_total_seconds": 415.535,
+    "persistent_model_load_seconds": 2.918,
+    "persistent_five_track_inference_seconds": 399.051,
+    "persistent_load_plus_five_tracks_seconds": 401.969,
+    "all_cli_semantics_equal": true,
+    "all_cli_note_counts_equal": true
+  },
+  "success": true
+}
