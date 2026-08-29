@@ -9,15 +9,38 @@ import {
   clearWorkDataCache,
   getEntities,
   getWorkBundle,
+  startCompareWorkflow,
   startUnderstandWorkflow,
+  startVariationWorkflow,
 } from "@/lib/api-client";
 
 const mockApiFetch = vi.mocked(apiFetch);
 
 function savedBundle(title = "Piece"): WorkBundle {
+  return bundleFor("work-1", ["midi-1"], title);
+}
+
+function bundleFor(workId: string, versionIds: string[], title = "Piece"): WorkBundle {
+  const artifactId = `artifact-${workId}`;
+  const versions = versionIds.map((versionId) => ({
+    id: versionId,
+    artifact_id: artifactId,
+    parent_version_id: null,
+    lineage: [],
+    storage_key: `${versionId}.mid`,
+    storage_bucket: "artifacts",
+    byte_size: 1,
+    sha256: null,
+    created_at: "2026-08-28T00:00:00Z",
+    created_by: null,
+    produced_by_job_id: null,
+    label: "Transcription",
+    metadata: {},
+  }));
+
   return {
     work: {
-      id: "work-1",
+      id: workId,
       project_id: "project-1",
       title,
       composer: null,
@@ -27,45 +50,15 @@ function savedBundle(title = "Piece"): WorkBundle {
     artifacts: [
       {
         artifact: {
-          id: "artifact-midi",
-          work_id: "work-1",
+          id: artifactId,
+          work_id: workId,
           kind: "midi_performance",
           mime_type: "audio/midi",
           created_at: "2026-08-28T00:00:00Z",
         },
-        versions: [
-          {
-            id: "midi-1",
-            artifact_id: "artifact-midi",
-            parent_version_id: null,
-            lineage: [],
-            storage_key: "midi.mid",
-            storage_bucket: "artifacts",
-            byte_size: 1,
-            sha256: null,
-            created_at: "2026-08-28T00:00:00Z",
-            created_by: null,
-            produced_by_job_id: null,
-            label: "Transcription",
-            metadata: {},
-          },
-        ],
-        latest_version: {
-          id: "midi-1",
-          artifact_id: "artifact-midi",
-          parent_version_id: null,
-          lineage: [],
-          storage_key: "midi.mid",
-          storage_bucket: "artifacts",
-          byte_size: 1,
-          sha256: null,
-          created_at: "2026-08-28T00:00:00Z",
-          created_by: null,
-          produced_by_job_id: null,
-          label: "Transcription",
-          metadata: {},
-        },
-        signed_url: "https://example.test/midi.mid",
+        versions,
+        latest_version: versions[0] ?? null,
+        signed_url: `https://example.test/${workId}.mid`,
       },
     ],
     jobs: [],
@@ -195,6 +188,109 @@ describe("saved work hydration cache", () => {
     const revisited = await getWorkBundle("work-1");
     expect(revisited).toBe(fresh);
     expect(revisited.work.title).toBe("Fresh piece");
+    expect(workFetches).toBe(2);
+  });
+
+  it("invalidates a bundle fetched while a variation mutation is in flight", async () => {
+    await getWorkBundle("work-1");
+
+    const mutation = deferred<unknown>();
+    let workFetches = 0;
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === "/api/v1/workflows/variation" && options?.method === "POST") {
+        return mutation.promise;
+      }
+      if (url === "/api/v1/works/work-1") {
+        workFetches += 1;
+        return workFetches === 1
+          ? savedBundle("Pre-commit variation")
+          : savedBundle("Fresh after variation");
+      }
+      if (url.endsWith("/entities") || url.endsWith("/insights")) return [];
+      throw new Error(`Unexpected API call: ${url}`);
+    });
+
+    const variation = startVariationWorkflow("midi-1", "project-1", 2);
+    const preCommit = await getWorkBundle("work-1");
+    expect(preCommit.work.title).toBe("Pre-commit variation");
+
+    mutation.resolve({ workflow: {}, job: {} });
+    await variation;
+
+    const fresh = await getWorkBundle("work-1");
+    expect(fresh.work.title).toBe("Fresh after variation");
+    expect(workFetches).toBe(2);
+  });
+
+  it("invalidates both Works fetched while a compare mutation is in flight", async () => {
+    clearWorkDataCache();
+    mockApiFetch.mockImplementation(async (url) => {
+      if (url === "/api/v1/works/work-a") return bundleFor("work-a", ["midi-a"], "A");
+      if (url === "/api/v1/works/work-b") return bundleFor("work-b", ["midi-b"], "B");
+      if (url.endsWith("/entities") || url.endsWith("/insights")) return [];
+      throw new Error(`Unexpected API call: ${url}`);
+    });
+    await Promise.all([getWorkBundle("work-a"), getWorkBundle("work-b")]);
+
+    const mutation = deferred<unknown>();
+    const workFetches = new Map<string, number>();
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === "/api/v1/workflows/compare" && options?.method === "POST") {
+        return mutation.promise;
+      }
+      if (url === "/api/v1/works/work-a" || url === "/api/v1/works/work-b") {
+        const workId = url.endsWith("work-a") ? "work-a" : "work-b";
+        const nextCount = (workFetches.get(workId) ?? 0) + 1;
+        workFetches.set(workId, nextCount);
+        return bundleFor(
+          workId,
+          [workId === "work-a" ? "midi-a" : "midi-b"],
+          nextCount === 1 ? `Pre-commit ${workId}` : `Fresh ${workId}`,
+        );
+      }
+      if (url.endsWith("/entities") || url.endsWith("/insights")) return [];
+      throw new Error(`Unexpected API call: ${url}`);
+    });
+
+    const compare = startCompareWorkflow("midi-a", "midi-b", "project-1");
+    const preCommit = await Promise.all([getWorkBundle("work-a"), getWorkBundle("work-b")]);
+    expect(preCommit.map((bundle) => bundle.work.title)).toEqual([
+      "Pre-commit work-a",
+      "Pre-commit work-b",
+    ]);
+
+    mutation.resolve({ workflow: {}, job: {} });
+    await compare;
+
+    const fresh = await Promise.all([getWorkBundle("work-a"), getWorkBundle("work-b")]);
+    expect(fresh.map((bundle) => bundle.work.title)).toEqual(["Fresh work-a", "Fresh work-b"]);
+    expect(workFetches).toEqual(new Map([["work-a", 2], ["work-b", 2]]));
+  });
+
+  it("keeps same-Work multi-version compare invalidation coherent", async () => {
+    clearWorkDataCache();
+    let workFetches = 0;
+    mockApiFetch.mockImplementation(async (url, options) => {
+      if (url === "/api/v1/works/work-1") {
+        workFetches += 1;
+        return bundleFor(
+          "work-1",
+          ["midi-a", "midi-b"],
+          workFetches === 1 ? "Before compare" : "After compare",
+        );
+      }
+      if (url === "/api/v1/workflows/compare" && options?.method === "POST") {
+        return { workflow: {}, job: {} };
+      }
+      if (url.endsWith("/entities") || url.endsWith("/insights")) return [];
+      throw new Error(`Unexpected API call: ${url}`);
+    });
+
+    await getWorkBundle("work-1");
+    await startCompareWorkflow("midi-a", "midi-b", "project-1");
+    const refreshed = await getWorkBundle("work-1");
+
+    expect(refreshed.work.title).toBe("After compare");
     expect(workFetches).toBe(2);
   });
 
