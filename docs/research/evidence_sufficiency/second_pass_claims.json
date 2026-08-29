@@ -1,0 +1,59 @@
+{
+  "issue": 457,
+  "status": "second_pass_from_explanation_taxonomy",
+  "source": "#456 second-pass annotations",
+  "claims": [
+    {
+      "id": "cross_arrangement_meter_regularization",
+      "claim": "A later arrangement regularizes an earlier mixed-meter passage into a more uniform metric grid.",
+      "required_evidence": ["trusted_metric_grid_for_both_versions", "cross_work_or_cross_version_alignment"],
+      "optional_evidence": ["symbolic_score", "context_style"],
+      "localization_requirement": "section_level",
+      "quality_gate": "MULTI_EVIDENCE_CORROBORATION",
+      "current_readiness": "BLOCKED_BY_EVIDENCE_QUALITY",
+      "validated_scope": "the relation is conceptually generic, but #335 has not yet promoted trusted downbeat/bar-phase evidence and cross-work alignment is not a production capability",
+      "abstain_when": "either version lacks reliable meter/bar-phase evidence or the corresponding passages cannot be aligned",
+      "highest_value_blocker": "#335 metric-grid promotion plus a bounded cross-version alignment/relation path",
+      "product_note": "This is a relation between versions, not a reason to add another isolated meter label."
+    },
+    {
+      "id": "corpus_style_strategy_generalization",
+      "claim": "Across a selected corpus, several works share a recurring musical strategy relevant to the user's comparative question.",
+      "required_evidence": ["rights_safe_or_user_selected_corpus", "cross_work_retrieval_or_alignment", "at_least_one_validated_evidence_family"],
+      "optional_evidence": ["perceptual_audio", "metric_grid", "harmony_tonality", "source_layer_activity", "context_style"],
+      "localization_requirement": "cross_work",
+      "quality_gate": "MULTI_EVIDENCE_CORROBORATION",
+      "current_readiness": "BLOCKED_BY_MISSING_EVIDENCE",
+      "validated_scope": "foundation retrieval remains research and there is no production corpus-generalization claim gate",
+      "abstain_when": "the corpus is too narrow/cherry-picked, retrieval quality is unvalidated, or a cultural/style conclusion is inferred only from embedding proximity",
+      "highest_value_blocker": "validated retrieval/corpus selection plus #455/#459 broadly useful evidence",
+      "product_note": "Corpus-level explanation should separate measured shared properties from editorial or cultural interpretation."
+    },
+    {
+      "id": "controlled_reharmonization_comparison",
+      "claim": "Changing the harmonic treatment while retaining a recognizable melody changes the measured harmonic relation between two versions.",
+      "required_evidence": ["trusted_melody_or_passage_identity", "trusted_harmony_for_both_versions", "explicit_A_B_versions"],
+      "optional_evidence": ["perceptual_audio", "context_style"],
+      "localization_requirement": "section_level",
+      "quality_gate": "MULTI_EVIDENCE_CORROBORATION",
+      "current_readiness": "SUPPORTED_EXPERIMENTAL",
+      "validated_scope": "current chord/key evidence can support narrow harmonic comparison in validated domains; perceptual/affective consequences remain interpretive",
+      "abstain_when": "the versions differ on uncontrolled dimensions or harmony evidence is weak; do not promote 'feels X because harmony' as measured fact",
+      "highest_value_blocker": "generic A/B relation composition and explicit control-variable metadata, not another chord detector",
+      "product_note": "Reharmonization is best modeled as a proof/experiment affordance over evidence, with interpretive wording downstream."
+    },
+    {
+      "id": "analysis_validated_by_recreation",
+      "claim": "A recreation can be used to test whether an analysis captured operational properties of a style.",
+      "required_evidence": ["explicit_analysis_hypotheses", "generated_or_recreated_example", "comparison_against_reference_properties"],
+      "optional_evidence": ["repetition_similarity", "perceptual_audio", "events_activity", "context_style"],
+      "localization_requirement": "cross_work",
+      "quality_gate": "SEMANTIC_HYPOTHESIS_ONLY",
+      "current_readiness": "FRAMEWORK_SPECIFIC_RESEARCH",
+      "validated_scope": "recreation can test an analytical hypothesis but does not prove authorship, exhaustive style membership, or causal sufficiency",
+      "abstain_when": "the analysis is vague/non-operational or similarity is judged only by a single embedding/model score",
+      "highest_value_blocker": "define an experiment/proof contract after M2 relations exist; do not productionize as a detector",
+      "product_note": "Treat recreation as an interactive verification mode, not as evidence that upgrades the truth tier automatically."
+    }
+  ]
+}
