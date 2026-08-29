@@ -104,7 +104,7 @@ def diagnose_musicxml(musicxml_bytes: bytes) -> NotationDiagnostics:
     )
 
     tie_count = len(re.findall(r"<tie\b", text))
-    tie_start_count = len(re.findall(r'''<tie\b[^>]*\btype=["']start["'][^>]*>''', text))
+    tie_start_count = len(re.findall(r"""<tie\b[^>]*\btype=["']start["'][^>]*>""", text))
     logical_pitched_note_count = max(0, pitched_note_count - tie_start_count)
     tie_fragment_overhead = (
         tie_start_count / logical_pitched_note_count
