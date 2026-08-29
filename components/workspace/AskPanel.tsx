@@ -19,6 +19,7 @@ import {
 import { composeNoteSelection } from "@/lib/selection";
 import type { PlaybackSource } from "@/lib/stores/transport";
 import type { AskAction, AskMessage, AskReference, AskResponse } from "@/lib/ask/types";
+import styles from "./AskPanel.module.css";
 
 function makeId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -35,7 +36,7 @@ function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; b
   const chip = (
     <button
       type="button"
-      className="ask-action-chip"
+      className={`ask-action-chip${blocked ? ` ${styles.blockedAction}` : ""}`}
       aria-disabled={blocked || undefined}
       onClick={() => {
         if (!blocked) onClick(action);
@@ -296,7 +297,7 @@ function AskMessageView({
               const chip = (
                 <button
                   type="button"
-                  className="ask-ref-chip"
+                  className={`ask-ref-chip${blocked ? ` ${styles.blockedReference}` : ""}`}
                   key={`${ref.type}-${index}`}
                   aria-disabled={blocked || undefined}
                   onClick={() => {
