@@ -1,0 +1,50 @@
+name: Regenerate dependency lockfiles
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'package.json'
+      - 'backend/pyproject.toml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependency-lock-regeneration-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Regenerate npm lockfile
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.6'
+      - name: Regenerate uv lockfile
+        run: uv lock --project backend
+      - name: Commit generated lockfiles
+        shell: bash
+        run: |
+          if git diff --quiet -- package-lock.json backend/uv.lock; then
+            echo 'Lockfiles already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json backend/uv.lock
+          git commit -m 'chore: regenerate dependency lockfiles'
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
