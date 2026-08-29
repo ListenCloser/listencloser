@@ -14,6 +14,11 @@ from evaluation.analysis_v3.structure.adapters.base import (
     StructureResult,
 )
 from evaluation.analysis_v3.structure.adapters.external_json import ExternalJsonStructureAdapter
+from evaluation.analysis_v3.structure.datasets.songformbench import (
+    build_songformbench_index_manifest,
+    build_songformbench_manifest,
+    parse_msa_annotation,
+)
 from evaluation.analysis_v3.structure.run import run_structure_evaluation
 
 
@@ -30,6 +35,7 @@ def _manifest(
     dataset: str = "IndependentSet",
     split: str = "test",
     audio_exists: bool = True,
+    audio_provenance: str | None = None,
 ) -> Path:
     audio = tmp_path / "clip.wav"
     if audio_exists:
@@ -48,6 +54,7 @@ def _manifest(
                         "split": split,
                         "source_id": "fixture-1",
                         "license": "test-only",
+                        "audio_provenance": audio_provenance,
                         "reference": {"sections": _sections(0.0, 5.0, 10.0)},
                     }
                 ],
@@ -81,7 +88,7 @@ def test_runner_scores_candidate_with_shared_boundary_metrics(tmp_path: Path):
     adapter = FakeStructureAdapter()
     result = run_structure_evaluation(
         "fake",
-        str(_manifest(tmp_path)),
+        str(_manifest(tmp_path, audio_provenance="mel_reconstruction")),
         adapter=adapter,
     )
 
@@ -90,7 +97,10 @@ def test_runner_scores_candidate_with_shared_boundary_metrics(tmp_path: Path):
     assert result["aggregate"]["macro_boundary_f1_05"] == pytest.approx(1.0)
     assert result["aggregate"]["macro_boundary_f1_3"] == pytest.approx(1.0)
     assert result["aggregate"]["macro_interior_boundary_f1_05"] == pytest.approx(1.0)
+    assert result["aggregate"]["macro_interior_boundary_f1_3"] == pytest.approx(1.0)
     assert result["rows"][0]["evaluation_validity"] == "independent"
+    assert result["rows"][0]["audio_provenance"] == "mel_reconstruction"
+    assert result["process_peak_rss_mb"] > 0
     assert adapter.analyze_calls == 1
 
 
@@ -112,6 +122,7 @@ def test_training_overlap_is_withheld_before_candidate_inference(tmp_path: Path)
     assert row["status"] == "withheld_training_overlap"
     assert row["evaluation_validity"] == "not_independent"
     assert result["aggregate"]["clips_scored"] == 0
+    assert result["aggregate"]["clips_withheld_training_overlap"] == 1
     assert adapter.analyze_calls == 0
 
 
@@ -203,3 +214,111 @@ def test_external_json_adapter_requires_explicit_command(monkeypatch: pytest.Mon
 
     with pytest.raises(RuntimeError, match="STRUCTURE_EXTERNAL_COMMAND"):
         adapter.load()
+
+
+def test_parse_songformbench_msa_annotation(tmp_path: Path):
+    annotation = tmp_path / "track.txt"
+    annotation.write_text("0.0 intro\n5.0 verse\n10.0 end\n")
+
+    assert parse_msa_annotation(annotation) == [
+        {"start": 0.0, "end": 5.0, "label": "intro"},
+        {"start": 5.0, "end": 10.0, "label": "verse"},
+    ]
+
+
+def test_parse_annotation_requires_terminal_end_marker(tmp_path: Path):
+    annotation = tmp_path / "track.txt"
+    annotation.write_text("0.0 intro\n5.0 verse\n")
+
+    with pytest.raises(ValueError, match="end"):
+        parse_msa_annotation(annotation)
+
+
+def test_manifest_builder_never_downloads_or_invents_missing_audio(tmp_path: Path):
+    annotations = tmp_path / "annotations"
+    audio = tmp_path / "audio"
+    annotations.mkdir()
+    audio.mkdir()
+    (annotations / "present.txt").write_text("0.0 intro\n5.0 end\n")
+    (annotations / "missing.txt").write_text("0.0 intro\n5.0 end\n")
+    (audio / "present.wav").write_bytes(b"fixture")
+    output = tmp_path / "manifest.json"
+
+    summary = build_songformbench_manifest(
+        annotations,
+        audio,
+        output,
+        audio_provenance="mel_reconstruction",
+    )
+    manifest = json.loads(output.read_text())
+
+    assert summary["annotation_count"] == 2
+    assert summary["materialized_clip_count"] == 1
+    assert summary["missing_audio_count"] == 1
+    assert summary["audio_provenance"] == "mel_reconstruction"
+    assert [clip["source_id"] for clip in manifest["clips"]] == ["present"]
+    assert manifest["clips"][0]["audio_provenance"] == "mel_reconstruction"
+
+
+def test_canonical_index_filters_subset_and_reports_missing_mel_path(tmp_path: Path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "audio").mkdir()
+    (root / "mels").mkdir()
+    (root / "audio" / "bc.wav").write_bytes(b"fixture")
+    index = root / "SongFormBench.jsonl"
+    entries = [
+        {
+            "id": "bc",
+            "subset": "BC",
+            "audio_path": "audio/bc.wav",
+            "mel_path": "mels/bc.npy",
+            "label_path": "labels/bc.txt",
+            "labels": [
+                {"start": 0.0, "label": "intro"},
+                {"start": 5.0, "label": "verse"},
+                {"start": 10.0, "label": "end"},
+            ],
+        },
+        {
+            "id": "bhx",
+            "subset": "BHX",
+            "audio_path": "audio/bhx.wav",
+            "mel_path": "mels/bhx.npy",
+            "label_path": "labels/bhx.txt",
+            "labels": [
+                {"start": 0.0, "label": "intro"},
+                {"start": 5.0, "label": "end"},
+            ],
+        },
+    ]
+    index.write_text("\n".join(json.dumps(entry) for entry in entries) + "\n")
+    output = tmp_path / "manifest.json"
+
+    summary = build_songformbench_index_manifest(
+        index,
+        root,
+        output,
+        audio_provenance="mel_reconstruction",
+        subsets=("BC",),
+    )
+    manifest = json.loads(output.read_text())
+
+    assert summary["index_entry_count"] == 2
+    assert summary["selected_entry_count"] == 1
+    assert summary["materialized_clip_count"] == 1
+    assert summary["missing_audio_count"] == 0
+    assert manifest["clips"][0]["dataset"] == "SongFormBench-BC"
+    assert manifest["clips"][0]["source_id"] == "bc"
+    assert manifest["clips"][0]["audio_provenance"] == "mel_reconstruction"
+
+    missing = build_songformbench_index_manifest(
+        index,
+        root,
+        tmp_path / "missing.json",
+        subsets=("BHX",),
+    )
+    assert missing["materialized_clip_count"] == 0
+    assert missing["missing_audio_count"] == 1
+    assert missing["missing_audio"][0]["source_id"] == "bhx"
+    assert missing["missing_audio"][0]["mel_path"].endswith("mels/bhx.npy")
