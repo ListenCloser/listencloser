@@ -8,7 +8,6 @@ and intentionally does not alter production routing or runtime dependencies.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 
