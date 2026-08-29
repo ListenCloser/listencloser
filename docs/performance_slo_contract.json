@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "status": "BASELINE_REQUIRED_BEFORE_THRESHOLDS",
+  "purpose": "Vendor-neutral latency and reliability contract for hello-ai production telemetry.",
+  "privacy": {
+    "allowed_dimensions": [
+      "service.name",
+      "service.version",
+      "deployment.environment.name",
+      "http.request.method",
+      "http.route",
+      "http.response.status_class",
+      "job.capability",
+      "job.outcome"
+    ],
+    "forbidden_dimensions": [
+      "user_id",
+      "project_id",
+      "work_id",
+      "version_id",
+      "job_id",
+      "raw_request_path",
+      "file_name",
+      "musical_content"
+    ]
+  },
+  "instruments": {
+    "http_requests": {
+      "otel_name": "hello_ai.http.server.requests",
+      "type": "counter",
+      "unit": "{request}",
+      "dimensions": [
+        "http.request.method",
+        "http.route",
+        "http.response.status_class"
+      ]
+    },
+    "http_duration": {
+      "otel_name": "hello_ai.http.server.duration",
+      "type": "histogram",
+      "unit": "ms",
+      "dimensions": [
+        "http.request.method",
+        "http.route",
+        "http.response.status_class"
+      ]
+    },
+    "worker_executions": {
+      "otel_name": "hello_ai.worker.job.executions",
+      "type": "counter",
+      "unit": "{job}",
+      "dimensions": [
+        "job.capability",
+        "job.outcome"
+      ]
+    },
+    "worker_duration": {
+      "otel_name": "hello_ai.worker.job.duration",
+      "type": "histogram",
+      "unit": "s",
+      "dimensions": [
+        "job.capability",
+        "job.outcome"
+      ]
+    },
+    "orphans_recovered": {
+      "otel_name": "hello_ai.worker.orphans_recovered",
+      "type": "counter",
+      "unit": "{job}",
+      "dimensions": []
+    }
+  },
+  "derived_metrics": {
+    "api_operational_success_rate": {
+      "numerator": "rate(http_requests where status_class in [2xx,3xx,4xx])",
+      "denominator": "rate(http_requests where status_class in [1xx,2xx,3xx,4xx,5xx])",
+      "notes": "Operational availability treats 5xx as server failure. Expected client 4xx must remain visible separately and must not be collapsed into product-task success."
+    },
+    "api_server_error_rate": {
+      "numerator": "rate(http_requests where status_class == 5xx)",
+      "denominator": "rate(all http_requests)"
+    },
+    "api_client_error_rate": {
+      "numerator": "rate(http_requests where status_class == 4xx)",
+      "denominator": "rate(all http_requests)",
+      "notes": "Diagnostic only; 4xx may be expected validation/auth outcomes."
+    },
+    "api_latency_percentiles": {
+      "source": "http_duration",
+      "percentiles": [0.5, 0.95, 0.99],
+      "group_by": ["http.request.method", "http.route"],
+      "minimum_sample_count_required": true
+    },
+    "saved_work_bundle_latency": {
+      "source": "http_duration",
+      "filter": {
+        "http.request.method": "GET",
+        "http.route": "/api/v1/works/{work_id}"
+      },
+      "percentiles": [0.5, 0.95, 0.99]
+    },
+    "worker_terminal_success_rate": {
+      "numerator": "rate(worker_executions where job.outcome == succeeded)",
+      "denominator": "rate(worker_executions where job.outcome in [succeeded,failed,cancelled])",
+      "group_by": ["job.capability"],
+      "notes": "Cancelled remains distinct in reporting even though this aggregate denominator includes all terminal outcomes."
+    },
+    "worker_failed_rate": {
+      "numerator": "rate(worker_executions where job.outcome == failed)",
+      "denominator": "rate(worker_executions where job.outcome in [succeeded,failed,cancelled])",
+      "group_by": ["job.capability"]
+    },
+    "worker_cancelled_rate": {
+      "numerator": "rate(worker_executions where job.outcome == cancelled)",
+      "denominator": "rate(worker_executions where job.outcome in [succeeded,failed,cancelled])",
+      "group_by": ["job.capability"]
+    },
+    "worker_duration_percentiles": {
+      "source": "worker_duration",
+      "percentiles": [0.5, 0.95, 0.99],
+      "group_by": ["job.capability", "job.outcome"],
+      "minimum_sample_count_required": true
+    },
+    "orphan_recovery_rate": {
+      "numerator": "rate(orphans_recovered)",
+      "denominator": "rate(worker_executions)",
+      "notes": "Operational diagnostic rather than an end-user success metric."
+    }
+  },
+  "baseline_windows": [
+    {
+      "name": "release_window",
+      "rule": "At least one production release window with explicit start/end timestamps and sample counts."
+    },
+    {
+      "name": "rolling_window",
+      "rule": "At least one rolling multi-day window after release-specific anomalies have settled."
+    }
+  ],
+  "threshold_policy": {
+    "latency": "Do not set p95/p99 SLO or alert thresholds until the baseline records sample counts and observed distributions for the relevant route/capability.",
+    "reliability": "Do not set availability/success thresholds until expected 4xx and user-cancel semantics are separated from genuine failures.",
+    "ci": "Do not use hosted CI wall-clock timings as production SLO evidence."
+  },
+  "planned_product_metrics": [
+    "work_open.source_ready_ms",
+    "work_open.evidence_ready_ms",
+    "work_open.workspace_artifacts_ready_ms",
+    "work_open.score_render_ready_ms",
+    "workflow.queue_wait_seconds",
+    "workflow.first_durable_artifact_seconds",
+    "workflow.terminal_seconds"
+  ]
+}
