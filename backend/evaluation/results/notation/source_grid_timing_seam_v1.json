@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "experiment": "source_grid_timing_seam_v1",
+  "scope": "controlled_notation_stage_regression",
+  "not_a_corpus_baseline": true,
+  "measurement_method": "deterministic production-engine regression",
+  "regression_test": "backend/tests/test_notation/test_source_grid_engraving.py",
+  "input": {
+    "description": "Four one-second note events representing source-audio quarter notes at 60 BPM, carried in a Basic-Pitch-like MIDI with placeholder 120 BPM / 4/4 metadata.",
+    "source_beat_times_seconds": [0.0, 1.0, 2.0, 3.0, 4.0],
+    "source_meter": "4/4",
+    "embedded_midi_tempo_bpm": 120.0,
+    "embedded_midi_meter": "4/4",
+    "note_count": 4,
+    "pitches": [60, 62, 64, 65]
+  },
+  "before": {
+    "timing_source": "embedded_midi_placeholder",
+    "engraved_note_quarter_lengths": [2.0, 2.0, 2.0, 2.0],
+    "max_measures_per_staff": 2,
+    "logical_note_count": 4
+  },
+  "after": {
+    "timing_source": "production_source_audio_metric_grid",
+    "engraved_note_quarter_lengths": [1.0, 1.0, 1.0, 1.0],
+    "max_measures_per_staff": 1,
+    "logical_note_count": 4
+  },
+  "preservation": {
+    "input_note_count": 4,
+    "output_notation_midi_note_count": 4,
+    "pitch_identity_preserved": true,
+    "note_start_end_seconds_preserved_for_on_grid_fixture": true
+  },
+  "interpretation": "The same performance-note evidence and same source metric grid were already available before engraving. Re-reading placeholder MIDI tempo doubled notated values and measure span; propagating the source grid removes that notation-stage distortion without changing Piano Roll evidence.",
+  "related": ["#498", "#502", "#335", "#210", "#214", "#243"]
+}

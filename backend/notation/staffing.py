@@ -1,15 +1,15 @@
 """Piano-aware grand-staff reconstruction.
 
 Turns a single-staff piano transcription into a readable piano grand staff:
-one piano part with a treble and a bass staff, grouped with a brace.  Note
+one piano part with a treble and a bass staff, grouped with a brace. Note
 content (pitch and timing) is never changed — only staff assignment, clefs,
 voices, and the MusicXML part/staff structure.
 
 The staff assignment is a small deterministic dynamic program over chord
-events.  It weighs ledger-line cost (distance from each staff's natural
+events. It weighs ledger-line cost (distance from each staff's natural
 register) against a continuity penalty for switching staves, so crossing
 lines stay on their hand where musically sensible while genuinely wide
-textures split across both staves.  A hard ``pitch < middle C`` rule is used
+textures split across both staves. A hard ``pitch < middle C`` rule is used
 only as the implicit tie-break inside the cost model, never as the assignment
 itself.
 """
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 MIDDLE_C = 60
 
-# Register comfort: treble is natural down to G3, bass up to F4.  Notes inside
+# Register comfort: treble is natural down to G3, bass up to F4. Notes inside
 # [G3, F4] are free on either staff, so the dynamic program resolves them by
 # continuity rather than a hard middle-C rule.
 _TREBLE_FLOOR = 55
@@ -27,7 +27,7 @@ _BASS_CEILING = 65
 # Continuity: cost of moving a line from one staff to the other.
 _SWITCH_PENALTY = 4.0
 
-# Cost per semitone outside a staff's comfortable register.  Kept larger than a
+# Cost per semitone outside a staff's comfortable register. Kept larger than a
 # single switch so genuinely out-of-register material migrates, while notes in
 # the shared [G3, F4] band stay with their line via continuity.
 _LEDGER_WEIGHT = 2.0
@@ -63,7 +63,7 @@ def assign_staffs(events: list[list[int]]) -> list[str]:
     """Assign each chord event to ``"treble"``, ``"bass"``, or ``"split"``.
 
     ``events`` is a chronological list; each event is the list of MIDI pitches
-    that sound together.  Returns a parallel list of ``"treble"``, ``"bass"``,
+    that sound together. Returns a parallel list of ``"treble"``, ``"bass"``,
     or ``"split"`` (for chords wide enough to span both staves).
     """
     n = len(events)
@@ -126,14 +126,73 @@ def assign_staffs(events: list[list[int]]) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def grand_staff_from_midi(midi_bytes: bytes):
+def _source_grid_time_mapper(beat_times: list[float], beat_quarter_length: float):
+    """Map source-audio seconds onto score quarter lengths.
+
+    The source beat grid, not the transcription MIDI's placeholder tempo, owns
+    score rhythm when it is available. Piecewise interpolation also preserves
+    tempo variation between detected beats instead of collapsing the whole
+    recording onto the first embedded MIDI tempo.
+    """
+    import bisect
+    import math
+
+    beats = sorted({float(value) for value in beat_times if math.isfinite(value)})
+    if len(beats) < 2:
+        return None
+
+    intervals = [b - a for a, b in zip(beats, beats[1:], strict=False) if b > a]
+    if not intervals:
+        return None
+    ordered_intervals = sorted(intervals)
+    midpoint = len(ordered_intervals) // 2
+    if len(ordered_intervals) % 2:
+        typical = ordered_intervals[midpoint]
+    else:
+        typical = (ordered_intervals[midpoint - 1] + ordered_intervals[midpoint]) / 2.0
+    if typical <= 0:
+        return None
+
+    # Keep audio time zero at score time zero. If the first detected beat begins
+    # after the recording starts, the lead-in remains a proportional pickup/rest
+    # instead of being shifted negative.
+    first_beat_position = beats[0] / typical
+
+    def to_quarter_length(value: float) -> float:
+        value = max(0.0, float(value))
+        if value <= beats[0]:
+            return value / typical * beat_quarter_length
+
+        index = bisect.bisect_right(beats, value) - 1
+        if index >= len(beats) - 1:
+            beat_position = first_beat_position + len(beats) - 1 + (value - beats[-1]) / typical
+        else:
+            span = beats[index + 1] - beats[index]
+            fraction = (value - beats[index]) / span if span > 0 else 0.0
+            beat_position = first_beat_position + index + fraction
+        return beat_position * beat_quarter_length
+
+    return to_quarter_length
+
+
+def grand_staff_from_midi(
+    midi_bytes: bytes,
+    *,
+    beat_times: list[float] | None = None,
+    meter_signature: tuple[int, int] | None = None,
+):
     """Build a piano grand-staff :class:`~music21.stream.Score` from a MIDI file.
 
-    Reads the quantized note events directly from the MIDI (the ground-truth
-    note content), assigns each to the treble or bass staff, and returns a
-    single piano part made of two ``PartStaff`` streams with a brace group.
-    Notes crossing a barline are re-tied via ``makeTies``.  Pitch and timing are
-    preserved; only staff/clef/part structure changes.
+    Reads the quantized note events directly from the MIDI, assigns each to the
+    treble or bass staff, and returns a single piano part made of two
+    ``PartStaff`` streams with a brace group. Notes crossing a barline are
+    re-tied via ``makeTies``. Pitch identity is preserved.
+
+    When a trustworthy source-audio beat grid and inferred meter are supplied,
+    seconds are mapped to score quarter lengths from that grid. This prevents a
+    transcription MIDI's placeholder tempo/meter metadata from reinterpreting
+    otherwise-correct source-aligned note timing during engraving. Without that
+    evidence the historical embedded-MIDI behavior is retained.
     """
     import io
     import math
@@ -149,14 +208,28 @@ def grand_staff_from_midi(midi_bytes: bytes):
     bpm = float(tempo[1][0]) if len(tempo[1]) else 120.0
     beat = 60.0 / bpm
     ts = pm.time_signature_changes
-    numerator = int(ts[0].numerator) if ts else 4
-    denominator = int(ts[0].denominator) if ts else 4
+
+    if meter_signature is not None:
+        numerator, denominator = int(meter_signature[0]), int(meter_signature[1])
+    else:
+        numerator = int(ts[0].numerator) if ts else 4
+        denominator = int(ts[0].denominator) if ts else 4
     measure_ql = 4.0 * numerator / denominator
+
+    time_mapper = None
+    if beat_times is not None and meter_signature is not None:
+        time_mapper = _source_grid_time_mapper(beat_times, 4.0 / denominator)
 
     notes = [n for inst in pm.instruments if not inst.is_drum for n in inst.notes]
     events: list[tuple[float, float, int]] = []
     for n in notes:
-        events.append((n.start / beat, (n.end - n.start) / beat, n.pitch))
+        if time_mapper is None:
+            onset = n.start / beat
+            duration = (n.end - n.start) / beat
+        else:
+            onset = time_mapper(n.start)
+            duration = time_mapper(n.end) - onset
+        events.append((onset, max(duration, 1e-6), n.pitch))
     events.sort(key=lambda e: e[0])
 
     # Group simultaneous pitches into onset events for staff assignment (a chord
