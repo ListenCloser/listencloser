@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import platform
+import resource
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -17,6 +18,9 @@ class RuntimeMetrics:
     latency_min: float | None = None
     latency_max: float | None = None
     latency_p95: float | None = None
+    real_time_factor: float | None = None
+    process_max_rss_mb: float | None = None
+    cuda_peak_allocated_mb: float | None = None
     num_runs: int = 0
     audio_duration_seconds: float | None = None
     device: str = "cpu"
@@ -26,6 +30,37 @@ class RuntimeMetrics:
     error: str | None = None
 
 
+def _max_rss_mb() -> float:
+    value = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    # Linux reports KiB; macOS reports bytes.
+    return round(value / (1024.0 * 1024.0) if value > 10_000_000 else value / 1024.0, 2)
+
+
+def _reset_cuda_peak_if_needed(device: str) -> None:
+    if device != "cuda":
+        return
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+    except Exception:
+        return
+
+
+def _cuda_peak_mb(device: str) -> float | None:
+    if device != "cuda":
+        return None
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            return round(float(torch.cuda.max_memory_allocated()) / (1024 * 1024), 2)
+    except Exception:
+        return None
+    return None
+
+
 def measure_latency(
     adapter: Any,
     audio: np.ndarray,
@@ -33,13 +68,14 @@ def measure_latency(
     num_runs: int = 3,
     warmup_runs: int = 1,
 ) -> RuntimeMetrics:
-    """Measure latency with warm-up and multiple runs."""
+    """Measure latency, real-time factor, and process/device memory evidence."""
     errors: list[str] = []
 
     for _ in range(warmup_runs):
         with contextlib.suppress(Exception):
             adapter.separate(audio, sample_rate)
 
+    _reset_cuda_peak_if_needed(adapter.device)
     latencies: list[float] = []
     for _ in range(num_runs):
         try:
@@ -53,13 +89,23 @@ def measure_latency(
         except Exception as e:
             errors.append(str(e))
 
+    audio_duration = len(audio) / sample_rate
+    median_latency = float(np.median(latencies)) if latencies else None
+    real_time_factor = (
+        median_latency / audio_duration
+        if median_latency is not None and audio_duration > 0
+        else None
+    )
     return RuntimeMetrics(
-        latency_seconds=float(np.median(latencies)) if latencies else None,
+        latency_seconds=median_latency,
         latency_min=float(np.min(latencies)) if latencies else None,
         latency_max=float(np.max(latencies)) if latencies else None,
         latency_p95=float(np.percentile(latencies, 95)) if latencies else None,
+        real_time_factor=real_time_factor,
+        process_max_rss_mb=_max_rss_mb(),
+        cuda_peak_allocated_mb=_cuda_peak_mb(adapter.device),
         num_runs=len(latencies),
-        audio_duration_seconds=len(audio) / sample_rate,
+        audio_duration_seconds=audio_duration,
         device=adapter.device,
         python_version=platform.python_version(),
         platform=platform.platform(),
