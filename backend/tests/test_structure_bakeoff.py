@@ -236,7 +236,10 @@ def test_external_json_adapter_is_shell_free_and_parses_segments(
     result = adapter.analyze("fixture.wav")
 
     assert result.ok
-    assert result.segments == _sections(0.0, 5.0, 10.0)
+    assert result.segments == [
+        {"start": 0.0, "end": 5.0, "label": ""},
+        {"start": 5.0, "end": 10.0, "label": ""},
+    ]
     assert adapter.metadata().candidate == "songformer"
 
 
