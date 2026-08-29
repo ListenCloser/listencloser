@@ -15,7 +15,7 @@ from supabase_auth.errors import (
     AuthUnknownError,
 )
 
-from supabase_client import get_service_role_client
+from domain.repositories import get_supabase
 
 logger = logging.getLogger("auth")
 
@@ -35,8 +35,8 @@ security = HTTPBearer(auto_error=False)
 
 
 def get_supabase_client():
-    """Compatibility seam for auth callers/tests; shared ownership lives centrally."""
-    return get_service_role_client()
+    """Compatibility seam for auth callers/tests; repositories own the singleton."""
+    return get_supabase()
 
 
 def _provider_unavailable(exc: Exception) -> bool:
