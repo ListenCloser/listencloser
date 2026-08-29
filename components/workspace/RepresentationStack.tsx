@@ -7,6 +7,8 @@ import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace"
 import { deriveAvailability } from "@/lib/representation-availability";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
 
+const ORIENTATION_CUE_MS = 560;
+
 function TranscriptionModeToggle() {
   const { workspace, setTranscriptionProfile } = useWorkspace();
   const options: { id: TranscriptionProfile; label: string; description: string }[] = [
@@ -72,8 +74,8 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
 
-  // The shared selection is authoritative. This local cue only helps the eye
-  // find that selection after a Breakdown Focus/Show action, then disappears.
+  // The shared selection is authoritative. This local cue only strengthens the
+  // actual selected destination after Focus/Show and then returns it to quiet.
   useEffect(() => {
     const cancelPendingCue = () => {
       if (orientationFrame.current !== null) {
@@ -89,13 +91,14 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     const handleOrientation = () => {
       cancelPendingCue();
       setOrientationCue(false);
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
       orientationFrame.current = window.requestAnimationFrame(() => {
         orientationFrame.current = null;
         setOrientationCue(true);
         orientationTimeout.current = window.setTimeout(() => {
           orientationTimeout.current = null;
           setOrientationCue(false);
-        }, 640);
+        }, ORIENTATION_CUE_MS);
       });
     };
 
@@ -149,12 +152,12 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         return (
           <section
             key={definition.id}
-            className={`piece-active-view piece-active-view-v3${active && orientationCue ? " piece-active-view-oriented" : ""}`}
+            className="piece-active-view piece-active-view-v3"
             aria-label={definition.title}
             aria-hidden={!active}
             hidden={!active}
           >
-            <ViewComponent active={active} />
+            <ViewComponent active={active} orientationCue={active && orientationCue} />
           </section>
         );
       })}
