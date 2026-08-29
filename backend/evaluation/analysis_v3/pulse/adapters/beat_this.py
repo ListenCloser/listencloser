@@ -27,6 +27,10 @@ _SPLIT_SOURCE = "https://github.com/CPJKU/beat_this_annotations"
 _SPLIT_VERSION = "v1.0"
 
 
+def _single_partition_ids(partition: str) -> tuple[str, ...]:
+    return tuple(f"{dataset}_single_split_{partition}" for dataset in _BEAT_THIS_TRAINING_DATASETS)
+
+
 class BeatThisAdapter(PulseAdapter):
     name = "beat_this"
     engine = "beat_this"
@@ -108,14 +112,16 @@ class BeatThisAdapter(PulseAdapter):
                 "collection excluding GTZAN. "
             )
         elif self.checkpoint_name.startswith("single_"):
-            training_datasets = _BEAT_THIS_TRAINING_DATASETS
+            training_datasets = _single_partition_ids("train")
+            held_out_datasets = _single_partition_ids("val")
             training_partition = "single_split_train"
             held_out_partition = "single_split_val"
             split_source = _SPLIT_SOURCE
             split_version = _SPLIT_VERSION
             notes += (
-                "The single_* checkpoints use Beat This annotations v1.0 single.split: "
-                "rows marked train are training data and rows marked val are held out. "
+                "The single_* checkpoints use Beat This annotations v1.0 single.split. "
+                "Dataset identifiers are partition-qualified so only rows marked val are "
+                "accepted as held-out by the generic overlap guard. "
             )
 
         notes += (
