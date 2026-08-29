@@ -96,6 +96,11 @@ jobs:
       - name: Sync locked backend environment
         run: uv sync --project backend --locked
 
+      - name: Install FFmpeg test dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+
       - name: Verify extraction
         shell: bash
         run: |
