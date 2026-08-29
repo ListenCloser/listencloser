@@ -1,0 +1,44 @@
+name: Separation Beat Downstream Probe
+
+on:
+  push:
+    branches:
+      - eval/separation-beat-downstream-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  babyslakh-beat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.6'
+      - name: Sync backend
+        run: uv sync --project backend --locked
+      - name: Run fixed BabySlakh separation-to-beat gate
+        env:
+          MUSIC_EVAL_CACHE_DIR: ${{ runner.temp }}/music-eval-cache
+        run: |
+          uv run --project backend \
+            --with 'demucs==4.1.0' \
+            --with 'mir_eval==0.8.2' \
+            python -m backend.evaluation.analysis_v3.separation.run_beat_downstream \
+            --device cpu \
+            --output backend/evaluation/analysis_v3/separation/results/beat_downstream_babyslakh_v2.json
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: separation-beat-downstream-result
+          path: backend/evaluation/analysis_v3/separation/results/beat_downstream_babyslakh_v2.json
+          if-no-files-found: warn
+          retention-days: 7
