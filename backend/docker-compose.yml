@@ -14,6 +14,7 @@ services:
       SOUNDFONT_PATH: /usr/share/sounds/sf2/FluidR3_GM.sf2
       SENTRY_DSN_BACKEND: ${SENTRY_DSN_BACKEND:-}
       SENTRY_ENV: ${SENTRY_ENV:-production}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-26214400}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
