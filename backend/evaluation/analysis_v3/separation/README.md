@@ -35,6 +35,10 @@ Metric contract:
 
 The output records mixture F1, drum-stem F1, and delta.
 
+For BabySlakh, the manifest builder derives `reference_beats` from the track's `all_src.mid` synthesis tempo/beat grid. That is useful controlled evidence for the causal question "does the drum stem help this detector on the same mixed track?", but it is **symbolic/synthetic reference evidence**, not a substitute for a human-annotated beat benchmark on real recordings.
+
+Do not use solo GuitarSet recordings as the headline mixture-vs-drums separation test: they have useful beat annotations but do not contain the mixed drum source that this experiment is intended to isolate.
+
 ### 3. Downstream bass-transcription value
 
 When `reference_midis.bass` are present and `--with-bass-amt` is enabled, the runner compares the repository's production `BasicPitchEngine` on:
@@ -61,7 +65,7 @@ At load time the harness hashes the downloaded checkpoint and refuses to benchma
 
 BabySlakh provides isolated source audio and the aligned per-source MIDI used to synthesize those sources. The dataset is CC BY 4.0 and is suitable for this research/evaluation use.
 
-The helper groups BabySlakh sources into HTDemucs-compatible `vocals / drums / bass / other` reference submixes while preserving the source MIDI list for downstream AMT.
+The helper groups BabySlakh sources into HTDemucs-compatible `vocals / drums / bass / other` reference submixes, preserves aligned source MIDI lists for downstream AMT, and records the `all_src.mid` beat grid when available.
 
 ```bash
 export BABYSLAKH_ROOT=/path/to/babyslakh_16k
@@ -85,7 +89,7 @@ python -m backend.evaluation.analysis_v3.separation.run \
   --task operational
 ```
 
-Objective BabySlakh reference scoring plus bass AMT:
+Objective BabySlakh reference scoring, mixture-vs-drums beat scoring, and bass AMT:
 
 ```bash
 python -m backend.evaluation.analysis_v3.separation.run \
@@ -93,15 +97,6 @@ python -m backend.evaluation.analysis_v3.separation.run \
   --task separation \
   --manifest backend/evaluation/analysis_v3/separation/manifests/babyslakh_4stem.json \
   --with-bass-amt
-```
-
-Downstream beat scoring can use any compatible annotated manifest, including the existing GuitarSet pulse manifest:
-
-```bash
-python -m backend.evaluation.analysis_v3.separation.run \
-  --candidate demucs \
-  --task separation \
-  --manifest backend/evaluation/analysis_v3/pulse/manifests/guitarset_beats.json
 ```
 
 The beat path requires `mir_eval==0.8.2` in the benchmark environment, matching #335.
@@ -122,7 +117,8 @@ Implemented does not mean measured. Until real lawful corpus runs are committed,
 - positive SI-SDR improvement;
 - positive beat or bass-AMT deltas;
 - perceptual quality;
+- real-recording beat improvement from human annotations;
 - harmony/melody/arrangement benefit;
 - production suitability.
 
-The next result-bearing step is to prepare the BabySlakh manifest, run pinned HTDemucs on the reference corpus, run the annotated drum-beat corpus, and commit per-piece result artifacts plus failure/perceptual notes.
+The next result-bearing step is to prepare the BabySlakh manifest, run pinned HTDemucs across the reference corpus, commit per-piece objective/downstream results, and record failure/perceptual notes. If those results are promising, add a rights-safe human-annotated mixed-audio beat corpus and then decide whether a second modern RoFormer candidate is worth the extra evaluation cost.
