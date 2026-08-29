@@ -60,8 +60,7 @@ def run_synthetic_validation() -> dict[str, Any]:
             "id": "frequency_shift_centroid",
             "measured": {"low_hz": low_centroid, "high_hz": high_centroid},
             "expectation": "low within 15 Hz of 220 and high within 30 Hz of 4000",
-            "passed": abs(low_centroid - 220.0) <= 15.0
-            and abs(high_centroid - 4_000.0) <= 30.0,
+            "passed": abs(low_centroid - 220.0) <= 15.0 and abs(high_centroid - 4_000.0) <= 30.0,
         }
     )
 
