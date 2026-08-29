@@ -6,8 +6,8 @@ import io
 from pathlib import Path
 
 import pretty_midi
-from evaluation import notation_eval
-from evaluation.models import EvalClip
+
+from evaluation import models, notation_eval
 
 
 MUSICXML = b"""<?xml version="1.0" encoding="UTF-8"?>
@@ -37,14 +37,14 @@ def _midi_bytes(*, pitch: int = 60) -> bytes:
     return buffer.getvalue()
 
 
-def _clip(tmp_path: Path, reference_midi: bytes) -> EvalClip:
+def _clip(tmp_path: Path, reference_midi: bytes) -> models.EvalClip:
     audio_path = tmp_path / "source.wav"
     midi_path = tmp_path / "reference.mid"
     xml_path = tmp_path / "reference.musicxml"
     audio_path.write_bytes(b"fake-audio")
     midi_path.write_bytes(reference_midi)
     xml_path.write_bytes(MUSICXML)
-    return EvalClip(
+    return models.EvalClip(
         id="fixture",
         source_id="fixture-source",
         audio=str(audio_path),
