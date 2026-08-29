@@ -212,13 +212,18 @@ class JobWorker:
     def _recover_orphans(self) -> int:
         """Reset expired claimed/running jobs back to ``queued``.
 
-        Finds every job whose ``lease_expires_at`` is in the past and
-        whose stage is ``claimed`` or ``running``, then clears the lease
-        and worker assignment so the job will be picked up again.
+        Finds jobs whose ``lease_expires_at`` is in the past and whose stage is
+        ``claimed`` or ``running``. While this process still has in-flight
+        handlers, its own worker ID is excluded so a transient heartbeat/DB
+        stall cannot make the live process dispatch a second execution of the
+        same job. Once the process drains, normal recovery may reclaim a local
+        row that was genuinely abandoned by a finished handler.
         """
         now = datetime.now(UTC).isoformat()
+        with self._in_flight_lock:
+            protect_current_worker = bool(self._in_flight)
         try:
-            result = (
+            query = (
                 self.client.table("jobs")
                 .update(
                     {
@@ -230,8 +235,10 @@ class JobWorker:
                 )
                 .lt("lease_expires_at", now)
                 .in_("stage", ["claimed", "running"])
-                .execute()
             )
+            if protect_current_worker:
+                query = query.neq("worker_id", self._worker_id)
+            result = query.execute()
             count = len(result.data) if result.data else 0
             if count:
                 logger.warning("orphan_recovery", extra={"count": count})

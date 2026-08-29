@@ -32,4 +32,18 @@ describe("Tooltip", () => {
 
     expect(trigger.getAttribute("aria-describedby")?.split(" ")).toEqual(["existing-help", tooltip.id]);
   });
+
+  it("supports a side placement without changing tooltip semantics", () => {
+    render(
+      <Tooltip content="Delete recording" placement="left">
+        <button type="button" aria-label="Delete recording">Delete</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Delete recording" });
+    const tooltip = screen.getByRole("tooltip", { name: "Delete recording" });
+
+    expect(trigger).toHaveAttribute("aria-describedby", tooltip.id);
+    expect(tooltip.className).toContain("tooltipLeft");
+  });
 });

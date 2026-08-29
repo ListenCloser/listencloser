@@ -6,7 +6,7 @@ import AskPanel from "@/components/workspace/AskPanel";
 import { askMusic } from "@/lib/ask/client";
 import type { AskResponse } from "@/lib/ask/types";
 import { TimelineProvider } from "@/lib/stores/timeline";
-import { TransportProvider } from "@/lib/stores/transport";
+import { TransportProvider, useTransport } from "@/lib/stores/transport";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 
 vi.mock("@/lib/ask/client", () => ({
@@ -24,9 +24,11 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 let store: ReturnType<typeof useWorkspace> | null = null;
+let transportStore: ReturnType<typeof useTransport> | null = null;
 
 function Probe() {
   store = useWorkspace();
+  transportStore = useTransport();
   return <AskPanel />;
 }
 
@@ -49,6 +51,7 @@ const response: AskResponse = {
 beforeEach(() => {
   vi.mocked(askMusic).mockReset();
   store = null;
+  transportStore = null;
 });
 
 async function askOnWorkA(user: ReturnType<typeof userEvent.setup>) {
@@ -113,5 +116,61 @@ describe("AskPanel work-switch lifecycle", () => {
 
     expect(store!.workspace.askConversation).toHaveLength(2);
     expect(screen.getByText(response.answer)).toBeInTheDocument();
+  });
+});
+
+describe("AskPanel blocked action help", () => {
+  it("keeps cross-domain actions and references focusable, explained, and inert", async () => {
+    const user = userEvent.setup();
+    render(<Probe />, { wrapper });
+
+    act(() => {
+      store!.setActiveWorkId("work-a");
+      transportStore!.replaceSources([
+        {
+          id: "original-audio",
+          label: "Original audio",
+          url: "data:audio/wav;base64,audio",
+          kind: "audio",
+          role: "original",
+        },
+      ], "original-audio");
+      store!.appendAskMessage({
+        id: "assistant-blocked",
+        role: "assistant",
+        response: {
+          answer: "This answer contains a notation-time suggestion while performance audio is active.",
+          references: [{ type: "time", start: 4, end: 8, domain: "notation" }],
+          suggestedActions: [{ type: "loop", start: 4, end: 8, domain: "notation" }],
+        },
+      });
+    });
+
+    const blockedReference = screen.getByRole("button", { name: "0:04–0:08" });
+    const blockedAction = screen.getByRole("button", { name: "Loop passage" });
+
+    expect(blockedReference).toHaveAttribute("aria-disabled", "true");
+    expect(blockedAction).toHaveAttribute("aria-disabled", "true");
+    expect(blockedReference).not.toBeDisabled();
+    expect(blockedAction).not.toBeDisabled();
+    expect(blockedReference).not.toHaveAttribute("title");
+    expect(blockedAction).not.toHaveAttribute("title");
+
+    const referenceDescription = blockedReference.getAttribute("aria-describedby");
+    const actionDescription = blockedAction.getAttribute("aria-describedby");
+    expect(referenceDescription).toBeTruthy();
+    expect(actionDescription).toBeTruthy();
+    expect(document.getElementById(referenceDescription!)).toHaveTextContent("This reference uses a different timeline than the active source.");
+    expect(document.getElementById(actionDescription!)).toHaveTextContent("This matches a different timeline than the active source.");
+
+    blockedAction.focus();
+    expect(blockedAction).toHaveFocus();
+
+    const positionBefore = transportStore!.transport.position;
+    expect(transportStore!.transport.loopEnabled).toBe(false);
+    await user.click(blockedReference);
+    await user.click(blockedAction);
+    expect(transportStore!.transport.position).toBe(positionBefore);
+    expect(transportStore!.transport.loopEnabled).toBe(false);
   });
 });
