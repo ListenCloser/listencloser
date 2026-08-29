@@ -12,6 +12,7 @@ import { formatTime } from "@/lib/format";
 import TabStrip from "@/components/ui/TabStrip";
 import AskPanel from "./AskPanel";
 import BreakdownFindingCard from "./BreakdownFindingCard";
+import PassageCompare from "./PassageCompare";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
 
@@ -431,9 +432,12 @@ function BreakdownContent({
           };
 
     return (
-      <div className="inspector-content inspector-empty-state" aria-live="polite">
-        <strong>{emptyState.title}</strong>
-        <p>{emptyState.body}</p>
+      <div className="inspector-content inspector-analysis-content inspector-breakdown-content">
+        <div className="inspector-empty-state" aria-live="polite">
+          <strong>{emptyState.title}</strong>
+          <p>{emptyState.body}</p>
+        </div>
+        <PassageCompare />
       </div>
     );
   }
@@ -445,6 +449,8 @@ function BreakdownContent({
         selection={workspace.selection}
         analysisState={workspace.analysisState}
       />
+
+      <PassageCompare />
 
       {contextCount > 0 && <ContextSection insights={contextInsights} />}
 
