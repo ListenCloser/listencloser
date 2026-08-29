@@ -6,10 +6,12 @@ import numpy as np
 
 from .base import SeparationAdapter, SeparationMetadata, SeparationResult
 
+HTDEMUCS_MODEL_SIGNATURE = "955717e8"
+
 
 class DemucsAdapter(SeparationAdapter):
     name = "demucs"
-    model_id = "facebookresearch/demucs"
+    model_id = f"demucs:htdemucs@{HTDEMUCS_MODEL_SIGNATURE}"
 
     def __init__(self, device: str = "cpu"):
         super().__init__(device)
@@ -47,7 +49,12 @@ class DemucsAdapter(SeparationAdapter):
             waveform = torch.from_numpy(audio).float().unsqueeze(0).to(self.device)
 
             with torch.no_grad():
-                sources = apply_model(self._model, waveform, device=self.device)
+                sources = apply_model(
+                    self._model,
+                    waveform,
+                    device=self.device,
+                    shifts=0,
+                )
 
             if sources.dim() == 4:
                 sources = sources.squeeze(0)
@@ -58,7 +65,12 @@ class DemucsAdapter(SeparationAdapter):
                 else ["drums", "bass", "other", "vocals"]
             )
 
-            result = SeparationResult()
+            result = SeparationResult(
+                metadata={
+                    "model_signature": HTDEMUCS_MODEL_SIGNATURE,
+                    "inference_shifts": 0,
+                }
+            )
             for i, name in enumerate(stem_names):
                 if i < sources.shape[0]:
                     stem_audio = sources[i].cpu().numpy()
@@ -81,11 +93,14 @@ class DemucsAdapter(SeparationAdapter):
             model_id=self.model_id,
             code_license="MIT",
             weight_license="MIT",
-            upstream_repo="https://github.com/facebookresearch/demucs",
+            upstream_repo="https://github.com/adefossez/demucs",
             supports_vocals=True,
             supports_drums=True,
             supports_bass=True,
             supports_other=True,
             num_stems=4,
-            notes="Hybrid Transformer Demucs. MIT licensed.",
+            notes=(
+                "HTDemucs official model signature 955717e8. "
+                "Evaluation uses shifts=0 for deterministic comparisons."
+            ),
         )
