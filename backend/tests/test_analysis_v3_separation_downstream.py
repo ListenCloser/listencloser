@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import json
 import sys
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
+import soundfile as sf
 
+from backend.evaluation.analysis_v3.multitrack_transcription import metrics as amt_metrics
+from backend.evaluation.analysis_v3.multitrack_transcription.adapters import (
+    basic_pitch as basic_pitch_adapter,
+)
+from backend.evaluation.analysis_v3.separation.datasets import babyslakh
 from backend.evaluation.analysis_v3.separation.metrics import downstream, separation
 
 
@@ -95,3 +102,82 @@ def test_si_sdr_accepts_mismatched_channel_layouts_by_folding_to_mono():
 
     assert score is not None
     assert np.isfinite(score)
+
+
+def test_bass_amt_comparison_reuses_basic_pitch_and_amt_metric(monkeypatch, tmp_path):
+    reference_midi = tmp_path / "bass.mid"
+    reference_midi.write_bytes(b"reference")
+    run_calls: list[str] = []
+
+    def fake_run_basic_pitch(audio_path, output_midi):
+        run_calls.append(audio_path.name)
+        output_midi.write_bytes(b"prediction")
+        return {}
+
+    monkeypatch.setattr(basic_pitch_adapter, "run_basic_pitch", fake_run_basic_pitch)
+    monkeypatch.setattr(downstream, "_load_midi_events", lambda paths: [str(paths[0])])
+    scores = iter([0.2, 0.7])
+    monkeypatch.setattr(
+        amt_metrics,
+        "match_notes",
+        lambda reference, predicted: SimpleNamespace(f1=next(scores)),
+    )
+
+    audio = np.zeros(8000, dtype=np.float32)
+    result = downstream.compare_bass_note_f1_mixture_vs_stem(
+        audio,
+        audio,
+        8000,
+        [reference_midi],
+    )
+
+    assert result is not None
+    assert result.mixture_score == 0.2
+    assert result.stem_score == 0.7
+    assert result.delta == pytest.approx(0.5)
+    assert run_calls == ["input.wav", "input.wav"]
+
+
+def test_babyslakh_manifest_builds_four_stem_references(monkeypatch, tmp_path):
+    track = tmp_path / "Track00001"
+    (track / "stems").mkdir(parents=True)
+    (track / "MIDI").mkdir()
+    (track / "metadata.yaml").write_text("stub: true\n")
+
+    sample_rate = 8000
+    bass = np.full(80, 0.1, dtype=np.float32)
+    drums = np.full(80, 0.2, dtype=np.float32)
+    other = np.full(80, 0.3, dtype=np.float32)
+    sf.write(track / "mix.wav", bass + drums + other, sample_rate)
+    sf.write(track / "stems" / "S00.wav", bass, sample_rate)
+    sf.write(track / "stems" / "S01.wav", drums, sample_rate)
+    sf.write(track / "stems" / "S02.wav", other, sample_rate)
+    (track / "MIDI" / "S00.mid").write_bytes(b"bass-midi")
+
+    monkeypatch.setattr(
+        babyslakh,
+        "_load_metadata",
+        lambda path: {
+            "stems": {
+                "S00": {"audio_rendered": True, "inst_class": "Bass", "is_drum": False},
+                "S01": {"audio_rendered": True, "inst_class": "Drums", "is_drum": True},
+                "S02": {"audio_rendered": True, "inst_class": "Piano", "is_drum": False},
+            }
+        },
+    )
+
+    manifest_path = tmp_path / "manifest.json"
+    payload = babyslakh.build_babyslakh_manifest(
+        tmp_path,
+        output_manifest=manifest_path,
+        limit=1,
+    )
+
+    assert payload["dataset_license"] == "CC BY 4.0"
+    assert len(payload["clips"]) == 1
+    clip = payload["clips"][0]
+    assert clip["reference_source_counts"] == {"drums": 1, "bass": 1, "other": 1}
+    assert "bass" in clip["reference_midis"]
+    assert set(clip["reference_stems"]) == {"drums", "bass", "other"}
+    assert manifest_path.is_file()
+    assert json.loads(manifest_path.read_text())["name"] == "babyslakh_4stem_reference_v1"
