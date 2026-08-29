@@ -45,9 +45,7 @@ def parse_gtzan_beats(annotation_path: str | Path) -> dict[str, Any]:
             if beat_position == 1:
                 downbeats.append(beat_time)
 
-    if any(
-        later <= earlier for earlier, later in zip(beats, beats[1:], strict=False)
-    ):
+    if any(later <= earlier for earlier, later in zip(beats, beats[1:], strict=False)):
         raise ValueError(f"Beat times are not strictly increasing: {annotation_path}")
 
     reference_bpm = None
