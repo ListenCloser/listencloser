@@ -143,14 +143,17 @@ jobs:
       - name: Wait for the stack to come up
         run: |
           for i in $(seq 1 60); do
-            if curl -sf http://127.0.0.1:8000/health/live > /dev/null && curl -sf http://localhost:3000 > /dev/null; then
-              echo "stack ready"
+            if curl -sf http://127.0.0.1:8000/health/live > /dev/null \
+              && curl -sf http://127.0.0.1:8000/health/queue | grep -q '"status":"ready"' \
+              && curl -sf http://localhost:3000 > /dev/null; then
+              echo "stack and worker ready"
               exit 0
             fi
             sleep 2
           done
           echo "stack did not become ready" >&2
           tail -40 /tmp/backend.log || true
+          tail -40 /tmp/worker.log || true
           tail -40 /tmp/frontend.log || true
           exit 1
 
@@ -178,7 +181,12 @@ jobs:
                   record = json.loads(line)
               except json.JSONDecodeError:
                   continue
-              if record.get('msg') == 'worker_queue_wait':
+              if record.get('msg') == 'librosa_beat_prewarm_complete':
+                  output.append({
+                      'msg': 'librosa_beat_prewarm_complete',
+                      'duration_seconds': record.get('duration_s'),
+                  })
+              elif record.get('msg') == 'worker_queue_wait':
                   output.append({
                       'msg': 'worker_queue_wait',
                       'capability': record.get('capability'),
