@@ -76,10 +76,7 @@ def test_supported_experimental_claims_are_bounded_to_promoted_experimental_evid
     supported = claims_by_readiness("SUPPORTED_EXPERIMENTAL")
     assert supported
     for claim in supported:
-        statuses = {
-            registry[capability]["status"]
-            for capability in claim["required_capabilities"]
-        }
+        statuses = {registry[capability]["status"] for capability in claim["required_capabilities"]}
         assert statuses <= {"production", "experimental"}
         assert "experimental" in statuses
         assert claim["planned_evidence"] == []
@@ -192,15 +189,10 @@ def test_supported_claim_must_declare_validated_domain(monkeypatch, tmp_path):
         load_claim_sufficiency_contract()
 
 
-def test_experimental_claim_cannot_smuggle_evaluation_only_capability(
-    monkeypatch, tmp_path
-):
+def test_experimental_claim_cannot_smuggle_evaluation_only_capability(monkeypatch, tmp_path):
     path = _write_contract(
         tmp_path,
-        _minimal_claim(
-            readiness="SUPPORTED_EXPERIMENTAL",
-            required_capabilities=["melody_motif"],
-        ),
+        _minimal_claim(readiness="SUPPORTED_EXPERIMENTAL", required_capabilities=["melody_motif"]),
     )
     monkeypatch.setattr(claim_sufficiency, "_CONTRACT_PATH", path)
 
@@ -208,14 +200,10 @@ def test_experimental_claim_cannot_smuggle_evaluation_only_capability(
         load_claim_sufficiency_contract()
 
 
-def test_experimental_claim_must_actually_depend_on_experimental_capability(
-    monkeypatch, tmp_path
-):
+def test_experimental_claim_must_actually_depend_on_experimental_capability(monkeypatch, tmp_path):
     path = _write_contract(
         tmp_path,
-        _minimal_claim(
-            readiness="SUPPORTED_EXPERIMENTAL", required_capabilities=["key"]
-        ),
+        _minimal_claim(readiness="SUPPORTED_EXPERIMENTAL", required_capabilities=["key"]),
     )
     monkeypatch.setattr(claim_sufficiency, "_CONTRACT_PATH", path)
 
@@ -227,9 +215,7 @@ def test_claim_metadata_rejects_blank_proof_action(monkeypatch, tmp_path):
     path = _write_contract(tmp_path, _minimal_claim(proof_actions=[" "]))
     monkeypatch.setattr(claim_sufficiency, "_CONTRACT_PATH", path)
 
-    with pytest.raises(
-        ValueError, match="proof_actions must be a list of non-empty strings"
-    ):
+    with pytest.raises(ValueError, match="proof_actions must be a list of non-empty strings"):
         load_claim_sufficiency_contract()
 
 
