@@ -4,15 +4,15 @@
 
 **Current recommendation: RESEARCH.**
 
-Stage 1 established that HTDemucs can run on CPU/ARM and emit the expected four stems. Stage 2 now has a rigorous evaluation path for objective reference quality, downstream beat value, downstream bass-transcription value, checkpoint provenance, and whole-track operational cost. **No new Stage 2 corpus result is claimed yet.** Until the real reference runs are committed, this work does not justify production adoption or a first-class StemEvidence architecture.
+Stage 1 established that HTDemucs can run on CPU/ARM and emit the expected four stems. Stage 2 now has a reproducible evaluation path for objective reference quality, downstream beat value, downstream bass-transcription value, exact model/evaluator provenance, failure accounting, and whole-track operational cost. **No new Stage 2 corpus result is claimed yet.** Until the real reference runs are committed, this work does not justify production adoption or a first-class StemEvidence architecture.
 
-BS-RoFormer remains **REVISIT** until an exact compatible pretrained checkpoint, weight license, and runnable environment are verified. Do not compare an untrained architecture against HTDemucs.
+BS-RoFormer remains **REVISIT** until an exact compatible pretrained checkpoint, checkpoint-specific license, and runnable environment are verified. Do not compare an untrained architecture against the pinned HTDemucs candidate.
 
 ## Product Question
 
 Should source separation become a first-class evidence layer for mixed music in hello-ai, and which OSS path is practical enough to justify the added runtime, storage, and product complexity?
 
-The primary decision gate is not source-separation quality in isolation. It is whether the same hello-ai analysis tasks become materially better when given relevant stems.
+The primary gate is not source-separation quality in isolation. It is whether the same hello-ai analysis tasks become materially better when given relevant stems.
 
 ## Stage 1 Evidence — Completed
 
@@ -31,7 +31,7 @@ The primary decision gate is not source-separation quality in isolation. It is w
 | Candidate | Model | Code license | Weight license | Stage 1 result | Decision |
 |---|---|---|---|---|---|
 | demucs | HTDemucs | MIT | MIT as recorded by the evaluation | runnable; vocals/drums/bass/other emitted | RESEARCH |
-| bs_roformer | architecture path only | MIT | exact checkpoint unverified | evaluated package path blocked; no valid trained checkpoint benchmarked | REVISIT |
+| bs_roformer | architecture path only | MIT | exact checkpoint unverified | no valid trained checkpoint benchmarked | REVISIT |
 
 ### HTDemucs operational evidence
 
@@ -43,7 +43,7 @@ The primary decision gate is not source-separation quality in isolation. It is w
 | ARM feasibility | confirmed |
 | Stem set | vocals / drums / bass / other |
 
-The Stage 1 synthetic determinism probe reported a mismatch. Stage 2 therefore uses `shifts=0` rather than the package's random time-shift ensembling for scientific per-piece comparisons.
+The Stage 1 synthetic determinism probe reported a mismatch. Stage 2 therefore uses `shifts=0` rather than random time-shift ensembling for scientific per-piece comparisons.
 
 ### Stage 1 extraction smoke data
 
@@ -56,38 +56,61 @@ Those were extraction smoke probes only. They were not reference-scored separati
 
 Current PR: #426.
 
-### A. Exact HTDemucs provenance
+### A. Pinned benchmark environment
 
-The Stage 2 adapter pins the official `htdemucs` model identity:
+Evaluation-only dependencies are isolated from production and pinned in `benchmark-requirements.txt`:
 
-- model signature: `955717e8`
-- artifact: `955717e8-8726e21a.th`
-- expected SHA-256 prefix from the upstream artifact: `8726e21a`
+- `demucs==4.1.0`
+- `fast-bss-eval==0.1.4`
+- `mir_eval==0.8.2`
+- `PyYAML==6.0.2`
+
+The runner is intended to execute via `uv run --project backend --with-requirements ...`, which layers these dependencies over the normal backend environment without adding them to production runtime requirements.
+
+### B. Exact HTDemucs provenance
+
+The Stage 2 adapter pins:
+
+- package: `demucs==4.1.0`
+- model identity: `htdemucs` / `955717e8`
+- Torch Hub artifact: `955717e8-8726e21a.th`
+- expected artifact SHA-256 prefix: `8726e21a`
 - inference shifts: `0`
+- code license: MIT, sourced from Demucs 4.1.0 package metadata
+- weight license: MIT, sourced from the author's `adefossez/HTDemucs` model repository for `955717e8`
 
 At model load the harness:
 
-1. resolves the expected Torch Hub checkpoint path;
-2. refuses the run if the exact official artifact is absent;
-3. hashes the checkpoint;
-4. refuses the run if the SHA-256 prefix does not match;
-5. records the full SHA-256, package version, checkpoint size, device, and runtime environment.
+1. refuses any Demucs package version other than 4.1.0;
+2. resolves the expected Torch Hub checkpoint path;
+3. refuses the run if the exact artifact is absent;
+4. hashes the checkpoint;
+5. refuses the run if the SHA-256 prefix does not match the official artifact name;
+6. records the full SHA-256, package version, checkpoint size, license sources, device, and runtime environment.
 
-This closes the Stage 1 provenance gap for the HTDemucs candidate.
+This closes the Stage 1 candidate-provenance gap.
 
-### B. Objective reference quality
+### C. Objective reference quality
 
 A manifest may provide isolated `reference_stems`. For each available stem the runner records:
 
 1. SI-SDR of the **original mixture** against the isolated target reference;
 2. SI-SDR of the **separated stem** against that same reference;
-3. the improvement in dB.
+3. improvement in dB.
 
-The primary number is therefore gain-over-mixture, per piece and per stem. This avoids treating an isolated stem score as sufficient product evidence.
+Stage 2 uses the OSS `fast-bss-eval` SI-SDR implementation rather than a bespoke formula. The contract is:
 
-The older BSS Eval SDR/SIR/SAR helpers remain compatibility utilities and are not the Stage 2 headline contract.
+- `zero_mean=True`
+- `clamp_db=100`
+- stereo channels scored independently and averaged
+- mismatched channel counts folded to mono before scoring
+- silent reference channels withheld
 
-### C. Downstream beat/groove value
+The primary number is gain-over-mixture, per piece and per stem. This avoids treating an isolated stem score as sufficient product evidence.
+
+The older BSS Eval SDR/SIR/SAR helpers remain compatibility utilities and are not the Stage 2 headline metric.
+
+### D. Downstream beat/groove value
 
 For clips with `reference_beats`, the runner evaluates the exact same production path twice:
 
@@ -104,22 +127,22 @@ The result stores mixture F1, drum-stem F1, delta, and aggregate improved/degrad
 
 GuitarSet is useful for the independent pulse benchmark but is **not** a valid headline mixture-vs-drums source-separation experiment because the recordings are solo guitar. Stage 2 therefore does not treat GuitarSet drum-stem results as evidence for source-separation value.
 
-The BabySlakh preparation helper records the exact beat grid from each track's `all_src.mid` synthesis MIDI when available. This provides a controlled mixed-track comparison with real drum sources. It is explicitly labeled `symbolic_synthesis_reference`; it is not presented as a replacement for a human-annotated beat benchmark on real recordings.
+The BabySlakh preparation helper records the exact beat grid from each track's `all_src.mid` synthesis MIDI when available. This provides a controlled mixed-track comparison with actual drum sources. It is explicitly labeled `symbolic_synthesis_reference`; it is not presented as a replacement for a human-annotated beat benchmark on real recordings.
 
-### D. Downstream bass-transcription value
+### E. Downstream bass-transcription value
 
 When the prepared manifest includes `reference_midis.bass`, the optional `--with-bass-amt` probe evaluates:
 
-1. production `BasicPitchEngine` on the original mixture;
-2. the same production engine on the separated bass stem.
+1. production Basic Pitch on the original mixture;
+2. the same production path on the separated bass stem.
 
 Both predictions are scored with the repository's existing Analysis V3 `match_notes` contract. The reference is the aligned BabySlakh per-source bass MIDI. Program labels are ignored because the production Basic Pitch path is instrument-agnostic.
 
 This tests an actual product task instead of introducing a bespoke easier bass detector.
 
-### E. Reproducible BabySlakh preparation
+### F. Reproducible BabySlakh preparation
 
-The Stage 2 helper groups isolated BabySlakh sources into the four HTDemucs target families:
+The helper groups isolated BabySlakh sources into:
 
 - vocals
 - drums
@@ -131,12 +154,12 @@ It writes derived reference submixes under the dataset root, leaves source files
 Dataset provenance recorded by the manifest:
 
 - dataset: BabySlakh
-- source: https://zenodo.org/records/4603870
+- source: `https://zenodo.org/records/4603870`
 - license: CC BY 4.0
 
-### F. Operational evidence
+### G. Operational evidence
 
-The operational runner now records:
+The Stage 2 operational runner records:
 
 - 10-second latency distribution
 - 30-second latency distribution
@@ -146,13 +169,13 @@ The operational runner now records:
 - CUDA peak allocated memory where applicable
 - load time
 - determinism
-- exact checkpoint provenance
+- exact package/checkpoint/license provenance
 
 The 3-minute probe intentionally has no second 3-minute warm-up run.
 
-### G. Failure semantics
+### H. Failure semantics
 
-Evaluation failures are now scoped to the task that failed. A beat or bass-AMT error no longer erases otherwise-valid separation/objective evidence for the track.
+Evaluation failures are scoped to the task that failed. A beat or bass-AMT error no longer erases otherwise-valid separation/objective evidence for the track.
 
 Result rows preserve:
 
@@ -246,7 +269,7 @@ Notes:
 ## Next Result-Bearing Work
 
 1. Prepare a deterministic BabySlakh Stage 2 manifest.
-2. Run pinned HTDemucs across that manifest.
+2. Run pinned Demucs 4.1.0 / HTDemucs `955717e8` across that manifest.
 3. Commit per-piece SI-SDR gain, beat-F1 delta, optional bass-note-F1 delta, failures, and provenance.
 4. Record the 3-minute operational result and perceptual/product notes.
 5. Inspect distributions, not just means.
@@ -256,31 +279,25 @@ Notes:
 
 ## Reproduction
 
-Prepare BabySlakh references:
-
 ```bash
 export BABYSLAKH_ROOT=/path/to/babyslakh_16k
-uv run --project backend --with pyyaml python -m \
-  backend.evaluation.analysis_v3.separation.datasets.babyslakh \
+REQ=backend/evaluation/analysis_v3/separation/benchmark-requirements.txt
+
+uv run --project backend --with-requirements "$REQ" \
+  python -m backend.evaluation.analysis_v3.separation.datasets.babyslakh \
   "$BABYSLAKH_ROOT" \
   backend/evaluation/analysis_v3/separation/manifests/babyslakh_4stem.json \
   --limit 20
-```
 
-Run objective + downstream evaluation:
-
-```bash
-python -m backend.evaluation.analysis_v3.separation.run \
+uv run --project backend --with-requirements "$REQ" \
+  python -m backend.evaluation.analysis_v3.separation.run \
   --candidate demucs \
   --task separation \
   --manifest backend/evaluation/analysis_v3/separation/manifests/babyslakh_4stem.json \
   --with-bass-amt
-```
 
-Run operational probe:
-
-```bash
-python -m backend.evaluation.analysis_v3.separation.run \
+uv run --project backend --with-requirements "$REQ" \
+  python -m backend.evaluation.analysis_v3.separation.run \
   --candidate demucs \
   --task operational
 ```
