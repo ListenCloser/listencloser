@@ -134,8 +134,7 @@ def compute_event_timing(
     """
     pred_arr, ref_arr, matching = _canonical_matching(predicted, reference, tolerance)
     errors = tuple(
-        float(pred_arr[pred_index] - ref_arr[ref_index])
-        for ref_index, pred_index in matching
+        float(pred_arr[pred_index] - ref_arr[ref_index]) for ref_index, pred_index in matching
     )
     return EventTimingResult(
         tolerance_seconds=tolerance,
