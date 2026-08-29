@@ -94,14 +94,28 @@ def _summarize_deltas(values: list[float], digits: int = 4) -> dict[str, Any]:
     }
 
 
+def _error_text(error: BaseException) -> str:
+    return f"{type(error).__name__}: {error}"
+
+
+def _result_filename(candidate: str, task: str, manifest_name: str | None) -> str:
+    parts = [candidate, task]
+    if manifest_name:
+        parts.append(manifest_name)
+    raw = "-".join(parts).lower()
+    slug = "".join(character if character.isalnum() else "-" for character in raw)
+    slug = "-".join(part for part in slug.split("-") if part)
+    return f"{slug[:120]}.json"
+
+
 def run_operational_evaluation(
     candidate: str,
     device: str = "cpu",
 ) -> dict[str, Any]:
     """Run operational evaluation for a candidate."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Operational evaluation: {candidate}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     result: dict[str, Any] = {
         "candidate": candidate,
@@ -122,28 +136,35 @@ def run_operational_evaluation(
         result["supports_drums"] = meta.supports_drums
         result["supports_bass"] = meta.supports_bass
         result["supports_other"] = meta.supports_other
-    except Exception as e:
+    except Exception as error:
         result["install_success"] = False
-        result["install_error"] = str(e)
+        result["install_error"] = _error_text(error)
         return result
 
     result["install_success"] = True
 
     try:
-        t0 = time.monotonic()
+        started = time.monotonic()
         adapter.load()
         result["load_success"] = True
-        result["load_time_seconds"] = round(time.monotonic() - t0, 2)
+        result["load_time_seconds"] = round(time.monotonic() - started, 2)
         result["provenance"] = asdict(adapter.metadata())
-    except Exception as e:
+    except Exception as error:
         result["load_success"] = False
-        result["load_error"] = str(e)
+        result["load_error"] = _error_text(error)
         return result
 
     for duration_label, duration in [("10s", 10.0), ("30s", 30.0), ("3min", 180.0)]:
         audio = generate_synthetic_audio(duration_seconds=duration)
-        metrics = measure_latency(adapter, audio, 44100, num_runs=1 if duration >= 180 else 2)
-        result[f"cpu_latency_{duration_label}"] = {
+        is_long_probe = duration >= 180
+        metrics = measure_latency(
+            adapter,
+            audio,
+            44100,
+            num_runs=1 if is_long_probe else 2,
+            warmup_runs=0 if is_long_probe else 1,
+        )
+        result[f"latency_{duration_label}"] = {
             "latency_seconds": metrics.latency_seconds,
             "latency_min": metrics.latency_min,
             "latency_max": metrics.latency_max,
@@ -157,7 +178,6 @@ def run_operational_evaluation(
 
     audio_10s = generate_synthetic_audio(duration_seconds=10.0)
     result["determinism_stable"] = check_determinism(adapter, audio_10s, 44100, num_runs=2)
-
     return result
 
 
@@ -169,12 +189,15 @@ def run_separation_evaluation(
     with_bass_amt: bool = False,
 ) -> dict[str, Any]:
     """Run separation, objective quality, and available downstream comparisons."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Separation evaluation: {candidate}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
-    with open(manifest_path) as f:
-        manifest = json.load(f)
+    with open(manifest_path) as handle:
+        manifest = json.load(handle)
+    clips = manifest.get("clips")
+    if not isinstance(clips, list) or not clips:
+        raise ValueError("Separation manifest requires a non-empty clips list")
 
     adapter = _load_adapter(candidate, device)
     adapter.load()
@@ -190,11 +213,26 @@ def run_separation_evaluation(
     bass_amt_missing_references = 0
     objective_scored_stems = 0
     objective_missing_references = 0
+    objective_task_failures = 0
+    downstream_task_failures = 0
+    missing_audio_clips = 0
+    separation_failed_clips = 0
+    separation_succeeded_clips = 0
 
-    for clip in manifest["clips"]:
-        audio_path = _resolve_path(clip["audio_path"])
-        if not os.path.exists(audio_path):
-            print(f"  SKIP {clip['id']}: audio not found at {audio_path}")
+    for clip in clips:
+        clip_id = str(clip.get("id") or "unknown")
+        source_audio_path = str(clip.get("audio_path") or "")
+        audio_path = _resolve_path(source_audio_path)
+        if not audio_path or not os.path.exists(audio_path):
+            missing_audio_clips += 1
+            results.append(
+                {
+                    "id": clip_id,
+                    "status": "skipped_missing_audio",
+                    "audio_path": source_audio_path,
+                }
+            )
+            print(f"  SKIP {clip_id}: audio not found at {audio_path}")
             continue
 
         try:
@@ -202,120 +240,178 @@ def run_separation_evaluation(
             started = time.monotonic()
             sep_result = adapter.separate(audio, sr)
             separation_latency = time.monotonic() - started
+        except Exception as error:
+            separation_failed_clips += 1
+            results.append(
+                {
+                    "id": clip_id,
+                    "status": "failed_separation",
+                    "error": _error_text(error),
+                }
+            )
+            print(f"  FAILED {clip_id}: {error}")
+            continue
 
-            if not sep_result.ok:
-                results.append(
-                    {
-                        "id": clip["id"],
-                        "error": sep_result.error,
-                    }
-                )
-                print(f"  FAILED {clip['id']}: {sep_result.error}")
+        if not sep_result.ok:
+            separation_failed_clips += 1
+            results.append(
+                {
+                    "id": clip_id,
+                    "status": "failed_separation",
+                    "error": sep_result.error,
+                    "latency_seconds": round(separation_latency, 4),
+                }
+            )
+            print(f"  FAILED {clip_id}: {sep_result.error}")
+            continue
+
+        separation_succeeded_clips += 1
+        stem_metrics: dict[str, Any] = {}
+        for stem_name in ["vocals", "drums", "bass", "other"]:
+            stem = sep_result.get_stem(stem_name)
+            if stem is not None:
+                stem_metrics[stem_name] = {
+                    "shape": list(stem.shape),
+                    "duration_seconds": round(stem.shape[-1] / sr, 2),
+                }
+
+        objective_quality: dict[str, Any] = {}
+        objective_errors: dict[str, str] = {}
+        reference_stems = clip.get("reference_stems") or {}
+        for stem_name, reference_path_value in reference_stems.items():
+            estimated_stem = sep_result.get_stem(stem_name)
+            if estimated_stem is None:
+                objective_task_failures += 1
+                objective_errors[stem_name] = "candidate did not emit requested stem"
                 continue
 
-            stem_metrics: dict[str, Any] = {}
-            for stem_name in ["vocals", "drums", "bass", "other"]:
-                stem = sep_result.get_stem(stem_name)
-                if stem is not None:
-                    stem_metrics[stem_name] = {
-                        "shape": list(stem.shape),
-                        "duration_seconds": round(stem.shape[-1] / sr, 2),
-                    }
+            reference_path = _resolve_path(str(reference_path_value))
+            if not os.path.exists(reference_path):
+                objective_missing_references += 1
+                objective_errors[stem_name] = f"reference not found: {reference_path_value}"
+                continue
 
-            objective_quality: dict[str, Any] = {}
-            for stem_name, reference_path_value in (clip.get("reference_stems") or {}).items():
-                estimated_stem = sep_result.get_stem(stem_name)
-                if estimated_stem is None:
-                    continue
-
-                reference_path = _resolve_path(str(reference_path_value))
-                if not os.path.exists(reference_path):
-                    objective_missing_references += 1
-                    continue
-
+            try:
                 reference_stem, reference_sr = _load_audio(reference_path, target_sr=sr)
                 if reference_sr != sr:
                     raise RuntimeError(
-                        f"Reference resample mismatch for {clip['id']}:{stem_name}: "
-                        f"{reference_sr} != {sr}"
+                        f"reference resample mismatch: {reference_sr} != {sr}"
                     )
                 quality_comparison = compare_si_sdr_mixture_vs_stem(
                     audio,
                     estimated_stem,
                     reference_stem,
                 )
-                if quality_comparison is not None:
-                    objective_quality[stem_name] = quality_comparison.to_dict()
-                    quality_deltas.setdefault(stem_name, []).append(
-                        quality_comparison.improvement_db
-                    )
-                    objective_scored_stems += 1
+                if quality_comparison is None:
+                    raise ValueError("SI-SDR comparison was unscored")
+            except Exception as error:
+                objective_task_failures += 1
+                objective_errors[stem_name] = _error_text(error)
+                continue
 
-            downstream: dict[str, Any] = {}
+            objective_quality[stem_name] = quality_comparison.to_dict()
+            quality_deltas.setdefault(stem_name, []).append(quality_comparison.improvement_db)
+            objective_scored_stems += 1
+
+        downstream: dict[str, Any] = {}
+        downstream_errors: dict[str, str] = {}
+
+        reference_beats = clip.get("reference_beats")
+        if reference_beats:
             drums = sep_result.get_stem("drums")
-            reference_beats = clip.get("reference_beats")
-            if drums is not None and reference_beats:
-                beat_comparison = compare_beat_f1_mixture_vs_stem(
-                    audio,
-                    drums,
-                    sr,
-                    reference_beats,
-                )
-                if beat_comparison is not None:
+            if drums is None:
+                downstream_task_failures += 1
+                downstream_errors["beat_f1_drums"] = "candidate did not emit drums stem"
+            else:
+                try:
+                    beat_comparison = compare_beat_f1_mixture_vs_stem(
+                        audio,
+                        drums,
+                        sr,
+                        reference_beats,
+                    )
+                    if beat_comparison is None:
+                        raise ValueError("beat comparison was unscored")
+                except Exception as error:
+                    downstream_task_failures += 1
+                    downstream_errors["beat_f1_drums"] = _error_text(error)
+                else:
                     downstream["beat_f1_drums"] = beat_comparison.to_dict()
                     beat_deltas.append(beat_comparison.delta)
                     beat_scored_clips += 1
-                    downstream_scored_clip_ids.add(str(clip["id"]))
+                    downstream_scored_clip_ids.add(clip_id)
 
-            bass = sep_result.get_stem("bass")
+        if with_bass_amt:
             bass_reference_values = (clip.get("reference_midis") or {}).get("bass") or []
-            if with_bass_amt and bass is not None and bass_reference_values:
-                bass_reference_paths = [
-                    Path(_resolve_path(str(value))) for value in bass_reference_values
-                ]
-                missing_bass_references = [
-                    path for path in bass_reference_paths if not path.is_file()
-                ]
-                if missing_bass_references:
-                    bass_amt_missing_references += len(missing_bass_references)
+            if bass_reference_values:
+                bass = sep_result.get_stem("bass")
+                if bass is None:
+                    downstream_task_failures += 1
+                    downstream_errors["bass_note_f1"] = "candidate did not emit bass stem"
                 else:
-                    bass_comparison = compare_bass_note_f1_mixture_vs_stem(
-                        audio,
-                        bass,
-                        sr,
-                        bass_reference_paths,
-                    )
-                    if bass_comparison is not None:
-                        downstream["bass_note_f1"] = bass_comparison.to_dict()
-                        bass_amt_deltas.append(bass_comparison.delta)
-                        bass_amt_scored_clips += 1
-                        downstream_scored_clip_ids.add(str(clip["id"]))
+                    bass_reference_paths = [
+                        Path(_resolve_path(str(value))) for value in bass_reference_values
+                    ]
+                    missing_bass_references = [
+                        path for path in bass_reference_paths if not path.is_file()
+                    ]
+                    if missing_bass_references:
+                        bass_amt_missing_references += len(missing_bass_references)
+                        downstream_errors["bass_note_f1"] = (
+                            "missing reference MIDI: "
+                            + ", ".join(str(path) for path in missing_bass_references)
+                        )
+                    else:
+                        try:
+                            bass_comparison = compare_bass_note_f1_mixture_vs_stem(
+                                audio,
+                                bass,
+                                sr,
+                                bass_reference_paths,
+                            )
+                            if bass_comparison is None:
+                                raise ValueError("bass AMT comparison was unscored")
+                        except Exception as error:
+                            downstream_task_failures += 1
+                            downstream_errors["bass_note_f1"] = _error_text(error)
+                        else:
+                            downstream["bass_note_f1"] = bass_comparison.to_dict()
+                            bass_amt_deltas.append(bass_comparison.delta)
+                            bass_amt_scored_clips += 1
+                            downstream_scored_clip_ids.add(clip_id)
 
-            row: dict[str, Any] = {
-                "id": clip["id"],
-                "stems": stem_metrics,
-                "latency_seconds": round(separation_latency, 4),
-            }
-            if sep_result.metadata:
-                row["separation_metadata"] = sep_result.metadata
-            if objective_quality:
-                row["objective_quality"] = objective_quality
-            if downstream:
-                row["downstream"] = downstream
-            results.append(row)
-            print(f"  OK {clip['id']}: stems={list(stem_metrics.keys())}")
-
-        except Exception as e:
-            results.append({"id": clip["id"], "error": str(e)})
-            print(f"  FAILED {clip['id']}: {e}")
+        row: dict[str, Any] = {
+            "id": clip_id,
+            "status": "ok",
+            "stems": stem_metrics,
+            "latency_seconds": round(separation_latency, 4),
+        }
+        if sep_result.metadata:
+            row["separation_metadata"] = sep_result.metadata
+        if objective_quality:
+            row["objective_quality"] = objective_quality
+        if objective_errors:
+            row["objective_errors"] = objective_errors
+        if downstream:
+            row["downstream"] = downstream
+        if downstream_errors:
+            row["downstream_errors"] = downstream_errors
+        results.append(row)
+        print(f"  OK {clip_id}: stems={list(stem_metrics.keys())}")
 
     summary: dict[str, Any] = {
+        "manifest_clips": len(clips),
+        "separation_succeeded_clips": separation_succeeded_clips,
+        "separation_failed_clips": separation_failed_clips,
+        "missing_audio_clips": missing_audio_clips,
         "downstream_scored_clips": len(downstream_scored_clip_ids),
         "beat_scored_clips": beat_scored_clips,
         "bass_amt_scored_clips": bass_amt_scored_clips,
         "bass_amt_missing_references": bass_amt_missing_references,
+        "downstream_task_failures": downstream_task_failures,
         "objective_scored_stems": objective_scored_stems,
         "objective_missing_references": objective_missing_references,
+        "objective_task_failures": objective_task_failures,
     }
     if beat_deltas:
         summary["beat_f1_drums_delta"] = _summarize_deltas(beat_deltas)
@@ -331,6 +427,9 @@ def run_separation_evaluation(
         "candidate": candidate,
         "task": "separation",
         "manifest": manifest.get("name", Path(manifest_path).name),
+        "manifest_path": manifest_path,
+        "dataset": manifest.get("dataset"),
+        "dataset_license": manifest.get("dataset_license") or manifest.get("license"),
         "candidate_provenance": candidate_provenance,
         "num_clips": len(results),
         "summary": summary,
@@ -371,11 +470,21 @@ def run_candidate(
                 device,
                 with_bass_amt=with_bass_amt,
             )
+        else:
+            results["separation"] = {
+                "candidate": candidate,
+                "task": "separation",
+                "manifest_path": selected_manifest,
+                "error": "manifest not found",
+            }
 
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"{candidate}.json")
-    with open(output_path, "w") as f:
-        json.dump(results, f, indent=2, default=str)
+    separation = results.get("separation")
+    manifest_name = separation.get("manifest") if isinstance(separation, dict) else None
+    output_name = _result_filename(candidate, task, manifest_name)
+    output_path = os.path.join(output_dir, output_name)
+    with open(output_path, "w") as handle:
+        json.dump(results, handle, indent=2, default=str)
     print(f"\nResults saved to: {output_path}")
 
     return results
@@ -441,8 +550,8 @@ def main() -> None:
                     args.output_dir,
                     with_bass_amt=args.with_bass_amt,
                 )
-            except Exception as e:
-                print(f"\nFAILED {candidate}: {e}")
+            except Exception as error:
+                print(f"\nFAILED {candidate}: {error}")
     else:
         run_candidate(
             args.candidate,
