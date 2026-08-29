@@ -92,6 +92,19 @@ describe("deriveAskContext", () => {
     expect(byId["unrel-1"]).toBeUndefined();
   });
 
+  it("excludes Inspector evidence the capability registry marks ask:false", () => {
+    const chord = insight({ id: "chord-1", kind: "chord", span: timeSpan(12, 16) });
+    const density = insight({ id: "density-1", kind: "rhythm_density", span: timeSpan(12, 16) });
+    const rests = insight({ id: "rests-1", kind: "rhythm_rests", span: timeSpan(12, 16) });
+
+    const ctx = deriveAskContext(
+      "work-1", "listen", 15, perfSource, selection,
+      [chord, density, rests], 120,
+    );
+
+    expect(ctx?.visibleInsights.map((item) => item.insight.id)).toEqual(["chord-1"]);
+  });
+
   it("does not duplicate authoritative state (same object references)", () => {
     const selectionInsight = insight({ id: "sel-1", kind: "chord", span: timeSpan(12, 16) });
     const ctx = deriveAskContext("work-1", "listen", 15, perfSource, selection, [selectionInsight], 120);
