@@ -26,9 +26,7 @@ def _librosa_prewarm_signal() -> np.ndarray:
 
     sample_count = _LIBROSA_PREWARM_SAMPLE_RATE * _LIBROSA_PREWARM_SECONDS
     signal = np.zeros(sample_count, dtype=np.float32)
-    samples_per_beat = int(
-        round(_LIBROSA_PREWARM_SAMPLE_RATE * 60.0 / _LIBROSA_PREWARM_BPM)
-    )
+    samples_per_beat = int(round(_LIBROSA_PREWARM_SAMPLE_RATE * 60.0 / _LIBROSA_PREWARM_BPM))
     first_click = _LIBROSA_PREWARM_SAMPLE_RATE // 4
     click_positions = np.arange(first_click, sample_count, samples_per_beat)
     signal[click_positions] = 1.0
@@ -75,11 +73,7 @@ def prewarm_librosa_beat_tracking() -> bool:
         extra={
             "duration_s": round(duration_s, 3),
             "beat_count": beat_count,
-            "tempo": (
-                float(np.asarray(tempo).reshape(-1)[0])
-                if np.asarray(tempo).size
-                else 0.0
-            ),
+            "tempo": (float(np.asarray(tempo).reshape(-1)[0]) if np.asarray(tempo).size else 0.0),
         },
     )
     return True
