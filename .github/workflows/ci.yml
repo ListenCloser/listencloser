@@ -44,7 +44,8 @@ jobs:
         working-directory: backend
         run: |
           uv run ruff check . --output-format=github
-          uv run ruff format . --check
+          uv run ruff format domain/rhythm_density_relations.py --diff
+          exit 1
       - name: Verify generated API contract
         run: npm run api:check
       - name: Run required Python unit tests
