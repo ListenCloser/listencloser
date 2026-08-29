@@ -23,6 +23,7 @@ def test_domain_surface_contains_the_complete_understand_loop():
         ("/api/v1/jobs/{job_id}/cancel", "POST"),
         ("/api/v1/jobs/{job_id}/retry", "POST"),
         ("/api/v1/works/{work_id}", "GET"),
+        ("/api/v1/works/{work_id}/relations/perceptual-span-comparison", "POST"),
         ("/api/v1/versions/{version_id}/entities", "GET"),
         ("/api/v1/versions/{version_id}/insights", "GET"),
     }
@@ -92,3 +93,19 @@ def test_studio_workflows_require_authentication(client):
         ).status_code
         == 401
     )
+
+
+def test_relation_comparison_requires_authentication(client):
+    work_id = "00000000-0000-0000-0000-000000000001"
+    response = client.post(
+        f"/api/v1/works/{work_id}/relations/perceptual-span-comparison",
+        json={
+            "source_version_id": "00000000-0000-0000-0000-000000000002",
+            "subject_start_seconds": 2.0,
+            "subject_end_seconds": 4.0,
+            "comparison_start_seconds": 8.0,
+            "comparison_end_seconds": 10.0,
+        },
+    )
+
+    assert response.status_code == 401
