@@ -321,7 +321,8 @@ def build_perceptual_evidence_report(
         limitations = []
         if name == "rms":
             limitations.append(
-                "Amplitude proxy only; do not treat as calibrated loudness or compare across encodes."
+                "Amplitude proxy only; do not treat as calibrated loudness "
+                "or compare across encodes."
             )
         if name == "relative_band_energy":
             limitations.append(
