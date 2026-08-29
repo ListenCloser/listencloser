@@ -217,9 +217,7 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
 
         # Seconds-based profiles remain useful for internal summaries, but are
         # explicitly separated from the promoted beat-relative product evidence.
-        note_density_seconds = _compute_windowed_density(
-            all_onsets, duration, window=2.0, step=0.5
-        )
+        note_density_seconds = _compute_windowed_density(all_onsets, duration, window=2.0, step=0.5)
         onset_density_seconds = _compute_windowed_density(
             all_onsets, duration, window=1.0, step=0.25
         )
@@ -331,12 +329,7 @@ def _compute_beat_relative_density(
     expressed explicitly in beats. Incomplete tail windows are omitted rather
     than changing the denominator silently.
     """
-    if (
-        not onsets
-        or window_beats <= 0
-        or step_beats <= 0
-        or len(beats) < window_beats + 1
-    ):
+    if not onsets or window_beats <= 0 or step_beats <= 0 or len(beats) < window_beats + 1:
         return []
 
     beat_grid = [float(value) for value in beats]
