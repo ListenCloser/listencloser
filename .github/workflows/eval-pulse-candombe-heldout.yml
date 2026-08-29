@@ -39,16 +39,6 @@ jobs:
       - name: Sync locked backend environment
         run: uv sync --project backend --locked
 
-      - name: Show Ruff formatter diff
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd backend
-          uv run ruff format \
-            evaluation/analysis_v3/pulse/metrics/beat.py \
-            evaluation/analysis_v3/pulse/run.py \
-            --diff || true
-
       - name: Acquire exact Beat This v1.0 validation inputs
         shell: bash
         run: |
