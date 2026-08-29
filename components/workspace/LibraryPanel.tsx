@@ -12,6 +12,7 @@ import {
   useProjectWorks,
 } from "@/lib/server-state";
 import { presentableTitle } from "@/lib/format";
+import { successorAfterDelete } from "@/lib/work-selection";
 
 function WorkRow({
   work,
@@ -127,10 +128,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   async function handleDelete(workId: string) {
     if (deletingId || !project) return;
     const deletingActiveWork = workspace.activeWorkId === workId;
-    const deletingIndex = works.findIndex((work) => work.id === workId);
-    const successor = deletingIndex >= 0
-      ? works[deletingIndex + 1] ?? works[deletingIndex - 1] ?? null
-      : null;
+    const successor = successorAfterDelete(works, workId);
 
     setDeletingId(workId);
     setDeleteError(null);
