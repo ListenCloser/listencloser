@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 620">
+  <rect x="1" y="1" width="758" height="618" rx="18" fill="#211f1b" stroke="#f2eee5" stroke-opacity=".08"/>
+  <text x="28" y="42" fill="#888278" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" letter-spacing="1.9">SHARED MUSICAL TIME</text>
+  <text x="732" y="42" text-anchor="end" fill="#676159" font-family="system-ui, sans-serif" font-size="10.5">one recording · related views</text>
+  <line x1="28" y1="64" x2="732" y2="64" stroke="#f2eee5" stroke-opacity=".07"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10" fill="#7d776e" letter-spacing="1.25">
+    <text x="28" y="128">AUDIO</text>
+    <text x="28" y="211">NOTES</text>
+    <text x="28" y="294">NOTATION</text>
+    <text x="28" y="377">EVIDENCE</text>
+  </g>
+
+  <g stroke="#f2eee5" stroke-opacity=".075" fill="#f2eee5" fill-opacity=".01">
+    <rect x="130" y="96" width="574" height="48" rx="7"/>
+    <rect x="130" y="179" width="574" height="48" rx="7"/>
+    <rect x="130" y="262" width="574" height="48" rx="7"/>
+    <rect x="130" y="345" width="574" height="48" rx="7"/>
+  </g>
+
+  <g stroke="#f2eee5" stroke-opacity=".05">
+    <path d="M184 88v313M296 88v313M408 88v313M520 88v313M632 88v313"/>
+  </g>
+
+  <!-- Structural rails only: no fabricated waveform, note, score, evidence, or playback state. -->
+  <line x1="154" y1="120" x2="680" y2="120" stroke="#aaa398" stroke-opacity=".25"/>
+  <g stroke="#9d968b" stroke-opacity=".17">
+    <path d="M154 196h526M154 210h526"/>
+    <path d="M154 276h526M154 284h526M154 292h526M154 300h526"/>
+  </g>
+  <line x1="154" y1="369" x2="680" y2="369" stroke="#9d968b" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Neutral alignment guide: deliberately not blue playback or brass evidence state. -->
+  <line x1="432" y1="82" x2="432" y2="412" stroke="#cac3b7" stroke-opacity=".38" stroke-width="1.5" stroke-dasharray="3 6"/>
+  <rect x="385" y="414" width="94" height="22" rx="11" fill="#2b2924" stroke="#f2eee5" stroke-opacity=".08"/>
+  <text x="432" y="429" text-anchor="middle" fill="#8b857c" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="9.5">SAME MOMENT</text>
+
+  <line x1="28" y1="472" x2="732" y2="472" stroke="#f2eee5" stroke-opacity=".07"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="9.5" fill="#777168" letter-spacing="1.5">
+    <text x="28" y="510">01 · LISTEN</text>
+    <text x="270" y="510">02 · SEE</text>
+    <text x="512" y="510">03 · EXPLAIN</text>
+  </g>
+  <g font-family="Georgia, Iowan Old Style, serif" font-size="17" fill="#d8d2c8">
+    <text x="28" y="540">Recording first.</text>
+    <text x="270" y="540">Change the view.</text>
+    <text x="512" y="540">Return to evidence.</text>
+  </g>
+  <g font-family="system-ui, sans-serif" font-size="10.5" fill="#7f796f">
+    <text x="28" y="563">Keep the source usable.</text>
+    <text x="270" y="563">Keep musical position.</text>
+    <text x="512" y="563">Keep claims grounded.</text>
+  </g>
+</svg>

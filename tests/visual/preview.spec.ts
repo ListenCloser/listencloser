@@ -50,11 +50,36 @@ test("Breakdown V3 design reference", async ({ page }) => {
   await argosScreenshot(page, "design-breakdown-v3", { fullPage: true });
 });
 
-// Actual built app — landing (auth gate when unauthenticated).
-test("app landing", async ({ page }) => {
+// Actual built app — signed-out landing at the design review baseline.
+test("app landing — desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(700);
+  await expect(page.getByRole("heading", { name: "Listen closer." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await argosScreenshot(page, "app-landing", { fullPage: true });
+});
+
+test("app landing — phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.waitForTimeout(700);
+  await expect(page.getByRole("heading", { name: "Listen closer." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await argosScreenshot(page, "app-landing-phone", { fullPage: true });
+});
+
+test("app landing — reduced motion removes the product-object entrance", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Listen closer." })).toBeVisible();
+  const animationName = await page.locator(".welcome-hero-v4").evaluate((element) => (
+    getComputedStyle(element, "::after").animationName
+  ));
+  expect(animationName).toBe("none");
 });
 
 // The visual gate covers the actual authenticated creative workspace rather
