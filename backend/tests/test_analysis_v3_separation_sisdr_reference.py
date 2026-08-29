@@ -98,10 +98,10 @@ def test_build_reference_stems_groups_exact_isolated_sources(monkeypatch, tmp_pa
     bass = np.full(80, 0.1, dtype=np.float32)
     drums = np.full(80, 0.2, dtype=np.float32)
     other = np.full(80, 0.3, dtype=np.float32)
-    sf.write(track / "mix.wav", bass + drums + other, sample_rate)
-    sf.write(track / "stems" / "S00.wav", bass, sample_rate)
-    sf.write(track / "stems" / "S01.wav", drums, sample_rate)
-    sf.write(track / "stems" / "S02.wav", other, sample_rate)
+    sf.write(track / "mix.wav", bass + drums + other, sample_rate, subtype="FLOAT")
+    sf.write(track / "stems" / "S00.wav", bass, sample_rate, subtype="FLOAT")
+    sf.write(track / "stems" / "S01.wav", drums, sample_rate, subtype="FLOAT")
+    sf.write(track / "stems" / "S02.wav", other, sample_rate, subtype="FLOAT")
 
     monkeypatch.setattr(
         babyslakh_reference,
