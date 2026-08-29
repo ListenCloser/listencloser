@@ -153,11 +153,7 @@ def _summarize_event_timing(
     matched = sum(result.matched for result in timing_results)
     predicted = sum(result.predicted for result in timing_results)
     reference = sum(result.reference for result in timing_results)
-    signed_errors = [
-        error
-        for result in timing_results
-        for error in result.signed_errors_seconds
-    ]
+    signed_errors = [error for result in timing_results for error in result.signed_errors_seconds]
     absolute_errors = [abs(error) for error in signed_errors]
     return {
         "matched": matched,
