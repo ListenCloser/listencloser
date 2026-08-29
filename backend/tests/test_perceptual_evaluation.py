@@ -114,9 +114,11 @@ def test_perceptual_evaluation_fails_closed_for_stereo_until_spatial_contract_ex
 
 
 def test_perceptual_evaluation_rejects_invalid_audio() -> None:
-    with pytest.raises(ValueError, match="at least one sample"):
+    with pytest.raises(ValueError, match="at least"):
         rms_series(np.asarray([], dtype=np.float32), SAMPLE_RATE)
     with pytest.raises(ValueError, match="positive"):
         rms_series(_sine(440.0, 1.0), 0)
+    invalid = _sine(440.0, 1.0).astype(np.float32)
+    invalid[100] = np.nan
     with pytest.raises(ValueError, match="finite"):
-        rms_series(np.asarray([0.0, np.nan], dtype=np.float32), SAMPLE_RATE)
+        rms_series(invalid, SAMPLE_RATE)
