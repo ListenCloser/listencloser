@@ -7,17 +7,20 @@ for every Artifact Version and Workflow Job creates an N+1 cold-open path.
 
 This repository performs one ownership check at the Work boundary, then loads
 only descendants whose foreign keys were discovered from that authorized Work.
-The number of database round trips is therefore bounded independently of the
-number of artifacts, versions, or workflows in the Work.
+Database round trips grow by result pages, not by the number of artifacts or
+workflows in the Work, so large graphs stay complete without reintroducing N+1.
 """
 
 from dataclasses import dataclass
+from typing import Callable
 from uuid import UUID
 
 from supabase import Client
 
 from domain.models import Artifact, Job, Version, Work, Workflow
 from domain.repositories import JobRepo, WorkRepo
+
+_PAGE_SIZE = 1000
 
 
 @dataclass(frozen=True)
@@ -30,10 +33,24 @@ class WorkBundleSnapshot:
     jobs: list[Job]
 
 
-class WorkBundleRepository:
-    """Load one Work graph with a bounded query count.
+def _read_all_pages(build_query: Callable[[], object]) -> list[dict]:
+    """Read a filtered PostgREST result without silently accepting row caps."""
 
-    Query shape for a non-empty Work:
+    rows: list[dict] = []
+    start = 0
+    while True:
+        result = build_query().range(start, start + _PAGE_SIZE - 1).execute()
+        page = list(result.data or [])
+        rows.extend(page)
+        if len(page) < _PAGE_SIZE:
+            return rows
+        start += _PAGE_SIZE
+
+
+class WorkBundleRepository:
+    """Load one Work graph with an authorization-rooted, page-bounded query shape.
+
+    A typical non-empty Work below the PostgREST page size uses:
       1. Work row
       2. owning Project verification (inside ``WorkRepo.get``)
       3. Artifacts for Work
@@ -41,9 +58,10 @@ class WorkBundleRepository:
       5. Workflows targeting those Versions
       6. Jobs for all matching Workflows
 
-    Empty descendant sets stop early, so they use fewer queries. Child reads do
-    not repeat ownership checks because all queried IDs are reached through the
-    already-authorized Work/project boundary.
+    Descendant reads paginate when necessary so Supabase's configured maximum
+    rows per response cannot silently truncate a large Work. Empty descendant
+    sets stop early. Child reads do not repeat ownership checks because all
+    queried IDs are reached through the already-authorized Work/project boundary.
     """
 
     def __init__(self, client: Client):
@@ -54,14 +72,13 @@ class WorkBundleRepository:
         if not work:
             return None
 
-        artifact_result = (
-            self.client.table("artifacts")
+        artifact_rows = _read_all_pages(
+            lambda: self.client.table("artifacts")
             .select("*")
             .eq("work_id", str(work.id))
             .order("created_at", desc=True)
-            .execute()
         )
-        artifacts = [Artifact.model_validate(row) for row in (artifact_result.data or [])]
+        artifacts = [Artifact.model_validate(row) for row in artifact_rows]
         versions_by_artifact: dict[UUID, list[Version]] = {
             artifact.id: [] for artifact in artifacts
         }
@@ -74,14 +91,13 @@ class WorkBundleRepository:
             )
 
         artifact_ids = [str(artifact.id) for artifact in artifacts]
-        version_result = (
-            self.client.table("artifact_versions")
+        version_rows = _read_all_pages(
+            lambda: self.client.table("artifact_versions")
             .select("*")
             .in_("artifact_id", artifact_ids)
             .order("created_at", desc=True)
-            .execute()
         )
-        versions = [Version.model_validate(row) for row in (version_result.data or [])]
+        versions = [Version.model_validate(row) for row in version_rows]
         for version in versions:
             versions_by_artifact.setdefault(version.artifact_id, []).append(version)
 
@@ -94,15 +110,14 @@ class WorkBundleRepository:
                 jobs=[],
             )
 
-        workflow_result = (
-            self.client.table("workflows")
+        workflow_rows = _read_all_pages(
+            lambda: self.client.table("workflows")
             .select("*")
             .eq("project_id", str(work.project_id))
             .in_("target_version_id", version_ids)
             .order("created_at", desc=True)
-            .execute()
         )
-        workflows = [Workflow.model_validate(row) for row in (workflow_result.data or [])]
+        workflows = [Workflow.model_validate(row) for row in workflow_rows]
         if not workflows:
             return WorkBundleSnapshot(
                 work=work,
@@ -112,18 +127,17 @@ class WorkBundleRepository:
             )
 
         workflow_ids = [str(workflow.id) for workflow in workflows]
-        job_result = (
-            self.client.table("jobs")
+        job_rows = _read_all_pages(
+            lambda: self.client.table("jobs")
             .select("*")
             .in_("workflow_id", workflow_ids)
             .order("created_at", desc=True)
-            .execute()
         )
         job_repo = JobRepo(self.client)
         # Job rows use the persistence projection (stage/capability columns),
         # so reuse the repository's canonical row decoder rather than creating
         # a second interpretation of that storage contract.
-        jobs = [job_repo._row_to_job(row) for row in (job_result.data or [])]
+        jobs = [job_repo._row_to_job(row) for row in job_rows]
         jobs.sort(key=lambda job: job.created_at, reverse=True)
 
         return WorkBundleSnapshot(
