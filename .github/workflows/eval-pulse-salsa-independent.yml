@@ -1,0 +1,158 @@
+name: Pulse Salsa Independent Evaluation
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/eval-pulse-salsa-independent.yml'
+      - 'backend/evaluation/analysis_v3/pulse/**'
+      - 'backend/tests/test_pulse_salsa_*.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-salsa-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  independent:
+    name: independent-salsa
+    if: github.event.pull_request.head.ref == 'eval/metric-grid-salsa-independent'
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+
+      - name: Acquire checksum-pinned public Salsa fragments and annotations
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/salsa-independent"
+          mkdir -p "$root/downloads" "$root/audio" "$root/annotations"
+
+          record='https://zenodo.org/records/13120822/files'
+          audio_zip="$root/downloads/audio_fragments.zip"
+          beats_zip="$root/downloads/beat_annotations.zip"
+          metadata="$root/songs-and-beat-data.csv"
+
+          curl --fail --location --retry 5 --retry-all-errors \
+            "$record/audio_fragments.zip?download=1" \
+            --output "$audio_zip"
+          echo '4e3936244b230fa9855e3b42d53201d1  '"$audio_zip" | md5sum --check --strict -
+
+          curl --fail --location --retry 5 --retry-all-errors \
+            "$record/beat_annotations.zip?download=1" \
+            --output "$beats_zip"
+          echo 'e6b4457a6ce6e77dbeb1f320599e481e  '"$beats_zip" | md5sum --check --strict -
+
+          curl --fail --location --retry 5 --retry-all-errors \
+            "$record/songs%20and%20beat%20data.csv?download=1" \
+            --output "$metadata"
+          echo '7c556b983e9b3fde22e6404fd0ac1578  '"$metadata" | md5sum --check --strict -
+
+          unzip -q "$audio_zip" -d "$root/audio"
+          unzip -q "$beats_zip" -d "$root/annotations"
+
+          echo "SALSA_ROOT=$root" >> "$GITHUB_ENV"
+
+      - name: Print upstream layout diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '--- audio files (first 20) ---'
+          find "$SALSA_ROOT/audio" -type f | sort | head -20 || true
+          echo '--- annotation files (first 20) ---'
+          find "$SALSA_ROOT/annotations" -type f | sort | head -20 || true
+          echo '--- metadata header/sample ---'
+          head -5 "$SALSA_ROOT/songs-and-beat-data.csv" || true
+          echo '--- first annotation head/tail ---'
+          first_annotation="$(find "$SALSA_ROOT/annotations" -type f -name '*.txt' | sort | head -1)"
+          if [ -n "$first_annotation" ]; then
+            echo "$first_annotation"
+            head -5 "$first_annotation"
+            tail -5 "$first_annotation"
+          fi
+
+      - name: Verify Salsa builder contract
+        run: |
+          uv run --project backend pytest -q backend/tests/test_pulse_salsa_dataset.py
+
+      - name: Build independent fragment manifest without guessed offsets
+        run: |
+          uv run --project backend python -m backend.evaluation.analysis_v3.pulse.datasets.salsa \
+            "$SALSA_ROOT/audio" \
+            "$SALSA_ROOT/annotations" \
+            "$SALSA_ROOT/songs-and-beat-data.csv" \
+            "$SALSA_ROOT/manifest.json"
+
+      - name: Score exact production baseline
+        run: |
+          uv run --project backend python -m backend.evaluation.analysis_v3.pulse.run_manifest \
+            --candidate current \
+            --manifest "$SALSA_ROOT/manifest.json" \
+            --output-dir "$SALSA_ROOT/results"
+
+      - name: Score Beat This final0 on independent audio
+        run: |
+          uv run --project backend python -m backend.evaluation.analysis_v3.pulse.run_manifest \
+            --candidate beat_this \
+            --manifest "$SALSA_ROOT/manifest.json" \
+            --output-dir "$SALSA_ROOT/results"
+
+      - name: Print machine-readable results
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "$SALSA_ROOT/manifest.json" ]; then
+            echo '===== manifest summary ====='
+            python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['SALSA_ROOT']) / 'manifest.json'
+          payload = json.loads(path.read_text())
+          print(json.dumps({
+              'dataset': payload.get('dataset'),
+              'selection': payload.get('selection'),
+              'clip_count': len(payload.get('clips', [])),
+              'clip_ids': [clip.get('id') for clip in payload.get('clips', [])],
+              'alignment_modes': sorted({clip.get('fragment_alignment') for clip in payload.get('clips', [])}),
+          }, indent=2))
+          PY
+          fi
+          if [ -d "$SALSA_ROOT/results" ]; then
+            for result in "$SALSA_ROOT"/results/*.json; do
+              [ -e "$result" ] || continue
+              echo "===== $result ====="
+              cat "$result"
+            done
+          fi
+
+      - name: Upload evaluation outputs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: salsa-independent-${{ github.event.pull_request.head.sha }}
+          path: |
+            ${{ runner.temp }}/salsa-independent/manifest.json
+            ${{ runner.temp }}/salsa-independent/results/*.json
+          if-no-files-found: warn
+          retention-days: 14
