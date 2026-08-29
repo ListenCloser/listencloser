@@ -19,7 +19,16 @@ permissions:
 
 jobs:
   cpu-operational:
-    runs-on: ubuntu-latest
+    name: CPU operational (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,15 +54,16 @@ jobs:
       - name: Run 10s/30s/180s CPU operational gate
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
+          RESULT_PATH: backend/evaluation/analysis_v3/separation/results/operational_cpu_${{ matrix.arch }}_v2.json
         run: |
           backend/.venv/bin/python -m backend.evaluation.analysis_v3.separation.run_operational_v2 \
             --device cpu \
-            --output backend/evaluation/analysis_v3/separation/results/operational_cpu_v2.json
+            --output "$RESULT_PATH"
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: separation-operational-cpu-result
-          path: backend/evaluation/analysis_v3/separation/results/operational_cpu_v2.json
+          name: separation-operational-cpu-${{ matrix.arch }}-result
+          path: backend/evaluation/analysis_v3/separation/results/operational_cpu_${{ matrix.arch }}_v2.json
           if-no-files-found: warn
           retention-days: 7
