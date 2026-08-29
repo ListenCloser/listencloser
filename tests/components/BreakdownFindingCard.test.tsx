@@ -44,9 +44,11 @@ vi.mock("@/lib/stores/transport", () => ({
 }));
 
 function finding(overrides: Partial<TemporalFinding> = {}) {
+  const sourceInsightId = overrides.sourceInsightId ?? "source-insight";
   const source: TemporalFinding = {
     id: "melody-peak",
-    sourceInsightId: "source-insight",
+    sourceInsightId,
+    supportInsightIds: overrides.supportInsightIds ?? [sourceInsightId],
     kind: "melody_register_peak",
     category: "melody",
     startSeconds: 0.2,
@@ -120,6 +122,26 @@ describe("BreakdownFindingCard live actions", () => {
 
     expect(screen.getByRole("button", { name: /^Loop / })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Show waveform" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ask about this finding" })).not.toBeInTheDocument();
+  });
+
+  it("withholds Ask when any required supporting evidence is unavailable to Ask", () => {
+    mocks.workspace.insights = [
+      { id: "chord-1", kind: "chord" },
+      { id: "density-1", kind: "rhythm_density" },
+    ];
+    const harmonic = finding({
+      id: "harmonic-activity",
+      sourceInsightId: "chord-1",
+      supportInsightIds: ["chord-1", "density-1"],
+      kind: "harmonic_activity",
+      category: "harmony",
+      label: "Harmonic changes become more frequent",
+      evidence: { chordDensity: 2 },
+    });
+
+    render(<BreakdownFindingCard finding={harmonic} />);
+
     expect(screen.queryByRole("button", { name: "Ask about this finding" })).not.toBeInTheDocument();
   });
 });

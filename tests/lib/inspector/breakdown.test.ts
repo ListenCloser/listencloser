@@ -3,9 +3,11 @@ import { rankBreakdownFindings } from "@/lib/inspector/breakdown";
 import type { TemporalFinding } from "@/lib/inspector/findings";
 
 function finding(overrides: Partial<TemporalFinding>): TemporalFinding {
+  const sourceInsightId = overrides.sourceInsightId ?? "insight-1";
   return {
     id: overrides.id ?? "finding-1",
-    sourceInsightId: overrides.sourceInsightId ?? "insight-1",
+    sourceInsightId,
+    supportInsightIds: overrides.supportInsightIds ?? [sourceInsightId],
     kind: overrides.kind ?? "density_peak",
     category: overrides.category ?? "rhythm",
     startSeconds: overrides.startSeconds ?? 10,
@@ -148,6 +150,23 @@ describe("rankBreakdownFindings", () => {
 
     expect(ranked.headline).toBe("Chord changes become more frequent in this passage.");
     expect(ranked.evidenceSummary).toContain("change rate, not harmonic tension");
+  });
+
+  it("propagates the actual support set for relational findings", () => {
+    const supportInsightIds = ["c4", "c5", "c6", "c1", "c2", "c3"];
+    const harmony = finding({
+      kind: "harmonic_activity",
+      category: "harmony",
+      sourceInsightId: "c4",
+      supportInsightIds,
+      startSeconds: 12,
+      endSeconds: 15,
+    });
+
+    const [ranked] = rankBreakdownFindings([harmony]);
+
+    expect(ranked.sourceInsightId).toBe("c4");
+    expect(ranked.supportInsightIds).toEqual(supportInsightIds);
   });
 
   it("caps the compact Breakdown at the requested number of promoted findings", () => {
