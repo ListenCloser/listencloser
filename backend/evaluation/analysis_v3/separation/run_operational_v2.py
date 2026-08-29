@@ -1,8 +1,8 @@
-"""Measure HTDemucs CPU operational cost without making quality claims.
+"""Measure pinned HTDemucs CPU operational cost without quality claims.
 
-This runner uses deterministic synthetic audio so the measurement isolates model
-runtime and memory from dataset I/O. It is evaluation-only and does not represent
-Oracle production topology unless executed there.
+Synthetic audio isolates model runtime and memory from dataset I/O. This is
+research-only and is not an Oracle production-topology measurement unless the
+runner is replayed there.
 """
 
 from __future__ import annotations
@@ -23,7 +23,9 @@ import numpy as np
 
 MODEL_NAME = "htdemucs"
 MODEL_SIGNATURE = "955717e8"
-CHECKPOINT_FILENAME = "955717e8-8726e21a.th"
+HF_REPO_ID = "adefossez/HTDemucs"
+HF_WEIGHT_FILENAME = "955717e8.safetensors"
+HF_WEIGHT_SHA256 = "d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd"
 DURATIONS_SECONDS = (10.0, 30.0, 180.0)
 SAMPLE_RATE = 44100
 
@@ -43,6 +45,40 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _verified_weight_path() -> tuple[Path, dict[str, Any]]:
+    """Download the Demucs 4.1 HF artifact and fail closed on byte drift."""
+    from huggingface_hub import hf_hub_download
+
+    started = time.monotonic()
+    path = Path(hf_hub_download(repo_id=HF_REPO_ID, filename=HF_WEIGHT_FILENAME))
+    download_seconds = time.monotonic() - started
+    actual_sha256 = _sha256(path)
+    if actual_sha256 != HF_WEIGHT_SHA256:
+        raise RuntimeError(
+            "HTDemucs weight SHA256 mismatch: "
+            f"expected {HF_WEIGHT_SHA256}, got {actual_sha256}"
+        )
+    return path, {
+        "repository": HF_REPO_ID,
+        "filename": HF_WEIGHT_FILENAME,
+        "sha256": actual_sha256,
+        "size_mb": round(path.stat().st_size / (1024.0 * 1024.0), 2),
+        "download_seconds": round(download_seconds, 3),
+        "verification": "sha256_fail_closed",
+    }
+
+
+def _load_pinned_model(path: Path, *, device: str):
+    from demucs.apply import BagOfModels
+    from demucs.hf import load_safetensors_model
+
+    single_model = load_safetensors_model(path)
+    model = BagOfModels([single_model])
+    model.eval()
+    model.to(device)
+    return model
+
+
 def _synthetic_audio(duration_seconds: float, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
     if duration_seconds <= 0:
         raise ValueError("duration_seconds must be positive")
@@ -55,10 +91,6 @@ def _synthetic_audio(duration_seconds: float, sample_rate: int = SAMPLE_RATE) ->
         + 0.05 * np.sin(2.0 * np.pi * 1760.0 * t)
     )
     return audio.astype(np.float32)
-
-
-def _checkpoint_path() -> Path:
-    return Path.home() / ".cache" / "torch" / "hub" / "checkpoints" / CHECKPOINT_FILENAME
 
 
 def _run_once(model: Any, audio: np.ndarray, *, device: str) -> tuple[dict[str, Any], str]:
@@ -102,28 +134,11 @@ def run_operational_probe(*, device: str = "cpu") -> dict[str, Any]:
         raise ValueError("This operational gate is intentionally CPU-only")
 
     import torch
-    from demucs.pretrained import get_model
 
-    checkpoint = _checkpoint_path()
-    checkpoint_present_before_load = checkpoint.is_file()
+    weight_path, weight_metadata = _verified_weight_path()
     started = time.monotonic()
-    model = get_model(MODEL_NAME)
-    model.eval()
-    model.to(device)
+    model = _load_pinned_model(weight_path, device=device)
     model_prepare_seconds = time.monotonic() - started
-
-    checkpoint_metadata: dict[str, Any] = {
-        "filename": CHECKPOINT_FILENAME,
-        "present_before_load": checkpoint_present_before_load,
-        "present_after_load": checkpoint.is_file(),
-    }
-    if checkpoint.is_file():
-        checkpoint_metadata.update(
-            {
-                "size_mb": round(checkpoint.stat().st_size / (1024.0 * 1024.0), 2),
-                "sha256": _sha256(checkpoint),
-            }
-        )
 
     measurements: list[dict[str, Any]] = []
     digests: dict[float, str] = {}
@@ -134,27 +149,26 @@ def run_operational_probe(*, device: str = "cpu") -> dict[str, Any]:
             measurement, digest = _run_once(model, audio, device=device)
             measurements.append(measurement)
             digests[duration] = digest
-        except Exception as exc:  # pragma: no cover - only real inference can exercise this
+        except Exception as exc:  # pragma: no cover - real inference only
             failures.append(f"{duration:g}s: {type(exc).__name__}: {exc}")
         finally:
             del audio
             gc.collect()
 
-    determinism: dict[str, Any]
     try:
         audio = _synthetic_audio(10.0)
         repeat, repeat_digest = _run_once(model, audio, device=device)
-        determinism = {
+        determinism: dict[str, Any] = {
             "duration_seconds": 10.0,
             "shifts": 0,
             "first_stem_sha256_equal": digests.get(10.0) == repeat_digest,
             "repeat_latency_seconds": repeat["latency_seconds"],
         }
-    except Exception as exc:  # pragma: no cover - only real inference can exercise this
+    except Exception as exc:  # pragma: no cover - real inference only
         determinism = {"error": f"{type(exc).__name__}: {exc}"}
         failures.append(f"determinism: {type(exc).__name__}: {exc}")
 
-    payload = {
+    return {
         "experiment": "separation_operational_cpu_v2",
         "evidence_scope": (
             "synthetic operational timing/memory only; not separation quality or downstream value"
@@ -176,7 +190,7 @@ def run_operational_probe(*, device: str = "cpu") -> dict[str, Any]:
             "model_signature": MODEL_SIGNATURE,
             "inference_shifts": 0,
             "model_prepare_seconds": round(model_prepare_seconds, 3),
-            "checkpoint": checkpoint_metadata,
+            "weight_artifact": weight_metadata,
         },
         "sample_rate": SAMPLE_RATE,
         "measurements": measurements,
@@ -184,11 +198,10 @@ def run_operational_probe(*, device: str = "cpu") -> dict[str, Any]:
         "success": not failures and len(measurements) == len(DURATIONS_SECONDS),
         "failures": failures,
     }
-    return payload
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run HTDemucs CPU operational gate")
+    parser = argparse.ArgumentParser(description="Run pinned HTDemucs CPU operational gate")
     parser.add_argument("--device", choices=["cpu"], default="cpu")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()

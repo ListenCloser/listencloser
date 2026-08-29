@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import sys
 from types import SimpleNamespace
 
 import numpy as np
@@ -41,6 +43,38 @@ def test_max_rss_converts_macos_bytes_to_mb(monkeypatch):
     )
 
     assert run_operational_v2._max_rss_mb() == pytest.approx(2.0)
+
+
+def test_verified_weight_path_records_matching_sha(monkeypatch, tmp_path):
+    weight = tmp_path / "955717e8.safetensors"
+    weight.write_bytes(b"pinned-weight")
+    digest = hashlib.sha256(weight.read_bytes()).hexdigest()
+    monkeypatch.setattr(run_operational_v2, "HF_WEIGHT_SHA256", digest)
+    monkeypatch.setitem(
+        sys.modules,
+        "huggingface_hub",
+        SimpleNamespace(hf_hub_download=lambda **kwargs: str(weight)),
+    )
+
+    path, metadata = run_operational_v2._verified_weight_path()
+
+    assert path == weight
+    assert metadata["sha256"] == digest
+    assert metadata["verification"] == "sha256_fail_closed"
+
+
+def test_verified_weight_path_fails_closed_on_drift(monkeypatch, tmp_path):
+    weight = tmp_path / "955717e8.safetensors"
+    weight.write_bytes(b"unexpected-weight")
+    monkeypatch.setattr(run_operational_v2, "HF_WEIGHT_SHA256", "0" * 64)
+    monkeypatch.setitem(
+        sys.modules,
+        "huggingface_hub",
+        SimpleNamespace(hf_hub_download=lambda **kwargs: str(weight)),
+    )
+
+    with pytest.raises(RuntimeError, match="weight SHA256 mismatch"):
+        run_operational_v2._verified_weight_path()
 
 
 def test_operational_probe_rejects_non_cpu_device():
