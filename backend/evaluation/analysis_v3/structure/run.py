@@ -25,7 +25,15 @@ def _peak_rss_mb() -> float:
 
 
 def _dataset_key(value: str | None) -> str:
-    return "".join(char for char in (value or "").lower() if char.isalnum())
+    key = "".join(char for char in (value or "").lower() if char.isalnum())
+    if (
+        "harmonixset" in key
+        or key in {"hx", "bhx"}
+        or key.startswith("songformdbhx")
+        or key.startswith("songformbenchbhx")
+    ):
+        return "harmonixset"
+    return key
 
 
 def _same_dataset_family(left: str | None, right: str | None) -> bool:
