@@ -16,6 +16,7 @@ type Props = {
   scoreDuration?: number | null;
   selectedMeasures?: { start: number; end: number } | null;
   measureApproximate?: boolean;
+  emphasizeSelection?: boolean;
   annotations?: AnalysisAnnotation[];
   focusedAnnotationId?: string | null;
   onSeek?: (seconds: number) => void;
@@ -96,6 +97,7 @@ export default function SheetMusic({
   scoreDuration,
   selectedMeasures,
   measureApproximate = false,
+  emphasizeSelection = false,
   annotations,
   focusedAnnotationId,
   onSeek,
@@ -238,14 +240,14 @@ export default function SheetMusic({
           group,
           "data-selection-highlight",
           "var(--accent)",
-          measureApproximate ? "0.07" : "0.11",
+          emphasizeSelection ? (measureApproximate ? "0.12" : "0.2") : (measureApproximate ? "0.07" : "0.11"),
           "var(--accent)",
-          "0.9",
+          emphasizeSelection ? "1.6" : "0.9",
           measureApproximate ? "3 3" : "none",
         );
       }
     }
-  }, [measureApproximate, measureStarts, osmdReady, selectedMeasures]);
+  }, [emphasizeSelection, measureApproximate, measureStarts, osmdReady, selectedMeasures]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -318,6 +320,7 @@ export default function SheetMusic({
       <div
         ref={containerRef}
         className={`sheet-music-container ${className ?? ""}`}
+        data-selection-emphasized={emphasizeSelection ? "true" : undefined}
         onClick={handleClick}
         style={{ cursor: measureStarts?.length ? "pointer" : "default" }}
       />
