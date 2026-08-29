@@ -97,9 +97,7 @@ def _duration_error_summary(
     reference: Sequence[Note],
 ) -> dict[str, Any]:
     onset_matched, _, _ = match_notes(predicted, reference)
-    signed_errors = [
-        (pred.end - pred.start) - (ref.end - ref.start) for pred, ref in onset_matched
-    ]
+    signed_errors = [(pred.end - pred.start) - (ref.end - ref.start) for pred, ref in onset_matched]
     absolute_errors = [abs(value) for value in signed_errors]
     return {
         "onset_matched_pairs": len(onset_matched),
@@ -262,9 +260,7 @@ def evaluate_profile(
         {
             "status": "measured",
             "reference_note_count": len(reference),
-            "note_count_ratio": (
-                round(len(predicted) / len(reference), 4) if reference else None
-            ),
+            "note_count_ratio": round(len(predicted) / len(reference), 4) if reference else None,
             "reference_duration": _duration_summary(reference),
             "duration_error": _duration_error_summary(predicted, reference),
             "metrics": metrics,
