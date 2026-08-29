@@ -23,9 +23,7 @@ def _worker():
 
 
 def _orphan_query(worker):
-    return (
-        worker._client.table.return_value.update.return_value.lt.return_value.in_.return_value
-    )
+    return worker._client.table.return_value.update.return_value.lt.return_value.in_.return_value
 
 
 def test_in_flight_process_excludes_its_own_worker_id_from_recovery():
