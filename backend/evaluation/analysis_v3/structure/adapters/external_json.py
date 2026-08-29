@@ -36,12 +36,16 @@ def _segments(payload: Any) -> list[dict[str, Any]]:
     return segments
 
 
+def _csv_env(name: str) -> tuple[str, ...]:
+    return tuple(value.strip() for value in os.environ.get(name, "").split(",") if value.strip())
+
+
 class ExternalJsonStructureAdapter(StructureAdapter):
     """Run an external candidate without importing its dependency graph.
 
     ``STRUCTURE_EXTERNAL_COMMAND`` is tokenized with ``shlex`` and executed with
-    ``shell=False``.  Include ``{audio}`` where the audio path belongs; if the
-    placeholder is absent, the path is appended.  The command must write a JSON
+    ``shell=False``. Include ``{audio}`` where the audio path belongs; if the
+    placeholder is absent, the path is appended. The command must write a JSON
     list of ``{start, end, label?}`` segments (or ``{"segments": [...]}``) to stdout.
     """
 
@@ -87,18 +91,13 @@ class ExternalJsonStructureAdapter(StructureAdapter):
         try:
             payload = json.loads(completed.stdout)
             segments = _segments(payload)
-        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        except (TypeError, ValueError) as exc:
             return StructureResult(error=f"invalid candidate JSON: {exc}")
         if not segments:
             return StructureResult(error="candidate returned no valid segments")
         return StructureResult(segments=segments)
 
     def metadata(self) -> StructureMetadata:
-        training = tuple(
-            value.strip()
-            for value in os.environ.get("STRUCTURE_EXTERNAL_TRAINING_DATASETS", "").split(",")
-            if value.strip()
-        )
         return StructureMetadata(
             candidate=self.candidate_name or self.name,
             engine=self.engine,
@@ -107,6 +106,10 @@ class ExternalJsonStructureAdapter(StructureAdapter):
             upstream_repo=os.environ.get("STRUCTURE_EXTERNAL_REPO") or None,
             upstream_version=os.environ.get("STRUCTURE_EXTERNAL_VERSION") or None,
             checkpoint_name=os.environ.get("STRUCTURE_EXTERNAL_CHECKPOINT") or None,
-            training_datasets=training,
+            training_datasets=_csv_env("STRUCTURE_EXTERNAL_TRAINING_DATASETS"),
+            held_out_datasets=_csv_env("STRUCTURE_EXTERNAL_HELD_OUT_DATASETS"),
+            training_partition=os.environ.get("STRUCTURE_EXTERNAL_TRAINING_PARTITION") or None,
+            held_out_partition=os.environ.get("STRUCTURE_EXTERNAL_HELD_OUT_PARTITION") or None,
+            split_source=os.environ.get("STRUCTURE_EXTERNAL_SPLIT_SOURCE") or None,
             notes=os.environ.get("STRUCTURE_EXTERNAL_NOTES", ""),
         )
