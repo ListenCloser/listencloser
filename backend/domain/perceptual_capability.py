@@ -46,10 +46,7 @@ def _update_progress(client, job_id: UUID, progress: float, message: str) -> Non
 
 
 def _storage_key(job: Job) -> str:
-    return (
-        f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/"
-        "perceptual-series.json"
-    )
+    return f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/" "perceptual-series.json"
 
 
 def handle_perceptual_series(job: Job, client) -> list[str]:
