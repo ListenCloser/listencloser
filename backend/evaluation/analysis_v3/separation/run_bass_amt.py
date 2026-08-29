@@ -30,7 +30,9 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     offset_deltas = [float(row["comparison"]["onset_offset_f1_delta"]) for row in scored]
     return {
         "scored_tracks": len(scored),
-        "missing_bass_reference_tracks": sum(row["state"] == "missing_bass_reference" for row in rows),
+        "missing_bass_reference_tracks": sum(
+            row["state"] == "missing_bass_reference" for row in rows
+        ),
         "no_bass_notes_in_excerpt_tracks": sum(
             row["state"] == "no_bass_notes_in_excerpt" for row in rows
         ),
