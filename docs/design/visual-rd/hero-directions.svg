@@ -1,79 +1,76 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#11110f"/><stop offset="1" stop-color="#181713"/></linearGradient>
-    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#8d6f35"/><stop offset=".55" stop-color="#d6b56d"/><stop offset="1" stop-color="#f0eadf"/></linearGradient>
-    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d6b56d"/><stop offset=".5" stop-color="#72a9c4"/><stop offset="1" stop-color="#7b6dd8"/></linearGradient>
-    <filter id="soft"><feGaussianBlur stdDeviation="12"/></filter>
   </defs>
   <rect width="1440" height="900" fill="url(#bg)"/>
-  <text x="54" y="64" fill="#d6b56d" font-family="ui-monospace, monospace" font-size="13" letter-spacing="3">HELLO-AI · VISUAL ENHANCEMENT SOT</text>
-  <text x="54" y="112" fill="#f0eadf" font-family="Georgia, serif" font-size="44">Hero directions</text>
-  <text x="54" y="143" fill="#8f897e" font-family="system-ui, sans-serif" font-size="15">Ranked by product fit, polish, motion discipline, and ability to extend beyond marketing.</text>
+  <text x="54" y="58" fill="#d6b56d" font-family="ui-monospace, monospace" font-size="12" letter-spacing="3">HELLO-AI · HERO / VISUAL IDENTITY R&amp;D</text>
+  <text x="54" y="108" fill="#f0eadf" font-family="Georgia, serif" font-size="44">Current hypotheses, not approvals</text>
+  <text x="54" y="140" fill="#8f897e" font-family="system-ui" font-size="14">The winner must communicate hello-ai’s product logic without relying on generic premium-AI aesthetics.</text>
 
-  <!-- Recommended card -->
-  <g transform="translate(54 190)">
-    <rect width="840" height="430" rx="20" fill="#1d1c18" stroke="#d6b56d" stroke-opacity=".35"/>
-    <rect x="20" y="20" width="122" height="28" rx="14" fill="#d6b56d"/>
-    <text x="81" y="39" text-anchor="middle" fill="#211f1b" font-family="system-ui" font-weight="700" font-size="11">RECOMMENDED</text>
-    <text x="28" y="92" fill="#f0eadf" font-family="Georgia, serif" font-size="42">3 · Signal Landscape</text>
-    <text x="28" y="125" fill="#9d968a" font-family="system-ui" font-size="15">Topo / spectral surface derived from signal geometry. One slow living object.</text>
-    <g transform="translate(360 44)">
-      <path d="M0 300 C70 240 120 260 180 205 C235 154 280 189 338 120 C390 57 454 95 512 30" fill="none" stroke="#f0eadf" stroke-opacity=".85" stroke-width="2"/>
-      <path d="M0 313 C70 253 122 273 182 218 C238 167 282 202 340 133 C392 70 456 108 514 43" fill="none" stroke="#f0eadf" stroke-opacity=".65"/>
-      <path d="M0 326 C70 266 124 286 184 231 C241 180 285 215 343 146 C395 83 459 121 517 56" fill="none" stroke="#d6b56d" stroke-opacity=".7"/>
-      <path d="M0 339 C72 279 126 299 186 244 C244 193 288 228 346 159 C398 96 462 134 520 69" fill="none" stroke="#d6b56d" stroke-opacity=".42"/>
-      <path d="M0 352 C74 292 128 312 188 257 C247 206 291 241 349 172 C401 109 465 147 523 82" fill="none" stroke="#72a9c4" stroke-opacity=".32"/>
-      <path d="M0 365 C76 305 130 325 190 270 C250 219 294 254 352 185 C404 122 468 160 526 95" fill="none" stroke="#f0eadf" stroke-opacity=".18"/>
-      <circle cx="343" cy="146" r="4" fill="#d6b56d"/><circle cx="184" cy="231" r="3" fill="#72a9c4"/><circle cx="459" cy="121" r="3" fill="#f0eadf"/>
+  <!-- Shared Time -->
+  <g transform="translate(54 188)">
+    <rect width="850" height="480" rx="22" fill="#1d1c18" stroke="#d6b56d" stroke-opacity=".38"/>
+    <rect x="22" y="20" width="158" height="28" rx="14" fill="#d6b56d"/>
+    <text x="101" y="39" text-anchor="middle" fill="#211f1b" font-family="system-ui" font-size="11" font-weight="700">PROTOTYPE NEXT</text>
+    <text x="28" y="92" fill="#f0eadf" font-family="Georgia, serif" font-size="40">Shared Time / Evidence Ribbon</text>
+    <text x="28" y="123" fill="#a09a8f" font-family="system-ui" font-size="14">One real musical moment aligned across waveform, notes, notation, structure, and explanation.</text>
+
+    <g transform="translate(34 158)">
+      <g font-family="ui-monospace" font-size="10" fill="#777168"><text x="0" y="24">AUDIO</text><text x="0" y="82">NOTES</text><text x="0" y="140">SCORE</text><text x="0" y="198">STRUCTURE</text><text x="0" y="256">EVIDENCE</text></g>
+      <path d="M95 24 C110 24 115 7 130 7 C145 7 150 42 165 42 C180 42 185 0 200 0 C215 0 220 37 235 37 C250 37 255 16 270 16 C285 16 290 45 305 45 C320 45 325 6 340 6 C355 6 360 35 375 35 C390 35 395 17 410 17 C425 17 430 42 445 42 C460 42 465 3 480 3 C495 3 500 37 515 37 C530 37 535 18 550 18 C565 18 570 31 585 31 C600 31 605 23 620 23" fill="none" stroke="#e9e2d6" stroke-width="2.2"/>
+      <g fill="#d6b56d"><rect x="115" y="68" width="55" height="8" rx="3"/><rect x="188" y="56" width="65" height="8" rx="3"/><rect x="272" y="73" width="52" height="8" rx="3"/><rect x="345" y="51" width="80" height="8" rx="3"/><rect x="446" y="66" width="58" height="8" rx="3"/><rect x="532" y="54" width="73" height="8" rx="3"/></g>
+      <g stroke="#a9a296" stroke-opacity=".25"><path d="M95 126h525M95 135h525M95 144h525M95 153h525M95 162h525"/></g>
+      <g fill="#e9e2d6"><ellipse cx="156" cy="144" rx="5" ry="3.5"/><ellipse cx="252" cy="135" rx="5" ry="3.5"/><ellipse cx="355" cy="153" rx="5" ry="3.5"/><ellipse cx="468" cy="133" rx="5" ry="3.5"/><ellipse cx="574" cy="145" rx="5" ry="3.5"/></g>
+      <rect x="95" y="184" width="190" height="25" rx="5" fill="#302d26"/><rect x="285" y="184" width="205" height="25" rx="5" fill="#293235"/><rect x="490" y="184" width="130" height="25" rx="5" fill="#302d26"/>
+      <rect x="330" y="225" width="240" height="48" rx="9" fill="#25231f" stroke="#d6b56d" stroke-opacity=".28"/>
+      <text x="346" y="246" fill="#8f897e" font-family="ui-monospace" font-size="9.5">EVIDENCE · 00:18.4</text><text x="346" y="263" fill="#f0eadf" font-family="system-ui" font-size="11.5">Activity increases around this moment.</text>
+      <line x1="390" y1="-6" x2="390" y2="284" stroke="#d6b56d" stroke-width="2"/><circle cx="390" cy="-5" r="4" fill="#d6b56d"/>
     </g>
-    <text x="28" y="181" fill="#d6b56d" font-family="ui-monospace, monospace" font-size="12">MOTION</text>
-    <text x="28" y="206" fill="#c6c0b5" font-family="system-ui" font-size="14">16–24s low-amplitude contour drift · one 28s trace · freezes under reduced motion.</text>
-    <text x="28" y="257" fill="#d6b56d" font-family="ui-monospace, monospace" font-size="12">WHY IT WINS</text>
-    <text x="28" y="282" fill="#c6c0b5" font-family="system-ui" font-size="14">Distinctive without generic “AI chrome”; music/data-native; can become a system, not a hero-only trick.</text>
-    <text x="28" y="333" fill="#d6b56d" font-family="ui-monospace, monospace" font-size="12">EXTENDS TO</text>
-    <text x="28" y="358" fill="#c6c0b5" font-family="system-ui" font-size="14">Landing transitions · upload→waveform · truthful processing states · empty canvas texture · evidence jump pulse.</text>
-    <text x="28" y="405" fill="#777168" font-family="system-ui" font-size="12">Implementation target: SVG/CSS first. No shader / canvas / pointer parallax unless later evidence justifies it.</text>
+
+    <text x="28" y="430" fill="#d6b56d" font-family="ui-monospace" font-size="11">WHY THIS CURRENTLY LEADS THE NEXT TEST</text>
+    <text x="28" y="455" fill="#c6c0b5" font-family="system-ui" font-size="13">Product-specific invariant: everything refers to the same musical time. Use real demo data; do not literal-morph representations.</text>
   </g>
 
-  <!-- Secondary refs -->
-  <g transform="translate(922 190)">
-    <rect width="464" height="132" rx="16" fill="#1d1c18" stroke="#f0eadf" stroke-opacity=".1"/>
-    <text x="22" y="34" fill="#d6b56d" font-family="ui-monospace" font-size="11">REFERENCE / FORK</text>
-    <text x="22" y="65" fill="#f0eadf" font-family="Georgia, serif" font-size="25">Background Paths</text>
-    <path d="M250 97 C295 38 338 120 438 51" fill="none" stroke="url(#blue)" stroke-width="2"/><path d="M250 110 C300 56 350 129 438 72" fill="none" stroke="#f0eadf" stroke-opacity=".25"/>
-    <text x="22" y="101" fill="#9d968a" font-family="system-ui" font-size="12">Borrow SVG path composition + timing.</text>
-    <text x="22" y="119" fill="#777168" font-family="system-ui" font-size="11">Do not inherit generic gradient-title styling.</text>
-  </g>
-  <g transform="translate(922 339)">
-    <rect width="464" height="132" rx="16" fill="#1d1c18" stroke="#f0eadf" stroke-opacity=".1"/>
-    <text x="22" y="34" fill="#d6b56d" font-family="ui-monospace" font-size="11">REFERENCE / MOTION</text>
-    <text x="22" y="65" fill="#f0eadf" font-family="Georgia, serif" font-size="25">Entropy</text>
-    <g opacity=".8"><path d="M260 103 C306 20 342 118 438 44" fill="none" stroke="#a99af8"/><path d="M260 92 C302 30 360 108 438 60" fill="none" stroke="#72a9c4"/><path d="M260 112 C316 53 368 122 438 82" fill="none" stroke="#d6b56d"/></g>
-    <text x="22" y="101" fill="#9d968a" font-family="system-ui" font-size="12">Borrow organic order→structure motion language.</text>
-    <text x="22" y="119" fill="#777168" font-family="system-ui" font-size="11">Too busy as a persistent whole-page background.</text>
-  </g>
-  <g transform="translate(922 488)">
-    <rect width="464" height="132" rx="16" fill="#1d1c18" stroke="#f0eadf" stroke-opacity=".1"/>
-    <text x="22" y="34" fill="#d6b56d" font-family="ui-monospace" font-size="11">REFERENCE / COMPOSITION</text>
-    <text x="22" y="65" fill="#f0eadf" font-family="Georgia, serif" font-size="25">Liquid Metal / Halide</text>
-    <path d="M278 106 C297 49 323 51 340 86 C355 117 379 112 397 57 C412 14 435 20 448 48" fill="none" stroke="#f0eadf" stroke-width="12" stroke-linecap="round" opacity=".55"/>
-    <text x="22" y="101" fill="#9d968a" font-family="system-ui" font-size="12">Borrow one-object confidence + strong negative space.</text>
-    <text x="22" y="119" fill="#777168" font-family="system-ui" font-size="11">Reject shader identity, 3D theater, persistent parallax.</text>
+  <!-- Signal Landscape -->
+  <g transform="translate(930 188)">
+    <rect width="456" height="226" rx="18" fill="#1d1c18" stroke="#f0eadf" stroke-opacity=".1"/>
+    <text x="22" y="32" fill="#d6b56d" font-family="ui-monospace" font-size="11">PROTOTYPE / MODIFY</text>
+    <text x="22" y="66" fill="#f0eadf" font-family="Georgia, serif" font-size="27">Signal Landscape</text>
+    <g transform="translate(220 48)">
+      <path d="M0 125 C38 104 58 111 86 86 C114 61 137 76 165 49 C191 24 212 34 230 9" fill="none" stroke="#f0eadf" stroke-opacity=".7"/>
+      <path d="M0 139 C40 118 60 125 88 100 C116 75 139 90 167 63 C193 38 214 48 232 23" fill="none" stroke="#d6b56d" stroke-opacity=".5"/>
+      <path d="M0 153 C42 132 62 139 90 114 C118 89 141 104 169 77 C195 52 216 62 234 37" fill="none" stroke="#f0eadf" stroke-opacity=".25"/>
+    </g>
+    <text x="22" y="108" fill="#9d968a" font-family="system-ui" font-size="12.5">Keep: topology, palette, negative space.</text>
+    <text x="22" y="131" fill="#9d968a" font-family="system-ui" font-size="12.5">Problem: still plausible for AI/data/finance/climate.</text>
+    <text x="22" y="158" fill="#777168" font-family="system-ui" font-size="11.5">Best future role: secondary texture or truthful data-derived grammar.</text>
+    <text x="22" y="191" fill="#777168" font-family="system-ui" font-size="11.5">Motion simplified: group drift + one-shot trace; no 18 independent loops.</text>
   </g>
 
-  <!-- System scale -->
-  <g transform="translate(54 660)">
-    <text x="0" y="0" fill="#f0eadf" font-family="Georgia, serif" font-size="26">Expression should decay as users move into the tool</text>
-    <line x1="0" y1="48" x2="1332" y2="48" stroke="#f0eadf" stroke-opacity=".12"/>
+  <!-- references -->
+  <g transform="translate(930 438)">
+    <rect width="456" height="230" rx="18" fill="#1d1c18" stroke="#f0eadf" stroke-opacity=".1"/>
+    <text x="22" y="32" fill="#d6b56d" font-family="ui-monospace" font-size="11">REFERENCE POOL</text>
+    <text x="22" y="65" fill="#f0eadf" font-family="system-ui" font-size="14">Background Paths → path construction / easing</text>
+    <text x="22" y="91" fill="#f0eadf" font-family="system-ui" font-size="14">Entropy → order→structure motion language</text>
+    <text x="22" y="117" fill="#f0eadf" font-family="system-ui" font-size="14">Sonic Visualiser → invariant shared time axis</text>
+    <text x="22" y="143" fill="#f0eadf" font-family="system-ui" font-size="14">Hooktheory → explanation adjacent to music</text>
+    <text x="22" y="169" fill="#f0eadf" font-family="system-ui" font-size="14">Moises → analysis becomes immediate action</text>
+    <text x="22" y="195" fill="#f0eadf" font-family="system-ui" font-size="14">Ableton → stable linear time orientation</text>
+    <text x="22" y="219" fill="#777168" font-family="system-ui" font-size="10.5">References enter the SOT only when materially stronger for a real product need.</text>
+  </g>
+
+  <!-- priority footer -->
+  <g transform="translate(54 710)">
+    <text x="0" y="0" fill="#f0eadf" font-family="Georgia, serif" font-size="28">Design-engineering priority is signed-in coherence, not hero spectacle</text>
+    <rect x="0" y="30" width="1332" height="124" rx="16" fill="#211f1b" stroke="#f0eadf" stroke-opacity=".08"/>
     <g font-family="system-ui" font-size="13">
-      <text x="0" y="83" fill="#d6b56d">LANDING HERO · 8/10</text><text x="0" y="106" fill="#9d968a">slow animated landscape</text>
-      <text x="272" y="83" fill="#d6b56d">LANDING BODY · 4/10</text><text x="272" y="106" fill="#9d968a">sparse path fragments</text>
-      <text x="544" y="83" fill="#d6b56d">IMPORT / PROCESSING · 4/10</text><text x="544" y="106" fill="#9d968a">state-linked transitions only</text>
-      <text x="856" y="83" fill="#d6b56d">WORKSPACE · 1/10</text><text x="856" y="106" fill="#9d968a">static texture + micro-feedback</text>
-      <text x="1110" y="83" fill="#d6b56d">BRAND · STATIC</text><text x="1110" y="106" fill="#9d968a">16px-first abstract glyph</text>
+      <text x="22" y="62" fill="#d6b56d">1 · Upload → real waveform continuity</text>
+      <text x="350" y="62" fill="#d6b56d">2 · Truthful evidence-arriving states</text>
+      <text x="704" y="62" fill="#d6b56d">3 · Shared playhead coherence</text>
+      <text x="1020" y="62" fill="#d6b56d">4 · Evidence-linked jumps</text>
+      <text x="22" y="95" fill="#a49d91">Hero may be excellent, but it loses if the signed-in app still feels like unrelated widgets.</text>
+      <text x="22" y="122" fill="#a49d91">Stable identity candidate: “everything refers to the same musical time.”</text>
     </g>
-    <rect x="0" y="146" width="1332" height="62" rx="12" fill="#211f1b" stroke="#f0eadf" stroke-opacity=".08"/>
-    <text x="20" y="173" fill="#d6b56d" font-family="ui-monospace" font-size="11">ANTI-SLOP RULE</text>
-    <text x="20" y="196" fill="#c6c0b5" font-family="system-ui" font-size="13">A visual effect earns its place only if it explains the product, communicates real state, improves manipulation/orientation, or establishes memorable identity without competing with music.</text>
   </g>
 </svg>
