@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from domain.upload_api import (
     _audio_descriptor,
+    _max_upload_bytes,
     _pending_storage_key,
     _signed_upload_token,
     _validate_pending_storage_key,
@@ -40,7 +41,20 @@ def test_pending_storage_key_rejects_cross_scope_and_traversal(key):
     assert exc.value.status_code == 400
 
 
-def test_audio_descriptor_preserves_existing_size_ceiling(monkeypatch):
+def test_audio_descriptor_defaults_to_documented_size_ceiling(monkeypatch):
+    monkeypatch.delenv("MAX_UPLOAD_BYTES", raising=False)
+
+    assert _max_upload_bytes() == 25 * 1024 * 1024
+    descriptor = _audio_descriptor("take.wav", 25 * 1024 * 1024, "audio/wav")
+    assert descriptor == ("wav", "audio/x-wav")
+
+    with pytest.raises(HTTPException) as exc:
+        _audio_descriptor("take.wav", 25 * 1024 * 1024 + 1, "audio/wav")
+    assert exc.value.status_code == 413
+    assert exc.value.detail == "Audio files must be 25 MB or smaller"
+
+
+def test_audio_descriptor_honors_configured_size_ceiling(monkeypatch):
     monkeypatch.setenv("MAX_UPLOAD_BYTES", "16")
 
     descriptor = _audio_descriptor("take.wav", 16, "audio/wav")
@@ -48,6 +62,7 @@ def test_audio_descriptor_preserves_existing_size_ceiling(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         _audio_descriptor("take.wav", 17, "audio/wav")
     assert exc.value.status_code == 413
+    assert exc.value.detail == "Audio files must be 16 bytes or smaller"
 
 
 def test_audio_descriptor_rejects_paths_and_unsupported_formats(monkeypatch):
