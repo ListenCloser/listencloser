@@ -42,8 +42,10 @@ import { formatTime } from "@/lib/format";
 
 export interface TemporalFinding {
   id: string;
-  /** The persisted measurement this view-level finding is derived from. */
+  /** Primary persisted measurement kept for backward-compatible consumers. */
   sourceInsightId: string;
+  /** Every persisted insight that directly supports this derived finding. */
+  supportInsightIds: string[];
   kind: "density_peak" | "density_valley" | "rest" | "harmonic_activity" | "melody_register_peak" | "melody_register_low" | "melody_contour_ascending" | "melody_contour_descending" | "melody_activity_dense" | "melody_activity_sparse";
   category: "rhythm" | "harmony" | "melody";
   startSeconds: number;
@@ -91,6 +93,7 @@ function deriveDensityFindings(insights: Insight[]): TemporalFinding[] {
     findings.push({
       id: `density-peak-${insight.id}`,
       sourceInsightId: insight.id,
+      supportInsightIds: [insight.id],
       kind: "density_peak",
       category: "rhythm",
       startSeconds: peak.start,
@@ -109,6 +112,7 @@ function deriveDensityFindings(insights: Insight[]): TemporalFinding[] {
     findings.push({
       id: `density-valley-${insight.id}`,
       sourceInsightId: insight.id,
+      supportInsightIds: [insight.id],
       kind: "density_valley",
       category: "rhythm",
       startSeconds: valley.start,
@@ -136,6 +140,7 @@ function deriveRestFindings(insights: Insight[]): TemporalFinding[] {
     findings.push({
       id: `rest-${insight.id}`,
       sourceInsightId: insight.id,
+      supportInsightIds: [insight.id],
       kind: "rest",
       category: "rhythm",
       startSeconds: longest.start,
@@ -166,6 +171,7 @@ function deriveHarmonicActivityFindings(insights: Insight[]): TemporalFinding[] 
   let maxDensity = 0;
   let maxStart = 0;
   let maxEnd = 0;
+  let maxSupportInsightIds: string[] = [];
 
   for (let i = 0; i <= sortedChords.length - 3; i++) {
     const windowStart = sortedChords[i].span.start_seconds!;
@@ -178,6 +184,7 @@ function deriveHarmonicActivityFindings(insights: Insight[]): TemporalFinding[] 
       maxDensity = density;
       maxStart = windowStart;
       maxEnd = windowEnd;
+      maxSupportInsightIds = sortedChords.slice(i, i + 3).map((chord) => chord.id);
     }
   }
 
@@ -196,10 +203,16 @@ function deriveHarmonicActivityFindings(insights: Insight[]): TemporalFinding[] 
   }
 
   // Only emit if there's a meaningful difference (1.5x ratio)
-  if (maxDensity > 0 && minDensity < Infinity && maxDensity > minDensity * 1.5) {
+  if (
+    maxDensity > 0
+    && minDensity < Infinity
+    && maxDensity > minDensity * 1.5
+    && maxSupportInsightIds.length > 0
+  ) {
     findings.push({
       id: "harmonic-activity-peak",
-      sourceInsightId: sortedChords[0].id,
+      sourceInsightId: maxSupportInsightIds[0],
+      supportInsightIds: maxSupportInsightIds,
       kind: "harmonic_activity",
       category: "harmony",
       startSeconds: maxStart,
@@ -263,6 +276,7 @@ function deriveMelodyFindings(insights: Insight[]): TemporalFinding[] {
       findings.push({
         id: `${kind}-${insight.id}`,
         sourceInsightId: insight.id,
+        supportInsightIds: [insight.id],
         kind: kind as TemporalFinding["kind"],
         category,
         startSeconds: insight.span.start_seconds,
