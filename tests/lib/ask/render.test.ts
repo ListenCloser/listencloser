@@ -9,7 +9,7 @@ import {
   resolveReference,
   validateAction,
 } from "@/lib/ask/render";
-import type { AskReference, AskAction } from "@/lib/ask/types";
+import type { AskAction } from "@/lib/ask/types";
 import type { Insight } from "@/lib/domain.types";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { PlaybackSource } from "@/lib/stores/transport";
