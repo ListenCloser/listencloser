@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#11110f"/>
+      <stop offset="1" stop-color="#171612"/>
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="900" fill="url(#bg)"/>
+
+  <text x="56" y="54" fill="#d6b56d" font-family="ui-monospace, monospace" font-size="11" letter-spacing="2.5">POST-#494 R&amp;D · PROGRESSIVE EVIDENCE ARRIVAL</text>
+  <text x="56" y="82" fill="#777168" font-family="system-ui, sans-serif" font-size="12.5">State-correct lifecycle first. Visual treatment only describes durable capabilities that actually exist.</text>
+
+  <g transform="translate(56 132)">
+    <text x="0" y="0" fill="#f0eadf" font-family="Georgia, serif" font-size="48" letter-spacing="-1.8">The recording is usable first.</text>
+    <text x="0" y="42" fill="#918b80" font-family="system-ui, sans-serif" font-size="14">Understanding should arrive around the music, not replace it with a job screen.</text>
+  </g>
+
+  <!-- Workspace shell -->
+  <g transform="translate(56 218)">
+    <rect width="1328" height="540" rx="14" fill="#151512" stroke="#f0eadf" stroke-opacity=".07"/>
+    <line x1="0" y1="48" x2="1328" y2="48" stroke="#f0eadf" stroke-opacity=".07"/>
+    <line x1="214" y1="48" x2="214" y2="476" stroke="#f0eadf" stroke-opacity=".06"/>
+    <line x1="1000" y1="48" x2="1000" y2="476" stroke="#f0eadf" stroke-opacity=".06"/>
+    <line x1="0" y1="476" x2="1328" y2="476" stroke="#f0eadf" stroke-opacity=".07"/>
+
+    <!-- header -->
+    <circle cx="25" cy="24" r="6" fill="#d6b56d" fill-opacity=".7"/>
+    <text x="42" y="28" fill="#777168" font-family="ui-monospace, monospace" font-size="9.5" letter-spacing="1.2">SAVED RECORDING</text>
+
+    <!-- library -->
+    <text x="16" y="80" fill="#817b72" font-family="ui-monospace, monospace" font-size="9.5" letter-spacing="1.4">LIBRARY</text>
+    <rect x="10" y="98" width="194" height="48" rx="6" fill="#d6b56d" fill-opacity=".07"/>
+    <circle cx="29" cy="122" r="4" fill="#8fb58a"/>
+    <text x="43" y="119" fill="#d9d4cb" font-family="system-ui, sans-serif" font-size="11.5">Recording</text>
+    <text x="43" y="135" fill="#6f6a62" font-family="system-ui, sans-serif" font-size="9.5">Ready</text>
+
+    <!-- center / actual usable source -->
+    <g transform="translate(238 72)">
+      <text x="0" y="0" fill="#8a847b" font-family="ui-monospace, monospace" font-size="9.5" letter-spacing="1.2">WAVEFORM</text>
+      <rect x="0" y="22" width="738" height="236" rx="8" fill="#181815" stroke="#f0eadf" stroke-opacity=".06"/>
+      <text x="24" y="57" fill="#d7d1c6" font-family="system-ui, sans-serif" font-size="12">Original recording</text>
+      <text x="24" y="79" fill="#767067" font-family="system-ui, sans-serif" font-size="10.5">Playable immediately after the saved source is durable.</text>
+      <line x1="24" y1="125" x2="714" y2="125" stroke="#9d968b" stroke-opacity=".22"/>
+      <g stroke="#f0eadf" stroke-opacity=".045">
+        <path d="M130 102v118M250 102v118M370 102v118M490 102v118M610 102v118"/>
+      </g>
+      <rect x="24" y="191" width="112" height="27" rx="6" fill="#8fb58a" fill-opacity=".08" stroke="#8fb58a" stroke-opacity=".18"/>
+      <circle cx="39" cy="204.5" r="3" fill="#8fb58a"/>
+      <text x="49" y="208" fill="#aeb7a9" font-family="system-ui, sans-serif" font-size="10">Audio usable</text>
+    </g>
+
+    <!-- inspector arrival rail -->
+    <g transform="translate(1016 72)">
+      <text x="0" y="0" fill="#8a847b" font-family="ui-monospace, monospace" font-size="9.5" letter-spacing="1.2">UNDERSTANDING</text>
+      <rect x="0" y="22" width="288" height="294" rx="8" fill="#181815" stroke="#f0eadf" stroke-opacity=".06"/>
+
+      <circle cx="20" cy="52" r="4" fill="#8fb58a"/>
+      <text x="34" y="56" fill="#d7d1c6" font-family="system-ui, sans-serif" font-size="11.5">Recording</text>
+      <text x="264" y="56" text-anchor="end" fill="#7f9f79" font-family="ui-monospace, monospace" font-size="9">READY</text>
+
+      <line x1="18" y1="76" x2="270" y2="76" stroke="#f0eadf" stroke-opacity=".055"/>
+      <circle cx="20" cy="102" r="4" fill="#8fb58a"/>
+      <text x="34" y="106" fill="#c6c0b5" font-family="system-ui, sans-serif" font-size="11.5">Waveform</text>
+      <text x="264" y="106" text-anchor="end" fill="#7f9f79" font-family="ui-monospace, monospace" font-size="9">READY</text>
+
+      <line x1="18" y1="126" x2="270" y2="126" stroke="#f0eadf" stroke-opacity=".055"/>
+      <circle cx="20" cy="152" r="4" fill="#d6b56d" fill-opacity=".7"/>
+      <text x="34" y="156" fill="#c6c0b5" font-family="system-ui, sans-serif" font-size="11.5">Transcription</text>
+      <text x="264" y="156" text-anchor="end" fill="#9b8d6c" font-family="ui-monospace, monospace" font-size="9">WHEN SAVED</text>
+
+      <line x1="18" y1="176" x2="270" y2="176" stroke="#f0eadf" stroke-opacity=".055"/>
+      <circle cx="20" cy="202" r="4" fill="#6d685f"/>
+      <text x="34" y="206" fill="#9a948a" font-family="system-ui, sans-serif" font-size="11.5">Evidence</text>
+      <text x="264" y="206" text-anchor="end" fill="#666158" font-family="ui-monospace, monospace" font-size="9">LATER</text>
+
+      <line x1="18" y1="226" x2="270" y2="226" stroke="#f0eadf" stroke-opacity=".055"/>
+      <circle cx="20" cy="252" r="4" fill="#6d685f"/>
+      <text x="34" y="256" fill="#9a948a" font-family="system-ui, sans-serif" font-size="11.5">Notation</text>
+      <text x="264" y="256" text-anchor="end" fill="#666158" font-family="ui-monospace, monospace" font-size="9">LATER</text>
+
+      <text x="18" y="292" fill="#625e57" font-family="system-ui, sans-serif" font-size="9.5">No synthetic percent. No invented completion.</text>
+    </g>
+
+    <!-- non-blocking status -->
+    <g transform="translate(238 346)">
+      <rect width="738" height="74" rx="8" fill="#1b1a17" stroke="#d6b56d" stroke-opacity=".13"/>
+      <circle cx="20" cy="22" r="3.5" fill="#d6b56d" fill-opacity=".72"/>
+      <text x="34" y="26" fill="#d2ccc1" font-family="system-ui, sans-serif" font-size="11.5" font-weight="600">Recording saved.</text>
+      <text x="34" y="47" fill="#878178" font-family="system-ui, sans-serif" font-size="10.5">Additional musical evidence will appear here as durable artifacts become available.</text>
+      <text x="700" y="26" text-anchor="end" fill="#777168" font-family="system-ui, sans-serif" font-size="9.5">Available views keep working</text>
+    </g>
+
+    <!-- transport -->
+    <g transform="translate(238 493)">
+      <circle cx="17" cy="17" r="13" fill="#24231f" stroke="#f0eadf" stroke-opacity=".09"/>
+      <path d="M13 11l9 6-9 6z" fill="#bdb7ad"/>
+      <line x1="52" y1="17" x2="708" y2="17" stroke="#8a847a" stroke-opacity=".25" stroke-width="3" stroke-linecap="round"/>
+      <text x="724" y="20" fill="#6f6a62" font-family="ui-monospace, monospace" font-size="9.5">ORIGINAL</text>
+    </g>
+  </g>
+
+  <text x="56" y="804" fill="#777168" font-family="ui-monospace, monospace" font-size="10" letter-spacing="1.5">VISUAL CONTRACT</text>
+  <text x="56" y="832" fill="#918b80" font-family="system-ui, sans-serif" font-size="12.5">Persisted capability state may reveal progressively. Job internals do not become the primary product object. Playback and existing views stay visually dominant.</text>
+  <text x="56" y="856" fill="#6d685f" font-family="system-ui, sans-serif" font-size="11">Prototype only. Implement after #494 stabilizes lifecycle behavior; derive every READY/available state from real workspace artifacts, never stage thresholds.</text>
+</svg>
