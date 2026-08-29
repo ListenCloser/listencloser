@@ -58,6 +58,21 @@ def _has_training_overlap(
     return any(_same_dataset_family(dataset, item) for item in metadata.training_datasets)
 
 
+def _evaluation_validity(
+    metadata: StructureMetadata,
+    dataset: str | None,
+    split: str | None,
+    *,
+    overlap: bool,
+    allow_training_overlap: bool,
+) -> str:
+    if overlap:
+        return "in_sample_override" if allow_training_overlap else "not_independent"
+    if _explicitly_held_out(metadata, dataset, split):
+        return "independent_held_out"
+    return "no_declared_overlap"
+
+
 def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
     scored = [row for row in rows if row.get("metrics")]
 
@@ -134,12 +149,17 @@ def run_structure_evaluation(
             continue
 
         overlap = _has_training_overlap(metadata, clip.dataset, clip.split)
+        row["evaluation_validity"] = _evaluation_validity(
+            metadata,
+            clip.dataset,
+            clip.split,
+            overlap=overlap,
+            allow_training_overlap=allow_training_overlap,
+        )
         if overlap and not allow_training_overlap:
             row["status"] = "withheld_training_overlap"
-            row["evaluation_validity"] = "not_independent"
             rows.append(row)
             continue
-        row["evaluation_validity"] = "in_sample_override" if overlap else "independent"
 
         audio_path = Path(clip.audio)
         if not audio_path.is_file():
