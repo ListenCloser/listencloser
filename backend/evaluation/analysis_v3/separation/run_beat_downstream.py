@@ -32,13 +32,15 @@ DEFAULT_EXCERPT_SECONDS = 60.0
 
 
 def _reference_beats(midi_path: str, *, end_seconds: float) -> list[float]:
+    if end_seconds <= 0:
+        raise ValueError("end_seconds must be positive")
     beats = [
         float(value)
         for value in pretty_midi.PrettyMIDI(midi_path).get_beats()
-        if 0.0 <= float(value) <= end_seconds
+        if 0.0 <= float(value) < end_seconds
     ]
     if not beats:
-        raise ValueError(f"No synthesis beat grid in first {end_seconds}s of {midi_path}")
+        raise ValueError(f"No synthesis beat grid before {end_seconds}s in {midi_path}")
     return beats
 
 
@@ -48,6 +50,9 @@ def run_babyslakh_beat_gate(
     excerpt_seconds: float = DEFAULT_EXCERPT_SECONDS,
     device: str = "cpu",
 ) -> dict[str, Any]:
+    if excerpt_seconds <= 0:
+        raise ValueError("excerpt_seconds must be positive")
+
     from .adapters.demucs import DemucsAdapter
 
     dataset = BabySlakhAdapter()
