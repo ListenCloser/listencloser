@@ -137,7 +137,7 @@ jobs:
   production-analysis-profile:
     name: production-analysis-profile-${{ matrix.arch }}
     if: github.event.pull_request.head.ref == 'perf/production-analysis-profile'
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -150,47 +150,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version-file: '.python-version'
+      - name: Build production backend image natively
+        run: docker build --tag hello-ai-analysis:${{ matrix.arch }} backend
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          version: '0.12.6'
-          enable-cache: true
-          cache-dependency-glob: 'backend/uv.lock'
-
-      - name: Sync locked backend environment
+      - name: Profile production analysis components inside production image
         run: |
           set -euo pipefail
-          if ! command -v ffmpeg >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
-          uv sync --project backend --locked
-
-      - name: Restore Beat This checkpoint
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/torch/hub/checkpoints/beat_this-final0.ckpt
-          key: ${{ runner.os }}-${{ matrix.arch }}-beat-this-final0-8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331
-
-      - name: Preload pinned Beat This checkpoint
-        working-directory: backend
-        run: |
-          set -euo pipefail
-          uv run python -c "from beat_this.inference import load_checkpoint; load_checkpoint('final0')"
-          echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  $HOME/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
-
-      - name: Profile production analysis components
-        working-directory: backend
-        run: |
-          set -euo pipefail
-          uv run python -m evaluation.production_analysis_profile \
-            --input ../tests/fixtures/real-piano.m4a \
+          mkdir -p performance-results
+          chmod 777 performance-results
+          docker run --rm \
+            -v "$PWD/tests/fixtures/real-piano.m4a:/tmp/real-piano.m4a:ro" \
+            -v "$PWD/performance-results:/results" \
+            --entrypoint python \
+            "hello-ai-analysis:${{ matrix.arch }}" \
+            -m evaluation.production_analysis_profile \
+            --input /tmp/real-piano.m4a \
             --format m4a \
-            --output ../performance-results/production-analysis-${{ matrix.arch }}.json
+            --output /results/production-analysis-${{ matrix.arch }}.json
 
       - name: Upload production analysis profile
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
