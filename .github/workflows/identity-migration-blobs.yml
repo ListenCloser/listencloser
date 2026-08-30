@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Create transformed commit without updating the branch ref
+      - name: Create persistence-sensitive transformed blobs
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPOSITORY: ${{ github.repository }}
@@ -24,27 +24,16 @@ jobs:
           import json
           import os
           import re
-          import subprocess
           import urllib.request
           from pathlib import Path
 
           token = os.environ["GH_TOKEN"]
           repository = os.environ["GH_REPOSITORY"]
-          skip_paths = {".github/workflows/identity-migration-blobs.yml"}
 
-          exact_replacements = (
-              ("https://github.com/gr-rr/hello-ai.git", "https://github.com/ListenCloser/listencloser.git"),
-              ("https://github.com/gr-rr/hello-ai", "https://github.com/ListenCloser/listencloser"),
-              ("gr-rr/hello-ai", "ListenCloser/listencloser"),
-              ("hello-ai-wheat.vercel.app", "listen-closer.vercel.app"),
-              ("hello-ai-giancarloricci.vercel.app", "listen-closer.vercel.app"),
-              ("hello-ai-git-main-giancarloricci.vercel.app", "listen-closer.vercel.app"),
-          )
-
-          def request_json(path: str, payload: dict) -> dict:
-              body = json.dumps(payload).encode()
+          def create_blob(content: str) -> str:
+              body = json.dumps({"content": content, "encoding": "utf-8"}).encode()
               request = urllib.request.Request(
-                  f"https://api.github.com/repos/{repository}{path}",
+                  f"https://api.github.com/repos/{repository}/git/blobs",
                   data=body,
                   method="POST",
                   headers={
@@ -55,47 +44,10 @@ jobs:
                   },
               )
               with urllib.request.urlopen(request, timeout=30) as response:
-                  return json.load(response)
+                  return json.load(response)["sha"]
 
-          def transform(text: str) -> str:
-              for old, new in exact_replacements:
-                  text = text.replace(old, new)
-              return re.sub(r"hello-ai", "listencloser", text, flags=re.IGNORECASE)
-
-          def create_blob(content: str) -> str:
-              return request_json("/git/blobs", {"content": content, "encoding": "utf-8"})["sha"]
-
-          raw = subprocess.check_output(["git", "ls-files", "-s", "-z"])
-          tree_entries = []
-          for entry in raw.split(b"\0"):
-              if not entry:
-                  continue
-              metadata, raw_path = entry.split(b"\t", 1)
-              mode = metadata.split(b" ", 1)[0].decode()
-              path = raw_path.decode()
-              if path in skip_paths:
-                  continue
-              file_path = Path(path)
-              try:
-                  text = file_path.read_text(encoding="utf-8")
-              except (UnicodeDecodeError, OSError):
-                  continue
-              updated = transform(text)
-              if updated == text:
-                  continue
-              tree_entries.append({"path": path, "mode": mode, "type": "blob", "sha": create_blob(updated)})
-
-          head_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-          base_tree = subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip()
-          tree_sha = request_json("/git/trees", {"base_tree": base_tree, "tree": tree_entries})["sha"]
-          commit_sha = request_json(
-              "/git/commits",
-              {
-                  "message": "chore: migrate remaining repository identity references",
-                  "tree": tree_sha,
-                  "parents": [head_sha],
-              },
-          )["sha"]
-          print(f"MIGRATION_COMMIT={commit_sha}")
-          print(f"Prepared {len(tree_entries)} transformed files; branch ref was not updated.")
+          for path in ("backend/domain/api.py", "backend/domain/repositories.py"):
+              text = Path(path).read_text(encoding="utf-8")
+              updated = re.sub(r"hello-ai", "listencloser", text, flags=re.IGNORECASE)
+              print(f"MIGRATION_BLOB {path} {create_blob(updated)}")
           PY
