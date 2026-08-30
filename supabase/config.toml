@@ -117,6 +117,12 @@ enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
+# Direct browser uploads for canonical product artifacts use this bucket. Keep
+# its hard Storage boundary aligned with the backend upload-intent contract.
+[storage.buckets.artifacts]
+public = false
+file_size_limit = "25MiB"
+
 # Uncomment to configure local storage buckets
 # [storage.buckets.images]
 # public = false

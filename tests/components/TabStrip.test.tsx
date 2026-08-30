@@ -74,7 +74,11 @@ describe("TabStrip", () => {
     const analysis = screen.getByRole("tab", { name: "Analysis" });
 
     expect(score).toBeDisabled();
-    waveform.focus();
+    // Focus through user-event so the primitive's focus-state updates stay
+    // inside React's test interaction boundary.
+    await user.tab();
+    expect(waveform).toHaveFocus();
+
     await user.keyboard("{ArrowRight}");
     expect(analysis).toHaveFocus();
     expect(analysis).toHaveAttribute("aria-selected", "true");
