@@ -12,6 +12,10 @@ on the production database. The one-time history correction for that rename
 transition lives in a separate, manually-triggered workflow
 (.github/workflows/migrate-history-correction.yml) and must not re-enter the
 steady-state deploy path.
+
+The Oracle checkout must also converge to the repository's current canonical
+GitHub identity. Repository-transfer redirects are compatibility behavior, not
+a production deployment dependency.
 """
 
 from __future__ import annotations
@@ -34,3 +38,16 @@ def test_steady_state_deploy_never_force_replays_migrations() -> None:
     assert (
         "--include-all" not in text
     ), "deploy-backend.yml must not force-replay already-applied migrations"
+
+
+def test_deploy_converges_oracle_checkout_to_canonical_repository() -> None:
+    text = DEPLOY_WORKFLOW.read_text()
+    legacy_repository_url = (
+        "https://github.com/" + "gr" + "-rr/" + "hello" + "-ai.git"
+    )
+
+    assert legacy_repository_url not in text
+    assert "CANONICAL_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}.git" in text
+    assert 'git clone "$CANONICAL_REPOSITORY_URL" ~/hello-ai' in text
+    assert 'git remote set-url origin "$CANONICAL_REPOSITORY_URL"' in text
+    assert "CANONICAL_REPOSITORY_URL" in text.split("envs:", 1)[1].split("script:", 1)[0]
