@@ -100,7 +100,7 @@ test.describe("WaveSurfer shared-peaks evaluation", () => {
         media.src = `/__wavesurfer-eval/real-piano.m4a?sharedMedia=${runNumber}`;
 
         const started = performance.now();
-        const prepared = await preparePeaks(rendererUrl);
+        const prepared = await preparePeaks(rendererUrl, `wavesurfer-shared-${runNumber}`);
         const preparedAt = performance.now();
         const regions = WaveSurfer.Regions.create();
         const ws = WaveSurfer.create({
