@@ -79,12 +79,13 @@ Default
 Learn
   hear A
   hear B
-  ask “Which passage sounds stronger?”
+  ask “What difference do you notice?” (open perception; unscored)
+  optionally ask “Which span has higher measured RMS amplitude?” (evidence-answerable)
   show the relevant evidence
   reveal the same grounded finding
 ```
 
-The prompt is pedagogical. The evidence and relation are unchanged.
+The first prompt can invite subjective listening without defining a correct perceptual adjective. The second can be checked because its answer is represented directly by the grounded relation. Neither prompt upgrades RMS amplitude into calibrated/perceived loudness.
 
 ---
 
@@ -262,13 +263,19 @@ Use real A/B spans when the finding already has a comparison relation. Preserve 
 
 An optional prompt that asks the listener to notice something before revealing it.
 
+Two prompt classes are safe in V1:
+
+- **open perception** — unscored; invites the user to listen and articulate what they notice without treating a subjective adjective as ground truth;
+- **evidence-answerable** — has a determinate answer represented directly by the grounded relation/evidence.
+
 Examples:
 
-- “Which passage is more active?”
-- “What changes in the low end?”
-- “Does the second entrance happen earlier or later relative to the beat?”
+- “Listen to A and B. What difference do you notice?” — open perception; unscored.
+- “Which passage has the higher measured onset-strength value?” — evidence-answerable.
+- “What changes in the measured low-band energy?” — evidence-answerable when the grounded relation contains that band-energy comparison.
+- “Does the second entrance happen earlier or later relative to the beat?” — evidence-answerable only when validated onset + MetricGrid relation evidence supports it.
 
-A prediction prompt may only ask about distinctions supported by the underlying relation.
+Do not score `louder`, `brighter`, `stronger`, `more active`, or other perceptual/interpretive adjectives as factual answers merely because RMS, spectral centroid, onset strength, or another proxy changed. A later validated mapping may support such concepts explicitly; until then, reveal the literal measurement the system can prove.
 
 #### Hint
 
