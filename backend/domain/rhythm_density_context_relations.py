@@ -47,9 +47,7 @@ class RhythmDensityReferencePopulation(BaseModel):
     covered_seconds: float = Field(ge=0)
     before_subject_window_count: int = Field(ge=0)
     after_subject_window_count: int = Field(ge=0)
-    subject_intersection_policy: Literal["exclude_any_intersection"] = (
-        "exclude_any_intersection"
-    )
+    subject_intersection_policy: Literal["exclude_any_intersection"] = "exclude_any_intersection"
     complete_series_policy: Literal["complete_series_v1"] = _COMPLETE_SERIES_POLICY
     independent_observations_assumed: Literal[False] = False
 
@@ -83,9 +81,7 @@ class RhythmDensityContextMeasurement(BaseModel):
 class RhythmDensityContextObservation(RelationObservation):
     """RelationObservation specialization for within-Work contextual density."""
 
-    kind: Literal["rhythm_density_context_comparison"] = (
-        "rhythm_density_context_comparison"
-    )
+    kind: Literal["rhythm_density_context_comparison"] = "rhythm_density_context_comparison"
     comparison_locator: SecondsSpanLocator | None = None
     support_refs: list[RhythmDensityEvidenceRef] = Field(default_factory=list)
     measurements: list[RhythmDensityContextMeasurement] = Field(default_factory=list)
@@ -107,9 +103,7 @@ def _context_provenance(
         "subject_aggregate": "median",
         "reference_summary": "median_iqr_empirical_midrank",
         "rank_target": "subject_median_vs_reference_window_values",
-        "midrank_definition": (
-            "100 * (count_less + 0.5 * count_equal) / reference_count"
-        ),
+        "midrank_definition": "100 * (count_less + 0.5 * count_equal) / reference_count",
         "minimum_reference_window_count": _MIN_REFERENCE_WINDOWS,
         "reference_kind": reference_kind,
         "subject_intersection_policy": "exclude_any_intersection",
