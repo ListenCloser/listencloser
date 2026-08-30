@@ -1,0 +1,130 @@
+{
+  "experiment": "separation_objective_sisdr_v2",
+  "dataset": "BabySlakh",
+  "dataset_source": "https://zenodo.org/records/4603870",
+  "dataset_license": "CC BY 4.0",
+  "selection": "first 30s of fixed tracks Track00001-Track00005",
+  "reference_kind": "exact isolated source audio grouped into htdemucs stem families",
+  "metric": {
+    "library": "fast-bss-eval",
+    "version": "0.1.4",
+    "function": "fast_bss_eval.si_sdr",
+    "zero_mean": true,
+    "clamp_db": 100.0,
+    "decision_quantity": "separated_stem_si_sdr_db - mixture_si_sdr_db"
+  },
+  "separator": {
+    "candidate": "HTDemucs",
+    "demucs_package_version": "4.1.0",
+    "model": "htdemucs",
+    "model_signature": "955717e8",
+    "inference_shifts": 0,
+    "device": "cpu"
+  },
+  "tracks": [
+    "Track00001",
+    "Track00002",
+    "Track00003",
+    "Track00004",
+    "Track00005"
+  ],
+  "summary": {
+    "vocals": {
+      "scored_tracks": 0,
+      "missing_reference_tracks": 5,
+      "missing_estimate_tracks": 0,
+      "withheld_silent_reference_tracks": 0,
+      "mean_improvement_db": null,
+      "median_improvement_db": null,
+      "improved_tracks": 0,
+      "degraded_tracks": 0
+    },
+    "drums": {
+      "scored_tracks": 5,
+      "missing_reference_tracks": 0,
+      "missing_estimate_tracks": 0,
+      "withheld_silent_reference_tracks": 0,
+      "mean_improvement_db": 13.983,
+      "median_improvement_db": 15.287,
+      "improved_tracks": 5,
+      "degraded_tracks": 0
+    },
+    "bass": {
+      "scored_tracks": 5,
+      "missing_reference_tracks": 0,
+      "missing_estimate_tracks": 0,
+      "withheld_silent_reference_tracks": 0,
+      "mean_improvement_db": 12.9,
+      "median_improvement_db": 11.829,
+      "improved_tracks": 5,
+      "degraded_tracks": 0
+    },
+    "other": {
+      "scored_tracks": 5,
+      "missing_reference_tracks": 0,
+      "missing_estimate_tracks": 0,
+      "withheld_silent_reference_tracks": 0,
+      "mean_improvement_db": 7.042,
+      "median_improvement_db": 9.247,
+      "improved_tracks": 4,
+      "degraded_tracks": 1
+    }
+  },
+  "results": [
+    {
+      "id": "Track00001",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "stems": {
+        "vocals": {"state": "missing_reference"},
+        "drums": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -8.284, "stem_si_sdr_db": 15.366, "improvement_db": 23.65},
+        "bass": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -4.733, "stem_si_sdr_db": 15.012, "improvement_db": 19.745},
+        "other": {"state": "scored", "reference_source_count": 8, "mixture_si_sdr_db": 1.96, "stem_si_sdr_db": 18.042, "improvement_db": 16.083}
+      }
+    },
+    {
+      "id": "Track00002",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "stems": {
+        "vocals": {"state": "missing_reference"},
+        "drums": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -4.169, "stem_si_sdr_db": 3.159, "improvement_db": 7.328},
+        "bass": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -4.587, "stem_si_sdr_db": 5.794, "improvement_db": 10.381},
+        "other": {"state": "scored", "reference_source_count": 8, "mixture_si_sdr_db": -0.718, "stem_si_sdr_db": 1.817, "improvement_db": 2.534}
+      }
+    },
+    {
+      "id": "Track00003",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "stems": {
+        "vocals": {"state": "missing_reference"},
+        "drums": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -5.359, "stem_si_sdr_db": 9.928, "improvement_db": 15.287},
+        "bass": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -4.984, "stem_si_sdr_db": 6.845, "improvement_db": 11.829},
+        "other": {"state": "scored", "reference_source_count": 6, "mixture_si_sdr_db": 0.946, "stem_si_sdr_db": 10.193, "improvement_db": 9.247}
+      }
+    },
+    {
+      "id": "Track00004",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "stems": {
+        "vocals": {"state": "missing_reference"},
+        "drums": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -5.626, "stem_si_sdr_db": 11.413, "improvement_db": 17.04},
+        "bass": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -3.203, "stem_si_sdr_db": 12.83, "improvement_db": 16.033},
+        "other": {"state": "scored", "reference_source_count": 7, "mixture_si_sdr_db": -0.662, "stem_si_sdr_db": 12.107, "improvement_db": 12.769}
+      }
+    },
+    {
+      "id": "Track00005",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "stems": {
+        "vocals": {"state": "missing_reference"},
+        "drums": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -9.681, "stem_si_sdr_db": -3.072, "improvement_db": 6.608},
+        "bass": {"state": "scored", "reference_source_count": 1, "mixture_si_sdr_db": -6.998, "stem_si_sdr_db": -0.484, "improvement_db": 6.514},
+        "other": {"state": "scored", "reference_source_count": 11, "mixture_si_sdr_db": 4.101, "stem_si_sdr_db": -1.323, "improvement_db": -5.424}
+      }
+    }
+  ]
+}

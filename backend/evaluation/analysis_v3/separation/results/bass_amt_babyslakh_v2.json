@@ -1,0 +1,394 @@
+{
+  "experiment": "separation_to_bass_amt_v2",
+  "dataset": "BabySlakh",
+  "dataset_source": "https://zenodo.org/records/4603870",
+  "dataset_license": "CC BY 4.0",
+  "selection": "first 30s of fixed tracks Track00001-Track00005",
+  "reference_kind": "aligned per-source MIDI whose metadata inst_class contains bass",
+  "separator": {
+    "candidate": "HTDemucs",
+    "demucs_package_version": "4.1.0",
+    "model": "htdemucs",
+    "model_signature": "955717e8",
+    "inference_shifts": 0,
+    "device": "cpu"
+  },
+  "transcription": {
+    "engine": "production BasicPitchEngine via run_basic_pitch adapter",
+    "library_version": "0.4.0",
+    "channel_policy": "both mixture and separated bass folded to mono before Basic Pitch"
+  },
+  "metric": {
+    "primary": "multitrack_transcription.match_notes flat onset F1",
+    "secondary": "same matcher with require_offset=True",
+    "onset_tolerance_seconds": 0.05,
+    "pitch_tolerance_cents": 50.0,
+    "offset_ratio": 0.2,
+    "offset_min_tolerance_seconds": 0.05
+  },
+  "tracks": [
+    "Track00001",
+    "Track00002",
+    "Track00003",
+    "Track00004",
+    "Track00005"
+  ],
+  "summary": {
+    "scored_tracks": 5,
+    "missing_bass_reference_tracks": 0,
+    "no_bass_notes_in_excerpt_tracks": 0,
+    "mean_onset_f1_delta": 0.0578,
+    "median_onset_f1_delta": 0.1041,
+    "onset_improved_tracks": 3,
+    "onset_degraded_tracks": 2,
+    "mean_onset_offset_f1_delta": -0.0088,
+    "median_onset_offset_f1_delta": -0.0099
+  },
+  "results": [
+    {
+      "id": "Track00001",
+      "state": "scored",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "reference_source_count": 1,
+      "comparison": {
+        "mixture": {
+          "onset": {
+            "reference_notes": 37,
+            "predicted_notes": 278,
+            "matched_notes": 22,
+            "precision": 0.0791,
+            "recall": 0.5946,
+            "f1": 0.1397
+          },
+          "onset_offset": {
+            "reference_notes": 37,
+            "predicted_notes": 278,
+            "matched_notes": 11,
+            "precision": 0.0396,
+            "recall": 0.2973,
+            "f1": 0.0698
+          },
+          "runtime_seconds": 24.293,
+          "process_max_rss_mb": 1705.84,
+          "predicted_notes_reported": 278,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "bass_stem": {
+          "onset": {
+            "reference_notes": 37,
+            "predicted_notes": 40,
+            "matched_notes": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "onset_offset": {
+            "reference_notes": 37,
+            "predicted_notes": 40,
+            "matched_notes": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "runtime_seconds": 1.793,
+          "process_max_rss_mb": 1716.54,
+          "predicted_notes_reported": 40,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "onset_f1_delta": -0.1397,
+        "onset_offset_f1_delta": -0.0698
+      }
+    },
+    {
+      "id": "Track00002",
+      "state": "scored",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "reference_source_count": 1,
+      "comparison": {
+        "mixture": {
+          "onset": {
+            "reference_notes": 39,
+            "predicted_notes": 321,
+            "matched_notes": 25,
+            "precision": 0.0779,
+            "recall": 0.641,
+            "f1": 0.1389
+          },
+          "onset_offset": {
+            "reference_notes": 39,
+            "predicted_notes": 321,
+            "matched_notes": 13,
+            "precision": 0.0405,
+            "recall": 0.3333,
+            "f1": 0.0722
+          },
+          "runtime_seconds": 1.447,
+          "process_max_rss_mb": 2321.78,
+          "predicted_notes_reported": 321,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "bass_stem": {
+          "onset": {
+            "reference_notes": 39,
+            "predicted_notes": 68,
+            "matched_notes": 13,
+            "precision": 0.1912,
+            "recall": 0.3333,
+            "f1": 0.243
+          },
+          "onset_offset": {
+            "reference_notes": 39,
+            "predicted_notes": 68,
+            "matched_notes": 5,
+            "precision": 0.0735,
+            "recall": 0.1282,
+            "f1": 0.0935
+          },
+          "runtime_seconds": 1.306,
+          "process_max_rss_mb": 2321.78,
+          "predicted_notes_reported": 68,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "onset_f1_delta": 0.1041,
+        "onset_offset_f1_delta": 0.0213
+      }
+    },
+    {
+      "id": "Track00003",
+      "state": "scored",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "reference_source_count": 1,
+      "comparison": {
+        "mixture": {
+          "onset": {
+            "reference_notes": 69,
+            "predicted_notes": 411,
+            "matched_notes": 35,
+            "precision": 0.0852,
+            "recall": 0.5072,
+            "f1": 0.1458
+          },
+          "onset_offset": {
+            "reference_notes": 69,
+            "predicted_notes": 411,
+            "matched_notes": 9,
+            "precision": 0.0219,
+            "recall": 0.1304,
+            "f1": 0.0375
+          },
+          "runtime_seconds": 1.949,
+          "process_max_rss_mb": 2496.37,
+          "predicted_notes_reported": 411,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "bass_stem": {
+          "onset": {
+            "reference_notes": 69,
+            "predicted_notes": 122,
+            "matched_notes": 27,
+            "precision": 0.2213,
+            "recall": 0.3913,
+            "f1": 0.2827
+          },
+          "onset_offset": {
+            "reference_notes": 69,
+            "predicted_notes": 122,
+            "matched_notes": 8,
+            "precision": 0.0656,
+            "recall": 0.1159,
+            "f1": 0.0838
+          },
+          "runtime_seconds": 1.381,
+          "process_max_rss_mb": 2496.37,
+          "predicted_notes_reported": 122,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "onset_f1_delta": 0.1369,
+        "onset_offset_f1_delta": 0.0463
+      }
+    },
+    {
+      "id": "Track00004",
+      "state": "scored",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "reference_source_count": 1,
+      "comparison": {
+        "mixture": {
+          "onset": {
+            "reference_notes": 15,
+            "predicted_notes": 234,
+            "matched_notes": 10,
+            "precision": 0.0427,
+            "recall": 0.6667,
+            "f1": 0.0803
+          },
+          "onset_offset": {
+            "reference_notes": 15,
+            "predicted_notes": 234,
+            "matched_notes": 4,
+            "precision": 0.0171,
+            "recall": 0.2667,
+            "f1": 0.0321
+          },
+          "runtime_seconds": 1.439,
+          "process_max_rss_mb": 2496.37,
+          "predicted_notes_reported": 234,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "bass_stem": {
+          "onset": {
+            "reference_notes": 15,
+            "predicted_notes": 34,
+            "matched_notes": 7,
+            "precision": 0.2059,
+            "recall": 0.4667,
+            "f1": 0.2857
+          },
+          "onset_offset": {
+            "reference_notes": 15,
+            "predicted_notes": 34,
+            "matched_notes": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "runtime_seconds": 1.819,
+          "process_max_rss_mb": 2496.37,
+          "predicted_notes_reported": 34,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "onset_f1_delta": 0.2054,
+        "onset_offset_f1_delta": -0.0321
+      }
+    },
+    {
+      "id": "Track00005",
+      "state": "scored",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 30.0,
+      "reference_source_count": 1,
+      "comparison": {
+        "mixture": {
+          "onset": {
+            "reference_notes": 41,
+            "predicted_notes": 381,
+            "matched_notes": 28,
+            "precision": 0.0735,
+            "recall": 0.6829,
+            "f1": 0.1327
+          },
+          "onset_offset": {
+            "reference_notes": 41,
+            "predicted_notes": 381,
+            "matched_notes": 9,
+            "precision": 0.0236,
+            "recall": 0.2195,
+            "f1": 0.0427
+          },
+          "runtime_seconds": 1.505,
+          "process_max_rss_mb": 2496.37,
+          "predicted_notes_reported": 381,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "bass_stem": {
+          "onset": {
+            "reference_notes": 41,
+            "predicted_notes": 81,
+            "matched_notes": 7,
+            "precision": 0.0864,
+            "recall": 0.1707,
+            "f1": 0.1148
+          },
+          "onset_offset": {
+            "reference_notes": 41,
+            "predicted_notes": 81,
+            "matched_notes": 2,
+            "precision": 0.0247,
+            "recall": 0.0488,
+            "f1": 0.0328
+          },
+          "runtime_seconds": 1.796,
+          "process_max_rss_mb": 2496.37,
+          "predicted_notes_reported": 81,
+          "provenance": {
+            "engine": "basic_pitch",
+            "library_version": "0.4.0",
+            "parameters": {
+              "onset_threshold": 0.5,
+              "frame_threshold": 0.3
+            }
+          }
+        },
+        "onset_f1_delta": -0.0179,
+        "onset_offset_f1_delta": -0.0099
+      }
+    }
+  ]
+}

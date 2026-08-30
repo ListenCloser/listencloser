@@ -1,0 +1,176 @@
+{
+  "experiment": "separation_to_beat_downstream_v2",
+  "dataset": "BabySlakh",
+  "dataset_source": "https://zenodo.org/records/4603870",
+  "dataset_license": "CC BY 4.0",
+  "selection": "first 60s of fixed tracks Track00001-Track00005",
+  "reference_kind": "symbolic_synthesis_beat_grid_from_all_src_midi",
+  "reference_limitation": "Controlled synthetic-mixture evidence; not human-annotated real-recording generalization.",
+  "separator": {
+    "candidate": "HTDemucs",
+    "demucs_package_version": "4.1.0",
+    "model": "htdemucs",
+    "model_signature": "955717e8",
+    "inference_shifts": 0,
+    "device": "cpu"
+  },
+  "beat_estimator": "production music_features.estimate_beat_grid",
+  "metric": "Analysis V3 pulse compute_beat_f1 + compute_event_timing at 70ms",
+  "tracks": [
+    "Track00001",
+    "Track00002",
+    "Track00003",
+    "Track00004",
+    "Track00005"
+  ],
+  "summary": {
+    "mean_f1_delta": -0.0045,
+    "median_f1_delta": 0.0,
+    "improved_f1_tracks": 2,
+    "degraded_f1_tracks": 2,
+    "mean_reference_coverage_delta": -0.0154,
+    "median_reference_coverage_delta": 0.0
+  },
+  "results": [
+    {
+      "id": "Track00001",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 60.0,
+      "reference_beats": 81,
+      "comparison": {
+        "mixture": {
+          "f1": 0.963,
+          "precision": 0.963,
+          "recall": 0.963,
+          "reference_coverage": 0.963,
+          "predicted_coverage": 0.963,
+          "absolute_median_error_seconds": 0.023805,
+          "absolute_p95_error_seconds": 0.032927
+        },
+        "drums": {
+          "f1": 0.9811,
+          "precision": 1.0,
+          "recall": 0.963,
+          "reference_coverage": 0.963,
+          "predicted_coverage": 1.0,
+          "absolute_median_error_seconds": 0.017261,
+          "absolute_p95_error_seconds": 0.023384
+        },
+        "f1_delta": 0.0182,
+        "reference_coverage_delta": 0.0
+      }
+    },
+    {
+      "id": "Track00002",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 60.0,
+      "reference_beats": 120,
+      "comparison": {
+        "mixture": {
+          "f1": 0.9658,
+          "precision": 0.9912,
+          "recall": 0.9417,
+          "reference_coverage": 0.9417,
+          "predicted_coverage": 0.9912,
+          "absolute_median_error_seconds": 0.023356,
+          "absolute_p95_error_seconds": 0.029515
+        },
+        "drums": {
+          "f1": 0.9658,
+          "precision": 0.9912,
+          "recall": 0.9417,
+          "reference_coverage": 0.9417,
+          "predicted_coverage": 0.9912,
+          "absolute_median_error_seconds": 0.016281,
+          "absolute_p95_error_seconds": 0.024526
+        },
+        "f1_delta": 0.0,
+        "reference_coverage_delta": 0.0
+      }
+    },
+    {
+      "id": "Track00003",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 60.0,
+      "reference_beats": 151,
+      "comparison": {
+        "mixture": {
+          "f1": 0.9257,
+          "precision": 0.9448,
+          "recall": 0.9073,
+          "reference_coverage": 0.9073,
+          "predicted_coverage": 0.9448,
+          "absolute_median_error_seconds": 0.030113,
+          "absolute_p95_error_seconds": 0.037732
+        },
+        "drums": {
+          "f1": 0.9293,
+          "precision": 0.9452,
+          "recall": 0.9139,
+          "reference_coverage": 0.9139,
+          "predicted_coverage": 0.9452,
+          "absolute_median_error_seconds": 0.022041,
+          "absolute_p95_error_seconds": 0.029415
+        },
+        "f1_delta": 0.0036,
+        "reference_coverage_delta": 0.0066
+      }
+    },
+    {
+      "id": "Track00004",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 60.0,
+      "reference_beats": 116,
+      "comparison": {
+        "mixture": {
+          "f1": 0.9869,
+          "precision": 1.0,
+          "recall": 0.9741,
+          "reference_coverage": 0.9741,
+          "predicted_coverage": 1.0,
+          "absolute_median_error_seconds": 0.018628,
+          "absolute_p95_error_seconds": 0.024899
+        },
+        "drums": {
+          "f1": 0.9825,
+          "precision": 1.0,
+          "recall": 0.9655,
+          "reference_coverage": 0.9655,
+          "predicted_coverage": 1.0,
+          "absolute_median_error_seconds": 0.008499,
+          "absolute_p95_error_seconds": 0.013793
+        },
+        "f1_delta": -0.0044,
+        "reference_coverage_delta": -0.0086
+      }
+    },
+    {
+      "id": "Track00005",
+      "excerpt_start_seconds": 0.0,
+      "excerpt_end_seconds": 60.0,
+      "reference_beats": 107,
+      "comparison": {
+        "mixture": {
+          "f1": 0.9858,
+          "precision": 1.0,
+          "recall": 0.972,
+          "reference_coverage": 0.972,
+          "predicted_coverage": 1.0,
+          "absolute_median_error_seconds": 0.022168,
+          "absolute_p95_error_seconds": 0.036675
+        },
+        "drums": {
+          "f1": 0.9458,
+          "precision": 1.0,
+          "recall": 0.8972,
+          "reference_coverage": 0.8972,
+          "predicted_coverage": 1.0,
+          "absolute_median_error_seconds": 0.01717,
+          "absolute_p95_error_seconds": 0.026049
+        },
+        "f1_delta": -0.04,
+        "reference_coverage_delta": -0.0748
+      }
+    }
+  ]
+}

@@ -1,171 +1,313 @@
-# Analysis V3 Source Separation Feasibility Bakeoff
+# Analysis V3 Source Separation Decision Report
 
-## Executive Decision
+## Executive decision
 
-**Recommendation: keep source separation in RESEARCH. Demucs/HTDemucs is operationally runnable on the current CPU/ARM development environment, while the BS-RoFormer path evaluated here is blocked on Python 3.9 and has no verified compatible pretrained checkpoint wired. This PR does not establish separation quality or downstream MIR value, so it does not justify production adoption or a first-class source-separation architecture yet.**
+**Recommendation: `RESEARCH`.**
 
-## Product Question
+HTDemucs now has strong evidence that it produces objectively cleaner drums/bass/other/vocal sources on controlled synthetic mixtures and on the full held-out MUSDB18 test-preview set. It is also operationally feasible on controlled hosted x86_64 and ARM64 CPUs.
 
-Should source separation become a first-class evidence layer for mixed music in hello-ai, and which OSS path is practical enough to justify a deeper quality/downstream-value evaluation?
+That is **not** enough to make source separation universal preprocessing. The downstream evidence is selective:
 
-This PR answers only the first-stage feasibility question. It does **not** answer whether separated stems improve chord, beat, melody, instrumentation, arrangement, or Breakdown quality.
+- coarse beat detection does not improve in aggregate after drum separation;
+- bass transcription becomes more precision-oriented but loses substantial recall;
+- real-recording source quality has a rare but severe negative tail;
+- actual Oracle worker concurrency, cold-start behavior, queue capacity, and cost remain unmeasured.
 
-## Evaluation Environment
+The architecture decision is therefore narrower:
 
-- **Platform**: macOS-15.3.1-arm64-arm-64bit (Apple Silicon)
-- **Arch**: arm64
-- **Python**: 3.9.6
-- **Device**: CPU (no GPU)
-- **PyTorch**: 2.8.0
-- **measurement commit**: `d0ebc88d44a7b1712e66b7dacb848b4371a11afb`
-- **Branch**: `eval/analysis-v3-separation-bakeoff`
+> Keep mixture evidence primary. Retain #336 `StemReference` as an optional, cached, task-conditioned evidence primitive requested only by claims whose source-aware path has demonstrated value. Every promoted source-aware claim needs explicit fallback/abstention when stem evidence is unreliable or disagrees with corroborating evidence.
 
-## Candidate Matrix
+This report supersedes the original first-stage feasibility interpretation in this directory. The historical harness remains useful, but the decision is now grounded in #477, #480, #486, #507, and #521.
 
-| Candidate | Model ID | Code License | Weight License | Stems | Python Compatibility | Decision |
-|---|---|---|---|---|---|---|
-| bs_roformer | lucidrains/BS-RoFormer | MIT | **unverified for a concrete pretrained checkpoint** | intended 4 | evaluated package path requires Python 3.10+; no verified compatible checkpoint wired | REVISIT |
-| demucs | facebookresearch/demucs / HTDemucs | MIT | MIT | vocals, drums, bass, other | works on Python 3.9 | RESEARCH |
+---
 
-## Datasets and Licensing
+## 1. Product question
 
-| Dataset | Source | License | Clips | Role in this PR |
-|---|---|---|---|---|
-| GuitarSet | https://github.com/marl/GuitarSet | MIT | 2 | real-audio extraction smoke test |
-| BabySlakh | https://zenodo.org/records/4603870 | CC BY 4.0 | 2 | real multi-instrument extraction smoke test |
+Should source separation become a first-class evidence capability for mixed music in hello-ai, and if so should it be:
 
-These clips are **not** a scored source-separation benchmark in this PR.
+1. universal preprocessing;
+2. a task-conditioned evidence path;
+3. research-only;
+4. rejected?
 
-## Methodology
+The answer is **task-conditioned research evidence**. The current data rejects universal preprocessing and does not yet justify production ADOPT.
 
-Evidence classes:
-- **LOCAL MEASUREMENT**: install/load success, CPU latency, runtime feasibility, ability to emit the expected stem set
-- **QUALITATIVE PRODUCT PROBE**: whether real music can be passed through the candidate and returned as usable stem arrays
-- **NOT MEASURED HERE**: objective separation quality and downstream MIR improvement
+---
 
-No SDR/SIR/SAR, perceptual-error score, chord-improvement score, beat-improvement score, or melody-improvement score is reported because no valid reference-scored evaluation was run.
+## 2. Candidate and provenance
 
-## BS-RoFormer — REVISIT
+### HTDemucs
 
-The evaluated BS-RoFormer package path (1.0.5/1.0.6) fails under the repo's Python 3.9 environment because package code uses Python 3.10+ union/type syntax and `beartype` evaluates it at import time.
+- package: `demucs==4.1.0`
+- model: `htdemucs`
+- model signature: `955717e8`
+- exact weight artifact: `adefossez/HTDemucs/955717e8.safetensors`
+- verified SHA256: `d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd`
+- artifact size: 80.13 MB
+- inference: `shifts=0` for deterministic evaluation
+- code / evaluated weight licensing: MIT as recorded by the evaluation track
 
-A second validity issue was identified during review: instantiating the architecture class without loading an exact pretrained checkpoint would evaluate random/untrained weights. The adapter now **fails closed** instead. No BS-RoFormer quality result exists in this PR.
+The result-bearing workflows fail closed on weight drift rather than silently accepting an unknown checkpoint.
 
-The exact future checkpoint and its weight license must be recorded together; weight rights are not inferred from the architecture repository.
+### RoFormer family
 
-Decision: **REVISIT**.
+BS-RoFormer / Mel-Band RoFormer remains a modern separation family worth revisiting, but **another generic SDR bakeoff is not currently the highest-value uncertainty**.
 
-## Demucs / HTDemucs — RESEARCH
+The original package-path probe was blocked in the repo's older Python 3.9 environment and did not have an exact legally verified pretrained checkpoint wired. More importantly, the later HTDemucs results show that source quality itself is no longer the main unanswered question.
 
-### Operational evaluation — LOCAL MEASUREMENT
+Decision: **`REVISIT / DEFER` until a concrete source-aware claim has a promotion target or a demonstrated HTDemucs failure family to address.**
 
-| Metric | Value |
-|---|---|
-| Install success | Yes |
-| Load time | 1.07s |
-| CPU latency 10s | 3.48s |
-| CPU latency 30s | 11.23s |
-| ARM feasibility | Confirmed on Apple Silicon |
-| Output stem set | vocals, drums, bass, other |
-| License | MIT code / MIT weights as recorded by this evaluation |
+Code, checkpoint, and training-data rights must still be audited independently for any future RoFormer candidate.
 
-The synthetic determinism probe reported a mismatch. That result is not interpreted as model-quality evidence and should be investigated separately before any production integration.
+---
 
-### Real-audio extraction smoke test — QUALITATIVE PRODUCT PROBE
+## 3. Evidence summary
 
-| Clip | Result |
-|---|---|
-| guitarset_bn1_comp | four expected stems emitted |
-| guitarset_rock2_comp | four expected stems emitted |
-| babyslakh_01 | four expected stems emitted |
-| babyslakh_02 | four expected stems emitted |
+| Gate | Dataset / topology | Measured result | Decision impact |
+|---|---|---|---|
+| Objective source quality (#480) | BabySlakh, fixed 5 × 30 s controlled excerpts | drums **+13.983 dB** mean SI-SDR; bass **+12.900 dB**; other **+7.042 dB**; drums/bass 5/5 positive | strong evidence that HTDemucs isolates useful source signal |
+| Held-out real source quality (#521) | official MUSDB18 7 s preview, canonical `test`, all **50 tracks** | drums **+13.3558 dB**, 50/50 positive; bass **+12.9033 dB**, 47/50; other **+8.9048 dB**, 49/50; vocals **+12.0349 dB**, 48/50 | source-quality premise broadly survives real recordings, but not uniformly |
+| Beat downstream (#477) | BabySlakh fixed 5 × 60 s | production beat F1 mean delta **-0.0045**; 2 improve / 2 degrade / 1 tie | do not require drums separation before coarse beat tracking |
+| Beat localization diagnostic (#477) | same comparison | matched-beat timing error tightens on all selected tracks | possible narrower timing-refinement use case, still unpromoted |
+| Bass AMT downstream (#486) | BabySlakh fixed 5 × 30 s | onset F1 **+0.0578 mean**, **+0.1041 median**; onset+offset **-0.0088 mean**; predicted notes collapse ~1625 → 345 and matches ~120 → 54 | precision-oriented secondary evidence, not replacement transcription |
+| Hosted x86 operation (#507) | Ubuntu 24.04 x86_64, 4 CPUs, 2 torch threads | 10 s: **12.928 s**; 30 s: **16.627 s**; 180 s: **85.918 s**; peak RSS **1.79 GB** | plausible asynchronous CPU path |
+| Hosted ARM operation (#507) | Ubuntu 24.04 ARM, 4 CPUs, 2 torch threads | 10 s: **12.477 s**; 30 s: **29.100 s**; 180 s: **152.278 s**; peak RSS **1.60 GB** | operationally feasible but ~1.77× slower than x86 at 180 s |
 
-This proves only that the adapter can run on representative real files and produce the expected output shape. It does **not** prove that the stems are accurate or useful to downstream analysis.
+The central result is **not** “separation works” or “separation does not work.” It is:
 
-Decision: **RESEARCH**.
+> Objective source quality is strong, while downstream musical value depends on the claim and error mode.
 
-## Objective Separation Quality
+---
 
-**Not evaluated in this PR.**
+## 4. Objective source quality
 
-The repository contains metric helpers for separation experiments, but the current committed result artifacts do not contain a lawful reference-scored SDR/SIR/SAR evaluation. Those helpers therefore must not be interpreted as completed evidence.
+### 4.1 Controlled synthetic reference — #480
 
-A follow-up evaluation should use isolated reference sources from a lawful dataset and a modern, appropriate metric implementation. Mean SDR alone should not determine product value; perceptual error patterns should also be inspected.
+BabySlakh is useful because the mixture and isolated sources are aligned and legally usable for evaluation.
 
-## Downstream MIR Value
+Fixed first-30-second excerpts from `Track00001`–`Track00005` produced:
 
-**Not evaluated in this PR.**
+| family | scored | mean ΔSI-SDR | median ΔSI-SDR | improved / degraded |
+|---|---:|---:|---:|---:|
+| drums | 5 | +13.983 dB | +15.287 dB | 5 / 0 |
+| bass | 5 | +12.900 dB | +11.829 dB | 5 / 0 |
+| other | 5 | +7.042 dB | +9.247 dB | 4 / 1 |
+| vocals | 0 | n/a | n/a | references absent in selected tracks |
 
-The downstream metric module currently contains scaffolding/placeholders. In particular, chord, beat, and melody improvement functions return no measurement. They are not evidence of downstream benefit.
+This establishes real source-quality gain on a controlled synthetic corpus. It does not establish downstream benefit or broad real-recording generalization by itself.
 
-The follow-up gate should compare the same analysis task on:
+Result provenance in #480 includes workflow/artifact/checkpoint details; BabySlakh is CC BY 4.0.
 
-1. original mixture
-2. relevant separated stem(s)
-3. reference/ground-truth source where available
+### 4.2 Held-out real recordings — #521
 
-High-value tests include:
-- beat/downbeat tracking on mixture vs drums stem
-- bass/melody evidence on mixture vs bass/vocal or other relevant stem
-- chord/harmony analysis on mixture vs harmonic/accompaniment stem
-- instrumentation/layer-entry evidence for Breakdown
+The real-recording gate used the official MUSDB18 7-second preview through `musdb==0.4.3`, canonical `test` subset, all **50 available tracks**, with no favorable-track selection.
 
-## Architecture Recommendation
+Metric: `fast_bss_eval.si_sdr(..., zero_mean=True, clamp_db=100.0)`; decision quantity is separated-stem SI-SDR minus the **original mixture's SI-SDR against the same reference**. Stereo channels are scored independently and averaged; silent references are withheld.
 
-**Do not productionize a source-separation evidence layer from this PR.**
+| stem | mean ΔSI-SDR | median Δ | min / max | improved | degraded |
+|---|---:|---:|---:|---:|---:|
+| drums | **+13.3558 dB** | +13.4134 | +4.0237 / +23.6036 | **50/50** | 0 |
+| bass | **+12.9033 dB** | +14.3130 | -27.1231 / +23.6753 | **47/50** | 3 |
+| other | **+8.9048 dB** | +8.7463 | -4.0430 / +19.6995 | **49/50** | 1 |
+| vocals | **+12.0349 dB** | +13.1413 | -23.0183 / +26.4917 | **48/50** | 2 |
 
-What this PR establishes:
-1. HTDemucs is a viable implementation candidate for deeper evaluation on the current CPU/ARM environment.
-2. The evaluated BS-RoFormer package path is currently blocked by Python compatibility and lacks a verified compatible pretrained checkpoint in this harness; it should be revisited in a compatible isolated evaluation environment rather than dismissed on quality grounds.
-3. The central #334 question — whether separation materially improves downstream understanding — remains open.
+Exact successful workflow run: `33277448298` on benchmark head `8c331145d753904a1402928c4973422ea3f76efe`.
 
-Source separation should become a first-class evidence layer only after a candidate demonstrates both:
-- acceptable separation/perceptual quality, and
-- measurable downstream or interaction value that justifies runtime/storage complexity.
+Metrics artifact: `9721997702`; artifact ZIP digest:
 
-## Proposed StemEvidence Contract
+`sha256:5fe358a637ffc012db248b9eabd915f746c50e335957cb69da1bd0ca2be156e9`
+
+Generated full-result JSON SHA256:
+
+`a5499da8c0fddf61ffb5964305d8801570359e5f8e7bf9f8fa0d57f029b224a0`
+
+No MUSDB or separated audio is committed or uploaded. MUSDB audio is restricted to academic use per the dataset/package documentation; only metrics/provenance are retained.
+
+### 4.3 Negative tail
+
+Successful inference is **not** a reliability guarantee. #521 includes six degraded stem rows, including:
+
+- `Tom McKenzie - Directions`, bass: **-27.1231 dB**
+- `Motor Tapes - Shore`, vocals: **-23.0183 dB**
+- `PR - Oh No`, bass: **-18.5421 dB**
+- `Skelpolu - Resurrection`, vocals: -4.9614 dB
+- `Arise - Run Run Run`, other: -4.0430 dB
+- `Juliet's Rescue - Heartbeats`, bass: -1.4940 dB
+
+This is the strongest reason the architecture must separate **artifact availability** from **claim sufficiency**.
+
+---
+
+## 5. Downstream value
+
+### 5.1 Beat tracking — #477
+
+Question: does the exact production beat estimator improve when given the HTDemucs drums stem instead of the same mixture?
+
+Result across five fixed BabySlakh tracks:
+
+- mean beat-F1 delta: **-0.0045**;
+- 2 tracks improve;
+- 2 tracks degrade;
+- 1 ties.
+
+Matched-event localization becomes tighter on all selected tracks, which is interesting for a later groove/timing-refinement claim, but aggregate beat detection does not improve.
+
+Decision: **keep direct mixture beat evidence as the default.** A drum stem may be optional/corroborating for a narrower timing claim after direct validation.
+
+### 5.2 Bass transcription — #486
+
+Question: does the exact production Basic Pitch path improve when given the HTDemucs bass stem?
+
+Result:
+
+- onset-only F1: **+0.0578 mean**, **+0.1041 median**, 3/5 improve;
+- onset+offset F1: **-0.0088 mean**;
+- one selected track falls to zero matched notes after separation;
+- predictions fall roughly **1625 → 345**;
+- matched reference notes fall roughly **120 → 54**.
+
+Interpretation: the bass stem behaves mainly as a **false-positive/precision filter purchased with recall loss**.
+
+Decision: useful as a precision-oriented second evidence view or candidate filter, not a replacement transcription path.
+
+---
+
+## 6. Operational evidence — #507
+
+The controlled operational gate pins the exact HTDemucs artifact, sets `shifts=0`, and controls PyTorch to two CPU threads on both architectures.
+
+### x86_64
+
+| audio | latency | RTF | process peak RSS |
+|---|---:|---:|---:|
+| 10 s | 12.928 s | 1.2928 | 1413.56 MB |
+| 30 s | 16.627 s | 0.5542 | 1456.06 MB |
+| 180 s | 85.918 s | 0.4773 | 1792.81 MB |
+
+### ARM64
+
+| audio | latency | RTF | process peak RSS |
+|---|---:|---:|---:|
+| 10 s | 12.477 s | 1.2477 | 1222.94 MB |
+| 30 s | 29.100 s | 0.9700 | 1333.05 MB |
+| 180 s | 152.278 s | 0.8460 | 1604.45 MB |
+
+Exact controlled workflow run: `33276919383`, benchmark head `3a6f9d98c6e0656d1b3582e14b71722e56f3851c`.
+
+The ARM runner exposed a real packaging issue: `sphn` had no compatible Linux ARM wheel and its source build failed under CMake 4.x. The final run uses the upstream-documented CMake 3.x workaround (`cmake==3.31.10`) while retaining Demucs' declared dependency graph. This is a packaging constraint, not a PyTorch/model incompatibility.
+
+Both architectures are plausible for background analysis, but GitHub-hosted controls are **not** the production Oracle worker topology.
+
+Still unmeasured:
+
+- warm vs cold worker latency;
+- model/cache persistence on Oracle;
+- concurrent jobs;
+- queue contention/backpressure;
+- memory behavior under concurrency;
+- storage/network overhead for stem artifacts;
+- actual operating cost.
+
+---
+
+## 7. Architecture recommendation
+
+Use the canonical #336 contract:
 
 ```typescript
-type StemEvidence = {
-  sourceArtifactVersionId: string
-  engine: string
-  engineVersion?: string
-  stems: {
-    vocals?: { artifactRef: string }
-    drums?: { artifactRef: string }
-    bass?: { artifactRef: string }
-    other?: { artifactRef: string }
-  }
-  provenance: {
-    parameters?: Record<string, unknown>
-    checkpoint?: string
-    checkpointChecksum?: string
-  }
+type StemReference = {
+  sourceVersionId: string
+  stems: Array<{
+    role: "vocals" | "drums" | "bass" | "other" | string
+    artifactVersionId: string
+  }>
+  provenance: Provenance
+  maturity: Maturity
 }
 ```
 
-Notes:
-- Stem audio is an artifact/reference, not an embedding vector; `artifactRef` is intentionally used instead of `vectorRef`.
-- Do not attach unsupported per-stem confidence values unless the selected engine actually produces a calibrated confidence.
-- #336 owns the final persistence/Evidence Graph contract.
+Stem binaries remain ordinary immutable Artifact/Version data.
 
-## Remaining Uncertainty / Unfinished #334 Work
+### Hard rules
 
-- objective source-separation quality on lawful isolated-source references
-- perceptual error analysis beyond aggregate SDR-like metrics
-- downstream MIR value for beat/downbeat, harmony, melody/bass, and instrumentation
-- product value for isolate/loop/A-B/Breakdown workflows
-- whole-track CPU/RAM/storage cost and production scheduling implications
-- exact Demucs checkpoint checksum/version provenance
-- BS-RoFormer evaluation in a compatible isolated Python environment with an exact pretrained checkpoint and verified checkpoint license
+1. A `StemReference` is a **reference to generated evidence**, not proof that the source is correct.
+2. Do not invent per-stem confidence values when the separator does not provide calibrated confidence.
+3. Downstream observations own their own calibrated confidence/score and evaluation boundary.
+4. Mixture evidence remains available; source-aware evidence must not silently replace it.
+5. Source separation is requested by downstream claim sufficiency/expected value, not genre or a global feature flag.
+6. A source-aware claim must define what happens when stem evidence is missing, weak, or conflicts with mixture/corroborating evidence.
 
-## Merge Interpretation
+### Target routing shape
 
-This PR is mergeable only as a **first-stage feasibility harness/report**, not as completion of #334 and not as evidence to switch production routing.
+```text
+mixture
+  ├─> direct evidence ------------------------------------┐
+  │                                                       │
+  └─> [only when justified] separator -> StemReference ---+-> claim-specific gate
+                                                          │
+                                                          ├-> supported observation
+                                                          ├-> mixture fallback
+                                                          └-> abstain / withhold
+```
 
-Use `Part of #334`, not `Closes #334`.
+This matches #457's evidence-sufficiency architecture: **measured evidence → localized relation/observation → claim-specific gate → optional interpretation**.
 
-## Reproduction Instructions
+---
+
+## 8. Decision by use case
+
+| Use case | Current stance |
+|---|---|
+| universal import-time four-stem generation | **REJECT for now** |
+| coarse beat tracking through drums stem | **REJECT as default** |
+| drum timing/groove refinement | **RESEARCH** |
+| bass note transcription replacement | **REJECT as replacement** |
+| precision-oriented bass candidate evidence | **RESEARCH** |
+| source/layer entry-exit evidence | **RESEARCH**; requires direct claim validation + artifact/bleed fallback |
+| synchronized isolate/listen UX | **RESEARCH**; requires perceptual/product-value and operational gate |
+| HTDemucs as available research separator | **RESEARCH / keep** |
+| RoFormer family challenger | **REVISIT / DEFER** until a concrete promoted task exists |
+
+---
+
+## 9. What not to build next
+
+Do **not** spend the next source-separation cycle on:
+
+- a generic “which separator has the best SDR?” tournament;
+- automatic stems for every upload;
+- a dedicated stem database/table before product query pressure exists;
+- a per-stem confidence field without calibration semantics;
+- genre-specific source-separation routers;
+- replacing mixture-derived beat or AMT evidence solely because a stem exists;
+- production dependency wiring before the Oracle deployment gate.
+
+The current uncertainty is **selection policy + downstream user value**, not whether HTDemucs can produce cleaner stems.
+
+---
+
+## 10. Gates required before `ADOPT`
+
+Upgrade #334 from `RESEARCH` only after all relevant gates for a concrete product path are met:
+
+1. **Claim/value gate** — identify a source-aware product/claim family that measurably improves with stems.
+2. **Failure-policy gate** — define and validate claim-specific disagreement/fallback/abstention for bad stems, including the negative tail seen in #521.
+3. **Real/out-of-domain gate** — validate the promoted claim on real recordings outside a separator-native benchmark where practical.
+4. **Evidence-sufficiency gate** — encode request conditions and promotion thresholds in #457 rather than routing by global feature flags.
+5. **Production-topology gate** — replay on the actual Oracle worker with realistic cold start, concurrency, queue, memory, storage, and cost constraints.
+6. **Perceptual/user-value gate** — if stems themselves become audible user-facing representations, verify artifact quality and whether isolate/A-B listening is actually useful.
+7. **Challenger gate** — only then compare a maintained RoFormer-family candidate on the **same downstream + operational contract** if HTDemucs quality is a remaining blocker.
+
+---
+
+## 11. Historical feasibility harness
+
+The original feasibility runner in this directory established that HTDemucs could load and emit four stems and that the then-evaluated BS-RoFormer package path was blocked in the older local environment.
+
+Those historical numbers are useful implementation history but are **superseded for current decisions** by the controlled result-bearing PRs above.
+
+Reproduction of the original harness remains:
 
 ```bash
 export MUSIC_EVAL_CACHE_DIR=/path/to/backend/evaluation/.cache
@@ -173,4 +315,18 @@ python3 -m backend.evaluation.analysis_v3.separation.run --candidate all
 python3 -m backend.evaluation.analysis_v3.separation.run --candidate demucs
 ```
 
-Results are written under `backend/evaluation/analysis_v3/separation/results/`.
+Do not interpret its smoke outputs as objective quality or downstream evidence.
+
+---
+
+## 12. Coordinator state
+
+Result-bearing work is intentionally split into independently reviewable PRs:
+
+- #477 — separation → beat downstream
+- #480 — BabySlakh objective SI-SDR
+- #486 — separation → bass AMT
+- #507 — controlled x86/ARM operational cost
+- #521 — held-out MUSDB18 real-recording objective generalization
+
+No source-separation result alone authorizes production routing. #334 remains open at **RESEARCH** until the concrete ADOPT gates above are satisfied.
