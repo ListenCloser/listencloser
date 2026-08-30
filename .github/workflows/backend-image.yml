@@ -32,7 +32,7 @@ jobs:
           test "$(printf '%s\n' "$images" | sed '/^$/d' | wc -l)" -eq 1
           grep -Fq "$BACKEND_IMAGE" <<<"$images"
           grep -Fq "NUMBA_CACHE_DIR: $NUMBA_CACHE_DIR" /tmp/hello-ai-compose.yml
-      - name: Validate preseed happens before live worker switch
+      - name: Validate rollback preseed remains before live worker switch
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -64,7 +64,203 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production backend image natively
         run: docker build --tag hello-ai-backend:${{ matrix.arch }} backend
-      - name: Measure persistent Numba cache across fresh native containers
+      - name: Verify promoted Beat This checkpoint loads in production image
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker run --rm \
+            --entrypoint python \
+            "hello-ai-backend:${ARCH}" \
+            -c 'from engines.beats.beat_this_engine import BeatThisEngine, prewarm_beat_this_model; e=BeatThisEngine(); prewarm_beat_this_model(); assert e.provenance.model == "final0"; assert e.provenance.parameters["checkpoint"] == "final0"'
+      - name: Capture real-piano notation comparison evidence
+        if: matrix.arch == 'amd64'
+        run: |
+          set -euo pipefail
+          mkdir -p notation-comparison
+          chmod 0777 notation-comparison
+          docker run --rm \
+            --user root \
+            -v "$PWD/tests/fixtures/real-piano.m4a:/fixtures/real-piano.m4a:ro" \
+            -v "$PWD/notation-comparison:/out" \
+            --entrypoint python \
+            "hello-ai-backend:${{ matrix.arch }}" - <<'PY'
+          import collections
+          import io
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import tempfile
+          import xml.etree.ElementTree as ET
+
+          import numpy as np
+          import pretty_midi
+
+          from audio_processing import decode_audio_to_wav
+          from engines.beats.beat_this_engine import BeatThisEngine
+          from engines.notation.musescore_engine import MuseScoreNotationEngine
+          from engines.notation.music21_engine import Music21NotationEngine
+          from engines.transcription.transkun import TranskunEngine
+
+          fixture = pathlib.Path("/fixtures/real-piano.m4a")
+          out_dir = pathlib.Path("/out")
+          audio_bytes = fixture.read_bytes()
+
+          transcription = TranskunEngine().transcribe(audio_bytes, fmt="m4a")
+          performance_midi = transcription.midi
+          (out_dir / "performance.mid").write_bytes(performance_midi)
+
+          wav_bytes = decode_audio_to_wav(audio_bytes, fmt="m4a")
+          pulse = BeatThisEngine().analyze(wav_bytes)
+          beat_times = pulse.beats
+          downbeats = pulse.downbeats
+
+          common = {
+              "downbeats": downbeats,
+              "adaptive": True,
+              "notation_ready": True,
+              "piano_grand_staff": True,
+          }
+          current = Music21NotationEngine().convert(performance_midi, beat_times, **common)
+          candidate = MuseScoreNotationEngine().convert(performance_midi, beat_times, **common)
+
+          outputs = {"music21": current, "musescore": candidate}
+          for name, result in outputs.items():
+              (out_dir / f"{name}.musicxml").write_bytes(result.musicxml)
+              (out_dir / f"{name}.mid").write_bytes(result.notation_midi)
+
+          def xml_metrics(data: bytes) -> dict:
+              root = ET.fromstring(data)
+
+              def nodes(local_name: str):
+                  return [
+                      node
+                      for node in root.iter()
+                      if node.tag.rsplit("}", 1)[-1] == local_name
+                  ]
+
+              notes = nodes("note")
+              pitched = [
+                  note
+                  for note in notes
+                  if any(child.tag.rsplit("}", 1)[-1] == "pitch" for child in note)
+              ]
+              rests = [
+                  note
+                  for note in notes
+                  if any(child.tag.rsplit("}", 1)[-1] == "rest" for child in note)
+              ]
+              ties = [node.attrib.get("type") for node in nodes("tie")]
+              types = collections.Counter(node.text for node in nodes("type") if node.text)
+              staffs = collections.Counter(node.text for node in nodes("staff") if node.text)
+              voices = collections.Counter(node.text for node in nodes("voice") if node.text)
+              return {
+                  "parts": len(nodes("part")),
+                  "measures": len(nodes("measure")),
+                  "pitched_notes": len(pitched),
+                  "rests": len(rests),
+                  "tie_starts": ties.count("start"),
+                  "tie_stops": ties.count("stop"),
+                  "tuplets": len(nodes("time-modification")),
+                  "note_types": dict(sorted(types.items())),
+                  "staffs": dict(sorted(staffs.items())),
+                  "voices": dict(sorted(voices.items())),
+              }
+
+          def midi_metrics(data: bytes) -> dict:
+              midi = pretty_midi.PrettyMIDI(io.BytesIO(data))
+              notes = [
+                  note
+                  for instrument in midi.instruments
+                  if not instrument.is_drum
+                  for note in instrument.notes
+              ]
+              durations = np.asarray([note.end - note.start for note in notes], dtype=float)
+              return {
+                  "notes": len(notes),
+                  "duration_seconds": round(float(midi.get_end_time()), 3),
+                  "duration_p10": round(float(np.percentile(durations, 10)), 3)
+                  if durations.size
+                  else None,
+                  "duration_p50": round(float(np.percentile(durations, 50)), 3)
+                  if durations.size
+                  else None,
+                  "duration_p90": round(float(np.percentile(durations, 90)), 3)
+                  if durations.size
+                  else None,
+                  "very_short_notes_lt_125ms": int(np.sum(durations < 0.125))
+                  if durations.size
+                  else 0,
+              }
+
+          summary = {
+              "fixture": "tests/fixtures/real-piano.m4a",
+              "transcription": transcription.provenance.to_dict(),
+              "pulse": pulse.provenance.to_dict(),
+              "beat_count": len(beat_times),
+              "downbeat_count": len(downbeats or []),
+              "performance_midi": midi_metrics(performance_midi),
+              "music21": {
+                  "provenance": current.provenance.to_dict(),
+                  "xml": xml_metrics(current.musicxml),
+                  "midi": midi_metrics(current.notation_midi),
+                  "quantization_report": current.quantization_report,
+              },
+              "musescore": {
+                  "provenance": candidate.provenance.to_dict(),
+                  "xml": xml_metrics(candidate.musicxml),
+                  "midi": midi_metrics(candidate.notation_midi),
+                  "quantization_report": candidate.quantization_report,
+              },
+          }
+
+          musescore_bin = os.environ["MUSESCORE_BIN"]
+          for name in outputs:
+              with tempfile.TemporaryDirectory(prefix=f"render-{name}-") as root:
+                  env = os.environ.copy()
+                  env.update(
+                      {
+                          "QT_QPA_PLATFORM": "offscreen",
+                          "SKIP_LIBJACK": "1",
+                          "XDG_CONFIG_HOME": f"{root}/config",
+                          "XDG_DATA_HOME": f"{root}/data",
+                          "XDG_CACHE_HOME": f"{root}/cache",
+                      }
+                  )
+                  pathlib.Path(env["XDG_CONFIG_HOME"]).mkdir(parents=True)
+                  pathlib.Path(env["XDG_DATA_HOME"]).mkdir(parents=True)
+                  pathlib.Path(env["XDG_CACHE_HOME"]).mkdir(parents=True)
+                  subprocess.run(
+                      [
+                          musescore_bin,
+                          "-platform",
+                          "offscreen",
+                          "-o",
+                          str(out_dir / f"{name}.png"),
+                          str(out_dir / f"{name}.musicxml"),
+                      ],
+                      env=env,
+                      check=True,
+                      stdout=subprocess.PIPE,
+                      stderr=subprocess.PIPE,
+                      text=True,
+                  )
+              summary[name]["rendered_pages"] = len(list(out_dir.glob(f"{name}*.png")))
+
+          (out_dir / "summary.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + "\n"
+          )
+          print("NOTATION_COMPARISON=" + json.dumps(summary, sort_keys=True))
+          PY
+      - name: Upload real-piano notation comparison evidence
+        if: matrix.arch == 'amd64'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: notation-comparison-${{ github.run_attempt }}
+          path: notation-comparison/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Measure persistent Numba cache for explicit librosa rollback
         env:
           ARCH: ${{ matrix.arch }}
         run: |
@@ -85,6 +281,7 @@ jobs:
           run_probe() {
             local label="$1"
             docker run --rm \
+              -e BEAT_ENGINE=librosa \
               -e NUMBA_CACHE_DIR=/app/runtime/numba-cache \
               -v "$volume:/app/runtime/numba-cache" \
               --entrypoint python \
@@ -107,10 +304,10 @@ jobs:
           first = json.loads(sys.argv[1])
           second = json.loads(sys.argv[2])
           if first["cache_files"] <= 0 or second["cache_files"] <= 0:
-              raise SystemExit("Numba benchmark produced no persistent cache files")
+              raise SystemExit("Numba rollback benchmark produced no persistent cache files")
           record = {
               "schema_version": 1,
-              "scenario": "native_numba_cache_persistence",
+              "scenario": "librosa_rollback_numba_cache_persistence",
               "thresholds_enforced": False,
               "arch": os.environ["ARCH"],
               "first_fresh_container": first,
@@ -121,7 +318,7 @@ jobs:
           path.write_text(output)
           print(output, end="")
           PY
-      - name: Upload native Numba cache benchmark
+      - name: Upload librosa rollback Numba cache benchmark
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: numba-cache-${{ matrix.arch }}-${{ github.run_attempt }}
