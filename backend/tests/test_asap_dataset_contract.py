@@ -49,7 +49,7 @@ def test_asap_adapter_resolves_exact_metadata_correspondences(monkeypatch, tmp_p
     for relative, payload in (
         (midi_rel, b"midi"),
         (audio_rel, b"audio"),
-        (xml_rel, b"<score-partwise/>") ,
+        (xml_rel, b"<score-partwise/>"),
         (annotations_rel, b"0\t0\tdb\n"),
     ):
         target = ddir / relative
