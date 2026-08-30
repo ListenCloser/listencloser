@@ -14,22 +14,19 @@ services:
     volumes:
       - .:/workspace
       - opencode_node_modules:/workspace/node_modules
-      - /var/run/docker.sock:/var/run/docker.sock
       - ${HOME}/.gitconfig:/home/dev/.gitconfig:ro
-      # Optional: mount SSH keys for Oracle VM access
-      # - ${HOME}/.ssh:/home/dev/.ssh:ro
-    env_file:
-      - .env.local
+    # Deliberately no `env_file: .env.local` and no Docker socket here. This is
+    # the default autonomous-agent/devcontainer boundary, so only explicitly
+    # allowlisted credentials/config reach the agent process. Use the named
+    # privileged compose override only for tasks that genuinely require Docker
+    # daemon or broad local-secret access.
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - SENTRY_DSN=${SENTRY_DSN:-}
-      - SENTRY_ACCESS_TOKEN=${SENTRY_ACCESS_TOKEN:-}
-      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:-}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
       - NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN:-}
