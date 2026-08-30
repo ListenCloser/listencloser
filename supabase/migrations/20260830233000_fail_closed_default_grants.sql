@@ -20,9 +20,13 @@ alter default privileges for role postgres in schema public
 
 -- PostgreSQL grants EXECUTE on new functions to PUBLIC by default. That built-in
 -- grant is global, so it must be revoked globally; a schema-scoped REVOKE cannot
--- subtract a global default. Explicit Data API role grants remain schema-scoped.
+-- subtract a global default. Preserve today's behavior for Supabase extension
+-- functions explicitly, while leaving application functions in public fail-closed.
 alter default privileges for role postgres
   revoke execute on functions from public;
+
+alter default privileges for role postgres in schema extensions
+  grant execute on functions to public;
 
 alter default privileges for role postgres in schema public
   revoke all privileges on functions from anon, authenticated, service_role;
