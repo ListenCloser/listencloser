@@ -17,7 +17,7 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe("AskPanel polish", () => {
-  it("explains useful question scope and keeps the send affordance compact", () => {
+  it("explains useful question scope and keeps the send affordance intentional", () => {
     render(<AskPanel />, { wrapper });
 
     expect(screen.getByText(/Ask about harmony, rhythm, structure, or a selected passage/)).toBeVisible();
@@ -25,8 +25,8 @@ describe("AskPanel polish", () => {
 
     const send = screen.getByRole("button", { name: "Send question" });
     expect(send).toBeDisabled();
-    expect(send).toHaveStyle({ borderRadius: "6px" });
-    expect(send.querySelector("svg")).toHaveAttribute("width", "14");
-    expect(send.querySelector("svg")).toHaveAttribute("height", "14");
+    expect(send).toHaveClass("ask-send");
+    expect(send.querySelector("svg")).toHaveAttribute("width", "16");
+    expect(send.querySelector("svg")).toHaveAttribute("height", "16");
   });
 });
