@@ -1,3 +1,137 @@
+.scopeRow {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  padding: 6px var(--s-4) 0;
+}
+
+.scopeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 4px 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.2;
+}
+
+.scopeChip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clearScopeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.clearScopeButton:hover {
+  background: var(--panel-3);
+  color: var(--text);
+}
+
+.promptButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+}
+
+.promptButton > span {
+  min-width: 0;
+}
+
+.promptArrow {
+  flex: none;
+  margin-right: 1px;
+  color: var(--muted);
+}
+
+.errorRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--s-4) var(--s-2);
+  padding: 6px 8px;
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+}
+
+.errorCopy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.requestId {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font: 10px var(--font-mono);
+}
+
+.retryButton {
+  flex: none;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: currentColor;
+  font: var(--fs-xs) var(--font-sans);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+.retryButton:hover {
+  background: rgba(182, 62, 62, 0.08);
+}
+
+.sendButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--text);
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--panel);
+}
+
+.sendButton:hover:not(:disabled) {
+  opacity: 0.86;
+}
+
+.sendButton:disabled {
+  border-color: var(--border-strong);
+  background: var(--panel-2);
+  color: var(--muted);
+  opacity: 0.55;
+}
+
 .blockedAction,
 .blockedReference {
   opacity: 0.45;
