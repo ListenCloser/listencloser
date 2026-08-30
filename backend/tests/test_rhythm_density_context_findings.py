@@ -110,6 +110,39 @@ def test_supported_context_composes_literal_focusable_finding():
     assert finding.evidence_summary == "Middle half elsewhere in this Work: 1–2 events/beat."
 
 
+def test_user_selected_median_context_is_supported_not_withheld():
+    observation = _supported_observation()
+    measurement = observation.measurements[0]
+    unchanged = observation.model_copy(
+        update={
+            "measurements": [
+                measurement.model_copy(
+                    update={
+                        "direction": "unchanged",
+                        "subject_value": measurement.reference_median,
+                        "delta_from_reference_median": 0.0,
+                        "empirical_midrank_percentile": 50.0,
+                    }
+                )
+            ]
+        }
+    )
+
+    finding = compose_grounded_rhythm_density_context_finding(
+        unchanged,
+        subject_origin="user_selected",
+    )
+
+    assert finding is not None
+    assert finding.selection_conditioned_on_rhythm_density is False
+    assert finding.measurements[0].direction == "unchanged"
+    assert finding.measurements[0].empirical_midrank_percentile == 50.0
+    assert finding.headline == (
+        "Median event density here matches the median elsewhere in this Work (1.5 events/beat)."
+    )
+    assert finding.evidence_summary == "Middle half elsewhere in this Work: 1–2 events/beat."
+
+
 def test_extrema_subject_origin_preserves_selection_conditioning_without_salience_claim():
     observation = _supported_observation()
 
