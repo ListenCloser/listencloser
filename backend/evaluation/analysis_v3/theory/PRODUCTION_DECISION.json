@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "decision": "REPLACE",
+  "capabilities": [
+    "roman_numeral",
+    "harmonic_function"
+  ],
+  "production_engine_contract": "theory_interpreter",
+  "replacement_stack": {
+    "chord_label_parser": "mir_eval.chord.encode",
+    "mir_eval_version": "0.8.2",
+    "roman_numeral_engine": "music21.roman.romanNumeralFromChord",
+    "harmonic_function_engine": "music21.analysis.harmonicFunction.romanToFunction",
+    "music21_version": "10.5.0"
+  },
+  "replaced_implementation": "repository-owned pitch-class maps, Roman-numeral parser, inversion parser, and degree-to-function rules",
+  "evidence": {
+    "evaluation_pr": 746,
+    "evaluation_head": "0ee6fdea92a6abf0c1966c5021f5a5e673bed3f4",
+    "protected_workflow_run": 33338495371,
+    "protocol": "trusted_key_plus_lv_chordia_jams_equal_input",
+    "core_contract": {
+      "case_count": 10,
+      "baseline_numeral_accuracy": 1.0,
+      "candidate_numeral_accuracy": 1.0,
+      "baseline_function_accuracy": 1.0,
+      "candidate_function_accuracy": 1.0,
+      "examples": [
+        {
+          "id": "c-major-tonic",
+          "key": "C major",
+          "label": "C:maj",
+          "expected_numeral": "I",
+          "expected_function": "TONIC",
+          "baseline_numeral": "I",
+          "candidate_numeral": "I"
+        },
+        {
+          "id": "c-major-supertonic",
+          "key": "C major",
+          "label": "D:min",
+          "expected_numeral": "ii",
+          "expected_function": "SUBDOMINANT",
+          "baseline_numeral": "ii",
+          "candidate_numeral": "ii"
+        },
+        {
+          "id": "c-major-subdominant",
+          "key": "C major",
+          "label": "F:maj",
+          "expected_numeral": "IV",
+          "expected_function": "SUBDOMINANT",
+          "baseline_numeral": "IV",
+          "candidate_numeral": "IV"
+        },
+        {
+          "id": "c-major-dominant",
+          "key": "C major",
+          "label": "G:maj",
+          "expected_numeral": "V",
+          "expected_function": "DOMINANT",
+          "baseline_numeral": "V",
+          "candidate_numeral": "V"
+        },
+        {
+          "id": "c-major-submediant",
+          "key": "C major",
+          "label": "A:min",
+          "expected_numeral": "vi",
+          "expected_function": "TONIC",
+          "baseline_numeral": "vi",
+          "candidate_numeral": "vi"
+        },
+        {
+          "id": "c-major-dominant7",
+          "key": "C major",
+          "label": "G:7",
+          "expected_numeral": "V7",
+          "expected_function": "DOMINANT",
+          "baseline_numeral": "V7",
+          "candidate_numeral": "V7"
+        },
+        {
+          "id": "c-major-supertonic7",
+          "key": "C major",
+          "label": "D:min7",
+          "expected_numeral": "ii7",
+          "expected_function": "SUBDOMINANT",
+          "baseline_numeral": "ii7",
+          "candidate_numeral": "ii7"
+        },
+        {
+          "id": "a-minor-tonic",
+          "key": "A minor",
+          "label": "A:min",
+          "expected_numeral": "i",
+          "expected_function": "TONIC",
+          "baseline_numeral": "i",
+          "candidate_numeral": "i"
+        },
+        {
+          "id": "a-minor-subdominant",
+          "key": "A minor",
+          "label": "D:min",
+          "expected_numeral": "iv",
+          "expected_function": "SUBDOMINANT",
+          "baseline_numeral": "iv",
+          "candidate_numeral": "iv"
+        },
+        {
+          "id": "a-minor-dominant",
+          "key": "A minor",
+          "label": "E:maj",
+          "expected_numeral": "V",
+          "expected_function": "DOMINANT",
+          "baseline_numeral": "V",
+          "candidate_numeral": "V"
+        }
+      ]
+    },
+    "production_vocabulary_coverage": {
+      "lv_chordia_submission_roots": 12,
+      "lv_chordia_non_no_chord_qualities": 25,
+      "root_quality_combinations": 300,
+      "candidate_nonempty_interpretations": 300
+    },
+    "regressions": [
+      {
+        "case": "C:maj/3 in C major",
+        "baseline": "I",
+        "candidate": "I6",
+        "reason": "candidate preserves supplied slash-bass/inversion evidence"
+      },
+      {
+        "case": "N in C major",
+        "baseline": "I",
+        "candidate": "WITHHELD",
+        "reason": "candidate does not coerce no-chord to pitch class C"
+      },
+      {
+        "case": "B:hdim7 in C major",
+        "candidate_requirement": "Roman numeral contains vii and seventh evidence",
+        "result": "PASS"
+      }
+    ]
+  },
+  "production_change": [
+    "Preserve the existing TheoryEngine and TheoryResult/event interfaces.",
+    "Use mir_eval only to parse the Harte/JAMS chord evidence production already has.",
+    "Use music21 for Roman-numeral structure, inversion, scale degree, chord quality, secondary-function metadata, and Hauptfunktion classification.",
+    "Delete the duplicate handwritten note maps, numeral maps, numeral parser, inversion parser, dead chord-key detector, and degree-to-function rules.",
+    "Withhold malformed/no-chord labels instead of fabricating an interpretation."
+  ],
+  "limitations": [
+    "This is an equal-input interpretation test, not end-to-end audio-to-theory accuracy.",
+    "The historical DCML/BPS oracle scores remain separate evidence and must not be combined with this contract test into a broader accuracy claim.",
+    "The 300-form vocabulary gate checks candidate interpretability, not exact reference Roman-numeral accuracy for every extended/suspended chord quality.",
+    "This decision does not promote cadence or local-key-region capabilities; both remain withheld.",
+    "No confidence value is introduced for derived Roman-numeral or harmonic-function claims."
+  ],
+  "rollback": "release rollback to the prior repository revision; the rejected bespoke interpreter is not retained as a parallel production engine"
+}
