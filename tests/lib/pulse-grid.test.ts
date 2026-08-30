@@ -37,6 +37,8 @@ function rhythmInsight({
     span: {
       start_beat: null,
       end_beat: null,
+      start_measure: null,
+      end_measure: null,
       start_seconds: null,
       end_seconds: null,
     },
