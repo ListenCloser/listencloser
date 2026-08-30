@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter
 
 from api_schemas import HealthLiveResponse, HealthQueueResponse, HealthReadyResponse, HealthResponse
-from auth_utils import get_supabase_client
+from domain.repositories import get_supabase
 
 logger = logging.getLogger("backend.health")
 router = APIRouter()
@@ -33,7 +33,7 @@ def health_live() -> HealthLiveResponse:
 @router.get("/health/ready", response_model=HealthReadyResponse, response_model_exclude_none=True)
 def health_ready() -> HealthReadyResponse:
     release = os.environ.get("RELEASE", "development")
-    client = get_supabase_client()
+    client = get_supabase()
     if not client:
         return HealthReadyResponse(
             status="degraded",
@@ -68,7 +68,7 @@ def health_ready() -> HealthReadyResponse:
 
 @router.get("/health/queue", response_model=HealthQueueResponse, response_model_exclude_none=True)
 def health_queue() -> HealthQueueResponse:
-    client = get_supabase_client()
+    client = get_supabase()
     if not client:
         return HealthQueueResponse(
             status="degraded",
