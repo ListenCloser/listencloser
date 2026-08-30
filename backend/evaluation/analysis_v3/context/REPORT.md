@@ -12,7 +12,7 @@ The architecture implication is to treat style/instrument outputs as **probabili
 
 ## Evidence boundary
 
-### Measured previously by hello-ai (#332)
+### Measured previously by listencloser (#332)
 
 The committed CLAP result records:
 - model: `laion/larger_clap_music`

@@ -20,7 +20,7 @@ predictions/<experiment>/<clip>.mid
 
 ```json
 {
-  "name": "hello-ai-v1",
+  "name": "listencloser-v1",
   "entries": [{
     "id": "solo-piano-01",
     "reference_midi": "reference/solo-piano-01.mid",

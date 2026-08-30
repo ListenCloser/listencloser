@@ -8,7 +8,7 @@ Related: #329, #353, #356, #357
 
 Provider discussions should end in measured comparisons, not architecture-by-brand.
 
-This protocol defines the minimum evidence required before moving `hello-ai` API or worker compute away from the current Oracle Always Free baseline.
+This protocol defines the minimum evidence required before moving `listencloser` API or worker compute away from the current Oracle Always Free baseline.
 
 The first target candidate is Google Cloud Run because it accepts ordinary container workloads and has a recurring usage free tier. Azure Container Apps is a useful second serverless-container comparison because Azure currently advertises an always-free allowance of 180,000 vCPU-seconds, 360,000 GiB-seconds, and 2 million requests per month. Specialized ML/GPU providers such as Modal should be evaluated separately because they answer a different question: burst model execution rather than generic application hosting.
 

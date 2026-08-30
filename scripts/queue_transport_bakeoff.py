@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare hello-ai's current queue claim pattern with pgmq on local Postgres.
+"""Compare listencloser's current queue claim pattern with pgmq on local Postgres.
 
 This is an evaluation tool, not a production queue implementation. By default it
 refuses non-local database URLs so a benchmark cannot accidentally create queues

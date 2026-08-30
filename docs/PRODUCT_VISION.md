@@ -1,6 +1,6 @@
 > **Canonical direction moved:** `MASTER_SPEC.md` is now the authoritative product north star, analysis model, representation model, roadmap, and agent contract. This file is retained as historical context and a compact summary; where it conflicts with the master spec, the master spec wins.
 
-# Product Vision — hello-ai·music-studio
+# Product Vision — listencloser·music-studio
 
 ## North Star
 

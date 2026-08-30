@@ -73,7 +73,7 @@ services:
     volumes:
       - .:/workspace
     environment:
-      - UV_PROJECT_ENVIRONMENT=/tmp/hello-ai-backend-venv
+      - UV_PROJECT_ENVIRONMENT=/tmp/listencloser-backend-venv
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - MUSIC_BACKEND_URL=http://backend:8000
@@ -111,7 +111,7 @@ services:
     volumes:
       - .:/workspace
     environment:
-      - UV_PROJECT_ENVIRONMENT=/tmp/hello-ai-worker-venv
+      - UV_PROJECT_ENVIRONMENT=/tmp/listencloser-worker-venv
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - PYTHONPATH=/workspace/backend

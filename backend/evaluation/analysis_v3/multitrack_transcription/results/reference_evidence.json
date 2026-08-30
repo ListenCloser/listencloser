@@ -24,7 +24,7 @@
       "weight_license": "Apache-2.0 per upstream repository/model metadata",
       "instrument_program_output": false,
       "drum_output": false,
-      "operational_note": "Already deployed in hello-ai; optimized for lightweight note transcription and documented upstream as working best on one instrument at a time.",
+      "operational_note": "Already deployed in listencloser; optimized for lightweight note transcription and documented upstream as working best on one instrument at a time.",
       "decision": "ADOPT",
       "source_refs": ["basic_pitch_repo"]
     },

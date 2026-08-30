@@ -6,7 +6,7 @@ Related: #329, #283, #356
 
 ## Decision in one page
 
-`hello-ai` should **not** migrate the whole stack to AWS or another single provider merely to look more conventional. Under the current hard `$0/month` baseline, the existing Vercel + Supabase + Oracle topology remains unusually strong, provided we make the application portable at the contracts that matter.
+`listencloser` should **not** migrate the whole stack to AWS or another single provider merely to look more conventional. Under the current hard `$0/month` baseline, the existing Vercel + Supabase + Oracle topology remains unusually strong, provided we make the application portable at the contracts that matter.
 
 The near-term recommendation is:
 
@@ -30,7 +30,7 @@ Oracle is currently strongest at the first. Cloud Run and Modal are stronger at 
 
 ## Evaluation criteria
 
-Every candidate is evaluated against the actual `hello-ai` workload rather than generic PaaS popularity:
+Every candidate is evaluated against the actual `listencloser` workload rather than generic PaaS popularity:
 
 - perpetual `$0` feasibility, not introductory credits alone
 - production suitability of the free tier
@@ -91,7 +91,7 @@ Primary source:
 
 ### Modal: strongest free burst-ML complement
 
-Modal is not a generic drop-in OCI host, so it has more provider coupling than Cloud Run. But its economics are unusually relevant to `hello-ai`: the Starter plan currently advertises `$30/month` of included compute, up to 100 containers and 10 concurrent GPUs, with scale-to-zero endpoints.
+Modal is not a generic drop-in OCI host, so it has more provider coupling than Cloud Run. But its economics are unusually relevant to `listencloser`: the Starter plan currently advertises `$30/month` of included compute, up to 100 containers and 10 concurrent GPUs, with scale-to-zero endpoints.
 
 That makes Modal a strong research/production-candidate boundary for capabilities such as:
 
@@ -161,7 +161,7 @@ Primary source:
 | **Netlify Free** | `$0`, 300-credit hard monthly limit | Workloads pause when credits are exhausted | **WATCH as frontend escape hatch** |
 | **Cloudflare Pages + Workers Free** | Static asset requests free/unlimited; Functions share Workers quota | Workers Free currently has 100k requests/day but only 10 ms CPU/invocation | **WATCH for frontend/edge, not MIR** |
 
-Vercel remains the best fit for the current Next.js frontend because it removes deployment/CDN/preview friction. But the commercial-use restriction is a real architecture constraint: before `hello-ai` becomes a commercial SaaS, either upgrade Vercel or benchmark/migrate the frontend.
+Vercel remains the best fit for the current Next.js frontend because it removes deployment/CDN/preview friction. But the commercial-use restriction is a real architecture constraint: before `listencloser` becomes a commercial SaaS, either upgrade Vercel or benchmark/migrate the frontend.
 
 This is a **launch checklist item**, not an immediate infrastructure project.
 

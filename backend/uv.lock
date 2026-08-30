@@ -575,7 +575,7 @@ wheels = [
 ]
 
 [[package]]
-name = "hello-ai-backend"
+name = "listencloser-backend"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

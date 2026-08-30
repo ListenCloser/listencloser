@@ -2,7 +2,7 @@
 
 Status: **evaluation complete; not productionized**.
 
-This evaluation is the follow-up to the pgmq delivery bakeoff in #359. It proves a consistency property that would be required if hello-ai ever adopted pgmq as a worker-delivery signal. It does **not** install pgmq, create a production trigger, or change the deployed worker transport.
+This evaluation is the follow-up to the pgmq delivery bakeoff in #359. It proves a consistency property that would be required if listencloser ever adopted pgmq as a worker-delivery signal. It does **not** install pgmq, create a production trigger, or change the deployed worker transport.
 
 ## Result
 
@@ -67,7 +67,7 @@ This is deliberately not a browser-facing API. Any future production implementat
 
 ## Production decision after the experiment
 
-Although the transactional trigger approach is technically viable, hello-ai did **not** adopt pgmq for the current product/runtime envelope.
+Although the transactional trigger approach is technically viable, listencloser did **not** adopt pgmq for the current product/runtime envelope.
 
 The simpler zero-cost option was sufficient: keep `public.jobs` as the authoritative queue and move worker claiming into one atomic Postgres operation using `FOR UPDATE SKIP LOCKED`. That shipped and was production-verified in #367.
 

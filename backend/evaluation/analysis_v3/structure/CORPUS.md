@@ -48,8 +48,8 @@ python -m evaluation.analysis_v3.structure.datasets.songformbench_subset \
   --subset CN \
   --count 8 \
   --upstream-revision <EXACT_SONGFORMBENCH_REVISION> \
-  --output-index /data/hello-ai-structure-v1/songformbench-bc8.jsonl \
-  --provenance /data/hello-ai-structure-v1/songformbench-bc8-selection.json
+  --output-index /data/listencloser-structure-v1/songformbench-bc8.jsonl \
+  --provenance /data/listencloser-structure-v1/songformbench-bc8-selection.json
 ```
 
 Selection policy `lexicographic_source_id_v1` sorts canonical CN-row source IDs and takes the first
@@ -94,7 +94,7 @@ used. Do not silently substitute the separate HarmonixSet reconstruction path.
 Every compared candidate must receive the **same audio files**. Never compare All-In-One on one
 audio provenance with SongFormer on another and call the difference a model result.
 
-## 4. Build the hello-ai evaluation manifest
+## 4. Build the listencloser evaluation manifest
 
 Make local audio resolve to each selected entry's canonical `audio_path`, then use the existing
 builder against the filtered index:
@@ -102,11 +102,11 @@ builder against the filtered index:
 ```bash
 cd backend
 python -m evaluation.analysis_v3.structure.datasets.songformbench \
-  --index /data/hello-ai-structure-v1/songformbench-bc8.jsonl \
+  --index /data/listencloser-structure-v1/songformbench-bc8.jsonl \
   --audio-dir /data/SongFormBench \
   --subset CN \
   --audio-provenance local_unknown \
-  --output /data/hello-ai-structure-v1/songformbench-bc8-manifest.json
+  --output /data/listencloser-structure-v1/songformbench-bc8-manifest.json
 ```
 
 The builder must report all 8 rows as materialized before the candidate comparison is treated as the
@@ -120,12 +120,12 @@ explain why.
 ```bash
 python -m evaluation.analysis_v3.structure.run \
   --candidate allin1 \
-  --manifest /data/hello-ai-structure-v1/songformbench-bc8-manifest.json \
+  --manifest /data/listencloser-structure-v1/songformbench-bc8-manifest.json \
   --device cpu
 
 python -m evaluation.analysis_v3.structure.run \
   --candidate songformer \
-  --manifest /data/hello-ai-structure-v1/songformbench-bc8-manifest.json \
+  --manifest /data/listencloser-structure-v1/songformbench-bc8-manifest.json \
   --device cuda
 ```
 

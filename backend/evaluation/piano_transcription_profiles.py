@@ -15,7 +15,7 @@ Usage from ``backend/``::
     python -m evaluation.datasets.prepare --corpus real_world_v1
     python -m evaluation.piano_transcription_profiles \
       --manifest evaluation/.cache/manifest-real_world_v1.json \
-      --hello-ai-sha <commit> \
+      --listencloser-sha <commit> \
       --output evaluation/results/piano_transcription_profiles.json
 """
 
@@ -362,7 +362,7 @@ def main() -> None:
         description="Compare exact production piano transcription profiles"
     )
     parser.add_argument("--manifest", required=True)
-    parser.add_argument("--hello-ai-sha", required=True)
+    parser.add_argument("--listencloser-sha", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument(
         "--profiles",

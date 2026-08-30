@@ -99,7 +99,7 @@ This command creates a persisted work in the supplied project and verifies the
 entire Vercel → FastAPI → worker → Supabase loop:
 
 ```bash
-HELLO_AI_APP_URL=https://hello-ai.vercel.app \
+HELLO_AI_APP_URL=https://listencloser.vercel.app \
 HELLO_AI_PROJECT_ID=<project-uuid> \
 SUPABASE_ACCESS_TOKEN=<short-lived-user-token> \
 python scripts/smoke_understand.py path/to/licensed-fixture.wav
@@ -114,11 +114,11 @@ Repo → Actions tab. Workflows: `build.yml` (build+vitest, blocks), `ci.yml` (l
 
 ## Vercel production ownership
 
-`hello-ai.vercel.app` must be assigned to the v2 project built from this repo's
+`listencloser.vercel.app` must be assigned to the v2 project built from this repo's
 `main` branch. A green Vercel preview is not production. Required environment:
 `BACKEND_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`. After aliasing, verify the root title is
-`hello-ai — Music Studio` and `/api/health/queue` is ready before smoke testing.
+`listencloser — Music Studio` and `/api/health/queue` is ready before smoke testing.
 
 ## Argos (visual diffs)
 `https://app.argos-ci.com` (needs `ARGOS_TOKEN` repo secret); also comments a visual diff on each PR. Non-blocking by design.

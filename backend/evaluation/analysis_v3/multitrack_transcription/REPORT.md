@@ -15,7 +15,7 @@ Candidate decisions:
 
 | candidate | decision | reason |
 | --- | --- | --- |
-| hello-ai Basic Pitch | **ADOPT (existing baseline)** | deployed, fast after cold start, simple flat-note evidence; no instrument attribution |
+| listencloser Basic Pitch | **ADOPT (existing baseline)** | deployed, fast after cold start, simple flat-note evidence; no instrument attribution |
 | MR-MT3 | **RESEARCH** | strong decoder-level onset/program evidence on this small subset, but sample too small, duration/program-note quality weaker, and current CPU wrapper is operationally poor |
 | Magenta MT3 | **REVISIT** | Apache-2.0 code, but legacy T5X/JAX stack and external checkpoint-license ambiguity add friction |
 | YourMT3+ | **RESEARCH reference** | quality/reference candidate, but official code is GPL-3.0 |
@@ -31,7 +31,7 @@ Fixed subset: `Track01876`, `Track01877`, `Track01878`, `Track01880`, `Track0188
 
 The run used a selective Hugging Face acquisition mirror pinned to immutable revision `bb320faf307f5d24aeced0e60f9445ff0abce205`. Upstream identity/license remain Zenodo 4599666 / CC BY 4.0. The committed mix/reference SHA-256 values in `results/slakh_redux_subset_results.json` are copied from the canonical decoder-sidecar artifact manifest (`7ad55174f83f2f0097898624a269e1ff25899183f18dac9dd7da38005c971b99`), not reconstructed from a later run.
 
-Hello-ai measurement SHA: `7057c1c247fb2770fee5f5e418479cbf69bd4619`.
+listencloser measurement SHA: `7057c1c247fb2770fee5f5e418479cbf69bd4619`.
 
 MR-MT3 provenance:
 
@@ -43,7 +43,7 @@ MR-MT3 provenance:
 - code license MIT
 - weight repository metadata MIT
 
-The production hello-ai environment remained independently pinned during candidate execution.
+The production listencloser environment remained independently pinned during candidate execution.
 
 ## Metrics
 
@@ -152,7 +152,7 @@ Provenance:
 - instrumented adapter SHA-256 `c395b4895e4f4da721c6494beb289962f787d19c443b76ef07dead4e0634d1fd`
 - stock MIDI serializer unchanged
 
-The locked hello-ai environment serialized sidecar events into one stream per decoded program solely for the frozen scorer. Independent verification found:
+The locked listencloser environment serialized sidecar events into one stream per decoded program solely for the frozen scorer. Independent verification found:
 
 - decoded/persisted note counts are one-to-one on every track;
 - pitch/program/drum identity is one-to-one;

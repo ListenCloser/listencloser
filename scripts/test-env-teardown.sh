@@ -33,7 +33,7 @@ if [[ "${1:-}" == "--full" ]]; then
 fi
 
 echo "══════════════════════════════════════════"
-echo "  hello-ai — test environment teardown"
+echo "  listencloser — test environment teardown"
 echo "══════════════════════════════════════════"
 echo ""
 

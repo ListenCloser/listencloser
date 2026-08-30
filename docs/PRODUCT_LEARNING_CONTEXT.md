@@ -13,7 +13,7 @@ Tracking issues: #548 and #547.
 
 ## 1. Product default: insight first
 
-The default hello-ai experience remains fast and editorial:
+The default listencloser experience remains fast and editorial:
 
 ```text
 open Work
@@ -479,4 +479,4 @@ What stands out?
 
 Immediate insight remains the default. Active learning is an optional depth of interaction.
 
-That preserves hello-ai’s core direction: trustworthy evidence first, musical relationships second, explanation and pedagogy grounded back in the sound.
+That preserves listencloser’s core direction: trustworthy evidence first, musical relationships second, explanation and pedagogy grounded back in the sound.

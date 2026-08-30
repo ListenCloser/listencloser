@@ -1,4 +1,4 @@
--- Migration: hello-ai music studio schema
+-- Migration: listencloser music studio schema
 -- Creates the tracks table, audio storage bucket, and RLS policies.
 
 -- Stored generations (metadata only; audio lives in Storage).

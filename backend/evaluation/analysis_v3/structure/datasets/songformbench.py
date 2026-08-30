@@ -1,4 +1,4 @@
-"""Build hello-ai Structure manifests from SongFormBench annotations.
+"""Build listencloser Structure manifests from SongFormBench annotations.
 
 Audio is never downloaded by this helper. It references only audio that has already
 been legitimately materialized locally and records whether that audio is original,
@@ -230,7 +230,7 @@ def build_songformbench_index_manifest(
         description=(
             "Structure boundary evaluation manifest generated from the canonical "
             "SongFormBench.jsonl index. Audio provenance is explicit and audio is not "
-            "downloaded or redistributed by hello-ai."
+            "downloaded or redistributed by listencloser."
         ),
     )
     return {

@@ -1,4 +1,4 @@
-"""Current production baseline adapter using the exact hello-ai implementation.
+"""Current production baseline adapter using the exact listencloser implementation.
 
 Uses backend/music_features.estimate_beat_grid() which is the actual production path.
 """

@@ -1,4 +1,4 @@
-"""Validate the fixture manifest used by the hello-ai-autonomous-handoff test-suite.
+"""Validate the fixture manifest used by the listencloser-autonomous-handoff test-suite.
 
 The manifest lists every fixture (audio clips, MIDI files, MusicXML
 scores, paired comparison fixtures, and deliberately invalid files) with
@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 MANIFEST_CANDIDATES = [
-    Path.home() / "Downloads/hello-ai-autonomous-handoff/09_FIXTURES/manifest.json",
+    Path.home() / "Downloads/listencloser-autonomous-handoff/09_FIXTURES/manifest.json",
     Path(__file__).resolve().parents[2] / "fixtures" / "manifest.json",
 ]
 

@@ -20,9 +20,9 @@ from domain.upload_api import router as upload_router
 from health_api import router as health_router
 from observability import configure_logging, init_sentry, init_telemetry, record_http_request
 
-configure_logging("hello-ai-api")
+configure_logging("listencloser-api")
 logger = logging.getLogger("backend")
-init_telemetry("hello-ai-api")
+init_telemetry("listencloser-api")
 init_sentry(logger, default_release="backend@2.0.0")
 _request_id_ctx = contextvars.ContextVar("request_id", default="none")
 
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="hello-ai music understanding API",
+    title="listencloser music understanding API",
     version="2.0.0",
     description=(
         "Persistent projects, immutable music artifacts, asynchronous jobs, "

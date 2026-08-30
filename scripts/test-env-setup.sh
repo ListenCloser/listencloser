@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ────────────────────────────────────────────────────────────────────────────
-# test-env-setup.sh — seed a test environment for the hello-ai feedback loop
+# test-env-setup.sh — seed a test environment for the listencloser feedback loop
 # ────────────────────────────────────────────────────────────────────────────
 # Creates test users, seeds a project with sample data, and exports the
 # TEST_RUN_ID so downstream tests/teardown can scope across namespaced records.
@@ -13,7 +13,7 @@ set -euo pipefail
 #
 # Optional env vars:
 #   TEST_AUDIO_DIR             path to audio fixtures (default: tests/fixtures/audio)
-#   TEST_USER_EMAIL            base email for test users (default: test+run_{run_id}@hello-ai.dev)
+#   TEST_USER_EMAIL            base email for test users (default: test+run_{run_id}@listencloser.dev)
 #   TEST_USER_PASSWORD         password for test users (default: auto-generated)
 #   SUPABASE_ANON_KEY          anon key (used for some client operations)
 #
@@ -32,7 +32,7 @@ fail() { FAIL=$((FAIL + 1)); echo "  ❌ $1"; }
 warn() { echo "  ⚠️  $1"; }
 
 echo "══════════════════════════════════════════"
-echo "  hello-ai — test environment setup"
+echo "  listencloser — test environment setup"
 echo "══════════════════════════════════════════"
 echo ""
 
@@ -94,7 +94,7 @@ echo "  URL:     $SUPABASE_URL"
 echo ""
 
 # ── Defaults ───────────────────────────────────────────────────────────────
-TEST_USER_EMAIL="${TEST_USER_EMAIL:-test+run_${RUN_TS}@hello-ai.dev}"
+TEST_USER_EMAIL="${TEST_USER_EMAIL:-test+run_${RUN_TS}@listencloser.dev}"
 TEST_USER_PASSWORD="${TEST_USER_PASSWORD:-$(python3 -c "import secrets, string; print(''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(24)))" 2>/dev/null || openssl rand -base64 18)}"
 TEST_AUDIO_DIR="${TEST_AUDIO_DIR:-${PWD}/tests/fixtures/audio}"
 
@@ -174,7 +174,7 @@ USER_IDS+=("$OWNER_ID")
 pass "owner user created ($OWNER_ID)"
 
 # Create collaborator user
-COLLAB_EMAIL="test+collab_${RUN_TS}@hello-ai.dev"
+COLLAB_EMAIL="test+collab_${RUN_TS}@listencloser.dev"
 COLLAB_PASS=$(python3 -c "import secrets,string; print(''.join(secrets.choice(string.ascii_letters+string.digits) for _ in range(24)))" 2>/dev/null || openssl rand -base64 18)
 echo "  Creating collaborator user..."
 COLLAB_ID=$(create_user "${COLLAB_EMAIL}" "${COLLAB_PASS}" "Test Collaborator (${TEST_RUN_ID})")

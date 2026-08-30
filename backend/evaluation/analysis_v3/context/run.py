@@ -128,7 +128,7 @@ def run_prior_evidence(
         "notes": (
             "No new model inference is performed by --task prior. CLAP operational and "
             "retrieval data were measured in #332; Essentia metrics are upstream reference "
-            "benchmarks and are not hello-ai local measurements."
+            "benchmarks and are not listencloser local measurements."
         ),
     }
 

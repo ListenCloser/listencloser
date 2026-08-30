@@ -2,7 +2,7 @@
 
 Status: **evaluation only; production decision completed**.
 
-This evaluation compared hello-ai's former two-request jobs-table claim path with Postgres-native `pgmq` delivery. It does **not** enable Supabase Queues or `pgmq` in production.
+This evaluation compared listencloser's former two-request jobs-table claim path with Postgres-native `pgmq` delivery. It does **not** enable Supabase Queues or `pgmq` in production.
 
 ## Outcome
 
@@ -11,7 +11,7 @@ The bakeoff established two useful facts:
 1. the former `select oldest queued row -> conditional UPDATE` path creates avoidable queue-head contention when several workers poll at once; and
 2. `pgmq` provides useful durable delivery primitives, including visibility timeouts and redelivery after an unacknowledged read.
 
-For the current workload and hard `$0/month` constraint, hello-ai chose the simpler production option from this evaluation's decision gate: keep `public.jobs` authoritative and move claiming into one atomic Postgres operation using `FOR UPDATE SKIP LOCKED`.
+For the current workload and hard `$0/month` constraint, listencloser chose the simpler production option from this evaluation's decision gate: keep `public.jobs` authoritative and move claiming into one atomic Postgres operation using `FOR UPDATE SKIP LOCKED`.
 
 That production change shipped in #367. The deployed worker therefore no longer uses the two-request claim path measured by this harness.
 

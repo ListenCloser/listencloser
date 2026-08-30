@@ -1,6 +1,6 @@
 # MIR / Music AI Research Landscape and Adoption Matrix
 
-> **Purpose:** Practical research reference for hello-ai. This document is not a shopping list. It identifies mature OSS, current research directions, evaluation resources, commercial reference points, and adoption recommendations.
+> **Purpose:** Practical research reference for listencloser. This document is not a shopping list. It identifies mature OSS, current research directions, evaluation resources, commercial reference points, and adoption recommendations.
 >
 > **Rule:** Before building a nontrivial MIR capability, implementation agents must check this document, current web/repo status, licensing, and `backend/config/capabilities.json`.
 
@@ -247,7 +247,7 @@ Official repo:
 
 **Code license:** MIT according to official repo.
 
-**Why unusually relevant to hello-ai:** our product already has synchronized audio, MIDI and MusicXML representations. CLaMP3’s cross-modal space may enable:
+**Why unusually relevant to listencloser:** our product already has synchronized audio, MIDI and MusicXML representations. CLaMP3’s cross-modal space may enable:
 
 - audio ↔ score similarity,
 - text ↔ passage search,
@@ -300,7 +300,7 @@ Use it to answer:
 Recommendation:
 
 1. Reuse MARBLE evaluation/task definitions where practical.
-2. Add a hello-ai operational layer: CPU latency, memory, model download size, ARM compatibility, license, and selected-passage UX usefulness.
+2. Add a listencloser operational layer: CPU latency, memory, model download size, ARM compatibility, license, and selected-passage UX usefulness.
 3. Do not reproduce the entire framework if a small upstream invocation suffices.
 
 - https://github.com/a43992899/MARBLE
@@ -348,7 +348,7 @@ Use cases:
 
 ## 7. Beat / downbeat / meter
 
-### Current hello-ai path
+### Current listencloser path
 
 Current code uses an audio beat path that must be verified from current main. Existing temporal rhythm features depend on its reliability.
 
@@ -510,7 +510,7 @@ Use as a **quality/product benchmark**, not necessarily a dependency.
 
 ## 11. Structure / form
 
-### Current hello-ai baseline
+### Current listencloser baseline
 
 Evaluation-only librosa CENS/recurrence/novelty/peak-pick pipeline.
 
@@ -566,7 +566,7 @@ What to learn:
 - multiple time resolutions,
 - synchronized playback.
 
-hello-ai should be more opinionated, persistent, accessible, and explanatory.
+listencloser should be more opinionated, persistent, accessible, and explanatory.
 
 - https://sonicvisualiser.org/features.html
 

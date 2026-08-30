@@ -4,7 +4,7 @@ Evaluation-only work for #333. Nothing in this directory changes production rout
 
 ## Product question
 
-Can probabilistic style/instrument/context evidence usefully influence what hello-ai emphasizes without turning genre into a rigid product branch?
+Can probabilistic style/instrument/context evidence usefully influence what listencloser emphasizes without turning genre into a rigid product branch?
 
 ## Candidates in this stage
 
@@ -15,9 +15,9 @@ MuQ-MuLan remains a useful research reference, but its released weights are non-
 
 ## Evidence classes
 
-- `REFERENCE_BENCHMARK`: metrics published in official model metadata; not measured by hello-ai.
+- `REFERENCE_BENCHMARK`: metrics published in official model metadata; not measured by listencloser.
 - `PRIOR_LOCAL_AND_REFERENCE_EVIDENCE`: reuse of committed #332 CLAP operational/retrieval results plus upstream references; performs no new model inference.
-- `QUALITATIVE_PRODUCT_PROBE`: tiny rights-safe hello-ai probe over GuitarSet/MAESTRO with explicit coarse labels plus BabySlakh stability-only examples.
+- `QUALITATIVE_PRODUCT_PROBE`: tiny rights-safe listencloser probe over GuitarSet/MAESTRO with explicit coarse labels plus BabySlakh stability-only examples.
 
 The tiny product probe is not an MTG-Jamendo benchmark and must not be presented as one.
 

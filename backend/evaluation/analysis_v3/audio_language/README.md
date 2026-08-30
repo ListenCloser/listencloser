@@ -7,7 +7,7 @@ This directory is evaluation-only. It does **not** register an audio-language mo
 
 ## Decision boundary
 
-The question is not whether one audio-language model can replace specialized MIR. The question is whether raw audio adds enough grounded semantic value to hello-ai's existing evidence-driven Ask path to justify a separate research/semantic-hypothesis layer.
+The question is not whether one audio-language model can replace specialized MIR. The question is whether raw audio adds enough grounded semantic value to listencloser's existing evidence-driven Ask path to justify a separate research/semantic-hypothesis layer.
 
 The evaluation therefore keeps two different test families separate:
 
@@ -46,7 +46,7 @@ uv run --project backend pytest backend/tests/test_analysis_v3_audio_language.py
 
 A future real checkpoint run starts from `schemas/model_run_template.json` and must retain:
 
-- hello-ai SHA;
+- listencloser SHA;
 - exact model/checkpoint revision and checksum when obtainable;
 - code and weight licenses separately;
 - hardware / Python / Torch / Transformers versions;

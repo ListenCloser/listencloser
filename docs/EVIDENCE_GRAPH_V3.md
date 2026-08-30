@@ -232,7 +232,7 @@ type Verification =
 - `confidence` means a calibrated confidence/probability with documented semantics. Otherwise use `null`.
 - model similarity, classifier logits, margins, heuristic scores, ranking scores, and evaluator scores stay named `score` (or a more specific metric name), not `confidence`.
 - `trustClass` describes how a claim was obtained.
-- `maturity` describes whether hello-ai has promoted the capability, not whether one output happens to look plausible.
+- `maturity` describes whether listencloser has promoted the capability, not whether one output happens to look plausible.
 - `verification` is primarily meaningful for hypotheses or interpretations checked against other evidence.
 - a production capability can still emit `confidence=null` when its engine does not provide calibrated confidence.
 

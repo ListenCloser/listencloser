@@ -66,7 +66,7 @@ def test_retry_creates_a_linked_job_without_rewriting_terminal_history():
     client = MagicMock()
     repo = JobRepo(client)
     job = _job(JobStage.failed)
-    retry_id = uuid5(NAMESPACE_URL, f"hello-ai:retry:{job.id}")
+    retry_id = uuid5(NAMESPACE_URL, f"listencloser:retry:{job.id}")
     repo.get = MagicMock(side_effect=lambda candidate, _owner: job if candidate == job.id else None)
     repo._verify_workflow_owner = MagicMock()
 

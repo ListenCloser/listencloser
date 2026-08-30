@@ -2,7 +2,7 @@
 
 Evaluation-only work for GitHub issue #337.
 
-This benchmark asks whether hello-ai needs an optional multi-track symbolic evidence path beyond the existing Basic Pitch / Transkun routing. It does **not** change production routing, `capabilities.json`, persistence, frontend behavior, or deployment dependencies.
+This benchmark asks whether listencloser needs an optional multi-track symbolic evidence path beyond the existing Basic Pitch / Transkun routing. It does **not** change production routing, `capabilities.json`, persistence, frontend behavior, or deployment dependencies.
 
 ## Decision after the measured subset
 
@@ -10,7 +10,7 @@ This benchmark asks whether hello-ai needs an optional multi-track symbolic evid
 
 On five deterministic 30-second excerpts from the Slakh2100-redux test split, canonical MR-MT3 quality is measured from its decoded `NoteSequence` **before** `mt3-infer` MIDI serialization:
 
-| metric | hello-ai Basic Pitch | MR-MT3 decoder evidence |
+| metric | listencloser Basic Pitch | MR-MT3 decoder evidence |
 | --- | ---: | ---: |
 | flat onset F1 | 0.3871 | **0.7898** |
 | flat onset+offset F1 | 0.1397 | **0.2415** |
@@ -72,7 +72,7 @@ Decoder-sidecar provenance:
 - upstream adapter SHA-256 before instrumentation `5b376389c1f1794862b2704237cd01e20b1c2c32f474a429cf52afd20b2122ef`
 - instrumentation writes a JSON sidecar only; stock MIDI serialization is unchanged
 
-The locked hello-ai environment converts those sidecars into one MIDI stream per decoded program solely so the frozen scorer can consume them. Independent validation found every decoded note survives one-to-one on all five tracks with matching pitch/program/drum identity and at most ~1.1 ms serialization quantization—well below the 50 ms evaluation tolerance.
+The locked listencloser environment converts those sidecars into one MIDI stream per decoded program solely so the frozen scorer can consume them. Independent validation found every decoded note survives one-to-one on all five tracks with matching pitch/program/drum identity and at most ~1.1 ms serialization quantization—well below the 50 ms evaluation tolerance.
 
 Therefore **decoder-level evidence, not stock `mt3-infer` MIDI, is the canonical MR-MT3 measurement**. Any future product adapter must preserve decoded note identity and timestamps directly rather than consume the current stock MIDI serializer.
 
@@ -118,7 +118,7 @@ python -m backend.evaluation.analysis_v3.multitrack_transcription.run basic-pitc
   --manifest /tmp/slakh-multitrack.json \
   --dataset-root /data/slakh2100_flac_redux \
   --output-dir /tmp/basic-pitch-run \
-  --hello-ai-sha "$(git rev-parse HEAD)"
+  --listencloser-sha "$(git rev-parse HEAD)"
 ```
 
 Score any candidate satisfying `schemas/model_run_template.json`:

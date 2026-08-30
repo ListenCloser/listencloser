@@ -108,7 +108,7 @@ A model may be technically runnable yet unsuitable for product claims. Capabilit
 
 ### 3.1 Beat This is a current strong beat baseline, not a legacy curiosity
 
-MIREX 2025 explicitly includes **Beat This!** as a baseline. It remains competitive across multiple beat-tracking test sets. The current hello-ai registry defaults the beat engine to `librosa`, while `beat_this` is an optional engine. Therefore the V3 beat track should primarily ask:
+MIREX 2025 explicitly includes **Beat This!** as a baseline. It remains competitive across multiple beat-tracking test sets. The current listencloser registry defaults the beat engine to `librosa`, while `beat_this` is an optional engine. Therefore the V3 beat track should primarily ask:
 
 > Does Beat This materially improve beat timing over current `librosa`, and what should provide downbeat/meter/bar-phase evidence?
 
@@ -120,9 +120,9 @@ MIREX 2025 Music Structure Analysis reports a MusicFM baseline trained on Harmon
 
 The existing librosa structure baseline remains useful as an interpretable evaluation baseline.
 
-### 3.3 CLaMP3 is especially aligned with hello-ai
+### 3.3 CLaMP3 is especially aligned with listencloser
 
-CLaMP3 aligns text, audio, MIDI/performance signals, sheet music, and images in one representation space. Because hello-ai already persists audio, MIDI, and MusicXML representations, CLaMP3 should receive a high-priority operational bakeoff for:
+CLaMP3 aligns text, audio, MIDI/performance signals, sheet music, and images in one representation space. Because listencloser already persists audio, MIDI, and MusicXML representations, CLaMP3 should receive a high-priority operational bakeoff for:
 
 - cross-representation consistency,
 - text-to-passage retrieval,

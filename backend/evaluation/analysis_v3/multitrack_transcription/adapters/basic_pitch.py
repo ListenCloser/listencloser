@@ -1,4 +1,4 @@
-"""Adapters that exercise existing hello-ai transcription engines without production changes."""
+"""Adapters that exercise existing listencloser transcription engines without production changes."""
 
 from __future__ import annotations
 

@@ -6,7 +6,7 @@
 
 ## Product Question
 
-Should source separation become a first-class evidence layer for mixed music in hello-ai, and which OSS path is practical enough to justify a deeper quality/downstream-value evaluation?
+Should source separation become a first-class evidence layer for mixed music in listencloser, and which OSS path is practical enough to justify a deeper quality/downstream-value evaluation?
 
 This PR answers only the first-stage feasibility question. It does **not** answer whether separated stems improve chord, beat, melody, instrumentation, arrangement, or Breakdown quality.
 

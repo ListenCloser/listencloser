@@ -14,7 +14,7 @@ Current candidates do not clear all deployment/license/product-value gates simul
 - **Device**: CPU (no GPU)
 - **PyTorch**: 2.8.0
 - **Transformers**: 4.57.6
-- **hello-ai commit**: `eb4c85430f7e45c3c27316338c5e8b6e6db3a58a` (measurement commit)
+- **listencloser commit**: `eb4c85430f7e45c3c27316338c5e8b6e6db3a58a` (measurement commit)
 - **Branch**: `eval/analysis-v3-foundation-bakeoff`
 
 ## Candidate Matrix

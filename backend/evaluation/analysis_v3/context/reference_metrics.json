@@ -50,5 +50,5 @@
       "source": "https://essentia.upf.edu/models/classification-heads/mtg_jamendo_moodtheme/mtg_jamendo_moodtheme-discogs-effnet-1.json"
     }
   ],
-  "interpretation": "Upstream reference metrics only. They are not local hello-ai measurements and should not be compared directly with the tiny CLAP product probe as if they were matched-dataset scores."
+  "interpretation": "Upstream reference metrics only. They are not local listencloser measurements and should not be compared directly with the tiny CLAP product probe as if they were matched-dataset scores."
 }

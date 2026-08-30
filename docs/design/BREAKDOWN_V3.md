@@ -741,4 +741,4 @@ A person unfamiliar with MIR terminology should be able to choose or hear a pass
 6. **Can I ask a useful follow-up without losing context?**
 7. **Can I distinguish detected evidence from interpretation when it matters?**
 
-If the UI instead teaches the user hello-ai's detector taxonomy, Breakdown V3 has failed.
+If the UI instead teaches the user listencloser's detector taxonomy, Breakdown V3 has failed.

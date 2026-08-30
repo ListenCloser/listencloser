@@ -214,7 +214,7 @@ EngineProvenance(engine="skyline", library_version=pretty_midi.__version__, para
 Returns all `Insight` rows for a version. Frontend filters/categorizes.
 
 ### 8.2 Inspector Categorization (ask-ui)
-**File:** `hello-ai-worktrees/ask-ui/lib/inspector/insights.ts`
+**File:** `listencloser-worktrees/ask-ui/lib/inspector/insights.ts`
 
 ```typescript
 function categorizeInsight(insight, selection, bpm):
@@ -224,7 +224,7 @@ function categorizeInsight(insight, selection, bpm):
 ```
 
 ### 8.3 AskContext Construction
-**File:** `hello-ai-worktrees/ask-ui/lib/ask/context.ts:20-39`
+**File:** `listencloser-worktrees/ask-ui/lib/ask/context.ts:20-39`
 
 ```typescript
 deriveAskContext(workId, representationId, currentTime, activeSource, selection, insights, bpm)
@@ -298,5 +298,5 @@ Inspector   AskContext
 | `backend/domain/capabilities.py:694` | `handle_analyze` job handler |
 | `backend/domain/capabilities.py:195` | `_create_insight` persistence |
 | `backend/domain/api.py:695` | `/versions/{id}/insights` endpoint |
-| `hello-ai-worktrees/ask-ui/lib/ask/context.ts` | AskContext derivation |
-| `hello-ai-worktrees/ask-ui/lib/inspector/insights.ts` | Insight categorization |
+| `listencloser-worktrees/ask-ui/lib/ask/context.ts` | AskContext derivation |
+| `listencloser-worktrees/ask-ui/lib/inspector/insights.ts` | Insight categorization |

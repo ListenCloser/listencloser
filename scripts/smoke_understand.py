@@ -44,7 +44,7 @@ def _request(
 
 
 def _multipart_audio(path: Path) -> tuple[bytes, str]:
-    boundary = f"hello-ai-{uuid.uuid4().hex}"
+    boundary = f"listencloser-{uuid.uuid4().hex}"
     mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     body = b"".join(
         [

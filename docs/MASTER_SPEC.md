@@ -1,4 +1,4 @@
-# hello-ai Music Understanding Workspace — Master Product & Engineering Spec
+# listencloser Music Understanding Workspace — Master Product & Engineering Spec
 
 > **Status:** Authoritative source of truth for product direction, analysis architecture, engineering principles, roadmap, and agent execution.
 >
@@ -12,7 +12,7 @@
 
 ## 1. Executive summary
 
-hello-ai is not primarily an “audio-to-sheet-music app,” a “piano app,” or a collection of MIR demos. The long-term product is a **general music-understanding workspace** that helps a person answer:
+listencloser is not primarily an “audio-to-sheet-music app,” a “piano app,” or a collection of MIR demos. The long-term product is a **general music-understanding workspace** that helps a person answer:
 
 - What am I hearing?
 - What is happening musically right now?
@@ -429,11 +429,11 @@ No representation should be treated as the universal “final form.”
 
 ### 5.2 Hooktheory is a useful product reference
 
-Hooktheory TheoryTab demonstrates an important principle: traditional score/tab is optimized for performance, while relative notation can be optimized for **understanding relationships**. TheoryTab shows synchronized chord/melody timelines, Roman numerals, relative scale-based melody, and section structure. hello-ai should learn from this separation of “performing notation” versus “understanding notation,” while generating its own evidence rather than relying on crowd transcription.
+Hooktheory TheoryTab demonstrates an important principle: traditional score/tab is optimized for performance, while relative notation can be optimized for **understanding relationships**. TheoryTab shows synchronized chord/melody timelines, Roman numerals, relative scale-based melody, and section structure. listencloser should learn from this separation of “performing notation” versus “understanding notation,” while generating its own evidence rather than relying on crowd transcription.
 
 ### 5.3 Sonic Visualiser is a useful interaction reference
 
-Sonic Visualiser demonstrates the value of aligned waveform/spectrogram/MIDI layers, annotations, multiple time resolutions, analysis plugins, and synchronized playback. hello-ai should provide a more opinionated, consumer-friendly, persistent, explanatory experience built on similar synchronization principles.
+Sonic Visualiser demonstrates the value of aligned waveform/spectrogram/MIDI layers, annotations, multiple time resolutions, analysis plugins, and synchronized playback. listencloser should provide a more opinionated, consumer-friendly, persistent, explanatory experience built on similar synchronization principles.
 
 ---
 
@@ -583,7 +583,7 @@ Record:
 
 Modern MIR increasingly uses universal/pretrained representation models. ISMIR 2025 explicitly treated self-supervised learning as foundational for MIR, and ISMIR 2026 includes dedicated tutorials on LLMs x Music and evaluating music foundation models.
 
-hello-ai should evaluate foundation models as an **augmentation layer**, not immediately replace reliable specialized engines.
+listencloser should evaluate foundation models as an **augmentation layer**, not immediately replace reliable specialized engines.
 
 ### 8.1 Candidates to benchmark
 

@@ -12,7 +12,7 @@ This is strong promotion evidence for the Beat This model family, but it is **no
 
 ## Product question
 
-Which OSS system should provide beat positions, downbeat positions, tempo, and eventually meter evidence for hello-ai's rhythm, groove, structure, notation, and style-aware analysis?
+Which OSS system should provide beat positions, downbeat positions, tempo, and eventually meter evidence for listencloser's rhythm, groove, structure, notation, and style-aware analysis?
 
 ## Existing production baseline
 

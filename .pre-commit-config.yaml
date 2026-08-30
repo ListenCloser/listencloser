@@ -1,4 +1,4 @@
-# Pre-commit hooks for hello-ai.
+# Pre-commit hooks for listencloser.
 # Install once: uv tool install pre-commit && pre-commit install
 # Backend hooks intentionally run through the repository's locked uv environment
 # so local and CI tool versions cannot drift.

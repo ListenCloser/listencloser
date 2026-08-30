@@ -548,7 +548,7 @@ async def create_understand_workflow(
 
         job_id = uuid5(
             NAMESPACE_URL,
-            f"hello-ai:understand:1.0:{owner_id}:{version_id}:{profile}",
+            f"listencloser:understand:1.0:{owner_id}:{version_id}:{profile}",
         )
         job_repo = JobRepo(sb)
         existing_job = job_repo.get(job_id, owner_id)
@@ -562,7 +562,7 @@ async def create_understand_workflow(
         workflow = Workflow(
             id=uuid5(
                 NAMESPACE_URL,
-                f"hello-ai:understand-workflow:1.0:{owner_id}:{version_id}:{profile}",
+                f"listencloser:understand-workflow:1.0:{owner_id}:{version_id}:{profile}",
             ),
             project_id=project_id,
             kind=WorkflowKind.understand,
@@ -937,7 +937,7 @@ async def create_variation_workflow(
         _require_version_in_project(sb, version_id, project_id, owner_id)
         job_id = uuid5(
             NAMESPACE_URL,
-            f"hello-ai:variation:1.0:{owner_id}:{version_id}:{body.transpose_semitones}",
+            f"listencloser:variation:1.0:{owner_id}:{version_id}:{body.transpose_semitones}",
         )
         job_repo = JobRepo(sb)
         existing_job = job_repo.get(job_id, owner_id)
@@ -951,7 +951,7 @@ async def create_variation_workflow(
             id=uuid5(
                 NAMESPACE_URL,
                 (
-                    "hello-ai:variation-workflow:1.0:"
+                    "listencloser:variation-workflow:1.0:"
                     f"{owner_id}:{version_id}:{body.transpose_semitones}"
                 ),
             ),

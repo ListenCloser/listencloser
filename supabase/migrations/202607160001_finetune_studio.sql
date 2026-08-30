@@ -1,4 +1,4 @@
--- Migration: hello-ai finetune studio schema
+-- Migration: listencloser finetune studio schema
 -- Jobs (training runs), trained models (LoRA adapters), and storage buckets
 -- for datasets + adapters. RLS allows public read + insert (demo project).
 

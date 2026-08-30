@@ -1,6 +1,6 @@
 # Analysis V3 Audio-Language Grounded QA — Reference/Feasibility Stage
 
-Reference metadata was first assessed on hello-ai commit `19fe23a765d6b80ce099be428e46f701cf97c828`; the evaluation harness has since been synchronized with current `main`. No local large-model inference is claimed by this report.
+Reference metadata was first assessed on listencloser commit `19fe23a765d6b80ce099be428e46f701cf97c828`; the evaluation harness has since been synchronized with current `main`. No local large-model inference is claimed by this report.
 
 ## Executive decision
 
@@ -10,9 +10,9 @@ This stage supports a narrower architecture decision: continue a **research-only
 
 | candidate | exact checkpoint | license | hardware | max audio | exact-MIR result | relational result | semantic usefulness | hallucination / contradiction | decision |
 |---|---|---|---|---|---|---|---|---|---|
-| Music Flamingo | `nvidia/music-flamingo-2601-hf` | NVIDIA OneWay Noncommercial weights; code/license tracked separately | upstream reports A100 80 GB test hardware; hello-ai not measured | current HF/Transformers path: up to 20 min | no hello-ai local run; CMI-Bench is a general warning against audio-LLM exact-fact authority | no hello-ai local run | strongest music-specialized first-run candidate; unmeasured locally | unmeasured locally | RESEARCH |
-| Audio Flamingo 3 | `nvidia/audio-flamingo-3-hf` | NVIDIA OneWay Noncommercial weights | hello-ai not measured | 10 min; longer inputs truncate | no hello-ai local run | MUSE reports AF3 at/near chance on several music-perception / relational tasks | useful general audio-language control; unmeasured locally | unmeasured locally | RESEARCH |
-| Qwen2.5-Omni-7B | `Qwen/Qwen2.5-Omni-7B` | Apache-2.0 | heavy GPU-oriented checkpoint; hello-ai not measured | model-specific audio limits must be pinned for a real run | no hello-ai local run | MUSE reports near-chance behavior on several core tasks | unmeasured locally | unmeasured locally | REVISIT |
+| Music Flamingo | `nvidia/music-flamingo-2601-hf` | NVIDIA OneWay Noncommercial weights; code/license tracked separately | upstream reports A100 80 GB test hardware; listencloser not measured | current HF/Transformers path: up to 20 min | no listencloser local run; CMI-Bench is a general warning against audio-LLM exact-fact authority | no listencloser local run | strongest music-specialized first-run candidate; unmeasured locally | unmeasured locally | RESEARCH |
+| Audio Flamingo 3 | `nvidia/audio-flamingo-3-hf` | NVIDIA OneWay Noncommercial weights | listencloser not measured | 10 min; longer inputs truncate | no listencloser local run | MUSE reports AF3 at/near chance on several music-perception / relational tasks | useful general audio-language control; unmeasured locally | unmeasured locally | RESEARCH |
+| Qwen2.5-Omni-7B | `Qwen/Qwen2.5-Omni-7B` | Apache-2.0 | heavy GPU-oriented checkpoint; listencloser not measured | model-specific audio limits must be pinned for a real run | no listencloser local run | MUSE reports near-chance behavior on several core tasks | unmeasured locally | unmeasured locally | REVISIT |
 | LLark | no released trained checkpoint | Apache-2.0 code; no official weights | not runnable as released model | N/A | historical reference only | historical reference only | historical reference only | N/A | REVISIT |
 
 There is no `ADOPT` decision in this stage.
@@ -25,7 +25,7 @@ No large audio-language checkpoint is run by this PR. The stage contributes:
 - reference benchmark conclusions from CMI-Bench and MUSE;
 - a deterministic claim-level scoring contract for future model runs;
 - fixed exact-MIR / relational probe contracts;
-- a fixed hello-ai grounded-explanation question manifest;
+- a fixed listencloser grounded-explanation question manifest;
 - a non-composite gate for deciding whether raw audio adds grounded value over evidence-only Ask.
 
 Any future local model measurement must be stored separately with model version/checksum, hardware, audio IDs/spans, prompts, generation settings, raw response, and manual annotation provenance.
@@ -34,7 +34,7 @@ Any future local model measurement must be stored separately with model version/
 
 ### Music Flamingo — RESEARCH
 
-The current Hugging Face Transformers checkpoint is an 8B, ~16.5 GB model using a Qwen2.5-7B language backbone. The current Transformers/model-card path supports up to 20 minutes of audio; this supersedes older project-page descriptions of an approximately 15-minute receptive field. NVIDIA reports A100 80 GB as test hardware. We have not measured hello-ai CPU/GPU latency or memory.
+The current Hugging Face Transformers checkpoint is an 8B, ~16.5 GB model using a Qwen2.5-7B language backbone. The current Transformers/model-card path supports up to 20 minutes of audio; this supersedes older project-page descriptions of an approximately 15-minute receptive field. NVIDIA reports A100 80 GB as test hardware. We have not measured listencloser CPU/GPU latency or memory.
 
 The released weights use the NVIDIA OneWay Noncommercial License. That alone prevents this checkpoint from being a default commercial production dependency, even if research quality is high.
 
@@ -46,7 +46,7 @@ AF3 is useful as the general audio-language control, but MUSE reports AF3 at or 
 
 ### Qwen2.5-Omni-7B — REVISIT
 
-The official checkpoint is ~22.4 GB and Apache-2.0. That licensing is much more compatible with a future product than the NVIDIA candidates, but licensing alone is not enough: MUSE reports Qwen2.5-Omni at or near chance on several core music-perception tasks, and the checkpoint is heavier than the NVIDIA 7B/8B candidates. No hello-ai audio-only runtime is measured here.
+The official checkpoint is ~22.4 GB and Apache-2.0. That licensing is much more compatible with a future product than the NVIDIA candidates, but licensing alone is not enough: MUSE reports Qwen2.5-Omni at or near chance on several core music-perception tasks, and the checkpoint is heavier than the NVIDIA 7B/8B candidates. No listencloser audio-only runtime is measured here.
 
 ### LLark — REVISIT
 
@@ -74,15 +74,15 @@ Product implication: before/after, same/different, pitch/rhythm/timbre relation 
 
 Exact thresholds/tolerances must be fixed before running a candidate and recorded with the case manifest.
 
-### hello-ai grounded explanation benchmark
+### listencloser grounded explanation benchmark
 
 The product-specific semantic experiment is not `which model writes the nicest paragraph?` It is:
 
 ```text
 same case + same question
   ├─ audio only
-  ├─ structured hello-ai evidence only
-  └─ audio + structured hello-ai evidence
+  ├─ structured listencloser evidence only
+  └─ audio + structured listencloser evidence
 ```
 
 Human/manual annotation partitions each answer into supported, contradicted, and unsupported claims and checks evidence references, abstention, temporal localization, usefulness, and specificity.
@@ -106,7 +106,7 @@ There is deliberately no weighted composite that can hide a hallucination regres
 
 The scored-run path requires:
 
-- non-empty evaluation id, hello-ai SHA, model and immutable model version;
+- non-empty evaluation id, listencloser SHA, model and immutable model version;
 - model checksum key (`null` only when genuinely unobtainable);
 - code and weight licenses separately;
 - non-empty environment, generation, and operational metadata;

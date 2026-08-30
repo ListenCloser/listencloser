@@ -70,7 +70,7 @@ def queue_wait_metric_attributes(capability: str) -> dict[str, str]:
 def _get_metrics() -> tuple[Any, Any, Any]:
     global _worker_performance_metrics
     if _worker_performance_metrics is None:
-        meter = metrics.get_meter("hello-ai-worker")
+        meter = metrics.get_meter("listencloser-worker")
         _worker_performance_metrics = (
             meter.create_histogram(
                 "hello_ai.worker.queue_wait",

@@ -121,7 +121,7 @@ The open-source `pgmq` project uses the PostgreSQL license and explicitly aims f
 
 ### Live project compatibility
 
-The current `hello-ai` Supabase project exposes `pgmq` version `1.5.1` as an available extension. It is **not installed** today. That is the ideal state for an evaluation: no migration has occurred and no production queue behavior has changed.
+The current `listencloser` Supabase project exposes `pgmq` version `1.5.1` as an available extension. It is **not installed** today. That is the ideal state for an evaluation: no migration has occurred and no production queue behavior has changed.
 
 ### Proposed role
 

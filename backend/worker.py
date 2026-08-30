@@ -17,9 +17,9 @@ from observability import configure_logging, init_sentry, init_telemetry
 
 
 def main() -> None:
-    configure_logging("hello-ai-worker")
+    configure_logging("listencloser-worker")
     logger = logging.getLogger("worker")
-    init_telemetry("hello-ai-worker")
+    init_telemetry("listencloser-worker")
     init_sentry(logger)
 
     # Pay expensive process-local cold paths before JobWorker.run() publishes

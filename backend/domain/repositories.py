@@ -763,7 +763,7 @@ class JobRepo(_Repo):
             JobStage.cancelled,
         }:
             raise RuntimeError(f"cannot retry a {job.lifecycle.current.value} job")
-        retry_id = uuid5(NAMESPACE_URL, f"hello-ai:retry:{job.id}")
+        retry_id = uuid5(NAMESPACE_URL, f"listencloser:retry:{job.id}")
         existing_retry = self.get(retry_id, owner_id)
         if existing_retry:
             return existing_retry

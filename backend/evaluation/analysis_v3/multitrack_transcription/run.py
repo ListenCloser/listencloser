@@ -288,7 +288,7 @@ def main() -> None:
     baseline_parser.add_argument("--manifest", type=Path, required=True)
     baseline_parser.add_argument("--dataset-root", type=Path, required=True)
     baseline_parser.add_argument("--output-dir", type=Path, required=True)
-    baseline_parser.add_argument("--hello-ai-sha", required=True)
+    baseline_parser.add_argument("--listencloser-sha", required=True)
     baseline_parser.add_argument("--limit", type=int, default=None)
 
     score_parser = subparsers.add_parser("score")
