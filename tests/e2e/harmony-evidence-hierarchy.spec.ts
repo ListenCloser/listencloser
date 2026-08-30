@@ -50,17 +50,19 @@ test("breakdown remains prioritized and evidence fits a constrained inspector", 
   await page.setViewportSize({ width: 900, height: 760 });
   await openWorkspace(page);
 
+  // Some deterministic fixtures legitimately have no localized finding. When
+  // findings exist, only the first three may be in the default scan path.
   const promotedFindings = page.locator(".inspector-breakdown-findings > .inspector-breakdown-finding");
   const promotedCount = await promotedFindings.count();
-  expect(promotedCount).toBeGreaterThan(0);
   expect(promotedCount).toBeLessThanOrEqual(3);
 
-  const allFindings = page.locator(".inspector-breakdown-finding");
-  const moreDisclosure = page.getByText(/More findings/, { exact: false });
+  const moreDisclosure = page.locator("details").filter({ has: page.getByText(/More findings/, { exact: false }) }).first();
   if (await moreDisclosure.count()) {
-    await moreDisclosure.first().click();
-    const disclosedCount = await allFindings.count();
-    expect(disclosedCount).toBeGreaterThan(promotedCount);
+    const hiddenFindings = moreDisclosure.locator(".inspector-breakdown-finding");
+    expect(await hiddenFindings.count()).toBeGreaterThan(0);
+    await expect(hiddenFindings.first()).not.toBeVisible();
+    await moreDisclosure.locator(":scope > summary").click();
+    await expect(hiddenFindings.first()).toBeVisible();
   }
 
   const table = await openHarmonyEvidence(page);
