@@ -12,6 +12,10 @@ async function startProcessing(page: Page, filename: string) {
   await page.reload();
 
   const importButton = page.getByRole("complementary").getByRole("button", { name: "Import audio" });
+  if (!(await importButton.isVisible())) {
+    const showLibrary = page.getByRole("button", { name: "Show library" });
+    if (await showLibrary.isVisible()) await showLibrary.click();
+  }
   await expect(importButton).toBeVisible({ timeout: 20_000 });
   await expect(importButton).toBeEnabled({ timeout: 10_000 });
   await importButton.click();
