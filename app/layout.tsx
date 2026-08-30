@@ -5,6 +5,8 @@ import "./product-polish-v4.css";
 import "./workspace-interactions.css";
 // Keep visual-language rules after structural chrome so product craft wins the cascade.
 import "./visual-language.css";
+// Musical representations own a small semantic visual-state contract independent of renderer implementation.
+import "./representation-visuals.css";
 import "./mobile-workspace.css";
 import "./readiness-polish-v6.css";
 import "./breakdown.css";
