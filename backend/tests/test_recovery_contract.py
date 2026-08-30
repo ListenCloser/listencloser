@@ -16,22 +16,22 @@ def test_backup_capture_is_private_complete_and_non_destructive() -> None:
     script = BACKUP_SCRIPT.read_text()
 
     assert 'REQUIRED_SUPABASE_CLI_VERSION="2.113.0"' in script
-    assert 'umask 077' in script
-    assert 'RECOVERY_OUTPUT_ROOT' in script
-    assert 'must be outside the Git repository' in script
+    assert "umask 077" in script
+    assert "RECOVERY_OUTPUT_ROOT" in script
+    assert "must be outside the Git repository" in script
 
-    assert 'auth.users' in script
-    assert 'storage.objects' in script
-    assert 'from storage.buckets b' in script
+    assert "auth.users" in script
+    assert "storage.objects" in script
+    assert "from storage.buckets b" in script
     assert 'supabase storage cp -r "ss://$bucket"' in script
-    assert 'private-file-hashes.jsonl' in script
-    assert 'BACKUP_COMPLETE' in script
+    assert "private-file-hashes.jsonl" in script
+    assert "BACKUP_COMPLETE" in script
 
     # Capture must never grow into an automatic/destructive restore path.
-    assert 'supabase db reset --linked' not in script
-    assert 'supabase storage rm' not in script
-    assert 'drop database' not in script.lower()
-    assert 'delete from' not in script.lower()
+    assert "supabase db reset --linked" not in script
+    assert "supabase storage rm" not in script
+    assert "drop database" not in script.lower()
+    assert "delete from" not in script.lower()
 
 
 def test_recovery_runbook_keeps_restore_isolated_and_storage_separate() -> None:
