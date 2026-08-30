@@ -78,7 +78,7 @@ export default function LibraryImportControl({
         <MenuButton
           className="library-import-btn"
           disabled={disabled}
-          aria-label="Import recording"
+          aria-label="Import audio"
           aria-busy={busy || undefined}
           aria-describedby={statusId}
         >
