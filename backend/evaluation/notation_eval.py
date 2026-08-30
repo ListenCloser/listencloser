@@ -303,12 +303,16 @@ def run_notation_evaluation(
 ) -> dict[str, Any]:
     """Run stage-attributed notation evaluation on all eligible manifest clips."""
     manifest = _load_evaluation_manifest(manifest_path)
+    eligible_clips = [clip for clip in manifest.clips if clip.reference_midi]
+    if not eligible_clips:
+        raise ValueError(
+            "notation evaluation has no clips with prepared reference MIDI; inspect the "
+            "prepared corpus statuses or rerun `python -m evaluation.datasets.prepare "
+            f"--corpus {manifest.name}` after materializing the required dataset files"
+        )
+
     results: list[dict[str, Any]] = []
-
-    for clip in manifest.clips:
-        if not clip.reference_midi:
-            continue
-
+    for clip in eligible_clips:
         for evaluation_mode in _modes_for_run(mode):
             print(f"Evaluating {clip.id} [{evaluation_mode}]...")
             try:
