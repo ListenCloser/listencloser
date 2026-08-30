@@ -14,6 +14,7 @@ dependencies = [
   "scipy==1.14.1",
   "numpy==1.26.4",
   "supabase==2.31.0",
+  "supabase-auth",
   "sentry-sdk>=2.14.0",
   # OpenTelemetry 1.27+ moves generated protocol packages onto protobuf >=5,
   # which conflicts with Basic Pitch's TensorFlow runtime (protobuf <5).
@@ -25,21 +26,12 @@ dependencies = [
   # OTel instrumentation 0.47b0 still imports pkg_resources. Setuptools 82
   # removed that module, so keep the compatibility floor until OTel can move.
   "setuptools<82",
-  "basic-pitch[tf]==0.4.0",
   "pretty-midi==0.2.10",
   "soundfile==0.12.1",
   "pyfluidsynth==1.4.0",
   "librosa>=0.10.0",
-  "beat-this==1.1.0",
-  # 2.6.0 is the first release patched for GHSA-53q9-r3pm-6pq6.
-  "torchaudio==2.6.0",
   "music21>=10.0.0",
   "partitura>=1.5.0",
-  "transkun==2.0.1",
-  "torch==2.6.0",
-  "moduleconf==0.1.4",
-  "soxr==0.5.0.post1",
-  "lv-chordia>=1.1.0",
 ]
 
 [dependency-groups]
@@ -47,6 +39,18 @@ dev = [
   "pytest==9.1.1",
   "pytest-asyncio>=0.23.0",
   "ruff==0.5.7",
+]
+worker = [
+  "basic-pitch[tf]==0.4.0",
+  "beat-this==1.1.0",
+  # Keep the Torch pair explicit in the worker group so production engine
+  # compatibility is owned here rather than by a transitive dependency.
+  "torch==2.6.0",
+  "torchaudio==2.6.0",
+  "transkun==2.0.1",
+  "moduleconf==0.1.4",
+  "soxr==0.5.0.post1",
+  "lv-chordia>=1.1.0",
 ]
 
 [tool.uv]
