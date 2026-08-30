@@ -203,11 +203,11 @@ export default function AskPanel() {
   return (
     <div className="ask-panel ask-panel-v4">
       {showScope && (
-        <div className="ask-context" aria-label={`Question context: ${scope}`}>
+        <div className={`ask-context ${styles.context}`} aria-label={`Question context: ${scope}`}>
           <span>{scope}</span>
           <button
             type="button"
-            className="ask-context-clear"
+            className={styles.contextClear}
             onClick={clearSelection}
             aria-label="Clear question context"
           >
@@ -224,7 +224,7 @@ export default function AskPanel() {
             {starterPrompts.length > 0 && (
               <div className="ask-prompts">
                 {starterPrompts.map((prompt) => (
-                  <button type="button" className="ask-prompt" key={prompt} onClick={() => void handleAsk(prompt)}>
+                  <button type="button" className={`ask-prompt ${styles.prompt}`} key={prompt} onClick={() => void handleAsk(prompt)}>
                     {prompt}
                   </button>
                 ))}
@@ -254,7 +254,7 @@ export default function AskPanel() {
       </div>
 
       {error && (
-        <div className="ask-error" role="alert">
+        <div className={`ask-error ${styles.compactError}`} role="alert">
           <span>{error}</span>
           {lastAsked && <button type="button" onClick={retry}>Retry</button>}
         </div>
@@ -274,7 +274,7 @@ export default function AskPanel() {
         />
         <button
           type="submit"
-          className="ask-send"
+          className={`ask-send ${styles.send}`}
           disabled={pending || !draft.trim()}
           aria-label="Send question"
         >
