@@ -5,7 +5,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.registry import get_notation_engine
 
