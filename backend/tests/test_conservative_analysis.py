@@ -4,13 +4,9 @@ from __future__ import annotations
 
 import pretty_midi
 
-from analyze import (
-    _beat_phase_distribution,
-    _m21_phrases,
-    _midi_melody,
-    _midi_rhythm,
-    _pick_melody_note,
-)
+from analyze import _beat_phase_distribution, _midi_rhythm
+from engines.harmony.music21_engine import _m21_phrases
+from engines.melody.skyline_engine import _midi_melody, _pick_melody_note
 
 
 def _note(pitch, start, end, vel=80):
