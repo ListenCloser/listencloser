@@ -24,7 +24,7 @@ docker run --rm \
 # Keep the permanent security ratchet intentionally narrow: regular-persona,
 # medium-or-higher, medium-confidence-or-higher workflow findings only. Offline
 # mode makes the result independent of GitHub API availability or token scope.
-ZIZMOR_OFFLINE=1 uvx "zizmor@${ZIZMOR_VERSION}" \
+ZIZMOR_OFFLINE=true uvx "zizmor@${ZIZMOR_VERSION}" \
   --persona=regular \
   --min-severity=medium \
   --min-confidence=medium \
