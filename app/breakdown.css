@@ -357,3 +357,96 @@
     transition: none;
   }
 }
+
+/* Compact evidence hierarchy: nested counts stay with their labels instead of
+ * floating after the disclosure glyph, and harmony shares one aligned timeline
+ * rather than repeating the same span across three separate chip blocks. */
+.inspector-breakdown-evidence-root .inspector-evidence-group .inspector-evidence-count {
+  order: 0;
+  min-width: 0;
+  margin-left: -2px;
+  text-align: left;
+}
+
+.inspector-harmony-table {
+  display: grid;
+  gap: 0;
+  padding: 2px 0 10px;
+}
+
+.inspector-harmony-row {
+  min-width: 0;
+  min-height: 30px;
+  display: grid;
+  grid-template-columns: 42px minmax(58px, 1.25fr) minmax(42px, 0.7fr) minmax(66px, 1fr);
+  align-items: center;
+  column-gap: 6px;
+  border-bottom: 1px solid rgba(241, 239, 232, 0.045);
+}
+
+.inspector-harmony-row:last-child {
+  border-bottom: 0;
+}
+
+.inspector-harmony-header {
+  min-height: 24px;
+  color: #716c63;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.inspector-harmony-time {
+  color: #777168;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.inspector-harmony-value {
+  min-width: 0;
+  padding: 4px 2px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #aaa49a;
+  font: inherit;
+  font-size: 9.5px;
+  line-height: 1.25;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.inspector-harmony-value:hover {
+  background: rgba(214, 181, 109, 0.055);
+  color: #d8d2c7;
+}
+
+.inspector-harmony-value:focus-visible {
+  outline: 2px solid rgba(214, 181, 109, 0.66);
+  outline-offset: 1px;
+}
+
+.inspector-harmony-chord {
+  color: #d2cdc3;
+  font-weight: 580;
+}
+
+.inspector-harmony-degree {
+  color: #bcae86;
+  font-family: var(--font-mono);
+}
+
+.inspector-harmony-function {
+  color: #888278;
+}
+
+.inspector-harmony-empty {
+  cursor: default;
+  opacity: 0.42;
+}
