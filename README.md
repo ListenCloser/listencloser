@@ -46,10 +46,23 @@ The browser does not receive Oracle service credentials or call the VM directly.
 
 ## Local development
 
-Frontend:
+The repository expects Node 22.x, npm 10.x, and uv 0.12.6. npm enforces the Node/npm contract before install/run commands, while the backend project pins uv and Python 3.11.
+
+From a fresh clone, first inspect the local prerequisites:
 
 ```bash
-npm install
+npm run doctor
+```
+
+Then install the locked frontend and backend environments with the canonical bootstrap:
+
+```bash
+npm run bootstrap
+```
+
+`bootstrap` uses `npm ci` and `uv sync --project backend --locked`; it does not create a second dependency authority. After setup:
+
+```bash
 npm run dev
 ```
 
@@ -61,6 +74,8 @@ npm run check:frontend
 npm run check:backend
 npm run check:e2e
 ```
+
+Browser E2E additionally needs Playwright Chromium (`npx playwright install chromium`). Database/real-stack tiers additionally need Docker and the Supabase CLI. The checked-in devcontainer already supplies the common system dependencies for the containerized development path.
 
 Use the verification ladder in `AGENTS.md` / `docs/AGENT_EXECUTION_PLAYBOOK.md`; do not run heavyweight real-stack or model evaluation merely because a text-only change exists.
 
