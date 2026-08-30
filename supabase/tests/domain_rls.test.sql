@@ -2,13 +2,8 @@ begin;
 
 select plan(10);
 
--- Exercise row-level security as the same Postgres role used by authenticated
--- Supabase requests. auth.uid() reads request.jwt.claim.sub, so deterministic
--- UUID claims are enough to test policy behavior without provisioning Auth users.
-set local role authenticated;
-
-select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
-
+-- Seed server-owned lineage as the database owner. Browser roles deliberately
+-- cannot create Workflows/Jobs after the server-owned-domain migration.
 insert into public.projects (id, owner_id, name, description)
 values (
   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -30,6 +25,12 @@ values (
   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   'understand'
 );
+
+-- Exercise row-level security as the same Postgres role used by authenticated
+-- Supabase requests. auth.uid() reads request.jwt.claim.sub, so deterministic
+-- UUID claims are enough to test policy behavior without provisioning Auth users.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
 
 select is(
   (select count(*) from public.projects where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
