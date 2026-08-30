@@ -3,7 +3,7 @@
  *
  * Visual language:
  * - Quiet chromatic lanes with stronger octave/C anchors for pitch orientation
- * - Beat + half-beat hierarchy only; no fabricated measure grid without meter evidence
+ * - Existing uniform tempo scaffold only; no fabricated subdivisions or measure grid
  * - Real note events dominate the grid, with velocity preserved through opacity
  * - Shared playback/selection tokens for active time and user-selected evidence
  * - Sparse wall-clock labels for orientation without implying musical structure
@@ -220,39 +220,20 @@ export default function PianoRoll({
             );
           })}
 
-          {/* Half-beat subdivisions improve timing precision without implying meter. */}
-          {Array.from({ length: Math.floor(totalBeats * 2) + 1 }, (_, index) => {
-            if (index % 2 === 0) return null;
-            const x = LABEL_W + (index / 2) * PPQ;
-            return (
-              <line
-                key={`subdivision-${index}`}
-                data-grid-kind="subdivision"
-                x1={x}
-                y1={TOP_PAD}
-                x2={x}
-                y2={h}
-                stroke="var(--border)"
-                strokeWidth={0.3}
-                strokeOpacity={0.16}
-              />
-            );
-          })}
-
-          {/* Beat grid — deliberately uniform because meter/downbeats are not inputs here. */}
+          {/* Uniform tempo scaffold retained from the existing view. It is not a detected beat/downbeat grid. */}
           {Array.from({ length: Math.floor(totalBeats) + 1 }, (_, i) => {
             const x = LABEL_W + i * PPQ;
             return (
               <line
                 key={`beat-${i}`}
-                data-grid-kind="beat"
+                data-grid-kind="tempo-beat"
                 x1={x}
                 y1={TOP_PAD}
                 x2={x}
                 y2={h}
                 stroke="var(--border)"
                 strokeWidth={0.5}
-                strokeOpacity={0.42}
+                strokeOpacity={0.38}
               />
             );
           })}
