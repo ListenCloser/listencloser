@@ -42,6 +42,12 @@
   white-space: nowrap;
 }
 
+.cell {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
 .value {
   width: 100%;
   min-width: 0;
