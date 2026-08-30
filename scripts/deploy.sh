@@ -7,7 +7,7 @@ set -euo pipefail
 # to a registry digest, and recreate API + worker without building on Oracle.
 # The legacy VM-build path remains as a safe transition/rollback fallback.
 
-REPO_DIR="${DEPLOY_DIR:-$HOME/listencloser}"
+REPO_DIR="${DEPLOY_DIR:-$HOME/hello-ai}"
 REPO_URL="https://github.com/ListenCloser/listencloser.git"
 COMPOSE="${DOCKER_COMPOSE_FILE:-backend/docker-compose.yml}"
 BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
@@ -165,7 +165,7 @@ use_numba_cache_for_release() {
 }
 
 preseed_librosa_numba_cache() {
-  echo "[deploy] preseeding target worker Numba cache while current release stays online"
+  echo "[deploy] preseeding explicit librosa rollback Numba cache while current release stays online"
 
   if ! docker compose -f "$COMPOSE" run --rm --no-deps --user root --entrypoint sh worker \
     -c 'mkdir -p "$NUMBA_CACHE_DIR" && chown 1001:1001 /app/runtime && chown -R 1001:1001 "$NUMBA_CACHE_DIR"'; then
@@ -174,11 +174,11 @@ preseed_librosa_numba_cache() {
   fi
 
   local started=$SECONDS
-  if docker compose -f "$COMPOSE" run --rm --no-deps --entrypoint python worker \
+  if docker compose -f "$COMPOSE" run --rm --no-deps -e BEAT_ENGINE=librosa --entrypoint python worker \
     -c 'from domain.worker_warmup import prewarm_librosa_beat_tracking; prewarm_librosa_beat_tracking()'; then
-    echo "[deploy] target Numba cache preseeded in $((SECONDS - started))s"
+    echo "[deploy] explicit librosa rollback Numba cache preseeded in $((SECONDS - started))s"
   else
-    echo "[deploy] warning: Numba cache preseed failed; replacement worker will retry before readiness" >&2
+    echo "[deploy] warning: librosa rollback Numba cache preseed failed" >&2
   fi
 }
 

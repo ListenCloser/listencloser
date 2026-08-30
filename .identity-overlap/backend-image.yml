@@ -1,0 +1,141 @@
+name: Backend Image
+
+on:
+  workflow_call:
+
+concurrency:
+  group: backend-image-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-contract:
+    name: Validate deploy contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate deployment shell syntax
+        run: bash -n scripts/deploy.sh
+      - name: Validate Compose prebuilt-image and worker-cache contract
+        env:
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role
+          BACKEND_IMAGE: ghcr.io/listencloser/listencloser-backend:test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          NUMBA_CACHE_DIR: /app/runtime/numba-cache/test-release
+        run: |
+          set -euo pipefail
+          docker compose -f backend/docker-compose.yml config > /tmp/listencloser-compose.yml
+          images="$(docker compose -f backend/docker-compose.yml config --images | sort -u)"
+          test "$(printf '%s\n' "$images" | sed '/^$/d' | wc -l)" -eq 1
+          grep -Fq "$BACKEND_IMAGE" <<<"$images"
+          grep -Fq "NUMBA_CACHE_DIR: $NUMBA_CACHE_DIR" /tmp/listencloser-compose.yml
+      - name: Validate rollback preseed remains before live worker switch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          deploy = Path('scripts/deploy.sh').read_text()
+          preseed_call = '\npreseed_librosa_numba_cache\n'
+          switch_log = 'echo "[deploy] switching API and worker'
+          assert preseed_call in deploy
+          assert switch_log in deploy
+          assert deploy.index(preseed_call) < deploy.index(switch_log)
+          assert 'use_numba_cache_for_release "$TARGET_HEAD"' in deploy
+          assert 'use_numba_cache_for_release "$PREV_HEAD"' in deploy
+          assert 'from domain.worker_warmup import prewarm_librosa_beat_tracking' in deploy
+          assert '-e BEAT_ENGINE=librosa --entrypoint python worker' in deploy
+          assert 'REPO_URL="https://github.com/ListenCloser/listencloser.git"' in deploy
+          PY
+
+  build:
+    name: Build backend image (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build production backend image natively
+        run: docker build --tag listencloser-backend:${{ matrix.arch }} backend
+      - name: Verify promoted Beat This checkpoint loads in production image
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker run --rm \
+            --entrypoint python \
+            "listencloser-backend:${ARCH}" \
+            -c 'from engines.beats.beat_this_engine import BeatThisEngine, prewarm_beat_this_model; e=BeatThisEngine(); prewarm_beat_this_model(); assert e.provenance.model == "final0"; assert e.provenance.parameters["checkpoint"] == "final0"'
+      - name: Measure persistent Numba cache for explicit librosa rollback
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          volume="listencloser-numba-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ARCH}"
+          cleanup() {
+            docker volume rm -f "$volume" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker volume create "$volume" >/dev/null
+          docker run --rm \
+            --user root \
+            -v "$volume:/app/runtime/numba-cache" \
+            --entrypoint sh \
+            "listencloser-backend:${ARCH}" \
+            -c 'chown -R 1001:1001 /app/runtime/numba-cache'
+
+          run_probe() {
+            local label="$1"
+            docker run --rm \
+              -e BEAT_ENGINE=librosa \
+              -e NUMBA_CACHE_DIR=/app/runtime/numba-cache \
+              -v "$volume:/app/runtime/numba-cache" \
+              --entrypoint python \
+              "listencloser-backend:${ARCH}" \
+              -c 'import json, os, time; from pathlib import Path; from domain.worker_warmup import prewarm_librosa_beat_tracking; started=time.perf_counter(); prewarm_librosa_beat_tracking(); prewarm=time.perf_counter()-started; started=time.perf_counter(); prewarm_librosa_beat_tracking(); hot=time.perf_counter()-started; cache_files=sum(1 for path in Path(os.environ["NUMBA_CACHE_DIR"]).rglob("*") if path.is_file()); print("NUMBA_BENCHMARK=" + json.dumps({"prewarm_seconds": round(prewarm, 6), "hot_call_seconds": round(hot, 6), "cache_files": cache_files}, sort_keys=True))' \
+              2>&1 | tee "/tmp/numba-${label}.log"
+          }
+
+          run_probe first
+          run_probe second
+          first="$(grep '^NUMBA_BENCHMARK=' /tmp/numba-first.log | tail -1 | cut -d= -f2-)"
+          second="$(grep '^NUMBA_BENCHMARK=' /tmp/numba-second.log | tail -1 | cut -d= -f2-)"
+          mkdir -p performance-results
+          python - "$first" "$second" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          first = json.loads(sys.argv[1])
+          second = json.loads(sys.argv[2])
+          if first["cache_files"] <= 0 or second["cache_files"] <= 0:
+              raise SystemExit("Numba rollback benchmark produced no persistent cache files")
+          record = {
+              "schema_version": 1,
+              "scenario": "librosa_rollback_numba_cache_persistence",
+              "thresholds_enforced": False,
+              "arch": os.environ["ARCH"],
+              "first_fresh_container": first,
+              "second_fresh_container": second,
+          }
+          output = json.dumps(record, indent=2, sort_keys=True) + "\n"
+          path = Path("performance-results") / f"numba-cache-{os.environ['ARCH']}.json"
+          path.write_text(output)
+          print(output, end="")
+          PY
+      - name: Upload librosa rollback Numba cache benchmark
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: numba-cache-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: performance-results/numba-cache-${{ matrix.arch }}.json
+          if-no-files-found: error
+          retention-days: 30

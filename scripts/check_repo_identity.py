@@ -52,6 +52,8 @@ HISTORICAL_PREFIXES = (
 )
 
 COMPATIBILITY_PATTERNS = {
+    ".gitignore": ("hello-ai-worktrees/",),
+    ".github/workflows/deploy-backend.yml": ("~/hello-ai",),
     "backend/domain/api.py": (
         "hello-ai:understand:1.0:",
         "hello-ai:understand-workflow:1.0:",
@@ -76,6 +78,7 @@ COMPATIBILITY_PATTERNS = {
     "backend/tests/test_piano_transcription_profiles.py": ("hello_ai_sha",),
     "backend/tests/test_fixture_manifest.py": ("hello-ai-autonomous-handoff",),
     "backend/tests/test_job_controls.py": ("hello-ai:retry:",),
+    "scripts/deploy.sh": ("$HOME/hello-ai",),
 }
 
 
