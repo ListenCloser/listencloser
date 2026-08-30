@@ -42,15 +42,20 @@ describe("askMusic", () => {
     expect(body.context).toEqual(context);
   });
 
-  it("throws a readable error when the backend returns an error", async () => {
+  it("preserves readable error, status, and request correlation", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: false,
       status: 502,
+      headers: new Headers({ "x-request-id": "ask-client-test" }),
       json: async () => ({ error: "Ask is unavailable" }),
     }));
 
     const context = deriveAskContext("work-1", "listen", 15, perfSource, null, [], 120);
-    await expect(askMusic({ question: "Hi", context: context! })).rejects.toThrow("Ask is unavailable");
+    await expect(askMusic({ question: "Hi", context: context! })).rejects.toMatchObject({
+      message: "Ask is unavailable",
+      status: 502,
+      requestId: "ask-client-test",
+    });
   });
 
   it("derives context at send time so selection changes affect the next request", () => {
