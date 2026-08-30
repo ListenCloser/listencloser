@@ -5,6 +5,7 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/config.toml'
+      - 'supabase/tbls.yml'
       - '.github/workflows/tbls-bootstrap.yml'
 
 concurrency:
@@ -31,13 +32,15 @@ jobs:
           tar -xzf /tmp/tbls.tar.gz -C /tmp
           sudo install -m 0755 /tmp/tbls /usr/local/bin/tbls
           tbls version
-      - name: Characterize fresh database schema
+      - name: Characterize generated application-schema docs
         run: |
           set -euo pipefail
-          mkdir -p database-output
           export TBLS_DSN='pg://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable'
-          tbls out -t json -o database-output/schema.json
-          tbls out -t mermaid -o database-output/schema.mmd
+          tbls doc "$TBLS_DSN" database-output \
+            --config supabase/tbls.yml \
+            --rm-dist \
+            --sort \
+            --er-format mermaid
           jq -r '.tables[] | [.name, (.type // "table")] | @tsv' database-output/schema.json | sort | tee database-output/tables.txt
       - name: Upload schema characterization
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
