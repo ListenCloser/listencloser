@@ -42,7 +42,7 @@
     "The production image already installs beat-this==1.1.0 and bakes the final0 checkpoint with a pinned SHA-256 digest.",
     "The durable worker is asynchronous, so the candidate's higher CPU latency is preferable to knowingly weak localized beat evidence for score quantization and beat-relative analysis.",
     "The production adapter caches the model once per process and the worker prewarms it before claiming jobs.",
-    "Failures are fail-closed; there is no silent fallback to librosa. BEAT_ENGINE=librosa is an explicit operational rollback."
+    "Failures are fail-closed; there is no silent fallback to librosa. Release rollback restores the prior librosa-default revision, while explicit engine selection remains available for controlled tests and operations."
   ],
   "remaining_gates": [
     "Run the final0 checkpoint on a genuinely independent annotated corpus, with GTZAN the default target from the checkpoint metadata.",
