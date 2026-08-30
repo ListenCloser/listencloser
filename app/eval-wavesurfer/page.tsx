@@ -21,10 +21,10 @@ export default function WaveSurferEvaluationPage() {
 
     // Second characterization mode: keep ListenCloser's existing shared
     // fetch/decode cache as the source owner and hand WaveSurfer a compact peak
-    // array. This is intentionally eval-only; a production adapter would own
-    // the exact peak representation if this boundary earns adoption.
-    (window as any).__prepareWaveSurferPeaks = async (url: string) => {
-      const decoded = await getDecodedAudio(url);
+    // array. The optional identity lets the harness distinguish a true cold
+    // decode from ordinary same-Version cache reuse.
+    (window as any).__prepareWaveSurferPeaks = async (url: string, cacheIdentity?: string) => {
+      const decoded = await getDecodedAudio(url, cacheIdentity);
       const channel = decoded.getChannelData(0);
       const pointCount = Math.max(1024, Math.min(4096, Math.floor(decoded.duration * 48)));
       const per = Math.max(1, Math.floor(channel.length / pointCount));
