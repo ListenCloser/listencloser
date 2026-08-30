@@ -53,9 +53,10 @@ HISTORICAL_PREFIXES = (
 )
 
 # These older product labels are ambiguous in ordinary prose, so reject them
-# only on the local-runtime surfaces where they are definitely stale identity.
+# only on the live surfaces where they are definitely stale identity.
 PATH_LEGACY_IDENTIFIERS = {
     ".devcontainer/devcontainer.json": ("Music AI Studio",),
+    "DESIGN.md": ("Music Lab",),
     "docker-compose.yml": ("music-ai-",),
 }
 
