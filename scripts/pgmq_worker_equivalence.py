@@ -121,10 +121,7 @@ def _set_visibility(db_url: str, names: PrototypeNames, message_id: int, seconds
     queue = _sql_literal(names.queue)
     rows = _run_psql(
         db_url,
-        (
-            "select msg_id from pgmq.set_vt("
-            f"queue_name => {queue}, msg_id => {message_id}, vt_offset => {seconds});"
-        ),
+        f"select msg_id from pgmq.set_vt({queue}, {message_id}, {seconds});",
     )
     return rows == [str(message_id)]
 
