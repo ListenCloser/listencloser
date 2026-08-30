@@ -4,7 +4,20 @@
   "private": true,
   "description": "Music AI Studio — transcribe audio to MIDI and sheet music, and manage your music library.",
   "engines": {
-    "node": "22.x"
+    "node": "22.x",
+    "npm": "10.x"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "22.x",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": "10.x",
+      "onFail": "error"
+    }
   },
   "scripts": {
     "dev": "next dev --webpack",
@@ -15,6 +28,8 @@
     "typecheck": "tsc --noEmit",
     "commit": "aicommits",
     "ci": "npm run build && npm run lint",
+    "doctor": "bash scripts/dev-doctor.sh",
+    "bootstrap": "bash scripts/bootstrap.sh",
     "check": "bash scripts/check.sh",
     "check:full": "bash scripts/check.sh full",
     "check:fast": "bash scripts/check.sh fast",
