@@ -72,7 +72,7 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 function overlapsWindow(startSeconds: number, endSeconds: number, window: LandingDemoWindow): boolean {
-  return endSeconds >= window.startSeconds && startSeconds <= window.endSeconds;
+  return endSeconds > window.startSeconds && startSeconds < window.endSeconds;
 }
 
 function findForbiddenTemporalGeometry(value: unknown, path = "manifest"): string[] {
@@ -105,7 +105,7 @@ export function projectLandingDemoRange(
   endSeconds: number,
   window: LandingDemoWindow,
 ): { start: number; end: number } | null {
-  if (!isFiniteNumber(startSeconds) || !isFiniteNumber(endSeconds) || endSeconds < startSeconds) {
+  if (!isFiniteNumber(startSeconds) || !isFiniteNumber(endSeconds) || endSeconds <= startSeconds) {
     throw new Error("Landing demo range must have finite, increasing bounds");
   }
   if (!overlapsWindow(startSeconds, endSeconds, window)) return null;
@@ -186,8 +186,11 @@ export function validateLandingDemoManifest(
 
   if (!manifest.score.musicxmlPath.trim()) errors.push("score.musicxmlPath is required");
   if (!SHA256_PATTERN.test(manifest.score.sha256)) errors.push("score.sha256 must be a SHA-256 hex digest");
+  if (manifest.score.measureStartsSeconds.length === 0) {
+    errors.push("score.measureStartsSeconds must contain at least one aligned measure boundary");
+  }
   let previousMeasureStart = -Infinity;
-  let visibleMeasureCount = 0;
+  let scoreReachesLandingWindow = false;
   manifest.score.measureStartsSeconds.forEach((startSeconds, index) => {
     if (!isFiniteNumber(startSeconds) || startSeconds < 0 || startSeconds > source.durationSeconds) {
       errors.push(`score.measureStartsSeconds[${index}] must stay inside source.durationSeconds`);
@@ -197,10 +200,15 @@ export function validateLandingDemoManifest(
       errors.push("score.measureStartsSeconds must be strictly increasing");
     }
     previousMeasureStart = startSeconds;
-    if (startSeconds >= window.startSeconds && startSeconds <= window.endSeconds) visibleMeasureCount += 1;
+    if (startSeconds <= window.endSeconds) scoreReachesLandingWindow = true;
   });
-  if (visibleMeasureCount === 0) errors.push("score must contain at least one measure start inside the landing window");
+  if (!scoreReachesLandingWindow) {
+    errors.push("score must contain an aligned measure boundary at or before the landing window end");
+  }
 
+  if (manifest.evidence.length === 0) {
+    errors.push("evidence must contain at least one supported source-time span");
+  }
   const evidenceIds = new Set<string>();
   manifest.evidence.forEach((span, index) => {
     if (!span.id.trim()) errors.push(`evidence[${index}].id is required`);
