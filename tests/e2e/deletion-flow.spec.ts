@@ -63,11 +63,15 @@ test("failed active-work deletion restores the selected workspace and playback",
   // Fail only the DELETE request at the browser fetch boundary. Successful
   // GETs still flow through MSW, so the restored active work must genuinely
   // reload its bundle and playback sources rather than merely reappearing in
-  // the optimistic works cache.
+  // the optimistic works cache. Generated OpenAPI transport passes a Request
+  // object to fetch, while the legacy helper passed URL + RequestInit; support
+  // both shapes so this test asserts browser behavior rather than client internals.
   await page.evaluate(() => {
     const originalFetch = window.fetch.bind(window);
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (init?.method === "DELETE" && String(input).includes("/api/v1/works/mock-work-1")) {
+      const method = input instanceof Request ? input.method : init?.method;
+      const url = input instanceof Request ? input.url : String(input);
+      if (method === "DELETE" && url.includes("/api/v1/works/mock-work-1")) {
         return new Response(JSON.stringify({ error: "forced delete failure" }), {
           status: 500,
           headers: { "Content-Type": "application/json" },
