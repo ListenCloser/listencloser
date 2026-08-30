@@ -14,7 +14,7 @@ def test_worker_module_reexports_canonical_report_contract() -> None:
     assert WorkerPerceptualEvidenceReport is LightweightPerceptualEvidenceReport
 
 
-def test_relation_api_import_does_not_require_dsp_runtime() -> None:
+def test_api_entrypoint_import_does_not_require_dsp_runtime() -> None:
     code = r'''
 import importlib.abc
 import sys
@@ -30,7 +30,7 @@ class BlockDSP(importlib.abc.MetaPathFinder):
 
 
 sys.meta_path.insert(0, BlockDSP())
-import domain.relation_api  # noqa: F401
+import main  # noqa: F401
 
 assert not blocked_roots.intersection(sys.modules)
 '''
