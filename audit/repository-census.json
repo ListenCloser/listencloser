@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "baseline_sha": "0e35eb9c558f25e81030317b77483fb1d3f5c73e",
+  "generated_at": "2026-08-30",
+  "status": "partial_baseline",
+  "classification_values": [
+    "DELETE",
+    "CONSOLIDATE",
+    "RENAME_MOVE",
+    "REFACTOR",
+    "KEEP",
+    "INVESTIGATE"
+  ],
+  "coverage": {
+    "completed_passes": [
+      "architecture_hotspots",
+      "backend_dependency_manifest",
+      "frontend_global_style_entrypoints",
+      "adr_filename_conventions",
+      "evaluation_code_vs_evidence_boundary",
+      "known_historical_workflow_candidates"
+    ],
+    "remaining_passes": [
+      "frontend_reachability_knip",
+      "python_module_reachability_vulture_advisory",
+      "full_import_cycle_graph",
+      "dependency_import_ownership_by_runtime_tier",
+      "openapi_route_vs_caller_inventory",
+      "environment_variable_declaration_vs_read_vs_deployment",
+      "database_object_vs_runtime_callsite_inventory",
+      "telemetry_signal_vs_consumer_inventory",
+      "evaluation_result_schema_and_supersession_inventory"
+    ]
+  },
+  "findings": [
+    {
+      "id": "backend-capability-god-module",
+      "subsystem": "backend",
+      "path": "backend/domain/capabilities.py",
+      "kind": "module",
+      "classification": "REFACTOR",
+      "evidence": [
+        "Current architecture audit verifies the module mixes Supabase/Storage persistence helpers, progress adaptation, DSP/fallback extraction, composite understand orchestration, individual handlers and registration.",
+        "Issue #417 is the canonical implementation owner."
+      ],
+      "canonical_replacement_or_owner": "#417",
+      "risk": ["behavior", "parallel_agent_collision", "architecture"],
+      "verification_before_change": ["focused handler/persistence tests", "backend unit", "real-stack for changed production path"]
+    },
+    {
+      "id": "frontend-root-application-coordinator",
+      "subsystem": "frontend",
+      "path": "app/page.tsx",
+      "kind": "module",
+      "classification": "REFACTOR",
+      "evidence": [
+        "Issue #417 verifies HomeContent owns saved-Work hydration/race cancellation, job lifecycle, upload/workflow start, representation assembly, transport updates and operation/error state in addition to page rendering."
+      ],
+      "canonical_replacement_or_owner": "#417",
+      "risk": ["behavior", "ui", "parallel_agent_collision"],
+      "verification_before_change": ["frontend unit", "Playwright interaction regression", "real-stack when hydration/job lifecycle changes"]
+    },
+    {
+      "id": "python-dual-import-roots",
+      "subsystem": "backend",
+      "path": "backend/pyproject.toml::tool.pytest.ini_options.pythonpath",
+      "kind": "config",
+      "classification": "REFACTOR",
+      "evidence": [
+        "Current pyproject explicitly sets pythonpath = [\".\", \"..\"] because both flat imports (domain.*) and package-qualified imports (backend.evaluation.*) exist.",
+        "The config itself states module-boundary cleanup should standardize this."
+      ],
+      "canonical_replacement_or_owner": "#417",
+      "risk": ["architecture", "test_environment"],
+      "verification_before_change": ["all Python entrypoints/import modes", "backend unit", "evaluation smoke", "worker import smoke"]
+    },
+    {
+      "id": "backend-runtime-dependency-conflation",
+      "subsystem": "backend-dependencies",
+      "path": "backend/pyproject.toml::project.dependencies",
+      "kind": "dependency_set",
+      "classification": "CONSOLIDATE",
+      "evidence": [
+        "One default dependency list currently combines FastAPI/httpx/Supabase with Basic Pitch/TensorFlow, Torch/torchaudio, Beat This, Transkun, lv-chordia, music21 and Partitura.",
+        "OTel pins are constrained by Basic Pitch/TensorFlow protobuf compatibility, demonstrating cross-runtime coupling."
+      ],
+      "canonical_replacement_or_owner": "#287",
+      "risk": ["ci_cost", "image_size", "dependency_coupling"],
+      "verification_before_change": ["import-backed ownership inventory", "locked sync by group", "API image smoke", "worker engine smoke", "real-stack"]
+    },
+    {
+      "id": "frontend-versioned-global-css-stack",
+      "subsystem": "frontend-styling",
+      "path": "app/layout.tsx",
+      "kind": "style_entrypoints",
+      "classification": "CONSOLIDATE",
+      "evidence": [
+        "Current root layout imports globals.css plus workspace-v3.css, product-polish-v4.css, visual-language-v5.css, visual-language-v6.css, readiness-polish-v6.css, breakdown-v3.css, breakdown-actions-v3.css and other global layers.",
+        "A source comment explicitly relies on visual-language import ordering to override structural chrome."
+      ],
+      "canonical_replacement_or_owner": "#523",
+      "risk": ["ui", "responsive", "parallel_agent_collision"],
+      "verification_before_change": ["selector/property inventory", "Playwright", "visual regression desktop/mobile", "reduced-motion checks"]
+    },
+    {
+      "id": "adr-filename-convention-split",
+      "subsystem": "documentation",
+      "path": "docs/adr/",
+      "kind": "docs_lifecycle",
+      "classification": "RENAME_MOVE",
+      "evidence": [
+        "Current directory contains both ADR-001.md ... ADR-009.md and slugged 0001-oss-first-evidence-gated-music-engines.md / 0010-client-cache-before-redis.md conventions."
+      ],
+      "canonical_replacement_or_owner": "docs/adr/README.md / docs authority policy",
+      "risk": ["documentation", "discoverability"],
+      "verification_before_change": ["ADR index/link search", "preserve decision status/history", "redirect/update inbound links"]
+    },
+    {
+      "id": "historical-eval-workflow-perceptual",
+      "subsystem": "ci-evaluation",
+      "path": ".github/workflows/eval-perceptual-real-stability.yml",
+      "kind": "workflow",
+      "classification": "INVESTIGATE",
+      "evidence": [
+        "Workflow remains present on current main after the result-bearing historical experiment; #557 verifies its job predicate is tied to a merged historical PR branch and asks to retire or intentionally generalize it."
+      ],
+      "canonical_replacement_or_owner": "#557",
+      "risk": ["control_plane", "false_coverage_signal"],
+      "verification_before_change": ["preserve durable results", "prove no reusable gate depends on workflow", "protected Build unchanged"]
+    },
+    {
+      "id": "historical-eval-workflow-pulse",
+      "subsystem": "ci-evaluation",
+      "path": ".github/workflows/eval-pulse-candombe-heldout.yml",
+      "kind": "workflow",
+      "classification": "INVESTIGATE",
+      "evidence": [
+        "Workflow remains present on current main after the result-bearing historical experiment; #557 verifies its job predicate is tied to a merged historical PR branch and asks to retire or intentionally generalize it."
+      ],
+      "canonical_replacement_or_owner": "#557",
+      "risk": ["control_plane", "false_coverage_signal"],
+      "verification_before_change": ["preserve durable results", "prove no reusable gate depends on workflow", "protected Build unchanged"]
+    },
+    {
+      "id": "evaluation-code-evidence-policy-fragmentation",
+      "subsystem": "evaluation",
+      "path": "backend/evaluation/ + evaluation/results/ + backend/config/capabilities.json",
+      "kind": "architecture_boundary",
+      "classification": "CONSOLIDATE",
+      "evidence": [
+        "Executable evaluators/corpora, durable result artifacts and product maturity metadata live in separate trees and some methodology/result values are repeated in documents/config.",
+        "Issue #636 owns a traceable dataset -> evaluator -> result -> decision architecture."
+      ],
+      "canonical_replacement_or_owner": "#636",
+      "risk": ["evaluation", "product_truthfulness", "documentation"],
+      "verification_before_change": ["result schema validation", "evidence-reference integrity", "preserve exact baseline/dataset/metric provenance"]
+    },
+    {
+      "id": "public-workflow-vs-worker-registration",
+      "subsystem": "backend-api",
+      "path": "workflow API + capability registration",
+      "kind": "api_execution_boundary",
+      "classification": "REFACTOR",
+      "evidence": [
+        "#632 verifies generic public workflow creation can accept arbitrary action names while the worker registry contains internal/placeholder handlers.",
+        "Worker registration must not imply public API exposure."
+      ],
+      "canonical_replacement_or_owner": "#632",
+      "risk": ["security", "behavior", "api_contract"],
+      "verification_before_change": ["OpenAPI drift", "public action allowlist/delete compatibility evidence", "API regression tests"]
+    },
+    {
+      "id": "async-trace-context-gap",
+      "subsystem": "observability",
+      "path": "FastAPI workflow creation -> persisted Job -> JobWorker",
+      "kind": "telemetry_boundary",
+      "classification": "REFACTOR",
+      "evidence": [
+        "HTTP requests are OTel-instrumented and JobWorker creates job.claim/job.execute spans, but #637 records no explicit persisted trace-context/span-link propagation contract across the Postgres queue boundary."
+      ],
+      "canonical_replacement_or_owner": "#637",
+      "risk": ["observability", "incident_response"],
+      "verification_before_change": ["in-memory OTel propagation tests", "retry/link semantics", "cardinality/privacy checks"]
+    },
+    {
+      "id": "midi-corrected-role-conflation",
+      "subsystem": "domain-model",
+      "path": "ArtifactKind.midi_corrected",
+      "kind": "domain_name",
+      "classification": "REFACTOR",
+      "evidence": [
+        "#613 verifies midi_corrected is currently produced for manual correction, creative variation/continuation and notation-normalized MIDI, while those roles have different authority semantics."
+      ],
+      "canonical_replacement_or_owner": "#613",
+      "risk": ["product_truthfulness", "representation_authority"],
+      "verification_before_change": ["classify all producer provenance", "legacy fail-closed behavior", "Piano Roll/Score authority regression tests"]
+    },
+    {
+      "id": "duplicate-service-role-client-factories",
+      "subsystem": "backend-infrastructure",
+      "path": "backend/auth_utils.py + backend/domain/repositories.py",
+      "kind": "infrastructure_client",
+      "classification": "CONSOLIDATE",
+      "evidence": [
+        "#556 verifies two independent lazy service-role Supabase client singleton/factory paths read the same environment and construct separate clients."
+      ],
+      "canonical_replacement_or_owner": "#556",
+      "risk": ["configuration_drift", "testability", "provider_failure_semantics"],
+      "verification_before_change": ["auth failure taxonomy first", "concurrent lazy initialization test", "repository/auth regression"]
+    },
+    {
+      "id": "allin1-deployment-doc-lifecycle",
+      "subsystem": "documentation-evaluation",
+      "path": "docs/ALLIN1_DEPLOYMENT.md",
+      "kind": "doc",
+      "classification": "INVESTIGATE",
+      "evidence": [
+        "A dedicated AllIn1 deployment document remains in current docs while current capability policy/roadmap treats structure as evaluation/withheld until a trustworthy path is established.",
+        "This may be useful research operating documentation, stale production guidance, or both; do not delete without checking current references and evaluation workflows."
+      ],
+      "canonical_replacement_or_owner": "#636 / docs authority policy",
+      "risk": ["documentation", "evaluation"],
+      "verification_before_change": ["reference search", "confirm production vs evaluation intent", "preserve acquisition/runtime instructions if still required"]
+    }
+  ]
+}
