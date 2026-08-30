@@ -99,10 +99,10 @@ test("B: backend health endpoints return ready", async ({ request }) => {
   expect(queueBody.workers).toBeGreaterThanOrEqual(0);
 });
 
-test("C: import real audio, wait for durable understand, verify representations", async ({
+test("C: import real audio, wait for durable understand, verify representations and Ask", async ({
   page,
 }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(220_000);
   const s = await createSession();
 
   await page.addInitScript(injectSession(), {
@@ -155,4 +155,17 @@ test("C: import real audio, wait for durable understand, verify representations"
     timeout: 120_000,
   });
   await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
+
+  // Production verification must cross the same browser → Vercel proxy →
+  // FastAPI → configured provider boundary as a real user. A deterministic
+  // mocked Ask spec cannot catch a missing production provider, proxy timeout,
+  // or backend reachability regression.
+  await page.getByRole("tab", { name: "Ask" }).click();
+  const askInput = page.getByRole("textbox", { name: "Ask about the music" });
+  await expect(askInput).toBeVisible();
+  await askInput.fill("What tonal center is supported by the available evidence?");
+  await page.getByRole("button", { name: "Send question" }).click();
+
+  await expect(page.locator(".ask-turn-assistant")).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });
