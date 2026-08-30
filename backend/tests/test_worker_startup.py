@@ -7,6 +7,9 @@ class _FakeWorker:
     def __init__(self, events: list[str], **_kwargs) -> None:
         self._events = events
 
+    def register(self, *_args) -> None:
+        pass
+
     def run(self) -> None:
         self._events.append("run")
 
