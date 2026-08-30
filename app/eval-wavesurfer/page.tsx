@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Waveform from "@/components/Waveform";
+import { getDecodedAudio } from "@/lib/audio-buffer-cache";
 
 /**
  * Branch-only WaveSurfer evaluation surface.
@@ -17,6 +18,44 @@ export default function WaveSurferEvaluationPage() {
   useEffect(() => {
     const run = new URLSearchParams(window.location.search).get("run") ?? "0";
     setAudioUrl(`/__wavesurfer-eval/real-piano.m4a?baseline=${encodeURIComponent(run)}`);
+
+    // Second characterization mode: keep ListenCloser's existing shared
+    // fetch/decode cache as the source owner and hand WaveSurfer a compact peak
+    // array. This is intentionally eval-only; a production adapter would own
+    // the exact peak representation if this boundary earns adoption.
+    (window as any).__prepareWaveSurferPeaks = async (url: string) => {
+      const decoded = await getDecodedAudio(url);
+      const channel = decoded.getChannelData(0);
+      const pointCount = Math.max(1024, Math.min(4096, Math.floor(decoded.duration * 48)));
+      const per = Math.max(1, Math.floor(channel.length / pointCount));
+      const peaks = new Float32Array(pointCount);
+
+      for (let index = 0; index < pointCount; index += 1) {
+        let strongest = 0;
+        let strongestAbs = 0;
+        const start = index * per;
+        const end = Math.min(channel.length, start + per);
+        for (let sampleIndex = start; sampleIndex < end; sampleIndex += 1) {
+          const sample = channel[sampleIndex] ?? 0;
+          const absolute = Math.abs(sample);
+          if (absolute > strongestAbs) {
+            strongest = sample;
+            strongestAbs = absolute;
+          }
+        }
+        peaks[index] = strongest;
+      }
+
+      return {
+        duration: decoded.duration,
+        peaks: [peaks],
+        peakPoints: pointCount,
+      };
+    };
+
+    return () => {
+      delete (window as any).__prepareWaveSurferPeaks;
+    };
   }, []);
 
   return (
