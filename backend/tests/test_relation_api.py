@@ -58,8 +58,7 @@ def _add_worker_report(snapshot, source_version, *, storage_key=None):
         artifact_id=report_artifact.id,
         parent_version_id=source_version.id,
         lineage=[source_version.id],
-        storage_key=storage_key
-        or f"jobs/{job_id}/attempt-0/perceptual-series.json",
+        storage_key=storage_key or f"jobs/{job_id}/attempt-0/perceptual-series.json",
         storage_bucket="artifacts",
         created_by="owner-1",
         produced_by_job_id=job_id,
