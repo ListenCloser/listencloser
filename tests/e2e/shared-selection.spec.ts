@@ -68,6 +68,12 @@ test.describe("shared musical selection (MSW)", () => {
     await dragWaveform(page, 0.2, 0.6);
     await expect(page.getByRole("button", { name: "Loop selection" })).toBeVisible();
 
+    // Ordinary musical selection must not implicitly enter the dormant A/B
+    // passage-comparison workflow. The separate transport Compare mode below
+    // remains an explicit user action.
+    await expect(page.getByRole("region", { name: "Compare passages" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Use selection as reference" })).toHaveCount(0);
+
     // 2. Piano Roll region stays highlighted
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
