@@ -51,6 +51,7 @@ router = APIRouter(prefix="/api/v1")
 logger = logging.getLogger("domain.api")
 
 _ALLOWED_AUDIO_EXTENSIONS = {"wav", "mp3", "m4a", "flac", "ogg", "aac"}
+_PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset({"perceptual_series", "transform"})
 
 # ---------------------------------------------------------------------------
 # Request / response models
@@ -143,6 +144,13 @@ def _sb():
     if not sb:
         raise HTTPException(status_code=500, detail="Supabase not configured")
     return sb
+
+
+def _require_public_create_action(action: str) -> str:
+    """Keep public workflow dispatch independent from worker registration."""
+    if action not in _PUBLIC_CREATE_WORKFLOW_ACTIONS:
+        raise HTTPException(status_code=400, detail="Unsupported workflow action")
+    return action
 
 
 def _signed_url(storage_response) -> str:
@@ -1008,6 +1016,7 @@ async def create_create_workflow(
     project_id = UUID(body.project_id)
 
     try:
+        capability_name = _require_public_create_action(body.action)
         _require_version_in_project(sb, version_id, project_id, owner_id)
 
         wf_repo = WorkflowRepo(sb)
@@ -1015,11 +1024,10 @@ async def create_create_workflow(
             project_id=project_id,
             kind=WorkflowKind.create,
             target_version_id=version_id,
-            parameters={"action": body.action, **body.parameters},
+            parameters={"action": capability_name, **body.parameters},
         )
         workflow = wf_repo.create(workflow, owner_id)
 
-        capability_name = body.action
         job = Job(
             workflow_id=workflow.id,
             capability=Capability(name=capability_name, version="1.0"),
