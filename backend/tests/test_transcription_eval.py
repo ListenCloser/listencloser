@@ -22,3 +22,23 @@ def test_note_metrics_respect_configured_onset_tolerance():
 
     assert compare_events(reference, predicted, onset_tolerance_s=0.05).matched_notes == 0
     assert compare_events(reference, predicted, onset_tolerance_s=0.1).matched_notes == 1
+
+
+def test_note_metrics_use_maximum_one_to_one_matching():
+    reference = [
+        NoteEvent(60, 0.00, 0.50),
+        NoteEvent(60, 0.06, 0.56),
+    ]
+    predicted = [
+        NoteEvent(60, 0.04, 0.54),
+        NoteEvent(60, 0.09, 0.59),
+    ]
+
+    metrics = compare_events(reference, predicted, onset_tolerance_s=0.05)
+
+    assert metrics.matched_notes == 2
+    assert metrics.extra_notes == 0
+    assert metrics.missing_notes == 0
+    assert metrics.precision == 1.0
+    assert metrics.recall == 1.0
+    assert metrics.f1 == 1.0
