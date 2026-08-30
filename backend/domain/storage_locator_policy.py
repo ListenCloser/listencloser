@@ -72,14 +72,26 @@ def classify_version_storage_locator(
             or parts[1] != str(job_id)
             or not _ATTEMPT_SEGMENT.fullmatch(parts[2])
         ):
-            return StorageLocatorDecision(False, StorageLocatorKind.untrusted, "job_path_mismatch")
+            return StorageLocatorDecision(
+                False,
+                StorageLocatorKind.untrusted,
+                "job_path_mismatch",
+            )
         return StorageLocatorDecision(True, StorageLocatorKind.worker_output, "trusted_worker_output")
 
     if len(parts) != 4:
         return StorageLocatorDecision(False, StorageLocatorKind.untrusted, "owner_path_shape")
     if parts[0] != str(owner_id) or parts[1] != str(project_id):
-        return StorageLocatorDecision(False, StorageLocatorKind.untrusted, "owner_project_mismatch")
+        return StorageLocatorDecision(
+            False,
+            StorageLocatorKind.untrusted,
+            "owner_project_mismatch",
+        )
     if parts[2] not in {"pending", str(artifact_id)}:
-        return StorageLocatorDecision(False, StorageLocatorKind.untrusted, "artifact_path_mismatch")
+        return StorageLocatorDecision(
+            False,
+            StorageLocatorKind.untrusted,
+            "artifact_path_mismatch",
+        )
 
     return StorageLocatorDecision(True, StorageLocatorKind.owner_upload, "trusted_owner_upload")
