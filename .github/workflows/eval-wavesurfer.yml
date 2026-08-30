@@ -6,6 +6,7 @@ on:
       - '.github/workflows/eval-wavesurfer.yml'
       - 'app/eval-wavesurfer/**'
       - 'tests/e2e/wavesurfer-eval.spec.ts'
+      - 'tests/e2e/wavesurfer-shared-peaks-eval.spec.ts'
 
 permissions:
   contents: read
@@ -62,8 +63,12 @@ jobs:
           cat /tmp/wavesurfer-eval-next.log
           exit 1
 
-      - name: Run equal-contract browser measurement
-        run: npx playwright test tests/e2e/wavesurfer-eval.spec.ts --reporter=line
+      - name: Run equal-contract browser measurements
+        run: >-
+          npx playwright test
+          tests/e2e/wavesurfer-eval.spec.ts
+          tests/e2e/wavesurfer-shared-peaks-eval.spec.ts
+          --reporter=line
         env:
           RUN_WAVESURFER_EVAL: "true"
 
@@ -74,6 +79,7 @@ jobs:
           name: wavesurfer-equal-contract
           path: |
             artifacts/wavesurfer-equal-contract.json
+            artifacts/wavesurfer-shared-peaks.json
             test-results/
             /tmp/wavesurfer-eval-next.log
           if-no-files-found: ignore
