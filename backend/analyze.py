@@ -193,9 +193,10 @@ def _strictly_increasing_seconds(value: object) -> list[float] | None:
 def _explicit_pulse_seconds(pulse: dict | None) -> tuple[list[float], list[float]] | None:
     """Return trustworthy observed beat/downbeat seconds or fail closed.
 
-    Downbeats are model-estimated bar-start evidence, not notated meter. They
-    must coincide with an observed beat; this function never reconstructs them
-    from beat count, BPM, or a default time signature.
+    Beat This exposes beat and downbeat timestamps as separate output arrays, so
+    each array is validated independently. Downbeats remain model-estimated
+    bar-start evidence, not notated meter, and are never reconstructed from beat
+    count, BPM, or a default time signature.
     """
     if not pulse:
         return None
@@ -204,9 +205,6 @@ def _explicit_pulse_seconds(pulse: dict | None) -> tuple[list[float], list[float
     downbeats = [] if raw_downbeats is None else _strictly_increasing_seconds(raw_downbeats)
     if beats is None or len(beats) < 2 or downbeats is None:
         return None
-    for downbeat in downbeats:
-        if not any(abs(downbeat - beat) <= 1e-9 for beat in beats):
-            return None
     return beats, downbeats
 
 
