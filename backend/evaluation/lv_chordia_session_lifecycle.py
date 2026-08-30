@@ -22,7 +22,7 @@ from typing import Any
 
 import numpy as np
 
-from lv_chordia.chord_recognition import MODEL_NAMES, chord_recognition
+from lv_chordia.chord_recognition import chord_recognition, MODEL_NAMES
 from lv_chordia.chordnet_ismir_naive import ChordNet
 from lv_chordia.extractors.cqt import CQTV2
 from lv_chordia.extractors.xhmm_ismir import XHMMDecoder
