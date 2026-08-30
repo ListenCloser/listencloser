@@ -73,8 +73,16 @@ class AsapAdapter(DatasetAdapter):
                 f"No row found for: {source_id}"
             )
 
-        midi_path = _dataset_path(ddir, entry.get("midi_performance", ""), field="midi_performance")
-        audio_path = _dataset_path(ddir, entry.get("audio_performance", ""), field="audio_performance")
+        midi_path = _dataset_path(
+            ddir,
+            entry.get("midi_performance", ""),
+            field="midi_performance",
+        )
+        audio_path = _dataset_path(
+            ddir,
+            entry.get("audio_performance", ""),
+            field="audio_performance",
+        )
         xml_path = _dataset_path(ddir, entry.get("xml_score", ""), field="xml_score")
         beats_path = _dataset_path(
             ddir,
