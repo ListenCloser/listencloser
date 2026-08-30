@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
       id: "audio-version-1",
       label: "Original",
       url: "https://example.invalid/original.wav",
-      kind: "audio" as const,
+      kind: "audio" as "audio" | "midi" | "score",
       role: "original" as "original" | "transcription" | "derived" | "score",
     },
   },
