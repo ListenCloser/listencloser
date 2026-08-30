@@ -48,13 +48,19 @@ describe("buildPlaybackSources", () => {
     expect(sources.find((s) => s.role === "transcription")?.url).toBe("https://example.com/trans");
   });
 
-  it("defaults the active source to transcription, falling back to original", () => {
+  it("defaults a new Work to Original, then falls back to available derived audio", () => {
     expect(
       buildPlaybackSources({ original: ref("o"), transcription: ref("t"), extraTakes: [], score: ref("s") }).activeId,
+    ).toBe("o");
+    expect(
+      buildPlaybackSources({ original: null, transcription: ref("t"), extraTakes: [], score: ref("s") }).activeId,
     ).toBe("t");
     expect(
-      buildPlaybackSources({ original: ref("o"), transcription: null, extraTakes: [], score: null }).activeId,
-    ).toBe("o");
+      buildPlaybackSources({ original: null, transcription: null, extraTakes: [], score: ref("s") }).activeId,
+    ).toBe("s");
+    expect(
+      buildPlaybackSources({ original: null, transcription: null, extraTakes: [ref("take")], score: null }).activeId,
+    ).toBe("take");
     expect(
       buildPlaybackSources({ original: null, transcription: null, extraTakes: [], score: null }).activeId,
     ).toBeNull();
