@@ -30,11 +30,21 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Validate frontend dependency architecture
-        run: npx --yes dependency-cruiser@18.2.0 --config .dependency-cruiser.cjs --validate app components lib
+        run: >-
+          npx --yes
+          --package=dependency-cruiser@18.2.0
+          --package=typescript@5.7.3
+          depcruise
+          --config .dependency-cruiser.cjs
+          --validate
+          app components lib
       - name: Generate compact Mermaid dependency view
         run: |
           mkdir -p architecture-output
-          npx --yes dependency-cruiser@18.2.0 \
+          npx --yes \
+            --package=dependency-cruiser@18.2.0 \
+            --package=typescript@5.7.3 \
+            depcruise \
             --config .dependency-cruiser.cjs \
             --output-type mermaid \
             --include-only '^(app|components|lib)/' \
