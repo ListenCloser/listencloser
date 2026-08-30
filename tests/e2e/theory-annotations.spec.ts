@@ -5,8 +5,10 @@ import { expect, test, type Page } from "@playwright/test";
  *
  * Validates the Breakdown Inspector hierarchy:
  *   - Context shows interpretable Key, Tempo, Meter as quiet inline metadata
- *   - Evidence details can be expanded to Harmony → Chords, Roman numerals, Function
- *   - Clicking a chord/RN sets a selection
+ *   - Evidence details can be expanded to a compact time-aligned Harmony table
+ *   - All admitted chord / degree / function source evidence remains present
+ *   - Repeated key/numeral context is removed from the visible compact labels
+ *   - Clicking harmonic evidence sets the same selection
  *   - Withheld capabilities (cadence, key_region) never appear
  */
 test.describe("theory annotations (MSW)", () => {
@@ -91,7 +93,7 @@ test.describe("theory annotations (MSW)", () => {
     await expect(metadata).toHaveCount(3);
   });
 
-  test("Inspector shows Harmony section with Chords, Roman numerals, Function sub-sections", async ({
+  test("Inspector shows one aligned Harmony table without repeated visible context", async ({
     page,
   }) => {
     await expect(
@@ -99,54 +101,63 @@ test.describe("theory annotations (MSW)", () => {
     ).toBeVisible({ timeout: 20_000 });
 
     const harmony = await openHarmonyEvidence(page);
+    const timeline = harmony.getByRole("table", { name: "Harmonic timeline" });
 
-    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "C maj" }).first()).toBeVisible();
+    await expect(timeline).toBeVisible();
+    await expect(timeline.getByRole("columnheader", { name: "Time" })).toBeVisible();
+    await expect(timeline.getByRole("columnheader", { name: "Chord" })).toBeVisible();
+    await expect(timeline.getByRole("columnheader", { name: "Degree" })).toBeVisible();
+    await expect(timeline.getByRole("columnheader", { name: "Function" })).toBeVisible();
+    await expect(timeline.getByRole("row")).toHaveCount(7); // header + six source moments
 
-    await expect(harmony.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
+    await expect(timeline.getByRole("button", { name: /^Chord C maj at 0:00\./ })).toBeVisible();
+    await expect(timeline.getByRole("button", { name: /^Degree I at 0:00\./ })).toBeVisible();
+    await expect(timeline.getByRole("button", { name: /^Function Tonic at 0:00\./ })).toBeVisible();
 
-    await expect(harmony.getByRole("heading", { name: "Function" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "TONIC (I)" }).first()).toBeVisible();
+    // Context owns the key once. The compact timeline should not print it six more times,
+    // and Function should not repeat the already-adjacent degree in its visible label.
+    await expect(timeline.getByText("A minor", { exact: true })).toHaveCount(0);
+    await expect(timeline.getByText("TONIC (I)", { exact: true })).toHaveCount(0);
   });
 
-  test("all 6 chord entries rendered in Inspector", async ({ page }) => {
+  test("all 6 chord entries remain rendered in the compact Harmony timeline", async ({ page }) => {
     await expect(
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     const harmony = await openHarmonyEvidence(page);
-    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
+    const chordButtons = harmony.getByRole("button", { name: /^Chord .+ at 0:/ });
 
-    await expect(harmony.getByRole("button", { name: "C maj" }).first()).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "G min" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "F maj" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "G7" })).toBeVisible();
+    await expect(chordButtons).toHaveCount(6);
+    await expect(harmony.getByRole("button", { name: /^Chord C maj at 0:00\./ })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: /^Chord G min at 0:02\./ })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: /^Chord F maj at 0:04\./ })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: /^Chord G7 at 0:08\./ })).toBeVisible();
   });
 
-  test("all 6 roman numeral entries rendered in Inspector", async ({ page }) => {
+  test("all 6 Roman numeral entries remain rendered without repeated key suffixes", async ({ page }) => {
     await expect(
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     const harmony = await openHarmonyEvidence(page);
-    await expect(harmony.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
+    const degreeButtons = harmony.getByRole("button", { name: /^Degree .+ at 0:/ });
 
-    await expect(harmony.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "v (A minor)", exact: true })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "iv (A minor)", exact: true })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "V7 (A minor)" })).toBeVisible();
+    await expect(degreeButtons).toHaveCount(6);
+    await expect(harmony.getByRole("button", { name: /^Degree I at 0:00\./ })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: /^Degree v at 0:02\./ })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: /^Degree iv at 0:04\./ })).toBeVisible();
+    await expect(harmony.getByRole("button", { name: /^Degree V7 at 0:08\./ })).toBeVisible();
+    await expect(harmony.getByText(/\(A minor\)/)).toHaveCount(0);
   });
 
-  test("Clicking a chord in Inspector sets selection", async ({ page }) => {
+  test("Clicking a compact chord in Inspector sets selection", async ({ page }) => {
     await expect(
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     const harmony = await openHarmonyEvidence(page);
-    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
-
-    await harmony.getByRole("button", { name: "C maj" }).first().click();
+    await harmony.getByRole("button", { name: /^Chord C maj at 0:00\./ }).click();
 
     await expect(page.locator(".inspector-scope-value")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("0:00–0:02")).toBeVisible();
