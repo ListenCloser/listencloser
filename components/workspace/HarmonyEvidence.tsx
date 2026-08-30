@@ -2,6 +2,7 @@ import type { Insight } from "@/lib/domain.types";
 import { formatTime } from "@/lib/format";
 import { insightStartSeconds } from "@/lib/inspector/insights";
 import type { MusicalSelection } from "@/lib/stores/workspace";
+import styles from "./HarmonyEvidence.module.css";
 
 type HarmonicKind = "chord" | "roman_numeral" | "harmonic_function";
 
@@ -104,16 +105,17 @@ export default function HarmonyEvidence({
   };
 
   const renderEvidence = (kind: HarmonicKind, item: Insight | undefined, startSeconds: number) => {
-    if (!item) return <span className="inspector-harmony-empty" aria-hidden="true">—</span>;
+    if (!item) return <span className={styles.empty} aria-hidden="true">—</span>;
     const visibleLabel = kind === "chord"
       ? chordEvidenceLabel(item)
       : kind === "roman_numeral"
         ? romanNumeralEvidenceLabel(item)
         : harmonicFunctionEvidenceLabel(item);
+    const kindClass = kind === "chord" ? styles.chord : kind === "roman_numeral" ? styles.degree : styles.function;
     return (
       <button
         type="button"
-        className={`inspector-harmony-value inspector-harmony-${kind.replace("_", "-")}`}
+        className={`${styles.value} ${kindClass}`}
         onClick={() => handleClick(item)}
         title={normalizeMusicText(item.claim)}
         aria-label={evidenceButtonLabel(kind, item, visibleLabel, startSeconds)}
@@ -124,16 +126,16 @@ export default function HarmonyEvidence({
   };
 
   return (
-    <div className="inspector-evidence-body inspector-harmony-timeline" role="table" aria-label="Harmonic timeline">
-      <div className="inspector-harmony-header" role="row">
+    <div className={`inspector-evidence-body ${styles.timeline}`} role="table" aria-label="Harmonic timeline">
+      <div className={styles.header} role="row">
         <span role="columnheader">Time</span>
         <span role="columnheader">Chord</span>
         <span role="columnheader">Degree</span>
         <span role="columnheader">Function</span>
       </div>
       {moments.map((moment) => (
-        <div className="inspector-harmony-moment" role="row" key={moment.startSeconds.toFixed(3)}>
-          <span className="inspector-harmony-time" role="cell">{formatTime(moment.startSeconds)}</span>
+        <div className={styles.moment} role="row" key={moment.startSeconds.toFixed(3)}>
+          <span className={styles.time} role="cell">{formatTime(moment.startSeconds)}</span>
           <div role="cell">{renderEvidence("chord", moment.chord, moment.startSeconds)}</div>
           <div role="cell">{renderEvidence("roman_numeral", moment.romanNumeral, moment.startSeconds)}</div>
           <div role="cell">{renderEvidence("harmonic_function", moment.harmonicFunction, moment.startSeconds)}</div>
