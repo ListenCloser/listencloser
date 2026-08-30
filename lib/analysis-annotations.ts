@@ -5,17 +5,18 @@
  * on Waveform, Piano Roll, and Score. Reuses the existing Insight type;
  * no new DB schema.
  *
- * Semantic categories:
- *   rhythm  → muted ochre
- *   harmony → muted green
- *
- * These are lighter than playback (blue) and selection (terracotta).
+ * This remains the legacy locator bridge while representation-native evidence
+ * projections migrate to `evidence-projections.ts`.
  */
 
 import type { Insight } from "@/lib/domain.types";
 import { deriveFindings } from "@/lib/inspector/findings";
+import {
+  presentationFamilyForKind,
+  type EvidencePresentationFamily,
+} from "@/lib/evidence-projections";
 
-export type AnnotationCategory = "rhythm" | "harmony" | "theory";
+export type AnnotationCategory = EvidencePresentationFamily;
 
 export interface AnalysisAnnotation {
   id: string;
@@ -29,34 +30,18 @@ export interface AnalysisAnnotation {
   insight: Insight;
 }
 
-/** Map insight kind → semantic category. */
-function categorizeKind(kind: string): AnnotationCategory | null {
-  switch (kind) {
-    case "rhythm_density":
-    case "rhythm_rests":
-      return "rhythm";
-    case "harmonic_rhythm":
-      return "harmony";
-    case "roman_numeral":
-    case "harmonic_function":
-    case "chord":
-      return "theory";
-    default:
-      return null;
-  }
-}
-
 /**
  * Extract temporal annotations from insights that have valid time spans.
- * Only includes the kinds we currently render: rhythm_density, rhythm_rests,
- * harmonic_rhythm.
+ * Only includes evidence kinds admitted by the current presentation-family
+ * contract. These annotations answer WHERE; richer representation-native
+ * projections answer WHAT.
  */
 export function extractAnnotations(insights: Insight[]): AnalysisAnnotation[] {
   const annotations: AnalysisAnnotation[] = [];
   const insightIdsWithSpan = new Set<string>();
 
   for (const insight of insights) {
-    const category = categorizeKind(insight.kind);
+    const category = presentationFamilyForKind(insight.kind);
     if (!category) continue;
 
     const start = insight.span.start_seconds;
@@ -163,7 +148,7 @@ export function extractRestSegments(
 }
 
 /**
- * CSS color variables for annotation categories.
+ * CSS color variables for legacy locator annotation categories.
  * These are lighter/subtler than playback (blue) and selection (terracotta).
  */
 export const ANNOTATION_COLORS: Record<AnnotationCategory, { fill: string; stroke: string }> = {
@@ -174,7 +159,7 @@ export const ANNOTATION_COLORS: Record<AnnotationCategory, { fill: string; strok
 
 /**
  * Map an annotation's time span to a measure range using existing
- * measure_starts_seconds metadata.  Returns null when measureStarts is
+ * measure_starts_seconds metadata. Returns null when measureStarts is
  * empty or the annotation falls outside the score.
  */
 export function annotationToMeasureRange(

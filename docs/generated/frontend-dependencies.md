@@ -56,6 +56,7 @@ subgraph lib["lib"]
   lib_backend_ts["backend.ts"]
   lib_color_ts["color.ts"]
   lib_domain_types_ts["domain.types.ts"]
+  lib_evidence_projections_ts["evidence-projections.ts"]
   lib_format_ts["format.ts"]
   subgraph lib_inspector["inspector"]
     lib_inspector_[" "]
@@ -135,6 +136,7 @@ components_workspace_-->lib_supabase_ts
 components_workspace_-->lib_work_selection_ts
 components_workspace_-->lib_representation_availability_ts
 components_workspace_-->lib_representations_tsx
+lib_analysis_annotations_ts-->lib_evidence_projections_ts
 lib_analysis_annotations_ts-->lib_inspector_
 lib_api_client_ts-->lib_api_ts
 lib_api_client_ts-->lib_openapi_client_ts
