@@ -1,6 +1,7 @@
 name: CodeQL
 
 on:
+  workflow_call:
   push:
     branches: [main]
   pull_request:
@@ -13,7 +14,7 @@ concurrency:
 
 jobs:
   analyze:
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Analyze (${{ matrix.language }})
     timeout-minutes: 30
     runs-on: ubuntu-latest

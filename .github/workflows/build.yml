@@ -4,6 +4,8 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+    types: [checks_requested]
   push:
     branches: [main]
 
@@ -14,7 +16,7 @@ concurrency:
 jobs:
   compile:
     name: compile
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
@@ -37,8 +39,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-prod-${{ hashFiles('package-lock.json') }}-
       - run: npm ci
-      - name: Build pull request from Vercel-like source context
-        if: github.event_name == 'pull_request'
+      - name: Build proposed revision from Vercel-like source context
+        if: github.event_name != 'push'
         shell: bash
         run: |
           set -euo pipefail
@@ -74,7 +76,7 @@ jobs:
 
   frontend-tests:
     name: frontend-tests
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
@@ -90,10 +92,58 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  merge-ci:
+    if: github.event_name == 'merge_group'
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  merge-e2e:
+    if: github.event_name == 'merge_group'
+    uses: ./.github/workflows/e2e.yml
+    secrets: inherit
+
+  merge-real-stack:
+    if: github.event_name == 'merge_group'
+    uses: ./.github/workflows/real-stack-e2e.yml
+    secrets: inherit
+
+  merge-database:
+    if: github.event_name == 'merge_group'
+    uses: ./.github/workflows/database-integration.yml
+    secrets: inherit
+
+  merge-backend-image:
+    if: github.event_name == 'merge_group'
+    uses: ./.github/workflows/backend-image.yml
+    secrets: inherit
+
+  merge-codeql:
+    if: github.event_name == 'merge_group'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/codeql.yml
+    secrets: inherit
+
+  merge-gitleaks:
+    if: github.event_name == 'merge_group'
+    uses: ./.github/workflows/gitleaks.yml
+    secrets: inherit
+
   build:
     name: build
-    if: ${{ always() && (github.event_name == 'push' || github.event.pull_request.draft == false) }}
-    needs: [compile, frontend-tests]
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
+    needs:
+      - compile
+      - frontend-tests
+      - merge-ci
+      - merge-e2e
+      - merge-real-stack
+      - merge-database
+      - merge-backend-image
+      - merge-codeql
+      - merge-gitleaks
     timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
@@ -105,6 +155,16 @@ jobs:
         run: |
           test "${{ needs.compile.result }}" = "success"
           test "${{ needs.frontend-tests.result }}" = "success"
+      - name: Require merge-group integration evidence
+        if: github.event_name == 'merge_group'
+        run: |
+          test "${{ needs.merge-ci.result }}" = "success"
+          test "${{ needs.merge-e2e.result }}" = "success"
+          test "${{ needs.merge-real-stack.result }}" = "success"
+          test "${{ needs.merge-database.result }}" = "success"
+          test "${{ needs.merge-backend-image.result }}" = "success"
+          test "${{ needs.merge-codeql.result }}" = "success"
+          test "${{ needs.merge-gitleaks.result }}" = "success"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'pull_request'
       - name: Require risk-relevant workflow evidence on exact PR head

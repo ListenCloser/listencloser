@@ -1,6 +1,7 @@
 name: E2E
 
 on:
+  workflow_call:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -23,7 +24,7 @@ concurrency:
 
 jobs:
   test:
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
