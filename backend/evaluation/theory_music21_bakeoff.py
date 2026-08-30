@@ -19,9 +19,10 @@ from dataclasses import asdict, dataclass
 from importlib.metadata import version
 from typing import Literal
 
-from engines.theory.theory_engine import _chord_name_to_numeral, _classify_function
 from mir_eval import chord as mir_chord
 from music21 import analysis, chord as m21_chord, key, roman
+
+from engines.theory.theory_engine import _chord_name_to_numeral, _classify_function
 
 
 @dataclass(frozen=True)
