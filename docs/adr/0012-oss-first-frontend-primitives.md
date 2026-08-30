@@ -1,4 +1,4 @@
-# 0011: OSS-first frontend primitives
+# 0012: OSS-first frontend primitives
 
 Status: accepted
 Date: 2026-08-30

@@ -7,6 +7,7 @@ import type { MusicalSelection } from "@/lib/stores/workspace";
 import { getSpectrogramData } from "@/lib/spectrogram-data";
 import {
   frequencyToY,
+  logarithmicFrequencyTicks,
   timeToX,
   xToTime,
   type SpectrogramData,
@@ -15,7 +16,7 @@ import {
 type Range = { start: number; end: number };
 
 function formatFrequency(value: number): string {
-  return value >= 1000 ? `${Math.round(value / 1000)} kHz` : `${Math.round(value)} Hz`;
+  return value >= 1000 ? `${value / 1000} kHz` : `${value} Hz`;
 }
 
 export default function Spectrogram({
@@ -85,7 +86,7 @@ export default function Spectrogram({
     const styles = getComputedStyle(document.documentElement);
     const panel = styles.getPropertyValue("--panel").trim() || "#f4f1eb";
     const muted = styles.getPropertyValue("--muted").trim() || "#575a5e";
-    const fontSans = styles.getPropertyValue("--font-sans").trim() || "sans-serif";
+    const fontMono = styles.getPropertyValue("--font-mono").trim() || "monospace";
     const accent = styles.getPropertyValue("--accent").trim() || "#bd513a";
     const playhead = styles.getPropertyValue("--score-playback").trim() || "#5a89a8";
     const rhythm = styles.getPropertyValue("--color-rhythm").trim() || "#b8963e";
@@ -151,14 +152,25 @@ export default function Spectrogram({
       context.lineTo(x, height);
       context.stroke();
     }
-    context.fillStyle = withAlpha(muted, 0.45);
-    context.font = `10px ${fontSans}`;
+
+    // Scientific/logarithmic ruler: conventional 1-2-5 ticks give the eye a
+    // stable scale without changing or obscuring the measured raster itself.
+    context.font = `10px ${fontMono}`;
     context.textAlign = "left";
-    for (const frequency of [100, 500, 1000, 5000, 10000]) {
-      if (frequency > data.maxFrequency) continue;
+    context.textBaseline = "middle";
+    for (const frequency of logarithmicFrequencyTicks(data.minFrequency, data.maxFrequency)) {
       const y = frequencyToY(frequency, data.minFrequency, data.maxFrequency, height);
-      context.fillRect(0, y, 4, 1);
-      context.fillText(formatFrequency(frequency), 7, Math.max(10, y - 3));
+      const labelY = Math.min(height - 7, Math.max(7, y));
+      context.fillStyle = withAlpha(muted, 0.1);
+      context.fillRect(0, Math.round(y), width, 1);
+      context.fillStyle = withAlpha(muted, 0.5);
+      context.fillRect(0, Math.round(y), 7, 1);
+      context.strokeStyle = withAlpha(panel, 0.9);
+      context.lineWidth = 3;
+      context.lineJoin = "round";
+      context.strokeText(formatFrequency(frequency), 10, labelY);
+      context.fillStyle = withAlpha(muted, 0.72);
+      context.fillText(formatFrequency(frequency), 10, labelY);
     }
   }, [annotations, duration, focusedAnnotationId, position, preview, selection]);
 

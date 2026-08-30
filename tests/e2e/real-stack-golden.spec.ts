@@ -262,7 +262,7 @@ test("real audio golden path", async ({ page }) => {
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await expect(
-      page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.1"]'),
+      page.locator('[data-testid="piano-roll"] [data-selection-range]'),
     ).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("tab", { name: "Score" }).click();
