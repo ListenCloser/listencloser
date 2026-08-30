@@ -91,7 +91,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 ffmpeg fluidsynth fluid-soundfont-gm curl \
-    libegl1 libopengl0 libnss3 \
+    libegl1 libopengl0 libnss3 libgpg-error0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/.venv /app/.venv
