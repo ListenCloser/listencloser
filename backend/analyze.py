@@ -821,7 +821,7 @@ def analyze_midi(
                     end_seconds=n["end_seconds"],
                     note_id=f"melody_{i}",
                 )
-                for i, n in enumerate(melody.melody["notes"]
+                for i, n in enumerate(melody.melody["notes"])
             ]
             motifs = discover_motifs(motif_notes)
             result["melody_motifs"] = [
