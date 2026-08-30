@@ -14,7 +14,6 @@ pytest.importorskip("music21", reason="music21 not installed")
 
 from analyze import analyze_midi  # noqa: E402
 from engines.harmony.music21_engine import Music21HarmonyEngine  # noqa: E402
-from engines.melody.lstom_engine import LStoMMelodyEngine  # noqa: E402
 from engines.melody.skyline_engine import SkylineMelodyEngine  # noqa: E402
 from tests.fixtures.rhythmic import straight_eighths  # noqa: E402
 
@@ -91,6 +90,7 @@ class TestMelodyEngineEquivalence:
 
 
 class TestAnalyzeRoutesThroughEngines:
+    @pytest.mark.integration
     def test_analyze_midi_includes_engine_provenance(self):
         analysis = analyze_midi(str(PIANO_SYNTHETIC))
         hp = analysis["harmony_provenance"]
@@ -100,8 +100,6 @@ class TestAnalyzeRoutesThroughEngines:
         assert hp["cadences"]["engine"] == "custom-rule"
         assert analysis["melody_provenance"]["engine"] == "lstom"
         assert analysis["key"] == {"tonic": "F", "mode": "major", "confidence": 0.813}
-        # LStoM returns None for very short MIDI (<50 notes) — provenance
-        # still records that lstom was the engine that ran.
         if analysis["melody"] is not None:
             assert analysis["melody"]["heuristic"] == "lstom_biLSTM"
 
@@ -112,16 +110,16 @@ class TestAnalyzeRoutesThroughEngines:
         assert hp["cadences"].parameters["method"] == "roman_numeral_pattern"
         assert hp["phrases"].parameters["returns_empty"] is True
 
+    @pytest.mark.integration
     def test_analyze_midi_matches_engine_outputs(self):
+        from engines.melody.lstom_engine import LStoMMelodyEngine
+
         midi_bytes = _read_bytes(PIANO_SYNTHETIC)
         analysis = analyze_midi(str(PIANO_SYNTHETIC))
         harmony = Music21HarmonyEngine().analyze(midi_bytes, tempo_bpm=120.0)
         melody = LStoMMelodyEngine().analyze(midi_bytes)
         assert analysis["key"] == harmony.key
         assert analysis["chords"] == harmony.chords
-        # Truthfulness invariant: the pipeline suppresses Roman numerals when
-        # there is no chord evidence, even though the engine can still derive
-        # them from the raw score.
         if harmony.chords:
             assert analysis["roman_numerals"] == harmony.roman_numerals
         else:
@@ -130,10 +128,9 @@ class TestAnalyzeRoutesThroughEngines:
 
 
 class TestIntentionalBehaviorChange:
+    @pytest.mark.integration
     def test_harmony_failure_keeps_rhythm_and_melody(self, monkeypatch):
-        """Intentional (only) behavior change vs pre-refactor: a harmony-engine
-        failure no longer aborts the whole analysis. Rhythm/melody still run
-        and harmony stays in its conservative no-evidence state."""
+        """Harmony failure must not abort rhythm/melody analysis."""
 
         def boom(*_args, **_kwargs):
             raise RuntimeError("harmony engine exploded")
@@ -144,7 +141,5 @@ class TestIntentionalBehaviorChange:
         assert analysis["chords"] == []
         assert analysis["roman_numerals"] == []
         assert analysis["harmony_provenance"] == {}
-        # LStoM may return None for very short MIDI (<50 notes), so check
-        # that melody_provenance is present (engine ran) regardless of output.
         assert "melody_provenance" in analysis
         assert analysis["rhythm"] is not None
