@@ -16,7 +16,7 @@ function renderRow(overrides: Partial<React.ComponentProps<typeof WorkRow>> = {}
       {...overrides}
     />,
   );
-  return { onPrefetch, row: screen.getByRole("button", { name: /Second recording/ }) };
+  return { onPrefetch, row: screen.getByRole("button", { name: "Second recording Ready" }) };
 }
 
 afterEach(() => {
