@@ -57,9 +57,7 @@ export type WorkBundle = {
   jobs: Job[];
 };
 
-export type JobStatus = Omit<Schemas["JobStateResponse"], "stage"> & {
-  stage: JobStage;
-};
+export type JobStatus = Schemas["JobStateResponse"];
 
 export type VersionResource = {
   artifact: Artifact;
