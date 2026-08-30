@@ -14,7 +14,7 @@ The maintained views are intentionally small:
 4. the durable `understand` dynamic flow;
 5. the conceptual persisted domain model.
 
-Do not add a component/code diagram merely to show every module. Import/schema facts that can be derived mechanically should eventually be generated from code rather than copied into prose.
+Do not add a component/code diagram merely to show every module. Import/schema facts that can be derived mechanically should be generated from code/schema and enforced by tooling rather than copied into prose.
 
 ## User experience
 
@@ -209,7 +209,7 @@ erDiagram
     }
 ```
 
-This diagram is conceptual, not a replacement for migrations. Column-level schema documentation should be generated from the real PostgreSQL schema rather than hand-maintained here.
+This diagram is conceptual, not a replacement for migrations. The mechanically generated application schema lives at [`generated/database/README.md`](generated/database/README.md); Database Integration checks it against a fresh migrated Postgres instance with tbls.
 
 - A `Project` groups a user's `Work` records.
 - A `Work` owns typed `Artifact` records such as original audio, MIDI, rendered audio, and MusicXML.
@@ -225,18 +225,16 @@ The master spec describes a future Evidence Graph direction in which additional 
 There are two different kinds of architecture evidence and they should not be conflated:
 
 - **human-authored views** in this file describe intended stable boundaries and flows;
-- **generated dependency/schema views** should describe the actual code/database state.
+- **generated dependency/schema views** describe actual code/database state and are checked mechanically.
 
-A follow-up implementation should generate and enforce the derivable views rather than adding another hand-maintained diagram:
-
-| Surface | Preferred OSS source | Purpose |
+| Surface | OSS source | Current contract |
 | --- | --- | --- |
-| TypeScript/JavaScript imports | dependency-cruiser | visualize imports/cycles and enforce forbidden/layer dependencies |
-| Python imports | Import Linter + Grimp | enforce layer/independence contracts and inspect actual import graph |
-| Python package declarations | deptry | catch unused, missing, misplaced, or transitive dependency reliance |
-| PostgreSQL/Supabase schema | tbls | generate schema/ER documentation from a fresh real database |
+| TypeScript/JavaScript imports | dependency-cruiser | Required CI rejects cycles, unresolvable imports, production→test imports, and static production→mock imports; [`generated/frontend-dependencies.md`](generated/frontend-dependencies.md) is regenerated and checked. |
+| Python imports | Import Linter + Grimp | Required CI enforces the accepted production/evaluation package boundary from `backend/.importlinter`. |
+| Python package declarations | deptry | Shipped-backend characterization is complete; promotion to a permanent gate waits for the canonical backend manifest/lock migration so dependency cleanup does not race it. |
+| PostgreSQL/Supabase schema | tbls | [`generated/database/README.md`](generated/database/README.md) is generated from fresh local Postgres and Database Integration fails when it drifts. |
 
-These tools are not part of the required build until their bounded follow-up lands with lockfile/runtime validation. Generated output must not become a second manually edited source of truth.
+Generated output is not an independent source of truth: code, migrations, and accepted architecture contracts remain authoritative, while the OSS tools make drift visible and deterministic.
 
 ## Evaluation architecture
 
@@ -251,7 +249,7 @@ See [`EVALUATION_METHODOLOGY.md`](EVALUATION_METHODOLOGY.md) for the canonical d
 - ESLint, TypeScript, Ruff, and production builds catch static/runtime packaging failures.
 - Playwright with mocks verifies deterministic browser contracts and UX flows.
 - Real-stack / production smoke tests must exercise Vercel → FastAPI → worker → Supabase with a real licensed audio fixture for changes that cross those boundaries. Mocked E2E cannot prove model or infrastructure availability.
-- Database integration boots a fresh schema and verifies migrations/RLS against the real database shape.
+- Database Integration boots a fresh schema, runs pgTAP/RLS integration checks, and verifies the generated tbls schema documentation against that same migrated database.
 - Backend deploys select an exact Git SHA and expose release identity from readiness/telemetry.
 
 See `AGENT_EXECUTION_PLAYBOOK.md` for the required test ladder and definition of done.
