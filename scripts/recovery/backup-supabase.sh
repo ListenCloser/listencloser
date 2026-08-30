@@ -84,9 +84,9 @@ auth_users="$(psql "$SUPABASE_DB_URL" -X -A -t -v ON_ERROR_STOP=1 \
 storage_objects="$(psql "$SUPABASE_DB_URL" -X -A -t -v ON_ERROR_STOP=1 \
   -c 'select count(*)::bigint from storage.objects;')"
 
-# Current Supabase platform->self-hosted restore guidance says the three-file
-# dump contains auth.users and Storage metadata. Fail closed if the actual CLI
-# stops satisfying that recovery contract while those tables contain data.
+# Current Supabase backup/restore guidance says the three-file dump contains
+# Auth users and Storage metadata. Fail closed if the actual CLI stops satisfying
+# that recovery contract while those tables contain data.
 if [ "$auth_users" -gt 0 ] && \
    ! grep -Eq '^COPY (auth\.users|"auth"\."users") ' "$BACKUP_DIR/database/data.sql"; then
   fail "data dump omitted auth.users despite $auth_users current Auth rows"
@@ -108,16 +108,29 @@ group by b.id, b.public
 order by b.id;
 SQL
 
-# Link from an isolated temporary Supabase workdir so backup capture never
-# rewrites the repository's own linked-project state.
+# Link from an isolated empty Supabase workdir so capture cannot rewrite the
+# repository's linked-project state. Keeping this workdir migration-free also
+# makes the managed-schema diff compare the remote auth/storage schemas against
+# the CLI's fresh Supabase baseline, as recommended by the provider restore guide.
 (
   cd "$TMP_PROJECT"
   supabase init >/dev/null
   supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD" >/dev/null
 )
 
+# Ordinary schema.sql intentionally excludes provider-managed auth/storage schema
+# definitions. Capture their custom overlay separately (policies, triggers, etc.).
+# Supabase documents this as a required separate restore concern. db diff has
+# known limitations for bucket definitions, so bucket rows remain authoritative
+# in data.sql and object bytes are copied below.
+printf 'Capturing custom auth/storage schema overlay...\n'
+(
+  cd "$TMP_PROJECT"
+  supabase db diff --linked --schema auth,storage > "$BACKUP_DIR/database/auth_storage_changes.sql"
+)
+
 printf 'Copying Storage objects from every current bucket...\n'
-while IFS=$'\t' read -r bucket public object_count sized_object_count expected_bytes; do
+while IFS=$'\t' read -r bucket _public object_count sized_object_count expected_bytes; do
   [ -n "$bucket" ] || continue
   bucket_dir="$BACKUP_DIR/storage/$bucket"
   mkdir -p "$bucket_dir"
@@ -125,7 +138,7 @@ while IFS=$'\t' read -r bucket public object_count sized_object_count expected_b
   if [ "$object_count" -gt 0 ]; then
     (
       cd "$TMP_PROJECT"
-      supabase storage cp -r "ss://$bucket" "$bucket_dir" --experimental --linked
+      supabase storage cp -r "ss:///$bucket" "$bucket_dir" --experimental --linked
     )
   fi
 
