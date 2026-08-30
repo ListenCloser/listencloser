@@ -39,6 +39,9 @@ dev = [
   "pytest==9.1.1",
   "pytest-asyncio>=0.23.0",
   "ruff==0.5.7",
+  # Canonical metric helpers are exercised by deterministic unit tests. Keep
+  # them in the test toolchain, not the production API runtime.
+  "mir-eval==0.8.2",
 ]
 worker = [
   "basic-pitch[tf]==0.4.0",
