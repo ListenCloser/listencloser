@@ -105,14 +105,22 @@ jobs:
           envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA,LLM_BASE_URL,LLM_API_KEY,LLM_MODEL,OTEL_EXPORTER_OTLP_ENDPOINT,OTEL_EXPORTER_OTLP_HEADERS,BACKEND_IMAGE_REPOSITORY,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -euo pipefail
-            if [ ! -d ~/hello-ai/.git ]; then
-              echo "[deploy] first boot — cloning repo"
-              git clone https://github.com/gr-rr/hello-ai.git ~/hello-ai
-              export DEPLOY_PREVIOUS_SHA=""
-            else
-              export DEPLOY_PREVIOUS_SHA="$(cd ~/hello-ai && git rev-parse HEAD)"
+            repo_dir="$HOME/listencloser"
+            repo_url="https://github.com/ListenCloser/listencloser.git"
+            export DEPLOY_PREVIOUS_SHA="$(
+              curl -fsS http://localhost:8000/health/live 2>/dev/null \
+                | python3 -c 'import json, sys; print(json.load(sys.stdin).get("release", ""))' 2>/dev/null \
+                || true
+            )"
+
+            if [ ! -d "$repo_dir/.git" ]; then
+              echo "[deploy] first deploy from canonical checkout — cloning repo"
+              rm -rf "$repo_dir" 2>/dev/null || true
+              git clone "$repo_url" "$repo_dir"
             fi
-            cd ~/hello-ai
+
+            cd "$repo_dir"
+            git remote set-url origin "$repo_url"
             git fetch --quiet origin main
             git cat-file -e "${DEPLOY_SHA}^{commit}"
             git reset --hard "$DEPLOY_SHA"
