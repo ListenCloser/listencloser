@@ -43,14 +43,11 @@ def _create_user():
     service = _service_client()
     email = f"server-owned-{uuid.uuid4().hex[:10]}@example.com"
     password = "test-password-123"
-    try:
-        user_response = service.auth.admin.create_user(
-            {"email": email, "password": password, "email_confirm": True}
-        )
-        anon = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-        session = anon.auth.sign_in_with_password({"email": email, "password": password})
-    except Exception as exc:
-        pytest.skip(f"Cannot provision local RLS test user: {exc}")
+    user_response = service.auth.admin.create_user(
+        {"email": email, "password": password, "email_confirm": True}
+    )
+    anon = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    session = anon.auth.sign_in_with_password({"email": email, "password": password})
     return user_response.user.id, session.session.access_token
 
 
