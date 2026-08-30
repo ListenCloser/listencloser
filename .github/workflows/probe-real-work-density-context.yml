@@ -1,0 +1,157 @@
+name: Probe real Work density context
+
+on:
+  push:
+    branches:
+      - verify/real-work-density-context
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: 0.12.6
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+      - name: Install ffmpeg for fixture decode
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Run real-piece context probe
+        working-directory: backend
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          import tempfile
+          from pathlib import Path
+          from uuid import uuid4
+
+          import analyze
+          import music_features
+          from domain.relation_observations import SecondsSpanLocator
+          from domain.rhythm_density_context import contextualize_rhythm_density_within_work
+          from domain.rhythm_density_context_findings import (
+              compose_grounded_rhythm_density_context_finding,
+          )
+          from domain.rhythm_density_relations import RhythmDensityEvidence
+
+          fixture = Path("../tests/fixtures/real-piano.m4a")
+          raw = fixture.read_bytes()
+          wav = music_features.decode_audio_to_wav(raw)
+          transcription = music_features.transcribe_audio(raw, fmt="m4a")
+          midi_bytes = transcription["midi"]
+          beat_result = music_features.estimate_beats_with_engine(wav, engine_name="beat_this")
+          beats = [float(value) for value in beat_result.get("beats") or []]
+          pulse = {
+              "bpm": beat_result.get("bpm"),
+              "beats": beats,
+              "downbeats": beat_result.get("downbeats") or [],
+              "provenance": beat_result.get("provenance") or {},
+          }
+
+          with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as fh:
+              fh.write(midi_bytes)
+              midi_path = fh.name
+          try:
+              rhythm = analyze._midi_rhythm(midi_path, pulse=pulse)
+          finally:
+              os.unlink(midi_path)
+
+          if not rhythm:
+              raise RuntimeError("production _midi_rhythm returned no rhythm result")
+          windows = rhythm.get("note_density_over_time") or []
+          if len(windows) < 8:
+              raise RuntimeError(f"expected enough promoted density windows, got {len(windows)}")
+
+          source_version_id = uuid4()
+          evidence_id = uuid4()
+          evidence = RhythmDensityEvidence(
+              evidence_id=evidence_id,
+              source_version_id=source_version_id,
+              windows=windows,
+              coverage={
+                  "policy_version": "complete_series_v1",
+                  "total_generated_window_count": len(windows),
+                  "stored_window_count": len(windows),
+                  "start_seconds": windows[0]["start"],
+                  "end_seconds": windows[-1]["end"],
+                  "truncated": False,
+              },
+              pulse_provenance=pulse["provenance"],
+          )
+
+          peak_index = max(range(len(windows)), key=lambda i: float(windows[i]["density"]))
+          positive = [i for i, window in enumerate(windows) if float(window["density"]) > 0]
+          valley_index = min(positive, key=lambda i: float(windows[i]["density"]))
+          middle_index = len(windows) // 2
+
+          cases = [
+              ("density_peak", peak_index, "legacy_density_peak"),
+              ("density_valley", valley_index, "legacy_density_valley"),
+              ("middle_user_like", middle_index, "user_selected"),
+          ]
+
+          print("REAL_WORK_DENSITY_CONTEXT_PROBE")
+          print(json.dumps({
+              "fixture": str(fixture),
+              "transcribed_notes": transcription.get("num_notes"),
+              "cleanup_report": transcription.get("cleanup_report"),
+              "beat_engine": (pulse["provenance"] or {}).get("engine"),
+              "bpm": pulse["bpm"],
+              "beat_count": len(beats),
+              "density_window_count": len(windows),
+              "density_min": min(float(w["density"]) for w in windows),
+              "density_max": max(float(w["density"]) for w in windows),
+          }, indent=2, default=str))
+
+          for label, index, origin in cases:
+              window = windows[index]
+              locator = SecondsSpanLocator(
+                  start_seconds=float(window["start"]),
+                  end_seconds=float(window["end"]),
+                  source_artifact_version_id=source_version_id,
+                  authority="user_selected" if origin == "user_selected" else "explicit",
+              )
+              observation = contextualize_rhythm_density_within_work(
+                  evidence,
+                  subject_locator=locator,
+              )
+              payload = {
+                  "case": label,
+                  "index": index,
+                  "span": [float(window["start"]), float(window["end"])],
+                  "raw_density": float(window["density"]),
+                  "status": observation.sufficiency.status,
+                  "reasons": observation.sufficiency.reasons,
+              }
+              if observation.sufficiency.status == "supported":
+                  measurement = observation.measurements[0]
+                  finding = compose_grounded_rhythm_density_context_finding(
+                      observation,
+                      subject_origin=origin,
+                  )
+                  payload.update({
+                      "subject_median": measurement.subject_value,
+                      "reference_median": measurement.reference_median,
+                      "reference_iqr": measurement.reference_iqr,
+                      "percentile": measurement.empirical_midrank_percentile,
+                      "reference_window_count": measurement.reference_window_count,
+                      "reference_coverage_seconds": observation.reference_population.eligible_coverage_seconds,
+                      "headline": finding.headline if finding else None,
+                      "evidence_summary": finding.evidence_summary if finding else None,
+                      "selection_conditioned": (
+                          finding.selection_conditioned_on_rhythm_density if finding else None
+                      ),
+                  })
+              print(json.dumps(payload, indent=2, default=str))
+          PY
