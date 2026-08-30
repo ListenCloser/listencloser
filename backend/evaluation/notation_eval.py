@@ -27,7 +27,7 @@ import io
 import json
 import os
 import tempfile
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, Literal
 
@@ -37,6 +37,7 @@ from evaluation.analysis_v3.multitrack_transcription.metrics import (
     NoteEvent,
     match_notes,
 )
+from evaluation.datasets import cache as dataset_cache
 from evaluation.models import CorpusManifest, EvalClip
 from evaluation.notation_metrics import diagnose_musicxml
 
@@ -147,18 +148,77 @@ def _notation_from_midi(
     return result.get("musicxml", b""), dict(result.get("quantization_report", {}))
 
 
+def _load_evaluation_manifest(manifest_path: str) -> CorpusManifest:
+    """Hydrate dataset-style source clips from ``datasets.prepare`` output.
+
+    Canonical real-world corpus manifests intentionally store dataset/source IDs
+    instead of local audio/MIDI paths. ``datasets.prepare`` materializes those
+    paths into ``prepared-<corpus>.json``. Reuse that existing contract here so
+    an evaluation cannot silently treat unresolved source-manifest rows as an
+    empty successful benchmark.
+    """
+    manifest = CorpusManifest.from_file(manifest_path)
+    unresolved = [
+        clip
+        for clip in manifest.clips
+        if clip.dataset and (not clip.audio or not clip.reference_midi)
+    ]
+    if not unresolved:
+        return manifest
+
+    prepared_path = dataset_cache.cache_dir() / f"prepared-{manifest.name}.json"
+    if not prepared_path.is_file():
+        raise FileNotFoundError(
+            f"prepared corpus contract not found at {prepared_path}; run "
+            f"`python -m evaluation.datasets.prepare --corpus {manifest.name}` first"
+        )
+
+    with prepared_path.open() as file_handle:
+        prepared_payload = json.load(file_handle)
+    prepared_by_id = {
+        entry["id"]: entry
+        for entry in prepared_payload.get("clips", [])
+        if entry.get("status") == "ok" and entry.get("id")
+    }
+
+    hydrated: list[EvalClip] = []
+    for clip in manifest.clips:
+        prepared = prepared_by_id.get(clip.id)
+        if not prepared:
+            hydrated.append(clip)
+            continue
+        hydrated.append(
+            replace(
+                clip,
+                audio=prepared.get("audio") or clip.audio,
+                reference_midi=prepared.get("reference_midi") or clip.reference_midi,
+                reference_musicxml=(
+                    prepared.get("reference_musicxml") or clip.reference_musicxml
+                ),
+            )
+        )
+
+    return CorpusManifest(
+        clips=hydrated,
+        name=manifest.name,
+        description=manifest.description,
+    )
+
+
 def evaluate_clip(clip: EvalClip, mode: NotationEvalMode) -> dict[str, Any]:
     """Evaluate one clip while preserving explicit pipeline-stage attribution."""
     if not clip.reference_midi or not os.path.isfile(clip.reference_midi):
         raise ValueError("reference MIDI is required")
-    if not clip.reference_musicxml or not os.path.isfile(clip.reference_musicxml):
-        raise ValueError("reference MusicXML is required")
-    if not os.path.isfile(clip.audio):
+    if not clip.audio or not os.path.isfile(clip.audio):
         raise ValueError("source audio is required")
 
     audio_path = Path(clip.audio)
     reference_midi = Path(clip.reference_midi).read_bytes()
-    reference_musicxml = Path(clip.reference_musicxml).read_bytes()
+    reference_musicxml = (
+        Path(clip.reference_musicxml).read_bytes()
+        if clip.reference_musicxml and os.path.isfile(clip.reference_musicxml)
+        else None
+    )
     grid = _production_metric_grid(audio_path)
     tempo_bpm = float(grid["bpm"])
     beat_times = [float(value) for value in grid.get("beats", [])]
@@ -242,11 +302,11 @@ def run_notation_evaluation(
     mode: RunMode = "reference_midi_to_score",
 ) -> dict[str, Any]:
     """Run stage-attributed notation evaluation on all eligible manifest clips."""
-    manifest = CorpusManifest.from_file(manifest_path)
+    manifest = _load_evaluation_manifest(manifest_path)
     results: list[dict[str, Any]] = []
 
     for clip in manifest.clips:
-        if not clip.reference_musicxml or not clip.reference_midi:
+        if not clip.reference_midi:
             continue
 
         for evaluation_mode in _modes_for_run(mode):
