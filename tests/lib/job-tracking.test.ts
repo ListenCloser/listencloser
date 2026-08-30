@@ -93,7 +93,14 @@ describe("waitForJob", () => {
 
   it("aborts polling when the signal is cancelled and does not schedule another fetch", async () => {
     const controller = new AbortController();
-    const fetchJob = vi.fn().mockResolvedValue(status("running"));
+    let markFetchStarted!: () => void;
+    const fetchStarted = new Promise<void>((resolve) => {
+      markFetchStarted = resolve;
+    });
+    const fetchJob = vi.fn().mockImplementation(async () => {
+      markFetchStarted();
+      return status("running");
+    });
     const promise = waitForJob("job-1", () => undefined, {
       fetchJob,
       pollIntervalMs: 25,
@@ -101,6 +108,7 @@ describe("waitForJob", () => {
       signal: controller.signal,
     });
 
+    await fetchStarted;
     controller.abort();
     await expect(promise).rejects.toMatchObject({ name: "AbortError" });
     await new Promise((resolve) => globalThis.setTimeout(resolve, 40));
