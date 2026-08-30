@@ -30,13 +30,17 @@ function rhythmInsight({
     },
     provenance: { engine: "beat_this", model_version: "test" },
     created_at: createdAt,
+    created_by: null,
+    confidence: null,
+    entity_ids: [],
+    produced_by_job_id: null,
     span: {
       start_beat: null,
       end_beat: null,
       start_seconds: null,
       end_seconds: null,
     },
-  } as Insight;
+  };
 }
 
 const legacyBeatWindows = [
