@@ -58,46 +58,42 @@ select is(
   'foreign work is invisible through ownership chain'
 );
 
+-- RLS-filtered UPDATE/DELETE statements succeed at the SQL level but affect no
+-- rows. Execute them as user B, then inspect the durable state as the database
+-- owner instead of wrapping data-modifying CTEs inside pgTAP assertions.
+update public.projects
+set name = 'Hijacked'
+where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+
+update public.works
+set title = 'Hijacked'
+where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+
+delete from public.works
+where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+
+reset role;
+
 select is(
-  (
-    with changed as (
-      update public.projects
-      set name = 'Hijacked'
-      where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-      returning 1
-    )
-    select count(*) from changed
-  ),
-  0::bigint,
-  'foreign project update affects no rows'
+  (select name from public.projects where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'User A project',
+  'foreign project update is blocked'
 );
 
 select is(
-  (
-    with changed as (
-      update public.works
-      set title = 'Hijacked'
-      where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
-      returning 1
-    )
-    select count(*) from changed
-  ),
-  0::bigint,
-  'foreign work update affects no rows'
+  (select title from public.works where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  'User A work',
+  'foreign work update is blocked'
 );
 
 select is(
-  (
-    with removed as (
-      delete from public.works
-      where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
-      returning 1
-    )
-    select count(*) from removed
-  ),
-  0::bigint,
-  'foreign work delete affects no rows'
+  (select count(*) from public.works where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  1::bigint,
+  'foreign work delete is blocked'
 );
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
 
 select throws_ok(
   $$
