@@ -37,7 +37,7 @@ function DisabledHarness() {
 }
 
 describe("TabStrip", () => {
-  it("uses a single roving tab stop and arrow-key navigation", async () => {
+  it("enters on the active tab and supports roving arrow-key navigation", async () => {
     const user = userEvent.setup();
     render(<Harness />);
 
@@ -46,10 +46,12 @@ describe("TabStrip", () => {
     const analysis = screen.getByRole("tab", { name: "Analysis" });
 
     expect(waveform).toHaveAttribute("aria-selected", "true");
-    expect(waveform).toHaveAttribute("tabindex", "0");
     expect(score).toHaveAttribute("tabindex", "-1");
 
-    waveform.focus();
+    await user.tab();
+    expect(waveform).toHaveFocus();
+    expect(waveform).toHaveAttribute("tabindex", "0");
+
     await user.keyboard("{ArrowRight}");
     expect(score).toHaveAttribute("aria-selected", "true");
     expect(score).toHaveFocus();
