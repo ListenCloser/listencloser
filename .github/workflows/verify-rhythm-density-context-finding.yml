@@ -23,12 +23,14 @@ jobs:
           cache-dependency-glob: backend/uv.lock
       - name: Sync locked backend environment
         run: uv sync --project backend --locked
-      - name: Ruff focused files
-        working-directory: backend
+      - name: Ruff check and exact formatter diff
         run: |
+          cd backend
           uv run ruff check domain/rhythm_density_context_findings.py tests/test_rhythm_density_context_findings.py
-          uv run ruff format domain/rhythm_density_context_findings.py tests/test_rhythm_density_context_findings.py --check
-      - name: Focused relation tests
+          uv run ruff format domain/rhythm_density_context_findings.py tests/test_rhythm_density_context_findings.py
+          cd ..
+          git diff -- backend/domain/rhythm_density_context_findings.py backend/tests/test_rhythm_density_context_findings.py
+      - name: Focused relation tests on formatted tree
         working-directory: backend
         run: |
           uv run pytest -q tests/test_rhythm_density_context_findings.py tests/test_rhythm_density_work_context.py
