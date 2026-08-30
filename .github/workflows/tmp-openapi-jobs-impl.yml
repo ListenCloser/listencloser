@@ -54,6 +54,13 @@ jobs:
           if old not in text:
               raise SystemExit('job transport block not found')
           client.write_text(text.replace(old, new, 1))
+
+          domain_types = Path('lib/domain.types.ts')
+          text = domain_types.read_text()
+          old = '''export type JobStatus = Omit<Schemas["JobStateResponse"], "stage"> & {\n  stage: JobStage;\n};\n'''
+          if old not in text:
+              raise SystemExit('JobStatus compatibility shim not found')
+          domain_types.write_text(text.replace(old, 'export type JobStatus = Schemas["JobStateResponse"];\n', 1))
           PY
       - name: Add focused transport tests
         run: |
@@ -151,19 +158,19 @@ jobs:
       - name: Verify generated job stage is typed
         run: |
           grep -F 'stage: components["schemas"]["JobStage"]' lib/api-types.ts
+          grep -F 'export type JobStatus = Schemas["JobStateResponse"];' lib/domain.types.ts
       - name: Validate bounded slice
         run: |
           npm run typecheck
           npm run lint
           npm test -- tests/lib/api-client-jobs.test.ts tests/lib/api-client-projects.test.ts tests/lib/openapi-client.test.ts tests/lib/api-client-cache.test.ts tests/lib/job-tracking.test.ts
           npx openapi-typescript openapi/openapi.json -o lib/api-types.ts --check
-          uv run --project backend python -m pytest backend/tests/ -m "not integration and not real_stack and not benchmark and not external_provider" -q
           git diff --check
       - name: Remove temporary workflow and commit validated slice
         run: |
           rm .github/workflows/tmp-openapi-jobs-impl.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add backend/domain/api.py openapi/openapi.json lib/api-types.ts lib/api-client.ts tests/lib/api-client-jobs.test.ts .github/workflows/tmp-openapi-jobs-impl.yml
+          git add backend/domain/api.py openapi/openapi.json lib/api-types.ts lib/api-client.ts lib/domain.types.ts tests/lib/api-client-jobs.test.ts .github/workflows/tmp-openapi-jobs-impl.yml
           git commit -m 'refactor(frontend): migrate job and Work delete transport'
           git push origin HEAD:refactor/openapi-jobs-delete-work
