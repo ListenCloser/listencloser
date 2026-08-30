@@ -55,12 +55,12 @@ test("breakdown remains prioritized and evidence fits a constrained inspector", 
   expect(promotedCount).toBeGreaterThan(0);
   expect(promotedCount).toBeLessThanOrEqual(3);
 
+  const allFindings = page.locator(".inspector-breakdown-finding");
   const moreDisclosure = page.getByText(/More findings/, { exact: false });
   if (await moreDisclosure.count()) {
     await moreDisclosure.first().click();
-    await expect(page.locator(".inspector-breakdown-finding")).toHaveCount(
-      await page.locator(".inspector-breakdown-finding").count(),
-    );
+    const disclosedCount = await allFindings.count();
+    expect(disclosedCount).toBeGreaterThan(promotedCount);
   }
 
   const table = await openHarmonyEvidence(page);
