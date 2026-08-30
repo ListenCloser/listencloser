@@ -177,6 +177,8 @@ test("real audio golden path", async ({ page }) => {
     // coupled to OSMD's legacy hidden cursor element.
     await page.getByRole("tab", { name: "Score" }).click();
     const measures = page.locator(".sheet-music-container g.vf-measure");
+    const measureCount = await measures.count();
+    expect(measureCount).toBeGreaterThan(2);
     const logicalThirdMeasure = page.locator('.sheet-music-container g.vf-measure[id="3"]').first();
     await expect(logicalThirdMeasure).toBeAttached();
     const targetBox = await logicalThirdMeasure.boundingBox();
