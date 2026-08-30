@@ -47,14 +47,15 @@ class TestLvChordiaEngine:
     """Tests for LvChordiaHarmonyEngine."""
 
     def test_import(self):
-        """Engine can be imported."""
+        """Engine wrapper can be imported without loading the model package."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
 
         engine = LvChordiaHarmonyEngine()
         assert engine is not None
 
+    @pytest.mark.integration
     def test_provenance(self):
-        """Engine reports correct provenance."""
+        """Installed worker package reports correct provenance."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
 
         engine = LvChordiaHarmonyEngine()
@@ -73,15 +74,16 @@ class TestLvChordiaEngine:
         assert cp["chords"].engine == "lv-chordia"
 
     def test_analyze_requires_audio(self):
-        """Engine raises RuntimeError when no audio provided."""
+        """Engine raises RuntimeError when no audio provided before model loading."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
 
         engine = LvChordiaHarmonyEngine()
         with pytest.raises(RuntimeError, match="requires audio"):
             engine.analyze(midi_bytes=b"")
 
+    @pytest.mark.integration
     def test_analyze_silence(self):
-        """Engine produces chord output from silence."""
+        """Installed lv-chordia runtime produces chord output from silence."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
 
         engine = LvChordiaHarmonyEngine()
@@ -90,8 +92,9 @@ class TestLvChordiaEngine:
         assert result.chords is not None
         assert isinstance(result.chords, list)
 
+    @pytest.mark.integration
     def test_analyze_sine(self):
-        """Engine produces chord output from a sine wave."""
+        """Installed lv-chordia runtime produces chord output from a sine wave."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
 
         engine = LvChordiaHarmonyEngine()
@@ -100,8 +103,9 @@ class TestLvChordiaEngine:
         assert result.chords is not None
         assert isinstance(result.chords, list)
 
+    @pytest.mark.integration
     def test_chord_format(self):
-        """Chord output has the expected format."""
+        """Installed lv-chordia output has the expected format."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
 
         engine = LvChordiaHarmonyEngine()
@@ -133,8 +137,9 @@ class TestLvChordiaEngine:
         assert _parse_chord_label("G:7") == ("G", "7")
         assert _parse_chord_label("N") == ("N", "N")
 
+    @pytest.mark.integration
     def test_empty_result_fields(self):
-        """Non-chord fields are empty (not fabricated)."""
+        """Installed lv-chordia keeps non-chord fields empty rather than fabricating them."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
 
         engine = LvChordiaHarmonyEngine()
@@ -151,13 +156,11 @@ class TestMergeAdjacentChords:
     """Tests for _merge_adjacent_identical_chords."""
 
     def test_empty_list(self):
-        """Empty input returns empty output."""
         from domain.capabilities import _merge_adjacent_identical_chords
 
         assert _merge_adjacent_identical_chords([]) == []
 
     def test_single_chord(self):
-        """Single chord is returned unchanged."""
         from domain.capabilities import _merge_adjacent_identical_chords
 
         chords = [{"root": "C", "quality": "maj", "start": 0.0, "end": 2.0}]
@@ -166,7 +169,6 @@ class TestMergeAdjacentChords:
         assert result[0]["root"] == "C"
 
     def test_merge_identical_adjacent(self):
-        """Two identical adjacent chords are merged."""
         from domain.capabilities import _merge_adjacent_identical_chords
 
         chords = [
@@ -179,7 +181,6 @@ class TestMergeAdjacentChords:
         assert result[0]["end"] == 4.0
 
     def test_no_merge_different_root(self):
-        """Different roots are not merged."""
         from domain.capabilities import _merge_adjacent_identical_chords
 
         chords = [
@@ -190,7 +191,6 @@ class TestMergeAdjacentChords:
         assert len(result) == 2
 
     def test_no_merge_different_quality(self):
-        """Different qualities are not merged."""
         from domain.capabilities import _merge_adjacent_identical_chords
 
         chords = [
@@ -201,7 +201,6 @@ class TestMergeAdjacentChords:
         assert len(result) == 2
 
     def test_no_merge_noncontiguous(self):
-        """Non-contiguous chords are not merged."""
         from domain.capabilities import _merge_adjacent_identical_chords
 
         chords = [
@@ -213,10 +212,9 @@ class TestMergeAdjacentChords:
 
 
 class TestRegistryIntegration:
-    """Tests for registry integration."""
+    """Lightweight registry behavior; model loading remains lazy."""
 
     def test_lv_chordia_in_registry(self):
-        """lv-chordia can be retrieved from the registry."""
         from engines.registry import get_harmony_engine
 
         engine = get_harmony_engine("lv_chordia")
@@ -224,7 +222,6 @@ class TestRegistryIntegration:
         assert hasattr(engine, "analyze")
 
     def test_music21_still_in_registry(self):
-        """music21 remains available in the registry."""
         from engines.registry import get_harmony_engine
 
         engine = get_harmony_engine("music21")
@@ -232,7 +229,6 @@ class TestRegistryIntegration:
         assert hasattr(engine, "analyze")
 
     def test_unknown_engine_raises(self):
-        """Unknown engine names raise ValueError."""
         from engines.registry import get_harmony_engine
 
         with pytest.raises(ValueError, match="Unknown harmony engine"):
