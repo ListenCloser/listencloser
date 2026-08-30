@@ -1,73 +1,18 @@
-# Transkun Production Integration — Current User Behavior
+# Transcription routing note
 
-## Routing Contract
+> **Status:** compatibility/orientation note, not a source of truth. Exact routing lives in `backend/engines/registry.py` and the capability/job code that supplies transcription parameters.
 
-| Profile | Engine | Use Case |
-|---------|--------|----------|
-| `solo_piano` | Transkun | Explicitly requested for solo piano recordings |
-| `general` | Basic Pitch | Explicitly requested for general/unknown content |
-| `auto` | Basic Pitch | **Default** — no automatic piano detection |
-| (omitted) | Basic Pitch | **Default** — same as `auto` |
+## Durable routing invariant
 
-## Key Design Decision: No Classifier
+Transcription is routed through an engine adapter/profile contract rather than by silently guessing instrumentation in the browser.
 
-**`auto` does NOT detect piano.** The default routing remains Basic Pitch for all inputs unless the caller explicitly specifies `transcription_profile="solo_piano"`.
+At the time this compatibility path was introduced:
 
-This is intentional:
-- No automatic instrument/genre classifier exists in this codebase
-- We explicitly chose not to invent one in this PR
-- Routing is deterministic and explicit
+- an explicit `solo_piano` profile selected the piano-specialist Transkun adapter;
+- ordinary/general/unspecified transcription used the default general transcription path;
+- there was no automatic piano/genre classifier deciding that profile for the user;
+- provenance recorded the chosen engine/profile/routing reason so downstream artifacts could be audited.
 
-## Who Sets `solo_piano` Today?
+Those principles remain useful, but **do not use this file to infer the current default engine, supported profiles, environment overrides, or product UI**. Inspect the engine registry, current capability implementation, tests, and capability metadata instead.
 
-**No existing frontend/API flow sets `solo_piano` automatically.**
-
-The profile must be set explicitly by the caller:
-- API clients can pass `transcription_profile="solo_piano"` in job parameters
-- Internal tooling/scripts can set it for known solo-piano content
-- Future UX/profile-selection PR will add user-facing selection
-
-## Production Behavior
-
-```
-Ordinary UI transcription (no profile specified)
-  → handle_transcribe
-  → get_transcription_engine_for_job(profile=None)
-  → get_transcription_engine(profile=None)  # "auto" default
-  → Basic Pitch (current production engine)
-
-Explicit solo_piano request
-  → handle_transcribe(parameters={"transcription_profile": "solo_piano"})
-  → get_transcription_engine_for_job(profile="solo_piano")
-  → get_transcription_engine(profile="solo_piano")
-  → Transkun (new piano-specialist engine)
-```
-
-## Migration Path
-
-1. **This PR**: Routing implemented, default unchanged
-2. **Future PR**: Add UX for profile selection (e.g., "Piano" toggle in upload flow)
-3. **Future PR**: If classifier is developed, `auto` could route to Transkun for detected solo piano
-
-## Provenance Tracking
-
-Every transcription job persists:
-```json
-{
-  "provenance": {
-    "engine": "transkun|basic_pitch",
-    "profile_requested": "solo_piano|general|auto",
-    "routing_reason": "profile=solo_piano -> engine=transkun",
-    ...
-  }
-}
-```
-
-This enables auditing which engine was used and why.
-
-## No Breaking Changes
-
-- Existing jobs without `transcription_profile` continue to use Basic Pitch
-- `TRANSCRIPTION_ENGINE` env var still works as fallback
-- Explicit `transcription_engine` parameter still overrides profile
-- All existing tests pass
+If routing semantics intentionally change, update the canonical code/tests/provenance contract. Delete this note once no compatibility/history value remains.

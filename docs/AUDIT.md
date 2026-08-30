@@ -1,43 +1,30 @@
-# Application audit
+# Historical application audit
 
-## Decision
+> **Status: historical context, not current runtime authority.**
+>
+> This document records the architectural cleanup that removed the older browser-orchestrated/tabbed prototype. For current behavior use [`ARCHITECTURE.md`](ARCHITECTURE.md), runtime code/config, and the documentation authority map in [`README.md`](README.md).
 
-The product is now one persistent, audio-first music-understanding application.
-The former tabbed prototype, browser-only library, direct `/music/*` endpoints,
-duplicate transport/state hooks, placeholder chat tools, and tests for those
-paths were removed. Maintaining both systems caused results to disappear on
-refresh, let the browser orchestrate server work, and made the UI imply features
-that were not backed by durable capabilities.
+## Durable decision from this audit
 
-## What is real now
+The product is one persistent, audio-first music-understanding application. The former tabbed prototype, browser-only library, direct legacy music endpoints, duplicate transport/state paths, and placeholder feature surfaces were removed because maintaining multiple state/workflow authorities caused persistence loss, orchestration drift, and UI claims that were not backed by durable capabilities.
 
-| Product promise | Implementation | Verification |
-|---|---|---|
-| Private audio import | authenticated multipart upload, size/type checks, owner-prefixed private object | API/RLS tests + E2E request |
-| Durable processing | Postgres-backed job claimed by a live separate worker | lease/cancel/retry/heartbeat tests + queue health |
-| Audio to MIDI | Basic Pitch capability | adapter tests + real deployed smoke |
-| Piano roll | persisted note entities | component + E2E |
-| Playback comparison | signed original and rendered WAV versions | store tests + E2E source selector |
-| Sheet music | persisted MusicXML derived from MIDI | adapter + E2E rendering |
-| Analysis | persisted insights with evidence/confidence/provenance | analysis/domain tests + E2E |
-| Reopen previous work | work bundle endpoint over immutable artifact versions | API + E2E |
-| Command experience | deterministic commands over active persisted state | E2E |
+The durable principles that still matter are:
 
-## Not yet a product claim
+- one persistent Work/domain model rather than disconnected mini-apps;
+- long-running processing owned by the durable backend worker rather than browser state;
+- private persisted artifacts exposed through authenticated/signed access;
+- immutable versions and provenance for derived outputs;
+- product-visible analysis backed by persisted evidence and capability policy;
+- real-stack/deployed evidence for cross-boundary claims rather than mocks alone.
 
-- high-quality multi-instrument or all-genre transcription;
-- editable corrections and notation round-tripping;
-- comparative analysis across works or performances;
-- generative melody/rhythm/harmony suggestions;
-- grounded theory/history tutoring;
-- imports from external music collections or microphone recording.
+## Historical implementation snapshot
 
-These remain the next capability slices. Each should produce a new immutable
-version or evidence-backed insight and ship with an evaluation set before the UI
-presents it as available.
+At the time of the original audit, the product already had durable audio import, queued processing, transcription, Piano Roll, derived playback, MusicXML/Score, persisted analysis, and Work reopen behavior. Individual transport paths, upload mechanics, engine choices, capability maturity, and product surfaces have evolved since then.
 
-## Operational release gate
+In particular, do not use old implementation descriptions in this file to infer the current upload path, engine routing, analysis taxonomy, or current product feature set. Those belong to current code, `ARCHITECTURE.md`, and `backend/config/capabilities.json`.
 
-A release is credible when static checks, unit/domain tests, production build,
-mocked browser journeys, migrations, and a real deployed audio smoke test pass.
-The last test needs deployment credentials and cannot be substituted with mocks.
+## Why retain this file
+
+It documents an important anti-regression boundary for future agents: **do not resurrect a second browser-only workflow/state authority or a disconnected feature prototype merely because it is easier to implement locally.**
+
+Unresolved or future work belongs in current GitHub issues/roadmap documents rather than in this historical audit.

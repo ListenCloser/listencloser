@@ -1,51 +1,84 @@
-# Documentation map
+# Documentation map and authority
 
-This directory is the durable source of truth for product, architecture, research, operations, and autonomous-agent behavior.
+hello-ai has accumulated product, architecture, research, evaluation, operational, and historical documents through many parallel development threads. This page defines which source answers which question so contributors do not accidentally treat the longest or newest-looking Markdown file as universal truth.
 
-## Authority hierarchy
+## Authority by question
 
-1. **`MASTER_SPEC.md`** — product north star, musical-understanding model, target architecture, roadmap, product/engineering principles.
-2. **`CURRENT_STATE.md`** — fast snapshot of current `main`/capability state; verify deployed SHA for production claims.
-3. **`ANALYSIS_V3_IMPLEMENTATION_PLAN.md`** — concrete Analysis V3 sequencing, bakeoff contracts, decision gates, and first implementation-agent task.
-4. **`EVIDENCE_GRAPH_V3.md`** — concrete Analysis V3 evidence/observation/relation contracts, trust semantics, persistence mapping, and schema migration triggers for #336.
-5. **`design/BREAKDOWN_V3.md`** — product/interaction contract for the evidence-grounded Breakdown experience in #340, including ranking, trust presentation, evidence prerequisites, reference-source usage, responsive states, and bounded implementation sequencing.
-6. **`AGENT_EXECUTION_PLAYBOOK.md`** — required autonomous implementation and verification process.
-7. **`RESEARCH_LANDSCAPE.md`** — current MIR / OSS / foundation-model / benchmark adoption reference.
-8. **`PLATFORM_V3_COMPETITOR_LANDSCAPE.md`** — current low-cost hosting/compute/database/storage alternatives, migration triggers, and Platform V3 provider decisions.
-9. **`AGENTS.md`** — compact agent entry point and repository map.
-10. **ADRs (`adr/`)** — explicit architectural decisions; a newer accepted ADR may supersede a section of the master spec and must update it promptly.
-11. **`ARCHITECTURE.md`** — current shipped runtime contract.
-12. **`OPS.md`, `TEST_ENVIRONMENT.md`** — operational and testing procedures.
-13. Historical/audit/evaluation docs — supporting evidence and context, not automatically current product direction.
+There is intentionally no single document that owns every kind of fact.
 
-## Machine/runtime sources of truth
+| Question | Authority |
+|---|---|
+| What engineering rules must an agent follow? | root [`AGENTS.md`](../AGENTS.md) |
+| What code/config is shipped on `main`? | runtime code, migrations, dependency manifests, deployment config |
+| What analysis capability may the product expose? | `backend/config/capabilities.json` + its policy/tests |
+| What architecture is currently shipped? | [`ARCHITECTURE.md`](ARCHITECTURE.md), verified against code |
+| What product/architecture direction are we moving toward? | [`MASTER_SPEC.md`](MASTER_SPEC.md) + newer accepted ADRs |
+| Why was an architectural choice made? | relevant ADR in `adr/` |
+| How is production operated or verified? | [`OPS.md`](OPS.md) + deployment workflows/config |
+| What did an evaluation conclude? | the durable result/report for that exact protocol |
+| What work remains? | GitHub issues/roadmap issues, not a frozen PR inventory in Markdown |
 
-Documentation never overrides the actual shipped system:
+For production claims, the deployed release SHA and live configuration matter. A document describing intended `main` behavior cannot prove what is currently deployed.
 
-- `backend/config/capabilities.json` — analysis maturity/exposure.
-- `supabase/migrations/` — database schema/RLS history.
-- current engine registry/configuration — production engine routing.
-- GitHub Actions workflows — actual CI/deploy gates.
-- deployed readiness/release metadata — production release identity.
+## Precedence rules
 
-If docs and runtime disagree, treat the discrepancy as documentation/config drift and fix it explicitly rather than guessing.
+When sources disagree, resolve the disagreement according to the type of claim:
 
-## Current strategic work
+1. **Shipped behavior:** executable code/config/migrations and current deployed-release evidence win.
+2. **Analysis exposure/truthfulness:** the capability registry and policy tests win.
+3. **Accepted architecture decisions:** a newer accepted ADR may supersede older design prose.
+4. **Engineering process:** root `AGENTS.md` wins over duplicated or historical guidance.
+5. **Future direction:** `MASTER_SPEC.md` wins over older product-roadmap prose unless a newer accepted decision supersedes it.
 
-- Analysis V3 research program: GitHub issue #327.
-  - #332 — foundation representations / similarity / retrieval.
-  - #333 — style, instrumentation, and semantic context evidence.
-  - #334 — modern source separation and downstream-analysis value.
-  - #335 — beat/downbeat/tempo/meter evidence.
-  - #337 — optional generic multi-instrument transcription research.
-  - #336 — Evidence Graph ERD/contracts and additive migration triggers; concrete design lives in `EVIDENCE_GRAPH_V3.md`.
-  - #339 — audio-language grounded semantic evaluation.
-- UX V3 redesign: GitHub issue #328.
-  - #340 — evidence-grounded music Breakdown experience; interaction and implementation contract lives in `design/BREAKDOWN_V3.md`.
-- Platform V3 architecture/DevEx review: GitHub issue #329.
-  - `PLATFORM_V3_COMPETITOR_LANDSCAPE.md` — provider/free-tier comparison and migration triggers.
-- Structure remains separately evaluation-gated; consult the relevant issue/capability registry before exposure.
+Do not use a future-looking spec to claim a capability is implemented. Do not use a stale runtime snapshot to veto a newer accepted product direction.
 
-## Updating documentation
+## Document classes
 
-Significant product/architecture changes should update the master spec in the same PR or immediately follow with a docs PR. Update `CURRENT_STATE.md` when a capability or major product surface materially changes. Do not allow a long-running parallel set of contradictory “source of truth” documents.
+### Canonical / maintained
+
+- `../AGENTS.md` — engineering guardrails and autonomous-agent contract.
+- `ARCHITECTURE.md` — current runtime architecture.
+- `MASTER_SPEC.md` — product and target-architecture direction.
+- `OPS.md` — operations/release procedures.
+- `adr/` — accepted durable decisions.
+- machine-readable registries/contracts in source control.
+
+These should be updated when their owned contract changes.
+
+### Operational snapshots
+
+Files such as `CURRENT_STATE.md` are orientation aids. They should summarize stable current invariants and point to machine-readable/runtime authorities rather than duplicate engine versions, benchmark numbers, or recent PR inventories that rapidly go stale.
+
+### Research / evaluation evidence
+
+Research landscape, evaluation decisions, benchmark reports, and experiment results are evidence for a defined question and protocol. They do not become production architecture merely because an experiment succeeded.
+
+Keep durable measured results; retire one-shot workflow scaffolding and stale branch-specific instructions after the result is captured.
+
+### Historical / superseded
+
+Audit documents, old product visions, old roadmaps, deployment experiments, and superseded design notes may be useful provenance. They must carry an explicit historical/superseded banner if retained. Historical prose never overrides current code, canonical docs, registry policy, or ADRs.
+
+## Documentation hygiene rules
+
+When changing docs:
+
+- Prefer linking to an authoritative source over copying volatile values into several files.
+- Do not maintain a hand-written list of “recent PRs” as current-state architecture.
+- Put exact dependency versions in manifests/lockfiles, not prose unless the version is itself part of a compatibility decision.
+- Put benchmark metrics in the owning evaluation result, not every product overview.
+- Put unresolved work in GitHub issues; close/supersede duplicates instead of growing parallel roadmaps.
+- If a file is no longer authoritative but has useful history, label it historical or move it under an archive boundary rather than quietly leaving contradictory instructions.
+- Delete documentation that has neither current authority nor durable historical/evaluation value.
+
+## Minimal read paths
+
+For a normal implementation task:
+
+1. root `AGENTS.md`;
+2. this documentation map;
+3. `ARCHITECTURE.md` for current boundaries;
+4. the relevant issue/ADR/code;
+5. capability registry for analysis/product-exposure changes.
+
+For product/research direction, add `MASTER_SPEC.md` and the relevant evaluation/research documents. For production operations, add `OPS.md` and verify the deployed release.
