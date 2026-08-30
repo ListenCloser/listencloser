@@ -198,13 +198,14 @@ def run_structure_evaluation(
     load_seconds = round(time.monotonic() - load_start, 4)
 
     audio_paths = [str(audio_path) for _, _, audio_path in eligible]
+    candidate_batch_seconds: float | None
     try:
         candidate_results, candidate_batch_seconds = candidate_adapter.timed_analyze_many(
             audio_paths
         )
     except Exception as exc:
         candidate_results = []
-        candidate_batch_seconds = 0.0
+        candidate_batch_seconds = None
         error = f"candidate batch execution failed: {type(exc).__name__}: {exc}"
         for _, row, _ in eligible:
             row["status"] = "candidate_error"
@@ -233,6 +234,11 @@ def run_structure_evaluation(
                 row["predicted_segments"] = result.segments
                 row["metrics"] = metrics.to_dict()
 
+    effective_seconds_per_clip = (
+        round(candidate_batch_seconds / len(eligible), 4)
+        if candidate_batch_seconds is not None
+        else None
+    )
     return {
         "task": "structure_boundary_detection",
         "candidate": candidate,
@@ -244,7 +250,7 @@ def run_structure_evaluation(
         "eligible_clip_count": len(eligible),
         "load_seconds": load_seconds,
         "candidate_batch_seconds": candidate_batch_seconds,
-        "effective_seconds_per_clip": round(candidate_batch_seconds / len(eligible), 4),
+        "effective_seconds_per_clip": effective_seconds_per_clip,
         "process_peak_rss_mb": _peak_rss_mb(),
         "candidate_metadata": asdict(metadata),
         "aggregate": _aggregate(rows),
