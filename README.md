@@ -62,7 +62,7 @@ npm run check:backend
 npm run check:e2e
 ```
 
-Use the verification ladder in `AGENTS.md` / `docs/AGENT_EXECUTION_PLAYBOOK.md`; do not run heavyweight real-stack or model evaluation merely because a text-only change exists.
+Use the verification ladder in `AGENTS.md`; do not run heavyweight real-stack or model evaluation merely because a text-only change exists.
 
 ## Repository structure
 
