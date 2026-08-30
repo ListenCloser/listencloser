@@ -32,6 +32,20 @@ Custom algorithms are appropriate for product glue, trivial transformations, or 
 
 Do not copy, vendor, or reimplement unlicensed source code.
 
+### OSS-first for frontend primitives
+
+Apply the same ownership discipline to commodity frontend behavior: **own the product; borrow the primitives.**
+
+- Prefer maintained accessible OSS primitives for generic controls and browser interaction mechanics. The default direction is shadcn/ui backed by Base UI, styled with the repository's existing Tailwind/CSS-variable design system.
+- Do not hand-roll dropdown/select/combobox, menu, dialog, tooltip, popover, tabs, switch, accordion, drawer/sheet, focus-trap, roving-tabindex, outside-click, or equivalent generic interaction machinery when the standard primitive satisfies the product contract.
+- ListenCloser owns product composition, visual language, and music-specific behavior. Score, Piano Roll, musical selection, evidence overlays, cross-representation synchronization, immutable source/version semantics, and music-specific transport/compare behavior may remain bespoke.
+- TanStack Query owns remote/server-state cache lifecycle. Do not build a second generic cache, retry, polling, or invalidation framework on top of it without measured justification.
+- Prefer generated OpenAPI wire contracts/client plumbing over parallel handwritten transport schemas.
+- Do not create new versioned global CSS override strata (for example `*-v7.css` or `*-polish-vN.css`). Extend the owning token/component/style layer instead.
+- Before adding substantial bespoke audio-visualization mechanics, evaluate maintained OSS against the exact current product contract; do not adopt or reject a library solely because it exists.
+
+For a new substantial frontend dependency, follow the dependency-policy evidence below and keep library-specific objects behind thin product-facing adapters/wrappers where domain boundaries matter. See ADR 0011 for the accepted frontend ownership boundary.
+
 ## 3. Truthfulness rules
 
 - Never fabricate confidence. Use `None` when confidence is not calibrated.

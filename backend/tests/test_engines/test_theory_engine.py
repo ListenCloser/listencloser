@@ -31,6 +31,8 @@ class TestTheoryEngine:
         result = engine.analyze([], global_key="C major")
         assert result.roman_numerals == []
         assert result.harmonic_functions == []
+        assert result.cadences == []
+        assert result.key_regions == []
 
     def test_analyze_chord_names(self):
         """Engine converts chord names to Roman numerals."""
@@ -91,10 +93,12 @@ class TestTheoryEngine:
             {"root": "F", "quality": "maj", "start": 4.0, "end": 6.0},
         ]
         result = engine.analyze(chords)
-        # No trusted key → RN and harmonic function are withheld
+        # No trusted key → RN and harmonic function are withheld.
         assert result.global_key is None
         assert result.roman_numerals == []
         assert result.harmonic_functions == []
+        assert result.cadences == []
+        assert result.key_regions == []
 
     def test_key_source_provenance_recorded(self):
         """Engine records key_source and key_provenance on every event."""
@@ -115,9 +119,9 @@ class TestTheoryEngine:
         for rn in result.roman_numerals:
             assert rn.key_source == "music21_independent"
             assert rn.key_provenance["engine"] == "music21"
-        for f in result.harmonic_functions:
-            assert f.key_source == "music21_independent"
-            assert f.key_provenance["engine"] == "music21"
+        for function in result.harmonic_functions:
+            assert function.key_source == "music21_independent"
+            assert function.key_provenance["engine"] == "music21"
 
     def test_seventh_chords(self):
         """Engine handles seventh chords."""
@@ -147,59 +151,24 @@ class TestTheoryEngine:
         assert result.roman_numerals[1].numeral == "V7"
         assert result.roman_numerals[2].numeral == "I"
 
-    def test_cadence_detection(self):
-        """Engine detects cadences from Roman numeral sequences."""
+    def test_withheld_capabilities_stay_empty_for_cadential_progression(self):
+        """Rejected cadence/key-region algorithms never emit production claims."""
         from engines.theory.theory_engine import TheoryEngine
 
         engine = TheoryEngine()
         chords = [
             {"root": "G", "quality": "7", "start": 0.0, "end": 2.0},
             {"root": "C", "quality": "maj", "start": 2.0, "end": 4.0},
-        ]
-        result = engine.analyze(chords, global_key="C major")
-        assert len(result.cadences) == 1
-        assert result.cadences[0].type == "PAC"
-        assert result.cadences[0].chords == ["V7", "I"]
-
-    def test_cadence_half_cadence(self):
-        """Engine detects half cadences."""
-        from engines.theory.theory_engine import TheoryEngine
-
-        engine = TheoryEngine()
-        chords = [
-            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
-            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
-        ]
-        result = engine.analyze(chords, global_key="C major")
-        assert len(result.cadences) == 1
-        assert result.cadences[0].type == "HC"
-
-    def test_no_cadence(self):
-        """Engine returns empty when no cadence detected."""
-        from engines.theory.theory_engine import TheoryEngine
-
-        engine = TheoryEngine()
-        chords = [
-            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
-            {"root": "F", "quality": "maj", "start": 2.0, "end": 4.0},
-        ]
-        result = engine.analyze(chords, global_key="C major")
-        assert len(result.cadences) == 0
-
-    def test_key_region_detection(self):
-        """Engine detects key regions from Roman numerals."""
-        from engines.theory.theory_engine import TheoryEngine
-
-        engine = TheoryEngine()
-        chords = [
-            {"root": "C", "quality": "maj", "start": 0.0, "end": 2.0},
-            {"root": "G", "quality": "maj", "start": 2.0, "end": 4.0},
             {"root": "F", "quality": "maj", "start": 4.0, "end": 6.0},
             {"root": "C", "quality": "maj", "start": 6.0, "end": 8.0},
         ]
         result = engine.analyze(chords, global_key="C major")
-        assert len(result.key_regions) >= 1
-        assert result.key_regions[0].key == "C major"
+
+        # RN/function remain available, but failed capabilities are withheld.
+        assert result.roman_numerals
+        assert result.harmonic_functions
+        assert result.cadences == []
+        assert result.key_regions == []
 
 
 class TestRegistryIntegration:
