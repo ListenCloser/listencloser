@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { clearWorkDataCache } from "@/lib/api-client";
+import { clearMusicXmlCache } from "@/lib/musicxml-cache";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 type AuthCtx = {
@@ -32,11 +33,12 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const nextUserId = nextSession?.user.id ?? null;
     const previousUserId = authenticatedUserId.current;
 
-    // Work/entity/insight caches are module-global and contain user-owned data.
-    // Treat an authenticated identity transition as a hard cache boundary, but
-    // keep same-user token refreshes from disrupting the active workspace.
+    // User-owned browser caches must never cross authenticated identities.
+    // Keep same-user token refreshes from disrupting the active workspace, but
+    // clear both mutable Work snapshots and immutable artifact text on change.
     if (previousUserId !== undefined && previousUserId !== nextUserId) {
       clearWorkDataCache();
+      clearMusicXmlCache();
     }
 
     authenticatedUserId.current = nextUserId;

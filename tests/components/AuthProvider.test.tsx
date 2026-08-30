@@ -8,11 +8,16 @@ const authMocks = vi.hoisted(() => ({
   onAuthStateChange: vi.fn(),
   unsubscribe: vi.fn(),
   clearWorkDataCache: vi.fn(),
+  clearMusicXmlCache: vi.fn(),
   callback: null as null | ((event: string, session: unknown) => void),
 }));
 
 vi.mock("@/lib/api-client", () => ({
   clearWorkDataCache: authMocks.clearWorkDataCache,
+}));
+
+vi.mock("@/lib/musicxml-cache", () => ({
+  clearMusicXmlCache: authMocks.clearMusicXmlCache,
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -74,17 +79,21 @@ describe("AuthProvider cache boundaries", () => {
 
     await waitFor(() => expect(screen.getByTestId("auth-state").textContent).toBe("user-a"));
     expect(authMocks.clearWorkDataCache).not.toHaveBeenCalled();
+    expect(authMocks.clearMusicXmlCache).not.toHaveBeenCalled();
 
     emitAuthState("TOKEN_REFRESHED", session("user-a"));
     expect(authMocks.clearWorkDataCache).not.toHaveBeenCalled();
+    expect(authMocks.clearMusicXmlCache).not.toHaveBeenCalled();
 
     emitAuthState("SIGNED_OUT", null);
     expect(screen.getByTestId("auth-state").textContent).toBe("none");
     expect(authMocks.clearWorkDataCache).toHaveBeenCalledTimes(1);
+    expect(authMocks.clearMusicXmlCache).toHaveBeenCalledTimes(1);
 
     emitAuthState("SIGNED_IN", session("user-b"));
     expect(screen.getByTestId("auth-state").textContent).toBe("user-b");
     expect(authMocks.clearWorkDataCache).toHaveBeenCalledTimes(2);
+    expect(authMocks.clearMusicXmlCache).toHaveBeenCalledTimes(2);
   });
 
   it("clears caches on explicit sign-out even when no auth event is emitted", async () => {
@@ -100,5 +109,6 @@ describe("AuthProvider cache boundaries", () => {
     await waitFor(() => expect(authMocks.signOut).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId("auth-state").textContent).toBe("none"));
     expect(authMocks.clearWorkDataCache).toHaveBeenCalledTimes(1);
+    expect(authMocks.clearMusicXmlCache).toHaveBeenCalledTimes(1);
   });
 });

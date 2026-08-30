@@ -106,6 +106,7 @@ app_page_tsx-->lib_server_state_ts
 app_page_tsx-->lib_stores_
 app_page_tsx-->lib_supabase_ts
 components_AuthProvider_tsx-->lib_api_client_ts
+components_AuthProvider_tsx-->lib_musicxml_cache_ts
 components_AuthProvider_tsx-->lib_supabase_ts
 components_PianoRoll_tsx-->lib_notes_ts
 components_QueryProvider_tsx-->lib_query_client_ts

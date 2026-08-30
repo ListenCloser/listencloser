@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getMusicXml } from "@/lib/musicxml-cache";
+import { clearMusicXmlCache, getMusicXml } from "@/lib/musicxml-cache";
 
 function queryClient() {
   return new QueryClient({
@@ -72,6 +72,20 @@ describe("getMusicXml", () => {
 
     await expect(getMusicXml("score-version-1", "https://storage.test/score.xml", client)).rejects.toThrow("score request failed");
     await expect(getMusicXml("score-version-1", "https://storage.test/score.xml", client)).resolves.toContain("retry");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("can clear user-owned score text at an auth identity boundary", async () => {
+    const client = queryClient();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, text: vi.fn().mockResolvedValue("<score>user-a</score>") })
+      .mockResolvedValueOnce({ ok: true, text: vi.fn().mockResolvedValue("<score>user-b</score>") });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getMusicXml("score-version-1", "https://storage.test/a.xml", client);
+    clearMusicXmlCache(client);
+    await getMusicXml("score-version-1", "https://storage.test/b.xml", client);
+
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
