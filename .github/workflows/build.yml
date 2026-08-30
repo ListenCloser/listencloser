@@ -14,55 +14,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  identity-fix:
-    name: identity-fix
-    if: github.event_name == 'pull_request' && github.event.pull_request.number == 663
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.head_ref }}
-      - name: Replace remaining legacy telemetry/product identifier
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import subprocess
-          from pathlib import Path
-
-          changed = []
-          for raw in subprocess.check_output(['git', 'ls-files', '-z']).split(b'\0'):
-              if not raw:
-                  continue
-              path = Path(raw.decode())
-              try:
-                  text = path.read_text(encoding='utf-8')
-              except (UnicodeDecodeError, OSError):
-                  continue
-              updated = text.replace('hello_ai', 'listencloser')
-              if updated != text:
-                  path.write_text(updated, encoding='utf-8')
-                  changed.append(str(path))
-          print(f'updated {len(changed)} tracked files')
-          for path in changed:
-              print(path)
-          PY
-      - name: Verify identity migration guard
-        run: python3 scripts/check_repo_identity.py
-      - name: Commit exact migration changes
-        run: |
-          set -euo pipefail
-          git add -u
-          if git diff --cached --quiet; then
-            echo 'No legacy identity changes required.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'chore: finish legacy identity replacement'
-          git push origin HEAD:${{ github.head_ref }}
-
   classify:
     name: classify
     if: github.event_name != 'push'
