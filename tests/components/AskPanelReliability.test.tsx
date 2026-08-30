@@ -10,9 +10,13 @@ import { TimelineProvider } from "@/lib/stores/timeline";
 import { TransportProvider } from "@/lib/stores/transport";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 
-vi.mock("@/lib/ask/client", () => ({
-  askMusic: vi.fn(),
-}));
+vi.mock("@/lib/ask/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ask/client")>();
+  return {
+    ...actual,
+    askMusic: vi.fn(),
+  };
+});
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
