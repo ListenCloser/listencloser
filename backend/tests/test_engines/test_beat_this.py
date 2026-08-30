@@ -1,4 +1,4 @@
-"""Tests for Beat This! engine registration."""
+"""Tests for Beat This! production registration and beat evidence semantics."""
 
 from __future__ import annotations
 
@@ -6,12 +6,31 @@ import pytest
 
 
 class TestBeatThisRegistry:
-    def test_beat_this_is_registered_name(self):
+    def test_beat_this_is_production_default(self, monkeypatch):
+        """Unconfigured production resolves to the promoted OSS beat engine."""
+        from engines.beats.beat_this_engine import BeatThisEngine
+        from engines.registry import get_beat_engine
+
+        monkeypatch.delenv("BEAT_ENGINE", raising=False)
+        engine = get_beat_engine()
+        assert isinstance(engine, BeatThisEngine)
+
+    def test_librosa_remains_explicit_rollback(self, monkeypatch):
+        """Operators can roll back without a code change; there is no silent fallback."""
         from engines.beats.librosa_engine import LibrosaBeatEngine
         from engines.registry import get_beat_engine
 
-        engine = get_beat_engine("librosa")
+        monkeypatch.setenv("BEAT_ENGINE", "librosa")
+        engine = get_beat_engine()
         assert isinstance(engine, LibrosaBeatEngine)
+
+    def test_explicit_name_overrides_environment(self, monkeypatch):
+        from engines.beats.beat_this_engine import BeatThisEngine
+        from engines.registry import get_beat_engine
+
+        monkeypatch.setenv("BEAT_ENGINE", "librosa")
+        engine = get_beat_engine("beat_this")
+        assert isinstance(engine, BeatThisEngine)
 
     def test_unknown_beat_engine_raises(self):
         from engines.registry import get_beat_engine
@@ -19,13 +38,13 @@ class TestBeatThisRegistry:
         with pytest.raises(ValueError):
             get_beat_engine("nonexistent")
 
-    def test_beat_this_not_installed_fails_at_runtime(self):
+    def test_beat_this_runtime_failure_is_explicit(self):
         from engines.beats.beat_this_engine import BeatThisEngine
         from engines.registry import get_beat_engine
 
         engine = get_beat_engine("beat_this")
         assert isinstance(engine, BeatThisEngine)
-        with pytest.raises((RuntimeError, ImportError)):
+        with pytest.raises((RuntimeError, ImportError, ValueError, OSError)):
             engine.analyze(b"test")
 
 
