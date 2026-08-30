@@ -1,4 +1,4 @@
-name: Lychee bootstrap
+name: Docs hygiene bootstrap
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: lychee-bootstrap-${{ github.ref }}
+  group: docs-hygiene-bootstrap-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,3 +43,30 @@ jobs:
       - name: Require clean link baseline
         if: always()
         run: test '${{ steps.lychee.outputs.exit_code }}' = '0'
+
+  markdown-structure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+      - name: Characterize markdownlint defaults
+        run: |
+          set +e
+          npx --yes markdownlint-cli2@0.23.2 '**/*.md' > markdownlint-report.txt 2>&1
+          code=$?
+          echo "$code" > markdownlint-exit-code.txt
+          cat markdownlint-report.txt
+          echo "markdownlint_exit_code=$code"
+          exit 0
+      - name: Upload markdownlint characterization
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: markdownlint-report-${{ github.run_attempt }}
+          path: |
+            markdownlint-report.txt
+            markdownlint-exit-code.txt
+          if-no-files-found: error
+          retention-days: 7
