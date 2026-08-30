@@ -2,7 +2,7 @@
 
 ## Design intent
 
-Music Lab is an **operate-mode music analysis workspace**, not a marketing dashboard and not a toy DAW. The interface should feel like a focused instrument for listening, comparing, inspecting, and understanding a piece of music.
+Listen Closer is an **operate-mode music analysis workspace**, not a marketing dashboard and not a toy DAW. The interface should feel like a focused instrument for listening, comparing, inspecting, and understanding a piece of music.
 
 The product should read as:
 - precise rather than flashy
