@@ -185,15 +185,96 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
       }
 
       const midiVersionId = midi?.latest_version?.id ?? null;
+      const entitiesPromise: Promise<Awaited<ReturnType<typeof getEntities>>> = midiVersionId
+        ? getEntities(midiVersionId)
+        : Promise.resolve([]);
+      const insightsPromise: Promise<Awaited<ReturnType<typeof getInsights>>> = midiVersionId
+        ? getInsights(midiVersionId)
+        : Promise.resolve([]);
+      const scorePromise: Promise<string | null> = score?.signed_url
+        ? fetch(score.signed_url).then(async (response) => {
+            if (!response.ok) throw new Error("score request failed");
+            return response.text();
+          })
+        : Promise.resolve(null);
+
+      const upsertLocalRepresentation = (representation: RepresentationEntry) => {
+        const index = representations.findIndex((item) => item.kind === representation.kind);
+        if (index >= 0) representations[index] = representation;
+        else representations.push(representation);
+      };
+      const publishRepresentation = (representation: RepresentationEntry) => {
+        if (sequence !== loadSequenceRef.current) return;
+        upsertLocalRepresentation(representation);
+        replaceRepresentations([...representations]);
+      };
+      const pianoRepresentation = (entities: Awaited<ReturnType<typeof getEntities>>): RepresentationEntry | null => {
+        const notes = entities.flatMap((entity) => entity.note ? [{
+          id: entity.id,
+          pitch: entity.note.pitch,
+          start: entity.note.start_seconds,
+          end: entity.note.end_seconds,
+          velocity: entity.note.velocity,
+        }] : []);
+        if (!midiVersionId || notes.length === 0) return null;
+        return {
+          kind: "piano_roll",
+          label: "Piano Roll",
+          sourceUrl: midi?.signed_url ?? "",
+          sourceLabel: `${notes.length} detected notes`,
+          confidence: null,
+          provenance: "transcription",
+          notes,
+          versionId: midiVersionId,
+        };
+      };
+      const scoreRepresentation = (musicxml: string | null): RepresentationEntry | null => {
+        if (!score?.signed_url || !musicxml) return null;
+        const measureStarts = (renderedScore?.latest_version?.metadata?.measure_starts_seconds as number[] | undefined) ?? [];
+        return {
+          kind: "score",
+          label: "Score",
+          sourceUrl: score.signed_url,
+          sourceLabel: "Notation draft",
+          confidence: null,
+          provenance: "music21 notation",
+          musicxml,
+          measureStarts,
+          versionId: score.latest_version?.id,
+        };
+      };
+      const publishInsightContext = (pendingInsights: Awaited<ReturnType<typeof getInsights>>) => {
+        if (sequence !== loadSequenceRef.current) return;
+        setInsights(pendingInsights);
+        const tempo = pendingInsights.find((item) => item.kind === "tempo")?.evidence.bpm;
+        if (typeof tempo === "number" && tempo > 0) setBpm(tempo);
+        const signature = pendingInsights.find((item) => item.kind === "time_signature")?.evidence;
+        if (typeof signature?.numerator === "number" && typeof signature?.denominator === "number") {
+          setTimeSignature(signature.numerator, signature.denominator);
+        }
+      };
+
+      // These three children are independent product surfaces. Keep the
+      // requests concurrent, but publish each successful result immediately so
+      // a slow MusicXML fetch cannot hold back Piano Roll or analysis (and vice
+      // versa). The original promises are still awaited below for final warning
+      // reconciliation, so this does not add requests or a second cache.
+      void entitiesPromise.then((entities) => {
+        const representation = pianoRepresentation(entities);
+        if (representation) publishRepresentation(representation);
+      }).catch(() => undefined);
+      void insightsPromise.then((pendingInsights) => {
+        publishInsightContext(pendingInsights);
+      }).catch(() => undefined);
+      void scorePromise.then((musicxml) => {
+        const representation = scoreRepresentation(musicxml);
+        if (representation) publishRepresentation(representation);
+      }).catch(() => undefined);
+
       const [entitiesResult, insightsResult, scoreResult] = await Promise.allSettled([
-        midiVersionId ? getEntities(midiVersionId) : Promise.resolve([]),
-        midiVersionId ? getInsights(midiVersionId) : Promise.resolve([]),
-        score?.signed_url
-          ? fetch(score.signed_url).then(async (response) => {
-              if (!response.ok) throw new Error("score request failed");
-              return response.text();
-            })
-          : Promise.resolve(null),
+        entitiesPromise,
+        insightsPromise,
+        scorePromise,
       ]);
       if (sequence !== loadSequenceRef.current) return;
 
@@ -203,25 +284,8 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
       if (midiVersionId && entitiesResult.status === "rejected") warnings.push("Piano roll data is temporarily unavailable.");
       if (midiVersionId && insightsResult.status === "rejected") warnings.push("Analysis is temporarily unavailable.");
 
-      const notes = entities.flatMap((entity) => entity.note ? [{
-        id: entity.id,
-        pitch: entity.note.pitch,
-        start: entity.note.start_seconds,
-        end: entity.note.end_seconds,
-        velocity: entity.note.velocity,
-      }] : []);
-      if (midiVersionId && notes.length > 0) {
-        representations.push({
-          kind: "piano_roll",
-          label: "Piano Roll",
-          sourceUrl: midi?.signed_url ?? "",
-          sourceLabel: `${notes.length} detected notes`,
-          confidence: null,
-          provenance: "transcription",
-          notes,
-          versionId: midiVersionId,
-        });
-      }
+      const pendingPianoRoll = pianoRepresentation(entities);
+      if (pendingPianoRoll) upsertLocalRepresentation(pendingPianoRoll);
 
       let pendingTempo: number | null = null;
       let pendingSignature: { numerator: number; denominator: number } | null = null;
@@ -234,18 +298,8 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
 
       if (score?.signed_url) {
         if (scoreResult.status === "fulfilled" && scoreResult.value) {
-          const measureStarts = (renderedScore?.latest_version?.metadata?.measure_starts_seconds as number[] | undefined) ?? [];
-          representations.push({
-            kind: "score",
-            label: "Score",
-            sourceUrl: score.signed_url,
-            sourceLabel: "Notation draft",
-            confidence: null,
-            provenance: "music21 notation",
-            musicxml: scoreResult.value,
-            measureStarts,
-            versionId: score.latest_version?.id,
-          });
+          const pendingScore = scoreRepresentation(scoreResult.value);
+          if (pendingScore) upsertLocalRepresentation(pendingScore);
         } else if (scoreResult.status === "rejected") {
           warnings.push("Score data is temporarily unavailable.");
         }
