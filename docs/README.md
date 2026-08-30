@@ -38,7 +38,7 @@ For production claims, the deployed release SHA and live configuration matter. A
 3. actual dependency/schema contracts in code;
 4. [`MASTER_SPEC.md`](MASTER_SPEC.md) only when target/future architecture is relevant.
 
-The architecture diagrams are deliberately not exhaustive code maps. Human-authored Mermaid views describe stable intended boundaries; import graphs and database relationships that can be derived from code/schema are generated mechanically rather than redrawn by hand. See [`adr/0012-architecture-docs-as-code.md`](adr/0012-architecture-docs-as-code.md), [`generated/frontend-dependencies.md`](generated/frontend-dependencies.md), and [`generated/database/README.md`](generated/database/README.md).
+The architecture diagrams are deliberately not exhaustive code maps. Human-authored Mermaid views describe stable intended boundaries; import graphs and database relationships that can be derived from code/schema are generated mechanically rather than redrawn by hand. See [`adr/0013-architecture-docs-as-code.md`](adr/0013-architecture-docs-as-code.md), [`generated/frontend-dependencies.md`](generated/frontend-dependencies.md), and [`generated/database/README.md`](generated/database/README.md).
 
 ### Evaluation / research
 
