@@ -41,6 +41,27 @@ router = APIRouter(prefix="/api/v1")
 logger = logging.getLogger("ask.api")
 
 
+def _log_ask_failure(
+    request: Request,
+    settings: LLMSettings,
+    started: float,
+    *,
+    kind: str,
+    status: int,
+) -> None:
+    """Emit one bounded provider-failure event that can join proxy/backend logs."""
+    logger.warning(
+        "ask_failed",
+        extra={
+            "req_id": request.headers.get("x-request-id") or "none",
+            "failure_kind": kind,
+            "status": status,
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            "model": settings.provider_identifier,
+        },
+    )
+
+
 @router.post("/ask", response_model=AskResponse)
 @limiter.limit(lambda: load_llm_settings().rate_limit)
 async def create_ask(
@@ -75,7 +96,7 @@ async def create_ask(
 
     provider: LLMProvider | None = build_provider(settings, client=request.app.state.http_client)
     if provider is None:
-        logger.warning("ask_provider_unconfigured")
+        _log_ask_failure(request, settings, started, kind="configuration", status=503)
         raise HTTPException(
             status_code=503,
             detail="Ask is not configured. Contact your administrator.",
@@ -90,19 +111,19 @@ async def create_ask(
             response_model=AskResponse,
         )
     except AskProviderConfigurationError as exc:
+        _log_ask_failure(request, settings, started, kind="configuration", status=503)
         raise HTTPException(status_code=503, detail="Ask is not configured.") from exc
     except AskProviderTimeoutError as exc:
+        _log_ask_failure(request, settings, started, kind="timeout", status=504)
         raise HTTPException(status_code=504, detail="Ask timed out.") from exc
     except AskProviderUnavailableError as exc:
+        _log_ask_failure(request, settings, started, kind="provider_unavailable", status=502)
         raise HTTPException(status_code=502, detail="Ask provider unavailable.") from exc
     except AskModelOutputError as exc:
-        logger.warning(
-            "ask_model_output_rejected",
-            extra={"model": settings.provider_identifier},
-        )
+        _log_ask_failure(request, settings, started, kind="invalid_output", status=502)
         raise HTTPException(status_code=502, detail="Ask returned an invalid response.") from exc
     except AskProviderError as exc:
-        logger.warning("ask_provider_error", extra={"model": settings.provider_identifier})
+        _log_ask_failure(request, settings, started, kind="provider_error", status=502)
         raise HTTPException(status_code=502, detail="Ask failed.") from exc
 
     # Deterministic sanitization — a single invalid optional reference/action
