@@ -1,7 +1,8 @@
-"""Beat This! beat/downbeat tracking engine (experimental).
+"""Beat This! beat/downbeat tracking engine.
 
-Installed optionally behind the BeatTrackingEngine interface.
-Fails explicitly when beat_this is not installed; does not silently fall back.
+The production adapter pins the same ``final0`` checkpoint baked into the
+backend image. Failures are explicit; production never silently falls back to
+the legacy librosa tracker.
 """
 
 from __future__ import annotations
@@ -12,19 +13,19 @@ from typing import Any
 
 from engines.base import BeatTrackingEngine, BeatTrackingResult, EngineProvenance
 
+_CHECKPOINT = "final0"
+
 
 class BeatThisEngine(BeatTrackingEngine):
     ENGINE = "beat_this"
-
-    def __init__(self) -> None:
-        pass
 
     @property
     def provenance(self) -> EngineProvenance:
         return EngineProvenance(
             engine=self.ENGINE,
             library_version=_beat_this_version(),
-            parameters={"device": "cpu"},
+            model=_CHECKPOINT,
+            parameters={"device": "cpu", "checkpoint": _CHECKPOINT},
         )
 
     def analyze(self, wav_bytes: bytes, **kwargs: Any) -> BeatTrackingResult:
@@ -36,7 +37,7 @@ class BeatThisEngine(BeatTrackingEngine):
                 f.write(wav_bytes)
                 f.flush()
                 tmp_path = f.name
-            model = File2Beats(device="cpu")
+            model = File2Beats(checkpoint_path=_CHECKPOINT, device="cpu")
             beats, downbeats = model(tmp_path)
         finally:
             if tmp_path and os.path.exists(tmp_path):
