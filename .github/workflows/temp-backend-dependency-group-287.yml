@@ -1,0 +1,152 @@
+name: Temporary backend dependency group resolver
+
+on:
+  push:
+    branches: [devex/backend-worker-dependency-group-287]
+    paths:
+      - '.github/workflows/temp-backend-dependency-group-287.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  resolve-and-characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+      - name: Resolve one canonical lock
+        run: uv lock --project backend
+      - name: Measure lightweight base plus dev environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf backend/.venv
+          started="$(python -c 'import time; print(time.time())')"
+          uv sync --project backend --locked --no-group worker
+          ended="$(python -c 'import time; print(time.time())')"
+          BASE_SYNC_SECONDS="$(python - "$started" "$ended" <<'PY'
+          import sys
+          print(round(float(sys.argv[2]) - float(sys.argv[1]), 3))
+          PY
+          )"
+          BASE_PACKAGES="$(backend/.venv/bin/python - <<'PY'
+          import importlib.metadata
+          print(len(list(importlib.metadata.distributions())))
+          PY
+          )"
+          BASE_BYTES="$(du -sb backend/.venv | cut -f1)"
+          export BASE_SYNC_SECONDS BASE_PACKAGES BASE_BYTES
+          python - <<'PY'
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+
+          heavy = ['basic_pitch', 'beat_this', 'torch', 'torchaudio', 'transkun', 'moduleconf', 'soxr', 'lv_chordia']
+          unexpected = [name for name in heavy if importlib.util.find_spec(name) is not None]
+          if unexpected:
+              raise SystemExit(f'worker packages leaked into lightweight environment: {unexpected}')
+          Path('/tmp/base.json').write_text(json.dumps({
+              'sync_seconds': float(os.environ['BASE_SYNC_SECONDS']),
+              'installed_distributions': int(os.environ['BASE_PACKAGES']),
+              'venv_bytes': int(os.environ['BASE_BYTES']),
+              'worker_modules_absent': heavy,
+          }, sort_keys=True))
+          PY
+      - name: Prove required unit suite collects and runs without worker group
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          uv run --project backend --no-group worker python -m pytest backend/tests/ -m "not integration and not real_stack and not benchmark and not external_provider" -q
+      - name: Measure worker-complete environment and smoke production engines
+        shell: bash
+        run: |
+          set -euo pipefail
+          started="$(python -c 'import time; print(time.time())')"
+          uv sync --project backend --locked --group worker
+          ended="$(python -c 'import time; print(time.time())')"
+          WORKER_SYNC_SECONDS="$(python - "$started" "$ended" <<'PY'
+          import sys
+          print(round(float(sys.argv[2]) - float(sys.argv[1]), 3))
+          PY
+          )"
+          WORKER_PACKAGES="$(backend/.venv/bin/python - <<'PY'
+          import importlib.metadata
+          print(len(list(importlib.metadata.distributions())))
+          PY
+          )"
+          WORKER_BYTES="$(du -sb backend/.venv | cut -f1)"
+          export WORKER_SYNC_SECONDS WORKER_PACKAGES WORKER_BYTES
+          backend/.venv/bin/python - <<'PY'
+          import basic_pitch
+          import beat_this
+          import lv_chordia
+          import moduleconf
+          import soxr
+          import torch
+          import torchaudio
+          import transkun
+          from engines.beats.beat_this_engine import BeatThisEngine
+          from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
+          from engines.transcription.basic_pitch import BasicPitchEngine
+          from engines.transcription.transkun import TranskunEngine
+
+          assert BeatThisEngine().ENGINE == 'beat_this'
+          assert LvChordiaHarmonyEngine().ENGINE == 'lv-chordia'
+          assert BasicPitchEngine().ENGINE == 'basic_pitch'
+          assert TranskunEngine().ENGINE == 'transkun'
+          PY
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          base = json.loads(Path('/tmp/base.json').read_text())
+          worker = {
+              'sync_seconds_incremental_from_base': float(os.environ['WORKER_SYNC_SECONDS']),
+              'installed_distributions': int(os.environ['WORKER_PACKAGES']),
+              'venv_bytes': int(os.environ['WORKER_BYTES']),
+          }
+          report = {
+              'schema_version': 1,
+              'issue': 287,
+              'baseline_observed_pre_split': {
+                  'installed_distributions': 163,
+                  'uv_cache_bytes_approx': 865_000_000,
+                  'source': 'GitHub-hosted CI observation recorded on issue #287',
+              },
+              'lightweight_base_plus_dev': base,
+              'worker_complete': worker,
+              'notes': [
+                  'Timings are same-run hosted-runner observations and not performance gates.',
+                  'The worker measurement is incremental after the lightweight environment sync.',
+              ],
+          }
+          Path('docs/generated/backend-dependency-groups.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+      - name: Persist resolver output and measurement
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/uv.lock docs/generated/backend-dependency-groups.json
+          if git diff --cached --quiet; then
+            echo 'No resolver/report changes to persist.'
+            exit 0
+          fi
+          git commit -m 'chore: lock and measure backend dependency groups'
+          git push origin HEAD:devex/backend-worker-dependency-group-287
