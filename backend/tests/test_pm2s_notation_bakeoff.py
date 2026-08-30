@@ -69,6 +69,17 @@ def test_slice_performance_midi_rebases_and_clips_notes():
     assert max(note.end for note in notes) <= 1.0 + 1e-3
 
 
+def test_reference_grid_is_clipped_and_rebased_before_midi_excerpting():
+    beats, downbeats = bakeoff.reference_grid_from_midi(
+        _midi_bytes(),
+        start=0.25,
+        end=1.25,
+    )
+
+    assert beats == pytest.approx([0.25, 0.75], abs=1e-3)
+    assert downbeats == []
+
+
 def test_midi_diagnostics_reports_overlaps_and_duration_vocabulary():
     midi = pretty_midi.PrettyMIDI(initial_tempo=120.0)
     instrument = pretty_midi.Instrument(program=0)
@@ -97,7 +108,7 @@ def test_evaluate_pair_records_candidate_unavailable_without_fabricating_result(
     monkeypatch.setattr(
         bakeoff,
         "_current_score",
-        lambda midi: {
+        lambda midi, **kwargs: {
             "status": "measured",
             "notation_midi_sha256": "current",
         },
