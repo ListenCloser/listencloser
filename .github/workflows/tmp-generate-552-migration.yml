@@ -1,11 +1,9 @@
 name: Temporary generate #552 migration
 
 on:
-  push:
-    branches:
-      - security/artifacts-select-role-552
-    paths:
-      - '.github/workflows/tmp-generate-552-migration.yml'
+  pull_request:
+    branches: [main]
+    types: [opened]
 
 permissions:
   contents: write
