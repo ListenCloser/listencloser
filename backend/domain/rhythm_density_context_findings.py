@@ -138,13 +138,19 @@ def _valid_reference_population(
         return False
     if population.source_coverage_end_seconds <= population.source_coverage_start_seconds:
         return False
-    if population.eligible_coverage_seconds < 0:
+    if population.eligible_coverage_seconds <= 0:
+        return False
+    if not population.eligible_intervals_seconds:
         return False
 
     previous_end: float | None = None
     interval_coverage = 0.0
     for start, end in population.eligible_intervals_seconds:
         if not _finite((start, end)) or start < 0 or end <= start:
+            return False
+        if start < population.source_coverage_start_seconds - _NUMERIC_ATOL:
+            return False
+        if end > population.source_coverage_end_seconds + _NUMERIC_ATOL:
             return False
         if previous_end is not None and start <= previous_end + _NUMERIC_ATOL:
             return False
@@ -213,6 +219,19 @@ def _valid_relation_provenance(observation: RhythmDensityContextObservation) -> 
     )
 
 
+def _valid_lineage(
+    observation: RhythmDensityContextObservation,
+    support_ref: RhythmDensityEvidenceRef,
+) -> bool:
+    source_version_id = observation.provenance.get("source_version_id")
+    evidence_id = observation.provenance.get("evidence_id")
+    if not isinstance(source_version_id, str) or not isinstance(evidence_id, str):
+        return False
+    if str(observation.subject_locator.source_artifact_version_id) != source_version_id:
+        return False
+    return support_ref.id == f"{evidence_id}:rhythm_density"
+
+
 def _measurement_summary(measurement: RhythmDensityContextMeasurement) -> str:
     if measurement.direction == "unchanged":
         return (
@@ -258,6 +277,8 @@ def compose_grounded_rhythm_density_context_finding(
     if support_ref.namespace != "rhythm_density_insight":
         return None
     if not support_ref.id.endswith(":rhythm_density"):
+        return None
+    if not _valid_lineage(observation, support_ref):
         return None
     if not _valid_measurement(measurement):
         return None
