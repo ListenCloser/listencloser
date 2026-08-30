@@ -1,37 +1,17 @@
 /**
- * Authenticated fetch wrapper with token caching.
+ * Authenticated frontend fetch wrapper.
  *
- * Architecture: All frontend API calls go through this function. It
- * attaches the Supabase JWT token and handles 401 by invalidating the
- * cache. The token is cached for 60 seconds to avoid redundant
- * getSession() calls on every request.
- *
- * Token lifecycle:
- * 1. First call: fetches from supabase.auth.getSession()
- * 2. Subsequent calls (< 60s): returns cached token
- * 3. On 401: clears cache, next call re-fetches
- * 4. On sign-out: call clearTokenCache() explicitly
+ * Supabase is the single owner of session persistence and token refresh. Read
+ * the current client session for each request instead of maintaining a second
+ * TTL cache that can outlive sign-out or auth-state transitions.
  */
 
 import { supabase } from "./supabase";
 
-let cachedToken: string | null = null;
-let tokenExpiry = 0;
-
-export function clearTokenCache(): void {
-  cachedToken = null;
-  tokenExpiry = 0;
-}
-
 async function getToken(): Promise<string | null> {
   if (!supabase) return null;
-  const now = Date.now();
-  if (cachedToken && now < tokenExpiry) return cachedToken;
   const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token ?? null;
-  cachedToken = token;
-  tokenExpiry = now + 60_000;
-  return token;
+  return data.session?.access_token ?? null;
 }
 
 export async function apiFetch<T = unknown>(url: string, options?: RequestInit): Promise<T> {
@@ -41,11 +21,10 @@ export async function apiFetch<T = unknown>(url: string, options?: RequestInit):
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string>),
   };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
-    if (res.status === 401) cachedToken = null;
     const body = await res.json().catch(() => ({}));
     const error = typeof body === "object" && body !== null && "error" in body
       ? (body as { error?: unknown }).error

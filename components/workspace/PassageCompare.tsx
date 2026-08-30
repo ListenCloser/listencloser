@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatTime } from "@/lib/format";
+import { isInspectorExposed } from "@/lib/inspector/capabilities";
 import { requestWorkspaceOrientation } from "@/lib/inspector/orientation";
 import {
   comparePerceptualSpans,
@@ -45,6 +46,8 @@ function unavailableCopy(status: PerceptualSpanComparisonResponse["status"]): st
 
 export default function PassageCompare() {
   const { workspace, setSelection } = useWorkspace();
+  if (!isInspectorExposed("perceptual_series")) return null;
+
   const workId = workspace.activeWorkId;
   const sourceVersionId = workspace.representations.find(
     (representation) => representation.kind === "waveform" && representation.versionId,

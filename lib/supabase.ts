@@ -1,5 +1,4 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "./database.types";
+import { createClient } from "@supabase/supabase-js";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -7,9 +6,9 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // Validate URL format — placeholder values like "[SENSITIVE]" are not valid URLs
 const isValidUrl = url && url.startsWith("http") && !url.includes("[SENSITIVE]");
 
-export const supabase: SupabaseClient<Database> | null =
+export const supabase =
   isValidUrl && anonKey
-    ? createClient<Database>(url, anonKey, {
+    ? createClient(url, anonKey, {
         auth: {
           // PKCE flow (default). Google redirects with ?code= to /auth/callback,
           // which the server redirects to the client /auth/confirm page that

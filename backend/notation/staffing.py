@@ -1,9 +1,9 @@
 """Piano-aware grand-staff reconstruction.
 
 Turns a single-staff piano transcription into a readable piano grand staff:
-one piano part with a treble and a bass staff, grouped with a brace. Note
-content (pitch and timing) is never changed — only staff assignment, clefs,
-voices, and the MusicXML part/staff structure.
+one piano part with a treble and a bass staff, grouped with a brace. Pitch
+content is preserved; source-grid timing is normalized with music21's standard
+quantizer before engraving so continuous beat estimates remain MusicXML-safe.
 
 The staff assignment is a small deterministic dynamic program over chord
 events. It weighs ledger-line cost (distance from each staff's natural
@@ -191,8 +191,10 @@ def grand_staff_from_midi(
     When a trustworthy source-audio beat grid and inferred meter are supplied,
     seconds are mapped to score quarter lengths from that grid. This prevents a
     transcription MIDI's placeholder tempo/meter metadata from reinterpreting
-    otherwise-correct source-aligned note timing during engraving. Without that
-    evidence the historical embedded-MIDI behavior is retained.
+    otherwise-correct source-aligned note timing during engraving. Source-grid
+    offsets and durations are then normalized with music21's standard MIDI
+    quantization grid before ties and MusicXML export. Without source evidence
+    the historical embedded-MIDI behavior is retained.
     """
     import io
     import math
@@ -302,6 +304,18 @@ def grand_staff_from_midi(
     new_score.insert(0, treble)
     new_score.insert(0, bass)
     new_score.insert(0, layout.StaffGroup(treble, bass, symbol="brace"))
+
+    if time_mapper is not None:
+        # music21's MIDI parser uses this same default quantization convention:
+        # sixteenth notes plus triplet eighths. Continuous beat estimators should
+        # not leak arbitrary floating-point durations into MusicXML engraving.
+        new_score.quantize(
+            quarterLengthDivisors=(4, 3),
+            processOffsets=True,
+            processDurations=True,
+            inPlace=True,
+            recurse=True,
+        )
 
     makeNotation.makeTies(new_score, inPlace=True)
     return new_score

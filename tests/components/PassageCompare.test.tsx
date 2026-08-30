@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   transport: {
     activeSource: { role: "original" } as { role: string } | null,
   },
+  inspectorExposed: true,
   setSelection: vi.fn(),
   seek: vi.fn(),
   requestWorkspaceOrientation: vi.fn(),
@@ -36,6 +37,10 @@ vi.mock("@/lib/stores/transport", () => ({
     seek: mocks.seek,
     transport: mocks.transport,
   }),
+}));
+
+vi.mock("@/lib/inspector/capabilities", () => ({
+  isInspectorExposed: () => mocks.inspectorExposed,
 }));
 
 vi.mock("@/lib/inspector/orientation", () => ({
@@ -114,6 +119,7 @@ function supportedResponse() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.inspectorExposed = true;
   mocks.workspace.activeWorkId = "work-1";
   mocks.workspace.representations = [
     { kind: "waveform", versionId: "audio-version-1" },
@@ -123,6 +129,15 @@ beforeEach(() => {
 });
 
 describe("PassageCompare", () => {
+  it("stays out of Breakdown when perceptual comparison is not Inspector-exposed", () => {
+    mocks.inspectorExposed = false;
+    render(<PassageCompare />);
+
+    expect(screen.queryByRole("region", { name: "Compare passages" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use selection as reference" })).not.toBeInTheDocument();
+    expect(mocks.comparePerceptualSpans).not.toHaveBeenCalled();
+  });
+
   it("requires two explicit selections before querying and renders only the supported relation", async () => {
     const user = userEvent.setup();
     mocks.comparePerceptualSpans.mockResolvedValue(supportedResponse());

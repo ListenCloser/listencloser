@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "decision": "PROMOTE_WITH_ROLLBACK",
+  "capability": "beat_downbeat_tracking",
+  "production_engine": "beat_this",
+  "production_checkpoint": "final0",
+  "production_device": "cpu",
+  "legacy_rollback_engine": "librosa",
+  "effective_scope": [
+    "durable worker beat analysis",
+    "score and notation beat grid",
+    "audio tempo evidence produced through the shared beat-engine seam"
+  ],
+  "evidence": {
+    "canonical_report": "backend/evaluation/analysis_v3/pulse/REPORT.md",
+    "machine_readable_results": [
+      "backend/evaluation/analysis_v3/pulse/results/beat_this.json",
+      "backend/evaluation/analysis_v3/pulse/results/current.json"
+    ],
+    "canonical_metric": "mir_eval.beat.f_measure",
+    "metric_threshold_seconds": 0.07,
+    "model_family_validation": {
+      "dataset": "candombe_single_split_val",
+      "checkpoint": "single_final0",
+      "beat_f1_mean": 0.9989,
+      "downbeat_f1_mean": 1.0,
+      "reference_beat_coverage": 1.0,
+      "baseline_librosa_beat_f1_mean": 0.3847,
+      "note": "This clean split-aware result validates the Beat This model family, not the exact final0 production checkpoint."
+    },
+    "production_checkpoint_evidence": {
+      "result_file": "backend/evaluation/analysis_v3/pulse/results/beat_this.json",
+      "checkpoint_contract": "BeatThisAdapter default final0; production explicitly pins final0",
+      "limitations": [
+        "The earlier GuitarSet quality probe overlaps Beat This final0 training data and is directional, not an independent generalization result.",
+        "An independent GTZAN evaluation remains required before making broad cross-corpus generalization claims."
+      ]
+    }
+  },
+  "operational_rationale": [
+    "Beat This and librosa already implement the same BeatTrackingEngine contract, so promotion deletes no product boundary and requires no new framework.",
+    "The production image already installs beat-this==1.1.0 and bakes the final0 checkpoint with a pinned SHA-256 digest.",
+    "The durable worker is asynchronous, so the candidate's higher CPU latency is preferable to knowingly weak localized beat evidence for score quantization and beat-relative analysis.",
+    "The production adapter caches the model once per process and the worker prewarms it before claiming jobs.",
+    "Failures are fail-closed; there is no silent fallback to librosa. Release rollback restores the prior librosa-default revision, while explicit engine selection remains available for controlled tests and operations."
+  ],
+  "remaining_gates": [
+    "Run the final0 checkpoint on a genuinely independent annotated corpus, with GTZAN the default target from the checkpoint metadata.",
+    "Do not claim meter support; Beat This production evidence supplies beats, downbeats, and derived tempo only.",
+    "Collect production latency and failure-rate telemetry before increasing worker concurrency or moving inference onto a synchronous request path.",
+    "Run real-stack verification that score generation persists and renders successfully with Beat This-derived grids before treating deployment as verified."
+  ]
+}

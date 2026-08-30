@@ -27,6 +27,7 @@ vi.mock("@/lib/representations", () => {
   ];
 
   return {
+    REPRESENTATIONS: definitions,
     availableRepresentations: (availability: { originalAudio: boolean; performanceMidi: boolean }) => definitions.filter(
       (definition) => definition.id === "listen" ? availability.originalAudio : availability.performanceMidi,
     ),

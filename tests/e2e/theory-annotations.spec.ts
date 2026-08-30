@@ -5,8 +5,8 @@ import { expect, test, type Page } from "@playwright/test";
  *
  * Validates the Breakdown Inspector hierarchy:
  *   - Context shows interpretable Key, Tempo, Meter as quiet inline metadata
- *   - Evidence details can be expanded to Harmony → Chords, Roman numerals, Function
- *   - Clicking a chord/RN sets a selection
+ *   - Evidence details can be expanded to one aligned harmonic timeline
+ *   - Clicking chord / degree evidence sets a selection
  *   - Withheld capabilities (cadence, key_region) never appear
  */
 test.describe("theory annotations (MSW)", () => {
@@ -91,51 +91,48 @@ test.describe("theory annotations (MSW)", () => {
     await expect(metadata).toHaveCount(3);
   });
 
-  test("Inspector shows Harmony section with Chords, Roman numerals, Function sub-sections", async ({
-    page,
-  }) => {
+  test("Inspector shows one aligned harmony timeline", async ({ page }) => {
     await expect(
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     const harmony = await openHarmonyEvidence(page);
+    const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
 
-    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "C maj" }).first()).toBeVisible();
-
-    await expect(harmony.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
-
-    await expect(harmony.getByRole("heading", { name: "Function" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "TONIC (I)" }).first()).toBeVisible();
+    await expect(table).toBeVisible();
+    await expect(table.getByRole("columnheader")).toHaveText(["Time", "Chord", "Degree", "Function"]);
+    await expect(table.getByRole("button", { name: "C maj" }).first()).toBeVisible();
+    await expect(table.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
+    await expect(table.getByRole("button", { name: "TONIC (I)" }).first()).toBeVisible();
   });
 
-  test("all 6 chord entries rendered in Inspector", async ({ page }) => {
+  test("all 6 chord entries rendered in the harmonic timeline", async ({ page }) => {
     await expect(
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     const harmony = await openHarmonyEvidence(page);
-    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
+    const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
 
-    await expect(harmony.getByRole("button", { name: "C maj" }).first()).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "G min" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "F maj" })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "G7" })).toBeVisible();
+    await expect(table.getByRole("button", { name: "C maj" })).toHaveCount(3);
+    await expect(table.getByRole("button", { name: "G min" })).toHaveCount(1);
+    await expect(table.getByRole("button", { name: "F maj" })).toHaveCount(1);
+    await expect(table.getByRole("button", { name: "G7" })).toHaveCount(1);
   });
 
-  test("all 6 roman numeral entries rendered in Inspector", async ({ page }) => {
+  test("all 6 roman numeral entries remain accessible without repeating key text visibly", async ({ page }) => {
     await expect(
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
     const harmony = await openHarmonyEvidence(page);
-    await expect(harmony.getByRole("heading", { name: "Roman numerals" })).toBeVisible();
+    const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
 
-    await expect(harmony.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "v (A minor)", exact: true })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "iv (A minor)", exact: true })).toBeVisible();
-    await expect(harmony.getByRole("button", { name: "V7 (A minor)" })).toBeVisible();
+    await expect(table.getByRole("button", { name: "I (A minor)" })).toHaveCount(3);
+    await expect(table.getByRole("button", { name: "v (A minor)", exact: true })).toHaveCount(1);
+    await expect(table.getByRole("button", { name: "iv (A minor)", exact: true })).toHaveCount(1);
+    await expect(table.getByRole("button", { name: "V7 (A minor)" })).toHaveCount(1);
+    await expect(table).not.toContainText("(A minor)");
   });
 
   test("Clicking a chord in Inspector sets selection", async ({ page }) => {
@@ -144,9 +141,9 @@ test.describe("theory annotations (MSW)", () => {
     ).toBeVisible({ timeout: 20_000 });
 
     const harmony = await openHarmonyEvidence(page);
-    await expect(harmony.getByRole("heading", { name: "Chords" })).toBeVisible();
+    const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
 
-    await harmony.getByRole("button", { name: "C maj" }).first().click();
+    await table.getByRole("button", { name: "C maj" }).first().click();
 
     await expect(page.locator(".inspector-scope-value")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("0:00–0:02")).toBeVisible();

@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getDecodedAudio } from "@/lib/audio-buffer-cache";
 import { withAlpha } from "@/lib/color";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 import type { MusicalSelection } from "@/lib/stores/workspace";
+import { getSpectrogramData } from "@/lib/spectrogram-data";
 import {
-  computeSpectrogram,
   frequencyToY,
   timeToX,
   xToTime,
@@ -15,23 +14,13 @@ import {
 
 type Range = { start: number; end: number };
 
-function mergedSamples(buffer: AudioBuffer): Float32Array {
-  if (buffer.numberOfChannels === 1) return buffer.getChannelData(0);
-  const length = buffer.length;
-  const mixed = new Float32Array(length);
-  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-    const data = buffer.getChannelData(channel);
-    for (let index = 0; index < length; index += 1) mixed[index] += data[index] / buffer.numberOfChannels;
-  }
-  return mixed;
-}
-
 function formatFrequency(value: number): string {
   return value >= 1000 ? `${Math.round(value / 1000)} kHz` : `${Math.round(value)} Hz`;
 }
 
 export default function Spectrogram({
   url,
+  cacheIdentity,
   position,
   selection,
   annotations = [],
@@ -40,6 +29,7 @@ export default function Spectrogram({
   onSelect,
 }: {
   url: string;
+  cacheIdentity?: string;
   position: number;
   selection?: MusicalSelection | null;
   annotations?: AnalysisAnnotation[];
@@ -58,7 +48,7 @@ export default function Spectrogram({
   useEffect(() => {
     let cancelled = false;
     // A new source must never inherit pixels, duration, or drag state from the
-    // prior recording. Keep a neutral canvas until this exact URL is decoded.
+    // prior recording. Keep a neutral canvas until this exact source resolves.
     dataRef.current = null;
     draggingRef.current = null;
     setDuration(0);
@@ -66,10 +56,10 @@ export default function Spectrogram({
     setStatus("loading");
     setProgress(0);
 
-    const decodeAndCompute = async () => {
+    const load = async () => {
       try {
-        const buffer = await getDecodedAudio(url);
-        const result = await computeSpectrogram(mergedSamples(buffer), buffer.sampleRate, {
+        const result = await getSpectrogramData(url, {
+          cacheIdentity,
           onProgress: (complete, total) => {
             if (!cancelled && complete % 12 === 0) setProgress(complete / total);
           },
@@ -83,9 +73,9 @@ export default function Spectrogram({
         if (!cancelled) setStatus("error");
       }
     };
-    void decodeAndCompute();
+    void load();
     return () => { cancelled = true; };
-  }, [url]);
+  }, [cacheIdentity, url]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

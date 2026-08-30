@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
-import { categorizeInsights, filterByCategory, insightStartSeconds } from "@/lib/inspector/insights";
+import { categorizeInsights, filterByCategory } from "@/lib/inspector/insights";
 import { isInspectorExposed, isExperimental } from "@/lib/inspector/capabilities";
 import { deriveFindings } from "@/lib/inspector/findings";
 import { rankBreakdownFindings, type BreakdownFinding } from "@/lib/inspector/breakdown";
@@ -12,6 +12,7 @@ import { formatTime } from "@/lib/format";
 import TabStrip from "@/components/ui/TabStrip";
 import AskPanel from "./AskPanel";
 import BreakdownFindingCard from "./BreakdownFindingCard";
+import HarmonyEvidence, { harmonyEvidenceRowCount } from "./HarmonyEvidence";
 import PassageCompare from "./PassageCompare";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
@@ -76,78 +77,6 @@ function ContextSection({ insights }: { insights: Insight[] }) {
         ))}
       </dl>
     </section>
-  );
-}
-
-function SequenceBlock({
-  title,
-  insights,
-  bpm,
-  onSeek,
-  setSelection,
-}: {
-  title: string;
-  insights: Insight[];
-  bpm: number;
-  onSeek: (seconds: number) => void;
-  setSelection: (selection: MusicalSelection | null) => void;
-}) {
-  if (insights.length === 0) return null;
-
-  const handleClick = (item: Insight) => {
-    const seconds = insightStartSeconds(item, bpm);
-    if (seconds !== null) onSeek(seconds);
-    if (item.span.start_seconds != null && item.span.end_seconds != null) {
-      setSelection({
-        timeRange: { start: item.span.start_seconds, end: item.span.end_seconds, domain: "notation" },
-        provenance: { origin: "score", timeExact: false, measureApproximate: true },
-      });
-    }
-  };
-
-  return (
-    <div className="inspector-block">
-      <h4>{title}</h4>
-      <div className="inspector-sequence">
-        {insights.map((item) => (
-          <button
-            type="button"
-            className="inspector-seq-btn"
-            key={item.id}
-            onClick={() => handleClick(item)}
-            title={normalizeMusicText(item.claim)}
-          >
-            {normalizeMusicText(item.claim)}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HarmonyEvidence({
-  insights,
-  bpm,
-  onSeek,
-  setSelection,
-}: {
-  insights: Insight[];
-  bpm: number;
-  onSeek: (seconds: number) => void;
-  setSelection: (selection: MusicalSelection | null) => void;
-}) {
-  const chords = insights.filter((item) => item.kind === "chord" && insightStartSeconds(item, bpm) !== null);
-  const romanNumerals = insights.filter((item) => item.kind === "roman_numeral" && insightStartSeconds(item, bpm) !== null);
-  const harmonicFunctions = insights.filter((item) => item.kind === "harmonic_function" && insightStartSeconds(item, bpm) !== null);
-
-  if (chords.length === 0 && romanNumerals.length === 0 && harmonicFunctions.length === 0) return null;
-
-  return (
-    <div className="inspector-evidence-body">
-      <SequenceBlock title="Chords" insights={chords} bpm={bpm} onSeek={onSeek} setSelection={setSelection} />
-      <SequenceBlock title="Roman numerals" insights={romanNumerals} bpm={bpm} onSeek={onSeek} setSelection={setSelection} />
-      <SequenceBlock title="Function" insights={harmonicFunctions} bpm={bpm} onSeek={onSeek} setSelection={setSelection} />
-    </div>
   );
 }
 
@@ -403,7 +332,7 @@ function BreakdownContent({
       return true;
     });
 
-  const harmonyCount = evidenceInsights.filter((item) => ["chord", "roman_numeral", "harmonic_function"].includes(item.kind)).length;
+  const harmonyCount = harmonyEvidenceRowCount(evidenceInsights, bpm);
   const rhythmCount = evidenceInsights.filter((item) => ["rhythm", "rhythm_density", "rhythm_rests"].includes(item.kind)).length;
   const melodyCount = evidenceInsights.filter((item) => item.kind === "melody" || item.kind === "melody_interval_summary").length;
   const totalEvidenceCount = harmonyCount + rhythmCount + melodyCount;
