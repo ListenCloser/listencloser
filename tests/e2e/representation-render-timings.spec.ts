@@ -145,16 +145,14 @@ test.describe("representation render timing contract (MSW)", () => {
     await page.goto("/");
     const waveformCanvas = page.getByTestId("waveform-canvas");
     await waitForWorkspaceData(page);
+    await expect(waveformCanvas).toHaveAttribute("data-waveform-state", "ready", { timeout: 30_000 });
     const waveformInitial = await page.evaluate(() => {
-      const canvas = document.querySelector<HTMLElement>('[data-testid="waveform-canvas"]');
-      if (!canvas || canvas.dataset.waveformState !== "ready") return null;
       const navigation = performance.getEntriesByType("navigation")[0];
       return {
         navigation_start_to_ready_ms: Math.round(performance.now() * 10) / 10,
         navigation_entry_duration_ms: navigation ? Math.round(navigation.duration * 10) / 10 : null,
       };
     });
-    await expect(waveformCanvas).toHaveAttribute("data-waveform-state", "ready", { timeout: 30_000 });
 
     const waveformTab = page.getByRole("tab", { name: "Waveform" });
     const pianoTab = page.getByRole("tab", { name: "Piano Roll" });
