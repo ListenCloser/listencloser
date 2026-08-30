@@ -16,15 +16,57 @@ import {
   validateAction,
   type ReferenceContext,
 } from "@/lib/ask/render";
+import { isApiRequestError } from "@/lib/api";
 import { composeNoteSelection } from "@/lib/selection";
 import type { PlaybackSource } from "@/lib/stores/transport";
 import type { AskAction, AskMessage, AskReference, AskResponse } from "@/lib/ask/types";
 import styles from "./AskPanel.module.css";
 
+type AskErrorState = {
+  message: string;
+  requestId: string | null;
+};
+
 function makeId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function presentAskError(cause: unknown): AskErrorState {
+  if (isApiRequestError(cause)) {
+    let message: string;
+    switch (cause.status) {
+      case 503:
+        message = "Ask is not configured for this workspace.";
+        break;
+      case 504:
+        message = "Ask took too long to respond. Try again.";
+        break;
+      case 429:
+        message = "Ask is busy right now. Try again shortly.";
+        break;
+      case 401:
+      case 403:
+        message = "Ask is not available for this session.";
+        break;
+      case 502:
+        message = "Ask is temporarily unavailable. Try again.";
+        break;
+      default:
+        message = "Ask is unavailable right now.";
+        break;
+    }
+    return { message, requestId: cause.requestId };
+  }
+
+  const message = cause instanceof Error ? cause.message : "";
+  return {
+    message: message.includes("not configured")
+      ? "Ask is not configured for this workspace."
+      : "Ask is unavailable right now.",
+    requestId: null,
+  };
 }
 
 function referenceLabel(ref: AskReference, insights: { id: string; claim: string }[]): string {
@@ -50,12 +92,18 @@ function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; b
 }
 
 export default function AskPanel() {
-  const { workspace, appendAskMessage, setActiveRepresentation, setSelection } = useWorkspace();
+  const {
+    workspace,
+    appendAskMessage,
+    setActiveRepresentation,
+    setSelection,
+    clearSelection,
+  } = useWorkspace();
   const { transport, seek, setLoop, toggleLoop } = useTransport();
   const { timeline } = useTimeline();
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AskErrorState | null>(null);
   const [lastAsked, setLastAsked] = useState<{ question: string; context: NonNullable<ReturnType<typeof deriveAskContext>>; workId: string } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const askTokenRef = useRef(0);
@@ -87,8 +135,7 @@ export default function AskPanel() {
       setLastAsked(null);
     } catch (cause) {
       if (token !== askTokenRef.current || workId !== activeWorkIdRef.current) return;
-      const message = cause instanceof Error ? cause.message : "Ask is not available right now.";
-      setError(message.includes("not configured") ? "Ask is not configured for this workspace." : "Ask is unavailable right now.");
+      setError(presentAskError(cause));
     } finally {
       if (token === askTokenRef.current) {
         setPending(false);
@@ -117,7 +164,7 @@ export default function AskPanel() {
       timeline.bpm,
     );
     if (!context) {
-      setError("Open a piece before asking about it.");
+      setError({ message: "Open a piece before asking about it.", requestId: null });
       return;
     }
     appendAskMessage({ id: makeId(), role: "user", text: trimmed });
@@ -193,8 +240,20 @@ export default function AskPanel() {
   return (
     <div className="ask-panel ask-panel-v4">
       {showScope && (
-        <div className="ask-context" aria-label={`Question context: ${scope}`}>
-          <span>{scope}</span>
+        <div className={styles.scopeRow}>
+          <div className={styles.scopeChip} aria-label={`Question context: ${scope}`}>
+            <span>{scope}</span>
+            <button
+              type="button"
+              className={styles.clearScopeButton}
+              onClick={clearSelection}
+              aria-label="Clear question context"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path d="m3 3 6 6M9 3 3 9" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
@@ -206,8 +265,16 @@ export default function AskPanel() {
             {starterPrompts.length > 0 && (
               <div className="ask-prompts">
                 {starterPrompts.map((prompt) => (
-                  <button type="button" className="ask-prompt" key={prompt} onClick={() => void handleAsk(prompt)}>
-                    {prompt}
+                  <button
+                    type="button"
+                    className={`ask-prompt ${styles.promptButton}`}
+                    key={prompt}
+                    onClick={() => void handleAsk(prompt)}
+                  >
+                    <span>{prompt}</span>
+                    <svg className={styles.promptArrow} width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M2.5 6h6M6 3l3 3-3 3" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </button>
                 ))}
               </div>
@@ -229,16 +296,22 @@ export default function AskPanel() {
 
         {pending && (
           <div className="ask-turn ask-thinking" role="status">
-            <span className="ask-thinking-dot" />
-            <span>Thinking</span>
+            <span>Thinking…</span>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="ask-error" role="alert">
-          <span>{error}</span>
-          {lastAsked && <button type="button" onClick={retry}>Retry</button>}
+        <div className={styles.errorRow} role="alert">
+          <div className={styles.errorCopy}>
+            <span>{error.message}</span>
+            {error.requestId && <code className={styles.requestId}>Reference: {error.requestId}</code>}
+          </div>
+          {lastAsked && (
+            <button type="button" className={styles.retryButton} onClick={retry}>
+              Retry
+            </button>
+          )}
         </div>
       )}
 
@@ -256,12 +329,11 @@ export default function AskPanel() {
         />
         <button
           type="submit"
-          className="ask-send"
-          style={{ borderRadius: 6 }}
+          className={`ask-send ${styles.sendButton}`}
           disabled={pending || !draft.trim()}
           aria-label="Send question"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ display: "block" }} aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M3 8h9M8.5 3.5 13 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
