@@ -3,13 +3,11 @@ import "./globals.css";
 import "./workspace-v3.css";
 import "./product-polish-v4.css";
 import "./workspace-interactions.css";
-// Keep visual-language layers last so product craft rules override structural chrome.
-import "./visual-language-v5.css";
-import "./visual-language-v6.css";
+// Keep visual-language rules after structural chrome so product craft wins the cascade.
+import "./visual-language.css";
 import "./mobile-workspace.css";
 import "./readiness-polish-v6.css";
-import "./breakdown-v3.css";
-import "./breakdown-actions-v3.css";
+import "./breakdown.css";
 // Signed-out only: product-native landing story without changing workspace chrome.
 import "./landing-product-story.css";
 import { Geist } from "next/font/google";
