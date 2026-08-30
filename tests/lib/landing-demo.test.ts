@@ -79,10 +79,34 @@ describe("landing demo source-of-truth contract", () => {
 
     expect(() => projectLandingDemoTime(9.9, window)).toThrow(/outside/);
     expect(() => projectLandingDemoTime(20.1, window)).toThrow(/outside/);
+    expect(() => projectLandingDemoRange(12, 12, window)).toThrow(/increasing/);
   });
 
   it("accepts an internally consistent engineering manifest before public-use approval", () => {
     expect(validateLandingDemoManifest(validManifest())).toEqual([]);
+  });
+
+  it("allows a landing excerpt to begin mid-measure while retaining real score alignment", () => {
+    const manifest = validManifest();
+    manifest.window = { startSeconds: 11, endSeconds: 14 };
+    manifest.notes = [{
+      id: "note-mid-measure",
+      pitch: 67,
+      startSeconds: 12,
+      endSeconds: 13,
+      velocity: 80,
+    }];
+    manifest.score.measureStartsSeconds = [0, 5, 10, 15, 20];
+    manifest.evidence = [{
+      id: "evidence-mid-measure",
+      kind: "register",
+      label: "Phrase sits higher here",
+      provenance: "deterministic note-register comparison",
+      startSeconds: 12,
+      endSeconds: 13.5,
+    }];
+
+    expect(validateLandingDemoManifest(manifest)).toEqual([]);
   });
 
   it("blocks public landing use until provenance approval is explicit", () => {
@@ -117,5 +141,14 @@ describe("landing demo source-of-truth contract", () => {
       "score.measureStartsSeconds must be strictly increasing",
       "evidence[0] must overlap the landing window",
     ]));
+  });
+
+  it("requires at least one real evidence span", () => {
+    const manifest = validManifest();
+    manifest.evidence = [];
+
+    expect(validateLandingDemoManifest(manifest)).toContain(
+      "evidence must contain at least one supported source-time span",
+    );
   });
 });
