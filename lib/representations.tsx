@@ -14,6 +14,7 @@ import {
   noteIdsInRange,
 } from "@/lib/selection";
 import { extractAnnotations } from "@/lib/analysis-annotations";
+import { extractObservedPulseGrid } from "@/lib/pulse-grid";
 import Waveform from "@/components/Waveform";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
@@ -105,6 +106,10 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
   const { timeline } = useTimeline();
   const entry = workspace.representations.find((item) => item.kind === "piano_roll");
   const notes = entry?.notes ?? [];
+  const pulseGrid = useMemo(
+    () => extractObservedPulseGrid(workspace.insights, entry?.versionId),
+    [workspace.insights, entry?.versionId],
+  );
   const selection = workspace.selection;
   const inspectorOpen = !workspace.inspectorCollapsed;
   const annotations = useMemo(
@@ -128,6 +133,8 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
       <PianoRoll
         notes={notes}
         bpm={timeline.bpm}
+        beatTimes={pulseGrid?.beatsSeconds}
+        downbeatTimes={pulseGrid?.downbeatsSeconds}
         playheadTime={active ? transport.position : 0}
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
