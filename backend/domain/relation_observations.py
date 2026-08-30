@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from statistics import median
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
-from perceptual_evidence import (
+from domain.perceptual_report import (
     FeatureName,
     PerceptualEvidenceReport,
     PerceptualSeriesEvidence,
@@ -32,6 +32,9 @@ _SUPPORTED_FEATURES: tuple[FeatureName, ...] = (
     "relative_band_energy",
     "onset_strength",
 )
+
+Numeric = float | list[float]
+FrameValues = list[float] | list[list[float]]
 
 
 class SecondsSpanLocator(BaseModel):
@@ -203,30 +206,65 @@ def _series_contract_reasons(
     return reasons
 
 
+def _coerce_frame_values(
+    feature: FeatureName,
+    raw_values: list[float] | list[list[float]],
+) -> tuple[FrameValues | None, str | None]:
+    if not raw_values:
+        return None, f"{feature} has inconsistent or empty evidence"
+
+    first = raw_values[0]
+    if isinstance(first, list):
+        width = len(first)
+        if width == 0:
+            return None, f"{feature} has unsupported evidence dimensions"
+        rows: list[list[float]] = []
+        for raw_row in raw_values:
+            if not isinstance(raw_row, list) or len(raw_row) != width:
+                return None, f"{feature} has unsupported evidence dimensions"
+            row = [float(item) for item in raw_row]
+            if not all(math.isfinite(item) for item in row):
+                return None, f"{feature} contains non-finite evidence"
+            rows.append(row)
+        return rows, None
+
+    scalars: list[float] = []
+    for raw_value in raw_values:
+        if isinstance(raw_value, list):
+            return None, f"{feature} has unsupported evidence dimensions"
+        value = float(raw_value)
+        if not math.isfinite(value):
+            return None, f"{feature} contains non-finite evidence"
+        scalars.append(value)
+    return scalars, None
+
+
 def _values_for_span(
     feature: FeatureName,
     series: PerceptualSeriesEvidence,
     locator: SecondsSpanLocator,
-) -> tuple[np.ndarray | None, str | None]:
-    times = np.asarray(series.frame_times_seconds, dtype=float)
-    values = np.asarray(series.values, dtype=float)
-    if times.ndim != 1 or values.ndim not in {1, 2}:
-        return None, f"{feature} has unsupported evidence dimensions"
-    if len(times) != len(values) or len(times) == 0:
+) -> tuple[FrameValues | None, str | None]:
+    times = [float(value) for value in series.frame_times_seconds]
+    if not times or len(times) != len(series.values):
         return None, f"{feature} has inconsistent or empty evidence"
-    if not np.isfinite(times).all() or not np.isfinite(values).all():
+    if not all(math.isfinite(value) for value in times):
         return None, f"{feature} contains non-finite evidence"
-    if np.any(np.diff(times) < 0):
+    if any(current < previous for previous, current in zip(times, times[1:], strict=False)):
         return None, f"{feature} frame times are not monotonic"
 
-    mask = np.logical_and(
-        times >= locator.start_seconds,
-        times <= locator.end_seconds,
-    )
-    if not np.any(mask):
+    values, values_error = _coerce_frame_values(feature, series.values)
+    if values_error is not None or values is None:
+        return None, values_error
+
+    selected_indexes = [
+        index
+        for index, frame_time in enumerate(times)
+        if locator.start_seconds <= frame_time <= locator.end_seconds
+    ]
+    if not selected_indexes:
         return None, f"{feature} does not cover the requested span"
 
-    selected_times = times[mask]
+    selected_times = [times[index] for index in selected_indexes]
     hop_seconds = _series_hop_seconds(series)
     if hop_seconds is None:
         return None, f"{feature} is missing a valid hop-length coverage contract"
@@ -236,60 +274,61 @@ def _values_for_span(
     if locator.end_seconds - selected_times[-1] > boundary_tolerance:
         return None, f"{feature} does not cover the span end within one evidence hop"
 
-    return values[mask], None
+    return [values[index] for index in selected_indexes], None
 
 
-def _median(values: np.ndarray) -> float | np.ndarray:
-    result = np.median(values, axis=0)
-    if np.ndim(result) == 0:
-        return float(result)
-    return np.asarray(result, dtype=float)
+def _median(values: FrameValues) -> Numeric:
+    first = values[0]
+    if isinstance(first, list):
+        rows = [row for row in values if isinstance(row, list)]
+        width = len(first)
+        return [float(median(row[column] for row in rows)) for column in range(width)]
+    return float(median(float(value) for value in values if not isinstance(value, list)))
 
 
-def _direction(
-    delta: float | np.ndarray,
-) -> Literal["higher", "lower", "mixed", "unchanged"]:
-    array = np.asarray(delta, dtype=float)
-    close = np.isclose(array, 0.0, atol=_NUMERIC_ATOL, rtol=_NUMERIC_RTOL)
-    if bool(np.all(close)):
+def _subtract(subject: Numeric, comparison: Numeric) -> Numeric:
+    if isinstance(subject, list) and isinstance(comparison, list):
+        return [left - right for left, right in zip(subject, comparison, strict=True)]
+    if isinstance(subject, list) or isinstance(comparison, list):
+        raise ValueError("cannot compare scalar and vector aggregates")
+    return subject - comparison
+
+
+def _direction(delta: Numeric) -> Literal["higher", "lower", "mixed", "unchanged"]:
+    values = delta if isinstance(delta, list) else [delta]
+    nonzero = [
+        value
+        for value in values
+        if not math.isclose(value, 0.0, abs_tol=_NUMERIC_ATOL, rel_tol=_NUMERIC_RTOL)
+    ]
+    if not nonzero:
         return "unchanged"
-    nonzero = array[~close]
-    if bool(np.all(nonzero > 0)):
+    if all(value > 0 for value in nonzero):
         return "higher"
-    if bool(np.all(nonzero < 0)):
+    if all(value < 0 for value in nonzero):
         return "lower"
     return "mixed"
 
 
-def _serialize_numeric(value: float | np.ndarray) -> float | list[float]:
-    array = np.asarray(value, dtype=float)
-    if array.ndim == 0:
-        return float(array)
-    return array.tolist()
-
-
 def _relative_delta(
-    delta: float | np.ndarray,
-    comparison: float | np.ndarray,
+    delta: Numeric,
+    comparison: Numeric,
 ) -> float | list[float | None] | None:
-    delta_array = np.asarray(delta, dtype=float)
-    comparison_array = np.asarray(comparison, dtype=float)
-    denominator = np.abs(comparison_array)
-
-    if delta_array.ndim == 0:
-        if float(denominator) <= _RELATIVE_DENOMINATOR_EPSILON:
-            return None
-        return float(delta_array / denominator)
-
-    result: list[float | None] = []
-    for item_delta, item_denominator in zip(
-        delta_array.tolist(), denominator.tolist(), strict=True
-    ):
-        if item_denominator <= _RELATIVE_DENOMINATOR_EPSILON:
-            result.append(None)
-        else:
-            result.append(float(item_delta / item_denominator))
-    return result
+    if isinstance(delta, list) and isinstance(comparison, list):
+        result: list[float | None] = []
+        for item_delta, item_comparison in zip(delta, comparison, strict=True):
+            denominator = abs(item_comparison)
+            if denominator <= _RELATIVE_DENOMINATOR_EPSILON:
+                result.append(None)
+            else:
+                result.append(float(item_delta / denominator))
+        return result
+    if isinstance(delta, list) or isinstance(comparison, list):
+        raise ValueError("cannot compare scalar and vector aggregates")
+    denominator = abs(comparison)
+    if denominator <= _RELATIVE_DENOMINATOR_EPSILON:
+        return None
+    return float(delta / denominator)
 
 
 def _components(series: PerceptualSeriesEvidence) -> list[str]:
@@ -354,8 +393,9 @@ def compare_perceptual_spans(
 
         subject_aggregate = _median(subject_values)
         comparison_aggregate = _median(comparison_values)
-        delta = np.asarray(subject_aggregate) - np.asarray(comparison_aggregate)
-        if not np.isfinite(delta).all():
+        delta = _subtract(subject_aggregate, comparison_aggregate)
+        delta_values = delta if isinstance(delta, list) else [delta]
+        if not all(math.isfinite(value) for value in delta_values):
             reasons.append(f"{feature} aggregate delta is non-finite")
             continue
 
@@ -365,9 +405,9 @@ def compare_perceptual_spans(
                 unit=series.unit,
                 normalization=series.normalization,
                 components=_components(series),
-                subject_value=_serialize_numeric(subject_aggregate),
-                comparison_value=_serialize_numeric(comparison_aggregate),
-                delta=_serialize_numeric(delta),
+                subject_value=subject_aggregate,
+                comparison_value=comparison_aggregate,
+                delta=delta,
                 relative_delta=_relative_delta(delta, comparison_aggregate),
                 direction=_direction(delta),
                 subject_frame_count=len(subject_values),
