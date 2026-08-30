@@ -18,6 +18,9 @@ on:
       - 'tests/e2e/real-stack-golden.spec.ts'
       - 'playwright.realstack.config.ts'
 
+permissions:
+  contents: read
+
 concurrency:
   group: real-stack-e2e-${{ github.ref }}
   cancel-in-progress: true
