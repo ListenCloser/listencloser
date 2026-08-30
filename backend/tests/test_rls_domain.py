@@ -7,6 +7,7 @@ JWT propagation through PostgREST, owner-scoped reads, browser write denial on
 server-owned state, and service-role mutation.
 """
 
+import contextlib
 import os
 import uuid
 
@@ -73,12 +74,10 @@ def users():
     yield user_a, user_b
 
     for user in (user_a, user_b):
-        try:
+        # The local database is ephemeral in CI; user cleanup is best-effort and
+        # must not mask the RLS contract result.
+        with contextlib.suppress(Exception):
             service.auth.admin.delete_user(user["uid"])
-        except Exception:
-            # The local database is ephemeral in CI; user cleanup is best-effort
-            # and must not mask the RLS contract result.
-            pass
 
 
 def test_real_auth_jwt_postgrest_rls_boundary(users):
