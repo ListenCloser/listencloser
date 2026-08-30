@@ -1,0 +1,124 @@
+.shell {
+  --active-workspace-header-height: 0px;
+  --active-workspace-status-height: 0px;
+  grid-template-rows:
+    var(--active-workspace-header-height)
+    minmax(0, 1fr)
+    var(--active-workspace-status-height)
+    var(--transport-height);
+}
+
+.shell > :global(.studio-header-v3) {
+  grid-row: 1;
+  display: none;
+  height: var(--active-workspace-header-height);
+}
+
+.shell > :global(.studio-workspace-v3) {
+  grid-row: 2;
+}
+
+.shell > :global(.transport-bar-v3) {
+  grid-row: 4;
+}
+
+.transientLayer {
+  display: contents;
+}
+
+/* The normal desktop header became an empty alignment band after the product
+ * mark was removed. Only bring a compact status rail back when it contains a
+ * real operational warning. */
+.shell:has(:global(.studio-service-unavailable)) {
+  --active-workspace-header-height: 32px;
+}
+
+.shell:has(:global(.studio-service-unavailable)) > :global(.studio-header-v3) {
+  display: grid;
+}
+
+/* Processing is a workspace state, not a toast. Reserve a real shelf directly
+ * above transport so progress never covers the music or inspector. */
+.shell:has(:global(.workspace-processing-notice)) {
+  --active-workspace-status-height: 42px;
+}
+
+.shell :global(.workspace-processing-notice) {
+  grid-row: 3;
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  height: var(--active-workspace-status-height);
+  margin: 0 !important;
+  padding: 0 calc(var(--shell-inspector) + 12px) 0 calc(var(--shell-sidebar) + 12px) !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: hidden;
+  border: 0 !important;
+  border-top: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  background: #1d1c18 !important;
+  box-shadow: none !important;
+  z-index: 35;
+}
+
+.shell :global(.workspace-processing-notice > span) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+}
+
+.shell :global(.workspace-processing-notice .operation-card-actions) {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+.shell :global(.workspace-processing-notice .btn) {
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 10px;
+}
+
+/* Non-processing warnings remain lightweight notices; without a permanent
+ * desktop header they can use the reclaimed top edge. */
+.shell :global(.workspace-notice:not(.workspace-processing-notice)) {
+  top: 12px !important;
+}
+
+@media (max-width: 820px) {
+  .shell {
+    --active-workspace-header-height: var(--workspace-header-height);
+  }
+
+  .shell > :global(.studio-header-v3) {
+    display: grid;
+  }
+
+  .shell:has(:global(.workspace-processing-notice)) {
+    --active-workspace-status-height: 52px;
+  }
+
+  .shell :global(.workspace-processing-notice) {
+    padding: 0 10px !important;
+    gap: 8px;
+  }
+
+  .shell :global(.workspace-processing-notice > span) {
+    font-size: 10px;
+  }
+
+  .shell:has(:global(.workspace-processing-notice)) :global(.studio-library-v3),
+  .shell:has(:global(.workspace-processing-notice)) :global(.studio-inspector-v3) {
+    bottom: calc(var(--transport-height) + var(--active-workspace-status-height));
+  }
+
+  .shell:has(:global(.workspace-processing-notice)) :global(.studio-inspector-backdrop) {
+    inset: var(--workspace-header-height) 0 calc(var(--transport-height) + var(--active-workspace-status-height)) 0;
+  }
+}

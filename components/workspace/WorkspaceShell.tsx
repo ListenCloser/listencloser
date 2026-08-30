@@ -8,15 +8,18 @@ import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
 import InspectorPanel from "./Inspector";
+import styles from "./WorkspaceShell.module.css";
 
 export type ServiceStatus = "checking" | "ready" | "unavailable";
 
 function WorkspaceContent({
   signedIn = false,
   serviceStatus,
+  children,
 }: {
   signedIn?: boolean;
   serviceStatus: ServiceStatus;
+  children?: ReactNode;
 }) {
   const { workspace, toggleLibrary, toggleInspector } = useWorkspace();
   const initializedResponsiveLayout = useRef(false);
@@ -40,7 +43,7 @@ function WorkspaceContent({
   const canImport = serviceStatus === "ready";
 
   return (
-    <div className="studio-shell studio-shell-v3">
+    <div className={`studio-shell studio-shell-v3 ${styles.shell}`}>
       <header className="studio-header studio-header-v3">
         <div aria-hidden="true" />
 
@@ -104,6 +107,11 @@ function WorkspaceContent({
         )}
       </div>
 
+      {/* HomeContent owns transient workflow state, but the shell owns where
+          that state is presented. Keeping it inside the shell lets processing
+          status occupy a real bottom shelf instead of floating over music. */}
+      <div className={styles.transientLayer}>{children}</div>
+
       <TransportBar />
     </div>
   );
@@ -122,8 +130,9 @@ export default function WorkspaceShell({
     <TimelineProvider>
       <TransportProvider>
         <WorkspaceProvider initialLoading={signedIn}>
-          {children}
-          <WorkspaceContent signedIn={signedIn} serviceStatus={serviceStatus} />
+          <WorkspaceContent signedIn={signedIn} serviceStatus={serviceStatus}>
+            {children}
+          </WorkspaceContent>
         </WorkspaceProvider>
       </TransportProvider>
     </TimelineProvider>
