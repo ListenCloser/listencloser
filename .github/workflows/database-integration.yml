@@ -12,7 +12,6 @@ on:
       - 'backend/domain/**'
       - 'backend/music_features.py'
       - 'backend/tests/integration/**'
-      - 'backend/tests/test_rls_domain.py'
       - 'backend/pyproject.toml'
       - 'backend/uv.lock'
 
