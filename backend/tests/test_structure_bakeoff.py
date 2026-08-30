@@ -288,19 +288,19 @@ def test_manifest_builder_never_invents_missing_audio(tmp_path: Path):
     assert manifest["clips"][0]["audio_provenance"] == "mel_reconstruction"
 
 
-def test_canonical_index_filters_subset_and_reports_missing_mel_path(tmp_path: Path):
+def test_canonical_index_filters_source_subset_and_reports_missing_mel_path(tmp_path: Path):
     root = tmp_path / "dataset"
     (root / "audio").mkdir(parents=True)
     (root / "mels").mkdir()
-    (root / "audio" / "bc.wav").write_bytes(b"fixture")
+    (root / "audio" / "BC_fixture.wav").write_bytes(b"fixture")
     index = root / "SongFormBench.jsonl"
     entries = [
         {
-            "id": "bc",
-            "subset": "BC",
-            "audio_path": "audio/bc.wav",
-            "mel_path": "mels/bc.npy",
-            "label_path": "labels/bc.txt",
+            "id": "BC_fixture",
+            "subset": "CN",
+            "audio_path": "audio/BC_fixture.wav",
+            "mel_path": "mels/BC_fixture.npy",
+            "label_path": "labels/BC_fixture.txt",
             "labels": [
                 {"start": 0.0, "label": "intro"},
                 {"start": 5.0, "label": "verse"},
@@ -308,11 +308,11 @@ def test_canonical_index_filters_subset_and_reports_missing_mel_path(tmp_path: P
             ],
         },
         {
-            "id": "bhx",
-            "subset": "BHX",
-            "audio_path": "audio/bhx.wav",
-            "mel_path": "mels/bhx.npy",
-            "label_path": "labels/bhx.txt",
+            "id": "BHX_fixture",
+            "subset": "HarmonixSet",
+            "audio_path": "audio/BHX_fixture.wav",
+            "mel_path": "mels/BHX_fixture.npy",
+            "label_path": "labels/BHX_fixture.txt",
             "labels": [
                 {"start": 0.0, "label": "intro"},
                 {"start": 5.0, "label": "end"},
@@ -324,21 +324,22 @@ def test_canonical_index_filters_subset_and_reports_missing_mel_path(tmp_path: P
     summary = build_songformbench_index_manifest(
         index,
         root,
-        tmp_path / "bc.json",
+        tmp_path / "cn.json",
         audio_provenance="mel_reconstruction",
-        subsets=("BC",),
+        subsets=("CN",),
     )
-    manifest = json.loads((tmp_path / "bc.json").read_text())
+    manifest = json.loads((tmp_path / "cn.json").read_text())
     assert summary["materialized_clip_count"] == 1
-    assert manifest["clips"][0]["dataset"] == "SongFormBench-BC"
+    assert manifest["clips"][0]["source_id"] == "BC_fixture"
+    assert manifest["clips"][0]["dataset"] == "SongFormBench-CN"
     assert manifest["clips"][0]["audio_provenance"] == "mel_reconstruction"
 
     missing = build_songformbench_index_manifest(
         index,
         root,
-        tmp_path / "bhx.json",
-        subsets=("BHX",),
+        tmp_path / "harmonix.json",
+        subsets=("HarmonixSet",),
     )
     assert missing["materialized_clip_count"] == 0
-    assert missing["missing_audio"][0]["source_id"] == "bhx"
-    assert missing["missing_audio"][0]["mel_path"].endswith("mels/bhx.npy")
+    assert missing["missing_audio"][0]["source_id"] == "BHX_fixture"
+    assert missing["missing_audio"][0]["mel_path"].endswith("mels/BHX_fixture.npy")
