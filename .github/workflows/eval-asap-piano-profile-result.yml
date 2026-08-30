@@ -31,11 +31,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Reuse committed result only for the same product baseline
         id: committed
         shell: bash
+        env:
+          EXPECTED_PRODUCT_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           if [[ ! -f "$RESULT_PATH" || ! -f "$PROVENANCE_PATH" ]]; then
@@ -49,18 +52,17 @@ jobs:
 
           result = json.loads(Path(os.environ['RESULT_PATH']).read_text())
           provenance = json.loads(Path(os.environ['PROVENANCE_PATH']).read_text())
-          expected = os.environ['GITHUB_BASE_REF_SHA']
+          expected = os.environ['EXPECTED_PRODUCT_SHA']
           assert result['hello_ai_sha'] == expected, (result['hello_ai_sha'], expected)
           assert provenance['hello_ai_sha'] == expected, (provenance['hello_ai_sha'], expected)
           assert result['evaluation_id'] == 'piano_transcription_production_profiles_v1'
           assert result['summary']['auto']['measured'] == 5
           assert result['summary']['solo_piano']['measured'] == 5
+          assert len(result['rows']) == 10
           assert all(row['status'] == 'measured' for row in result['rows'])
           print(f'committed result matches product baseline {expected}')
           PY
           echo 'reuse=true' >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_BASE_REF_SHA: ${{ github.event.pull_request.base.sha }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         if: steps.committed.outputs.reuse != 'true'
@@ -142,6 +144,8 @@ jobs:
           )
           clips = [clip for clip in corpus['clips'] if clip['dataset'] == 'asap']
           assert len(clips) == 5, len(clips)
+          assert all(float(clip['excerpt_start']) == 0.0 for clip in clips)
+          assert all(float(clip['excerpt_end']) == 25.0 for clip in clips)
 
           asap_sha = os.environ['ASAP_SHA']
           metadata_url = (
@@ -178,8 +182,12 @@ jobs:
           compressed_total = sum(info.compress_size for info in selected)
           uncompressed_total = sum(info.file_size for info in selected)
           max_transfer = 5 * 1024**3
+          max_uncompressed = 8 * 1024**3
           assert compressed_total < max_transfer, (
               'selected compressed members exceed 5 GiB safety cap', compressed_total
+          )
+          assert uncompressed_total < max_uncompressed, (
+              'selected members exceed 8 GiB decompressed safety cap', uncompressed_total
           )
 
           def sha256(path: Path) -> str:
@@ -210,10 +218,18 @@ jobs:
               if start > 0:
                   padding_samples = int(sr * 0.5)
                   if audio.ndim == 1:
-                      audio = np.concatenate((np.zeros(padding_samples), audio))
+                      audio = np.concatenate(
+                          (np.zeros(padding_samples, dtype=audio.dtype), audio)
+                      )
                   else:
                       audio = np.concatenate(
-                          (np.zeros((audio.shape[0], padding_samples)), audio), axis=1
+                          (
+                              np.zeros(
+                                  (audio.shape[0], padding_samples), dtype=audio.dtype
+                              ),
+                              audio,
+                          ),
+                          axis=1,
                       )
               excerpt_samples = int(sr * float(clip['excerpt_end']))
               if audio.shape[-1] < excerpt_samples:
@@ -324,6 +340,7 @@ jobs:
                   'selected_member_compressed_bytes': compressed_total,
                   'selected_member_uncompressed_bytes': uncompressed_total,
                   'selected_member_compressed_cap_bytes': max_transfer,
+                  'selected_member_uncompressed_cap_bytes': max_uncompressed,
               },
               'clips': provenance_rows,
           }
