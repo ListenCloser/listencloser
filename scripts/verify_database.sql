@@ -93,6 +93,55 @@ begin
   end if;
 end $$;
 
+-- Derived domain state is server-authoritative. Browser roles may retain the
+-- owner-scoped SELECT surface, but must not be able to manufacture provenance,
+-- workflow state, or Storage locators through PostgREST. Keep this check at the
+-- privilege layer as well as RLS: a future broad GRANT must fail fresh-stack CI
+-- even if row policies happen to mask it in one test fixture.
+do $$
+declare
+  table_name text;
+  role_name text;
+  server_owned_tables text[] := array[
+    'artifacts', 'artifact_versions', 'entities', 'insights',
+    'alignments', 'workflows', 'jobs'
+  ];
+  browser_roles text[] := array['anon', 'authenticated'];
+begin
+  foreach table_name in array server_owned_tables loop
+    foreach role_name in array browser_roles loop
+      if not has_table_privilege(role_name, format('public.%I', table_name), 'SELECT') then
+        raise exception '% must retain SELECT on public.%', role_name, table_name;
+      end if;
+      if has_table_privilege(role_name, format('public.%I', table_name), 'INSERT')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'UPDATE')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'DELETE')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'TRUNCATE')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'REFERENCES')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'TRIGGER')
+      then
+        raise exception '% has forbidden mutation privilege on public.%', role_name, table_name;
+      end if;
+    end loop;
+  end loop;
+
+  if exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and (
+        (tablename = 'artifacts' and policyname = 'artifacts owner insert') or
+        (tablename = 'artifact_versions' and policyname = 'versions owner insert') or
+        (tablename = 'entities' and policyname = 'entities owner insert') or
+        (tablename = 'insights' and policyname = 'insights owner insert') or
+        (tablename = 'alignments' and policyname = 'alignments owner insert') or
+        (tablename = 'workflows' and policyname = 'workflows owner insert')
+      )
+  ) then
+    raise exception 'legacy browser INSERT policy remains on server-owned domain state';
+  end if;
+end $$;
+
 -- Null confidence is an intentional domain contract (heuristic insights store
 -- NULL). A NOT NULL default of 1.0 would silently invent confidence and was
 -- the source of the production "confidence not-null" regression.
