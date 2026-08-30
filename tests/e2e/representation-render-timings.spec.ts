@@ -1,12 +1,20 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { mockSession, MOCK_PROJECT_REF, persistSessionScript } from "../fixtures/mockSession";
 
+type TransitionResource = {
+  path: string;
+  initiator: string;
+  duration_ms: number;
+  transferred_bytes: number;
+};
+
 type TransitionTiming = {
   first_useful_pixels_ms: number;
   interaction_ready_ms: number;
   resource_requests: number;
   resource_duration_ms: number;
   transferred_bytes: number;
+  resources: TransitionResource[];
   long_task_supported: boolean;
   long_task_count: number;
   long_task_duration_ms: number;
@@ -84,6 +92,14 @@ async function finishMeasurement(page: Page, label: string, snapshot: PerfSnapsh
 
     const round = (value: number) => Math.round(value * 10) / 10;
     const duration = (measureName: string) => performance.getEntriesByName(measureName, "measure").at(-1)?.duration ?? 0;
+    const resourcePath = (entry: PerformanceResourceTiming) => {
+      try {
+        const url = new URL(entry.name, window.location.href);
+        return `${url.pathname}${url.search}`;
+      } catch {
+        return entry.name;
+      }
+    };
 
     return {
       first_useful_pixels_ms: round(duration(`${name}:useful`)),
@@ -91,6 +107,15 @@ async function finishMeasurement(page: Page, label: string, snapshot: PerfSnapsh
       resource_requests: resourceEntries.length,
       resource_duration_ms: round(resourceEntries.reduce((total, entry) => total + entry.duration, 0)),
       transferred_bytes: resourceEntries.reduce((total, entry) => total + (entry.transferSize || 0), 0),
+      resources: resourceEntries
+        .map((entry) => ({
+          path: resourcePath(entry),
+          initiator: entry.initiatorType,
+          duration_ms: round(entry.duration),
+          transferred_bytes: entry.transferSize || 0,
+        }))
+        .sort((a, b) => b.duration_ms - a.duration_ms)
+        .slice(0, 8),
       long_task_supported: before.longTaskSupported,
       long_task_count: longTasks.length,
       long_task_duration_ms: round(longTasks.reduce((total, entry) => total + entry.duration, 0)),
