@@ -26,8 +26,6 @@ from typing import Any
 
 import numpy as np
 import torch
-
-import music_features
 from lv_chordia.chord_recognition import MODEL_NAMES
 from lv_chordia.chordnet_ismir_naive import ChordNet
 from lv_chordia.extractors.cqt import CQTV2
@@ -35,6 +33,8 @@ from lv_chordia.extractors.xhmm_ismir import XHMMDecoder
 from lv_chordia.mir import DataEntry, io
 from lv_chordia.mir.nn.train import NetworkInterface
 from lv_chordia.settings import DEFAULT_HOP_LENGTH, DEFAULT_SR
+
+import music_features
 
 
 @dataclass(frozen=True)
@@ -144,8 +144,21 @@ def _candidate_topologies(default_threads: int, cpu_count: int) -> list[Topology
             topologies.append(Topology(f"sequential_intra_{intraop_threads}", intraop_threads, 1))
             seen.add((intraop_threads, 1))
 
+    for model_workers in (2, 4, 5):
+        key = (default_threads, model_workers)
+        if key not in seen:
+            topologies.append(
+                Topology(
+                    f"parallel_{model_workers}_intra_default",
+                    default_threads,
+                    model_workers,
+                )
+            )
+            seen.add(key)
+
     for model_workers, intraop_threads in ((2, 1), (4, 1), (5, 1), (2, 2)):
-        if intraop_threads <= cpu_count:
+        key = (intraop_threads, model_workers)
+        if intraop_threads <= cpu_count and key not in seen:
             topologies.append(
                 Topology(
                     f"parallel_{model_workers}_intra_{intraop_threads}",
@@ -153,6 +166,7 @@ def _candidate_topologies(default_threads: int, cpu_count: int) -> list[Topology
                     model_workers,
                 )
             )
+            seen.add(key)
 
     return topologies
 
@@ -196,9 +210,9 @@ def benchmark(input_path: Path, fmt: str, trials: int) -> dict[str, Any]:
             output_sha: str | None = None
 
             for _ in range(trials):
-                duration, probabilities = _timed(
-                    lambda: _run_ensemble(ensemble, cqt, topology.model_workers)
-                )
+                started = time.perf_counter()
+                probabilities = _run_ensemble(ensemble, cqt, topology.model_workers)
+                duration = time.perf_counter() - started
                 mean_probabilities = _fuse_probabilities(probabilities)
                 output = _decode(audio_path, mean_probabilities)
                 durations.append(duration)
