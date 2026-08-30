@@ -41,6 +41,9 @@ jobs:
         run: |
           uv run ruff check . --output-format=github
           uv run ruff format . --check
+      - name: Enforce backend import architecture
+        working-directory: backend
+        run: uvx --from import-linter==2.14 lint-imports --config .importlinter
       - name: Verify generated API contract
         run: npm run api:check
       - name: Run required Python unit tests
