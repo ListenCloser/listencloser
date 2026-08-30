@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/eval-pulse-candombe-heldout.yml'
       - 'backend/evaluation/analysis_v3/pulse/**'
+      - 'backend/evaluation/lv_chordia_ensemble_pareto.py'
       - 'backend/tests/test_pulse_candombe_*.py'
 
 permissions:
@@ -132,3 +133,46 @@ jobs:
             ${{ runner.temp }}/candombe-heldout/results/*.json
           if-no-files-found: warn
           retention-days: 14
+
+  lv-chordia-ensemble-pareto:
+    name: lv-chordia-ensemble-pareto-arm64
+    if: github.event.pull_request.head.ref == 'eval/lv-chordia-ensemble-pareto'
+    timeout-minutes: 60
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore pinned GuitarSet cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/music-eval-cache/guitarset
+          key: guitarset-3371780-b39b78e63d3446f2e54ddb7a54df9b10-275966d6610ac34999b58426beb119c3
+
+      - name: Prepare writable evaluation cache
+        run: |
+          mkdir -p "$RUNNER_TEMP/music-eval-cache" performance-results
+          chmod -R 777 "$RUNNER_TEMP/music-eval-cache" performance-results
+
+      - name: Build production backend image natively
+        run: docker build --tag hello-ai-harmony-pareto:arm64 backend
+
+      - name: Score all lv-chordia ensemble subsets
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -e MUSIC_EVAL_CACHE_DIR=/cache \
+            -v "$RUNNER_TEMP/music-eval-cache:/cache" \
+            -v "$PWD/performance-results:/results" \
+            --entrypoint python \
+            hello-ai-harmony-pareto:arm64 \
+            -m evaluation.lv_chordia_ensemble_pareto \
+            --corpus real_audio_v1 \
+            --output /results/lv-chordia-ensemble-pareto-arm64.json
+
+      - name: Upload harmony Pareto result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lv-chordia-ensemble-pareto-arm64-${{ github.event.pull_request.head.sha }}
+          path: performance-results/lv-chordia-ensemble-pareto-arm64.json
+          if-no-files-found: error
+          retention-days: 30
