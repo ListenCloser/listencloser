@@ -16,13 +16,17 @@ function rhythmInsight(): Insight {
     },
     provenance: { engine: "beat_this" },
     created_at: "2026-08-30T20:00:00Z",
+    created_by: null,
+    confidence: null,
+    entity_ids: [],
+    produced_by_job_id: null,
     span: {
       start_beat: null,
       end_beat: null,
       start_seconds: null,
       end_seconds: null,
     },
-  } as Insight;
+  };
 }
 
 describe("deriveAskContext pulse evidence", () => {
