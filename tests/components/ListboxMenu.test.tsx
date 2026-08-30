@@ -27,7 +27,8 @@ describe("ListboxMenu", () => {
     );
 
     const trigger = screen.getByRole("button", { name: "Playback source: Original" });
-    trigger.focus();
+    await user.tab();
+    expect(trigger).toHaveFocus();
     await user.keyboard("{ArrowDown}");
 
     const listbox = screen.getByRole("listbox");
@@ -62,7 +63,8 @@ describe("ListboxMenu", () => {
     );
 
     const trigger = screen.getByRole("button", { name: "Playback source: Original" });
-    trigger.focus();
+    await user.tab();
+    expect(trigger).toHaveFocus();
     await user.keyboard("{ArrowDown}");
 
     const listbox = screen.getByRole("listbox");
@@ -97,7 +99,8 @@ describe("ListboxMenu", () => {
     );
 
     const trigger = screen.getByRole("button", { name: "Playback source: Original" });
-    trigger.focus();
+    await user.tab();
+    expect(trigger).toHaveFocus();
     await user.keyboard("{ArrowDown}");
 
     const listbox = screen.getByRole("listbox");
@@ -124,7 +127,8 @@ describe("ListboxMenu", () => {
     );
 
     const trigger = screen.getByRole("button", { name: "Playback source: Score" });
-    trigger.focus();
+    await user.tab();
+    expect(trigger).toHaveFocus();
     await user.keyboard("{ArrowDown}");
     await waitFor(() => expect(screen.getByRole("listbox")).toHaveFocus());
     await user.keyboard("{Escape}");
@@ -148,7 +152,8 @@ describe("ListboxMenu", () => {
     );
 
     const trigger = screen.getByRole("button", { name: "Playback source: Original" });
-    trigger.focus();
+    await user.tab();
+    expect(trigger).toHaveFocus();
     await user.keyboard("{ArrowDown}");
     await waitFor(() => expect(screen.getByRole("listbox")).toHaveFocus());
 
@@ -174,7 +179,8 @@ describe("ListboxMenu", () => {
     );
 
     const trigger = screen.getByRole("button", { name: "Playback source: Original" });
-    trigger.focus();
+    await user.tab();
+    expect(trigger).toHaveFocus();
     await user.keyboard("{ArrowDown}");
     await waitFor(() => expect(screen.getByRole("listbox")).toHaveFocus());
 
