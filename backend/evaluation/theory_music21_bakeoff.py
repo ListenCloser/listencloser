@@ -14,9 +14,8 @@ from dataclasses import asdict, dataclass
 from importlib.metadata import version
 from typing import Literal
 
-from music21 import analysis, harmony, key, roman
-
 from engines.theory.theory_engine import _chord_name_to_numeral, _classify_function
+from music21 import analysis, harmony, key, roman
 
 
 # JAMS/lv-chordia quality token -> music21 ChordSymbol suffix.  This is format
