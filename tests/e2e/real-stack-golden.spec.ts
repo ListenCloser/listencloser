@@ -147,19 +147,15 @@ test("real audio golden path", async ({ page }) => {
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
 
-    // Score is a distinct source (may not be available if rendering failed)
+    // A rendered Score must also have its distinct notation-derived playback source.
     await openSourceSelector(page);
     const scoreRendition = page.getByRole("option", { name: "Score", exact: true });
-    if (await scoreRendition.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await scoreRendition.click();
-      await expect(await listeningTo(page, "Score")).toBeVisible();
-      await page.getByRole("button", { name: "Play", exact: true }).click();
-      await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
-      await page.getByRole("button", { name: "Pause", exact: true }).click();
-    } else {
-      // Close the selector if score isn't available
-      await page.keyboard.press("Escape");
-    }
+    await expect(scoreRendition).toBeVisible({ timeout: 10_000 });
+    await scoreRendition.click();
+    await expect(await listeningTo(page, "Score")).toBeVisible();
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Pause", exact: true }).click();
   });
 
   // ── Breakdown ────────────────────────────────────────────────────────
@@ -218,23 +214,19 @@ test("real audio golden path", async ({ page }) => {
     await expect(await listeningTo(page, "Transcription")).toBeVisible();
     await expectPositionPreserved(page, positionBeforeSourceSwap);
 
-    // Score source swap (conditional — may not be available)
+    // Score source swap is part of the production Score contract, not optional.
     await openSourceSelector(page);
     const scoreRenditionOption = page.getByRole("option", { name: "Score", exact: true });
-    if (await scoreRenditionOption.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await scoreRenditionOption.click();
-      await expect(await listeningTo(page, "Score")).toBeVisible();
-      await expectPositionPreserved(page, positionBeforeSourceSwap);
-    } else {
-      await page.keyboard.press("Escape");
-    }
+    await expect(scoreRenditionOption).toBeVisible({ timeout: 10_000 });
+    await scoreRenditionOption.click();
+    await expect(await listeningTo(page, "Score")).toBeVisible();
+    await expectPositionPreserved(page, positionBeforeSourceSwap);
 
     // A/B comparison
     await page.getByRole("button", { name: "Compare", exact: true }).click();
     await expect(page.getByRole("group", { name: "Compare playback sources" })).toBeVisible();
 
-    // Use Transcription for B side since Score may not be available.
-    // The helper is idempotent because compare already defaults B to it.
+    // Use Transcription for B side; the helper is idempotent because compare already defaults B to it.
     await setCompareSideSource(page, "B", "Transcription");
     await expect(page.getByRole("button", { name: "B compare source", exact: true })).toContainText("Transcription");
 
@@ -288,7 +280,7 @@ test("real audio golden path", async ({ page }) => {
     await page.getByRole("button", { name: /Playback source:/ }).click();
     await expect(page.getByRole("option", { name: "Original", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: "Transcription", exact: true })).toBeVisible();
-    // Score may not be available if rendering failed
+    await expect(page.getByRole("option", { name: "Score", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
   });
 
