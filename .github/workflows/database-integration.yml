@@ -13,7 +13,6 @@ on:
       - 'backend/tests/test_rls_domain.py'
       - 'backend/pyproject.toml'
       - 'backend/uv.lock'
-      - 'scripts/verify_database.sql'
 
 concurrency:
   group: database-integration-${{ github.ref }}
@@ -45,12 +44,7 @@ jobs:
           # `db reset` repeats the same destructive bootstrap and has intermittently
           # failed with Docker exit 125 while containers are still settling.
           supabase start
-      - name: Verify database schema contracts (SQL)
-        run: |
-          set -euo pipefail
-          eval "$(supabase status -o env | grep '^DB_URL=')"
-          psql "$DB_URL" -f scripts/verify_database.sql
-      - name: Verify RLS policies with pgTAP
+      - name: Verify database contracts with pgTAP
         run: supabase test db
       - name: Sync locked backend environment
         run: |
