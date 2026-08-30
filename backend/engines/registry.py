@@ -25,6 +25,7 @@ from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.lstom_engine import LStoMMelodyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
+from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.notation.music21_engine import Music21NotationEngine
 from engines.structure.allin1_engine import AllInOneEngine
 from engines.transcription.basic_pitch import BasicPitchEngine
@@ -102,6 +103,8 @@ def get_notation_engine(name: str | None = None) -> NotationEngine:
     name = name or os.environ.get("NOTATION_ENGINE", "music21")
     if name == "music21":
         return Music21NotationEngine()
+    if name == "musescore":
+        return MuseScoreNotationEngine()
     raise ValueError(f"Unknown notation engine: {name}")
 
 
