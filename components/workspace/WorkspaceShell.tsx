@@ -14,9 +14,11 @@ export type ServiceStatus = "checking" | "ready" | "unavailable";
 function WorkspaceContent({
   signedIn = false,
   serviceStatus,
+  children,
 }: {
   signedIn?: boolean;
   serviceStatus: ServiceStatus;
+  children?: ReactNode;
 }) {
   const { workspace, toggleLibrary, toggleInspector } = useWorkspace();
   const initializedResponsiveLayout = useRef(false);
@@ -104,6 +106,11 @@ function WorkspaceContent({
         )}
       </div>
 
+      {/* HomeContent owns transient workflow state, but the shell owns where
+          that state is presented. Keeping it inside the shell lets processing
+          status occupy a real bottom shelf instead of floating over music. */}
+      <div className="workspace-transient-layer">{children}</div>
+
       <TransportBar />
     </div>
   );
@@ -122,8 +129,9 @@ export default function WorkspaceShell({
     <TimelineProvider>
       <TransportProvider>
         <WorkspaceProvider initialLoading={signedIn}>
-          {children}
-          <WorkspaceContent signedIn={signedIn} serviceStatus={serviceStatus} />
+          <WorkspaceContent signedIn={signedIn} serviceStatus={serviceStatus}>
+            {children}
+          </WorkspaceContent>
         </WorkspaceProvider>
       </TransportProvider>
     </TimelineProvider>
