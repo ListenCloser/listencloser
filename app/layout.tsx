@@ -10,6 +10,8 @@ import "./mobile-workspace.css";
 import "./readiness-polish-v6.css";
 import "./breakdown-v3.css";
 import "./breakdown-actions-v3.css";
+// Signed-out only: product-native landing story without changing workspace chrome.
+import "./landing-product-story.css";
 import { Geist } from "next/font/google";
 import MSWInit from "@/components/MSWInit";
 import AuthProvider from "@/components/AuthProvider";
@@ -19,7 +21,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Music Workspace",
-  description: "Listen, transcribe, inspect, and analyze music.",
+  description: "Move through a recording, musical representations, and evidence-backed analysis without losing your place.",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",
