@@ -194,12 +194,20 @@ def run(*, device: str = "cpu", max_tracks: int | None = None) -> dict[str, Any]
                 reference = np.asarray(track.targets[stem].audio, dtype=np.float32)
                 estimate = separated.get(stem)
                 if estimate is None:
-                    rows.append({"track": track_name, "stem": stem, "status": "missing_estimate"})
+                    rows.append(
+                        {"track": track_name, "stem": stem, "status": "missing_estimate"}
+                    )
                     continue
                 mixture_score = _si_sdr_mean(reference, mixture)
                 stem_score = _si_sdr_mean(reference, estimate)
                 if mixture_score is None or stem_score is None:
-                    rows.append({"track": track_name, "stem": stem, "status": "withheld_silent_reference"})
+                    rows.append(
+                        {
+                            "track": track_name,
+                            "stem": stem,
+                            "status": "withheld_silent_reference",
+                        }
+                    )
                     continue
                 rows.append(
                     {
@@ -254,7 +262,9 @@ def run(*, device: str = "cpu", max_tracks: int | None = None) -> dict[str, Any]
             "implementation": "fast_bss_eval.si_sdr",
             "zero_mean": True,
             "clamp_db": 100.0,
-            "stereo_policy": "score channels independently and average; withhold silent reference channels",
+            "stereo_policy": (
+                "score channels independently and average; withhold silent reference channels"
+            ),
         },
         "rows": rows,
         "summary": _summarize(rows),
@@ -264,7 +274,9 @@ def run(*, device: str = "cpu", max_tracks: int | None = None) -> dict[str, Any]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run held-out MUSDB18 real-recording separation gate")
+    parser = argparse.ArgumentParser(
+        description="Run held-out MUSDB18 real-recording separation gate"
+    )
     parser.add_argument("--device", choices=["cpu"], default="cpu")
     parser.add_argument("--max-tracks", type=int, default=None)
     parser.add_argument("--output", type=Path, required=True)
