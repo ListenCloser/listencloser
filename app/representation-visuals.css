@@ -1,0 +1,25 @@
+/* Shared visual-state grammar for musical representations.
+ *
+ * Playback is a neutral time-position signal, not a brand accent.
+ * Selection remains a user-action state and evidence keeps its category colors.
+ *
+ * `--score-playback` is retained as a compatibility alias while renderer
+ * callsites are migrated away from the historical score-specific name.
+ */
+
+:root {
+  --representation-playback-on-dark: #ddd5c8;
+  --representation-playback-on-paper: #59544c;
+  --representation-playback-soft-on-dark: rgba(221, 213, 200, 0.12);
+  --representation-playback-soft-on-paper: rgba(89, 84, 76, 0.12);
+
+  /* Legacy compatibility for Waveform, Spectrogram, Piano Roll, and score. */
+  --score-playback: var(--representation-playback-on-dark);
+  --score-playback-soft: var(--representation-playback-soft-on-dark);
+}
+
+/* Score sits on a light paper surface, so playback inverts to a dark warm neutral. */
+.sheet-music-container {
+  --score-playback: var(--representation-playback-on-paper);
+  --score-playback-soft: var(--representation-playback-soft-on-paper);
+}
