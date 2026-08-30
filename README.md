@@ -1,6 +1,6 @@
-# hello-ai · Music Understanding Workspace
+# Listen Closer · Music Understanding Workspace
 
-hello-ai turns an imported recording into a persistent musical **Work** with synchronized representations, playback, and evidence-backed analysis. Long-running processing runs on a durable worker; the browser renders persisted results rather than fabricating demo data.
+Listen Closer turns an imported recording into a persistent musical **Work** with synchronized representations, playback, and evidence-backed analysis. Long-running processing runs on a durable worker; the browser renders persisted results rather than fabricating demo data.
 
 ## Start here
 
