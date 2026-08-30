@@ -46,7 +46,7 @@ def _classify(version: Version, ids, *, jobs=None):
 def test_owner_artifact_path_is_trusted(ids):
     version = _version(
         ids,
-        f'{ids["owner"]}/{ids["project"]}/{ids["artifact"]}/{uuid4().hex}.wav',
+        f"{ids['owner']}/{ids['project']}/{ids['artifact']}/{uuid4().hex}.wav",
     )
 
     decision = _classify(version, ids)
@@ -58,7 +58,7 @@ def test_owner_artifact_path_is_trusted(ids):
 def test_pending_direct_upload_path_is_trusted(ids):
     version = _version(
         ids,
-        f'{ids["owner"]}/{ids["project"]}/pending/{uuid4().hex}.wav',
+        f"{ids['owner']}/{ids['project']}/pending/{uuid4().hex}.wav",
     )
 
     assert _classify(version, ids).trusted is True
@@ -67,7 +67,7 @@ def test_pending_direct_upload_path_is_trusted(ids):
 def test_worker_output_requires_same_work_job_and_attempt_path(ids):
     version = _version(
         ids,
-        f'jobs/{ids["job"]}/attempt-2/score.musicxml',
+        f"jobs/{ids['job']}/attempt-2/score.musicxml",
         job_id=ids["job"],
     )
 
@@ -99,11 +99,11 @@ def test_owner_path_rejects_foreign_owner_or_project(ids):
 
     owner_mismatch = _version(
         ids,
-        f'{other_owner}/{ids["project"]}/{ids["artifact"]}/take.wav',
+        f"{other_owner}/{ids['project']}/{ids['artifact']}/take.wav",
     )
     project_mismatch = _version(
         ids,
-        f'{ids["owner"]}/{other_project}/{ids["artifact"]}/take.wav',
+        f"{ids['owner']}/{other_project}/{ids['artifact']}/take.wav",
     )
 
     assert _classify(owner_mismatch, ids).reason == "owner_project_mismatch"
@@ -113,7 +113,7 @@ def test_owner_path_rejects_foreign_owner_or_project(ids):
 def test_owner_path_requires_matching_creator(ids):
     version = _version(
         ids,
-        f'{ids["owner"]}/{ids["project"]}/{ids["artifact"]}/take.wav',
+        f"{ids['owner']}/{ids['project']}/{ids['artifact']}/take.wav",
         created_by=str(uuid4()),
     )
 
@@ -123,7 +123,7 @@ def test_owner_path_requires_matching_creator(ids):
 def test_worker_output_rejects_job_from_another_work(ids):
     version = _version(
         ids,
-        f'jobs/{ids["job"]}/attempt-0/output.mid',
+        f"jobs/{ids['job']}/attempt-0/output.mid",
         job_id=ids["job"],
     )
 
@@ -134,7 +134,7 @@ def test_worker_output_rejects_forged_job_path(ids):
     other_job = uuid4()
     version = _version(
         ids,
-        f'jobs/{other_job}/attempt-0/output.mid',
+        f"jobs/{other_job}/attempt-0/output.mid",
         job_id=ids["job"],
     )
 
@@ -144,7 +144,7 @@ def test_worker_output_rejects_forged_job_path(ids):
 def test_unexpected_bucket_is_never_trusted(ids):
     version = _version(
         ids,
-        f'{ids["owner"]}/{ids["project"]}/{ids["artifact"]}/take.wav',
+        f"{ids['owner']}/{ids['project']}/{ids['artifact']}/take.wav",
         bucket="library",
     )
 
