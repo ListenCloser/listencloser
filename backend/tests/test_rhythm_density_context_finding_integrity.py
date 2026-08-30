@@ -81,9 +81,7 @@ def test_composer_rejects_subject_locator_source_version_drift():
 
 def test_composer_rejects_support_ref_evidence_id_drift():
     observation = _supported_observation()
-    drifted_ref = observation.support_refs[0].model_copy(
-        update={"id": f"{uuid4()}:rhythm_density"}
-    )
+    drifted_ref = observation.support_refs[0].model_copy(update={"id": f"{uuid4()}:rhythm_density"})
     tampered = observation.model_copy(update={"support_refs": [drifted_ref]})
 
     assert _compose(tampered) is None
