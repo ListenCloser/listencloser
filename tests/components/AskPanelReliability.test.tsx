@@ -87,13 +87,13 @@ describe("AskPanel reliability states", () => {
     });
 
     expect(screen.getByLabelText(/Question context:/)).toBeVisible();
-    expect(screen.getByPlaceholder("Ask a question about this selection…")).toBeVisible();
+    expect(screen.getByPlaceholderText("Ask a question about this selection…")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Clear question context" }));
 
     expect(workspaceStore!.workspace.selection).toBeNull();
     expect(screen.queryByRole("button", { name: "Clear question context" })).not.toBeInTheDocument();
-    expect(screen.getByPlaceholder("Ask a question about this recording…")).toBeVisible();
+    expect(screen.getByPlaceholderText("Ask a question about this recording…")).toBeVisible();
   });
 
   it("maps upstream unavailability to safe copy while preserving the request reference", async () => {
