@@ -105,13 +105,14 @@ ENV PATH="/app/.venv/bin:$PATH" \
 # the final production-shaped layer. Exercise the same JSON batch interface the
 # adapter uses and require both of its derived artifacts: MusicXML + notation
 # MIDI. Pass Qt's platform explicitly because MuseScore's AppRun can select xcb
-# even when QT_QPA_PLATFORM is set in a headless container.
+# even when QT_QPA_PLATFORM is set in a headless container. MuseScore Studio
+# 4.7.4's AppImage accepts --job here but does not accept the older
+# --no-synthesizer/--no-midi/--no-webview long options.
 # The existing native amd64/arm64 image matrix therefore verifies both assets.
 RUN set -eux; \
     QT_QPA_PLATFORM=offscreen SKIP_LIBJACK=1 "$MUSESCORE_BIN" -platform offscreen --version; \
     python -c "import json, pretty_midi; m=pretty_midi.PrettyMIDI(); i=pretty_midi.Instrument(program=0); i.notes.append(pretty_midi.Note(velocity=90,pitch=60,start=0.0,end=1.0)); m.instruments.append(i); m.write('/tmp/musescore-smoke.mid'); open('/tmp/musescore-smoke-job.json','w',encoding='utf-8').write(json.dumps([{'in':'/tmp/musescore-smoke.mid','out':['/tmp/musescore-smoke.musicxml','/tmp/musescore-smoke-out.mid']}]))"; \
     QT_QPA_PLATFORM=offscreen SKIP_LIBJACK=1 "$MUSESCORE_BIN" -platform offscreen \
-      --no-synthesizer --no-midi --no-webview \
       --job /tmp/musescore-smoke-job.json; \
     grep -aq '<score-partwise' /tmp/musescore-smoke.musicxml; \
     python -c "assert open('/tmp/musescore-smoke-out.mid','rb').read(4) == b'MThd'"; \
