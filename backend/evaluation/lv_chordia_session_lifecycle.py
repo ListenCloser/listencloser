@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 
 from lv_chordia.chord_recognition import MODEL_NAMES, chord_recognition
 from lv_chordia.chordnet_ismir_naive import ChordNet
@@ -63,6 +62,7 @@ def _load_ensemble() -> list[NetworkInterface]:
 
 def _tensor_bytes(ensemble: list[NetworkInterface]) -> int:
     """Count unique live model/optimizer tensor storage retained by the ensemble."""
+    import torch
 
     seen: set[tuple[str, int]] = set()
     total = 0
@@ -81,7 +81,7 @@ def _tensor_bytes(ensemble: list[NetworkInterface]) -> int:
             for child in value.values():
                 visit(child)
             return
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             for child in value:
                 visit(child)
 
@@ -179,7 +179,7 @@ def benchmark(input_path: Path, trials: int = 3) -> dict[str, Any]:
         for output in retained_outputs
     )
 
-    del ensemble
+    ensemble.clear()
     gc.collect()
     rss_after_release = _rss_mebibytes()
 
