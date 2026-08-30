@@ -1,0 +1,383 @@
+name: ASAP Piano Production Profile Result
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/eval-asap-piano-profile-result.yml'
+      - 'backend/evaluation/results/piano/asap_production_profiles_v1.json'
+      - 'backend/evaluation/results/piano/asap_production_profiles_v1.provenance.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: asap-piano-profile-result-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  result:
+    name: exact-production-profile-result
+    if: github.event.pull_request.head.ref == 'eval/asap-piano-profile-result-v1'
+    timeout-minutes: 90
+    runs-on: ubuntu-latest
+    env:
+      ASAP_SHA: afc815c75c42e83a79c03feb6da8a35e77d4c6b8
+      MAESTRO_URL: https://storage.googleapis.com/magentadata/datasets/maestro/v2.0.0/maestro-v2.0.0.zip
+      MAESTRO_SHA256: 572c6054e8d2c7219aa4df9a29357da0f9789524c11fa38cef7d4bd8542c93f0
+      RESULT_PATH: backend/evaluation/results/piano/asap_production_profiles_v1.json
+      PROVENANCE_PATH: backend/evaluation/results/piano/asap_production_profiles_v1.provenance.json
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Reuse committed result only for the same product baseline
+        id: committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f "$RESULT_PATH" || ! -f "$PROVENANCE_PATH" ]]; then
+            echo 'reuse=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          result = json.loads(Path(os.environ['RESULT_PATH']).read_text())
+          provenance = json.loads(Path(os.environ['PROVENANCE_PATH']).read_text())
+          expected = os.environ['GITHUB_BASE_REF_SHA']
+          assert result['hello_ai_sha'] == expected, (result['hello_ai_sha'], expected)
+          assert provenance['hello_ai_sha'] == expected, (provenance['hello_ai_sha'], expected)
+          assert result['evaluation_id'] == 'piano_transcription_production_profiles_v1'
+          assert result['summary']['auto']['measured'] == 5
+          assert result['summary']['solo_piano']['measured'] == 5
+          assert all(row['status'] == 'measured' for row in result['rows'])
+          print(f'committed result matches product baseline {expected}')
+          PY
+          echo 'reuse=true' >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_BASE_REF_SHA: ${{ github.event.pull_request.base.sha }}
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: steps.committed.outputs.reuse != 'true'
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install uv
+        if: steps.committed.outputs.reuse != 'true'
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+
+      - name: Sync locked backend environment
+        if: steps.committed.outputs.reuse != 'true'
+        run: uv sync --project backend --locked
+
+      - name: Install evaluation-only remote ZIP reader
+        if: steps.committed.outputs.reuse != 'true'
+        run: uv pip install --python backend/.venv/bin/python 'unzip-http==0.7'
+
+      - name: Install codec tooling
+        if: steps.committed.outputs.reuse != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Require byte-range support before touching MAESTRO archive
+        if: steps.committed.outputs.reuse != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/asap-piano-profile"
+          headers="$RUNNER_TEMP/asap-piano-profile/range-headers.txt"
+          probe="$RUNNER_TEMP/asap-piano-profile/range-probe.bin"
+          curl --fail --silent --show-error --location \
+            --range 0-0 --dump-header "$headers" \
+            --output "$probe" "$MAESTRO_URL"
+          status="$(awk '/^HTTP\// {code=$2} END {print code}' "$headers")"
+          [[ "$status" == '206' ]]
+          [[ "$(wc -c < "$probe")" -le 2 ]]
+          grep -Eiq '^content-range:[[:space:]]*bytes[[:space:]]+0-0/' "$headers"
+          echo 'MAESTRO archive confirmed byte-range capable; full-download fallback is forbidden.'
+
+      - name: Materialize the five pinned ASAP excerpts only
+        if: steps.committed.outputs.reuse != 'true'
+        env:
+          PRODUCT_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/asap-piano-profile"
+          mkdir -p "$root/materialized"
+          uv run --project backend python - <<'PY'
+          from __future__ import annotations
+
+          import csv
+          import hashlib
+          import importlib.metadata
+          import json
+          import os
+          import shutil
+          import urllib.request
+          from pathlib import Path
+
+          import librosa
+          import numpy as np
+          import soundfile as sf
+          import unzip_http
+
+          from evaluation.slicing import slice_midi
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'asap-piano-profile'
+          out_dir = root / 'materialized'
+          out_dir.mkdir(parents=True, exist_ok=True)
+          repo = Path(os.environ['GITHUB_WORKSPACE'])
+          corpus = json.loads(
+              (repo / 'backend/evaluation/corpora/real_world_v1.json').read_text()
+          )
+          clips = [clip for clip in corpus['clips'] if clip['dataset'] == 'asap']
+          assert len(clips) == 5, len(clips)
+
+          asap_sha = os.environ['ASAP_SHA']
+          metadata_url = (
+              'https://raw.githubusercontent.com/fosfrancesco/asap-dataset/'
+              f'{asap_sha}/metadata.csv'
+          )
+          metadata_path = root / 'asap-metadata.csv'
+          urllib.request.urlretrieve(metadata_url, metadata_path)
+          with metadata_path.open(newline='', encoding='utf-8-sig') as handle:
+              metadata = list(csv.DictReader(handle))
+          by_midi = {row['midi_performance'].replace('\\', '/'): row for row in metadata}
+
+          archive = unzip_http.RemoteZipFile(os.environ['MAESTRO_URL'])
+          infos = archive.infolist()
+          info_by_name = {info.filename: info for info in infos}
+          names = list(info_by_name)
+
+          selected = []
+          resolved_rows = []
+          for clip in clips:
+              source_id = clip['source_id'].replace('\\', '/')
+              row = by_midi[source_id]
+              maestro_rel = row['maestro_audio_performance'].replace('{maestro}/', '')
+              matches = [
+                  name for name in names
+                  if name == maestro_rel or name.endswith('/' + maestro_rel)
+              ]
+              assert len(matches) == 1, (source_id, maestro_rel, matches[:5])
+              member = matches[0]
+              info = info_by_name[member]
+              selected.append(info)
+              resolved_rows.append((clip, row, member, info))
+
+          compressed_total = sum(info.compress_size for info in selected)
+          uncompressed_total = sum(info.file_size for info in selected)
+          max_transfer = 5 * 1024**3
+          assert compressed_total < max_transfer, (
+              'selected compressed members exceed 5 GiB safety cap', compressed_total
+          )
+
+          def sha256(path: Path) -> str:
+              digest = hashlib.sha256()
+              with path.open('rb') as handle:
+                  for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          manifest_rows = []
+          provenance_rows = []
+          for clip, row, member, info in resolved_rows:
+              clip_id = clip['id']
+              full_wav = root / f'{clip_id}-maestro-source.wav'
+              with archive.open(member) as source, full_wav.open('wb') as target:
+                  shutil.copyfileobj(source, target, length=1024 * 1024)
+
+              start = float(row['start']) if row.get('start') else 0.0
+              upstream_end = float(row['end']) if row.get('end') else None
+              duration = None if upstream_end is None else upstream_end - start
+              audio, sr = librosa.load(
+                  full_wav,
+                  sr=None,
+                  mono=False,
+                  offset=start,
+                  duration=duration,
+              )
+              if start > 0:
+                  padding_samples = int(sr * 0.5)
+                  if audio.ndim == 1:
+                      audio = np.concatenate((np.zeros(padding_samples), audio))
+                  else:
+                      audio = np.concatenate(
+                          (np.zeros((audio.shape[0], padding_samples)), audio), axis=1
+                      )
+              excerpt_samples = int(sr * float(clip['excerpt_end']))
+              if audio.shape[-1] < excerpt_samples:
+                  raise RuntimeError(
+                      f'{clip_id}: reconstructed ASAP audio shorter than requested excerpt'
+                  )
+              excerpt = audio[..., :excerpt_samples]
+              if excerpt.ndim > 1:
+                  excerpt = excerpt.T
+              audio_out = out_dir / f'{clip_id}.wav'
+              sf.write(audio_out, excerpt.astype(np.float32), sr, subtype='FLOAT')
+              full_wav.unlink()
+
+              midi_url = (
+                  'https://raw.githubusercontent.com/fosfrancesco/asap-dataset/'
+                  f'{asap_sha}/{clip["source_id"]}'
+              )
+              midi_source = root / f'{clip_id}-source.mid'
+              urllib.request.urlretrieve(midi_url, midi_source)
+              midi_bytes, notes = slice_midi(
+                  midi_source.read_bytes(),
+                  float(clip['excerpt_start']),
+                  float(clip['excerpt_end']),
+              )
+              midi_out = out_dir / f'{clip_id}.mid'
+              midi_out.write_bytes(midi_bytes)
+              midi_source.unlink()
+
+              manifest_rows.append(
+                  {
+                      'id': clip_id,
+                      'audio': str(audio_out.resolve()),
+                      'reference_midi': str(midi_out.resolve()),
+                      'category': clip['category'],
+                      'dataset': 'asap',
+                      'split': clip.get('split'),
+                      'source_id': clip['source_id'],
+                      'license': clip['license'],
+                      'metrics': clip.get('metrics', []),
+                      'excerpt_start': clip['excerpt_start'],
+                      'excerpt_end': clip['excerpt_end'],
+                  }
+              )
+              provenance_rows.append(
+                  {
+                      'clip_id': clip_id,
+                      'asap_midi_performance': clip['source_id'],
+                      'maestro_archive_member': member,
+                      'maestro_member_compressed_bytes': info.compress_size,
+                      'maestro_member_uncompressed_bytes': info.file_size,
+                      'asap_start_seconds': start,
+                      'asap_end_seconds': upstream_end,
+                      'asap_padding_seconds': 0.5 if start > 0 else 0.0,
+                      'materialized_audio_sha256': sha256(audio_out),
+                      'reference_midi_sha256': sha256(midi_out),
+                      'reference_note_count': len(notes),
+                  }
+              )
+
+          manifest = {
+              'name': 'asap_piano_production_profiles_v1',
+              'description': (
+                  'Five pinned real_world_v1 ASAP excerpts reconstructed from MAESTRO '
+                  'v2 audio and exact ASAP performance MIDI for production AMT comparison.'
+              ),
+              'clips': manifest_rows,
+          }
+          manifest_path = root / 'manifest.json'
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+
+          provenance = {
+              'schema_version': 1,
+              'hello_ai_sha': os.environ['PRODUCT_SHA'],
+              'asap': {
+                  'version': 'v1.2',
+                  'commit': asap_sha,
+                  'license': 'CC BY-NC-SA 4.0',
+                  'metadata_url': metadata_url,
+                  'initialization_semantics': (
+                      'initialize_dataset.py clip_and_copy_audio: crop MAESTRO at start/end '
+                      'and prepend 0.5 s silence when start > 0'
+                  ),
+              },
+              'maestro': {
+                  'version': 'v2.0.0',
+                  'archive_url': os.environ['MAESTRO_URL'],
+                  'archive_expected_sha256': os.environ['MAESTRO_SHA256'],
+                  'archive_sha256_recomputed': False,
+                  'archive_sha256_note': (
+                      'Full 103 GB archive intentionally not downloaded; official expected '
+                      'SHA256 is recorded and selected archive members are hashed after '
+                      'bounded HTTP-range extraction.'
+                  ),
+                  'license': 'CC BY-NC-SA 4.0',
+              },
+              'remote_zip_reader': {
+                  'package': 'unzip-http',
+                  'version': importlib.metadata.version('unzip-http'),
+                  'license': 'MIT',
+                  'source_commit': '6723cbaa0f8c2f836901d3ad7650f1753671ca26',
+                  'pypi_wheel_sha256': (
+                      '9b3736e5a641fe09c0fdd107b2d7e2f6e346f8a1c221167f9c1e77c238ffcfe8'
+                  ),
+              },
+              'safety': {
+                  'range_probe_required_http_status': 206,
+                  'full_archive_download_fallback': False,
+                  'selected_member_compressed_bytes': compressed_total,
+                  'selected_member_uncompressed_bytes': uncompressed_total,
+                  'selected_member_compressed_cap_bytes': max_transfer,
+              },
+              'clips': provenance_rows,
+          }
+          (root / 'acquisition-provenance.json').write_text(
+              json.dumps(provenance, indent=2) + '\n'
+          )
+          print(json.dumps(provenance['safety'], indent=2))
+          PY
+
+      - name: Run exact product Auto and Solo Piano profiles
+        if: steps.committed.outputs.reuse != 'true'
+        env:
+          PRODUCT_SHA: ${{ github.event.pull_request.base.sha }}
+          TF_CPP_MIN_LOG_LEVEL: '2'
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/asap-piano-profile"
+          env -u TRANSCRIPTION_ENGINE uv run --project backend \
+            python -m evaluation.piano_transcription_profiles \
+            --manifest "$root/manifest.json" \
+            --hello-ai-sha "$PRODUCT_SHA" \
+            --output "$root/results.json"
+
+      - name: Require five measured clips per production profile
+        if: steps.committed.outputs.reuse != 'true'
+        env:
+          PRODUCT_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'asap-piano-profile'
+          result = json.loads((root / 'results.json').read_text())
+          provenance = json.loads((root / 'acquisition-provenance.json').read_text())
+          assert result['hello_ai_sha'] == os.environ['PRODUCT_SHA']
+          assert provenance['hello_ai_sha'] == os.environ['PRODUCT_SHA']
+          assert result['summary']['auto']['measured'] == 5, result['summary']['auto']
+          assert result['summary']['solo_piano']['measured'] == 5, result['summary']['solo_piano']
+          assert len(result['rows']) == 10
+          assert all(row['status'] == 'measured' for row in result['rows'])
+          print(json.dumps(result['summary'], indent=2))
+          PY
+
+      - name: Upload result and acquisition provenance
+        if: always() && steps.committed.outputs.reuse != 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: asap-piano-production-profiles-${{ github.event.pull_request.base.sha }}
+          path: |
+            ${{ runner.temp }}/asap-piano-profile/results.json
+            ${{ runner.temp }}/asap-piano-profile/acquisition-provenance.json
+            ${{ runner.temp }}/asap-piano-profile/manifest.json
+          if-no-files-found: warn
+          retention-days: 14
