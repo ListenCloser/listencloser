@@ -98,12 +98,9 @@ def contract_env(monkeypatch):
     monkeypatch.setattr(repo, "get_supabase", lambda: SimpleNamespace())
     monkeypatch.setattr("ask.api.WorkRepo", FakeWorkRepo)
     monkeypatch.setattr("ask.api.get_supabase", lambda: SimpleNamespace())
-    # This fixture proves the frontend/backend wire contract only. Persistence
-    # authorization/canonicalization is covered by test_ask_evidence.py and
-    # test_ask_api_canonical_evidence.py; keep those concerns out of this fixture.
-    monkeypatch.setattr(
-        "ask.api.load_canonical_ask_context", lambda sb, context: context
-    )
+    # This fixture proves FE/BE wire compatibility only. Canonical persistence
+    # authorization has dedicated evidence/API tests.
+    monkeypatch.setattr("ask.api.load_canonical_ask_context", lambda sb, context: context)
     monkeypatch.setattr(
         "ask.api.build_provider",
         lambda settings, client=None: FakeLLMProvider(
@@ -113,12 +110,7 @@ def contract_env(monkeypatch):
                     "references": [
                         {"type": "insight", "id": "insight-selection"},
                         {"type": "notes", "ids": ["note-1", "note-2"]},
-                        {
-                            "type": "time",
-                            "start": 31.0,
-                            "end": 35.0,
-                            "domain": "performance",
-                        },
+                        {"type": "time", "start": 31.0, "end": 35.0, "domain": "performance"},
                     ],
                     "suggestedActions": [
                         {"type": "show_representation", "representationId": "score"},
@@ -131,9 +123,7 @@ def contract_env(monkeypatch):
     app.dependency_overrides.pop(verify_token, None)
 
 
-def test_frontend_request_is_accepted_and_response_matches_frontend_type(
-    client, contract_env
-):
+def test_frontend_request_is_accepted_and_response_matches_frontend_type(client, contract_env):
     response = client.post("/api/v1/ask", json=FRONTEND_ASK_REQUEST, headers=AUTH_HEADER)
 
     assert response.status_code == 200
@@ -178,11 +168,7 @@ def test_time_range_reversed_rejected():
     from ask.contracts import AskRequest
 
     bad = FRONTEND_ASK_REQUEST.copy()
-    bad["context"]["selection"]["timeRange"] = {
-        "start": 10.0,
-        "end": 5.0,
-        "domain": "performance",
-    }
+    bad["context"]["selection"]["timeRange"] = {"start": 10.0, "end": 5.0, "domain": "performance"}
     with pytest.raises(ValueError, match="timeRange.end must be >= timeRange.start"):
         AskRequest.model_validate(bad)
 
@@ -222,9 +208,7 @@ def test_oversized_insight_id_rejected():
     from ask.contracts import AskRequest
 
     bad = FRONTEND_ASK_REQUEST.copy()
-    bad["context"]["visibleInsights"][0]["insight"]["id"] = (
-        "x" * 129
-    )  # MAX_INSIGHT_ID_LENGTH=128
+    bad["context"]["visibleInsights"][0]["insight"]["id"] = "x" * 129  # MAX_INSIGHT_ID_LENGTH=128
     with pytest.raises(ValueError):
         AskRequest.model_validate(bad)
 
@@ -244,9 +228,7 @@ def test_oversized_kind_rejected():
     from ask.contracts import AskRequest
 
     bad = FRONTEND_ASK_REQUEST.copy()
-    bad["context"]["visibleInsights"][0]["insight"]["kind"] = (
-        "x" * 65
-    )  # MAX_KIND_LENGTH=64
+    bad["context"]["visibleInsights"][0]["insight"]["kind"] = "x" * 65  # MAX_KIND_LENGTH=64
     with pytest.raises(ValueError):
         AskRequest.model_validate(bad)
 
