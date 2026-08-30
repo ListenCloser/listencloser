@@ -34,11 +34,6 @@ limiter = Limiter(key_func=_rate_limit_identity, default_limits=["60/minute"])
 security = HTTPBearer(auto_error=False)
 
 
-def get_supabase_client():
-    """Compatibility seam for auth callers/tests; repositories own the singleton."""
-    return get_supabase()
-
-
 def _provider_unavailable(exc: Exception) -> bool:
     if isinstance(exc, AuthRetryableError | AuthUnknownError | RequestError):
         return True
@@ -91,7 +86,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials | None = Depends(secu
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
-    sb = get_supabase_client()
+    sb = get_supabase()
     if not sb:
         raise HTTPException(status_code=500, detail="Auth not configured")
     return _verify_supabase_token(sb, credentials.credentials, optional=False)
@@ -102,7 +97,7 @@ def verify_token_optional(
 ):
     if not credentials:
         return None
-    sb = get_supabase_client()
+    sb = get_supabase()
     if not sb:
         return None
     return _verify_supabase_token(sb, credentials.credentials, optional=True)
