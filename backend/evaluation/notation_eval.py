@@ -15,8 +15,9 @@ introduced by notation. This module is evaluation-only; it does not change
 production routing or score-generation behavior.
 
 Usage:
+    python -m evaluation.datasets.prepare --corpus real_world_v1
     python -m evaluation.notation_eval \
-      --manifest evaluation/corpora/real_world_v1.json \
+      --manifest evaluation/.cache/manifest-real_world_v1.json \
       --mode both
 """
 
@@ -27,7 +28,7 @@ import io
 import json
 import os
 import tempfile
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Literal
 
@@ -149,13 +150,13 @@ def _notation_from_midi(
 
 
 def _load_evaluation_manifest(manifest_path: str) -> CorpusManifest:
-    """Hydrate dataset-style source clips from ``datasets.prepare`` output.
+    """Load an evaluator-ready manifest and reject unresolved source-ID rows.
 
-    Canonical real-world corpus manifests intentionally store dataset/source IDs
-    instead of local audio/MIDI paths. ``datasets.prepare`` materializes those
-    paths into ``prepared-<corpus>.json``. Reuse that existing contract here so
-    an evaluation cannot silently treat unresolved source-manifest rows as an
-    empty successful benchmark.
+    Canonical corpus source manifests intentionally contain dataset/source IDs,
+    not local excerpt paths. ``evaluation.datasets.prepare`` owns materializing
+    those rows and emits a separate ``manifest-<corpus>.json`` containing only
+    evaluator-ready rebased clips. The acquisition/status report is deliberately
+    not consumed here.
     """
     manifest = CorpusManifest.from_file(manifest_path)
     unresolved = [
@@ -163,46 +164,14 @@ def _load_evaluation_manifest(manifest_path: str) -> CorpusManifest:
         for clip in manifest.clips
         if clip.dataset and (not clip.audio or not clip.reference_midi)
     ]
-    if not unresolved:
-        return manifest
-
-    prepared_path = dataset_cache.cache_dir() / f"prepared-{manifest.name}.json"
-    if not prepared_path.is_file():
-        raise FileNotFoundError(
-            f"prepared corpus contract not found at {prepared_path}; run "
-            f"`python -m evaluation.datasets.prepare --corpus {manifest.name}` first"
+    if unresolved:
+        materialized_path = dataset_cache.cache_dir() / f"manifest-{manifest.name}.json"
+        raise ValueError(
+            "notation evaluation requires an evaluator-ready materialized manifest; run "
+            f"`python -m evaluation.datasets.prepare --corpus {manifest.name}` and pass "
+            f"`--manifest {materialized_path}` instead of the source corpus manifest"
         )
-
-    with prepared_path.open() as file_handle:
-        prepared_payload = json.load(file_handle)
-    prepared_by_id = {
-        entry["id"]: entry
-        for entry in prepared_payload.get("clips", [])
-        if entry.get("status") == "ok" and entry.get("id")
-    }
-
-    hydrated: list[EvalClip] = []
-    for clip in manifest.clips:
-        prepared = prepared_by_id.get(clip.id)
-        if not prepared:
-            hydrated.append(clip)
-            continue
-        hydrated.append(
-            replace(
-                clip,
-                audio=prepared.get("audio") or clip.audio,
-                reference_midi=prepared.get("reference_midi") or clip.reference_midi,
-                reference_musicxml=(
-                    prepared.get("reference_musicxml") or clip.reference_musicxml
-                ),
-            )
-        )
-
-    return CorpusManifest(
-        clips=hydrated,
-        name=manifest.name,
-        description=manifest.description,
-    )
+    return manifest
 
 
 def evaluate_clip(clip: EvalClip, mode: NotationEvalMode) -> dict[str, Any]:
@@ -306,9 +275,8 @@ def run_notation_evaluation(
     eligible_clips = [clip for clip in manifest.clips if clip.reference_midi]
     if not eligible_clips:
         raise ValueError(
-            "notation evaluation has no clips with prepared reference MIDI; inspect the "
-            "prepared corpus statuses or rerun `python -m evaluation.datasets.prepare "
-            f"--corpus {manifest.name}` after materializing the required dataset files"
+            "notation evaluation has no clips with reference MIDI; the materialized "
+            "manifest is not sufficient for this stage-attribution benchmark"
         )
 
     results: list[dict[str, Any]] = []
