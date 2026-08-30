@@ -255,9 +255,7 @@ def test_oversized_playback_source_id_rejected():
     from ask.contracts import AskRequest
 
     bad = FRONTEND_ASK_REQUEST.copy()
-    bad["context"]["playbackSourceId"] = (
-        "x" * 129
-    )  # MAX_PLAYBACK_SOURCE_ID_LENGTH=128
+    bad["context"]["playbackSourceId"] = "x" * 129  # MAX_PLAYBACK_SOURCE_ID_LENGTH=128
     with pytest.raises(ValueError):
         AskRequest.model_validate(bad)
 
