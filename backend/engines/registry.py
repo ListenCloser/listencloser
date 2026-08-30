@@ -2,7 +2,7 @@
 
 Production defaults:
   TRANSCRIPTION_ENGINE=basic_pitch
-  BEAT_ENGINE=librosa
+  BEAT_ENGINE=beat_this
   STRUCTURE_ENGINE=allin1
   NOTATION_ENGINE=music21
   HARMONY_ENGINE=music21
@@ -69,7 +69,14 @@ def get_transcription_engine(
 
 
 def get_beat_engine(name: str | None = None) -> BeatTrackingEngine:
-    name = name or os.environ.get("BEAT_ENGINE", "librosa")
+    """Resolve the production beat engine.
+
+    Beat This is the default production tracker because localized beat/downbeat
+    evidence materially outperformed the legacy librosa path in the repository's
+    canonical pulse evaluation. ``BEAT_ENGINE=librosa`` remains an explicit
+    operational rollback, not a silent fallback.
+    """
+    name = name or os.environ.get("BEAT_ENGINE", "beat_this")
     if name == "librosa":
         return LibrosaBeatEngine()
     if name == "beat_this":
