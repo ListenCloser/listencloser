@@ -82,6 +82,16 @@ describe("extractObservedPulseGrid", () => {
     });
   });
 
+  it("preserves independently valid downbeat timestamps from the engine", () => {
+    const result = extractObservedPulseGrid(
+      [rhythmInsight({ downbeats: [0.2] })],
+      "version-a",
+    );
+
+    expect(result?.downbeatsSeconds).toEqual([0.2]);
+    expect(result?.source).toBe("explicit_pulse");
+  });
+
   it("recovers losslessly persisted one-beat window boundaries without inventing downbeats", () => {
     const result = extractObservedPulseGrid(
       [rhythmInsight({ beats: undefined, downbeats: undefined, windows: legacyBeatWindows })],
@@ -124,7 +134,7 @@ describe("extractObservedPulseGrid", () => {
     ).toBeNull();
     expect(
       extractObservedPulseGrid(
-        [rhythmInsight({ downbeats: [0.2], windows: undefined })],
+        [rhythmInsight({ downbeats: [0.4, 0.3], windows: undefined })],
         "version-a",
       ),
     ).toBeNull();
