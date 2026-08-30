@@ -95,9 +95,8 @@ def test_musescore_adapter_rejects_non_midi_input():
         engine.convert(b"not midi", [])
 
 
-def test_musescore_is_opt_in_registry_candidate(monkeypatch):
+def test_musescore_is_default_with_music21_as_explicit_rollback(monkeypatch):
     monkeypatch.delenv("NOTATION_ENGINE", raising=False)
 
-    assert get_notation_engine().provenance.engine == "music21"
-    candidate = get_notation_engine("musescore")
-    assert isinstance(candidate, MuseScoreNotationEngine)
+    assert isinstance(get_notation_engine(), MuseScoreNotationEngine)
+    assert get_notation_engine("music21").provenance.engine == "music21"
