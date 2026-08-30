@@ -5,10 +5,10 @@ set -euo pipefail
 #
 # Preferred path: pull the exact-SHA image built by GitHub Actions, resolve it
 # to a registry digest, and recreate API + worker without building on Oracle.
-# The legacy VM-build path remains as a safe transition/rollback fallback.
+# The VM source-build path remains as a safe rollback fallback.
 
-REPO_DIR="${DEPLOY_DIR:-$HOME/hello-ai}"
-REPO_URL="https://github.com/gr-rr/hello-ai.git"
+REPO_DIR="${DEPLOY_DIR:-$HOME/listencloser}"
+REPO_URL="https://github.com/ListenCloser/listencloser.git"
 COMPOSE="${DOCKER_COMPOSE_FILE:-backend/docker-compose.yml}"
 BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
 HEALTH_URL="${BACKEND_URL}/health/ready"
@@ -18,13 +18,19 @@ BACKEND_IMAGE_REPOSITORY="${BACKEND_IMAGE_REPOSITORY:-}"
 GHCR_USERNAME="${GHCR_USERNAME:-}"
 GHCR_TOKEN="${GHCR_TOKEN:-}"
 
+current_release() {
+  curl -fsS "${BACKEND_URL}/health/live" 2>/dev/null \
+    | python3 -c 'import json, sys; print(json.load(sys.stdin).get("release", ""))' 2>/dev/null \
+    || true
+}
+
 ensure_repo() {
   if [ ! -d "$REPO_DIR/.git" ]; then
     echo "[deploy] no .git found — cloning fresh"
+    PREV_HEAD="${DEPLOY_PREVIOUS_SHA:-$(current_release)}"
     rm -rf "$REPO_DIR" 2>/dev/null || true
     git clone "$REPO_URL" "$REPO_DIR"
     cd "$REPO_DIR"
-    PREV_HEAD=""
     return
   fi
 
@@ -140,7 +146,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
 OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
 HARMONY_ENGINE=lv_chordia
 RELEASE=${TARGET_HEAD}
-BACKEND_IMAGE=${BACKEND_IMAGE:-hello-ai-backend:local}
+BACKEND_IMAGE=${BACKEND_IMAGE:-listencloser-backend:local}
 NUMBA_CACHE_DIR=${TARGET_NUMBA_CACHE_DIR}
 ENVEOF
   fi
@@ -186,12 +192,12 @@ echo "[deploy] starting deploy at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ensure_repo
 TARGET_HEAD="$(git rev-parse HEAD)"
 TARGET_NUMBA_CACHE_DIR="/app/runtime/numba-cache/${TARGET_HEAD}"
-export BACKEND_IMAGE="${BACKEND_IMAGE:-hello-ai-backend:local}"
+export BACKEND_IMAGE="${BACKEND_IMAGE:-listencloser-backend:local}"
 USE_PREBUILT_IMAGE=0
 if resolve_prebuilt_image "$TARGET_HEAD"; then
   USE_PREBUILT_IMAGE=1
 else
-  echo "[deploy] using compatibility VM-build path"
+  echo "[deploy] using source-build fallback"
 fi
 write_runtime_env
 use_numba_cache_for_release "$TARGET_HEAD"
