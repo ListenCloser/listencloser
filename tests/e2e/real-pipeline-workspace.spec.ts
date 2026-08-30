@@ -48,7 +48,7 @@ test("import starts one durable understand job and reloads the persisted work", 
   await expect(importButton).toBeVisible({ timeout: 20_000 });
 
   await importButton.click();
-  await page.getByRole("button", { name: /Upload recording/ }).click();
+  await page.getByRole("menuitem", { name: /Upload recording/ }).click();
   const realAudio = process.env.REAL_AUDIO_FILE;
   await page.locator('input[type="file"]').setInputFiles(
     realAudio && existsSync(realAudio)
