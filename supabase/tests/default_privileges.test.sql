@@ -1,6 +1,6 @@
 begin;
 
-select plan(5);
+select plan(6);
 
 -- Exercise the defaults directly instead of only inspecting pg_default_acl.
 create table public.__default_grant_probe (
@@ -10,6 +10,11 @@ create table public.__default_grant_probe (
 create sequence public.__default_grant_probe_seq;
 
 create function public.__default_grant_probe_fn()
+returns integer
+language sql
+as $$ select 1 $$;
+
+create function extensions.__default_grant_probe_fn()
 returns integer
 language sql
 as $$ select 1 $$;
@@ -44,8 +49,8 @@ select ok(
 
 -- Inspect the function ACL itself rather than effective privileges. Supabase's
 -- privileged service role can gain effective capability through platform role
--- relationships; the fail-closed contract here is that creating a function does
--- not automatically GRANT EXECUTE to PUBLIC or any Data API role.
+-- relationships; the fail-closed contract here is that creating an application
+-- function does not automatically GRANT EXECUTE to PUBLIC or any Data API role.
 select ok(
   not exists (
     select 1
@@ -65,6 +70,20 @@ select ok(
       )
   ),
   'future public functions require explicit grants'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_proc p
+    cross join lateral aclexplode(
+      coalesce(p.proacl, acldefault('f', p.proowner))
+    ) as acl
+    where p.oid = 'extensions.__default_grant_probe_fn()'::regprocedure
+      and acl.privilege_type = 'EXECUTE'
+      and acl.grantee = 0
+  ),
+  'future extension functions retain PUBLIC execute'
 );
 
 select ok(
