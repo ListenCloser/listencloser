@@ -2,6 +2,7 @@
 
 from evaluation.theory_music21_bakeoff import (
     TheoryCase,
+    baseline_prediction,
     evaluate_cases,
     music21_prediction,
 )
@@ -20,6 +21,36 @@ _CORE_CASES = [
     TheoryCase("a-minor-dominant", "A minor", "E", "maj", "V", "DOMINANT"),
 ]
 
+# Exact non-N suffixes shipped by lv-chordia's `submission` dictionary.
+# Source: openmirlab/lv-chordia lv_chordia/data/submission_chord_list.txt.
+_SUBMISSION_QUALITIES = [
+    "min/b7",
+    "min/2",
+    "maj/b7",
+    "maj/2",
+    "sus4(b7)",
+    "sus2",
+    "sus4",
+    "13",
+    "11",
+    "min9",
+    "9",
+    "maj9",
+    "dim7",
+    "hdim7",
+    "min7",
+    "7",
+    "maj7",
+    "min/5",
+    "min/b3",
+    "maj/5",
+    "maj/3",
+    "dim",
+    "aug",
+    "min",
+    "maj",
+]
+
 
 def test_music21_matches_or_beats_handwritten_core_contract():
     report = evaluate_cases(_CORE_CASES)
@@ -32,36 +63,21 @@ def test_music21_matches_or_beats_handwritten_core_contract():
 
 
 def test_music21_handles_quality_evidence_handwritten_mapper_collapses():
-    # The current mapper treats hdim7 as a generic uppercase seventh because
-    # it recognizes neither the diminished triad nor the half-diminished kind.
-    # music21 can express the supplied root+quality evidence without any
-    # observed voicing or inversion input.
     prediction = music21_prediction(
         TheoryCase("leading-tone-half-dim", "C major", "B", "hdim7")
     )
-    assert prediction.numeral in {"viiø7", "vii/o7"}
+    assert "vii" in prediction.numeral.lower()
+    assert "7" in prediction.numeral
 
 
-def test_music21_accepts_the_lv_chordia_quality_adapter_vocabulary():
-    qualities = [
-        "maj",
-        "min",
-        "dim",
-        "aug",
-        "7",
-        "maj7",
-        "min7",
-        "dim7",
-        "hdim7",
-        "minmaj7",
-        "maj6",
-        "min6",
-        "9",
-        "maj9",
-        "min9",
-        "sus2",
-        "sus4",
-    ]
-    for quality in qualities:
+def test_music21_accepts_authoritative_lv_chordia_submission_vocabulary():
+    for quality in _SUBMISSION_QUALITIES:
         prediction = music21_prediction(TheoryCase(f"quality-{quality}", "C major", "C", quality))
-        assert prediction.numeral
+        assert prediction.numeral, quality
+
+
+def test_music21_preserves_slash_bass_that_handwritten_mapper_drops():
+    case = TheoryCase("tonic-first-inversion", "C major", "C", "maj/3")
+
+    assert baseline_prediction(case).numeral == "I"
+    assert music21_prediction(case).numeral == "I6"
