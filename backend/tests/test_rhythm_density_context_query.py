@@ -133,6 +133,34 @@ def test_supported_query_uses_exact_authorized_version_and_preserves_context_con
     }
 
 
+def test_user_selected_neutral_context_remains_supported_through_persisted_query():
+    snapshot, version = _snapshot()
+    windows = [_window(float(i), float(i + 2), 4.0) for i in range(9)]
+    density = _density_insight(
+        version.id,
+        evidence={"windows": windows, "coverage": _coverage(windows)},
+    )
+
+    result = query_persisted_rhythm_density_context(
+        snapshot,
+        density_owner_version_id=version.id,
+        query=_query(),
+        load_insights=lambda loaded_version: [density],
+    )
+
+    assert result.status == "supported"
+    assert result.reasons == []
+    assert result.finding is not None
+    assert result.finding.subject_origin == "user_selected"
+    assert result.finding.selection_conditioned_on_rhythm_density is False
+    assert result.finding.measurements[0].direction == "unchanged"
+    assert result.finding.measurements[0].subject_value == 4.0
+    assert result.finding.measurements[0].reference_median == 4.0
+    assert result.finding.headline == (
+        "Median event density here matches the median elsewhere in this Work (4 events/beat)."
+    )
+
+
 def test_legacy_density_peak_is_explicit_and_selection_conditioned():
     snapshot, version = _snapshot(artifact_kind=ArtifactKind.midi_corrected)
     density = _density_insight(version.id)
