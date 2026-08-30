@@ -25,14 +25,45 @@ describe('PianoRoll', () => {
     expect(screen.getAllByText(/G4/).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('keeps the scalar-BPM timing scaffold conservative', () => {
+  it('keeps the scalar-BPM timing scaffold conservative when no observed pulse exists', () => {
     const { container } = render(<PianoRoll notes={mockNotes} bpm={120} />)
 
     expect(container.querySelectorAll('[data-grid-kind="tempo-beat"]').length).toBeGreaterThan(0)
+    expect(container.querySelector('[data-grid-kind="observed-beat"]')).not.toBeInTheDocument()
     expect(container.querySelector('[data-grid-kind="subdivision"]')).not.toBeInTheDocument()
     expect(container.querySelector('[data-grid-kind="measure"]')).not.toBeInTheDocument()
     expect(container.querySelector('[data-pitch-lane="octave-anchor"]')).toBeInTheDocument()
     expect(container.querySelector('[data-ruler-kind="elapsed-time"]')).toBeInTheDocument()
+  })
+
+  it('uses exact non-uniform observed beats and downbeats instead of the BPM scaffold', () => {
+    const { container } = render(
+      <PianoRoll
+        notes={mockNotes}
+        bpm={120}
+        beatTimes={[0.12, 0.71, 1.42]}
+        downbeatTimes={[0.12]}
+      />,
+    )
+
+    const beats = [...container.querySelectorAll('[data-grid-kind="observed-beat"]')]
+    expect(beats).toHaveLength(3)
+    expect(container.querySelectorAll('[data-grid-kind="observed-downbeat"]')).toHaveLength(1)
+    expect(container.querySelector('[data-grid-kind="tempo-beat"]')).not.toBeInTheDocument()
+    expect(container.querySelector('[data-grid-kind="subdivision"]')).not.toBeInTheDocument()
+    expect(container.querySelector('[data-grid-kind="measure"]')).not.toBeInTheDocument()
+
+    const x = beats.map((line) => Number(line.getAttribute('x1')))
+    expect(x[1] - x[0]).not.toBeCloseTo(x[2] - x[1], 5)
+  })
+
+  it('fails closed to the BPM scaffold for malformed observed pulse coordinates', () => {
+    const { container } = render(
+      <PianoRoll notes={mockNotes} bpm={120} beatTimes={[0.7, 0.2, 1.4]} />,
+    )
+
+    expect(container.querySelector('[data-grid-kind="observed-beat"]')).not.toBeInTheDocument()
+    expect(container.querySelectorAll('[data-grid-kind="tempo-beat"]').length).toBeGreaterThan(0)
   })
 
   it('keeps active time visually distinct from selected notes', () => {
