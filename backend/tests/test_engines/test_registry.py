@@ -9,6 +9,7 @@ from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.lstom_engine import LStoMMelodyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
+from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.notation.music21_engine import Music21NotationEngine
 from engines.registry import (
     get_beat_engine,
@@ -40,9 +41,10 @@ class TestRegistryDefaults:
         engine = get_structure_engine()
         assert isinstance(engine, AllInOneEngine)
 
-    def test_default_notation_is_music21(self):
+    def test_default_notation_is_musescore(self, monkeypatch):
+        monkeypatch.delenv("NOTATION_ENGINE", raising=False)
         engine = get_notation_engine()
-        assert isinstance(engine, Music21NotationEngine)
+        assert isinstance(engine, MuseScoreNotationEngine)
 
     def test_default_harmony_is_music21(self):
         engine = get_harmony_engine()
@@ -65,6 +67,10 @@ class TestRegistryExplicitSelection:
     def test_select_beat_this_explicitly(self):
         engine = get_beat_engine("beat_this")
         assert isinstance(engine, BeatThisEngine)
+
+    def test_select_music21_notation_rollback(self):
+        engine = get_notation_engine("music21")
+        assert isinstance(engine, Music21NotationEngine)
 
     def test_unknown_engine_raises(self):
         with pytest.raises(ValueError, match="Unknown transcription engine"):

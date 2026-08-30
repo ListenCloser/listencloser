@@ -4,7 +4,7 @@ Production defaults:
   TRANSCRIPTION_ENGINE=basic_pitch
   BEAT_ENGINE=beat_this
   STRUCTURE_ENGINE=allin1
-  NOTATION_ENGINE=music21
+  NOTATION_ENGINE=musescore
   HARMONY_ENGINE=music21
   MELODY_ENGINE=lstom
 """
@@ -100,7 +100,14 @@ def get_structure_engine(name: str | None = None) -> StructureEngine:
 
 
 def get_notation_engine(name: str | None = None) -> NotationEngine:
-    name = name or os.environ.get("NOTATION_ENGINE", "music21")
+    """Resolve the production score-interpretation engine.
+
+    MuseScore owns the default derived Score interpretation after the bounded
+    real-piano product gate in #700/#707. ``NOTATION_ENGINE=music21`` remains
+    the explicit rollback while the old custom quantization/staffing path is
+    retained for the bounded rollout window.
+    """
+    name = name or os.environ.get("NOTATION_ENGINE", "musescore")
     if name == "music21":
         return Music21NotationEngine()
     if name == "musescore":

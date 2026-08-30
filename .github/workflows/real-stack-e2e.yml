@@ -56,48 +56,32 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version-file: '.python-version'
+      - name: Build production backend image for the real stack
+        run: docker build --tag listencloser-real-stack-backend backend
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          version: '0.12.6'
-          enable-cache: true
-          cache-dependency-glob: 'backend/uv.lock'
-
-      - name: Sync locked backend environment
+      - name: Start production-image backend API
         run: |
-          if ! command -v ffmpeg >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
-          uv sync --project backend --locked
-
-      - name: Restore Beat This checkpoint
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/torch/hub/checkpoints/beat_this-final0.ckpt
-          key: ${{ runner.os }}-beat-this-final0-8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331
-
-      - name: Preload pinned Beat This checkpoint
-        working-directory: backend
-        run: |
-          set -euo pipefail
-          uv run python -c "from beat_this.inference import load_checkpoint; load_checkpoint('final0')"
-          echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  $HOME/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
-
-      - name: Start backend API
-        run: |
-          cd backend
-          nohup uv run uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
+          nohup docker run --rm \
+            --name listencloser-realstack-api \
+            --network host \
+            -e SUPABASE_URL \
+            -e SUPABASE_ANON_KEY \
+            -e SUPABASE_SERVICE_ROLE_KEY \
+            listencloser-real-stack-backend \
+            > /tmp/backend.log 2>&1 &
           echo $! > /tmp/backend.pid
 
-      - name: Start worker
+      - name: Start production-image worker
         run: |
-          cd backend
-          nohup uv run python worker.py > /tmp/worker.log 2>&1 &
+          nohup docker run --rm \
+            --name listencloser-realstack-worker \
+            --network host \
+            -e SUPABASE_URL \
+            -e SUPABASE_ANON_KEY \
+            -e SUPABASE_SERVICE_ROLE_KEY \
+            --entrypoint python \
+            listencloser-real-stack-backend worker.py \
+            > /tmp/worker.log 2>&1 &
           echo $! > /tmp/worker.pid
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -143,7 +127,7 @@ jobs:
           tail -40 /tmp/frontend.log || true
           exit 1
 
-      - name: Run real-stack browser test
+      - name: Run real-stack browser test with MuseScore artifact observer
         env:
           REAL_AUDIO_FILE: ${{ github.workspace }}/tests/fixtures/real-piano.m4a
           SUPABASE_URL: ${{ env.SUPABASE_URL }}
@@ -151,13 +135,66 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
           BACKEND_URL: "http://127.0.0.1:8000"
         run: |
+          set -euo pipefail
           npx playwright install chromium --with-deps
+
+          # The golden path intentionally deletes the Work at the end. Observe
+          # the fresh database concurrently so the promotion gate can prove the
+          # MuseScore-derived MusicXML and score-playback artifacts existed before
+          # that deletion without weakening the deletion contract.
+          python3 - <<'PY' > /tmp/musescore-observer.log 2>&1 &
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          base = os.environ["SUPABASE_URL"].rstrip("/")
+          service_key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+          headers = {
+              "apikey": service_key,
+              "Authorization": f"Bearer {service_key}",
+          }
+
+          def get(path: str):
+              request = urllib.request.Request(base + path, headers=headers)
+              with urllib.request.urlopen(request, timeout=10) as response:
+                  return json.load(response)
+
+          deadline = time.monotonic() + 540
+          last_error = None
+          while time.monotonic() < deadline:
+              try:
+                  artifacts = get("/rest/v1/artifacts?select=kind")
+                  kinds = {row.get("kind") for row in artifacts}
+                  versions = get("/rest/v1/artifact_versions?select=metadata")
+                  reports = []
+                  for row in versions:
+                      metadata = row.get("metadata")
+                      if isinstance(metadata, dict) and isinstance(metadata.get("notation"), dict):
+                          reports.append(metadata["notation"])
+                  if (
+                      {"musicxml_score", "rendered_score"}.issubset(kinds)
+                      and any(report.get("engine") == "musescore" for report in reports)
+                  ):
+                      print("observed MuseScore MusicXML + rendered score before deletion")
+                      raise SystemExit(0)
+              except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+                  last_error = exc
+              time.sleep(1)
+
+          raise SystemExit(f"MuseScore score artifacts/provenance were never observed: {last_error}")
+          PY
+          observer_pid=$!
+
           npx playwright test --config=playwright.realstack.config.ts
+          wait "$observer_pid"
+          cat /tmp/musescore-observer.log
 
       - name: Extract understand performance timings
         run: |
           mkdir -p performance-results
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           from pathlib import Path
 
@@ -220,9 +257,11 @@ jobs:
           cp /tmp/backend.log /tmp/real-stack-diagnostics/backend.log 2>/dev/null || true
           cp /tmp/worker.log /tmp/real-stack-diagnostics/worker.log 2>/dev/null || true
           cp /tmp/frontend.log /tmp/real-stack-diagnostics/frontend.log 2>/dev/null || true
+          cp /tmp/musescore-observer.log /tmp/real-stack-diagnostics/musescore-observer.log 2>/dev/null || true
           echo "===== backend ====="; tail -150 /tmp/backend.log || true
           echo "===== worker ====="; tail -150 /tmp/worker.log || true
           echo "===== frontend ====="; tail -150 /tmp/frontend.log || true
+          echo "===== MuseScore observer ====="; cat /tmp/musescore-observer.log || true
 
       - name: Upload real-stack failure diagnostics
         if: failure()
@@ -235,6 +274,12 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Stop production-image backend containers
+        if: always()
+        run: |
+          docker stop listencloser-realstack-api 2>/dev/null || true
+          docker stop listencloser-realstack-worker 2>/dev/null || true
 
       - name: Stop local Supabase
         if: always()
