@@ -5,7 +5,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.registry import get_notation_engine
 
@@ -25,7 +24,7 @@ def _fake_musescore_run(args, **kwargs):
     assert len(job) == 1
     assert Path(job[0]["in"]).read_bytes() == MIDI_BYTES
 
-    output_xml, output_midi = [Path(path) for path in job[0]["out"]]
+    output_xml, output_midi = (Path(path) for path in job[0]["out"])
     output_xml.write_bytes(MUSICXML_BYTES)
     output_midi.write_bytes(NOTATION_MIDI_BYTES)
     return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
