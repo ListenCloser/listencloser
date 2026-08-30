@@ -24,6 +24,7 @@ jobs:
     outputs:
       ci: ${{ steps.filter.outputs.ci }}
       docs: ${{ steps.filter.outputs.docs }}
+      actions_hygiene: ${{ steps.filter.outputs.actions_hygiene }}
       e2e: ${{ steps.filter.outputs.e2e }}
       real_stack: ${{ steps.filter.outputs.real_stack }}
       database: ${{ steps.filter.outputs.database }}
@@ -45,6 +46,9 @@ jobs:
               - '.lychee.toml'
               - '.github/workflows/docs.yml'
               - '.github/workflows/build.yml'
+            actions_hygiene:
+              - '.github/workflows/**'
+              - 'scripts/check-actions.sh'
             e2e:
               - '**'
               - '!*.md'
@@ -62,7 +66,6 @@ jobs:
               - 'package-lock.json'
               - 'next.config.mjs'
               - 'tsconfig.json'
-              - 'tests/e2e/real-stack-workflow.spec.ts'
               - 'tests/e2e/real-stack-golden.spec.ts'
               - 'playwright.realstack.config.ts'
               - '.github/workflows/real-stack-e2e.yml'
@@ -76,10 +79,8 @@ jobs:
               - 'backend/domain/**'
               - 'backend/music_features.py'
               - 'backend/tests/integration/**'
-              - 'backend/tests/test_rls_domain.py'
               - 'backend/pyproject.toml'
               - 'backend/uv.lock'
-              - 'scripts/verify_database.sql'
               - '.github/workflows/database-integration.yml'
               - '.github/workflows/build.yml'
             backend_image:
@@ -102,8 +103,6 @@ jobs:
       NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Verify GitHub Actions are pinned
-        run: python3 scripts/check_actions_pinned.py
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: package.json
@@ -147,6 +146,25 @@ jobs:
     if: github.event_name != 'push' && needs.classify.outputs.docs == 'true'
     needs: classify
     uses: ./.github/workflows/docs.yml
+
+  actions_hygiene:
+    name: actions-hygiene
+    if: github.event_name != 'push' && needs.classify.outputs.actions_hygiene == 'true'
+    needs: classify
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+      - name: Check GitHub Actions correctness and security
+        run: bash scripts/check-actions.sh
 
   e2e:
     if: github.event_name != 'push' && needs.classify.outputs.e2e == 'true'
@@ -205,6 +223,7 @@ jobs:
       - compile
       - ci
       - docs
+      - actions_hygiene
       - e2e
       - real-stack
       - database
@@ -221,6 +240,7 @@ jobs:
           COMPILE: ${{ needs.compile.result }}
           CI: ${{ needs.ci.result }}
           DOCS: ${{ needs.docs.result }}
+          ACTIONS_HYGIENE: ${{ needs.actions_hygiene.result }}
           E2E: ${{ needs.e2e.result }}
           REAL_STACK: ${{ needs.real-stack.result }}
           DATABASE: ${{ needs.database.result }}
@@ -244,6 +264,7 @@ jobs:
             test "$GITLEAKS" = success
             require_success_or_skip CI "$CI"
             require_success_or_skip DOCS "$DOCS"
+            require_success_or_skip ACTIONS_HYGIENE "$ACTIONS_HYGIENE"
             require_success_or_skip E2E "$E2E"
             require_success_or_skip REAL_STACK "$REAL_STACK"
             require_success_or_skip DATABASE "$DATABASE"
