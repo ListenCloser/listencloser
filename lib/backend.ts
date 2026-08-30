@@ -24,10 +24,14 @@ function getBackendUrl(): string {
  */
 export async function proxyToBackend(req: NextRequest, path: string, timeoutMs = 20_000) {
   const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  const startedAt = Date.now();
   try {
     const authHeader = req.headers.get("authorization");
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (authHeader) headers["Authorization"] = authHeader;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "x-request-id": requestId,
+    };
+    if (authHeader) headers.Authorization = authHeader;
 
     const init: RequestInit = {
       method: req.method,
@@ -40,18 +44,40 @@ export async function proxyToBackend(req: NextRequest, path: string, timeoutMs =
     }
     const res = await fetch(`${getBackendUrl()}${path}`, init);
     const data = await res.json().catch(() => ({}));
+    const backendRequestId = res.headers.get("x-request-id") || requestId;
+    const responseHeaders = { "x-request-id": backendRequestId };
+
     if (!res.ok) {
       const detail = typeof data === "object" && data !== null && "detail" in data
         ? (data as { detail?: unknown }).detail
         : undefined;
+      if (res.status >= 500) {
+        console.error("backend_proxy_upstream_error", {
+          requestId: backendRequestId,
+          path,
+          status: res.status,
+          durationMs: Date.now() - startedAt,
+        });
+      }
       return NextResponse.json(
-        { error: typeof detail === "string" ? detail : "backend error" },
-        { status: res.status }
+        {
+          error: typeof detail === "string" ? detail : "backend error",
+          request_id: backendRequestId,
+        },
+        { status: res.status, headers: responseHeaders },
       );
     }
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: responseHeaders });
   } catch (err) {
-    console.error("backend_proxy_failed", { requestId, path, error: err });
-    return NextResponse.json({ error: "Processing service unavailable", request_id: requestId }, { status: 502 });
+    console.error("backend_proxy_failed", {
+      requestId,
+      path,
+      durationMs: Date.now() - startedAt,
+      error: err,
+    });
+    return NextResponse.json(
+      { error: "Processing service unavailable", request_id: requestId },
+      { status: 502, headers: { "x-request-id": requestId } },
+    );
   }
 }
