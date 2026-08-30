@@ -8,7 +8,7 @@ project_id = "hello-ai"
 enabled = true
 # Port to use for the API URL.
 port = 54321
-# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
+# Schemas to expose in your API. Tables, views, sequences and functions in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
 schemas = ["public", "graphql_public"]
 # Extra schemas to add to the search_path of every request.
@@ -66,7 +66,7 @@ schema_paths = []
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
 enabled = true
-# Specifies an ordered list of seed files to load during db reset.
+# Specifies an ordered list of seed files to load during a db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]
 
@@ -97,14 +97,14 @@ enabled = true
 port = 54323
 # External URL of the API server that frontend connects to.
 api_url = "http://127.0.0.1"
-# OpenAI API Key to use for Supabase AI in the Supabase Studio.
+# OpenAI API Key for Studio AI. This value is intentionally sourced from the local environment.
 openai_api_key = "env(OPENAI_API_KEY)"
 
 # Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
 # are monitored, and you can view the emails that would have been sent from the web interface.
 [local_smtp]
 enabled = true
-# Port to use for the email testing server web interface.
+# Port to use for the local email testing server web interface.
 port = 54324
 # Uncomment to expose additional ports for testing user applications that send emails.
 # smtp_port = 54325
@@ -117,7 +117,13 @@ enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
-# Uncomment to configure local storage buckets
+# Direct browser uploads for canonical product artifacts use this bucket. Keep
+# its hard Storage boundary aligned with the backend upload-intent contract.
+[storage.buckets.artifacts]
+public = false
+file_size_limit = "25MiB"
+
+# Uncomment to configure additional local storage buckets
 # [storage.buckets.images]
 # public = false
 # file_size_limit = "50MiB"
@@ -165,8 +171,8 @@ additional_redirect_urls = ["https://127.0.0.1:3000"]
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
 # jwt_issuer = ""
-# Path to JWT signing key. DO NOT commit your signing keys file to git.
-# signing_keys_path = "./signing_keys.json"
+# Path to JWT signing key. DO NOT commit your signing keys file.
+# signing_keys_path = "../signing_keys.json"
 # If disabled, the refresh token will never expire.
 enable_refresh_token_rotation = true
 # Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
@@ -176,21 +182,21 @@ refresh_token_reuse_interval = 10
 enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
-# Allow/disallow testing manual linking of accounts
+# Allow/disallow testing manual linking APIs.
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
 minimum_password_length = 6
-# Passwords that do not meet the following requirements will be rejected as weak. Supported values
-# are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
+# Passwords that do not meet the following requirements will be rejected as weak. The supported values are:
+# `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
 
 # Configure passkey sign-ins.
 # [auth.passkey]
 # enabled = false
 
-# Configure WebAuthn relying party settings (required when passkey is enabled).
+# Configure WebAuthn relying party settings (required for passkeys).
 # [auth.webauthn]
-# rp_display_name = "Supabase"
+# rp_display_name = "ListenCloser"
 # rp_id = "localhost"
 # rp_origins = ["http://127.0.0.1:3000"]
 
@@ -207,7 +213,7 @@ token_refresh = 150
 sign_in_sign_ups = 30
 # Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
 token_verifications = 30
-# Number of Web3 logins that can be made in a 5 minute interval per IP address.
+# Number of Web3 logins that can be made per 5 minute interval per IP address.
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
@@ -219,8 +225,8 @@ web3 = 30
 [auth.email]
 # Allow/disallow new user signups via email to your project.
 enable_signup = true
-# If enabled, a user will be required to confirm any email change on both the old, and new email
-# addresses. If disabled, only the new email is required to confirm.
+# If enabled, a user will be required to confirm any email change on both the old, and new email addresses.
+# If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
 enable_confirmations = false
@@ -252,7 +258,7 @@ otp_expiry = 3600
 # [auth.email.notification.password_changed]
 # enabled = true
 # subject = "Your password has been changed"
-# content_path = "./templates/password_changed_notification.html"
+# content_path = "./supabase/templates/password_changed_notification.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
@@ -280,10 +286,10 @@ max_frequency = "5s"
 # enabled = true
 # uri = "pg-functions://postgres/auth/before-user-created-hook"
 
-# This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
+# This hook runs before a token is issued and allows you to add additional claims based on the authentication method.
 # [auth.hook.custom_access_token]
 # enabled = true
-# uri = "pg-functions://<database>/<schema>/<hook_name>"
+# uri = "pg-functions://<postgres>/<project_ref>/<function_name>"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]
@@ -295,7 +301,7 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 
 # Multi-factor-authentication is available to Supabase Pro plan.
 [auth.mfa]
-# Control how many MFA factors can be enrolled at once per user.
+# Control how many MFA factors can be enrolled at once.
 max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
@@ -334,8 +340,8 @@ skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 
-# Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
-# You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
+# Allow Solana wallet holders to sign in to your app using the Sign in with Solana standard.
+# You can configure `web3` rate limit in [auth.rate_limit] and optionally enable captcha.
 [auth.web3.solana]
 enabled = false
 
@@ -347,13 +353,13 @@ enabled = false
 # Use Auth0 as a third-party provider alongside Supabase Auth.
 [auth.third_party.auth0]
 enabled = false
-# tenant = "my-auth0-tenant"
+# tenant = "my-auth0.com"
 # tenant_region = "us"
 
 # Use AWS Cognito (Amplify) as a third-party provider alongside Supabase Auth.
 [auth.third_party.aws_cognito]
 enabled = false
-# user_pool_id = "my-user-pool-id"
+# user_pool_id = "us-east-1_..."
 # user_pool_region = "us-east-1"
 
 # Use Clerk as a third-party provider alongside Supabase Auth.
@@ -364,18 +370,17 @@ enabled = false
 
 # OAuth server configuration
 [auth.oauth_server]
-# Enable OAuth server functionality
+# Enable OAuth 2.1 server capabilities
 enabled = false
-# Path for OAuth consent flow UI
+# Path for OAuth consent UI
 authorization_url_path = "/oauth/consent"
-# Allow dynamic client registration
+# Allow OAuth Dynamic Client Registration
 allow_dynamic_registration = false
 
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
-# `per_worker` (default) — enables hot reload during local development.
-# `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
+# `per_worker` (default) — enables hot reload; `oneshot` is fallback for large projects.
 policy = "per_worker"
 # Port to attach the Chrome inspector for debugging edge functions.
 inspector_port = 8083
@@ -391,9 +396,9 @@ port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 
-# Experimental features may be deprecated any time
+# Experimental features may be deprecated at any time.
 [experimental]
-# Configures Postgres storage engine to use OrioleDB (S3)
+# Configures Postgres storage engine to use OrioleDB with S3 support
 orioledb_version = ""
 # Configures S3 bucket URL, eg. <bucket_name>.s3-<region>.amazonaws.com
 s3_host = "env(S3_HOST)"
