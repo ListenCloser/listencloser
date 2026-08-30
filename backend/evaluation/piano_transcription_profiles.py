@@ -10,9 +10,11 @@ Unlike the generic OSS bakeoff adapters, this module delegates to
 ``TranscriptionResult`` returned by the production engine seam. Model inference
 is opt-in; unit tests inject lightweight fake engines.
 
-Usage:
+Usage from ``backend/``::
+
+    python -m evaluation.datasets.prepare --corpus real_world_v1
     python -m evaluation.piano_transcription_profiles \
-      --manifest evaluation/corpora/prepared-real-world.json \
+      --manifest evaluation/.cache/manifest-real_world_v1.json \
       --hello-ai-sha <commit> \
       --output evaluation/results/piano_transcription_profiles.json
 """
