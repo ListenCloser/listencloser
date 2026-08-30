@@ -8,12 +8,14 @@ function rhythmInsight({
   createdAt = "2026-08-30T20:00:00Z",
   beats = [0.12, 0.71, 1.42],
   downbeats = [0.12],
+  windows,
 }: {
   id?: string;
   versionId?: string;
   createdAt?: string;
   beats?: unknown;
   downbeats?: unknown;
+  windows?: unknown;
 } = {}): Insight {
   return {
     id,
@@ -24,6 +26,7 @@ function rhythmInsight({
       beats_seconds: beats,
       downbeats_seconds: downbeats,
       pulse_coordinate_unit: "seconds",
+      onset_density_over_time: windows,
     },
     provenance: { engine: "beat_this", model_version: "test" },
     created_at: createdAt,
@@ -36,8 +39,31 @@ function rhythmInsight({
   } as Insight;
 }
 
+const legacyBeatWindows = [
+  {
+    start: 0.12,
+    end: 0.71,
+    density: 1,
+    mode: "beat_relative",
+    unit: "events_per_beat",
+    coordinate_unit: "beats",
+    window_size: 1,
+    step_size: 1,
+  },
+  {
+    start: 0.71,
+    end: 1.42,
+    density: 2,
+    mode: "beat_relative",
+    unit: "events_per_beat",
+    coordinate_unit: "beats",
+    window_size: 1,
+    step_size: 1,
+  },
+];
+
 describe("extractObservedPulseGrid", () => {
-  it("returns the exact non-uniform grid for the requested Version", () => {
+  it("returns the exact explicit non-uniform grid for the requested Version", () => {
     const result = extractObservedPulseGrid(
       [rhythmInsight(), rhythmInsight({ id: "other", versionId: "version-b", beats: [0, 1] })],
       "version-a",
@@ -48,6 +74,22 @@ describe("extractObservedPulseGrid", () => {
       beatsSeconds: [0.12, 0.71, 1.42],
       downbeatsSeconds: [0.12],
       provenance: { engine: "beat_this", model_version: "test" },
+      source: "explicit_pulse",
+    });
+  });
+
+  it("recovers losslessly persisted one-beat window boundaries without inventing downbeats", () => {
+    const result = extractObservedPulseGrid(
+      [rhythmInsight({ beats: undefined, downbeats: undefined, windows: legacyBeatWindows })],
+      "version-a",
+    );
+
+    expect(result).toEqual({
+      versionId: "version-a",
+      beatsSeconds: [0.12, 0.71, 1.42],
+      downbeatsSeconds: [],
+      provenance: { engine: "beat_this", model_version: "test" },
+      source: "beat_relative_windows",
     });
   });
 
@@ -63,16 +105,31 @@ describe("extractObservedPulseGrid", () => {
     expect(result?.beatsSeconds).toEqual([0.2, 0.8, 1.5]);
   });
 
-  it("fails closed on malformed or non-monotonic coordinate evidence", () => {
+  it("fails closed on malformed explicit coordinates and non-contiguous legacy windows", () => {
     expect(
       extractObservedPulseGrid(
-        [rhythmInsight({ beats: [0.2, 0.1, 0.9] })],
+        [rhythmInsight({ beats: [0.2, 0.1, 0.9], windows: undefined })],
         "version-a",
       ),
     ).toBeNull();
     expect(
       extractObservedPulseGrid(
-        [rhythmInsight({ beats: [0.2, Number.NaN, 0.9] })],
+        [rhythmInsight({ beats: [0.2, Number.NaN, 0.9], windows: undefined })],
+        "version-a",
+      ),
+    ).toBeNull();
+    expect(
+      extractObservedPulseGrid(
+        [
+          rhythmInsight({
+            beats: undefined,
+            downbeats: undefined,
+            windows: [
+              legacyBeatWindows[0],
+              { ...legacyBeatWindows[1], start: 0.8 },
+            ],
+          }),
+        ],
         "version-a",
       ),
     ).toBeNull();
