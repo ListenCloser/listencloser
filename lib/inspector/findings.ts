@@ -32,8 +32,8 @@
  * RULES:
  * - Zero findings is acceptable (sparse evidence → empty array)
  * - Confidence is never fabricated (uses null from source insights)
- * - Findings are sorted by time
- * - Maximum 8 findings per piece
+ * - Findings are sorted by time for deterministic derivation output
+ * - Derivation does not impose a presentation count limit; Breakdown ranking owns compactness
  * - No withheld kinds are processed
  */
 
@@ -56,7 +56,7 @@ export interface TemporalFinding {
 
 /**
  * Derive temporal findings from existing insights.
- * Returns 0-8 findings. Zero is acceptable for sparse evidence.
+ * Returns all supported deterministic candidates in time order. Zero is acceptable for sparse evidence.
  */
 export function deriveFindings(insights: Insight[]): TemporalFinding[] {
   const findings: TemporalFinding[] = [];
@@ -73,9 +73,10 @@ export function deriveFindings(insights: Insight[]): TemporalFinding[] {
   // Melody findings
   findings.push(...deriveMelodyFindings(insights));
 
-  // Sort by time and limit
+  // Keep derivation deterministic. Presentation limits belong to the Breakdown
+  // ranking layer so chronology cannot silently discard a later strong candidate.
   findings.sort((a, b) => a.startSeconds - b.startSeconds);
-  return findings.slice(0, 8);
+  return findings;
 }
 
 function deriveDensityFindings(insights: Insight[]): TemporalFinding[] {
