@@ -1,5 +1,3 @@
-import type { QueryKey } from "@tanstack/react-query";
-
 import { apiFetch } from "./api";
 import { getQueryClient } from "./query-client";
 import { supabase } from "./supabase";
@@ -26,17 +24,62 @@ type UploadIntent = {
 
 const WORK_CACHE_TTL_MS = 5 * 60 * 1000;
 
-const workDataKeys = {
-  all: ["work-data"] as const,
-  works: ["work-data", "work"] as const,
-  work: (workId: string) => ["work-data", "work", workId] as const,
-  version: (versionId: string) => ["work-data", "version", versionId] as const,
-  entities: (versionId: string) => ["work-data", "version", versionId, "entities"] as const,
-  insights: (versionId: string) => ["work-data", "version", versionId, "insights"] as const,
+const workDataMetaKeys = {
+  epoch: ["work-data-meta", "epoch"] as const,
+  workRevision: (epoch: number, workId: string) => ["work-data-meta", epoch, "work-revision", workId] as const,
+  versionRevision: (epoch: number, versionId: string) => ["work-data-meta", epoch, "version-revision", versionId] as const,
+  versionOwner: (epoch: number, versionId: string) => ["work-data-meta", epoch, "version-owner", versionId] as const,
 };
+
+const workDataKeys = {
+  work: (epoch: number, workId: string, revision: number) => ["work-data", epoch, "work", workId, revision] as const,
+  entities: (epoch: number, versionId: string, revision: number) => ["work-data", epoch, "version", versionId, "entities", revision] as const,
+  insights: (epoch: number, versionId: string, revision: number) => ["work-data", epoch, "version", versionId, "insights", revision] as const,
+};
+
+function cacheEpoch(): number {
+  return getQueryClient().getQueryData<number>(workDataMetaKeys.epoch) ?? 0;
+}
+
+function workRevision(epoch: number, workId: string): number {
+  return getQueryClient().getQueryData<number>(workDataMetaKeys.workRevision(epoch, workId)) ?? 0;
+}
+
+function versionRevision(epoch: number, versionId: string): number {
+  return getQueryClient().getQueryData<number>(workDataMetaKeys.versionRevision(epoch, versionId)) ?? 0;
+}
+
+function bumpWorkRevision(epoch: number, workId: string): void {
+  const queryClient = getQueryClient();
+  queryClient.setQueryData(workDataMetaKeys.workRevision(epoch, workId), workRevision(epoch, workId) + 1);
+}
+
+function bumpVersionRevision(epoch: number, versionId: string): void {
+  const queryClient = getQueryClient();
+  queryClient.setQueryData(
+    workDataMetaKeys.versionRevision(epoch, versionId),
+    versionRevision(epoch, versionId) + 1,
+  );
+}
 
 function hasActiveJob(bundle: WorkBundle): boolean {
   return bundle.jobs.some((job) => ["queued", "claimed", "running"].includes(job.lifecycle.current));
+}
+
+function allVersionIds(bundle: WorkBundle): string[] {
+  const ids = new Set<string>();
+  for (const item of bundle.artifacts) {
+    for (const version of item.versions) ids.add(version.id);
+    if (item.latest_version) ids.add(item.latest_version.id);
+  }
+  return [...ids];
+}
+
+function indexBundle(epoch: number, bundle: WorkBundle): void {
+  const queryClient = getQueryClient();
+  for (const versionId of allVersionIds(bundle)) {
+    queryClient.setQueryData(workDataMetaKeys.versionOwner(epoch, versionId), bundle.work.id);
+  }
 }
 
 function currentMidiVersionId(bundle: WorkBundle): string | null {
@@ -50,69 +93,54 @@ function currentMidiVersionId(bundle: WorkBundle): string | null {
   return corrected?.latest_version?.id ?? null;
 }
 
-function bundleContainsVersion(bundle: WorkBundle, versionIds: Set<string>): boolean {
-  return bundle.artifacts.some((item) =>
-    item.versions.some((version) => versionIds.has(version.id))
-    || Boolean(item.latest_version && versionIds.has(item.latest_version.id)),
-  );
+function invalidateVersionData(epoch: number, versionId: string): void {
+  bumpVersionRevision(epoch, versionId);
 }
 
-async function discardQuery(queryKey: QueryKey): Promise<void> {
+function invalidateWorkCache(epoch: number, workId: string): void {
   const queryClient = getQueryClient();
-  await queryClient.cancelQueries({ queryKey, exact: true });
-  queryClient.removeQueries({ queryKey, exact: true });
+  const revision = workRevision(epoch, workId);
+  const bundle = queryClient.getQueryData<WorkBundle>(workDataKeys.work(epoch, workId, revision));
+
+  bumpWorkRevision(epoch, workId);
+  if (bundle) {
+    for (const versionId of allVersionIds(bundle)) invalidateVersionData(epoch, versionId);
+  }
 }
 
-async function discardVersionData(versionId: string): Promise<void> {
-  await Promise.all([
-    discardQuery(workDataKeys.entities(versionId)),
-    discardQuery(workDataKeys.insights(versionId)),
-  ]);
-}
-
-async function discardWorkData(workId: string): Promise<void> {
+function invalidateVersionWorks(versionIds: readonly string[]): void {
+  const epoch = cacheEpoch();
   const queryClient = getQueryClient();
-  const bundle = queryClient.getQueryData<WorkBundle>(workDataKeys.work(workId));
-  const versionIds = bundle?.artifacts.flatMap((item) => item.versions.map((version) => version.id)) ?? [];
-
-  await Promise.all([
-    discardQuery(workDataKeys.work(workId)),
-    ...versionIds.map(discardVersionData),
-  ]);
-}
-
-async function invalidateVersionWorks(versionIds: readonly string[]): Promise<void> {
-  const queryClient = getQueryClient();
-  const wanted = new Set(versionIds);
   const workIds = new Set<string>();
 
-  for (const [, bundle] of queryClient.getQueriesData<WorkBundle>({ queryKey: workDataKeys.works })) {
-    if (bundle && bundleContainsVersion(bundle, wanted)) workIds.add(bundle.work.id);
+  for (const versionId of new Set(versionIds)) {
+    const workId = queryClient.getQueryData<string>(workDataMetaKeys.versionOwner(epoch, versionId));
+    if (workId) workIds.add(workId);
   }
 
-  await Promise.all([
-    ...[...workIds].map(discardWorkData),
-    ...versionIds.map(discardVersionData),
-  ]);
+  for (const workId of workIds) invalidateWorkCache(epoch, workId);
+  // Always advance the triggering version keys. This also handles freshly
+  // uploaded versions whose owning Work bundle has not resolved yet.
+  for (const versionId of new Set(versionIds)) invalidateVersionData(epoch, versionId);
 }
 
 async function mutateVersionWorks<T>(
   versionIds: readonly string[],
   mutation: () => Promise<T>,
 ): Promise<T> {
-  // Cancel/remove before and after the mutation. Query functions consume the
-  // TanStack AbortSignal, so a pre-mutation response cannot become the stable
-  // post-mutation cache even when requests overlap.
-  await invalidateVersionWorks(versionIds);
+  // Revision bumps are synchronous. A read that starts after this call gets a
+  // fresh TanStack key immediately, while any older caller may still resolve
+  // harmlessly against its previous key. A successful commit advances the keys
+  // again so reads started during the mutation cannot become post-commit state.
+  invalidateVersionWorks(versionIds);
   const result = await mutation();
-  await invalidateVersionWorks(versionIds);
+  invalidateVersionWorks(versionIds);
   return result;
 }
 
 export function clearWorkDataCache(): void {
   const queryClient = getQueryClient();
-  void queryClient.cancelQueries({ queryKey: workDataKeys.all });
-  queryClient.removeQueries({ queryKey: workDataKeys.all });
+  queryClient.setQueryData(workDataMetaKeys.epoch, cacheEpoch() + 1);
 }
 
 export async function createProject(name: string, description?: string): Promise<Project> {
@@ -139,20 +167,27 @@ export async function listWorks(projectId: string): Promise<Work[]> {
 
 export async function getWorkBundle(workId: string): Promise<WorkBundle> {
   const queryClient = getQueryClient();
-  const queryKey = workDataKeys.work(workId);
+  const epoch = cacheEpoch();
+  const revision = workRevision(epoch, workId);
   const bundle = await queryClient.fetchQuery({
-    queryKey,
-    queryFn: ({ signal }) => apiFetch<WorkBundle>(`/api/v1/works/${workId}`, { signal }),
+    queryKey: workDataKeys.work(epoch, workId, revision),
+    queryFn: () => apiFetch<WorkBundle>(`/api/v1/works/${workId}`),
     staleTime: WORK_CACHE_TTL_MS,
   });
 
+  // The request may have become stale while it was in flight. Its caller still
+  // receives the response, but it must not mutate ownership or child-evidence
+  // state for the newer revision.
+  if (epoch !== cacheEpoch() || revision !== workRevision(epoch, workId)) return bundle;
+
+  indexBundle(epoch, bundle);
   const midiVersionId = currentMidiVersionId(bundle);
   if (hasActiveJob(bundle)) {
-    // Processing changes the durable Work over time. Mark the current snapshot
-    // stale and discard child evidence so the next existing page poll observes
-    // fresh server state without a second cache implementation.
-    await queryClient.invalidateQueries({ queryKey, exact: true, refetchType: "none" });
-    if (midiVersionId) await discardVersionData(midiVersionId);
+    // Processing changes the durable Work over time. Advance the revision after
+    // every active snapshot so the existing page poll necessarily hits the
+    // server again instead of treating that snapshot as terminal cache state.
+    bumpWorkRevision(epoch, workId);
+    if (midiVersionId) invalidateVersionData(epoch, midiVersionId);
   } else if (midiVersionId) {
     await Promise.allSettled([getEntities(midiVersionId), getInsights(midiVersionId)]);
   }
@@ -164,7 +199,20 @@ export async function deleteWork(workId: string): Promise<{ deleted: string }> {
   const result = await apiFetch<{ deleted: string }>(`/api/v1/works/${workId}`, {
     method: "DELETE",
   });
-  await discardWorkData(workId);
+  invalidateWorkCache(cacheEpoch(), workId);
+  return result;
+}
+
+function rememberUploadedVersion(result: { artifact: Artifact; version: Version }): { artifact: Artifact; version: Version } {
+  const epoch = cacheEpoch();
+  const queryClient = getQueryClient();
+  invalidateWorkCache(epoch, result.artifact.work_id);
+  // Version ownership is immutable and is needed before a Work bundle that
+  // contains the new version has had a chance to resolve.
+  queryClient.setQueryData(
+    workDataMetaKeys.versionOwner(epoch, result.version.id),
+    result.artifact.work_id,
+  );
   return result;
 }
 
@@ -199,9 +247,7 @@ async function uploadArtifactViaProxy(
     throw new Error(typeof error === "string" ? error : `Upload failed: ${res.status}`);
   }
 
-  const result = await res.json() as { artifact: Artifact; version: Version };
-  await discardWorkData(result.artifact.work_id);
-  return result;
+  return rememberUploadedVersion(await res.json());
 }
 
 export async function uploadArtifact(
@@ -209,7 +255,7 @@ export async function uploadArtifact(
   file: File,
   workId?: string,
 ): Promise<{ artifact: Artifact; version: Version }> {
-  if (workId) await discardWorkData(workId);
+  if (workId) invalidateWorkCache(cacheEpoch(), workId);
   const directUploadEnabled = process.env.NEXT_PUBLIC_DIRECT_ARTIFACT_UPLOAD !== "false";
   if (!directUploadEnabled || !supabase) {
     return uploadArtifactViaProxy(projectId, file, workId);
@@ -250,8 +296,7 @@ export async function uploadArtifact(
       }),
     },
   );
-  await discardWorkData(result.artifact.work_id);
-  return result;
+  return rememberUploadedVersion(result);
 }
 
 export async function startUnderstandWorkflow(
@@ -329,17 +374,21 @@ export async function getVersionResource(versionId: string): Promise<VersionReso
 }
 
 export async function getEntities(versionId: string): Promise<Entity[]> {
+  const epoch = cacheEpoch();
+  const revision = versionRevision(epoch, versionId);
   return getQueryClient().fetchQuery({
-    queryKey: workDataKeys.entities(versionId),
-    queryFn: ({ signal }) => apiFetch<Entity[]>(`/api/v1/versions/${versionId}/entities`, { signal }),
+    queryKey: workDataKeys.entities(epoch, versionId, revision),
+    queryFn: () => apiFetch<Entity[]>(`/api/v1/versions/${versionId}/entities`),
     staleTime: WORK_CACHE_TTL_MS,
   });
 }
 
 export async function getInsights(versionId: string): Promise<Insight[]> {
+  const epoch = cacheEpoch();
+  const revision = versionRevision(epoch, versionId);
   return getQueryClient().fetchQuery({
-    queryKey: workDataKeys.insights(versionId),
-    queryFn: ({ signal }) => apiFetch<Insight[]>(`/api/v1/versions/${versionId}/insights`, { signal }),
+    queryKey: workDataKeys.insights(epoch, versionId, revision),
+    queryFn: () => apiFetch<Insight[]>(`/api/v1/versions/${versionId}/insights`),
     staleTime: WORK_CACHE_TTL_MS,
   });
 }
