@@ -30,11 +30,7 @@ jobs:
 
           token = os.environ["GH_TOKEN"]
           repository = os.environ["GH_REPOSITORY"]
-          skip_paths = {
-              "backend/domain/api.py",
-              "backend/domain/repositories.py",
-              ".github/workflows/identity-migration-blobs.yml",
-          }
+          skip_paths = {".github/workflows/identity-migration-blobs.yml"}
 
           exact_replacements = (
               ("https://github.com/gr-rr/hello-ai.git", "https://github.com/ListenCloser/listencloser.git"),
