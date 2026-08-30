@@ -123,7 +123,7 @@ jobs:
           tail -40 /tmp/frontend.log || true
           exit 1
 
-      - name: Run real-stack browser test
+      - name: Run real-stack browser test with MuseScore artifact observer
         env:
           REAL_AUDIO_FILE: ${{ github.workspace }}/tests/fixtures/real-piano.m4a
           SUPABASE_URL: ${{ env.SUPABASE_URL }}
@@ -131,17 +131,18 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
           BACKEND_URL: "http://127.0.0.1:8000"
         run: |
+          set -euo pipefail
           npx playwright install chromium --with-deps
-          npx playwright test --config=playwright.realstack.config.ts
 
-      - name: Verify MuseScore score artifacts and provenance
-        env:
-          SUPABASE_URL: ${{ env.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          python3 - <<'PY'
+          # The golden path intentionally deletes the Work at the end. Observe
+          # the fresh database concurrently so the promotion gate can prove the
+          # MuseScore-derived MusicXML and score-playback artifacts existed before
+          # that deletion without weakening the deletion contract.
+          python3 - <<'PY' > /tmp/musescore-observer.log 2>&1 &
           import json
           import os
+          import time
+          import urllib.error
           import urllib.request
 
           base = os.environ["SUPABASE_URL"].rstrip("/")
@@ -153,27 +154,38 @@ jobs:
 
           def get(path: str):
               request = urllib.request.Request(base + path, headers=headers)
-              with urllib.request.urlopen(request, timeout=15) as response:
+              with urllib.request.urlopen(request, timeout=10) as response:
                   return json.load(response)
 
-          artifacts = get("/rest/v1/artifacts?select=kind")
-          kinds = {row.get("kind") for row in artifacts}
-          missing = {"musicxml_score", "rendered_score"} - kinds
-          if missing:
-              raise SystemExit(f"real-stack Score path missed artifacts: {sorted(missing)}")
+          deadline = time.monotonic() + 540
+          last_error = None
+          while time.monotonic() < deadline:
+              try:
+                  artifacts = get("/rest/v1/artifacts?select=kind")
+                  kinds = {row.get("kind") for row in artifacts}
+                  versions = get("/rest/v1/artifact_versions?select=metadata")
+                  reports = []
+                  for row in versions:
+                      metadata = row.get("metadata")
+                      if isinstance(metadata, dict) and isinstance(metadata.get("notation"), dict):
+                          reports.append(metadata["notation"])
+                  if (
+                      {"musicxml_score", "rendered_score"}.issubset(kinds)
+                      and any(report.get("engine") == "musescore" for report in reports)
+                  ):
+                      print("observed MuseScore MusicXML + rendered score before deletion")
+                      raise SystemExit(0)
+              except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+                  last_error = exc
+              time.sleep(1)
 
-          versions = get("/rest/v1/artifact_versions?select=metadata")
-          notation_reports = []
-          for row in versions:
-              metadata = row.get("metadata")
-              if isinstance(metadata, dict) and isinstance(metadata.get("notation"), dict):
-                  notation_reports.append(metadata["notation"])
-
-          if not any(report.get("engine") == "musescore" for report in notation_reports):
-              raise SystemExit("real-stack Score path did not persist MuseScore provenance")
-
-          print("real-stack MuseScore MusicXML + score playback artifacts verified")
+          raise SystemExit(f"MuseScore score artifacts/provenance were never observed: {last_error}")
           PY
+          observer_pid=$!
+
+          npx playwright test --config=playwright.realstack.config.ts
+          wait "$observer_pid"
+          cat /tmp/musescore-observer.log
 
       - name: Extract understand performance timings
         run: |
@@ -241,9 +253,11 @@ jobs:
           cp /tmp/backend.log /tmp/real-stack-diagnostics/backend.log 2>/dev/null || true
           cp /tmp/worker.log /tmp/real-stack-diagnostics/worker.log 2>/dev/null || true
           cp /tmp/frontend.log /tmp/real-stack-diagnostics/frontend.log 2>/dev/null || true
+          cp /tmp/musescore-observer.log /tmp/real-stack-diagnostics/musescore-observer.log 2>/dev/null || true
           echo "===== backend ====="; tail -150 /tmp/backend.log || true
           echo "===== worker ====="; tail -150 /tmp/worker.log || true
           echo "===== frontend ====="; tail -150 /tmp/frontend.log || true
+          echo "===== MuseScore observer ====="; cat /tmp/musescore-observer.log || true
 
       - name: Upload real-stack failure diagnostics
         if: failure()
