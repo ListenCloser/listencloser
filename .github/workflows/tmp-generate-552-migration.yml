@@ -1,0 +1,31 @@
+name: Temporary generate #552 migration
+
+on:
+  push:
+    branches:
+      - security/artifacts-select-role-552
+    paths:
+      - '.github/workflows/tmp-generate-552-migration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: security/artifacts-select-role-552
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.113.0
+      - name: Generate migration with repository-pinned Supabase CLI
+        run: |
+          set -euo pipefail
+          supabase migration new harden_artifacts_select_policy
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/migrations
+          git commit -m 'chore(db): generate #552 migration'
+          git push origin HEAD:security/artifacts-select-role-552
