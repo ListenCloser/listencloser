@@ -9,6 +9,7 @@ There is intentionally no single document that owns every kind of fact.
 | Question | Authority |
 | --- | --- |
 | What engineering rules must an agent follow? | root [`AGENTS.md`](../AGENTS.md) |
+| What visual/product UI design rules apply? | root [`DESIGN.md`](../DESIGN.md) |
 | What code/config is shipped on `main`? | runtime code, migrations, dependency manifests, deployment config |
 | What analysis capability may the product expose? | `backend/config/capabilities.json` + its policy/tests |
 | What architecture is currently shipped? | [`ARCHITECTURE.md`](ARCHITECTURE.md), verified against code |
@@ -75,7 +76,8 @@ When sources disagree, resolve the disagreement according to the type of claim:
 2. **Analysis exposure/truthfulness:** the capability registry and policy tests win.
 3. **Accepted architecture decisions:** a newer accepted ADR may supersede older design prose.
 4. **Engineering process:** root `AGENTS.md` wins over duplicated or historical guidance.
-5. **Future direction:** `MASTER_SPEC.md` wins over older product-roadmap prose unless a newer accepted decision supersedes it.
+5. **Visual/product UI design:** root `DESIGN.md` owns the maintained visual/workspace interaction contract unless a newer accepted product/design decision explicitly supersedes it.
+6. **Future direction:** `MASTER_SPEC.md` wins over older product-roadmap prose unless a newer accepted decision supersedes it.
 
 Do not use a future-looking spec to claim a capability is implemented. Do not use a stale runtime snapshot to veto a newer accepted product direction.
 
@@ -84,6 +86,7 @@ Do not use a future-looking spec to claim a capability is implemented. Do not us
 ### Canonical / maintained
 
 - `../AGENTS.md` — engineering guardrails and autonomous-agent contract.
+- `../DESIGN.md` — maintained visual/product UI design contract.
 - `ARCHITECTURE.md` — current runtime architecture and canonical architecture views.
 - `EVALUATION_METHODOLOGY.md` — reusable evaluation decision protocol.
 - `EVALUATION_DECISIONS.md` — cross-track evaluation decision ledger.
