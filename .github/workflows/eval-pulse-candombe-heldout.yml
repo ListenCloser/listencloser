@@ -135,10 +135,18 @@ jobs:
           retention-days: 14
 
   beat-this-lifecycle:
-    name: beat-this-lifecycle
+    name: beat-this-lifecycle-${{ matrix.arch }}
     if: github.event.pull_request.head.ref == 'perf/beat-this-lifecycle-eval'
-    timeout-minutes: 20
-    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -166,7 +174,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/torch/hub/checkpoints/beat_this-final0.ckpt
-          key: ${{ runner.os }}-beat-this-final0-8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331
+          key: ${{ runner.os }}-${{ matrix.arch }}-beat-this-final0-8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331
 
       - name: Preload pinned Beat This checkpoint
         working-directory: backend
@@ -183,12 +191,12 @@ jobs:
             --input ../tests/fixtures/real-piano.m4a \
             --format m4a \
             --trials 3 \
-            --output ../performance-results/beat-this-lifecycle.json
+            --output ../performance-results/beat-this-lifecycle-${{ matrix.arch }}.json
 
       - name: Upload Beat This lifecycle result
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: beat-this-lifecycle-${{ github.event.pull_request.head.sha }}
-          path: performance-results/beat-this-lifecycle.json
+          name: beat-this-lifecycle-${{ matrix.arch }}-${{ github.event.pull_request.head.sha }}
+          path: performance-results/beat-this-lifecycle-${{ matrix.arch }}.json
           if-no-files-found: error
           retention-days: 30
