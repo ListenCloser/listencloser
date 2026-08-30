@@ -4,6 +4,10 @@ Takes chord timeline + key context and produces:
 - Roman numerals
 - Harmonic function
 
+Cadence and local-key-region capabilities are intentionally withheld. Their
+historical evaluation evidence remains in ``config/capabilities.json``; rejected
+implementations do not remain on the production execution path.
+
 This is the production version, not the offline evaluation version.
 """
 
@@ -56,10 +60,10 @@ class HarmonicFunctionEvent:
 
 @dataclass
 class CadenceEvent:
-    """A single cadence event."""
+    """Compatibility shape for the currently withheld cadence capability."""
 
-    type: str  # PAC, IAC, HC, PC, DC
-    chords: list[str]  # [chord_before, chord_after]
+    type: str
+    chords: list[str]
     start_seconds: float
     end_seconds: float
     key_context: str
@@ -69,7 +73,7 @@ class CadenceEvent:
 
 @dataclass
 class KeyRegionEvent:
-    """A detected key region."""
+    """Compatibility shape for the currently withheld local-key capability."""
 
     key: str
     start_seconds: float
@@ -80,7 +84,13 @@ class KeyRegionEvent:
 
 @dataclass
 class TheoryResult:
-    """Result of theory interpretation."""
+    """Result of theory interpretation.
+
+    ``cadences`` and ``key_regions`` remain as compatibility fields while those
+    capabilities are withheld. Production always returns them empty; a future
+    implementation must earn promotion through evaluation before populating
+    either field again.
+    """
 
     roman_numerals: list[RomanNumeralEvent]
     harmonic_functions: list[HarmonicFunctionEvent]
@@ -249,7 +259,7 @@ def _chord_name_to_numeral(chord_name: str, key: str = "C") -> str:
     This is a purpose-built adapter for lv-chordia's root+quality output.
     music21's ``romanNumeralFromChord`` requires full pitch voicing to
     correctly distinguish dominant-seventh from major-seventh and to detect
-    inversions — information that lv-chordia does not provide.  The custom
+    inversions — information that lv-chordia does not provide. The custom
     pitch-class lookup is more accurate for this specific input format and
     avoids a heavy library dependency on the hot path.
     """
@@ -328,158 +338,15 @@ def _classify_function(numeral: str, key: str | None = None) -> str:
     return "AMBIGUOUS"
 
 
-# ── Cadence Detection ────────────────────────────────────────────────────
-
-CADENCE_PATTERNS = {
-    "PAC": [  # Perfect Authentic Cadence
-        ("V", "I"),
-        ("V7", "I"),
-        ("V", "i"),
-        ("V7", "i"),
-        ("V65", "I"),
-        ("V43", "I"),
-        ("V42", "I"),
-    ],
-    "IAC": [  # Imperfect Authentic Cadence
-        ("V", "I6"),
-        ("V7", "I6"),
-        ("V", "i6"),
-        ("V7", "i6"),
-    ],
-    "HC": [  # Half Cadence
-        ("I", "V"),
-        ("i", "V"),
-        ("IV", "V"),
-        ("iv", "V"),
-        ("ii", "V"),
-        ("ii6", "V"),
-        ("ii7", "V"),
-    ],
-    "PC": [  # Plagal Cadence
-        ("IV", "I"),
-        ("iv", "i"),
-        ("IV", "i"),
-        ("iv", "I"),
-    ],
-    "DC": [  # Deceptive Cadence
-        ("V", "vi"),
-        ("V", "VI"),
-        ("V7", "vi"),
-        ("V7", "VI"),
-        ("V", "iv"),
-        ("V7", "iv"),
-    ],
-}
-
-
-def _normalize_numeral(numeral: str) -> str:
-    """Normalize a Roman numeral for comparison (strip inversion, quality)."""
-    n = numeral
-    # Remove inversion figures
-    n = re.sub(r"65$|43$|42$|6$", "", n)
-    # Remove 7th suffix
-    n = re.sub(r"7$", "", n)
-    # Remove diminished/augmented markers
-    n = n.replace("o", "").replace("+", "")
-    # Remove alteration prefixes for comparison
-    n = n.lstrip("b#")
-    return n
-
-
-def _detect_cadences(
-    numerals: list[RomanNumeralEvent],
-    global_key: str | None = None,
-) -> list[CadenceEvent]:
-    """Detect cadences from a sequence of Roman numerals.
-
-    Uses two-chord pattern matching.
-    """
-    cadences: list[CadenceEvent] = []
-    if len(numerals) < 2:
-        return cadences
-
-    for i in range(len(numerals) - 1):
-        curr = numerals[i]
-        nxt = numerals[i + 1]
-
-        curr_norm = _normalize_numeral(curr.numeral)
-        nxt_norm = _normalize_numeral(nxt.numeral)
-
-        for cadence_type, patterns in CADENCE_PATTERNS.items():
-            for pattern in patterns:
-                if curr_norm == pattern[0] and nxt_norm == pattern[1]:
-                    # Confidence heuristics
-                    confidence = 0.6
-                    # Longer destination chord → more likely a cadence
-                    dest_dur = nxt.end_seconds - nxt.start_seconds
-                    if dest_dur >= 1.0:
-                        confidence += 0.15
-                    # Both chords in same key context → stronger
-                    if curr.key_context == nxt.key_context:
-                        confidence += 0.1
-
-                    cadences.append(
-                        CadenceEvent(
-                            type=cadence_type,
-                            chords=[curr.numeral, nxt.numeral],
-                            start_seconds=curr.start_seconds,
-                            end_seconds=nxt.end_seconds,
-                            key_context=nxt.key_context or global_key or "C major",
-                            confidence=min(confidence, 0.9),
-                            provenance=None,
-                        )
-                    )
-                    break  # Only first match per pair
-
-    return cadences
-
-
-# ── Key Region Detection ──────────────────────────────────────────────────
-
-
-def _detect_key_regions(
-    numerals: list[RomanNumeralEvent],
-    global_key: str | None = None,
-    window_size: int = 4,
-) -> list[KeyRegionEvent]:
-    """Detect key regions from Roman numeral sequences.
-
-    Uses a simple heuristic: if a chord acts as tonic (I or i) in a different
-    key than the global key for several consecutive chords, it's a likely
-    modulation.
-    """
-    if not numerals or len(numerals) < window_size:
-        return []
-
-    regions: list[KeyRegionEvent] = []
-
-    # For now, just return the global key as a single region
-    # A proper implementation would need music21's KeyAnalyzer
-    if numerals:
-        regions.append(
-            KeyRegionEvent(
-                key=global_key or "C major",
-                start_seconds=numerals[0].start_seconds,
-                end_seconds=numerals[-1].end_seconds,
-                confidence=1.0,
-                provenance=None,
-            )
-        )
-
-    return regions
-
-
 class TheoryEngine:
     """Production theory interpretation engine.
 
-    Takes chord timeline + key context and produces Roman numerals
-    and harmonic function.
+    Takes chord timeline + trusted key context and produces Roman numerals and
+    harmonic function. Cadence and local-key-region analysis are withheld and
+    therefore never executed here.
     """
 
     ENGINE = "theory_interpreter"
-
-    def __init__(self) -> None:
-        pass
 
     @property
     def provenance(self) -> EngineProvenance:
@@ -497,7 +364,7 @@ class TheoryEngine:
         key_provenance: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> TheoryResult:
-        """Interpret theory from a chord timeline.
+        """Interpret production-safe theory from a chord timeline.
 
         Args:
             chords: List of chord events with root/quality or numeral.
@@ -507,7 +374,9 @@ class TheoryEngine:
             key_provenance: Provenance dict for the key detection.
 
         Returns:
-            TheoryResult with Roman numerals and harmonic functions.
+            TheoryResult with Roman numerals and harmonic functions. Cadences
+            and local key regions stay empty while those capabilities remain
+            withheld by the capability registry.
         """
         roman_numerals = []
         harmonic_functions = []
@@ -557,7 +426,6 @@ class TheoryEngine:
             if not numeral:
                 continue
 
-            # Create Roman numeral event
             rn_event = RomanNumeralEvent(
                 numeral=numeral,
                 degree=_get_scale_degree(numeral),
@@ -576,32 +444,30 @@ class TheoryEngine:
             )
             roman_numerals.append(rn_event)
 
-            # Create harmonic function event
             function = _classify_function(numeral, global_key)
-            func_event = HarmonicFunctionEvent(
-                function=function,
-                start_seconds=start,
-                end_seconds=end,
-                roman_numeral=numeral,
-                key_context=global_key,
-                key_source=key_source,
-                key_provenance=key_provenance,
-                roman_numeral_source_id=str(len(roman_numerals) - 1),
-                provenance=self.provenance.to_dict(),
+            harmonic_functions.append(
+                HarmonicFunctionEvent(
+                    function=function,
+                    start_seconds=start,
+                    end_seconds=end,
+                    roman_numeral=numeral,
+                    key_context=global_key,
+                    key_source=key_source,
+                    key_provenance=key_provenance,
+                    roman_numeral_source_id=str(len(roman_numerals) - 1),
+                    provenance=self.provenance.to_dict(),
+                )
             )
-            harmonic_functions.append(func_event)
 
-        # Detect cadences from Roman numerals
-        cadences = _detect_cadences(roman_numerals, global_key)
-
-        # Detect key regions from Roman numerals
-        key_regions = _detect_key_regions(roman_numerals, global_key)
-
+        # These compatibility arrays are intentionally empty. The capability
+        # registry records the failed evaluations that caused both features to
+        # be withheld; re-populating either requires a separately evaluated and
+        # promoted implementation.
         return TheoryResult(
             roman_numerals=roman_numerals,
             harmonic_functions=harmonic_functions,
-            cadences=cadences,
-            key_regions=key_regions,
+            cadences=[],
+            key_regions=[],
             global_key=global_key,
             provenance=self.provenance,
         )
