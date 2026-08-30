@@ -1,0 +1,8 @@
+# Documentation link policy. Keep exclusions narrow and evidence-backed.
+max_retries = 2
+retry_wait_time = 2
+timeout = 20
+exclude_loopback = true
+exclude = [
+  '^https://www\.upf\.edu/web/mtg/about$', # upstream returns 403 to automated clients
+]
