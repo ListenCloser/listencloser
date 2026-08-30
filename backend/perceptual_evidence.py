@@ -22,10 +22,10 @@ from domain.perceptual_report import (
     DEFAULT_N_FFT as DEFAULT_N_FFT,
     FeatureName as FeatureName,
     MeasuredFeatureSeries as MeasuredFeatureSeries,
+    PREPROCESSING_VERSION as PREPROCESSING_VERSION,
     PerceptualEvidenceReport as PerceptualEvidenceReport,
     PerceptualProvenance as PerceptualProvenance,
     PerceptualSeriesEvidence as PerceptualSeriesEvidence,
-    PREPROCESSING_VERSION as PREPROCESSING_VERSION,
     REPORT_SCHEMA_VERSION as REPORT_SCHEMA_VERSION,
 )
 
