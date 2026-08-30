@@ -175,11 +175,11 @@ class AnalysisResult(TypedDict):
 
 def _strictly_increasing_seconds(value: object) -> list[float] | None:
     """Normalize a detector coordinate array without inventing or reordering time."""
-    if not isinstance(value, (list, tuple)):
+    if not isinstance(value, list | tuple):
         return None
     result: list[float] = []
     for item in value:
-        if isinstance(item, bool) or not isinstance(item, (int, float, np.number)):
+        if isinstance(item, bool) or not isinstance(item, int | float | np.number):
             return None
         seconds = float(item)
         if not np.isfinite(seconds) or seconds < 0:
