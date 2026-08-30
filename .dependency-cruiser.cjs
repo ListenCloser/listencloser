@@ -13,10 +13,16 @@ module.exports = {
       to: { couldNotResolve: true },
     },
     {
-      name: "production-does-not-import-test-code",
+      name: "production-does-not-import-tests",
       severity: "error",
       from: { path: "^(app|components|lib)/" },
-      to: { path: "^(tests|mocks)/" },
+      to: { path: "^tests/" },
+    },
+    {
+      name: "production-does-not-statically-import-runtime-mocks",
+      severity: "error",
+      from: { path: "^(app|components|lib)/" },
+      to: { path: "^mocks/", dynamic: false },
     },
   ],
   options: {
