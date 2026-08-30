@@ -16,9 +16,11 @@
       "architecture_hotspots",
       "backend_dependency_manifest",
       "frontend_global_style_entrypoints",
+      "frontend_framework_entrypoint_inventory",
       "adr_filename_conventions",
       "evaluation_code_vs_evidence_boundary",
-      "known_historical_workflow_candidates"
+      "known_historical_workflow_candidates",
+      "bespoke_tooling_standard_replacement_scan"
     ],
     "remaining_passes": [
       "frontend_reachability_knip",
@@ -221,6 +223,94 @@
       "canonical_replacement_or_owner": "#636 / docs authority policy",
       "risk": ["documentation", "evaluation"],
       "verification_before_change": ["reference search", "confirm production vs evaluation intent", "preserve acquisition/runtime instructions if still required"]
+    },
+    {
+      "id": "bespoke-action-ref-pin-parser",
+      "subsystem": "control-plane",
+      "path": "scripts/check_actions_pinned.py",
+      "kind": "custom_static_policy",
+      "classification": "CONSOLIDATE",
+      "evidence": [
+        "The script implements a repository-local regex parser over workflow uses: lines and requires every non-local/non-docker action reference to be a full 40-character SHA.",
+        "#639 already establishes pinned zizmor as the intended maintained GitHub Actions security analyzer, including suspicious/mutable action references."
+      ],
+      "canonical_replacement_or_owner": "#639 / pinned zizmor",
+      "risk": ["control_plane", "security", "duplicate_policy"],
+      "verification_before_change": ["run pinned zizmor on the complete current workflow set", "fixture-test mutable tag/branch/full-SHA/local-action/docker-action cases", "preserve one local reproduction command before deleting the custom parser"]
+    },
+    {
+      "id": "bespoke-cross-workflow-merge-evidence-poller",
+      "subsystem": "control-plane",
+      "path": "scripts/check_merge_evidence.py",
+      "kind": "custom_ci_orchestrator",
+      "classification": "CONSOLIDATE",
+      "evidence": [
+        "The script hard-codes path-to-workflow/deploy predicates, calls GitHub APIs to list PR files and workflow runs, then polls named independent workflows until all risk-relevant evidence is green.",
+        "The same script also classifies frontend/backend production deploy scope and contains a custom self-test matrix for those path predicates.",
+        "#648 is the explicit replacement program: one always-running PR Gate with same-workflow conditional jobs plus native GitHub merge queue after the repository moved to the ListenCloser organization."
+      ],
+      "canonical_replacement_or_owner": "#648 / one PR Gate + native GitHub merge queue",
+      "risk": ["control_plane", "agent_throughput", "duplicate_policy", "release_scope"],
+      "verification_before_change": ["old-vs-new equivalence across docs/frontend/backend/DB/e2e/control-plane diffs", "two-PR merge-queue cycle", "merge_group validation catches predecessor incompatibility", "preserve deploy-scope classification in one non-duplicated authority or remove it if the release DAG no longer needs it"]
+    },
+    {
+      "id": "frontend-custom-remote-state-cache-and-polling",
+      "subsystem": "frontend-data",
+      "path": "lib/api-client.ts + lib/job-tracking.ts + lib/api.ts",
+      "kind": "custom_server_state_infrastructure",
+      "classification": "CONSOLIDATE",
+      "evidence": [
+        "lib/api-client.ts currently owns cache TTL entries, Work/entity/insight Maps, in-flight Promise Maps, version-to-Work indexing, per-key generation counters and a global cache epoch/invalidation protocol.",
+        "TanStack Query is already an installed runtime dependency and #650 owns migration of generic remote-state lifecycle to TanStack Query while preserving product-specific immutable Version/signed-resource semantics.",
+        "Generated OpenAPI types already exist, so #650 also owns convergence of ordinary HTTP transport on generated operation contracts instead of parallel handwritten wire typing."
+      ],
+      "canonical_replacement_or_owner": "#650 / generated OpenAPI transport + TanStack Query",
+      "risk": ["frontend_state", "race_safety", "network_efficiency", "duplicate_infrastructure"],
+      "verification_before_change": ["inventory every current cache/poll/retry behavior", "rapid A->B->A race regression", "signed URL rotation and immutable Version identity regression", "terminal job polling stop/retry classification", "scoped mutation invalidation", "mocked E2E and real-stack"]
+    },
+    {
+      "id": "custom-postgres-job-queue-control-plane",
+      "subsystem": "backend-platform",
+      "path": "backend/domain/job_worker.py + jobs queue RPC/migrations",
+      "kind": "custom_queue_runtime",
+      "classification": "INVESTIGATE",
+      "evidence": [
+        "JobWorker directly owns durable Postgres queue behavior including capability registration, lease duration/renewal, worker heartbeat, orphan recovery, in-flight duplicate protection, retry/backoff/cancellation and at-least-once execution semantics.",
+        "#651 is the canonical evidence gate for whether Supabase Queues/PGMQ can own delivery/visibility/redelivery/archive semantics while existing Job/Workflow rows remain the product-facing audit/read model."
+      ],
+      "canonical_replacement_or_owner": "#651 / Supabase Queues-PGMQ bakeoff",
+      "risk": ["correctness", "at_least_once_execution", "worker_recovery", "operations"],
+      "verification_before_change": ["capture current queue semantics as executable acceptance contract", "local PGMQ send/read/visibility/redelivery/archive tests", "two-worker crash/takeover test", "stale-attempt fencing/idempotency proof", "queue observability comparison", "explicit ADOPT or REJECT decision"]
+    },
+    {
+      "id": "pgmq-evaluation-prototype-scripts",
+      "subsystem": "evaluation-platform",
+      "path": "scripts/queue_transport_bakeoff.py + scripts/queue_transactional_signal_prototype.py",
+      "kind": "evaluation_tools",
+      "classification": "KEEP",
+      "evidence": [
+        "Both scripts explicitly identify themselves as evaluation/prototype tools, refuse non-local databases by default unless an operator opts into a disposable remote target, and create scratch queue/table objects rather than modifying the production jobs table.",
+        "queue_transactional_signal_prototype.py imports the shared PGMQ helpers from queue_transport_bakeoff.py, so they are a coherent evidence pair rather than two independent dead scripts.",
+        "Their subject is now a live canonical PGMQ replacement bakeoff under #651."
+      ],
+      "canonical_replacement_or_owner": "#651 until decision; then fold useful assertions into reusable tests/evaluation or delete with rejected path",
+      "risk": ["evaluation_evidence", "accidental_dead_code_deletion"],
+      "verification_before_change": ["#651 consumes or supersedes the evidence", "preserve any result/provenance needed for ADOPT/REJECT decision", "delete prototype scripts only after equivalent reusable tests exist or PGMQ is rejected"]
+    },
+    {
+      "id": "environment-configuration-alias-drift",
+      "subsystem": "configuration",
+      "path": ".env.example + backend/docker-compose.yml + backend/observability.py + runtime env callsites",
+      "kind": "configuration_contract",
+      "classification": "CONSOLIDATE",
+      "evidence": [
+        ".env.example documents SENTRY_DSN while production-shaped Docker Compose injects SENTRY_DSN_BACKEND; backend observability accepts either alias.",
+        "Worker/deployment policy variables such as RELEASE, SENTRY_ENV, OTEL_SERVICE_NAME, WORKER_CONCURRENCY, ALLIN1_* and HARMONY_ENGINE are intentionally or accidentally distributed across code/deployment sources rather than one ownership inventory.",
+        "#645 owns a small mechanically checked environment/configuration inventory and alias-retirement policy without adding a new configuration framework."
+      ],
+      "canonical_replacement_or_owner": "#645",
+      "risk": ["configuration_drift", "deployment", "secret_visibility", "observability"],
+      "verification_before_change": ["inventory declarations/reads/deploy sources", "classify browser-public vs secret/server-only", "choose canonical names and explicit compatibility aliases", "validate required-but-unread and code-required-but-unowned variables", "production/local caller verification before alias removal"]
     }
   ]
 }
