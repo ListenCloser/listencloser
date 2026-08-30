@@ -65,6 +65,7 @@ subgraph lib["lib"]
   lib_midi_ts["midi.ts"]
   lib_musicxml_cache_ts["musicxml-cache.ts"]
   lib_notes_ts["notes.ts"]
+  lib_openapi_client_ts["openapi-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
   lib_query_client_ts["query-client.ts"]
   lib_relation_api_client_ts["relation-api-client.ts"]
@@ -136,6 +137,7 @@ components_workspace_-->lib_representation_availability_ts
 components_workspace_-->lib_representations_tsx
 lib_analysis_annotations_ts-->lib_inspector_
 lib_api_client_ts-->lib_api_ts
+lib_api_client_ts-->lib_openapi_client_ts
 lib_api_client_ts-->lib_query_client_ts
 lib_api_client_ts-->lib_supabase_ts
 lib_api_ts-->lib_supabase_ts
@@ -148,6 +150,7 @@ lib_inspector_-->lib_format_ts
 lib_job_tracking_ts-->lib_api_client_ts
 lib_job_tracking_ts-->lib_query_client_ts
 lib_musicxml_cache_ts-->lib_query_client_ts
+lib_openapi_client_ts-->lib_supabase_ts
 lib_relation_api_client_ts-->lib_api_ts
 lib_representations_tsx-->components_PianoRoll_tsx
 lib_representations_tsx-->components_SheetMusic_tsx
