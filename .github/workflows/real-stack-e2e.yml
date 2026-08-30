@@ -181,7 +181,12 @@ jobs:
                   record = json.loads(line)
               except json.JSONDecodeError:
                   continue
-              if record.get('msg') == 'librosa_beat_prewarm_complete':
+              if record.get('msg') == 'basic_pitch_prewarm_complete':
+                  output.append({
+                      'msg': 'basic_pitch_prewarm_complete',
+                      'duration_seconds': record.get('duration_s'),
+                  })
+              elif record.get('msg') == 'librosa_beat_prewarm_complete':
                   output.append({
                       'msg': 'librosa_beat_prewarm_complete',
                       'duration_seconds': record.get('duration_s'),
