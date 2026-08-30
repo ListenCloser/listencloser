@@ -30,6 +30,7 @@
     "precommit": "pre-commit run --all-files"
   },
   "dependencies": {
+    "@radix-ui/react-tabs": "^1.1.21",
     "@sentry/nextjs": "^10.66.0",
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "5.101.4",
