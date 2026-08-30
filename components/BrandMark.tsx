@@ -8,20 +8,22 @@ export default function BrandMark({ size = 22, className = "" }: { size?: number
       fill="none"
       aria-hidden="true"
     >
-      <g
+      <path
+        d="M16.9 5.25c-3.4-1.9-8.65-.75-10.9 3-2.25 3.75-.75 8.25 2.6 10.5 2.65 1.5 6 1.1 8.3-.4"
         stroke="currentColor"
-        strokeWidth="1.35"
+        strokeWidth="1.55"
         strokeLinecap="round"
-      >
-        <path d="M3.8 5.4h6.3M14.7 5.4h4.6" opacity="0.62" />
-        <path d="M2.9 9.8h7.2M14.7 9.8h6.4" opacity="0.82" />
-        <path d="M4.2 14.2h5.9M14.7 14.2h5.2" opacity="0.82" />
-        <path d="M3.4 18.6h6.7M14.7 18.6h5.9" opacity="0.62" />
+        strokeLinejoin="round"
+      />
+      <g stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.58">
+        <path d="M6.75 9.75h3.75" />
+        <path d="M6.4 13.9h4.1" />
+        <path d="M7.5 17.25h3" />
       </g>
       <path
-        d="M12.4 3.2v17.6"
+        d="M12.75 4.1v15.8"
         stroke="currentColor"
-        strokeWidth="1.8"
+        strokeWidth="1.55"
         strokeLinecap="round"
       />
     </svg>
