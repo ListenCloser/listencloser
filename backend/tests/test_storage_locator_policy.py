@@ -5,7 +5,10 @@ from uuid import uuid4
 import pytest
 
 from domain.models import Version
-from domain.storage_locator_policy import StorageLocatorKind, classify_version_storage_locator
+from domain.storage_locator_policy import (
+    StorageLocatorKind,
+    classify_version_storage_locator,
+)
 
 
 @pytest.fixture
