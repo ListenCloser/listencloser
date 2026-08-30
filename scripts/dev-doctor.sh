@@ -66,7 +66,7 @@ else
 fi
 
 printf '\nOptional tier prerequisites\n'
-printf '---------------------------\n'
+printf '%s\n' '---------------------------'
 if command -v ffmpeg >/dev/null 2>&1; then
   ok "ffmpeg available (backend media tests/local processing)"
 else
@@ -87,7 +87,7 @@ else
 fi
 
 printf '\nRepository state\n'
-printf '----------------\n'
+printf '%s\n' '----------------'
 if [ -f package-lock.json ]; then
   ok "package-lock.json present; use npm ci (not npm install) for reproducible setup"
 else
@@ -107,7 +107,7 @@ else
 fi
 
 printf '\nSummary\n'
-printf '-------\n'
+printf '%s\n' '-------'
 if [ "$FAIL" -ne 0 ]; then
   printf '%d required check(s) failed; fix them before running the canonical local gates.\n' "$FAIL"
   exit 1
