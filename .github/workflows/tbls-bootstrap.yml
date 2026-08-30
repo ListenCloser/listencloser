@@ -6,7 +6,11 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/config.toml'
       - 'supabase/tbls.yml'
+      - 'docs/generated/database/**'
       - '.github/workflows/tbls-bootstrap.yml'
+
+permissions:
+  contents: write
 
 concurrency:
   group: tbls-bootstrap-${{ github.ref }}
@@ -18,6 +22,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.113.0
@@ -32,21 +38,32 @@ jobs:
           tar -xzf /tmp/tbls.tar.gz -C /tmp
           sudo install -m 0755 /tmp/tbls /usr/local/bin/tbls
           tbls version
-      - name: Characterize generated application-schema docs
+      - name: Generate application-schema docs
         run: |
           set -euo pipefail
           export TBLS_DSN='pg://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable'
-          tbls doc "$TBLS_DSN" database-output \
+          tbls doc "$TBLS_DSN" docs/generated/database \
             --config supabase/tbls.yml \
             --rm-dist \
             --sort \
             --er-format mermaid
-          jq -r '.tables[] | [.name, (.type // "table")] | @tsv' database-output/schema.json | sort | tee database-output/tables.txt
-      - name: Upload schema characterization
+      - name: Commit generated docs to this branch when needed
+        run: |
+          set -euo pipefail
+          git add docs/generated/database
+          if git diff --cached --quiet; then
+            echo 'Generated database docs are already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs: generate database schema reference'
+          git push origin HEAD:${{ github.head_ref }}
+      - name: Upload generated schema documentation
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: tbls-schema-${{ github.run_attempt }}
-          path: database-output/
+          path: docs/generated/database/
           if-no-files-found: error
           retention-days: 7
       - name: Stop local Supabase
