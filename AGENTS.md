@@ -102,6 +102,14 @@ Choose the smallest test that proves the behavior, then add higher-level coverag
 
 Do not weaken assertions merely to make CI green. Fix stale selectors/races without removing meaningful product guarantees.
 
+Before pushing a branch, automatically apply deterministic safe fixes instead of waiting for CI to discover them:
+
+- Python changes: `bash scripts/fix.sh python` (Ruff safe fixes + formatting; never `--unsafe-fixes`).
+- Frontend changes: `bash scripts/fix.sh frontend` after `npm ci` when ESLint-fixable files changed.
+- Mixed changes: `bash scripts/fix.sh all` when both toolchains are already installed.
+
+A format-only or safely fixable lint failure is routine agent work: apply the fixer and push the corrected head immediately. Do not escalate it as a blocker. Type errors, test failures, migrations, benchmark/result failures, generated-contract semantics, and lint requiring unsafe/behavioral edits still require reasoning and remain fail-closed.
+
 ## 8. Deployment and operations
 
 - CI/deploy must operate on an explicit commit/release SHA.
