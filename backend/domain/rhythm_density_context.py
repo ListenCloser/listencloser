@@ -11,27 +11,19 @@ from __future__ import annotations
 
 import math
 from typing import Any, Literal
-from uuid import UUID, uuid4
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
 from domain.relation_observations import (
-    BoundarySensitivityHook,
+    RelationObservation,
     RelationSufficiency,
     SecondsSpanLocator,
 )
 from domain.rhythm_density_relations import (
-    _NUMERIC_ATOL,
-    _NUMERIC_RTOL,
     RhythmDensityEvidence,
     RhythmDensityEvidenceRef,
-    _coverage_error_for_span,
-    _direction,
-    _validate_locator,
-    _validated_persistence_coverage,
-    _validated_windows,
-    _values_for_span,
+    compare_rhythm_density_spans,
 )
 
 _CONTEXT_ENGINE_VERSION = "1.0"
@@ -40,6 +32,8 @@ _MIN_REFERENCE_WINDOWS = 4
 _QUARTILE_METHOD = "linear"
 _PERCENTILE_CONVENTION = "empirical_midrank_reference_windows_v1"
 _EXCLUSION_POLICY = "exclude_intersecting_subject_windows_v1"
+_NUMERIC_ATOL = 1e-12
+_NUMERIC_RTOL = 1e-9
 
 
 class RhythmDensityReferencePopulation(BaseModel):
@@ -73,6 +67,7 @@ class RhythmDensityContextMeasurement(BaseModel):
     reference_median: float
     reference_q1: float
     reference_q3: float
+    reference_iqr: float = Field(ge=0)
     delta_from_reference_median: float
     direction: Literal["higher", "lower", "unchanged"]
     empirical_midrank_percentile: float = Field(ge=0, le=100)
@@ -84,23 +79,14 @@ class RhythmDensityContextMeasurement(BaseModel):
     reference_window_count: int = Field(ge=_MIN_REFERENCE_WINDOWS)
 
 
-class RhythmDensityContextObservation(BaseModel):
-    """Relation-style observation against a typed non-contiguous reference set."""
+class RhythmDensityContextObservation(RelationObservation):
+    """Shared relation envelope with a typed discontinuous comparison population."""
 
-    model_config = ConfigDict(frozen=True)
-
-    id: UUID = Field(default_factory=uuid4)
     kind: Literal["rhythm_density_work_context"] = "rhythm_density_work_context"
-    relation_kind: Literal["compare"] = "compare"
-    trust_class: Literal["deterministic_derived"] = "deterministic_derived"
-    maturity: Literal["production"] = "production"
-    subject_locator: SecondsSpanLocator
-    reference_population: RhythmDensityReferencePopulation | None = None
+    comparison_locator: None = None
     support_refs: list[RhythmDensityEvidenceRef] = Field(default_factory=list)
     measurements: list[RhythmDensityContextMeasurement] = Field(default_factory=list)
-    sufficiency: RelationSufficiency
-    provenance: dict[str, Any] = Field(default_factory=dict)
-    sensitivity: BoundarySensitivityHook = Field(default_factory=BoundarySensitivityHook)
+    reference_population: RhythmDensityReferencePopulation | None = None
 
 
 def _provenance(
@@ -113,10 +99,13 @@ def _provenance(
         "aggregate": "median",
         "reference_population": "work_excluding_subject",
         "reference_exclusion_policy": _EXCLUSION_POLICY,
+        "comparison_locator_semantics": "none_discontinuous_reference_population",
         "minimum_reference_window_count": _MIN_REFERENCE_WINDOWS,
         "quartile_method": _QUARTILE_METHOD,
         "percentile_convention": _PERCENTILE_CONVENTION,
+        "rank_target": "subject_median_vs_reference_window_values",
         "reference_window_independence_assumed": False,
+        "inferential_statistics_emitted": False,
         "source_version_id": str(evidence.source_version_id),
         "evidence_id": str(evidence.evidence_id),
         "semantic_interpretation_emitted": False,
@@ -139,12 +128,23 @@ def _withheld(
 ) -> RhythmDensityContextObservation:
     return RhythmDensityContextObservation(
         subject_locator=subject_locator,
-        reference_population=reference_population,
         support_refs=[],
         measurements=[],
+        reference_population=reference_population,
         sufficiency=RelationSufficiency(status="withhold", reasons=reasons),
         provenance=_provenance(evidence, contract),
     )
+
+
+def _normalized_windows(evidence: RhythmDensityEvidence) -> list[dict[str, float]]:
+    return [
+        {
+            "start": float(window["start"]),
+            "end": float(window["end"]),
+            "density": float(window["density"]),
+        }
+        for window in evidence.windows
+    ]
 
 
 def _work_reference_windows(
@@ -194,7 +194,10 @@ def _reference_population(
     )
 
 
-def _empirical_midrank_percentile(subject_value: float, reference_values: np.ndarray) -> float:
+def _empirical_midrank_percentile(
+    subject_value: float,
+    reference_values: np.ndarray,
+) -> float:
     equal = np.isclose(
         reference_values,
         subject_value,
@@ -202,9 +205,14 @@ def _empirical_midrank_percentile(subject_value: float, reference_values: np.nda
         rtol=_NUMERIC_RTOL,
     )
     lower = np.logical_and(reference_values < subject_value, np.logical_not(equal))
-    return 100.0 * (float(np.count_nonzero(lower)) + 0.5 * float(np.count_nonzero(equal))) / len(
-        reference_values
-    )
+    numerator = float(np.count_nonzero(lower)) + 0.5 * float(np.count_nonzero(equal))
+    return 100.0 * numerator / float(len(reference_values))
+
+
+def _direction(delta: float) -> Literal["higher", "lower", "unchanged"]:
+    if math.isclose(delta, 0.0, abs_tol=_NUMERIC_ATOL, rel_tol=_NUMERIC_RTOL):
+        return "unchanged"
+    return "higher" if delta > 0 else "lower"
 
 
 def contextualize_rhythm_density_within_work(
@@ -220,37 +228,35 @@ def contextualize_rhythm_density_within_work(
     are not p-values, significance tests, or claims about musical importance.
     """
 
-    reasons = _validate_locator(subject_locator, evidence, "subject")
-    windows, contract, contract_reasons = _validated_windows(evidence)
-    reasons.extend(contract_reasons)
+    subject_relation = compare_rhythm_density_spans(
+        evidence,
+        subject_locator=subject_locator,
+        comparison_locator=subject_locator,
+    )
+    contract_payload = subject_relation.provenance.get("evidence_contract")
+    contract = contract_payload if isinstance(contract_payload, dict) else None
 
-    if not contract_reasons:
-        if contract is None:
-            reasons.append("rhythm density evidence contract is unavailable")
-        elif evidence.coverage is None:
-            reasons.append("within-Work context requires complete_series_v1 persistence coverage")
-        else:
-            reasons.extend(_validated_persistence_coverage(evidence, windows, contract))
-            if evidence.coverage.get("policy_version") != _COMPLETE_SERIES_POLICY:
-                reasons.append("within-Work context requires complete_series_v1 persistence coverage")
+    reasons: list[str] = []
+    if subject_relation.sufficiency.status != "supported":
+        reasons.extend(
+            f"subject evidence: {reason}" for reason in subject_relation.sufficiency.reasons
+        )
+
+    coverage = evidence.coverage
+    if coverage is None or coverage.get("policy_version") != _COMPLETE_SERIES_POLICY:
+        reasons.append("within-Work context requires complete_series_v1 persistence coverage")
 
     if reasons:
         return _withheld(evidence, subject_locator, reasons, contract)
 
-    assert contract is not None
-    coverage_error = _coverage_error_for_span(windows, contract, subject_locator, "subject")
-    if coverage_error:
-        return _withheld(evidence, subject_locator, [coverage_error], contract)
-
-    subject_values, subject_error = _values_for_span(windows, subject_locator, "subject")
-    if subject_error or subject_values is None:
+    if contract is None:
         return _withheld(
             evidence,
             subject_locator,
-            [subject_error or "subject rhythm density evidence is unavailable"],
-            contract,
+            ["validated rhythm density evidence contract is unavailable"],
         )
 
+    windows = _normalized_windows(evidence)
     reference_windows, excluded_count = _work_reference_windows(windows, subject_locator)
     population = _reference_population(windows, reference_windows, excluded_count)
     if len(reference_windows) < _MIN_REFERENCE_WINDOWS:
@@ -265,17 +271,38 @@ def contextualize_rhythm_density_within_work(
             population,
         )
 
+    if len(subject_relation.measurements) != 1:
+        return _withheld(
+            evidence,
+            subject_locator,
+            ["validated subject relation did not produce exactly one density measurement"],
+            contract,
+            population,
+        )
+
+    subject_measurement = subject_relation.measurements[0]
+    subject_value = float(subject_measurement.subject_value)
     reference_values = np.asarray(
         [window["density"] for window in reference_windows],
         dtype=float,
     )
-    subject_value = float(np.median(subject_values))
     reference_median = float(np.median(reference_values))
     q1, q3 = np.percentile(reference_values, [25.0, 75.0], method=_QUARTILE_METHOD)
+    reference_q1 = float(q1)
+    reference_q3 = float(q3)
+    reference_iqr = reference_q3 - reference_q1
     delta = subject_value - reference_median
     percentile = _empirical_midrank_percentile(subject_value, reference_values)
 
-    numeric_values = (subject_value, reference_median, float(q1), float(q3), delta, percentile)
+    numeric_values = (
+        subject_value,
+        reference_median,
+        reference_q1,
+        reference_q3,
+        reference_iqr,
+        delta,
+        percentile,
+    )
     if not all(math.isfinite(value) for value in numeric_values):
         return _withheld(
             evidence,
@@ -286,22 +313,23 @@ def contextualize_rhythm_density_within_work(
         )
 
     measurement = RhythmDensityContextMeasurement(
-        window_size=float(contract["window_size"]),
-        step_size=float(contract["step_size"]),
+        window_size=subject_measurement.window_size,
+        step_size=subject_measurement.step_size,
         subject_value=subject_value,
         reference_median=reference_median,
-        reference_q1=float(q1),
-        reference_q3=float(q3),
+        reference_q1=reference_q1,
+        reference_q3=reference_q3,
+        reference_iqr=reference_iqr,
         delta_from_reference_median=delta,
         direction=_direction(delta),
         empirical_midrank_percentile=percentile,
-        subject_window_count=len(subject_values),
+        subject_window_count=subject_measurement.subject_window_count,
         reference_window_count=len(reference_values),
     )
     return RhythmDensityContextObservation(
         subject_locator=subject_locator,
         reference_population=population,
-        support_refs=[RhythmDensityEvidenceRef(id=f"{evidence.evidence_id}:rhythm_density")],
+        support_refs=list(subject_relation.support_refs),
         measurements=[measurement],
         sufficiency=RelationSufficiency(status="supported"),
         provenance=_provenance(evidence, contract),
