@@ -6,3 +6,4 @@ format:
   sort: true
 er:
   format: mermaid
+disableOutputSchema: true
