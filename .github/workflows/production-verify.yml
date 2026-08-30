@@ -3,6 +3,9 @@ name: Production Verify
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: production-verify
   cancel-in-progress: true
