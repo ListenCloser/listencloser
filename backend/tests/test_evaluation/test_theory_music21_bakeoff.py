@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from backend.evaluation import theory_music21_bakeoff as bakeoff
+from importlib import import_module
+
+bakeoff = import_module("backend.evaluation.theory_music21_bakeoff")
 
 
 _CORE_CASES = [
