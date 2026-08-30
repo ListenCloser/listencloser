@@ -1,0 +1,18 @@
+[importlinter]
+root_packages =
+    ask
+    domain
+    engines
+    evaluation
+
+[importlinter:contract:production-does-not-import-evaluation]
+name = Production packages do not import evaluation
+# Evaluation may depend on production contracts/adapters in order to measure them.
+# The reverse dependency would make research harnesses part of shipped behavior.
+type = forbidden
+source_modules =
+    ask
+    domain
+    engines
+forbidden_modules =
+    evaluation
