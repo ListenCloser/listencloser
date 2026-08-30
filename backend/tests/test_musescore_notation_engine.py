@@ -3,7 +3,6 @@ import pathlib
 import subprocess
 
 import pytest
-
 from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.registry import get_notation_engine
 
@@ -17,12 +16,7 @@ def _fake_musescore_run(args, **kwargs):
     command_args = args[3:]
 
     if command_args == ["--version"]:
-        return subprocess.CompletedProcess(
-            args,
-            0,
-            stdout="MuseScore Studio 4.7.5\n",
-            stderr="",
-        )
+        return subprocess.CompletedProcess(args, 0, stdout="MuseScore Studio 4.7.5\n", stderr="")
 
     assert command_args[0] == "--job"
     job_path = pathlib.Path(command_args[1])
@@ -37,9 +31,7 @@ def _fake_musescore_run(args, **kwargs):
 
 
 def test_musescore_adapter_exports_normalized_midi_and_musicxml(monkeypatch):
-    engine = MuseScoreNotationEngine(
-        executable="/opt/musescore/MuseScore-Studio.AppImage"
-    )
+    engine = MuseScoreNotationEngine(executable="/opt/musescore/MuseScore-Studio.AppImage")
     monkeypatch.setattr(engine, "_run", _fake_musescore_run)
 
     result = engine.convert(
@@ -76,9 +68,7 @@ def test_musescore_adapter_isolated_headless_environment():
 
 
 def test_musescore_adapter_fails_closed_when_conversion_fails(monkeypatch):
-    engine = MuseScoreNotationEngine(
-        executable="/opt/musescore/MuseScore-Studio.AppImage"
-    )
+    engine = MuseScoreNotationEngine(executable="/opt/musescore/MuseScore-Studio.AppImage")
 
     def fail_run(args, **kwargs):
         assert args[1:3] == ["-platform", "offscreen"]
@@ -98,9 +88,7 @@ def test_musescore_adapter_fails_closed_when_conversion_fails(monkeypatch):
 
 
 def test_musescore_adapter_rejects_non_midi_input():
-    engine = MuseScoreNotationEngine(
-        executable="/opt/musescore/MuseScore-Studio.AppImage"
-    )
+    engine = MuseScoreNotationEngine(executable="/opt/musescore/MuseScore-Studio.AppImage")
 
     with pytest.raises(ValueError, match="must be a MIDI file"):
         engine.convert(b"not midi", [])
