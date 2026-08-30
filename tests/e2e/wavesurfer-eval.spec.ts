@@ -2,8 +2,8 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 const RUN_EVAL = process.env.RUN_WAVESURFER_EVAL === "true";
-const CORE_SCRIPT = "node_modules/wavesurfer.js/dist/wavesurfer.min.js";
-const REGIONS_SCRIPT = "node_modules/wavesurfer.js/dist/plugins/regions.min.js";
+const CORE_SCRIPT = "public/__wavesurfer-eval/wavesurfer.min.js";
+const REGIONS_SCRIPT = "public/__wavesurfer-eval/regions.min.js";
 
 type RunResult = {
   run: number;
@@ -73,7 +73,7 @@ test.describe("WaveSurfer equal-contract evaluation", () => {
     const runs: RunResult[] = [];
 
     for (let run = 1; run <= 3; run += 1) {
-      await page.goto(`/__eval/wavesurfer?run=${run}`);
+      await page.goto(`/eval-wavesurfer?run=${run}`);
       const baselineCanvas = page.getByTestId("waveform-canvas");
       await expect(baselineCanvas).toHaveAttribute("data-waveform-state", "ready", { timeout: 45_000 });
 
@@ -84,8 +84,8 @@ test.describe("WaveSurfer equal-contract evaluation", () => {
       }
       const baselineReadyMs = baselineMetrics.ready - baselineStart;
 
-      await page.addScriptTag({ path: CORE_SCRIPT });
-      await page.addScriptTag({ path: REGIONS_SCRIPT });
+      await page.addScriptTag({ url: "/__wavesurfer-eval/wavesurfer.min.js" });
+      await page.addScriptTag({ url: "/__wavesurfer-eval/regions.min.js" });
 
       const candidate = await page.evaluate(async (runNumber) => {
         const WaveSurfer = (window as any).WaveSurfer;
