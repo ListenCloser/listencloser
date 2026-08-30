@@ -193,8 +193,8 @@ def _validated_windows(
             reasons.append(f"rhythm density window {index} has negative density")
         if window_size <= 0 or step_size <= 0:
             reasons.append(f"rhythm density window {index} has invalid window or step size")
-        if previous_start is not None and start < previous_start:
-            reasons.append("rhythm density windows are not ordered by start time")
+        if previous_start is not None and start <= previous_start:
+            reasons.append("rhythm density windows are not strictly ordered by start time")
         previous_start = start
 
         current_contract: dict[str, float | str] = {
@@ -229,6 +229,7 @@ def _validated_windows(
 def _validated_persistence_coverage(
     evidence: RhythmDensityEvidence,
     windows: Sequence[dict[str, float]],
+    contract: dict[str, float | str],
 ) -> list[str]:
     """Validate #558 complete-series metadata when the persisted Insight has it."""
     coverage = evidence.coverage
@@ -274,6 +275,14 @@ def _validated_persistence_coverage(
             float(end_seconds), expected_end, rel_tol=_NUMERIC_RTOL, abs_tol=_NUMERIC_ATOL
         ):
             reasons.append("rhythm density persistence coverage end disagrees with windows")
+
+    window_size = float(contract["window_size"])
+    step_size = float(contract["step_size"])
+    if step_size <= window_size:
+        for previous, current in zip(windows, windows[1:], strict=False):
+            if current["start"] > previous["end"] + _NUMERIC_ATOL:
+                reasons.append("rhythm density complete-series persistence has an internal gap")
+                break
 
     return reasons
 
@@ -373,7 +382,10 @@ def compare_rhythm_density_spans(
     windows, contract, contract_reasons = _validated_windows(evidence)
     reasons.extend(contract_reasons)
     if not contract_reasons:
-        reasons.extend(_validated_persistence_coverage(evidence, windows))
+        if contract is None:
+            reasons.append("rhythm density evidence contract is unavailable")
+        else:
+            reasons.extend(_validated_persistence_coverage(evidence, windows, contract))
     if reasons:
         return _withheld(evidence, subject_locator, comparison_locator, reasons, contract)
 
