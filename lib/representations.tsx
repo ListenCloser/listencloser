@@ -177,6 +177,7 @@ function SpectrogramView({ active }: RepresentationViewProps) {
     <div className="representation-body">
       <Spectrogram
         url={waveform.audioUrl}
+        cacheIdentity={waveform.versionId}
         position={active ? transport.position : 0}
         selection={selection}
         annotations={annotations}
