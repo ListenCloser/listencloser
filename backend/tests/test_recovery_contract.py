@@ -23,7 +23,9 @@ def test_backup_capture_is_private_complete_and_non_destructive() -> None:
     assert "auth.users" in script
     assert "storage.objects" in script
     assert "from storage.buckets b" in script
-    assert 'supabase storage cp -r "ss://$bucket"' in script
+    assert "auth_storage_changes.sql" in script
+    assert "supabase db diff --linked --schema auth,storage" in script
+    assert 'supabase storage cp -r "ss:///$bucket"' in script
     assert "private-file-hashes.jsonl" in script
     assert "BACKUP_COMPLETE" in script
 
@@ -41,6 +43,7 @@ def test_recovery_runbook_keeps_restore_isolated_and_storage_separate() -> None:
     assert "RTO target: 4 hours" in runbook
     assert "Database state" in runbook
     assert "Storage bytes" in runbook
+    assert "auth_storage_changes.sql" in runbook
     assert "no automated production restore command" in runbook
     assert "BACKUP_COMPLETE" in runbook
     assert "Auth provider/OAuth configuration" in runbook
