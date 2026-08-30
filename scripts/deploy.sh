@@ -140,7 +140,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
 OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
 HARMONY_ENGINE=lv_chordia
 RELEASE=${TARGET_HEAD}
-BACKEND_IMAGE=${BACKEND_IMAGE:-hello-ai-backend:local}
+BACKEND_IMAGE=${BACKEND_IMAGE:-listencloser-backend:local}
 NUMBA_CACHE_DIR=${TARGET_NUMBA_CACHE_DIR}
 ENVEOF
   fi
@@ -186,7 +186,7 @@ echo "[deploy] starting deploy at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ensure_repo
 TARGET_HEAD="$(git rev-parse HEAD)"
 TARGET_NUMBA_CACHE_DIR="/app/runtime/numba-cache/${TARGET_HEAD}"
-export BACKEND_IMAGE="${BACKEND_IMAGE:-hello-ai-backend:local}"
+export BACKEND_IMAGE="${BACKEND_IMAGE:-listencloser-backend:local}"
 USE_PREBUILT_IMAGE=0
 if resolve_prebuilt_image "$TARGET_HEAD"; then
   USE_PREBUILT_IMAGE=1

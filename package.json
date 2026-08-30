@@ -1,8 +1,8 @@
 {
-  "name": "hello-ai",
+  "name": "listencloser",
   "version": "2.0.0",
   "private": true,
-  "description": "Music AI Studio — transcribe audio to MIDI and sheet music, and manage your music library.",
+  "description": "Listen Closer — a music understanding workspace for synchronized representations, playback, and evidence-backed analysis.",
   "engines": {
     "node": "22.x"
   },
@@ -37,7 +37,6 @@
     "check:e2e": "bash scripts/check.sh e2e",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:types": "supabase gen types typescript --linked > lib/database.types.ts",
     "api:schema": "uv run --project backend python backend/export_openapi.py",
     "api:generate": "npm run api:schema && openapi-typescript openapi/openapi.json -o lib/api-types.ts",
     "api:check": "npm run api:schema && git ls-files --error-unmatch openapi/openapi.json >/dev/null && git diff --exit-code -- openapi/openapi.json && openapi-typescript openapi/openapi.json -o lib/api-types.ts --check",
@@ -51,7 +50,6 @@
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "5.101.4",
     "next": "16.3.3",
-    "openapi-fetch": "^0.17.0",
     "opensheetmusicdisplay": "^2.1.0",
     "react": "19.0.0",
     "react-dom": "19.0.0"

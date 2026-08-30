@@ -1,6 +1,4 @@
 import { apiFetch } from "./api";
-import type { components } from "./api-types";
-import { openapiClient, requireOpenApiData } from "./openapi-client";
 import { getQueryClient } from "./query-client";
 import { supabase } from "./supabase";
 import type {
@@ -17,41 +15,12 @@ import type {
   WorkBundle,
 } from "./domain.types";
 
-type ApiProject = components["schemas"]["Project"];
-type ApiWork = components["schemas"]["Work"];
-
 type UploadIntent = {
   bucket: string;
   storage_key: string;
   token: string;
   max_bytes: number;
 };
-
-function assertProjectResponse(value: ApiProject): asserts value is Project {
-  for (const field of ["id", "description", "created_at", "updated_at", "archived_at"] as const) {
-    if (value[field] === undefined) {
-      throw new Error(`Invalid Project response: missing server field "${field}"`);
-    }
-  }
-}
-
-function normalizeProject(value: ApiProject): Project {
-  assertProjectResponse(value);
-  return value;
-}
-
-function assertWorkResponse(value: ApiWork): asserts value is Work {
-  for (const field of ["id", "composer", "created_at", "updated_at"] as const) {
-    if (value[field] === undefined) {
-      throw new Error(`Invalid Work response: missing server field "${field}"`);
-    }
-  }
-}
-
-function normalizeWork(value: ApiWork): Work {
-  assertWorkResponse(value);
-  return value;
-}
 
 const WORK_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -175,30 +144,25 @@ export function clearWorkDataCache(): void {
 }
 
 export async function createProject(name: string, description?: string): Promise<Project> {
-  const result = await openapiClient.POST("/api/v1/projects", {
-    body: { name, description: description ?? "" },
+  return apiFetch<Project>("/api/v1/projects", {
+    method: "POST",
+    body: JSON.stringify({ name, description: description ?? "" }),
   });
-  return normalizeProject(requireOpenApiData(result));
 }
 
 export async function listProjects(): Promise<Project[]> {
-  const result = await openapiClient.GET("/api/v1/projects");
-  return requireOpenApiData(result).map(normalizeProject);
+  return apiFetch<Project[]>("/api/v1/projects");
 }
 
 export async function createWork(projectId: string, title: string, composer?: string): Promise<Work> {
-  const result = await openapiClient.POST("/api/v1/projects/{project_id}/works", {
-    params: { path: { project_id: projectId } },
-    body: { title, composer: composer ?? null },
+  return apiFetch<Work>(`/api/v1/projects/${projectId}/works`, {
+    method: "POST",
+    body: JSON.stringify({ title, composer: composer ?? null }),
   });
-  return normalizeWork(requireOpenApiData(result));
 }
 
 export async function listWorks(projectId: string): Promise<Work[]> {
-  const result = await openapiClient.GET("/api/v1/projects/{project_id}/works", {
-    params: { path: { project_id: projectId } },
-  });
-  return requireOpenApiData(result).map(normalizeWork);
+  return apiFetch<Work[]>(`/api/v1/projects/${projectId}/works`);
 }
 
 export async function getWorkBundle(workId: string): Promise<WorkBundle> {

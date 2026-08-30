@@ -191,9 +191,10 @@ function SpectrogramView({ active }: RepresentationViewProps) {
 
 function ScoreView({ active, orientationCue = false }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
-  const { transport, seek } = useTransport();
+  const { transport, seek, setActiveSource } = useTransport();
   const entry = workspace.representations.find((item) => item.kind === "score");
   const measureStarts = entry?.measureStarts ?? [];
+  const scoreSource = transport.sources.find((source) => source.role === "score") ?? null;
   const finalMeasureSpan = measureStarts.length > 1
     ? measureStarts[measureStarts.length - 1] - measureStarts[measureStarts.length - 2]
     : 2;
@@ -222,11 +223,23 @@ function ScoreView({ active, orientationCue = false }: RepresentationViewProps) 
       : null;
   return (
     <div className="representation-body">
+      <div className="score-playback-strip">
+        {scoreSource ? (
+          transport.activeSource?.role === "score" ? (
+            <span className="score-playback-state">Hearing score</span>
+          ) : (
+            <button type="button" className="score-playback-action" onClick={() => setActiveSource(scoreSource)}>Hear score</button>
+          )
+        ) : (
+          <span className="score-playback-state score-playback-state-muted">Notation audio is unavailable for this saved version.</span>
+        )}
+      </div>
       <SheetMusic
         musicXml={entry?.musicxml ?? ""}
         playheadTime={active ? transport.position : 0}
         isPlaying={active && transport.isPlaying}
         isScoreActive={active}
+        hasScorePlayback={Boolean(scoreSource)}
         measureStarts={measureStarts}
         scoreDuration={scoreDuration}
         selectedMeasures={selectedMeasures}

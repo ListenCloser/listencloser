@@ -23,15 +23,15 @@ jobs:
         env:
           SUPABASE_URL: https://example.invalid
           SUPABASE_SERVICE_ROLE_KEY: test-service-role
-          BACKEND_IMAGE: ghcr.io/gr-rr/hello-ai-backend:test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          BACKEND_IMAGE: ghcr.io/listencloser/listencloser-backend:test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           NUMBA_CACHE_DIR: /app/runtime/numba-cache/test-release
         run: |
           set -euo pipefail
-          docker compose -f backend/docker-compose.yml config > /tmp/hello-ai-compose.yml
+          docker compose -f backend/docker-compose.yml config > /tmp/listencloser-compose.yml
           images="$(docker compose -f backend/docker-compose.yml config --images | sort -u)"
           test "$(printf '%s\n' "$images" | sed '/^$/d' | wc -l)" -eq 1
           grep -Fq "$BACKEND_IMAGE" <<<"$images"
-          grep -Fq "NUMBA_CACHE_DIR: $NUMBA_CACHE_DIR" /tmp/hello-ai-compose.yml
+          grep -Fq "NUMBA_CACHE_DIR: $NUMBA_CACHE_DIR" /tmp/listencloser-compose.yml
       - name: Validate rollback preseed remains before live worker switch
         run: |
           python - <<'PY'
@@ -65,21 +65,21 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production backend image natively
-        run: docker build --tag hello-ai-backend:${{ matrix.arch }} backend
+        run: docker build --tag listencloser-backend:${{ matrix.arch }} backend
       - name: Verify promoted Beat This checkpoint loads in production image
         env:
           ARCH: ${{ matrix.arch }}
         run: |
           docker run --rm \
             --entrypoint python \
-            "hello-ai-backend:${ARCH}" \
+            "listencloser-backend:${ARCH}" \
             -c 'from engines.beats.beat_this_engine import BeatThisEngine, prewarm_beat_this_model; e=BeatThisEngine(); prewarm_beat_this_model(); assert e.provenance.model == "final0"; assert e.provenance.parameters["checkpoint"] == "final0"'
       - name: Measure persistent Numba cache for explicit librosa rollback
         env:
           ARCH: ${{ matrix.arch }}
         run: |
           set -euo pipefail
-          volume="hello-ai-numba-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ARCH}"
+          volume="listencloser-numba-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ARCH}"
           cleanup() {
             docker volume rm -f "$volume" >/dev/null 2>&1 || true
           }
@@ -89,7 +89,7 @@ jobs:
             --user root \
             -v "$volume:/app/runtime/numba-cache" \
             --entrypoint sh \
-            "hello-ai-backend:${ARCH}" \
+            "listencloser-backend:${ARCH}" \
             -c 'chown -R 1001:1001 /app/runtime/numba-cache'
 
           run_probe() {
@@ -99,7 +99,7 @@ jobs:
               -e NUMBA_CACHE_DIR=/app/runtime/numba-cache \
               -v "$volume:/app/runtime/numba-cache" \
               --entrypoint python \
-              "hello-ai-backend:${ARCH}" \
+              "listencloser-backend:${ARCH}" \
               -c 'import json, os, time; from pathlib import Path; from domain.worker_warmup import prewarm_librosa_beat_tracking; started=time.perf_counter(); prewarm_librosa_beat_tracking(); prewarm=time.perf_counter()-started; started=time.perf_counter(); prewarm_librosa_beat_tracking(); hot=time.perf_counter()-started; cache_files=sum(1 for path in Path(os.environ["NUMBA_CACHE_DIR"]).rglob("*") if path.is_file()); print("NUMBA_BENCHMARK=" + json.dumps({"prewarm_seconds": round(prewarm, 6), "hot_call_seconds": round(hot, 6), "cache_files": cache_files}, sort_keys=True))' \
               2>&1 | tee "/tmp/numba-${label}.log"
           }

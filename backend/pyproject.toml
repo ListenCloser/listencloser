@@ -1,8 +1,8 @@
 # Canonical backend dependency and Python-tool configuration.
 [project]
-name = "hello-ai-backend"
+name = "listencloser-backend"
 version = "0.1.0"
-description = "FastAPI API and durable music-processing worker for hello-ai"
+description = "FastAPI API and durable music-processing worker for Listen Closer"
 requires-python = ">=3.11,<3.12"
 dependencies = [
   "fastapi==0.115.0",

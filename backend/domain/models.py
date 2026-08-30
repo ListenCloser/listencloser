@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
@@ -11,7 +11,7 @@ def new_id() -> UUID:
 
 
 def utc_now() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now().astimezone()
 
 
 class Project(BaseModel):

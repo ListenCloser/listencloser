@@ -15,9 +15,6 @@ on:
       - 'backend/pyproject.toml'
       - 'backend/uv.lock'
 
-permissions:
-  contents: read
-
 concurrency:
   group: database-integration-${{ github.ref }}
   cancel-in-progress: true
