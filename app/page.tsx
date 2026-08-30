@@ -16,6 +16,7 @@ import {
   startVariationWorkflow,
   uploadArtifact,
 } from "@/lib/api-client";
+import { getMusicXml } from "@/lib/musicxml-cache";
 import { JobObservationError, waitForJob, sanitizeJobError } from "@/lib/job-tracking";
 import { supabase } from "@/lib/supabase";
 import { refreshProjectWorks, useLibraryProject, useProcessingHealth, useProjectWorks } from "@/lib/server-state";
@@ -191,11 +192,9 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
       const insightsPromise: Promise<Awaited<ReturnType<typeof getInsights>>> = midiVersionId
         ? getInsights(midiVersionId)
         : Promise.resolve([]);
-      const scorePromise: Promise<string | null> = score?.signed_url
-        ? fetch(score.signed_url).then(async (response) => {
-            if (!response.ok) throw new Error("score request failed");
-            return response.text();
-          })
+      const scoreVersionId = score?.latest_version?.id ?? null;
+      const scorePromise: Promise<string | null> = score?.signed_url && scoreVersionId
+        ? getMusicXml(scoreVersionId, score.signed_url, queryClient)
         : Promise.resolve(null);
 
       const upsertLocalRepresentation = (representation: RepresentationEntry) => {
@@ -360,7 +359,7 @@ function HomeContent({ serviceStatus }: { serviceStatus: ServiceStatus }) {
     } finally {
       if (sequence === loadSequenceRef.current) setLoadingWork(false);
     }
-  }, [clearProcessingRefresh, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
+  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
 
   useEffect(() => () => {
     abortRef.current?.abort();
