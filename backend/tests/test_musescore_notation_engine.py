@@ -12,11 +12,14 @@ NOTATION_MIDI_BYTES = b"MThd" + b"\x01" * 32
 
 
 def _fake_musescore_run(args, **kwargs):
-    if args[1:] == ["--version"]:
+    assert args[1:3] == ["-platform", "offscreen"]
+    command_args = args[3:]
+
+    if command_args == ["--version"]:
         return subprocess.CompletedProcess(args, 0, stdout="MuseScore Studio 4.7.5\n", stderr="")
 
-    assert args[1] == "--job"
-    job_path = pathlib.Path(args[2])
+    assert command_args[0] == "--job"
+    job_path = pathlib.Path(command_args[1])
     job = json.loads(job_path.read_text(encoding="utf-8"))
     assert len(job) == 1
     assert pathlib.Path(job[0]["in"]).read_bytes() == MIDI_BYTES
@@ -70,7 +73,8 @@ def test_musescore_adapter_fails_closed_when_conversion_fails(monkeypatch):
     engine = MuseScoreNotationEngine(executable="/opt/musescore/MuseScore-Studio.AppImage")
 
     def fail_run(args, **kwargs):
-        if args[1:] == ["--version"]:
+        assert args[1:3] == ["-platform", "offscreen"]
+        if args[3:] == ["--version"]:
             return subprocess.CompletedProcess(args, 0, stdout="MuseScore Studio 4.7.5\n", stderr="")
         return subprocess.CompletedProcess(args, 2, stdout="", stderr="import failed")
 
