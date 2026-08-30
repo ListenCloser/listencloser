@@ -47,7 +47,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
 
     await openAsk(page);
     await expect(
-      page.getByText("Questions are grounded in analysis currently available for this recording and selection."),
+      page.getByText("Ask about harmony, rhythm, structure, or a selected passage. Answers use the evidence currently available for this recording."),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Explain the harmony in plain language." })).toHaveCount(0);
 
