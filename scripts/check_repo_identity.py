@@ -6,10 +6,13 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-# Build the forbidden product slug from parts so this guard does not itself
-# retain the exact legacy identifier it is responsible for rejecting.
+# Build forbidden identifiers from parts so this guard does not itself retain
+# the exact legacy values it is responsible for rejecting.
 LEGACY_IDENTIFIERS = (
     "hello" + "-" + "ai",
+    "hello" + "_" + "ai",
+    "hello" + " " + "ai",
+    "gr" + "-" + "rr/hello" + "-" + "ai",
     "hello" + "-h7k6w5h4d-giancarloricci.vercel.app",
 )
 
