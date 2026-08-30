@@ -112,15 +112,22 @@ class PhraseResult(TypedDict):
     kind: str
 
 
+DensityWindow = dict[str, float | str]
+
+
 class RhythmResult(TypedDict):
     beat_count: int
     avg_note_duration: float
     offbeat_onset_ratio: float | None
     rhythmic_density: float
     offbeat_onset_available: bool
-    # Temporal features (Analysis V2)
-    note_density_over_time: list[dict[str, float]]
-    onset_density_over_time: list[dict[str, float]]
+    # Promoted temporal density is beat-relative only. Seconds-based fallbacks
+    # remain explicit internal evidence so they cannot masquerade as the
+    # production midi+beats rhythm_density contract.
+    note_density_over_time: list[DensityWindow]
+    onset_density_over_time: list[DensityWindow]
+    note_density_seconds_over_time: list[DensityWindow]
+    onset_density_seconds_over_time: list[DensityWindow]
     rest_segments: list[dict[str, float]]
     beat_phase_distribution: list[dict[str, float]]
 
@@ -169,6 +176,11 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
     beat grid, and pretty_midi injects a default 4/4 that is an assumption, not
     evidence — so without ``pulse`` the metric is reported as unavailable
     rather than fabricated.
+
+    ``note_density_over_time`` and ``onset_density_over_time`` are deliberately
+    reserved for the promoted MIDI+beat evidence contract. When no valid beat
+    grid exists they are empty; seconds-based fallback measurements are kept in
+    explicitly named ``*_seconds_over_time`` fields instead.
     """
     try:
         pm = pretty_midi.PrettyMIDI(midi_path)
@@ -203,14 +215,21 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
         if beats and all_onsets:
             offbeat_onset_ratio = _offbeat_onset_ratio(all_onsets, beats)
 
-        # Temporal features (Analysis V2): windowed density and rest detection.
-        # Prefer beat-relative aggregation when real beat evidence is available;
-        # fall back to seconds-based windows otherwise.
-        note_density = _compute_windowed_density(
-            all_onsets, duration, window=2.0, step=0.5, beats=beats or None
+        # Seconds-based profiles remain useful for internal summaries, but are
+        # explicitly separated from the promoted beat-relative product evidence.
+        note_density_seconds = _compute_windowed_density(all_onsets, duration, window=2.0, step=0.5)
+        onset_density_seconds = _compute_windowed_density(
+            all_onsets, duration, window=1.0, step=0.25
         )
-        onset_density = _compute_windowed_density(
-            all_onsets, duration, window=1.0, step=0.25, beats=beats or None
+
+        # Production rhythm_density is a MIDI+beats capability. Only a valid
+        # observed beat grid can populate these promoted fields. The 2-beat note
+        # profile and 1-beat onset profile both advance by one observed beat.
+        note_density = _compute_beat_relative_density(
+            all_onsets, beats, window_beats=2, step_beats=1
+        )
+        onset_density = _compute_beat_relative_density(
+            all_onsets, beats, window_beats=1, step_beats=1
         )
         rest_segments = _detect_rests(all_onsets, duration, min_gap=1.0)
         beat_phase_distribution = _beat_phase_distribution(all_onsets, beats or [])
@@ -223,6 +242,8 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
             offbeat_onset_available=offbeat_onset_ratio is not None,
             note_density_over_time=note_density,
             onset_density_over_time=onset_density,
+            note_density_seconds_over_time=note_density_seconds,
+            onset_density_seconds_over_time=onset_density_seconds,
             rest_segments=rest_segments,
             beat_phase_distribution=beat_phase_distribution,
         )
@@ -294,57 +315,91 @@ def _beat_phase_distribution(onsets: list[float], beats: list[float]) -> list[di
     ]
 
 
+def _compute_beat_relative_density(
+    onsets: list[float],
+    beats: list[float],
+    *,
+    window_beats: int,
+    step_beats: int,
+) -> list[DensityWindow]:
+    """Compute event density over complete observed beat windows.
+
+    Density is normalized as ``events / beat``. Windows preserve their actual
+    seconds boundaries for playback/selection while window and step sizes are
+    expressed explicitly in beats. Incomplete tail windows are omitted rather
+    than changing the denominator silently.
+    """
+    if not onsets or window_beats <= 0 or step_beats <= 0 or len(beats) < window_beats + 1:
+        return []
+
+    beat_grid = [float(value) for value in beats]
+    if not all(np.isfinite(value) for value in beat_grid):
+        return []
+    if any(end <= start for start, end in zip(beat_grid, beat_grid[1:], strict=False)):
+        return []
+
+    sorted_onsets = sorted(float(value) for value in onsets if np.isfinite(value))
+    if not sorted_onsets:
+        return []
+
+    result: list[DensityWindow] = []
+    final_start_index = len(beat_grid) - window_beats
+    for index in range(0, final_start_index, step_beats):
+        beat_start = beat_grid[index]
+        beat_end = beat_grid[index + window_beats]
+        count = sum(1 for onset in sorted_onsets if beat_start <= onset < beat_end)
+        result.append(
+            {
+                "start": beat_start,
+                "end": beat_end,
+                "density": round(count / window_beats, 6),
+                "mode": "beat_relative",
+                "unit": "events_per_beat",
+                "coordinate_unit": "beats",
+                "window_size": float(window_beats),
+                "step_size": float(step_beats),
+            }
+        )
+    return result
+
+
 def _compute_windowed_density(
     onsets: list[float],
     duration: float,
     window: float = 2.0,
     step: float = 0.5,
-    beats: list[float] | None = None,
-) -> list[dict[str, float]]:
-    """Compute event density over time using a sliding window.
+) -> list[DensityWindow]:
+    """Compute explicit seconds-based event density for internal summaries.
 
-    When ``beats`` is provided (real beat evidence from audio analysis),
-    density is expressed as events per beat-relative unit rather than
-    events per second. This produces musically meaningful comparisons
-    across tempo changes. Falls back to seconds-based windows when no
-    beat grid is available.
-
-    Returns a list of {start, end, density} where density = events / unit.
+    Density is ``events / second``. Tail windows record their actual denominator
+    in ``window_size`` so a shortened final window cannot be mistaken for a
+    full-size window. This helper no longer multiplexes beat-relative semantics;
+    use :func:`_compute_beat_relative_density` for promoted MIDI+beat evidence.
     """
-    if not onsets or duration <= 0:
+    if not onsets or duration <= 0 or window <= 0 or step <= 0:
         return []
-    sorted_onsets = sorted(onsets)
-    result: list[dict[str, float]] = []
+    sorted_onsets = sorted(float(value) for value in onsets if np.isfinite(value))
+    if not sorted_onsets:
+        return []
+    result: list[DensityWindow] = []
 
-    if beats and len(beats) >= 2:
-        # Beat-relative: count onsets per beat window
-        sorted_beats = sorted(beats)
-        for i in range(len(sorted_beats)):
-            beat_start = sorted_beats[i]
-            beat_end = sorted_beats[min(i + int(window), len(sorted_beats) - 1)]
-            if beat_end <= beat_start:
-                continue
-            count = sum(1 for o in sorted_onsets if beat_start <= o < beat_end)
-            result.append(
-                {
-                    "start": round(beat_start, 2),
-                    "end": round(beat_end, 2),
-                    "density": round(count, 2),
-                }
-            )
-        return result
-
-    # Seconds-based fallback
     t = 0.0
     while t < duration:
         window_end = min(t + window, duration)
-        count = sum(1 for o in sorted_onsets if t <= o < window_end)
         actual_window = window_end - t
+        if actual_window <= 0:
+            break
+        count = sum(1 for onset in sorted_onsets if t <= onset < window_end)
         result.append(
             {
-                "start": round(t, 2),
-                "end": round(window_end, 2),
-                "density": round(count / actual_window, 2) if actual_window > 0 else 0.0,
+                "start": t,
+                "end": window_end,
+                "density": round(count / actual_window, 6),
+                "mode": "seconds",
+                "unit": "events_per_second",
+                "coordinate_unit": "seconds",
+                "window_size": actual_window,
+                "step_size": step,
             }
         )
         t += step
