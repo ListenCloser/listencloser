@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -45,3 +46,20 @@ def test_privileged_agent_mode_is_explicit_override() -> None:
     assert "/var/run/docker.sock:/var/run/docker.sock" in override
     assert ".env.local" in override
     assert "SUPABASE_SERVICE_ROLE_KEY" in override
+
+
+def test_devcontainer_cli_versions_are_explicit_and_supabase_matches_real_stack() -> None:
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+    real_stack = (REPO_ROOT / ".github" / "workflows" / "real-stack-e2e.yml").read_text()
+
+    opencode_match = re.search(r"^ARG OPENCODE_VERSION=(\d+\.\d+\.\d+)$", dockerfile, re.MULTILINE)
+    supabase_match = re.search(
+        r"^ARG SUPABASE_CLI_VERSION=(\d+\.\d+\.\d+)$", dockerfile, re.MULTILINE
+    )
+    assert opencode_match is not None
+    assert supabase_match is not None
+
+    assert '"opencode-ai@${OPENCODE_VERSION}"' in dockerfile
+    assert '"supabase@${SUPABASE_CLI_VERSION}"' in dockerfile
+    assert "npm install -g opencode-ai supabase" not in dockerfile
+    assert f"version: {supabase_match.group(1)}" in real_stack
