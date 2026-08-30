@@ -1,0 +1,54 @@
+name: Deptry bootstrap
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deptry-bootstrap.yml'
+
+concurrency:
+  group: deptry-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-dependency-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+      - name: Characterize backend dependency hygiene
+        id: deptry
+        shell: bash
+        run: |
+          set +e
+          mkdir -p deptry-output
+          uv run --project backend --with deptry==0.25.0 \
+            deptry backend \
+            --config backend/pyproject.toml \
+            --extend-exclude 'backend/tests' \
+            --json-output deptry-output/report.json
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload deptry characterization
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: deptry-report-${{ github.run_attempt }}
+          path: deptry-output/report.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Report characterization status
+        run: |
+          echo "deptry exit code: ${{ steps.deptry.outputs.exit_code }}"
+          cat deptry-output/report.json
