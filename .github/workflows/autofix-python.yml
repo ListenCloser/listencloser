@@ -1,15 +1,16 @@
 name: Python autofix
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'backend/**/*.py'
 
-# This workflow is intentionally advisory/non-required. It repairs deterministic
-# same-repository PR style drift before the protected CI/build gate has to fail.
-# Fork PRs remain read-only and are skipped.
+# Advisory/non-required. This workflow is loaded from the protected base branch,
+# so a PR cannot modify the write-capable workflow that repairs that same PR.
+# It runs only Ruff over checked-out source text; it never executes project code,
+# installs project dependencies, or reads repository secrets. Fork PRs are skipped.
 permissions:
   contents: write
 
@@ -28,6 +29,7 @@ jobs:
       - name: Check out PR head branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
@@ -41,8 +43,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Keep the formatter version aligned with backend/uv.lock without
-          # paying for the full backend environment. Do not use --unsafe-fixes.
+          # Keep the formatter version aligned with the repository toolchain
+          # without paying for the full backend environment. Never use
+          # --unsafe-fixes here.
           uvx --from 'ruff==0.5.7' ruff check backend/ --fix || true
           uvx --from 'ruff==0.5.7' ruff format backend/
 
