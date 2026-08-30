@@ -55,6 +55,11 @@ should remain in their own environment.
 The canonical index fields used by the upstream dataset loader include `id`, `subset`, `audio_path`,
 `mel_path`, `label_path`, and `labels` containing `start`/`label` rows.
 
+SongFormBench's documentation calls the Chinese benchmark **SongFormBench-CN (`BC`)**. Keep the two
+names distinct in evaluation plumbing: `BC` is the published benchmark abbreviation, while the
+canonical source/index subset literal used by the materializer is `CN`. Do not silently translate
+one into the other; manifests should preserve the source literal as `SongFormBench-CN`.
+
 Audio is **never downloaded or reconstructed implicitly**. Only already-materialized local audio is
 placed in a manifest. Missing audio is reported together with the expected mel path. Every clip also
 records `audio_provenance` as one of:
@@ -66,14 +71,14 @@ records `audio_provenance` as one of:
 If mel reconstruction is used, candidates being compared must receive the same reconstruction
 provenance. Do not present reconstructed audio as original source audio.
 
-Example:
+Example for the SongFormBench-CN / BC benchmark lane:
 
 ```bash
 cd backend
 python -m evaluation.analysis_v3.structure.datasets.songformbench \
   --index /data/SongFormBench/data/SongFormBench.jsonl \
   --audio-dir /data/SongFormBench \
-  --subset BC \
+  --subset CN \
   --audio-provenance mel_reconstruction \
   --output /tmp/songformbench-bc.json
 ```
@@ -111,9 +116,10 @@ A documented held-out dataset/partition can be declared in candidate provenance.
 `--allow-training-overlap` is only an explicitly labeled in-sample diagnostic; scored rows carry
 `evaluation_validity = in_sample_override`.
 
-For the first All-In-One cross-model gate, SongFormBench-CN (`BC`) is cleaner than BHX because BHX
-comes from HarmonixSet. SongFormer independence still depends on the exact checkpoint's documented
-training sources; do not assume BC or BHX is held out without that evidence.
+For the first All-In-One cross-model gate, SongFormBench-CN (`BC` benchmark abbreviation) is cleaner
+than BHX because BHX comes from HarmonixSet. SongFormer independence still depends on the exact
+checkpoint's documented training sources; do not assume CN/BC or BHX is held out without that
+evidence.
 
 ## Non-goals
 

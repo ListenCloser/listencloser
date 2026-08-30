@@ -30,9 +30,20 @@ def _normalize_segments(raw_segments: Any) -> list[dict[str, Any]]:
     return segments
 
 
+def _result_from_raw(raw: Any) -> StructureResult:
+    segments = _normalize_segments(getattr(raw, "segments", None))
+    if not segments:
+        return StructureResult(error="candidate returned no valid segments")
+    return StructureResult(
+        segments=segments,
+        metadata={"execution_mode": "upstream_batch"},
+    )
+
+
 class AllInOneStructureAdapter(StructureAdapter):
     name = "allin1"
     engine = "allin1"
+    supports_batch = True
 
     def __init__(self, device: str = "cpu") -> None:
         super().__init__(device)
@@ -50,17 +61,33 @@ class AllInOneStructureAdapter(StructureAdapter):
         self._module = allin1
         self._loaded = True
 
-    def analyze(self, audio_path: str) -> StructureResult:
+    def analyze_many(self, audio_paths: list[str]) -> list[StructureResult]:
+        """Use All-In-One's native multi-track API so shared setup is not repeated.
+
+        Upstream ``analyze([...])`` demixes/extracts features for the requested
+        tracks and loads the selected structure model once before iterating over
+        inference. Calling ``analyze(path)`` once per row would repeatedly pay
+        those setup costs and materially distort runtime evidence.
+        """
         if not self._loaded:
             self.load()
+        if not audio_paths:
+            return []
         try:
-            raw = self._module.analyze(audio_path, model=self.model, device=self.device)
-            segments = _normalize_segments(getattr(raw, "segments", None))
-            if not segments:
-                return StructureResult(error="candidate returned no valid segments")
-            return StructureResult(segments=segments)
+            raw_results = self._module.analyze(
+                audio_paths,
+                model=self.model,
+                device=self.device,
+            )
+            if not isinstance(raw_results, list):
+                raw_results = [raw_results]
+            return [_result_from_raw(raw) for raw in raw_results]
         except Exception as exc:
-            return StructureResult(error=f"{type(exc).__name__}: {exc}")
+            error = f"{type(exc).__name__}: {exc}"
+            return [StructureResult(error=error) for _ in audio_paths]
+
+    def analyze(self, audio_path: str) -> StructureResult:
+        return self.analyze_many([audio_path])[0]
 
     def metadata(self) -> StructureMetadata:
         try:
