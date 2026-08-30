@@ -1,0 +1,113 @@
+name: Final identity restack
+
+on:
+  push:
+    branches: [chore/identity-migration-762]
+    paths:
+      - '.github/workflows/identity-final-restack.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restack:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Merge current main while preserving workflow blobs for connector finalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch_head="$(git rev-parse HEAD)"
+          git fetch --quiet origin main
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          set +e
+          git merge --no-commit --no-ff origin/main
+          merge_status=$?
+          set -e
+          if [ "$merge_status" -ne 0 ] && [ "$merge_status" -ne 1 ]; then
+            exit "$merge_status"
+          fi
+
+          # GitHub Actions' token may not update workflow files. Preserve the exact
+          # pre-merge branch blobs here; the connector will apply the combined
+          # current-main workflow content after this merge commit lands.
+          git checkout "$branch_head" -- \
+            .github/workflows/backend-image.yml \
+            .github/workflows/production-smoke.yml
+          git add .github/workflows/backend-image.yml .github/workflows/production-smoke.yml
+
+          # Preserve #793's deterministic local setup, then layer only #797's
+          # identity and deleted-schema-owner changes.
+          if git ls-files -u -- README.md | grep -q .; then
+            git checkout --theirs README.md
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+
+          readme = Path('README.md')
+          text = readme.read_text()
+          text = text.replace('# hello-ai · Music Understanding Workspace', '# Listen Closer · Music Understanding Workspace')
+          text = text.replace('hello-ai turns an imported recording', 'Listen Closer turns an imported recording')
+          text = text.replace(
+              'Use the verification ladder in `AGENTS.md` / `docs/AGENT_EXECUTION_PLAYBOOK.md`;',
+              'Use the verification ladder in root `AGENTS.md`;',
+          )
+          readme.write_text(text)
+
+          package = Path('package.json')
+          if not package.exists():
+              raise SystemExit('package.json missing after merge')
+          import json
+          data = json.loads(package.read_text())
+          data['name'] = 'listencloser'
+          data['description'] = 'Listen Closer — a music understanding workspace for synchronized representations, playback, and evidence-backed analysis.'
+          data['scripts'].pop('db:types', None)
+          package.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+
+          supabase = Path('supabase/config.toml')
+          text = supabase.read_text().replace('project_id = "hello-ai"', 'project_id = "listencloser"', 1)
+          supabase.write_text(text)
+          PY
+          git add README.md package.json supabase/config.toml
+
+          # The branch already contains #791's deploy behavior plus the identity
+          # image rename. Prefer it only if Git reports that exact path conflicted.
+          if git ls-files -u -- scripts/deploy.sh | grep -q .; then
+            git checkout --ours scripts/deploy.sh
+            git add scripts/deploy.sh
+          fi
+
+          unresolved="$(git diff --name-only --diff-filter=U)"
+          if [ -n "$unresolved" ]; then
+            echo 'Unexpected unresolved paths:' >&2
+            printf '%s\n' "$unresolved" >&2
+            exit 1
+          fi
+
+          grep -Fq 'npm run doctor' README.md
+          grep -Fq 'npm run bootstrap' README.md
+          grep -Fq '# Listen Closer · Music Understanding Workspace' README.md
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = json.loads(Path('package.json').read_text())
+          assert p['name'] == 'listencloser'
+          assert 'devEngines' in p
+          assert 'doctor' in p['scripts'] and 'bootstrap' in p['scripts']
+          assert 'db:types' not in p['scripts']
+          PY
+          grep -Fq 'project_id = "listencloser"' supabase/config.toml
+          grep -Fq '[storage.buckets.artifacts]' supabase/config.toml
+          grep -Fq 'REPO_URL="https://github.com/ListenCloser/listencloser.git"' scripts/deploy.sh
+          grep -Fq 'REPO_DIR="${DEPLOY_DIR:-$HOME/hello-ai}"' scripts/deploy.sh
+          git diff --check
+
+          git commit -m 'merge: restack identity migration on current main'
+          git push origin HEAD:chore/identity-migration-762
