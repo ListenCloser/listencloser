@@ -4,20 +4,13 @@ on:
   workflow_call:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - '*.md'
-      - 'docs/**'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   lint:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
