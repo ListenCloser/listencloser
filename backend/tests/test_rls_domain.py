@@ -59,9 +59,7 @@ def _create_user(prefix: str, password: str = "test-password-123") -> dict[str, 
         user_resp = service.auth.admin.create_user(
             {"email": email, "password": password, "email_confirm": True}
         )
-        session = _sb_anon().auth.sign_in_with_password(
-            {"email": email, "password": password}
-        )
+        session = _sb_anon().auth.sign_in_with_password({"email": email, "password": password})
     except Exception as exc:
         pytest.skip(f"Cannot provision local Auth user: {exc}")
 
