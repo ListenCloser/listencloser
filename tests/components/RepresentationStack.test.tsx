@@ -31,10 +31,20 @@ vi.mock("@/lib/representations", () => {
         </div>
       ),
     },
+    {
+      id: "spectrogram",
+      title: "Spectrogram",
+      description: "test unavailable representation",
+      temporal: true,
+      available: () => false,
+      component: () => <div data-testid="spectrogram-view" />,
+    },
   ];
+  const availableDefinitions = definitions.slice(0, 2);
 
   return {
-    availableRepresentations: () => definitions,
+    REPRESENTATION_DEFINITIONS: definitions,
+    availableRepresentations: () => availableDefinitions,
     representationById: (id: string) => definitions.find((definition) => definition.id === id),
   };
 });
@@ -53,6 +63,19 @@ function mockAnimationFrame() {
 }
 
 describe("RepresentationStack", () => {
+  it("keeps unavailable representations in the tab shell instead of inserting them later", () => {
+    render(
+      <WorkspaceProvider>
+        <RepresentationStack signedIn canImport />
+      </WorkspaceProvider>,
+    );
+
+    expect(screen.getByRole("tab", { name: "Waveform" })).toBeEnabled();
+    expect(screen.getByRole("tab", { name: "Score" })).toBeEnabled();
+    expect(screen.getByRole("tab", { name: "Spectrogram" })).toBeDisabled();
+    expect(screen.queryByTestId("spectrogram-view")).not.toBeInTheDocument();
+  });
+
   it("keeps visited representation DOM mounted across tab switches", async () => {
     const user = userEvent.setup();
     render(
