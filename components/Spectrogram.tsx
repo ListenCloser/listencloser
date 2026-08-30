@@ -95,6 +95,7 @@ export default function Spectrogram({
     const styles = getComputedStyle(document.documentElement);
     const panel = styles.getPropertyValue("--panel").trim() || "#f4f1eb";
     const muted = styles.getPropertyValue("--muted").trim() || "#575a5e";
+    const fontSans = styles.getPropertyValue("--font-sans").trim() || "sans-serif";
     const accent = styles.getPropertyValue("--accent").trim() || "#bd513a";
     const playhead = styles.getPropertyValue("--score-playback").trim() || "#5a89a8";
     const rhythm = styles.getPropertyValue("--color-rhythm").trim() || "#b8963e";
@@ -161,7 +162,7 @@ export default function Spectrogram({
       context.stroke();
     }
     context.fillStyle = withAlpha(muted, 0.45);
-    context.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+    context.font = `10px ${fontSans}`;
     context.textAlign = "left";
     for (const frequency of [100, 500, 1000, 5000, 10000]) {
       if (frequency > data.maxFrequency) continue;
