@@ -5,7 +5,7 @@ import TabStrip from "@/components/ui/TabStrip";
 import Tooltip from "@/components/ui/Tooltip";
 import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
 import {
-  REPRESENTATION_DEFINITIONS,
+  REPRESENTATIONS,
   availableRepresentations,
   type RepresentationId,
 } from "@/lib/representations";
@@ -44,7 +44,7 @@ function WorkspaceLoadingSkeleton() {
     <main className="piece-desk piece-loading-shell" aria-busy="true" aria-label="Opening recording">
       <div className="representation-toolbar">
         <div className="piece-view-tabs piece-view-tabs-v3" aria-hidden="true">
-          {REPRESENTATION_DEFINITIONS.map((definition) => (
+          {REPRESENTATIONS.map((definition) => (
             <button key={definition.id} type="button" disabled tabIndex={-1}>
               {definition.title}
             </button>
@@ -89,7 +89,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     ? workspace.activeRepresentation
     : available[0]?.id ?? null;
   const preparingRepresentations =
-    workspace.analysisState === "analyzing" && available.length < REPRESENTATION_DEFINITIONS.length;
+    workspace.analysisState === "analyzing" && available.length < REPRESENTATIONS.length;
 
   useEffect(() => {
     // Initialize selection when a Work first exposes representations, but do
@@ -172,7 +172,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         <TabStrip
           className="piece-view-tabs piece-view-tabs-v3"
           label="Music representation"
-          items={REPRESENTATION_DEFINITIONS.map((definition) => ({
+          items={REPRESENTATIONS.map((definition) => ({
             id: definition.id,
             label: definition.title,
             disabled: !availableIds.has(definition.id),
