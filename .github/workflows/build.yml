@@ -10,10 +10,76 @@ on:
     branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: classify
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      ci: ${{ steps.filter.outputs.ci }}
+      e2e: ${{ steps.filter.outputs.e2e }}
+      real_stack: ${{ steps.filter.outputs.real_stack }}
+      database: ${{ steps.filter.outputs.database }}
+      backend_image: ${{ steps.filter.outputs.backend_image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Classify changed surface once
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            ci:
+              - '**'
+              - '!*.md'
+              - '!docs/**'
+            e2e:
+              - '**'
+              - '!*.md'
+              - '!docs/**'
+              - '!backend/**'
+              - '!supabase/**'
+            real_stack:
+              - 'backend/**'
+              - '!backend/evaluation/**'
+              - '!backend/tests/**'
+              - 'app/**'
+              - 'components/**'
+              - 'lib/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'next.config.mjs'
+              - 'tsconfig.json'
+              - 'tests/e2e/real-stack-workflow.spec.ts'
+              - 'tests/e2e/real-stack-golden.spec.ts'
+              - 'playwright.realstack.config.ts'
+              - '.github/workflows/real-stack-e2e.yml'
+              - '.github/workflows/build.yml'
+            database:
+              - 'supabase/migrations/**'
+              - 'backend/domain/**'
+              - 'backend/music_features.py'
+              - 'backend/tests/integration/**'
+              - 'backend/tests/test_rls_domain.py'
+              - 'backend/pyproject.toml'
+              - 'backend/uv.lock'
+              - 'scripts/verify_database.sql'
+              - '.github/workflows/database-integration.yml'
+              - '.github/workflows/build.yml'
+            backend_image:
+              - 'backend/**'
+              - '!backend/evaluation/**'
+              - '!backend/tests/**'
+              - '.github/workflows/backend-image.yml'
+              - '.github/workflows/deploy-backend.yml'
+              - 'scripts/deploy.sh'
+              - '.github/workflows/build.yml'
+
   compile:
     name: compile
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -46,26 +112,12 @@ jobs:
           set -euo pipefail
           deploy_dir="$(mktemp -d)"
           trap 'rm -rf "$deploy_dir"' EXIT
-
-          # Vercel removes these paths before compiling. Building the full checkout
-          # previously allowed runtime imports from tests/ to pass CI and fail only
-          # after deployment packaging.
-          rsync -a \
-            --exclude-from=.vercelignore \
-            --exclude='.git/' \
-            --exclude='.next/' \
-            --exclude='node_modules/' \
-            ./ "$deploy_dir/"
-
+          rsync -a --exclude-from=.vercelignore --exclude='.git/' --exclude='.next/' --exclude='node_modules/' ./ "$deploy_dir/"
           test ! -e "$deploy_dir/tests"
           test ! -e "$deploy_dir/backend"
           test -f "$deploy_dir/mocks/fixtures/sample-wav.ts"
-
           ln -s "$GITHUB_WORKSPACE/node_modules" "$deploy_dir/node_modules"
-          (
-            cd "$deploy_dir"
-            npm run build
-          )
+          (cd "$deploy_dir" && npm run build)
       - name: Build main and upload Sentry source maps
         if: github.event_name == 'push'
         run: npm run build
@@ -92,33 +144,39 @@ jobs:
       - run: npm ci
       - run: npm test
 
-  merge-ci:
-    if: github.event_name == 'merge_group'
+  ci:
+    if: github.event_name != 'push' && needs.classify.outputs.ci == 'true'
+    needs: classify
     uses: ./.github/workflows/ci.yml
     secrets: inherit
 
-  merge-e2e:
-    if: github.event_name == 'merge_group'
+  e2e:
+    if: github.event_name != 'push' && needs.classify.outputs.e2e == 'true'
+    needs: classify
     uses: ./.github/workflows/e2e.yml
     secrets: inherit
 
-  merge-real-stack:
-    if: github.event_name == 'merge_group'
+  real-stack:
+    if: github.event_name != 'push' && needs.classify.outputs.real_stack == 'true'
+    needs: classify
     uses: ./.github/workflows/real-stack-e2e.yml
     secrets: inherit
 
-  merge-database:
-    if: github.event_name == 'merge_group'
+  database:
+    if: github.event_name != 'push' && needs.classify.outputs.database == 'true'
+    needs: classify
     uses: ./.github/workflows/database-integration.yml
     secrets: inherit
 
-  merge-backend-image:
-    if: github.event_name == 'merge_group'
+  backend-image:
+    if: github.event_name != 'push' && needs.classify.outputs.backend_image == 'true'
+    needs: classify
     uses: ./.github/workflows/backend-image.yml
     secrets: inherit
 
-  merge-codeql:
-    if: github.event_name == 'merge_group'
+  codeql:
+    if: github.event_name != 'push'
+    needs: classify
     permissions:
       actions: read
       contents: read
@@ -126,53 +184,73 @@ jobs:
     uses: ./.github/workflows/codeql.yml
     secrets: inherit
 
-  merge-gitleaks:
-    if: github.event_name == 'merge_group'
+  gitleaks:
+    if: github.event_name != 'push'
+    needs: classify
     uses: ./.github/workflows/gitleaks.yml
+    secrets: inherit
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    needs: classify
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: ./.github/workflows/dependency-review.yml
     secrets: inherit
 
   build:
     name: build
     if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     needs:
+      - classify
       - compile
       - frontend-tests
-      - merge-ci
-      - merge-e2e
-      - merge-real-stack
-      - merge-database
-      - merge-backend-image
-      - merge-codeql
-      - merge-gitleaks
-    timeout-minutes: 30
+      - ci
+      - e2e
+      - real-stack
+      - database
+      - backend-image
+      - codeql
+      - gitleaks
+      - dependency-review
+    timeout-minutes: 5
     runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      pull-requests: read
     steps:
-      - name: Require compile and frontend tests
-        run: |
-          test "${{ needs.compile.result }}" = "success"
-          test "${{ needs.frontend-tests.result }}" = "success"
-      - name: Require merge-group integration evidence
-        if: github.event_name == 'merge_group'
-        run: |
-          test "${{ needs.merge-ci.result }}" = "success"
-          test "${{ needs.merge-e2e.result }}" = "success"
-          test "${{ needs.merge-real-stack.result }}" = "success"
-          test "${{ needs.merge-database.result }}" = "success"
-          test "${{ needs.merge-backend-image.result }}" = "success"
-          test "${{ needs.merge-codeql.result }}" = "success"
-          test "${{ needs.merge-gitleaks.result }}" = "success"
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request'
-      - name: Require risk-relevant workflow evidence on exact PR head
-        if: github.event_name == 'pull_request'
+      - name: Require the complete risk-relevant gate
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          python3 scripts/check_merge_evidence.py
-          --repo "${{ github.repository }}"
-          --pr "${{ github.event.pull_request.number }}"
-          --sha "${{ github.event.pull_request.head.sha }}"
+          CLASSIFY: ${{ needs.classify.result }}
+          COMPILE: ${{ needs.compile.result }}
+          FRONTEND_TESTS: ${{ needs.frontend-tests.result }}
+          CI: ${{ needs.ci.result }}
+          E2E: ${{ needs.e2e.result }}
+          REAL_STACK: ${{ needs.real-stack.result }}
+          DATABASE: ${{ needs.database.result }}
+          BACKEND_IMAGE: ${{ needs.backend-image.result }}
+          CODEQL: ${{ needs.codeql.result }}
+          GITLEAKS: ${{ needs.gitleaks.result }}
+          DEPENDENCY_REVIEW: ${{ needs.dependency-review.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          require_success_or_skip() {
+            case "$2" in
+              success|skipped) ;;
+              *) echo "$1 did not pass: $2" >&2; exit 1 ;;
+            esac
+          }
+          test "$COMPILE" = success
+          test "$FRONTEND_TESTS" = success
+          if [ "${{ github.event_name }}" != push ]; then
+            test "$CLASSIFY" = success
+            test "$CODEQL" = success
+            test "$GITLEAKS" = success
+            require_success_or_skip CI "$CI"
+            require_success_or_skip E2E "$E2E"
+            require_success_or_skip REAL_STACK "$REAL_STACK"
+            require_success_or_skip DATABASE "$DATABASE"
+            require_success_or_skip BACKEND_IMAGE "$BACKEND_IMAGE"
+          fi
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            test "$DEPENDENCY_REVIEW" = success
+          fi
