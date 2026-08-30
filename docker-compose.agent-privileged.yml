@@ -1,0 +1,23 @@
+# Explicit opt-in override for rare agent tasks that genuinely require host Docker
+# or broad local development credentials.
+#
+# The default `.devcontainer` / `docker-compose.yml` intentionally does NOT use
+# this file. Invoke it deliberately, for example:
+#
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.agent-privileged.yml \
+#     run --rm opencode
+#
+# Treat this mode as host/development-admin access. Do not use it for ordinary
+# editing, linting, unit tests, or browser work.
+services:
+  opencode:
+    env_file:
+      - .env.local
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - SENTRY_ACCESS_TOKEN=${SENTRY_ACCESS_TOKEN:-}
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:-}
