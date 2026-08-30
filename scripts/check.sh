@@ -45,6 +45,12 @@ if "$needs_backend" && ! command -v uv >/dev/null 2>&1; then
   exit 2
 fi
 
+run_repo_identity() {
+  echo ""
+  echo "── Repository identity ──"
+  if python3 scripts/check_repo_identity.py; then pass "repository identity"; else fail "repository identity"; fi
+}
+
 run_frontend_build() {
   echo ""
   echo "── Frontend build ──"
@@ -126,8 +132,10 @@ run_e2e() {
 }
 
 echo "══════════════════════════════════════════"
-echo "  hello-ai — $MODE check"
+echo "  Listen Closer — $MODE check"
 echo "══════════════════════════════════════════"
+
+run_repo_identity
 
 case "$MODE" in
   full)
