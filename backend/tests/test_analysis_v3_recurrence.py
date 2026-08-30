@@ -9,6 +9,7 @@ from backend.evaluation.analysis_v3.recurrence import (
     build_fixed_perceptual_matrix,
     find_numpy_recurrence_matches,
 )
+
 from domain.perceptual_report import (
     PerceptualEvidenceReport,
     PerceptualProvenance,
