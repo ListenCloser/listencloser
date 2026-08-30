@@ -1,0 +1,60 @@
+name: lv-chordia CPU Thread Topology Evaluation
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/eval-lv-chordia-thread-topology.yml'
+      - 'backend/evaluation/lv_chordia_thread_topology.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lv-chordia-thread-topology-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: lv-chordia-thread-topology-${{ matrix.arch }}
+    if: github.event.pull_request.head.ref == 'perf/lv-chordia-thread-topology-eval'
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build production backend image natively
+        run: docker build --tag hello-ai-lv-thread:${{ matrix.arch }} backend
+
+      - name: Measure lv-chordia CPU thread topology
+        run: |
+          set -euo pipefail
+          mkdir -p performance-results
+          chmod 777 performance-results
+          docker run --rm \
+            -v "$PWD/tests/fixtures/real-piano.m4a:/tmp/real-piano.m4a:ro" \
+            -v "$PWD/performance-results:/results" \
+            --entrypoint python \
+            "hello-ai-lv-thread:${{ matrix.arch }}" \
+            -m evaluation.lv_chordia_thread_topology \
+            --input /tmp/real-piano.m4a \
+            --format m4a \
+            --trials 3 \
+            --output /results/lv-chordia-thread-topology-${{ matrix.arch }}.json
+
+      - name: Upload lv-chordia thread-topology result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lv-chordia-thread-topology-${{ matrix.arch }}-${{ github.event.pull_request.head.sha }}
+          path: performance-results/lv-chordia-thread-topology-${{ matrix.arch }}.json
+          if-no-files-found: error
+          retention-days: 30
