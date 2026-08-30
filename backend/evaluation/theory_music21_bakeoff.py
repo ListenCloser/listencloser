@@ -117,9 +117,7 @@ def music21_prediction(case: TheoryCase) -> TheoryPrediction:
         function = "AMBIGUOUS"
     else:
         family = str(fn)[0].upper()
-        function = {"T": "TONIC", "S": "SUBDOMINANT", "D": "DOMINANT"}.get(
-            family, "AMBIGUOUS"
-        )
+        function = {"T": "TONIC", "S": "SUBDOMINANT", "D": "DOMINANT"}.get(family, "AMBIGUOUS")
 
     return TheoryPrediction(numeral=rn.figure, function=function)
 
