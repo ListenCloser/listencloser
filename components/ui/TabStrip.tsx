@@ -44,9 +44,12 @@ export default function TabStrip<T extends string>({
               disabled={item.disabled}
               data-state={selected ? "active" : "inactive"}
               className={`ui-tab${selected ? " active" : ""}`}
-            >
-              {item.label}
-            </Tabs.Tab>
+              render={(tabProps) => (
+                <button {...tabProps} disabled={item.disabled}>
+                  {item.label}
+                </button>
+              )}
+            />
           );
         })}
       </Tabs.List>
