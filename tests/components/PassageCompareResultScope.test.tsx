@@ -38,6 +38,13 @@ vi.mock("@/lib/stores/transport", () => ({
   }),
 }));
 
+// These fixtures characterize the dormant comparison implementation itself.
+// Product exposure is covered separately; enable the capability explicitly so
+// result-scoping behavior remains testable while Breakdown keeps it hidden.
+vi.mock("@/lib/inspector/capabilities", () => ({
+  isInspectorExposed: () => true,
+}));
+
 vi.mock("@/lib/inspector/orientation", () => ({
   requestWorkspaceOrientation: mocks.requestWorkspaceOrientation,
 }));
