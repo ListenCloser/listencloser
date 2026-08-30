@@ -59,6 +59,38 @@
   overflow-wrap: anywhere;
 }
 
+/* A saved recording keeps its workspace while enrichment runs. Keep the
+ * processing affordance a bounded status surface above transport rather than
+ * allowing legacy notice/grid rules to stretch its actions with the viewport. */
+.workspace-processing-notice {
+  width: min(480px, calc(100vw - 32px));
+  max-width: min(480px, calc(100vw - 32px));
+  min-height: 0;
+  max-height: min(160px, calc(100dvh - var(--transport-height) - 32px));
+  bottom: calc(var(--transport-height) + 12px);
+  align-items: center;
+}
+
+.workspace-processing-notice > span {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-processing-notice .operation-card-actions {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  flex-wrap: nowrap;
+}
+
+.workspace-processing-notice .operation-card-actions .btn {
+  width: auto;
+  min-width: 64px;
+  min-height: 30px;
+  padding: 5px 10px;
+  flex: none;
+}
+
 @media (max-width: 480px) {
   .operation-layer {
     padding-bottom: calc(var(--transport-height) + max(8px, env(safe-area-inset-bottom)));
@@ -66,5 +98,14 @@
 
   .library-import-status {
     max-width: 150px;
+  }
+
+  .workspace-processing-notice {
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    width: auto;
+    max-width: none;
+    bottom: calc(var(--transport-height) + max(8px, env(safe-area-inset-bottom)));
+    padding: 10px 11px;
   }
 }
