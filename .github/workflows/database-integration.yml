@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
+      - 'supabase/tests/**'
       - 'backend/domain/**'
       - 'backend/music_features.py'
       - 'backend/tests/integration/**'
@@ -49,6 +50,8 @@ jobs:
           set -euo pipefail
           eval "$(supabase status -o env | grep '^DB_URL=')"
           psql "$DB_URL" -f scripts/verify_database.sql
+      - name: Verify RLS policies with pgTAP
+        run: supabase test db
       - name: Sync locked backend environment
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
