@@ -101,9 +101,16 @@ ENV PATH="/app/.venv/bin:$PATH" \
     MUSESCORE_BIN=/opt/musescore/AppRun
 
 # Fail the image build if the pinned external notation runtime cannot execute in
-# the final production-shaped layer. The existing native amd64/arm64 image
-# matrix therefore verifies both architecture-specific assets.
-RUN QT_QPA_PLATFORM=offscreen SKIP_LIBJACK=1 "$MUSESCORE_BIN" --version
+# the final production-shaped layer. Then make it perform the exact class of
+# operation ListenCloser needs: import a performance MIDI and export MusicXML.
+# The existing native amd64/arm64 image matrix therefore verifies both assets.
+RUN set -eux; \
+    QT_QPA_PLATFORM=offscreen SKIP_LIBJACK=1 "$MUSESCORE_BIN" --version; \
+    python -c "import pretty_midi; m=pretty_midi.PrettyMIDI(); i=pretty_midi.Instrument(program=0); i.notes.append(pretty_midi.Note(velocity=90,pitch=60,start=0.0,end=1.0)); m.instruments.append(i); m.write('/tmp/musescore-smoke.mid')"; \
+    QT_QPA_PLATFORM=offscreen SKIP_LIBJACK=1 "$MUSESCORE_BIN" \
+      --export-to /tmp/musescore-smoke.musicxml /tmp/musescore-smoke.mid; \
+    grep -aq '<score-partwise' /tmp/musescore-smoke.musicxml; \
+    rm -f /tmp/musescore-smoke.mid /tmp/musescore-smoke.musicxml
 
 COPY . .
 
