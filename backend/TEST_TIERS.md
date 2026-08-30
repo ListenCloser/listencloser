@@ -28,7 +28,7 @@ The default `addopts` in `backend/pyproject.toml` excludes `integration`, `real_
 
 ## CI mapping
 
-The exact mapping of paths/risks to workflows is owned by `.github/workflows/` and the repository merge-evidence policy. In broad terms:
+The exact mapping of paths/risks to workflows is owned by `.github/workflows/` and the protected `Build` contract. In broad terms:
 
 - routine backend static/unit coverage runs in CI;
 - database integration starts/applies the real local Supabase schema before `real_stack` tests;
@@ -37,4 +37,4 @@ The exact mapping of paths/risks to workflows is owned by `.github/workflows/` a
 
 Do not copy current pass counts, deselected-test inventories, dependency filenames, or workflow internals into this document. They become stale immediately and Git/pytest already provide that information.
 
-See root `AGENTS.md` and `docs/AGENT_EXECUTION_PLAYBOOK.md` for the repository-wide evidence ladder and definition of done.
+See root `AGENTS.md` for the repository-wide evidence ladder and definition of done, and `docs/README.md` for documentation authority.
