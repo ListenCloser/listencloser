@@ -2,14 +2,6 @@ name: E2E
 
 on:
   workflow_call:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - '*.md'
-      - 'docs/**'
-      - 'backend/**'
-      - 'supabase/**'
   push:
     branches: [main]
     paths-ignore:
@@ -19,12 +11,11 @@ on:
       - 'supabase/**'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
