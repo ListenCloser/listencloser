@@ -45,6 +45,7 @@ from domain.repositories import (
     WorkRepo,
     get_supabase,
 )
+from domain.storage_locator_policy import classify_version_storage_locator
 
 router = APIRouter(prefix="/api/v1")
 logger = logging.getLogger("domain.api")
@@ -303,6 +304,7 @@ async def get_work_bundle(
         snapshot = WorkBundleRepository(sb).load(work_id, owner_id)
         if not snapshot:
             raise HTTPException(status_code=404, detail="Work not found")
+        allowed_job_ids = {job.id for job in snapshot.jobs}
 
         items = []
         for artifact in snapshot.artifacts:
@@ -310,15 +312,33 @@ async def get_work_bundle(
             latest = versions[0] if versions else None
             signed_url = None
             if latest:
-                try:
-                    response = sb.storage.from_(latest.storage_bucket).create_signed_url(
-                        latest.storage_key, 3600
-                    )
-                    signed_url = _signed_url(response)
-                except Exception:
+                decision = classify_version_storage_locator(
+                    latest,
+                    owner_id=owner_id,
+                    project_id=snapshot.work.project_id,
+                    artifact_id=artifact.id,
+                    allowed_job_ids=allowed_job_ids,
+                )
+                if decision.trusted:
+                    try:
+                        response = sb.storage.from_(latest.storage_bucket).create_signed_url(
+                            latest.storage_key, 3600
+                        )
+                        signed_url = _signed_url(response)
+                    except Exception:
+                        logger.warning(
+                            "artifact_signed_url_failed",
+                            extra={"artifact_id": str(artifact.id), "version_id": str(latest.id)},
+                        )
+                else:
                     logger.warning(
-                        "artifact_signed_url_failed",
-                        extra={"artifact_id": str(artifact.id), "version_id": str(latest.id)},
+                        "artifact_storage_locator_rejected",
+                        extra={
+                            "artifact_id": str(artifact.id),
+                            "version_id": str(latest.id),
+                            "operation": "sign",
+                            "reason": decision.reason,
+                        },
                     )
             items.append(
                 {
@@ -343,6 +363,8 @@ async def delete_work(
     auth=Depends(verify_token),
 ):
     """Delete a work and its artifacts, versions, and storage objects."""
+    from domain.work_bundle_repository import WorkBundleRepository
+
     sb = _sb()
     owner_id = _owner_id(auth)
     try:
@@ -350,6 +372,10 @@ async def delete_work(
         work = work_repo.get(work_id, owner_id)
         if not work:
             raise HTTPException(status_code=404, detail="Work not found")
+        snapshot = WorkBundleRepository(sb).load(work_id, owner_id)
+        if not snapshot:
+            raise HTTPException(status_code=404, detail="Work not found")
+        allowed_job_ids = {job.id for job in snapshot.jobs}
 
         art_repo = ArtifactRepo(sb)
         ver_repo = VersionRepo(sb)
@@ -357,6 +383,24 @@ async def delete_work(
         for artifact in artifacts:
             versions = ver_repo.list_by_artifact(artifact.id, owner_id)
             for version in versions:
+                decision = classify_version_storage_locator(
+                    version,
+                    owner_id=owner_id,
+                    project_id=work.project_id,
+                    artifact_id=artifact.id,
+                    allowed_job_ids=allowed_job_ids,
+                )
+                if not decision.trusted:
+                    logger.warning(
+                        "artifact_storage_locator_rejected",
+                        extra={
+                            "artifact_id": str(artifact.id),
+                            "version_id": str(version.id),
+                            "operation": "delete",
+                            "reason": decision.reason,
+                        },
+                    )
+                    continue
                 try:
                     sb.storage.from_(version.storage_bucket).remove([version.storage_key])
                 except Exception:
@@ -677,6 +721,8 @@ async def get_version_resource(
     version_id: UUID,
     auth=Depends(verify_token),
 ):
+    from domain.work_bundle_repository import WorkBundleRepository
+
     sb = _sb()
     owner_id = _owner_id(auth)
 
@@ -687,6 +733,27 @@ async def get_version_resource(
         artifact = ArtifactRepo(sb).get(version.artifact_id, owner_id)
         if not artifact:
             raise HTTPException(status_code=404, detail="Artifact not found")
+        snapshot = WorkBundleRepository(sb).load(artifact.work_id, owner_id)
+        if not snapshot:
+            raise HTTPException(status_code=404, detail="Work not found")
+        decision = classify_version_storage_locator(
+            version,
+            owner_id=owner_id,
+            project_id=snapshot.work.project_id,
+            artifact_id=artifact.id,
+            allowed_job_ids={job.id for job in snapshot.jobs},
+        )
+        if not decision.trusted:
+            logger.warning(
+                "artifact_storage_locator_rejected",
+                extra={
+                    "artifact_id": str(artifact.id),
+                    "version_id": str(version.id),
+                    "operation": "sign",
+                    "reason": decision.reason,
+                },
+            )
+            raise HTTPException(status_code=409, detail="Version storage resource is unavailable")
         response = sb.storage.from_(version.storage_bucket).create_signed_url(
             version.storage_key, 3600
         )
