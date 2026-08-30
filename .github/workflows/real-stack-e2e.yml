@@ -15,9 +15,11 @@ on:
       - 'package-lock.json'
       - 'next.config.mjs'
       - 'tsconfig.json'
-      - 'tests/e2e/real-stack-workflow.spec.ts'
       - 'tests/e2e/real-stack-golden.spec.ts'
       - 'playwright.realstack.config.ts'
+
+permissions:
+  contents: read
 
 concurrency:
   group: real-stack-e2e-${{ github.ref }}
@@ -48,9 +50,11 @@ jobs:
           SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
           SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
           SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
-          echo "SUPABASE_URL=$SUPABASE_URL" >> "$GITHUB_ENV"
-          echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> "$GITHUB_ENV"
-          echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          {
+            echo "SUPABASE_URL=$SUPABASE_URL"
+            echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
 
       - name: Build production backend image for the real stack
         run: docker build --tag listencloser-real-stack-backend backend
@@ -108,7 +112,7 @@ jobs:
 
       - name: Wait for the stack to come up
         run: |
-          for i in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl -sf http://127.0.0.1:8000/health/live > /dev/null \
               && curl -sf http://127.0.0.1:8000/health/queue | grep -q '"status":"ready"' \
               && curl -sf http://localhost:3000 > /dev/null; then
