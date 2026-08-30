@@ -24,23 +24,23 @@ These are targets, not guarantees. The repository must not claim the RPO is met 
 
 Supabase database backups do not contain the bytes stored in Storage. A usable recovery therefore needs both:
 
-1. **Database state** — roles, schema, table data, Auth users, Storage metadata, and migration history.
+1. **Database state** — roles, application schema, table data, Auth users, Storage metadata, migration history, plus the separately captured custom `auth`/`storage` schema overlay.
 2. **Storage bytes** — every object in every current bucket.
 
-Current Supabase platform-to-self-hosted guidance says the standard three-file CLI dump preserves `auth.users`. The capture script verifies that claim against the produced `data.sql` whenever Auth rows exist; it also verifies that Storage object metadata is present. If either invariant stops holding after a CLI/platform change, backup capture fails instead of producing a misleading `BACKUP_COMPLETE` marker.
+Current Supabase backup/restore guidance says the standard three-file CLI dump preserves `auth.users`, while custom changes inside the provider-managed `auth` and `storage` schemas (for example RLS policies or triggers) must be restored separately. The capture script verifies that Auth/Storage metadata are actually present in `data.sql` whenever those tables are non-empty and captures the provider-recommended `auth,storage` schema diff as `auth_storage_changes.sql`. If those invariants stop holding after a CLI/platform change, backup capture fails instead of producing a misleading `BACKUP_COMPLETE` marker.
 
 Provider documentation:
 
-- https://supabase.com/docs/guides/self-hosting/restore-from-platform
 - https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore
-- https://supabase.com/docs/guides/storage/management/download-objects
+- https://supabase.com/docs/reference/cli/supabase-db-diff
+- https://supabase.com/docs/reference/cli/supabase-storage-cp
 
 ## Capture a private recovery bundle
 
 Prerequisites:
 
 - Supabase CLI **2.113.0** (kept aligned with real-stack CI);
-- Docker, because `supabase db dump` runs `pg_dump` in a Supabase container;
+- Docker, because `supabase db dump` and `supabase db diff` use containerized database tooling;
 - `psql`;
 - Python 3;
 - a Supabase personal access token with access to the project;
@@ -69,8 +69,9 @@ The script:
 - emits separate roles/schema/data and migration-history SQL files;
 - checks that a non-empty Auth schema actually appears in the data dump;
 - checks that non-empty Storage metadata actually appears in the data dump;
+- captures custom `auth`/`storage` schema changes as `database/auth_storage_changes.sql` from a migration-free temporary Supabase workdir;
 - queries the live bucket inventory instead of keeping a hard-coded bucket list;
-- copies every object from every current bucket with the linked Supabase Storage CLI;
+- copies every object from every current bucket with the linked Supabase Storage CLI using its canonical `ss:///bucket` path form;
 - verifies copied object counts and byte totals when Storage metadata has sizes for every object;
 - writes SHA-256 hashes for every SQL file and Storage object into a **private** manifest;
 - writes `BACKUP_COMPLETE` only after every required step passes.
@@ -79,7 +80,9 @@ The bundle contains user data, Auth records, object paths, and object bytes. Tre
 
 A successful local capture is not yet a disaster-recovery backup. Move the completed bundle to the approved off-site destination outside the Supabase project/provider failure domain, then verify that destination independently.
 
-## What is not captured by the database dump
+## What is not captured automatically
+
+The ordinary `schema.sql` intentionally does not own the provider-managed `auth` and `storage` schemas. `auth_storage_changes.sql` is the separate review-required overlay for custom policies, triggers, and similar schema changes. Supabase documents limitations in schema diffing, including Storage bucket definitions, so the database `data.sql` plus the explicit bucket/object inventory remain the authority for bucket metadata and Storage content.
 
 Even when Auth users are present in the database dump, a replacement Supabase project still needs configuration recreated deliberately, including as applicable:
 
@@ -97,14 +100,15 @@ Do not copy secrets into the recovery bundle merely to make the runbook shorter.
 
 There is intentionally **no automated production restore command** in this repository. A destructive production restore requires owner review and provider-aware execution.
 
-The first proof must use an isolated local/self-hosted Supabase target with no production traffic or user content. Follow the current Supabase restore guide rather than inventing a restore order. At a high level:
+The first proof must use an isolated local/self-hosted or disposable Supabase target with no production traffic or user content. Follow the current Supabase restore guide rather than inventing a restore order. At a high level:
 
 ```text
 fresh isolated Supabase target
 → restore roles.sql + schema.sql + data.sql with ON_ERROR_STOP
-→ restore migration history
+→ review and apply auth_storage_changes.sql against the target's managed-schema versions
+→ restore migration history only after the actual schema state is verified
 → recreate required Auth/provider configuration with test credentials
-→ recreate/verify Storage buckets and upload backed-up object bytes
+→ verify/recreate Storage buckets and upload backed-up object bytes
 → verify hashes/counts
 → verify RLS/grants/security
 → verify Auth user count without exposing identities
@@ -115,7 +119,7 @@ fresh isolated Supabase target
 
 Supabase's current SQL restore sequence uses one transaction and disables triggers during the data load to avoid double-encryption. Follow the version-current provider instructions during the drill; do not paste a permanently frozen restore command into an emergency without checking the generated dump and target Postgres/Supabase versions first.
 
-If the restore requires editing generated SQL because managed Auth/Storage versions differ, record that as a failed portability assumption and update this runbook before declaring the drill successful.
+Do not blindly apply `auth_storage_changes.sql`: it is a migration-style diff against the CLI's fresh managed-schema baseline and must be reviewed against the actual restore target. If the overlay contains platform-version noise, misses a repository-owned policy/trigger, or requires manual editing, record that as a failed portability assumption and update the capture/restore contract before declaring the drill successful.
 
 ## Drill evidence
 
@@ -126,6 +130,7 @@ For each drill record only privacy-safe operational evidence in the repository/i
 - database size;
 - bucket/object counts and aggregate bytes;
 - restore start/end and total duration;
+- managed `auth`/`storage` overlay review/application result;
 - RLS/security verification result;
 - Auth count parity result;
 - Version/Storage lineage verification result;
@@ -140,6 +145,7 @@ Do not record user names, email addresses, filenames, raw object keys, tokens, p
 - Local bundle not copied off-site: RPO is not satisfied.
 - Database restored but Storage bytes missing: recovery is incomplete.
 - Storage bytes restored without matching authoritative Version metadata: recovery is incomplete.
+- Custom Auth/Storage schema changes not reproduced: recovery is incomplete even if rows were restored.
 - Auth users restored but provider configuration missing: sign-in recovery is incomplete.
 - Application Git rollback succeeds: says nothing about data recovery.
 - Never weaken RLS/grants or make buckets public to force a restore smoke to pass.
