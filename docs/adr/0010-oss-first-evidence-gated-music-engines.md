@@ -1,4 +1,4 @@
-# 0001: OSS-first, evidence-gated music engines
+# 0010: OSS-first, evidence-gated music engines
 
 Status: accepted
 Date: 2026-08-22

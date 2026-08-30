@@ -74,11 +74,12 @@ test.describe("shared musical selection (MSW)", () => {
     await expect(page.getByRole("region", { name: "Compare passages" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Use selection as reference" })).toHaveCount(0);
 
-    // 2. Piano Roll region stays highlighted
+    // 2. Piano Roll region stays highlighted. Assert the semantic selection
+    // marker rather than coupling behavior coverage to an exact paint opacity.
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await expect(
-      page.locator('[data-testid="piano-roll"] svg >> rect[fill="var(--accent)"][fill-opacity="0.1"]'),
+      page.locator('[data-testid="piano-roll"] [data-selection-range="true"]'),
     ).toBeVisible({ timeout: 10_000 });
 
     // 3. Score measures/region stay highlighted

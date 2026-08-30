@@ -62,6 +62,7 @@ subgraph lib["lib"]
   lib_job_tracking_ts["job-tracking.ts"]
   lib_measure_ts["measure.ts"]
   lib_midi_ts["midi.ts"]
+  lib_musicxml_cache_ts["musicxml-cache.ts"]
   lib_notes_ts["notes.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
   lib_query_client_ts["query-client.ts"]
@@ -99,11 +100,13 @@ app_page_tsx-->components_workspace_
 app_page_tsx-->lib_api_client_ts
 app_page_tsx-->lib_format_ts
 app_page_tsx-->lib_job_tracking_ts
+app_page_tsx-->lib_musicxml_cache_ts
 app_page_tsx-->lib_playback_sources_ts
 app_page_tsx-->lib_server_state_ts
 app_page_tsx-->lib_stores_
 app_page_tsx-->lib_supabase_ts
 components_AuthProvider_tsx-->lib_api_client_ts
+components_AuthProvider_tsx-->lib_musicxml_cache_ts
 components_AuthProvider_tsx-->lib_supabase_ts
 components_PianoRoll_tsx-->lib_notes_ts
 components_QueryProvider_tsx-->lib_query_client_ts
@@ -141,6 +144,8 @@ lib_ask_-->lib_representations_tsx
 lib_ask_-->lib_selection_ts
 lib_inspector_-->lib_format_ts
 lib_job_tracking_ts-->lib_api_client_ts
+lib_job_tracking_ts-->lib_query_client_ts
+lib_musicxml_cache_ts-->lib_query_client_ts
 lib_relation_api_client_ts-->lib_api_ts
 lib_representations_tsx-->components_PianoRoll_tsx
 lib_representations_tsx-->components_SheetMusic_tsx

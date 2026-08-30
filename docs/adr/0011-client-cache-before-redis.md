@@ -1,4 +1,4 @@
-# 0010: Prefer client cache boundaries before Redis
+# 0011: Prefer client cache boundaries before Redis
 
 Status: accepted
 Date: 2026-08-27

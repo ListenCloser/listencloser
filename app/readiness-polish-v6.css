@@ -3,6 +3,13 @@
  * and expose state without adding another application chrome layer.
  */
 
+/* The authenticated workspace intentionally has no top-left app mark. Keep the
+ * boot-shell header cell for layout continuity, but do not flash the decorative
+ * BrandMark while auth/library state resolves. Signed-out branding is separate. */
+.app-boot-header > svg {
+  display: none;
+}
+
 .library-import-status {
   margin-top: -2px;
   color: var(--v6-control-muted, #78736a);

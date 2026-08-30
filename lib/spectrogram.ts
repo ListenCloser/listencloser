@@ -53,6 +53,31 @@ export function frequencyToY(
   return height * (1 - ratio);
 }
 
+/**
+ * Return conventional 1-2-5 logarithmic ruler ticks within the measured band.
+ *
+ * These are presentation labels only; they do not alter spectrogram bins or
+ * imply analysis precision. The sequence stays easy to scan while remaining
+ * naturally spaced on the same logarithmic axis used by the raster.
+ */
+export function logarithmicFrequencyTicks(
+  minFrequency: number,
+  maxFrequency: number,
+): number[] {
+  if (minFrequency <= 0 || maxFrequency < minFrequency) return [];
+  const ticks: number[] = [];
+  const firstExponent = Math.floor(Math.log10(minFrequency)) - 1;
+  const lastExponent = Math.ceil(Math.log10(maxFrequency)) + 1;
+  for (let exponent = firstExponent; exponent <= lastExponent; exponent += 1) {
+    const scale = 10 ** exponent;
+    for (const multiplier of [1, 2, 5]) {
+      const frequency = multiplier * scale;
+      if (frequency >= minFrequency && frequency <= maxFrequency) ticks.push(frequency);
+    }
+  }
+  return [...new Set(ticks)].sort((left, right) => left - right);
+}
+
 /** Return FFT-bin indices that correspond to logarithmically spaced display rows. */
 export function logarithmicBinMap(
   bins: number,

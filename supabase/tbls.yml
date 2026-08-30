@@ -1,0 +1,9 @@
+name: Listen Closer application database
+desc: Generated from the fresh local Supabase/Postgres schema. Migrations are authoritative.
+requiredVersion: 1.95.0
+include:
+  - public.*
+format:
+  sort: true
+er:
+  format: mermaid
