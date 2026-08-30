@@ -42,15 +42,27 @@ select ok(
   'future public sequences require explicit grants'
 );
 
+-- Inspect the function ACL itself rather than effective privileges. Supabase's
+-- privileged service role can gain effective capability through platform role
+-- relationships; the fail-closed contract here is that creating a function does
+-- not automatically GRANT EXECUTE to PUBLIC or any Data API role.
 select ok(
   not exists (
     select 1
-    from (values ('anon'), ('authenticated'), ('service_role')) as roles(role_name)
-    where has_function_privilege(
-      roles.role_name,
-      'public.__default_grant_probe_fn()',
-      'EXECUTE'
-    )
+    from pg_proc p
+    cross join lateral aclexplode(
+      coalesce(p.proacl, acldefault('f', p.proowner))
+    ) as acl
+    where p.oid = 'public.__default_grant_probe_fn()'::regprocedure
+      and acl.privilege_type = 'EXECUTE'
+      and (
+        acl.grantee = 0
+        or acl.grantee in (
+          select oid
+          from pg_roles
+          where rolname in ('anon', 'authenticated', 'service_role')
+        )
+      )
   ),
   'future public functions require explicit grants'
 );
