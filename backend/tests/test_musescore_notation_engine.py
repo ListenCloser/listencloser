@@ -2,6 +2,8 @@ import json
 import pathlib
 import subprocess
 
+import pytest
+
 from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.registry import get_notation_engine
 
@@ -68,8 +70,6 @@ def test_musescore_adapter_isolated_headless_environment():
 
 
 def test_musescore_adapter_fails_closed_when_conversion_fails(monkeypatch):
-    import pytest
-
     engine = MuseScoreNotationEngine(executable="/opt/musescore/MuseScore-Studio.AppImage")
 
     def fail_run(args, **kwargs):
@@ -85,8 +85,6 @@ def test_musescore_adapter_fails_closed_when_conversion_fails(monkeypatch):
 
 
 def test_musescore_adapter_rejects_non_midi_input():
-    import pytest
-
     engine = MuseScoreNotationEngine(executable="/opt/musescore/MuseScore-Studio.AppImage")
 
     with pytest.raises(ValueError, match="must be a MIDI file"):
