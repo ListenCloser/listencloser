@@ -228,9 +228,8 @@ def _measurement_summary(measurement: RhythmDensityContextMeasurement) -> str:
 
 def _evidence_summary(measurement: RhythmDensityContextMeasurement) -> str:
     return (
-        f"Reference middle 50%: {measurement.reference_q1:.3g}–"
-        f"{measurement.reference_q3:.3g} events/beat. "
-        f"Empirical mid-rank percentile: {measurement.empirical_midrank_percentile:.1f}."
+        f"Middle half elsewhere in this Work: {measurement.reference_q1:.3g}–"
+        f"{measurement.reference_q3:.3g} events/beat."
     )
 
 
