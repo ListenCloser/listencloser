@@ -165,8 +165,9 @@ test("real audio golden path", async ({ page }) => {
   // ── Breakdown ────────────────────────────────────────────────────────
   await test.step("breakdown", async () => {
     await page.getByRole("tab", { name: "Breakdown" }).click();
-    // Verify analysis insights are present — "Key" confirms the factual context ran.
-    await expect(page.getByText("Key", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+    // Verify supported analysis reached Breakdown without requiring any one
+    // optional context detector (such as key) to produce a confident result.
+    await expect(page.getByRole("heading", { name: "What stands out" })).toBeVisible({ timeout: 30_000 });
   });
 
   // ── Annotations and Inspector ────────────────────────────────────────
