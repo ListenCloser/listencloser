@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { getAppQueryClient } from "@/lib/query-client";
+import { getQueryClient } from "@/lib/query-client";
 
 const MUSICXML_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -10,7 +10,7 @@ function musicXmlKey(versionId: string) {
 export async function getMusicXml(
   versionId: string,
   signedUrl: string,
-  queryClient: QueryClient = getAppQueryClient(),
+  queryClient: QueryClient = getQueryClient(),
 ): Promise<string> {
   return queryClient.fetchQuery({
     queryKey: musicXmlKey(versionId),
