@@ -16,11 +16,11 @@ describe("LibraryImportControl", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Import recording" }));
+    await user.click(screen.getByRole("button", { name: "Import audio" }));
     await user.click(screen.getByRole("button", { name: /Upload recording/ }));
     expect(onUpload).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole("button", { name: "Import recording" }));
+    await user.click(screen.getByRole("button", { name: "Import audio" }));
     await user.click(screen.getByRole("button", { name: /Explore public library/ }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Für Elise")).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe("LibraryImportControl", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Import recording" }));
+    await user.click(screen.getByRole("button", { name: "Import audio" }));
     await user.click(screen.getByRole("button", { name: /Explore public library/ }));
     await user.type(
       screen.getByRole("searchbox", { name: "Search public recordings" }),
@@ -65,6 +65,6 @@ describe("LibraryImportControl", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Import recording" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Import audio" })).toBeDisabled();
   });
 });
