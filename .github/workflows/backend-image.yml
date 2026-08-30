@@ -32,7 +32,7 @@ jobs:
           test "$(printf '%s\n' "$images" | sed '/^$/d' | wc -l)" -eq 1
           grep -Fq "$BACKEND_IMAGE" <<<"$images"
           grep -Fq "NUMBA_CACHE_DIR: $NUMBA_CACHE_DIR" /tmp/hello-ai-compose.yml
-      - name: Validate preseed happens before live worker switch
+      - name: Validate rollback preseed remains before live worker switch
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -64,7 +64,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production backend image natively
         run: docker build --tag hello-ai-backend:${{ matrix.arch }} backend
-      - name: Measure persistent Numba cache across fresh native containers
+      - name: Verify promoted Beat This checkpoint loads in production image
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker run --rm \
+            --entrypoint python \
+            "hello-ai-backend:${ARCH}" \
+            -c 'from engines.beats.beat_this_engine import BeatThisEngine, prewarm_beat_this_model; e=BeatThisEngine(); prewarm_beat_this_model(); assert e.provenance.model == "final0"; assert e.provenance.parameters["checkpoint"] == "final0"'
+      - name: Measure persistent Numba cache for explicit librosa rollback
         env:
           ARCH: ${{ matrix.arch }}
         run: |
@@ -85,6 +93,7 @@ jobs:
           run_probe() {
             local label="$1"
             docker run --rm \
+              -e BEAT_ENGINE=librosa \
               -e NUMBA_CACHE_DIR=/app/runtime/numba-cache \
               -v "$volume:/app/runtime/numba-cache" \
               --entrypoint python \
@@ -107,10 +116,10 @@ jobs:
           first = json.loads(sys.argv[1])
           second = json.loads(sys.argv[2])
           if first["cache_files"] <= 0 or second["cache_files"] <= 0:
-              raise SystemExit("Numba benchmark produced no persistent cache files")
+              raise SystemExit("Numba rollback benchmark produced no persistent cache files")
           record = {
               "schema_version": 1,
-              "scenario": "native_numba_cache_persistence",
+              "scenario": "librosa_rollback_numba_cache_persistence",
               "thresholds_enforced": False,
               "arch": os.environ["ARCH"],
               "first_fresh_container": first,
@@ -121,7 +130,7 @@ jobs:
           path.write_text(output)
           print(output, end="")
           PY
-      - name: Upload native Numba cache benchmark
+      - name: Upload librosa rollback Numba cache benchmark
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: numba-cache-${{ matrix.arch }}-${{ github.run_attempt }}
