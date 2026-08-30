@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -156,15 +156,17 @@ describe("AskPanel blocked action help", () => {
     expect(blockedReference).not.toHaveAttribute("title");
     expect(blockedAction).not.toHaveAttribute("title");
 
+    act(() => blockedReference.focus());
+    expect(blockedReference).toHaveFocus();
+    await waitFor(() => expect(blockedReference.getAttribute("aria-describedby")).toBeTruthy());
     const referenceDescription = blockedReference.getAttribute("aria-describedby");
-    const actionDescription = blockedAction.getAttribute("aria-describedby");
-    expect(referenceDescription).toBeTruthy();
-    expect(actionDescription).toBeTruthy();
     expect(document.getElementById(referenceDescription!)).toHaveTextContent("This reference uses a different timeline than the active source.");
-    expect(document.getElementById(actionDescription!)).toHaveTextContent("This matches a different timeline than the active source.");
 
-    blockedAction.focus();
+    act(() => blockedAction.focus());
     expect(blockedAction).toHaveFocus();
+    await waitFor(() => expect(blockedAction.getAttribute("aria-describedby")).toBeTruthy());
+    const actionDescription = blockedAction.getAttribute("aria-describedby");
+    expect(document.getElementById(actionDescription!)).toHaveTextContent("This matches a different timeline than the active source.");
 
     const positionBefore = transportStore!.transport.position;
     expect(transportStore!.transport.loopEnabled).toBe(false);

@@ -93,8 +93,11 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(playBtn).toBeFocused();
     await expect(page.getByRole("tooltip", { name: "Play recording" })).toBeVisible();
 
+    // Radix dismisses a tooltip when its trigger is activated. Re-enter the
+    // trigger before asserting the help for its newly toggled action.
     await loopBtn.click();
     await expect(loopBtn).toHaveAttribute("aria-pressed", "true");
+    await page.mouse.move(0, 0);
     await loopBtn.hover();
     await expect(page.getByRole("tooltip", { name: "Turn loop off" })).toBeVisible();
   });
