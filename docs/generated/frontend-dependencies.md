@@ -141,6 +141,7 @@ lib_ask_-->lib_representations_tsx
 lib_ask_-->lib_selection_ts
 lib_inspector_-->lib_format_ts
 lib_job_tracking_ts-->lib_api_client_ts
+lib_job_tracking_ts-->lib_query_client_ts
 lib_relation_api_client_ts-->lib_api_ts
 lib_representations_tsx-->components_PianoRoll_tsx
 lib_representations_tsx-->components_SheetMusic_tsx
