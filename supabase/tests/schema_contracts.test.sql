@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(19);
 
 select ok(
   to_regclass('public.jobs') is not null,
@@ -117,6 +117,35 @@ select ok(
       and public = false
   ),
   'artifacts storage bucket remains private'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'artifacts owner select'
+      and cmd = 'SELECT'
+      and roles::text[] = array['authenticated']::text[]
+      and qual not ilike '%auth.role%'
+      and qual ilike '%storage.foldername%'
+  ),
+  'artifacts select targets authenticated directly and retains owner scoping'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'artifacts owner insert'
+      and cmd = 'INSERT'
+      and roles::text[] = array['authenticated']::text[]
+      and with_check ilike '%storage.foldername%'
+  ),
+  'artifacts insert remains authenticated and owner scoped'
 );
 
 select ok(
