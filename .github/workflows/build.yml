@@ -9,6 +9,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -140,7 +143,6 @@ jobs:
     if: github.event_name != 'push' && needs.classify.outputs.ci == 'true'
     needs: classify
     uses: ./.github/workflows/ci.yml
-    secrets: inherit
 
   docs:
     if: github.event_name != 'push' && needs.classify.outputs.docs == 'true'
@@ -170,25 +172,24 @@ jobs:
     if: github.event_name != 'push' && needs.classify.outputs.e2e == 'true'
     needs: classify
     uses: ./.github/workflows/e2e.yml
-    secrets: inherit
+    secrets:
+      NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+      ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
 
   real-stack:
     if: github.event_name != 'push' && needs.classify.outputs.real_stack == 'true'
     needs: classify
     uses: ./.github/workflows/real-stack-e2e.yml
-    secrets: inherit
 
   database:
     if: github.event_name != 'push' && needs.classify.outputs.database == 'true'
     needs: classify
     uses: ./.github/workflows/database-integration.yml
-    secrets: inherit
 
   backend-image:
     if: github.event_name != 'push' && needs.classify.outputs.backend_image == 'true'
     needs: classify
     uses: ./.github/workflows/backend-image.yml
-    secrets: inherit
 
   codeql:
     if: github.event_name != 'push'
@@ -198,13 +199,11 @@ jobs:
       contents: read
       security-events: write
     uses: ./.github/workflows/codeql.yml
-    secrets: inherit
 
   gitleaks:
     if: github.event_name != 'push'
     needs: classify
     uses: ./.github/workflows/gitleaks.yml
-    secrets: inherit
 
   dependency-review:
     if: github.event_name == 'pull_request'
@@ -213,7 +212,6 @@ jobs:
       contents: read
       pull-requests: write
     uses: ./.github/workflows/dependency-review.yml
-    secrets: inherit
 
   build:
     name: build
