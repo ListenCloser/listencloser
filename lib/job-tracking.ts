@@ -104,7 +104,7 @@ export async function waitForJob(
 
   return new Promise<JobStatus>((resolve, reject) => {
     let settled = false;
-    let unsubscribe = () => undefined;
+    let unsubscribe: () => void = () => undefined;
 
     const cleanup = () => {
       signal?.removeEventListener("abort", onAbort);
@@ -129,25 +129,26 @@ export async function waitForJob(
 
       if (result.isSuccess && result.data && state.dataUpdateCount > lastDataUpdateCount) {
         lastDataUpdateCount = state.dataUpdateCount;
+        const job = result.data;
 
         try {
-          onUpdate(result.data);
+          onUpdate(job);
         } catch (error) {
           settle(() => reject(error));
           return;
         }
 
-        if (result.data.stage === "succeeded") {
-          settle(() => resolve(result.data));
+        if (job.stage === "succeeded") {
+          settle(() => resolve(job));
           return;
         }
-        if (result.data.stage === "failed" || result.data.stage === "cancelled") {
+        const stage = job.stage;
+        if (stage === "failed" || stage === "cancelled") {
           settle(() =>
             reject(
               new JobTerminalError(
-                sanitizeJobError(result.data.error || result.data.message) ||
-                  `${result.data.capability} ${result.data.stage}`,
-                result.data.stage,
+                sanitizeJobError(job.error || job.message) || `${job.capability} ${stage}`,
+                stage,
               ),
             ),
           );
