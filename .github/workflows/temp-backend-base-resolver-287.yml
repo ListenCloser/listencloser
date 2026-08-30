@@ -1,5 +1,6 @@
 name: Temporary lightweight backend dependency resolver
 
+# Temporary characterization only; delete before opening the implementation PR.
 on:
   push:
     branches: [devex/backend-worker-dependency-group-287]
