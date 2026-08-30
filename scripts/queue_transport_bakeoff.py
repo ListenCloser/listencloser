@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare hello-ai's current queue claim pattern with pgmq on local Postgres.
+"""Compare listencloser's current queue claim pattern with pgmq on local Postgres.
 
 This is an evaluation tool, not a production queue implementation. By default it
 refuses non-local database URLs so a benchmark cannot accidentally create queues
@@ -289,7 +289,7 @@ def run_bakeoff(
     assert_safe_database(db_url, allow_remote=allow_remote)
 
     suffix = uuid4().hex[:10]
-    queue_name = f"hello_ai_bakeoff_{suffix}"
+    queue_name = f"listencloser_bakeoff_{suffix}"
     table_name = f"queue_bakeoff_jobs_{suffix}"
 
     _create_pgmq_queue(db_url, queue_name)

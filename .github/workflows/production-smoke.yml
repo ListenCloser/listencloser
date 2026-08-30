@@ -148,7 +148,7 @@ jobs:
       - name: Wait for exact backend release when backend deploys
         if: steps.scope.outputs.backend == 'true'
         env:
-          PROD_URL: https://hello-ai-wheat.vercel.app
+          PROD_URL: https://listen-closer.vercel.app
           EXPECTED_RELEASE: ${{ github.sha }}
         run: |
           python3 - <<'PY'
@@ -185,7 +185,7 @@ jobs:
 
       - name: Verify production alias and backend dependencies without mutations
         env:
-          PROD_URL: https://hello-ai-wheat.vercel.app
+          PROD_URL: https://listen-closer.vercel.app
           EXPECTED_RELEASE: ${{ github.sha }}
           REQUIRE_EXACT_BACKEND_RELEASE: ${{ steps.scope.outputs.backend }}
         run: |

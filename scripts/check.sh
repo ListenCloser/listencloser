@@ -126,7 +126,7 @@ run_e2e() {
 }
 
 echo "══════════════════════════════════════════"
-echo "  hello-ai — $MODE check"
+echo "  listencloser — $MODE check"
 echo "══════════════════════════════════════════"
 
 case "$MODE" in

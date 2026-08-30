@@ -14,10 +14,10 @@ from music_features import (
     transcribe_with_engine,
 )
 
-OUTPUT_DIR = Path("/Users/giancarloricci/hello-ai/backend/evaluation/reports/engine_comparison")
+OUTPUT_DIR = Path("/Users/giancarloricci/listencloser/backend/evaluation/reports/engine_comparison")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-FIXTURE_PATH = Path("/Users/giancarloricci/hello-ai/tests/fixtures/real-piano.m4a")
+FIXTURE_PATH = Path("/Users/giancarloricci/listencloser/tests/fixtures/real-piano.m4a")
 
 # Configure music21
 music21.environment.set("autoDownload", "allow")

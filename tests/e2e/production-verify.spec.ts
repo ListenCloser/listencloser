@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 
-const PROD_URL = "https://hello-ai-wheat.vercel.app";
+const PROD_URL = "https://listen-closer.vercel.app";
 const SUPABASE_PROJECT_REF = "cijhpddqvvzyzfzmkdnn";
 const REAL_AUDIO = "tests/fixtures/piano-simple.m4a";
 

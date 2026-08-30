@@ -2,7 +2,7 @@
 """Prove whether a Postgres trigger can atomically signal pgmq job delivery.
 
 Evaluation only. The prototype creates uniquely named scratch objects and refuses
-non-local databases by default. It never modifies hello-ai's production jobs
+non-local databases by default. It never modifies listencloser's production jobs
 table or installs anything in a remote project unless an operator explicitly
 passes ``--allow-remote`` for a disposable database.
 """
@@ -38,7 +38,7 @@ def _names() -> PrototypeNames:
         table=f"queue_signal_jobs_{suffix}",
         function=f"queue_signal_fn_{suffix}",
         trigger=f"queue_signal_trg_{suffix}",
-        queue=f"hello_ai_signal_{suffix}",
+        queue=f"listencloser_signal_{suffix}",
     )
 
 

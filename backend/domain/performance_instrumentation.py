@@ -70,7 +70,7 @@ def queue_wait_metric_attributes(capability: str) -> dict[str, str]:
 def _get_metrics() -> tuple[Any, Any, Any]:
     global _worker_performance_metrics
     if _worker_performance_metrics is None:
-        meter = metrics.get_meter("hello-ai-worker")
+        meter = metrics.get_meter("listencloser-worker")
         _worker_performance_metrics = (
             meter.create_histogram(
                 "hello_ai.worker.queue_wait",
@@ -233,7 +233,7 @@ def install_understand_instrumentation(capabilities: ModuleType) -> None:
     the same wrapped functions remain safe for standalone capabilities.
     """
 
-    if getattr(capabilities, "_hello_ai_understand_instrumented", False):
+    if getattr(capabilities, "_listencloser_understand_instrumented", False):
         return
 
     _install_operation_instrumentation(capabilities)
@@ -256,4 +256,4 @@ def install_understand_instrumentation(capabilities: ModuleType) -> None:
             _understand_active.reset(token)
 
     capabilities.handle_understand = instrumented_understand
-    capabilities._hello_ai_understand_instrumented = True
+    capabilities._listencloser_understand_instrumented = True

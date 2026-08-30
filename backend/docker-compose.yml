@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ${BACKEND_IMAGE:-hello-ai-backend:local}
+    image: ${BACKEND_IMAGE:-listencloser-backend:local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -21,7 +21,7 @@ services:
       HARMONY_ENGINE: lv_chordia
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
-      OTEL_SERVICE_NAME: hello-ai-api
+      OTEL_SERVICE_NAME: listencloser-api
       WORKER_HEALTH_FILE: /app/runtime/worker-heartbeat.json
     volumes:
       - worker-runtime:/app/runtime:ro
@@ -33,7 +33,7 @@ services:
       start_period: 30s
 
   worker:
-    image: ${BACKEND_IMAGE:-hello-ai-backend:local}
+    image: ${BACKEND_IMAGE:-listencloser-backend:local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -50,7 +50,7 @@ services:
       HARMONY_ENGINE: lv_chordia
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
-      OTEL_SERVICE_NAME: hello-ai-worker
+      OTEL_SERVICE_NAME: listencloser-worker
       WORKER_HEALTH_FILE: /app/runtime/worker-heartbeat.json
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
       NUMBA_CACHE_DIR: ${NUMBA_CACHE_DIR:-/app/runtime/numba-cache}
