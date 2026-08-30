@@ -28,6 +28,7 @@ export default function Spectrogram({
   focusedAnnotationId,
   onSeek,
   onSelect,
+  onClearSelection,
 }: {
   url: string;
   cacheIdentity?: string;
@@ -37,6 +38,7 @@ export default function Spectrogram({
   focusedAnnotationId?: string | null;
   onSeek?: (time: number) => void;
   onSelect?: (start: number, end: number) => void;
+  onClearSelection?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dataRef = useRef<SpectrogramData | null>(null);
@@ -208,7 +210,9 @@ export default function Spectrogram({
       return;
     }
     // Annotation overlays are deliberately non-interactive: a simple click
-    // always preserves this view's primary transport affordance.
+    // always preserves this view's primary transport affordance and leaves any
+    // previously selected passage before moving the playhead.
+    onClearSelection?.();
     onSeek?.(eventTime(event));
   };
 

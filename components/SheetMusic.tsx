@@ -27,6 +27,7 @@ type Props = {
   focusedAnnotationId?: string | null;
   onSeek?: (seconds: number) => void;
   onSelectMeasures?: (start: number, end: number) => void;
+  onClearSelection?: () => void;
   onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 };
 
@@ -98,6 +99,7 @@ export default function SheetMusic({
   focusedAnnotationId,
   onSeek,
   onSelectMeasures,
+  onClearSelection,
   onAnnotationClick,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -309,6 +311,11 @@ export default function SheetMusic({
       }
       return;
     }
+
+    // Score whitespace has no seek/select meaning. Treat it as a natural way
+    // to leave the current passage instead of keeping a sticky selection.
+    anchorMeasureRef.current = null;
+    onClearSelection?.();
   }
 
   if (!musicXml) {

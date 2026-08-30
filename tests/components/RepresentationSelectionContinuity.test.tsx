@@ -67,6 +67,25 @@ function RefreshControls() {
   );
 }
 
+function SelectionProbe() {
+  const { workspace, replaceRepresentations, setSelection } = useWorkspace();
+  return (
+    <>
+      <button type="button" onClick={() => replaceRepresentations([waveform])}>Open waveform</button>
+      <button
+        type="button"
+        onClick={() => setSelection({
+          timeRange: { start: 3, end: 7, domain: "performance" },
+          provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
+        })}
+      >
+        Select passage
+      </button>
+      <output data-testid="passage-scope">{workspace.selection?.timeRange ? "selected" : "none"}</output>
+    </>
+  );
+}
+
 describe("representation selection continuity", () => {
   it("does not let a newly available representation steal the active view", async () => {
     const user = userEvent.setup();
@@ -116,5 +135,23 @@ describe("representation selection continuity", () => {
     expect(screen.getByRole("tab", { name: "Piano Roll" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("piano-roll-view")).toBeVisible();
     expect(screen.getByTestId("shared-selection")).toHaveTextContent("piano_roll");
+  });
+
+  it("clears the shared passage with Escape", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider>
+        <RepresentationStack signedIn canImport />
+        <SelectionProbe />
+      </WorkspaceProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open waveform" }));
+    await screen.findByRole("tab", { name: "Waveform" });
+    await user.click(screen.getByRole("button", { name: "Select passage" }));
+    expect(screen.getByTestId("passage-scope")).toHaveTextContent("selected");
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByTestId("passage-scope")).toHaveTextContent("none");
   });
 });
