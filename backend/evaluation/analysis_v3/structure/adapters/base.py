@@ -72,7 +72,9 @@ class StructureAdapter:
         result.latency_seconds = round(time.monotonic() - start, 4)
         return result
 
-    def timed_analyze_many(self, audio_paths: list[str]) -> tuple[list[StructureResult], float]:
+    def timed_analyze_many(
+        self, audio_paths: list[str]
+    ) -> tuple[list[StructureResult], float]:
         """Run eligible tracks and return results plus total candidate wall time.
 
         For ordinary adapters, preserve the existing per-clip timing contract.
