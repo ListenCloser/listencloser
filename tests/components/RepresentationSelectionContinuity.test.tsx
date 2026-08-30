@@ -58,6 +58,7 @@ function RefreshControls() {
   const { workspace, replaceRepresentations } = useWorkspace();
   return (
     <>
+      <button type="button" onClick={() => replaceRepresentations([waveform])}>Waveform ready</button>
       <button type="button" onClick={() => replaceRepresentations([waveform, pianoRoll])}>Both ready</button>
       <button type="button" onClick={() => replaceRepresentations([waveform])}>Transient waveform only</button>
       <output data-testid="shared-selection">{workspace.activeRepresentation ?? "none"}</output>
@@ -66,6 +67,26 @@ function RefreshControls() {
 }
 
 describe("representation selection continuity", () => {
+  it("does not let a newly available representation steal the active view", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider>
+        <RepresentationStack signedIn canImport />
+        <RefreshControls />
+      </WorkspaceProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Waveform ready" }));
+    expect(await screen.findByRole("tab", { name: "Waveform" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("shared-selection")).toHaveTextContent("listen");
+
+    await user.click(screen.getByRole("button", { name: "Both ready" }));
+    expect(screen.getByRole("tab", { name: "Waveform" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Piano Roll" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByTestId("waveform-view")).toBeVisible();
+    expect(screen.getByTestId("shared-selection")).toHaveTextContent("listen");
+  });
+
   it("restores the user's Piano Roll choice after a transient processing poll omits it", async () => {
     const user = userEvent.setup();
     render(
