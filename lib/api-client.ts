@@ -111,17 +111,40 @@ function invalidateWorkCache(workId: string): void {
   }
 }
 
-function invalidateVersionWork(versionId: string): void {
-  const workId = versionWorkIndex.get(versionId);
-  if (workId) {
-    invalidateWorkCache(workId);
-    // A version's Work ownership is immutable. Keep the triggering relation so
-    // a failed workflow start can be retried without losing the ability to
-    // invalidate a source-only Work bundle cached between attempts.
-    versionWorkIndex.set(versionId, workId);
-    return;
+function invalidateVersionWorks(versionIds: readonly string[]): void {
+  const uniqueVersionIds = [...new Set(versionIds)];
+  const indexedWorks = uniqueVersionIds.map(
+    (versionId) => [versionId, versionWorkIndex.get(versionId)] as const,
+  );
+  const workIds = new Set<string>();
+
+  for (const [, workId] of indexedWorks) {
+    if (workId) workIds.add(workId);
   }
-  invalidateVersionData(versionId);
+  for (const workId of workIds) invalidateWorkCache(workId);
+
+  // Version→Work ownership is immutable. Restore every triggering relation
+  // after invalidating the Work so multi-version mutations on the same Work do
+  // not accidentally forget later inputs. Unknown versions still get their
+  // direct entity/insight generation invalidated.
+  for (const [versionId, workId] of indexedWorks) {
+    if (workId) versionWorkIndex.set(versionId, workId);
+    else invalidateVersionData(versionId);
+  }
+}
+
+async function mutateVersionWorks<T>(
+  versionIds: readonly string[],
+  mutation: () => Promise<T>,
+): Promise<T> {
+  // Invalidate before the mutation so an already-cached bundle cannot mask
+  // workflow creation. Invalidate again after the server commits because a
+  // Work fetch can begin while the mutation is in flight and return pre-commit
+  // state. That response must not become the stable post-mutation cache.
+  invalidateVersionWorks(versionIds);
+  const result = await mutation();
+  invalidateVersionWorks(versionIds);
+  return result;
 }
 
 function rememberUploadedVersion(result: { artifact: Artifact; version: Version }): { artifact: Artifact; version: Version } {
@@ -313,21 +336,16 @@ export async function startUnderstandWorkflow(
   projectId: string,
   transcriptionProfile?: string,
 ): Promise<{ workflow: Workflow; job: Job }> {
-  // Invalidate before the mutation so an already-cached source-only bundle
-  // cannot mask workflow creation. Invalidate again after the server commits:
-  // selecting the Work can start a fetch while this POST is in flight, and that
-  // pre-commit response must not become the stable bundle after creation.
-  invalidateVersionWork(versionId);
-  const result = await apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/understand", {
-    method: "POST",
-    body: JSON.stringify({
-      version_id: versionId,
-      project_id: projectId,
-      ...(transcriptionProfile ? { transcription_profile: transcriptionProfile } : {}),
+  return mutateVersionWorks([versionId], () =>
+    apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/understand", {
+      method: "POST",
+      body: JSON.stringify({
+        version_id: versionId,
+        project_id: projectId,
+        ...(transcriptionProfile ? { transcription_profile: transcriptionProfile } : {}),
+      }),
     }),
-  });
-  invalidateVersionWork(versionId);
-  return result;
+  );
 }
 
 export async function startVariationWorkflow(
@@ -335,15 +353,16 @@ export async function startVariationWorkflow(
   projectId: string,
   transposeSemitones: number,
 ): Promise<{ workflow: Workflow; job: Job }> {
-  invalidateVersionWork(versionId);
-  return apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/variation", {
-    method: "POST",
-    body: JSON.stringify({
-      version_id: versionId,
-      project_id: projectId,
-      transpose_semitones: transposeSemitones,
+  return mutateVersionWorks([versionId], () =>
+    apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/variation", {
+      method: "POST",
+      body: JSON.stringify({
+        version_id: versionId,
+        project_id: projectId,
+        transpose_semitones: transposeSemitones,
+      }),
     }),
-  });
+  );
 }
 
 export async function startCompareWorkflow(
@@ -351,16 +370,16 @@ export async function startCompareWorkflow(
   versionIdB: string,
   projectId: string,
 ): Promise<{ workflow: Workflow; job: Job }> {
-  invalidateVersionWork(versionIdA);
-  invalidateVersionWork(versionIdB);
-  return apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/compare", {
-    method: "POST",
-    body: JSON.stringify({
-      version_id_a: versionIdA,
-      version_id_b: versionIdB,
-      project_id: projectId,
+  return mutateVersionWorks([versionIdA, versionIdB], () =>
+    apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/compare", {
+      method: "POST",
+      body: JSON.stringify({
+        version_id_a: versionIdA,
+        version_id_b: versionIdB,
+        project_id: projectId,
+      }),
     }),
-  });
+  );
 }
 
 export async function getJob(jobId: string): Promise<JobStatus> {

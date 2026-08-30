@@ -67,8 +67,8 @@ def prepare_corpus(corpus: str, dataset: str | None = None) -> dict:
                 entry["note_count"] = len(notes)
 
             if resolved.beats_path:
-                beats = _read_beat_annotations(resolved.beats_path)
-                s_beats, s_dbs = slice_beat_annotations(beats, [], start, end)
+                beats, downbeats = _read_beat_annotations(resolved.beats_path)
+                s_beats, s_dbs = slice_beat_annotations(beats, downbeats, start, end)
                 ann_out = prepared_dir / f"{clip['id']}.beats.json"
                 ann_out.write_text(json.dumps({"beats": s_beats, "downbeats": s_dbs}))
                 entry["beats"] = str(ann_out)
@@ -97,21 +97,35 @@ def prepare_corpus(corpus: str, dataset: str | None = None) -> dict:
     return summary
 
 
-def _read_beat_annotations(path: str) -> list[float]:
-    """Read ASAP annotations.txt (beat times in the third column)."""
+def _read_beat_annotations(path: str) -> tuple[list[float], list[float]]:
+    """Read ASAP TSV annotations into all beat times and downbeat times.
+
+    ASAP stores the timestamp in columns 1 and 2 and the annotation label in
+    column 3. ``db`` is both a beat and a downbeat; ``bR`` remains a beat even
+    when the score does not admit a standard beat position.
+    """
     beats: list[float] = []
+    downbeats: list[float] = []
     with open(path) as fh:
         for line in fh:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            parts = line.split()
-            if len(parts) >= 3:
-                try:
-                    beats.append(float(parts[2]))
-                except ValueError:
-                    continue
-    return beats
+            parts = line.split("\t")
+            if len(parts) < 3:
+                parts = line.split(maxsplit=2)
+            if len(parts) < 3:
+                continue
+            try:
+                timestamp = float(parts[0])
+            except ValueError:
+                continue
+            label = parts[2].split(",", 1)[0].strip()
+            if label in {"b", "db", "bR"}:
+                beats.append(timestamp)
+            if label == "db":
+                downbeats.append(timestamp)
+    return beats, downbeats
 
 
 def main() -> None:

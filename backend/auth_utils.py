@@ -1,11 +1,23 @@
 import hashlib
+import logging
 import os
 import threading
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from httpx import RequestError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from supabase_auth.errors import (
+    AuthApiError,
+    AuthInvalidCredentialsError,
+    AuthInvalidJwtError,
+    AuthRetryableError,
+    AuthSessionMissingError,
+    AuthUnknownError,
+)
+
+logger = logging.getLogger("auth")
 
 
 def _rate_limit_identity(request: Request) -> str:
@@ -42,6 +54,52 @@ def get_supabase_client():
         return _sb_client
 
 
+def _provider_unavailable(exc: Exception) -> bool:
+    if isinstance(exc, AuthRetryableError | AuthUnknownError | RequestError):
+        return True
+    return isinstance(exc, AuthApiError) and (exc.status == 429 or exc.status >= 500)
+
+
+def _invalid_auth_error(exc: Exception) -> bool:
+    if isinstance(
+        exc,
+        AuthInvalidCredentialsError | AuthInvalidJwtError | AuthSessionMissingError,
+    ):
+        return True
+    return isinstance(exc, AuthApiError) and not _provider_unavailable(exc)
+
+
+def _verify_supabase_token(sb, token: str, *, optional: bool):
+    try:
+        return sb.auth.get_user(token)
+    except Exception as exc:
+        if _provider_unavailable(exc):
+            logger.warning(
+                "Authentication provider unavailable during token verification: %s",
+                type(exc).__name__,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication service unavailable",
+            ) from None
+        if _invalid_auth_error(exc):
+            if optional:
+                return None
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+            ) from None
+
+        logger.error(
+            "Unexpected authentication verification failure: %s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication verification failed",
+        ) from None
+
+
 def verify_token(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
     if not credentials:
         raise HTTPException(
@@ -51,14 +109,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials | None = Depends(secu
     sb = get_supabase_client()
     if not sb:
         raise HTTPException(status_code=500, detail="Auth not configured")
-    try:
-        user = sb.auth.get_user(credentials.credentials)
-        return user
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-        ) from None
+    return _verify_supabase_token(sb, credentials.credentials, optional=False)
 
 
 def verify_token_optional(
@@ -69,7 +120,4 @@ def verify_token_optional(
     sb = get_supabase_client()
     if not sb:
         return None
-    try:
-        return sb.auth.get_user(credentials.credentials)
-    except Exception:
-        return None
+    return _verify_supabase_token(sb, credentials.credentials, optional=True)
