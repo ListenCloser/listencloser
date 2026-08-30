@@ -86,6 +86,22 @@ export function measureStructuralBox(group: SVGGraphicsElement): MeasureBox | nu
   }
 }
 
+/**
+ * Return one SVG-space footprint for a logical measure that may be represented
+ * by multiple VexFlow measure groups (for example treble + bass on grand staff).
+ *
+ * This is the geometry primitive selection/evidence overlays should consume.
+ * It deliberately unions the structural stave footprints instead of asking each
+ * staff group to own an independent overlay rectangle.
+ */
+export function unionMeasureStructuralBoxes(groups: SVGGraphicsElement[]): MeasureBox | null {
+  return unionBoxes(
+    groups
+      .map(measureStructuralBox)
+      .filter((box): box is MeasureBox => box !== null),
+  );
+}
+
 /** Client-space equivalent used by visual geometry, scrolling, and playback. */
 export function measureStructuralClientRect(group: SVGGraphicsElement): MeasureClientRect | null {
   const staveRects = staveGroups(group)

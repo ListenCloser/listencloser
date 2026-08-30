@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { measureGroupsForIndex } from "@/lib/measure";
+import { unionMeasureStructuralBoxes } from "@/lib/score-measure-geometry";
 
 function makeSvgWithGrandStaff(): SVGSVGElement {
   const NS = "http://www.w3.org/2000/svg";
@@ -32,6 +33,18 @@ function makeSvgWithGrandStaff(): SVGSVGElement {
   return svg;
 }
 
+function appendStave(
+  group: SVGGraphicsElement,
+  box: { x: number; y: number; width: number; height: number },
+): SVGGraphicsElement {
+  const NS = "http://www.w3.org/2000/svg";
+  const stave = document.createElementNS(NS, "g");
+  stave.classList.add("vf-stave");
+  stave.getBBox = vi.fn(() => box as DOMRect);
+  group.appendChild(stave);
+  return stave;
+}
+
 describe("measureGroupsForIndex (grand-staff)", () => {
   it("returns two groups for a logical measure on grand-staff", () => {
     const svg = makeSvgWithGrandStaff();
@@ -59,66 +72,54 @@ describe("measureGroupsForIndex (grand-staff)", () => {
   });
 });
 
-describe("per-group highlight insertion (grand-staff)", () => {
-  it("inserts one rect per staff group, each using that group's own bbox", () => {
+describe("logical grand-staff measure geometry", () => {
+  it("unions treble and bass groups into one logical measure box", () => {
     const svg = makeSvgWithGrandStaff();
     const groups = measureGroupsForIndex(svg, 0);
-    expect(groups).toHaveLength(2);
 
-    // Mock getBBox to return distinct values per group
-    const bboxes = [
-      { x: 10, y: 20, width: 100, height: 30 },
-      { x: 10, y: 60, width: 100, height: 30 },
-    ];
-    groups[0].getBBox = vi.fn(() => bboxes[0] as DOMRect);
-    groups[1].getBBox = vi.fn(() => bboxes[1] as DOMRect);
+    groups[0].getBBox = vi.fn(() => ({ x: 10, y: 20, width: 100, height: 30 }) as DOMRect);
+    groups[1].getBBox = vi.fn(() => ({ x: 10, y: 60, width: 100, height: 30 }) as DOMRect);
 
-    const NS = "http://www.w3.org/2000/svg";
-    for (const group of groups) {
-      const box = group.getBBox();
-      if (box.width === 0 && box.height === 0) continue;
-      const rect = document.createElementNS(NS, "rect");
-      rect.setAttribute("data-playback-highlight", "true");
-      rect.setAttribute("x", String(box.x));
-      rect.setAttribute("y", String(box.y));
-      rect.setAttribute("width", String(box.width));
-      rect.setAttribute("height", String(box.height));
-      group.insertBefore(rect, group.firstChild);
-    }
-
-    // Each group should have exactly one highlight rect
-    const rects0 = groups[0].querySelectorAll("[data-playback-highlight]");
-    const rects1 = groups[1].querySelectorAll("[data-playback-highlight]");
-    expect(rects0).toHaveLength(1);
-    expect(rects1).toHaveLength(1);
-
-    // Each rect should use its own group's bbox coordinates
-    expect(rects0[0].getAttribute("y")).toBe("20");
-    expect(rects0[0].getAttribute("height")).toBe("30");
-    expect(rects1[0].getAttribute("y")).toBe("60");
-    expect(rects1[0].getAttribute("height")).toBe("30");
+    expect(unionMeasureStructuralBoxes(groups)).toEqual({
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 70,
+    });
   });
 
-  it("does not insert rect when bbox is zero-area", () => {
+  it("ignores zero-area groups rather than creating duplicate or degenerate overlay geometry", () => {
     const svg = makeSvgWithGrandStaff();
     const groups = measureGroupsForIndex(svg, 0);
 
     groups[0].getBBox = vi.fn(() => ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect);
     groups[1].getBBox = vi.fn(() => ({ x: 10, y: 60, width: 100, height: 30 }) as DOMRect);
 
-    const NS = "http://www.w3.org/2000/svg";
-    let inserted = 0;
-    for (const group of groups) {
-      const box = group.getBBox();
-      if (box.width === 0 && box.height === 0) continue;
-      const rect = document.createElementNS(NS, "rect");
-      rect.setAttribute("data-playback-highlight", "true");
-      group.insertBefore(rect, group.firstChild);
-      inserted += 1;
-    }
+    expect(unionMeasureStructuralBoxes(groups)).toEqual({
+      x: 10,
+      y: 60,
+      width: 100,
+      height: 30,
+    });
+  });
 
-    expect(inserted).toBe(1);
-    expect(groups[0].querySelectorAll("[data-playback-highlight]")).toHaveLength(0);
-    expect(groups[1].querySelectorAll("[data-playback-highlight]")).toHaveLength(1);
+  it("uses stave geometry instead of tie/slur-inflated measure descendants", () => {
+    const svg = makeSvgWithGrandStaff();
+    const groups = measureGroupsForIndex(svg, 0);
+
+    appendStave(groups[0], { x: 12, y: 20, width: 96, height: 50 });
+    appendStave(groups[1], { x: 12, y: 90, width: 96, height: 50 });
+
+    // Simulate ties/slurs/lyrics expanding each enclosing measure bbox. The
+    // logical overlay must remain based on the stave footprints above.
+    groups[0].getBBox = vi.fn(() => ({ x: 0, y: 0, width: 150, height: 100 }) as DOMRect);
+    groups[1].getBBox = vi.fn(() => ({ x: 0, y: 70, width: 150, height: 100 }) as DOMRect);
+
+    expect(unionMeasureStructuralBoxes(groups)).toEqual({
+      x: 12,
+      y: 17,
+      width: 96,
+      height: 126,
+    });
   });
 });
