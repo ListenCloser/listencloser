@@ -202,7 +202,7 @@ export default function AskPanel() {
         {conversation.length === 0 && (
           <div className="ask-empty">
             <strong>Ask about the current music</strong>
-            <p>Questions are grounded in analysis currently available for this recording and selection.</p>
+            <p>Ask about harmony, rhythm, structure, or a selected passage. Answers use the evidence currently available for this recording.</p>
             {starterPrompts.length > 0 && (
               <div className="ask-prompts">
                 {starterPrompts.map((prompt) => (
@@ -254,8 +254,14 @@ export default function AskPanel() {
           disabled={!activeWorkId}
           aria-label="Ask about the music"
         />
-        <button type="submit" className="ask-send" disabled={pending || !draft.trim()} aria-label="Send question">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <button
+          type="submit"
+          className="ask-send"
+          style={{ borderRadius: 6 }}
+          disabled={pending || !draft.trim()}
+          aria-label="Send question"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ display: "block" }} aria-hidden="true">
             <path d="M3 8h9M8.5 3.5 13 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>

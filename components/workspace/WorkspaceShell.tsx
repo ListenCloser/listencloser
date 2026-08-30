@@ -4,7 +4,6 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { TransportProvider } from "@/lib/stores/transport";
 import { TimelineProvider } from "@/lib/stores/timeline";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
-import BrandMark from "@/components/BrandMark";
 import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
@@ -43,9 +42,7 @@ function WorkspaceContent({
   return (
     <div className="studio-shell studio-shell-v3">
       <header className="studio-header studio-header-v3">
-        <div className="studio-brand-lockup studio-brand-lockup-mark-only" aria-label="Music workspace">
-          <span className="studio-brand-mark" aria-hidden="true"><BrandMark size={21} /></span>
-        </div>
+        <div aria-hidden="true" />
 
         <div className="studio-header-spacer" aria-hidden="true" />
 

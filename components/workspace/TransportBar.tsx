@@ -222,7 +222,7 @@ export default function TransportBar() {
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
                 <rect x="3" y="5" width="10" height="6" rx="1.5" strokeDasharray="2 2" />
               </svg>
-              <span className="transport-ctrl-text">Region</span>
+              <span className="transport-ctrl-text">Loop selection</span>
             </button>
           </Tooltip>
         )}

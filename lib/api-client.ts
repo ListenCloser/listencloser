@@ -216,50 +216,13 @@ function rememberUploadedVersion(result: { artifact: Artifact; version: Version 
   return result;
 }
 
-async function uploadArtifactViaProxy(
-  projectId: string,
-  file: File,
-  workId?: string,
-): Promise<{ artifact: Artifact; version: Version }> {
-  const token = supabase
-    ? (await supabase.auth.getSession()).data.session?.access_token
-    : null;
-
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const formData = new FormData();
-  formData.append("file", file);
-  if (workId) formData.append("work_id", workId);
-
-  const res = await fetch(`/api/v1/projects/${projectId}/artifacts/upload`, {
-    method: "POST",
-    headers,
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const error =
-      typeof body === "object" && body !== null && "error" in body
-        ? (body as { error?: unknown }).error
-        : undefined;
-    throw new Error(typeof error === "string" ? error : `Upload failed: ${res.status}`);
-  }
-
-  return rememberUploadedVersion(await res.json());
-}
-
 export async function uploadArtifact(
   projectId: string,
   file: File,
   workId?: string,
 ): Promise<{ artifact: Artifact; version: Version }> {
   if (workId) invalidateWorkCache(cacheEpoch(), workId);
-  const directUploadEnabled = process.env.NEXT_PUBLIC_DIRECT_ARTIFACT_UPLOAD !== "false";
-  if (!directUploadEnabled || !supabase) {
-    return uploadArtifactViaProxy(projectId, file, workId);
-  }
+  if (!supabase) throw new Error("Supabase storage is not configured");
 
   const descriptor = {
     filename: file.name,
