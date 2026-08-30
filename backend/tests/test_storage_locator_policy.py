@@ -21,7 +21,9 @@ def ids():
     }
 
 
-def _version(ids, storage_key: str, *, job_id=None, created_by=None, bucket="artifacts") -> Version:
+def _version(
+    ids, storage_key: str, *, job_id=None, created_by=None, bucket="artifacts"
+) -> Version:
     return Version(
         artifact_id=ids["artifact"],
         storage_key=storage_key,
