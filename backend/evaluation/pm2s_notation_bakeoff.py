@@ -148,26 +148,54 @@ def diagnose_midi(midi_bytes: bytes) -> dict[str, int | float | None]:
     }
 
 
-def reference_grid_from_midi(midi_bytes: bytes) -> tuple[list[float], list[float]]:
-    """Derive a best-case beat/downbeat grid from the reference performance MIDI."""
+def reference_grid_from_midi(
+    midi_bytes: bytes,
+    *,
+    start: float | None = None,
+    end: float | None = None,
+) -> tuple[list[float], list[float]]:
+    """Derive a best-case beat/downbeat grid from the source performance MIDI.
+
+    When an excerpt window is supplied, the grid is derived *before* MIDI
+    excerpting, then clipped and rebased. This preserves MAESTRO's source tempo
+    map instead of pretending the excerpt has one fixed tempo.
+    """
+    if (start is None) != (end is None):
+        raise ValueError("start and end must be supplied together")
+    if start is not None and end is not None and (start < 0 or end <= start):
+        raise ValueError("grid slice requires 0 <= start < end")
+
     import pretty_midi
 
     midi = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
     beats = [float(value) for value in midi.get_beats()]
     downbeats = [float(value) for value in midi.get_downbeats()]
-    if len(beats) >= 2:
+    if len(beats) < 2:
+        total_time = float(midi.get_end_time())
+        _, tempi = midi.get_tempo_changes()
+        bpm = float(tempi[0]) if len(tempi) else 120.0
+        interval = 60.0 / max(bpm, 1e-6)
+        beats = []
+        value = 0.0
+        while value <= total_time + interval:
+            beats.append(value)
+            value += interval
+
+    if start is None or end is None:
         return beats, downbeats
 
-    total_time = float(midi.get_end_time())
-    _, tempi = midi.get_tempo_changes()
-    bpm = float(tempi[0]) if len(tempi) else 120.0
-    interval = 60.0 / max(bpm, 1e-6)
-    beats = []
-    value = 0.0
-    while value <= total_time + interval:
-        beats.append(value)
-        value += interval
-    return beats, downbeats
+    epsilon = 1e-6
+    excerpt_beats = [
+        value - start for value in beats if start - epsilon <= value <= end + epsilon
+    ]
+    excerpt_downbeats = [
+        value - start
+        for value in downbeats
+        if start - epsilon <= value <= end + epsilon
+    ]
+    if len(excerpt_beats) < 2:
+        raise ValueError("reference MIDI excerpt contains fewer than two beats")
+    return excerpt_beats, excerpt_downbeats
 
 
 def slice_performance_midi(midi_bytes: bytes, start: float, end: float) -> bytes:
@@ -217,11 +245,15 @@ def slice_performance_midi(midi_bytes: bytes, start: float, end: float) -> bytes
     return output.getvalue()
 
 
-def _current_score(performance_midi: bytes) -> dict[str, Any]:
+def _current_score(
+    performance_midi: bytes,
+    *,
+    reference_grid: tuple[list[float], list[float]] | None = None,
+) -> dict[str, Any]:
     from evaluation.notation_metrics import diagnose_musicxml
     from music_features import notation_with_engine
 
-    beats, downbeats = reference_grid_from_midi(performance_midi)
+    beats, downbeats = reference_grid or reference_grid_from_midi(performance_midi)
     started = time.perf_counter()
     result = notation_with_engine(
         performance_midi,
@@ -236,7 +268,9 @@ def _current_score(performance_midi: bytes) -> dict[str, Any]:
     musicxml = result["musicxml"]
     return {
         "status": "measured",
-        "grid_source": "reference_performance_midi_best_case",
+        "grid_source": "source_reference_performance_midi_best_case",
+        "grid_beat_count": len(beats),
+        "grid_downbeat_count": len(downbeats),
         "runtime_seconds": round(runtime, 4),
         "notation_midi_sha256": sha256_bytes(notation_midi),
         "midi_diagnostics": diagnose_midi(notation_midi),
@@ -320,10 +354,14 @@ def evaluate_pair(
     pm2s_python: str,
     pm2s_repo: str,
     product_baseline_sha: str | None = None,
+    current_reference_grid: tuple[list[float], list[float]] | None = None,
 ) -> dict[str, Any]:
     """Evaluate the same MIDI through current notation and isolated PM2S."""
     input_sha = sha256_bytes(performance_midi)
-    current = _current_score(performance_midi)
+    current = _current_score(
+        performance_midi,
+        reference_grid=current_reference_grid,
+    )
 
     try:
         candidate = _pm2s_score(
@@ -360,9 +398,10 @@ def evaluate_pair(
             "pm2s_checkpoint_urls": list(PM2S_WEIGHT_URLS),
             "pm2s_checkpoint_rights": "unverified; research/evaluation only",
             "interpretation": (
-                "Same performance MIDI is used for both paths. Current receives "
-                "a best-case grid derived from the reference performance MIDI; "
-                "PM2S predicts its own grid. No transcription/routing change is tested."
+                "Same excerpted performance MIDI is used for both paths. Current "
+                "receives a best-case beat/downbeat grid clipped and rebased from "
+                "the original source performance MIDI before excerpting; PM2S "
+                "predicts its own grid. No transcription/routing change is tested."
             ),
         },
     }
@@ -387,11 +426,22 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    midi_bytes = Path(args.input_midi).read_bytes()
+    source_midi_bytes = Path(args.input_midi).read_bytes()
+    midi_bytes = source_midi_bytes
+    current_reference_grid = None
     if args.start is not None or args.end is not None:
         if args.start is None or args.end is None:
             parser.error("--start and --end must be supplied together")
-        midi_bytes = slice_performance_midi(midi_bytes, args.start, args.end)
+        current_reference_grid = reference_grid_from_midi(
+            source_midi_bytes,
+            start=args.start,
+            end=args.end,
+        )
+        midi_bytes = slice_performance_midi(
+            source_midi_bytes,
+            args.start,
+            args.end,
+        )
 
     result = evaluate_pair(
         midi_bytes,
@@ -399,6 +449,7 @@ def main() -> None:
         pm2s_python=args.pm2s_python,
         pm2s_repo=args.pm2s_repo,
         product_baseline_sha=args.product_baseline_sha,
+        current_reference_grid=current_reference_grid,
     )
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
