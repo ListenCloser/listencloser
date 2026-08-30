@@ -28,6 +28,11 @@ export function buildPlaybackSources({
   if (score) {
     sources.push({ id: score.id, label: "Score", role: "score", url: score.url, kind: "audio" });
   }
-  const activeId = transcription?.id ?? original?.id ?? null;
+
+  // The uploaded recording is the stable product default. Derived sources are
+  // opt-in listening choices and representation tabs never choose them
+  // implicitly. If no Original exists, fall back to the first useful derived
+  // source so older/partial Works remain playable.
+  const activeId = original?.id ?? transcription?.id ?? score?.id ?? extraTakes[0]?.id ?? null;
   return { sources, activeId };
 }
