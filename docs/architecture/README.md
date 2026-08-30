@@ -2,7 +2,7 @@
 
 This directory describes the **currently shipped system**, not the target product architecture.
 
-Verified baseline: `main@e808e7077c3bf6272140e922a065ff50b4798aaf` (2026-08-30).
+Verified against current `main@0e35eb9c558f25e81030317b77483fb1d3f5c73e` (2026-08-30). The only change from the initial code-reading baseline was the docs-authority merge #641; runtime code did not change.
 
 ## Why this exists
 
@@ -15,6 +15,7 @@ A contributor should be able to answer the following without reconstructing the 
 - which OSS/models are used for which responsibility and what actually makes one production-safe;
 - how evaluation flows from dataset/baseline/metric to durable result and capability policy;
 - where production engine selection differs from library defaults;
+- how tested source becomes a deployed frontend/backend release;
 - which files are authoritative when documentation and code disagree.
 
 These documents are descriptive. If a diagram cannot be made truthful without inventing a clean boundary that does not exist in code, the ambiguity is an architecture finding rather than something to hide in the drawing.
@@ -29,6 +30,7 @@ These documents are descriptive. If a diagram cannot be made truthful without in
 | [Frontend components](frontend-components.md) | Workspace coordinator, API/data layer, representations, transport and Inspector |
 | [Data model](data-model.md) | Project/Work/Artifact/Version lineage plus evidence and durable execution |
 | [Understand sequence](dynamic-understand.md) | Import → persist → queue → execute → hydrate/reopen |
+| [Deployment topology](deployment.md) | Vercel, backend API/worker, Supabase, runtime policy and exact-release boundaries |
 | [OSS/model inventory](oss-inventory.md) | Framework/model responsibility map without duplicating lockfile versions |
 | [Evaluation architecture](evaluation.md) | Dataset → exact baseline/candidate → metric → result → product decision |
 | [Control plane](control-plane.md) | Local checks, CI evidence tiers, build/deploy/smoke boundary |
