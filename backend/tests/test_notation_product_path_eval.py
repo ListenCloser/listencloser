@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pretty_midi
 import pytest
-
 from evaluation import models, notation_eval
 
 
