@@ -52,19 +52,22 @@ jobs:
         run: npx wait-on http://localhost:3000
       - name: Run E2E tests
         run: npx playwright test tests/e2e
-      - name: Run visual regression tests
-        continue-on-error: true
+      - name: Run visual review captures
         run: npx playwright test tests/visual
-        env:
-          ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
       - name: Upload visual review screenshots
         if: always() && github.event_name == 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: visual-review-screenshots-${{ github.run_attempt }}
-          path: visual-review-screenshots/
-          if-no-files-found: ignore
+          path: screenshots/
+          if-no-files-found: error
           retention-days: 7
+      - name: Run hosted visual regression
+        if: success()
+        continue-on-error: true
+        run: npx playwright test tests/visual
+        env:
+          ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
       - name: Upload Playwright failure diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
