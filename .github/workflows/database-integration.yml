@@ -7,6 +7,8 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      - 'supabase/tbls.yml'
+      - 'docs/generated/database/**'
       - 'backend/domain/**'
       - 'backend/music_features.py'
       - 'backend/tests/integration/**'
@@ -46,6 +48,19 @@ jobs:
           supabase start
       - name: Verify database contracts with pgTAP
         run: supabase test db
+      - name: Install pinned tbls
+        run: |
+          set -euo pipefail
+          curl -fsSLo /tmp/tbls.tar.gz \
+            https://github.com/k1LoW/tbls/releases/download/v1.95.0/tbls_v1.95.0_linux_amd64.tar.gz
+          echo '035110bb1b5bc1b918c375e5bd7c2b5922c5f517cc0886e5bf4f867dfa836259  /tmp/tbls.tar.gz' | sha256sum --check -
+          tar -xzf /tmp/tbls.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/tbls /usr/local/bin/tbls
+          tbls version
+      - name: Verify generated database documentation
+        env:
+          TBLS_DSN: pg://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable
+        run: tbls diff "$TBLS_DSN" docs/generated/database --config supabase/tbls.yml
       - name: Sync locked backend environment
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
