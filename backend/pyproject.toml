@@ -14,7 +14,7 @@ dependencies = [
   "scipy==1.14.1",
   "numpy==1.26.4",
   "supabase==2.31.0",
-  "supabase-auth",
+  "supabase-auth==2.31.0",
   "sentry-sdk>=2.14.0",
   # OpenTelemetry 1.27+ moves generated protocol packages onto protobuf >=5,
   # which conflicts with Basic Pitch's TensorFlow runtime (protobuf <5).
