@@ -15,6 +15,9 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: (() => {
     const list: any[] = [process.env.CI ? ["dot"] : ["list"]];
+    if (process.env.CI) {
+      list.push(["./tests/visual/retain-screenshots-reporter.ts"]);
+    }
     if (process.env.ARGOS_TOKEN) {
       list.push([
         "@argos-ci/playwright/reporter",
