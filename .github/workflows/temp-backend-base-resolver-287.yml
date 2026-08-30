@@ -11,6 +11,8 @@ on:
       - 'backend/tests/test_engines/test_registry.py'
       - 'backend/tests/test_engines/test_lstom_smoke.py'
       - 'backend/tests/test_engines/test_harmony_melody_equivalence.py'
+      - 'backend/tests/test_engines/test_lv_chordia.py'
+      - 'backend/tests/test_worker_warmup.py'
 
 permissions:
   contents: write
