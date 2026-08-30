@@ -1,4 +1,7 @@
+import type { QueryKey } from "@tanstack/react-query";
+
 import { apiFetch } from "./api";
+import { getQueryClient } from "./query-client";
 import { supabase } from "./supabase";
 import type {
   Project,
@@ -21,64 +24,19 @@ type UploadIntent = {
   max_bytes: number;
 };
 
-type CacheEntry<T> = {
-  value: T;
-  expiresAt: number;
-};
-
 const WORK_CACHE_TTL_MS = 5 * 60 * 1000;
-const workBundleCache = new Map<string, CacheEntry<WorkBundle>>();
-const workBundleInflight = new Map<string, Promise<WorkBundle>>();
-const entityCache = new Map<string, CacheEntry<Entity[]>>();
-const entityInflight = new Map<string, Promise<Entity[]>>();
-const insightCache = new Map<string, CacheEntry<Insight[]>>();
-const insightInflight = new Map<string, Promise<Insight[]>>();
-const versionWorkIndex = new Map<string, string>();
-const workCacheGeneration = new Map<string, number>();
-const versionCacheGeneration = new Map<string, number>();
-let cacheEpoch = 0;
 
-function readCache<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
-  const entry = cache.get(key);
-  if (!entry) return null;
-  if (entry.expiresAt <= Date.now()) {
-    cache.delete(key);
-    return null;
-  }
-  cache.delete(key);
-  cache.set(key, entry);
-  return entry.value;
-}
-
-function writeCache<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T): void {
-  cache.set(key, { value, expiresAt: Date.now() + WORK_CACHE_TTL_MS });
-}
-
-function generationFor(generations: Map<string, number>, key: string): number {
-  return generations.get(key) ?? 0;
-}
-
-function bumpGeneration(generations: Map<string, number>, key: string): void {
-  generations.set(key, generationFor(generations, key) + 1);
-}
-
-function generationIsCurrent(
-  epoch: number,
-  generations: Map<string, number>,
-  key: string,
-  generation: number,
-): boolean {
-  return cacheEpoch === epoch && generationFor(generations, key) === generation;
-}
+const workDataKeys = {
+  all: ["work-data"] as const,
+  works: ["work-data", "work"] as const,
+  work: (workId: string) => ["work-data", "work", workId] as const,
+  version: (versionId: string) => ["work-data", "version", versionId] as const,
+  entities: (versionId: string) => ["work-data", "version", versionId, "entities"] as const,
+  insights: (versionId: string) => ["work-data", "version", versionId, "insights"] as const,
+};
 
 function hasActiveJob(bundle: WorkBundle): boolean {
   return bundle.jobs.some((job) => ["queued", "claimed", "running"].includes(job.lifecycle.current));
-}
-
-function indexBundle(workId: string, bundle: WorkBundle): void {
-  for (const item of bundle.artifacts) {
-    for (const version of item.versions) versionWorkIndex.set(version.id, workId);
-  }
 }
 
 function currentMidiVersionId(bundle: WorkBundle): string | null {
@@ -92,85 +50,69 @@ function currentMidiVersionId(bundle: WorkBundle): string | null {
   return corrected?.latest_version?.id ?? null;
 }
 
-function invalidateVersionData(versionId: string): void {
-  bumpGeneration(versionCacheGeneration, versionId);
-  entityCache.delete(versionId);
-  entityInflight.delete(versionId);
-  insightCache.delete(versionId);
-  insightInflight.delete(versionId);
-}
-
-function invalidateWorkCache(workId: string): void {
-  bumpGeneration(workCacheGeneration, workId);
-  workBundleCache.delete(workId);
-  workBundleInflight.delete(workId);
-  for (const [versionId, indexedWorkId] of versionWorkIndex) {
-    if (indexedWorkId !== workId) continue;
-    versionWorkIndex.delete(versionId);
-    invalidateVersionData(versionId);
-  }
-}
-
-function invalidateVersionWorks(versionIds: readonly string[]): void {
-  const uniqueVersionIds = [...new Set(versionIds)];
-  const indexedWorks = uniqueVersionIds.map(
-    (versionId) => [versionId, versionWorkIndex.get(versionId)] as const,
+function bundleContainsVersion(bundle: WorkBundle, versionIds: Set<string>): boolean {
+  return bundle.artifacts.some((item) =>
+    item.versions.some((version) => versionIds.has(version.id))
+    || Boolean(item.latest_version && versionIds.has(item.latest_version.id)),
   );
+}
+
+async function discardQuery(queryKey: QueryKey): Promise<void> {
+  const queryClient = getQueryClient();
+  await queryClient.cancelQueries({ queryKey, exact: true });
+  queryClient.removeQueries({ queryKey, exact: true });
+}
+
+async function discardVersionData(versionId: string): Promise<void> {
+  await Promise.all([
+    discardQuery(workDataKeys.entities(versionId)),
+    discardQuery(workDataKeys.insights(versionId)),
+  ]);
+}
+
+async function discardWorkData(workId: string): Promise<void> {
+  const queryClient = getQueryClient();
+  const bundle = queryClient.getQueryData<WorkBundle>(workDataKeys.work(workId));
+  const versionIds = bundle?.artifacts.flatMap((item) => item.versions.map((version) => version.id)) ?? [];
+
+  await Promise.all([
+    discardQuery(workDataKeys.work(workId)),
+    ...versionIds.map(discardVersionData),
+  ]);
+}
+
+async function invalidateVersionWorks(versionIds: readonly string[]): Promise<void> {
+  const queryClient = getQueryClient();
+  const wanted = new Set(versionIds);
   const workIds = new Set<string>();
 
-  for (const [, workId] of indexedWorks) {
-    if (workId) workIds.add(workId);
+  for (const [, bundle] of queryClient.getQueriesData<WorkBundle>({ queryKey: workDataKeys.works })) {
+    if (bundle && bundleContainsVersion(bundle, wanted)) workIds.add(bundle.work.id);
   }
-  for (const workId of workIds) invalidateWorkCache(workId);
 
-  // Version→Work ownership is immutable. Restore every triggering relation
-  // after invalidating the Work so multi-version mutations on the same Work do
-  // not accidentally forget later inputs. Unknown versions still get their
-  // direct entity/insight generation invalidated.
-  for (const [versionId, workId] of indexedWorks) {
-    if (workId) versionWorkIndex.set(versionId, workId);
-    else invalidateVersionData(versionId);
-  }
+  await Promise.all([
+    ...[...workIds].map(discardWorkData),
+    ...versionIds.map(discardVersionData),
+  ]);
 }
 
 async function mutateVersionWorks<T>(
   versionIds: readonly string[],
   mutation: () => Promise<T>,
 ): Promise<T> {
-  // Invalidate before the mutation so an already-cached bundle cannot mask
-  // workflow creation. Invalidate again after the server commits because a
-  // Work fetch can begin while the mutation is in flight and return pre-commit
-  // state. That response must not become the stable post-mutation cache.
-  invalidateVersionWorks(versionIds);
+  // Cancel/remove before and after the mutation. Query functions consume the
+  // TanStack AbortSignal, so a pre-mutation response cannot become the stable
+  // post-mutation cache even when requests overlap.
+  await invalidateVersionWorks(versionIds);
   const result = await mutation();
-  invalidateVersionWorks(versionIds);
-  return result;
-}
-
-function rememberUploadedVersion(result: { artifact: Artifact; version: Version }): { artifact: Artifact; version: Version } {
-  // Upload completion is itself a Work mutation. Invalidate any older bundle
-  // generation first, then retain the new version→Work relation immediately.
-  // This closes the import race where a source-only Work request starts just
-  // after upload, workflow creation begins before that request resolves, and
-  // workflow invalidation otherwise cannot discover which Work owns the new
-  // version. Without this index, the late source-only response can be cached as
-  // stable for the full Work TTL even while understanding is running.
-  invalidateWorkCache(result.artifact.work_id);
-  versionWorkIndex.set(result.version.id, result.artifact.work_id);
+  await invalidateVersionWorks(versionIds);
   return result;
 }
 
 export function clearWorkDataCache(): void {
-  cacheEpoch += 1;
-  workBundleCache.clear();
-  workBundleInflight.clear();
-  entityCache.clear();
-  entityInflight.clear();
-  insightCache.clear();
-  insightInflight.clear();
-  versionWorkIndex.clear();
-  workCacheGeneration.clear();
-  versionCacheGeneration.clear();
+  const queryClient = getQueryClient();
+  void queryClient.cancelQueries({ queryKey: workDataKeys.all });
+  queryClient.removeQueries({ queryKey: workDataKeys.all });
 }
 
 export async function createProject(name: string, description?: string): Promise<Project> {
@@ -196,55 +138,33 @@ export async function listWorks(projectId: string): Promise<Work[]> {
 }
 
 export async function getWorkBundle(workId: string): Promise<WorkBundle> {
-  const cached = readCache(workBundleCache, workId);
-  if (cached) return cached;
+  const queryClient = getQueryClient();
+  const queryKey = workDataKeys.work(workId);
+  const bundle = await queryClient.fetchQuery({
+    queryKey,
+    queryFn: ({ signal }) => apiFetch<WorkBundle>(`/api/v1/works/${workId}`, { signal }),
+    staleTime: WORK_CACHE_TTL_MS,
+  });
 
-  const pending = workBundleInflight.get(workId);
-  if (pending) return pending;
+  const midiVersionId = currentMidiVersionId(bundle);
+  if (hasActiveJob(bundle)) {
+    // Processing changes the durable Work over time. Mark the current snapshot
+    // stale and discard child evidence so the next existing page poll observes
+    // fresh server state without a second cache implementation.
+    await queryClient.invalidateQueries({ queryKey, exact: true, refetchType: "none" });
+    if (midiVersionId) await discardVersionData(midiVersionId);
+  } else if (midiVersionId) {
+    await Promise.allSettled([getEntities(midiVersionId), getInsights(midiVersionId)]);
+  }
 
-  const epoch = cacheEpoch;
-  const generation = generationFor(workCacheGeneration, workId);
-  let request: Promise<WorkBundle>;
-  request = apiFetch<WorkBundle>(`/api/v1/works/${workId}`)
-    .then(async (bundle) => {
-      if (!generationIsCurrent(epoch, workCacheGeneration, workId, generation)) {
-        return bundle;
-      }
-
-      indexBundle(workId, bundle);
-      const midiVersionId = currentMidiVersionId(bundle);
-      if (midiVersionId) {
-        // A network-fresh Work snapshot is also a child-evidence freshness
-        // boundary. During understand jobs, entities/insights can be appended
-        // after the MIDI version first appears. Do not let an empty or partial
-        // child read survive the next Work poll (or the final terminal read).
-        invalidateVersionData(midiVersionId);
-      }
-      if (!hasActiveJob(bundle)) {
-        if (midiVersionId) {
-          await Promise.allSettled([getEntities(midiVersionId), getInsights(midiVersionId)]);
-        }
-        if (generationIsCurrent(epoch, workCacheGeneration, workId, generation)) {
-          writeCache(workBundleCache, workId, bundle);
-        }
-      }
-      return bundle;
-    })
-    .finally(() => {
-      if (workBundleInflight.get(workId) === request) {
-        workBundleInflight.delete(workId);
-      }
-    });
-
-  workBundleInflight.set(workId, request);
-  return request;
+  return bundle;
 }
 
 export async function deleteWork(workId: string): Promise<{ deleted: string }> {
   const result = await apiFetch<{ deleted: string }>(`/api/v1/works/${workId}`, {
     method: "DELETE",
   });
-  invalidateWorkCache(workId);
+  await discardWorkData(workId);
   return result;
 }
 
@@ -279,7 +199,9 @@ async function uploadArtifactViaProxy(
     throw new Error(typeof error === "string" ? error : `Upload failed: ${res.status}`);
   }
 
-  return rememberUploadedVersion(await res.json());
+  const result = await res.json() as { artifact: Artifact; version: Version };
+  await discardWorkData(result.artifact.work_id);
+  return result;
 }
 
 export async function uploadArtifact(
@@ -287,7 +209,7 @@ export async function uploadArtifact(
   file: File,
   workId?: string,
 ): Promise<{ artifact: Artifact; version: Version }> {
-  if (workId) invalidateWorkCache(workId);
+  if (workId) await discardWorkData(workId);
   const directUploadEnabled = process.env.NEXT_PUBLIC_DIRECT_ARTIFACT_UPLOAD !== "false";
   if (!directUploadEnabled || !supabase) {
     return uploadArtifactViaProxy(projectId, file, workId);
@@ -328,7 +250,8 @@ export async function uploadArtifact(
       }),
     },
   );
-  return rememberUploadedVersion(result);
+  await discardWorkData(result.artifact.work_id);
+  return result;
 }
 
 export async function startUnderstandWorkflow(
@@ -406,51 +329,17 @@ export async function getVersionResource(versionId: string): Promise<VersionReso
 }
 
 export async function getEntities(versionId: string): Promise<Entity[]> {
-  const cached = readCache(entityCache, versionId);
-  if (cached) return cached;
-  const pending = entityInflight.get(versionId);
-  if (pending) return pending;
-
-  const epoch = cacheEpoch;
-  const generation = generationFor(versionCacheGeneration, versionId);
-  let request: Promise<Entity[]>;
-  request = apiFetch<Entity[]>(`/api/v1/versions/${versionId}/entities`)
-    .then((entities) => {
-      if (generationIsCurrent(epoch, versionCacheGeneration, versionId, generation)) {
-        writeCache(entityCache, versionId, entities);
-      }
-      return entities;
-    })
-    .finally(() => {
-      if (entityInflight.get(versionId) === request) {
-        entityInflight.delete(versionId);
-      }
-    });
-  entityInflight.set(versionId, request);
-  return request;
+  return getQueryClient().fetchQuery({
+    queryKey: workDataKeys.entities(versionId),
+    queryFn: ({ signal }) => apiFetch<Entity[]>(`/api/v1/versions/${versionId}/entities`, { signal }),
+    staleTime: WORK_CACHE_TTL_MS,
+  });
 }
 
 export async function getInsights(versionId: string): Promise<Insight[]> {
-  const cached = readCache(insightCache, versionId);
-  if (cached) return cached;
-  const pending = insightInflight.get(versionId);
-  if (pending) return pending;
-
-  const epoch = cacheEpoch;
-  const generation = generationFor(versionCacheGeneration, versionId);
-  let request: Promise<Insight[]>;
-  request = apiFetch<Insight[]>(`/api/v1/versions/${versionId}/insights`)
-    .then((insights) => {
-      if (generationIsCurrent(epoch, versionCacheGeneration, versionId, generation)) {
-        writeCache(insightCache, versionId, insights);
-      }
-      return insights;
-    })
-    .finally(() => {
-      if (insightInflight.get(versionId) === request) {
-        insightInflight.delete(versionId);
-      }
-    });
-  insightInflight.set(versionId, request);
-  return request;
+  return getQueryClient().fetchQuery({
+    queryKey: workDataKeys.insights(versionId),
+    queryFn: ({ signal }) => apiFetch<Insight[]>(`/api/v1/versions/${versionId}/insights`, { signal }),
+    staleTime: WORK_CACHE_TTL_MS,
+  });
 }
