@@ -19,6 +19,20 @@ function increasingSeconds(value: unknown): number[] | null {
   return result;
 }
 
+function downbeatsBelongToBeats(downbeats: number[], beats: number[]): boolean {
+  if (downbeats.length === 0) return true;
+  let beatIndex = 0;
+  for (const downbeat of downbeats) {
+    while (beatIndex < beats.length && beats[beatIndex] < downbeat - 1e-9) {
+      beatIndex += 1;
+    }
+    if (beatIndex >= beats.length || Math.abs(beats[beatIndex] - downbeat) > 1e-9) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function beatsFromOneBeatWindows(value: unknown): number[] | null {
   if (!Array.isArray(value) || value.length === 0) return null;
   const beats: number[] = [];
@@ -91,6 +105,7 @@ export function extractObservedPulseGrid(
       explicitBeats
       && explicitBeats.length >= 2
       && explicitDownbeats
+      && downbeatsBelongToBeats(explicitDownbeats, explicitBeats)
       && insight.evidence?.pulse_coordinate_unit === "seconds"
     ) {
       return {
