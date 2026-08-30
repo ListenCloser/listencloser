@@ -1,16 +1,23 @@
-"""Tests for engine registry selection."""
+"""Tests for production engine registry selection.
+
+These instantiate the production model-backed defaults, so they belong to the
+worker/integration tier rather than the lightweight API/unit environment.
+"""
 
 from __future__ import annotations
 
 import pytest
 
-from engines.beats.beat_this_engine import BeatThisEngine
-from engines.beats.librosa_engine import LibrosaBeatEngine
-from engines.harmony.music21_engine import Music21HarmonyEngine
-from engines.melody.lstom_engine import LStoMMelodyEngine
-from engines.melody.skyline_engine import SkylineMelodyEngine
-from engines.notation.music21_engine import Music21NotationEngine
-from engines.registry import (
+pytestmark = pytest.mark.integration
+pytest.importorskip("torch", reason="worker/model dependency group is not installed")
+
+from engines.beats.beat_this_engine import BeatThisEngine  # noqa: E402
+from engines.beats.librosa_engine import LibrosaBeatEngine  # noqa: E402
+from engines.harmony.music21_engine import Music21HarmonyEngine  # noqa: E402
+from engines.melody.lstom_engine import LStoMMelodyEngine  # noqa: E402
+from engines.melody.skyline_engine import SkylineMelodyEngine  # noqa: E402
+from engines.notation.music21_engine import Music21NotationEngine  # noqa: E402
+from engines.registry import (  # noqa: E402
     get_beat_engine,
     get_harmony_engine,
     get_melody_engine,
@@ -18,8 +25,8 @@ from engines.registry import (
     get_structure_engine,
     get_transcription_engine,
 )
-from engines.structure.allin1_engine import AllInOneEngine
-from engines.transcription.basic_pitch import BasicPitchEngine
+from engines.structure.allin1_engine import AllInOneEngine  # noqa: E402
+from engines.transcription.basic_pitch import BasicPitchEngine  # noqa: E402
 
 
 class TestRegistryDefaults:
@@ -102,7 +109,6 @@ class TestProvenance:
         engine = LibrosaBeatEngine()
         p = engine.provenance
         assert p.engine == "librosa"
-        # library_version may be "unknown" if librosa not installed locally
 
     def test_music21_provenance(self):
         engine = Music21NotationEngine()
