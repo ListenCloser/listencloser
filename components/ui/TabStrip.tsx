@@ -1,6 +1,6 @@
 "use client";
 
-import { Tabs } from "@base-ui/react/tabs";
+import * as Tabs from "@radix-ui/react-tabs";
 
 type TabItem<T extends string> = {
   id: T;
@@ -23,30 +23,28 @@ export default function TabStrip<T extends string>({
 }) {
   return (
     <Tabs.Root
-      value={value}
-      onValueChange={(nextValue) => {
-        if (typeof nextValue === "string") onChange(nextValue as T);
-      }}
+      value={value ?? ""}
+      onValueChange={(nextValue) => onChange(nextValue as T)}
+      activationMode="automatic"
       style={{ display: "contents" }}
     >
       <Tabs.List
         className={`ui-tab-strip ${className}`.trim()}
         aria-label={label}
-        activateOnFocus
-        loopFocus
+        loop
       >
         {items.map((item) => {
           const selected = item.id === value;
           return (
-            <Tabs.Tab
+            <Tabs.Trigger
               key={item.id}
               value={item.id}
               disabled={item.disabled}
-              data-state={selected ? "active" : "inactive"}
+              aria-controls={undefined}
               className={`ui-tab${selected ? " active" : ""}`}
             >
               {item.label}
-            </Tabs.Tab>
+            </Tabs.Trigger>
           );
         })}
       </Tabs.List>
