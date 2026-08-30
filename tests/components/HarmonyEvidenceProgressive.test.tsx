@@ -33,9 +33,9 @@ describe("HarmonyEvidence progressive disclosure", () => {
     expect(screen.getByRole("columnheader", { name: "Harmony" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Degree" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Function" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "C major", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^C major$/ })).toBeInTheDocument();
     expect(screen.getByText("Degree", { exact: true })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "I", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^I$/ })).toBeInTheDocument();
     expect(screen.queryByText("—")).not.toBeInTheDocument();
   });
 
