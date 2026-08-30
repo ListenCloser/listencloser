@@ -32,6 +32,17 @@ function referenceLabel(ref: AskReference, insights: { id: string; claim: string
   return formatReference(ref, resolveInsight);
 }
 
+export function askErrorMessage(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : "";
+  const normalized = message.toLowerCase();
+  if (normalized.includes("not configured")) return "Ask is not configured for this workspace.";
+  if (normalized.includes("timed out") || normalized.includes("timeout")) return "Ask took too long.";
+  if (normalized.includes("provider unavailable") || normalized.includes("processing service unavailable")) {
+    return "Ask is temporarily unavailable.";
+  }
+  return "Ask is unavailable right now.";
+}
+
 function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; blocked: boolean; reason?: string; onClick: (action: AskAction) => void }) {
   const chip = (
     <button
@@ -50,7 +61,7 @@ function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; b
 }
 
 export default function AskPanel() {
-  const { workspace, appendAskMessage, setActiveRepresentation, setSelection } = useWorkspace();
+  const { workspace, appendAskMessage, setActiveRepresentation, setSelection, clearSelection } = useWorkspace();
   const { transport, seek, setLoop, toggleLoop } = useTransport();
   const { timeline } = useTimeline();
   const [draft, setDraft] = useState("");
@@ -87,8 +98,7 @@ export default function AskPanel() {
       setLastAsked(null);
     } catch (cause) {
       if (token !== askTokenRef.current || workId !== activeWorkIdRef.current) return;
-      const message = cause instanceof Error ? cause.message : "Ask is not available right now.";
-      setError(message.includes("not configured") ? "Ask is not configured for this workspace." : "Ask is unavailable right now.");
+      setError(askErrorMessage(cause));
     } finally {
       if (token === askTokenRef.current) {
         setPending(false);
@@ -195,6 +205,14 @@ export default function AskPanel() {
       {showScope && (
         <div className="ask-context" aria-label={`Question context: ${scope}`}>
           <span>{scope}</span>
+          <button
+            type="button"
+            className="ask-context-clear"
+            onClick={clearSelection}
+            aria-label="Clear question context"
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -257,7 +275,6 @@ export default function AskPanel() {
         <button
           type="submit"
           className="ask-send"
-          style={{ borderRadius: 6 }}
           disabled={pending || !draft.trim()}
           aria-label="Send question"
         >
