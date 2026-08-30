@@ -71,7 +71,7 @@ describe("TabStrip", () => {
     const score = screen.getByRole("tab", { name: "Score" });
     const analysis = screen.getByRole("tab", { name: "Analysis" });
 
-    expect(score).toBeDisabled();
+    expect(score).toHaveAttribute("aria-disabled", "true");
     waveform.focus();
     await user.keyboard("{ArrowRight}");
     expect(analysis).toHaveFocus();
