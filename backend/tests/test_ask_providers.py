@@ -113,6 +113,44 @@ async def test_openai_compatible_parses_valid_structured_output():
 
 
 @pytest.mark.asyncio
+async def test_openai_compatible_applies_ask_timeout_to_shared_client():
+    observed_timeout: dict[str, float] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        observed_timeout.update(request.extensions.get("timeout", {}))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"answer": "Hi", "references": [], "suggestedActions": []}'
+                        }
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        timeout=99.0,
+    ) as client:
+        provider = OpenAICompatibleLLMProvider(
+            base_url="https://example.com/v1",
+            api_key="secret",
+            model="model-x",
+            timeout_seconds=1.25,
+            client=client,
+        )
+        await provider.complete_structured(
+            system_prompt="s", user_prompt="u", response_model=AskResponse
+        )
+
+    assert observed_timeout["read"] == pytest.approx(1.25)
+    assert observed_timeout["write"] == pytest.approx(1.25)
+
+
+@pytest.mark.asyncio
 async def test_openai_compatible_rejects_malformed_json_output():
     transport = _mock_transport(
         httpx.Response(
