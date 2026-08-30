@@ -16,13 +16,13 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from domain.models import Artifact, ArtifactKind, Version
+from domain.perceptual_report import PerceptualEvidenceReport
 from domain.relation_findings import (
     GroundedRelationFinding,
     compose_grounded_relation_finding,
 )
 from domain.relation_observations import SecondsSpanLocator, compare_perceptual_spans
 from domain.work_bundle_repository import WorkBundleSnapshot
-from perceptual_evidence import PerceptualEvidenceReport
 
 ComparisonStatus = Literal["supported", "unavailable", "withheld", "failed"]
 _ALLOWED_SOURCE_KINDS = {
