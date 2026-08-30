@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
 
 import pretty_midi
+import pytest
 from evaluation import models, notation_eval
 
 
@@ -36,20 +38,26 @@ def _midi_bytes(*, pitch: int = 60) -> bytes:
     return buffer.getvalue()
 
 
-def _clip(tmp_path: Path, reference_midi: bytes) -> models.EvalClip:
+def _clip(
+    tmp_path: Path,
+    reference_midi: bytes,
+    *,
+    with_musicxml: bool = True,
+) -> models.EvalClip:
     audio_path = tmp_path / "source.wav"
     midi_path = tmp_path / "reference.mid"
     xml_path = tmp_path / "reference.musicxml"
     audio_path.write_bytes(b"fake-audio")
     midi_path.write_bytes(reference_midi)
-    xml_path.write_bytes(MUSICXML)
+    if with_musicxml:
+        xml_path.write_bytes(MUSICXML)
     return models.EvalClip(
         id="fixture",
         source_id="fixture-source",
         audio=str(audio_path),
         category="solo_piano",
         reference_midi=str(midi_path),
-        reference_musicxml=str(xml_path),
+        reference_musicxml=str(xml_path) if with_musicxml else None,
     )
 
 
@@ -104,6 +112,25 @@ def test_reference_mode_never_invokes_transcription(tmp_path, monkeypatch):
     assert result["stages"]["notation"]["piano_grand_staff"] is True
 
 
+def test_reference_mode_does_not_require_reference_musicxml(tmp_path, monkeypatch):
+    reference_midi = _midi_bytes()
+    clip = _clip(tmp_path, reference_midi, with_musicxml=False)
+
+    monkeypatch.setattr(notation_eval, "_production_metric_grid", lambda _path: _metric_grid())
+    monkeypatch.setattr(
+        notation_eval,
+        "_notation_from_midi",
+        lambda _midi, _beats, *, downbeats: (MUSICXML, {"profile": "test"}),
+    )
+
+    result = notation_eval.evaluate_clip(clip, "reference_midi_to_score")
+
+    assert result["structural"]["total_note_count"] == 1
+    assert "reference_structural" not in result
+    assert "note_count_ratio" not in result
+    assert result["stages"]["notation"]["reference_structural"] is None
+
+
 def test_product_mode_transcribes_audio_then_scores_and_notates_prediction(
     tmp_path,
     monkeypatch,
@@ -156,3 +183,111 @@ def test_both_mode_keeps_ceiling_and_product_paths_separate():
         "reference_midi_to_score",
         "audio_to_predicted_midi_to_score",
     )
+
+
+def test_source_manifest_hydrates_prepared_paths_and_emits_rows(
+    tmp_path,
+    monkeypatch,
+):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    monkeypatch.setenv("MUSIC_EVAL_CACHE_DIR", str(cache_dir))
+
+    source_manifest = tmp_path / "real_world_v1.json"
+    source_manifest.write_text(
+        json.dumps(
+            {
+                "name": "real_world_v1",
+                "clips": [
+                    {
+                        "id": "asap_fixture",
+                        "dataset": "asap",
+                        "source_id": "Bach/Prelude/test.mid",
+                        "category": "solo_piano",
+                    }
+                ],
+            }
+        )
+    )
+    audio_path = tmp_path / "prepared.wav"
+    midi_path = tmp_path / "prepared.mid"
+    audio_path.write_bytes(b"audio")
+    midi_path.write_bytes(_midi_bytes())
+    (cache_dir / "prepared-real_world_v1.json").write_text(
+        json.dumps(
+            {
+                "corpus": "real_world_v1",
+                "clips": [
+                    {
+                        "id": "asap_fixture",
+                        "dataset": "asap",
+                        "status": "ok",
+                        "audio": str(audio_path),
+                        "reference_midi": str(midi_path),
+                    }
+                ],
+            }
+        )
+    )
+
+    observed: list[models.EvalClip] = []
+
+    def fake_evaluate_clip(clip, mode):
+        observed.append(clip)
+        return {
+            "clip_id": clip.id,
+            "source_id": clip.source_id,
+            "mode": mode,
+            "accuracy": None,
+            "structural": {
+                "total_note_count": 1,
+                "measure_count": 1,
+                "tie_count": 0,
+            },
+        }
+
+    monkeypatch.setattr(notation_eval, "evaluate_clip", fake_evaluate_clip)
+
+    result = notation_eval.run_notation_evaluation(
+        str(source_manifest),
+        str(tmp_path / "results"),
+        mode="reference_midi_to_score",
+    )
+
+    assert len(result["clips"]) == 1
+    assert len(observed) == 1
+    assert observed[0].audio == str(audio_path)
+    assert observed[0].reference_midi == str(midi_path)
+    assert observed[0].reference_musicxml is None
+    assert observed[0].source_id == "Bach/Prelude/test.mid"
+
+
+def test_source_manifest_without_prepared_contract_fails_actionably(
+    tmp_path,
+    monkeypatch,
+):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    monkeypatch.setenv("MUSIC_EVAL_CACHE_DIR", str(cache_dir))
+    source_manifest = tmp_path / "real_world_v1.json"
+    source_manifest.write_text(
+        json.dumps(
+            {
+                "name": "real_world_v1",
+                "clips": [
+                    {
+                        "id": "asap_fixture",
+                        "dataset": "asap",
+                        "source_id": "Bach/Prelude/test.mid",
+                        "category": "solo_piano",
+                    }
+                ],
+            }
+        )
+    )
+
+    with pytest.raises(FileNotFoundError, match="evaluation.datasets.prepare"):
+        notation_eval.run_notation_evaluation(
+            str(source_manifest),
+            str(tmp_path / "results"),
+        )
