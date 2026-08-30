@@ -172,8 +172,7 @@ def test_batch_loader_authorizes_work_versions_before_loading_requested_insights
                     result = [row for row in result if str(row[column]) in expected]
             if self.columns != "*":
                 result = [
-                    {column: row[column] for column in self.columns.split(",")}
-                    for row in result
+                    {column: row[column] for column in self.columns.split(",")} for row in result
                 ]
             return SimpleNamespace(data=result)
 

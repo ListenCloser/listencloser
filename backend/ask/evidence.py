@@ -55,8 +55,7 @@ def _category(insight: Insight, selection: AskSelection | None) -> str:
     selection_start = selection.timeRange.start
     selection_end = selection.timeRange.end
     overlaps = (
-        insight.span.start_seconds < selection_end
-        and insight.span.end_seconds > selection_start
+        insight.span.start_seconds < selection_end and insight.span.end_seconds > selection_start
     )
     return "selection" if overlaps else "unrelated"
 
@@ -125,9 +124,7 @@ def _uuid_column(rows: list[dict], column: str) -> list[UUID]:
 
 
 def _load_allowed_version_ids(sb, work_id: UUID) -> set[UUID]:
-    artifact_result = (
-        sb.table("artifacts").select("id").eq("work_id", str(work_id)).execute()
-    )
+    artifact_result = sb.table("artifacts").select("id").eq("work_id", str(work_id)).execute()
     artifact_ids = _uuid_column(list(artifact_result.data or []), "id")
     if not artifact_ids:
         return set()

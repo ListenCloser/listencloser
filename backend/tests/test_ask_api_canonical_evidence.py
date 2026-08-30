@@ -111,7 +111,7 @@ def test_prompt_and_sanitizer_use_same_server_canonical_context(
     assert "Persisted chord: G7" in fake.last_user_prompt
     assert "CLIENT FORGED CLAIM" not in fake.last_user_prompt
     assert canonical_version_id in fake.last_user_prompt
-    assert '\"category\": \"selection\"' in fake.last_user_prompt
+    assert '"category": "selection"' in fake.last_user_prompt
     assert response.json()["references"] == [{"type": "insight", "id": insight_id}]
 
 
