@@ -87,10 +87,12 @@ storage_objects="$(psql "$SUPABASE_DB_URL" -X -A -t -v ON_ERROR_STOP=1 \
 # Current Supabase platform->self-hosted restore guidance says the three-file
 # dump contains auth.users and Storage metadata. Fail closed if the actual CLI
 # stops satisfying that recovery contract while those tables contain data.
-if [ "$auth_users" -gt 0 ] && ! grep -q '^COPY auth\.users ' "$BACKUP_DIR/database/data.sql"; then
+if [ "$auth_users" -gt 0 ] && \
+   ! grep -Eq '^COPY (auth\.users|"auth"\."users") ' "$BACKUP_DIR/database/data.sql"; then
   fail "data dump omitted auth.users despite $auth_users current Auth rows"
 fi
-if [ "$storage_objects" -gt 0 ] && ! grep -q '^COPY storage\.objects ' "$BACKUP_DIR/database/data.sql"; then
+if [ "$storage_objects" -gt 0 ] && \
+   ! grep -Eq '^COPY (storage\.objects|"storage"\."objects") ' "$BACKUP_DIR/database/data.sql"; then
   fail "data dump omitted storage.objects metadata despite $storage_objects current objects"
 fi
 
@@ -145,7 +147,7 @@ PY
 
 done < "$BACKUP_DIR/storage-inventory.tsv"
 
-python3 - "$BACKUP_DIR" "$SUPABASE_PROJECT_REF" "$actual_supabase_version" "$auth_users" "$storage_objects" <<'PY'
+python3 - "$BACKUP_DIR" "$SUPABASE_PROJECT_REF" "$actual_supabase_version" "$auth_users" "$storage_objects" "$REPO_ROOT" <<'PY'
 from __future__ import annotations
 
 import hashlib
@@ -160,6 +162,7 @@ project_ref = sys.argv[2]
 cli_version = sys.argv[3]
 auth_users = int(sys.argv[4])
 storage_objects = int(sys.argv[5])
+repo_root = Path(sys.argv[6])
 
 hashes_path = root / "private-file-hashes.jsonl"
 with hashes_path.open("w", encoding="utf-8") as output:
@@ -176,7 +179,9 @@ with hashes_path.open("w", encoding="utf-8") as output:
         output.write(json.dumps({"path": str(path.relative_to(root)), "bytes": path.stat().st_size, "sha256": digest.hexdigest()}) + "\n")
 
 try:
-    repository_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    repository_sha = subprocess.check_output(
+        ["git", "-C", str(repo_root), "rev-parse", "HEAD"], text=True
+    ).strip()
 except Exception:
     repository_sha = "unknown"
 
