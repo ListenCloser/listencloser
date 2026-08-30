@@ -220,6 +220,34 @@ class TestMidiRhythm:
         finally:
             os.unlink(path)
 
+    def test_explicit_pulse_coordinates_are_preserved_exactly(self):
+        path = self._make_midi([0.15, 0.82, 1.56, 2.31], duration=3.0)
+        pulse = {
+            "bpm": 91.7,
+            "beats": [0.11, 0.73, 1.41, 2.2, 2.86],
+            "downbeats": [0.11, 2.2],
+            "provenance": {"engine": "beat_this", "model_version": "test"},
+        }
+        try:
+            result = _midi_rhythm(path, pulse)
+            assert result is not None
+            assert result["beats_seconds"] == pulse["beats"]
+            assert result["downbeats_seconds"] == pulse["downbeats"]
+            assert result["pulse_coordinate_unit"] == "seconds"
+        finally:
+            os.unlink(path)
+
+    def test_no_pulse_does_not_publish_detected_grid(self):
+        path = self._make_midi([0.0, 1.0, 2.0], duration=3.0)
+        try:
+            result = _midi_rhythm(path)
+            assert result is not None
+            assert "beats_seconds" not in result
+            assert "downbeats_seconds" not in result
+            assert "pulse_coordinate_unit" not in result
+        finally:
+            os.unlink(path)
+
     def test_empty_midi_returns_none(self):
         pm = pretty_midi.PrettyMIDI(initial_tempo=120)
         pm.instruments.append(pretty_midi.Instrument(program=0))
