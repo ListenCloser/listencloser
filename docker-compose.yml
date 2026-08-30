@@ -6,7 +6,7 @@ services:
       args:
         USER_ID: 501
         GROUP_ID: 501
-    container_name: music-ai-opencode
+    container_name: listencloser-opencode
     working_dir: /workspace
     stdin_open: true
     tty: true
@@ -62,7 +62,7 @@ services:
       args:
         USER_ID: 501
         GROUP_ID: 501
-    container_name: music-ai-backend
+    container_name: listencloser-backend
     working_dir: /workspace
     user: "501:501"
     command: >
@@ -102,7 +102,7 @@ services:
       args:
         USER_ID: 501
         GROUP_ID: 501
-    container_name: music-ai-worker
+    container_name: listencloser-worker
     working_dir: /workspace
     user: "501:501"
     command: >
