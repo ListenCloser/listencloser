@@ -156,8 +156,9 @@ jobs:
           npm run typecheck
           npm run lint
           npm test -- tests/lib/api-client-jobs.test.ts tests/lib/api-client-projects.test.ts tests/lib/openapi-client.test.ts tests/lib/api-client-cache.test.ts tests/lib/job-tracking.test.ts
-          npm run api:check
+          npx openapi-typescript openapi/openapi.json -o lib/api-types.ts --check
           uv run --project backend python -m pytest backend/tests/ -m "not integration and not real_stack and not benchmark and not external_provider" -q
+          git diff --check
       - name: Remove temporary workflow and commit validated slice
         run: |
           rm .github/workflows/tmp-openapi-jobs-impl.yml
