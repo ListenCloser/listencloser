@@ -24,7 +24,7 @@ const buffer = {
   length: samples.length,
   sampleRate: 44_100,
   getChannelData: () => samples,
-} as AudioBuffer;
+} as unknown as AudioBuffer;
 
 const result = {
   columns: 2,
