@@ -48,6 +48,7 @@ def override_supabase(monkeypatch):
     monkeypatch.setattr(repo, "get_supabase", lambda: SimpleNamespace())
     monkeypatch.setattr("ask.api.WorkRepo", FakeWorkRepo)
     monkeypatch.setattr("ask.api.get_supabase", lambda: SimpleNamespace())
+    monkeypatch.setattr("ask.api.load_canonical_ask_context", lambda sb, context: context)
 
 
 @pytest.fixture

@@ -98,6 +98,9 @@ def contract_env(monkeypatch):
     monkeypatch.setattr(repo, "get_supabase", lambda: SimpleNamespace())
     monkeypatch.setattr("ask.api.WorkRepo", FakeWorkRepo)
     monkeypatch.setattr("ask.api.get_supabase", lambda: SimpleNamespace())
+    # This fixture proves FE/BE wire compatibility only. Canonical persistence
+    # authorization has dedicated evidence/API tests.
+    monkeypatch.setattr("ask.api.load_canonical_ask_context", lambda sb, context: context)
     monkeypatch.setattr(
         "ask.api.build_provider",
         lambda settings, client=None: FakeLLMProvider(
