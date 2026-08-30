@@ -27,7 +27,7 @@ _STORAGE_BUCKET = "artifacts"
 _PENDING_SEGMENT = "pending"
 _ALLOWED_AUDIO_EXTENSIONS = {"wav", "mp3", "m4a", "flac", "ogg", "aac"}
 _PENDING_BASENAME = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]+$")
-_DEFAULT_MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+_DEFAULT_MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
 class CreateUploadIntentBody(BaseModel):
@@ -161,6 +161,14 @@ def _object_size(row: dict) -> int | None:
         return None
 
 
+def _require_matching_object_size(row: dict, expected_size: int) -> None:
+    stored_size = _object_size(row)
+    if stored_size is None:
+        raise HTTPException(status_code=502, detail="Could not verify uploaded file size")
+    if stored_size != expected_size:
+        raise HTTPException(status_code=409, detail="Uploaded file size does not match intent")
+
+
 def _existing_upload(sb, storage_key: str, owner_id: str) -> tuple[Artifact, Version] | None:
     rows = (
         sb.table("artifact_versions")
@@ -242,9 +250,7 @@ async def finalize_upload(
     stored = _find_storage_object(sb, body.storage_key)
     if not stored:
         raise HTTPException(status_code=409, detail="Storage upload is not complete")
-    stored_size = _object_size(stored)
-    if stored_size is not None and stored_size != body.byte_size:
-        raise HTTPException(status_code=409, detail="Uploaded file size does not match intent")
+    _require_matching_object_size(stored, body.byte_size)
 
     work_repo = WorkRepo(sb)
     art_repo = ArtifactRepo(sb)

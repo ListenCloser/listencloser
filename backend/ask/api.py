@@ -50,6 +50,7 @@ async def create_ask(
 ) -> AskResponse:
     settings: LLMSettings = load_llm_settings()
     started = time.perf_counter()
+    req_id = request.headers.get("x-request-id") or "none"
     owner_id = auth.user.id
     sb = get_supabase()
     if not sb:
@@ -75,13 +76,21 @@ async def create_ask(
 
     provider: LLMProvider | None = build_provider(settings, client=request.app.state.http_client)
     if provider is None:
-        logger.warning("ask_provider_unconfigured")
+        logger.warning(
+            "ask_provider_unconfigured",
+            extra={
+                "req_id": req_id,
+                "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            },
+        )
         raise HTTPException(
             status_code=503,
             detail="Ask is not configured. Contact your administrator.",
         )
 
     system_prompt, user_prompt = build_grounded_prompts(body.question, canonical_context)
+    provider_started = time.perf_counter()
+    pre_provider_ms = round((provider_started - started) * 1000, 2)
 
     try:
         response = await provider.complete_structured(
@@ -90,20 +99,55 @@ async def create_ask(
             response_model=AskResponse,
         )
     except AskProviderConfigurationError as exc:
+        logger.warning(
+            "ask_provider_configuration_error",
+            extra={"req_id": req_id, "model": settings.provider_identifier},
+        )
         raise HTTPException(status_code=503, detail="Ask is not configured.") from exc
     except AskProviderTimeoutError as exc:
+        logger.warning(
+            "ask_provider_timeout",
+            extra={
+                "req_id": req_id,
+                "model": settings.provider_identifier,
+                "pre_provider_ms": pre_provider_ms,
+                "provider_ms": round((time.perf_counter() - provider_started) * 1000, 2),
+            },
+        )
         raise HTTPException(status_code=504, detail="Ask timed out.") from exc
     except AskProviderUnavailableError as exc:
+        logger.warning(
+            "ask_provider_unavailable",
+            extra={
+                "req_id": req_id,
+                "model": settings.provider_identifier,
+                "pre_provider_ms": pre_provider_ms,
+                "provider_ms": round((time.perf_counter() - provider_started) * 1000, 2),
+            },
+        )
         raise HTTPException(status_code=502, detail="Ask provider unavailable.") from exc
     except AskModelOutputError as exc:
         logger.warning(
             "ask_model_output_rejected",
-            extra={"model": settings.provider_identifier},
+            extra={
+                "req_id": req_id,
+                "model": settings.provider_identifier,
+                "provider_ms": round((time.perf_counter() - provider_started) * 1000, 2),
+            },
         )
         raise HTTPException(status_code=502, detail="Ask returned an invalid response.") from exc
     except AskProviderError as exc:
-        logger.warning("ask_provider_error", extra={"model": settings.provider_identifier})
+        logger.warning(
+            "ask_provider_error",
+            extra={
+                "req_id": req_id,
+                "model": settings.provider_identifier,
+                "provider_ms": round((time.perf_counter() - provider_started) * 1000, 2),
+            },
+        )
         raise HTTPException(status_code=502, detail="Ask failed.") from exc
+
+    provider_ms = round((time.perf_counter() - provider_started) * 1000, 2)
 
     # Deterministic sanitization — a single invalid optional reference/action
     # never fails the whole answer; it is dropped. Use the same canonical
@@ -113,7 +157,10 @@ async def create_ask(
     logger.info(
         "ask_completed",
         extra={
+            "req_id": req_id,
             "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            "pre_provider_ms": pre_provider_ms,
+            "provider_ms": provider_ms,
             "model": settings.provider_identifier,
             "references": len(safe.references),
             "actions": len(safe.suggestedActions or []),

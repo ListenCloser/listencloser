@@ -7,10 +7,11 @@ import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 
 /**
- * Waveform visualization — large horizontal canvas with sparse time ruler,
- * shared blue playhead, terracotta selection, and optional analysis overlays.
+ * Waveform visualization — large horizontal canvas with sparse elapsed-time
+ * ruler, shared playback signal, warm selection, and optional analysis overlays.
  *
- * Visual language: quiet, neutral, minimal chrome.
+ * The visible envelope is derived only from measured min/max PCM peaks. Visual
+ * craft must not invent samples, smoothing, musical structure, or timing data.
  */
 export default function Waveform({
   url,
@@ -91,7 +92,7 @@ export default function Waveform({
     [duration],
   );
 
-  // Draw sparse time ruler — very minimal, just subtle tick marks
+  // Sparse elapsed-time ruler: orientation only, never implied meter/structure.
   useEffect(() => {
     const canvas = rulerRef.current;
     if (!canvas || duration <= 0) return;
@@ -104,13 +105,13 @@ export default function Waveform({
 
     const styles = getComputedStyle(document.documentElement);
     const muted = styles.getPropertyValue("--muted").trim() || "#575a5e";
-    const fontSans = styles.getPropertyValue("--font-sans").trim() || "sans-serif";
+    const fontMono = styles.getPropertyValue("--font-mono").trim() || "monospace";
 
     ctx.fillStyle = muted;
-    ctx.font = `10px ${fontSans}`;
+    ctx.font = `10px ${fontMono}`;
     ctx.textAlign = "center";
 
-    // Very sparse: aim for 3-5 labels
+    // Aim for roughly 3–5 labels across ordinary recordings.
     const targets = [0, 15, 30, 45, 60, 90, 120, 180, 240, 300, 600];
     let interval = 60;
     for (const t of targets) {
@@ -130,7 +131,7 @@ export default function Waveform({
     ctx.globalAlpha = 1;
   }, [duration]);
 
-  // Draw waveform + annotations + selection + playhead
+  // Draw measured waveform envelope + annotations + selection + playhead.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -140,7 +141,8 @@ export default function Waveform({
     const styles = getComputedStyle(document.documentElement);
     const accent = styles.getPropertyValue("--accent").trim() || "#bd513a";
     const playhead = styles.getPropertyValue("--score-playback").trim() || "#5a89a8";
-    const trace = styles.getPropertyValue("--muted").trim() || "#575a5e";
+    const trace = styles.getPropertyValue("--text").trim() || "#232322";
+    const axis = styles.getPropertyValue("--border").trim() || "#cbc6bc";
     const bg = styles.getPropertyValue("--panel").trim() || "#f4f1eb";
     const rhythmColor = styles.getPropertyValue("--color-rhythm").trim() || "#b8963e";
     const harmonyColor = styles.getPropertyValue("--color-harmony").trim() || "#4a7c59";
@@ -148,6 +150,7 @@ export default function Waveform({
 
     const w = canvas.width;
     const h = canvas.height;
+    const mid = h / 2;
     canvasCtx.fillStyle = bg;
     canvasCtx.fillRect(0, 0, w, h);
 
@@ -177,28 +180,56 @@ export default function Waveform({
       }
     }
 
+    // A quiet zero axis makes amplitude direction readable and remains valid
+    // while decoding because it is a coordinate frame, not audio evidence.
+    canvasCtx.strokeStyle = withAlpha(axis, 0.42);
+    canvasCtx.lineWidth = 1;
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(0, mid + 0.5);
+    canvasCtx.lineTo(w, mid + 0.5);
+    canvasCtx.stroke();
+
     const peaks = peaksRef.current;
     if (peaks.length > 0) {
-      const mid = h / 2;
-      const barW = w / peaks.length;
-      canvasCtx.fillStyle = trace;
-      canvasCtx.globalAlpha = 0.35;
-      peaks.forEach((peak, i) => {
-        const x = i * barW;
-        const topPeak = Math.max(1, (peak.max * h) / 2);
-        const bottomPeak = Math.max(1, (peak.min * h) / 2);
-        canvasCtx.fillRect(x, mid - topPeak, Math.max(barW - 1, 1), topPeak + bottomPeak);
-      });
-      canvasCtx.globalAlpha = 1;
-    } else {
-      // A center hairline is a neutral track frame, not fabricated waveform
-      // evidence. It gives the saved recording a stable object while decoding.
-      canvasCtx.strokeStyle = withAlpha(trace, status === "loading" ? 0.16 : 0.1);
+      const xForPeak = (index: number) =>
+        peaks.length === 1 ? w / 2 : (index / (peaks.length - 1)) * w;
+      const topY = (peak: { min: number; max: number }) => mid - Math.max(1, (peak.max * h) / 2);
+      const bottomY = (peak: { min: number; max: number }) => mid + Math.max(1, (peak.min * h) / 2);
+
+      // Fill the exact min/max envelope rather than drawing a picket fence of
+      // bars. The geometry uses the same measured peak buckets as before.
+      canvasCtx.save();
+      canvasCtx.lineJoin = "round";
+      canvasCtx.lineCap = "round";
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(xForPeak(0), topY(peaks[0]));
+      for (let i = 1; i < peaks.length; i += 1) {
+        canvasCtx.lineTo(xForPeak(i), topY(peaks[i]));
+      }
+      for (let i = peaks.length - 1; i >= 0; i -= 1) {
+        canvasCtx.lineTo(xForPeak(i), bottomY(peaks[i]));
+      }
+      canvasCtx.closePath();
+      canvasCtx.fillStyle = withAlpha(trace, 0.17);
+      canvasCtx.fill();
+
+      // Crisp upper/lower contours retain transient shape without making the
+      // full waveform compete with selection/evidence overlays.
+      canvasCtx.strokeStyle = withAlpha(trace, 0.58);
       canvasCtx.lineWidth = 1;
       canvasCtx.beginPath();
-      canvasCtx.moveTo(0, h / 2 + 0.5);
-      canvasCtx.lineTo(w, h / 2 + 0.5);
+      canvasCtx.moveTo(xForPeak(0), topY(peaks[0]));
+      for (let i = 1; i < peaks.length; i += 1) {
+        canvasCtx.lineTo(xForPeak(i), topY(peaks[i]));
+      }
       canvasCtx.stroke();
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(xForPeak(0), bottomY(peaks[0]));
+      for (let i = 1; i < peaks.length; i += 1) {
+        canvasCtx.lineTo(xForPeak(i), bottomY(peaks[i]));
+      }
+      canvasCtx.stroke();
+      canvasCtx.restore();
     }
 
     const range = preview ?? selection?.timeRange ?? null;
@@ -292,6 +323,7 @@ export default function Waveform({
         className="waveform"
         data-testid="waveform-canvas"
         data-waveform-state={status}
+        data-waveform-renderer="min-max-envelope"
         data-waveform-segments={status === "ready" ? peaksRef.current.length : 0}
         data-selection-emphasized={emphasizeSelection ? "true" : undefined}
         width={900}
