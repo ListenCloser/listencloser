@@ -24,7 +24,8 @@ describe("LibraryImportControl", () => {
     await user.click(screen.getByRole("button", { name: /Explore public library/ }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Für Elise")).toBeInTheDocument();
-    expect(screen.getByText("Reggae Bultron")).toBeInTheDocument();
+    expect(screen.getByText("Jazz Ride Pattern")).toBeInTheDocument();
+    expect(screen.getByText("Jesse James")).toBeInTheDocument();
   });
 
   it("filters the catalog and imports the selected recording", async () => {
@@ -42,16 +43,16 @@ describe("LibraryImportControl", () => {
     await user.click(screen.getByRole("button", { name: /Explore public library/ }));
     await user.type(
       screen.getByRole("searchbox", { name: "Search public recordings" }),
-      "reggae",
+      "jazz",
     );
 
     expect(screen.queryByText("Für Elise")).not.toBeInTheDocument();
-    expect(screen.getByText("Reggae Bultron")).toBeInTheDocument();
+    expect(screen.getByText("Jazz Ride Pattern")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Import" }));
 
     await waitFor(() => {
       expect(onImport).toHaveBeenCalledTimes(1);
-      expect(onImport.mock.calls[0][0].id).toBe("reggae-bultron");
+      expect(onImport.mock.calls[0][0].id).toBe("jazz-ride-pattern");
     });
   });
 
