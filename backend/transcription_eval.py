@@ -1,8 +1,8 @@
-"""Evaluation utilities for audio-to-MIDI experiments.
+"""Evaluation utilities for audio-to-MIDI experiment manifests.
 
-This module deliberately has no model dependency.  It compares normalized note
-events, so a Basic Pitch baseline, cleanup profile, or future AMT model can be
-measured with the same corpus and acceptance thresholds.
+The CLI/manifest contract and timing diagnostics live here; standard note
+matching and precision/recall/F1 are delegated to the canonical mir_eval-backed
+scorer in ``evaluation.transcription_metrics``.
 """
 
 from __future__ import annotations
@@ -11,6 +11,8 @@ import argparse
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from evaluation.transcription_metrics import Note, compute_note_metrics, match_notes
 
 
 @dataclass(frozen=True)
@@ -34,54 +36,43 @@ class NoteMetrics:
     mean_duration_error_ms: float | None
 
 
+def _canonical(events: list[NoteEvent]) -> list[Note]:
+    return [Note(pitch=event.pitch, start=event.start, end=event.end) for event in events]
+
+
 def compare_events(
     reference: list[NoteEvent],
     predicted: list[NoteEvent],
     onset_tolerance_s: float = 0.05,
 ) -> NoteMetrics:
-    """Greedily match same-pitch notes within an explicit onset tolerance.
-
-    Matching is intentionally deterministic and readable. It is a product
-    regression signal, not a replacement for a research benchmark such as
-    mir_eval; the corpus can later add those stricter metrics without changing
-    the artifact contract.
-    """
-    unmatched = set(range(len(reference)))
-    pairs: list[tuple[NoteEvent, NoteEvent]] = []
-    for candidate in sorted(predicted, key=lambda note: (note.start, note.pitch, note.end)):
-        options = [
-            index
-            for index in unmatched
-            if reference[index].pitch == candidate.pitch
-            and abs(reference[index].start - candidate.start) <= onset_tolerance_s
-        ]
-        if not options:
-            continue
-        best = min(
-            options,
-            key=lambda index: (abs(reference[index].start - candidate.start), reference[index].end),
-        )
-        unmatched.remove(best)
-        pairs.append((reference[best], candidate))
-
-    matched = len(pairs)
-    precision = matched / len(predicted) if predicted else 0.0
-    recall = matched / len(reference) if reference else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-    onset_errors = [abs(actual.start - found.start) * 1000 for actual, found in pairs]
+    """Compare normalized note events with the canonical mir_eval matcher."""
+    reference_notes = _canonical(reference)
+    predicted_notes = _canonical(predicted)
+    metrics = compute_note_metrics(
+        predicted_notes,
+        reference_notes,
+        onset_tolerance=onset_tolerance_s,
+    )
+    pairs, _, _ = match_notes(
+        predicted_notes,
+        reference_notes,
+        onset_tolerance=onset_tolerance_s,
+    )
+    onset_errors = [abs(pred.start - ref.start) * 1000 for pred, ref in pairs]
     duration_errors = [
-        abs((actual.end - actual.start) - (found.end - found.start)) * 1000
-        for actual, found in pairs
+        abs((pred.end - pred.start) - (ref.end - ref.start)) * 1000 for pred, ref in pairs
     ]
+    matched = metrics.onset_matched_count
+
     return NoteMetrics(
         reference_notes=len(reference),
         predicted_notes=len(predicted),
         matched_notes=matched,
         extra_notes=len(predicted) - matched,
         missing_notes=len(reference) - matched,
-        precision=round(precision, 4),
-        recall=round(recall, 4),
-        f1=round(f1, 4),
+        precision=round(metrics.onset_precision, 4),
+        recall=round(metrics.onset_recall, 4),
+        f1=round(metrics.onset_f1, 4),
         mean_onset_error_ms=round(sum(onset_errors) / len(onset_errors), 2)
         if onset_errors
         else None,
