@@ -87,7 +87,7 @@ export default function LibraryImportControl({
           </svg>
           <span>Import</span>
         </MenuButton>
-        <MenuItems className={styles.menuItems} anchor="bottom start">
+        <MenuItems className={styles.menuItems}>
           <MenuItem>
             <button type="button" className={styles.menuItem} onClick={onUpload}>
               <span className={styles.menuIcon} aria-hidden="true">↑</span>
