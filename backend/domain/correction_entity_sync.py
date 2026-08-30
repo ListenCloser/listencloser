@@ -11,8 +11,6 @@ from __future__ import annotations
 import io
 from uuid import UUID
 
-import pretty_midi
-
 import domain.capabilities as capabilities
 from domain.models import Entity, EntityKind, Job, NoteEntity, Span
 from domain.repositories import EntityRepo
@@ -20,6 +18,8 @@ from domain.repositories import EntityRepo
 
 def note_entities_from_midi_bytes(data: bytes, version_id: UUID) -> list[Entity]:
     """Materialize the complete note world encoded by one MIDI Version."""
+    import pretty_midi
+
     midi = pretty_midi.PrettyMIDI(io.BytesIO(data))
     entities: list[Entity] = []
     for instrument in midi.instruments:
