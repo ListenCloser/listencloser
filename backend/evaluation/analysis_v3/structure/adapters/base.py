@@ -41,6 +41,7 @@ class StructureAdapter:
 
     name = "unknown"
     engine = ""
+    supports_batch = False
 
     def __init__(self, device: str = "cpu") -> None:
         self.device = device
@@ -52,6 +53,16 @@ class StructureAdapter:
     def analyze(self, audio_path: str) -> StructureResult:
         raise NotImplementedError
 
+    def analyze_many(self, audio_paths: list[str]) -> list[StructureResult]:
+        """Analyze a candidate-native batch.
+
+        Candidates should opt in with ``supports_batch = True`` only when their
+        upstream API can share meaningful setup/model work across tracks. The
+        default runner path remains per-clip so existing adapters retain their
+        latency semantics.
+        """
+        raise NotImplementedError
+
     def metadata(self) -> StructureMetadata:
         raise NotImplementedError
 
@@ -60,3 +71,18 @@ class StructureAdapter:
         result = self.analyze(audio_path)
         result.latency_seconds = round(time.monotonic() - start, 4)
         return result
+
+    def timed_analyze_many(self, audio_paths: list[str]) -> tuple[list[StructureResult], float]:
+        """Run eligible tracks and return results plus total candidate wall time.
+
+        For ordinary adapters, preserve the existing per-clip timing contract.
+        Batch-capable adapters invoke their native batch API once; per-clip
+        ``latency_seconds`` stays unset because dividing a shared batch wall time
+        would fabricate individual latency measurements.
+        """
+        start = time.monotonic()
+        if self.supports_batch:
+            results = self.analyze_many(audio_paths)
+        else:
+            results = [self.timed_analyze(audio_path) for audio_path in audio_paths]
+        return results, round(time.monotonic() - start, 4)
