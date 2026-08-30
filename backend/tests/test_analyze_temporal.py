@@ -16,6 +16,7 @@ import pretty_midi
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from analyze import (
+    _compute_beat_relative_density,
     _compute_windowed_density,
     _detect_rests,
     _midi_rhythm,
@@ -25,7 +26,7 @@ from analyze import (
 
 
 class TestWindowedDensity:
-    """Tests for _compute_windowed_density."""
+    """Tests for explicit seconds- and beat-relative density helpers."""
 
     def test_sparse_passage_lower_density(self):
         """Sparse onsets (1 per 2s) produce lower density than dense passages."""
@@ -70,18 +71,24 @@ class TestWindowedDensity:
         assert result[0]["start"] == 0.0
         assert result[0]["end"] == 2.0
         assert result[0]["density"] == 1.0  # 2 events / 2s
+        assert result[0]["unit"] == "events_per_second"
 
     def test_beat_relative_density_with_beats(self):
-        """When beats are provided, density should be beat-relative."""
+        """Beat-relative density uses an explicit events-per-beat contract."""
         onsets = [0.0, 1.0, 2.0, 3.0, 4.0]
         beats = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]
-        result = _compute_windowed_density(onsets, 5.0, window=2.0, step=1.0, beats=beats)
-        # Should return beat-relative results
+        result = _compute_beat_relative_density(
+            onsets,
+            beats,
+            window_beats=2,
+            step_beats=1,
+        )
         assert len(result) > 0
-        for w in result:
-            assert "start" in w
-            assert "end" in w
-            assert "density" in w
+        for window in result:
+            assert window["mode"] == "beat_relative"
+            assert window["unit"] == "events_per_beat"
+            assert window["window_size"] == 2.0
+            assert window["step_size"] == 1.0
 
 
 # ── _detect_rests ────────────────────────────────────────────────────────────
@@ -181,11 +188,11 @@ class TestMidiRhythm:
             result = _midi_rhythm(path)
             assert result is not None
             assert result["rhythmic_density"] < 1.0
-            # Overall density should be low (4 notes in ~10s)
-            densities = [w["density"] for w in result["note_density_over_time"]]
+            # Without trusted beat evidence, inspect the explicit seconds fallback.
+            densities = [w["density"] for w in result["note_density_seconds_over_time"]]
             avg_density = sum(densities) / len(densities) if densities else 0
-            # Average density should be well below 2 notes/s
             assert avg_density < 2.0
+            assert result["note_density_over_time"] == []
         finally:
             os.unlink(path)
 
