@@ -1,20 +1,10 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
-from pathlib import Path
-
-
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "agent_pr.py"
-SPEC = importlib.util.spec_from_file_location("agent_pr", SCRIPT)
-assert SPEC is not None and SPEC.loader is not None
-agent_pr = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = agent_pr
-SPEC.loader.exec_module(agent_pr)
+from scripts.agent_pr import classify
 
 
 def test_docs_only_is_low_risk_and_lightweight() -> None:
-    policy = agent_pr.classify(["docs/ARCHITECTURE.md", "README.md"])
+    policy = classify(["docs/ARCHITECTURE.md", "README.md"])
 
     assert policy.kind == "docs-research"
     assert policy.risk == "low"
@@ -24,7 +14,7 @@ def test_docs_only_is_low_risk_and_lightweight() -> None:
 
 
 def test_frontend_only_selects_frontend_fix_and_gate() -> None:
-    policy = agent_pr.classify(["components/workspace/Inspector.tsx"])
+    policy = classify(["components/workspace/Inspector.tsx"])
 
     assert policy.kind == "production"
     assert policy.risk == "standard"
@@ -35,7 +25,7 @@ def test_frontend_only_selects_frontend_fix_and_gate() -> None:
 
 
 def test_backend_only_selects_locked_backend_gate() -> None:
-    policy = agent_pr.classify(["backend/domain/jobs.py", "backend/tests/test_jobs.py"])
+    policy = classify(["backend/domain/jobs.py", "backend/tests/test_jobs.py"])
 
     assert policy.kind == "production"
     assert policy.fix_mode == "python"
@@ -46,7 +36,7 @@ def test_backend_only_selects_locked_backend_gate() -> None:
 
 
 def test_mixed_frontend_backend_uses_fast_cross_stack_gate() -> None:
-    policy = agent_pr.classify(["app/page.tsx", "backend/api.py"])
+    policy = classify(["app/page.tsx", "backend/api.py"])
 
     assert policy.fix_mode == "all"
     assert policy.check_mode == "fast"
@@ -54,7 +44,7 @@ def test_mixed_frontend_backend_uses_fast_cross_stack_gate() -> None:
 
 
 def test_migration_is_high_risk_and_requires_database_integration() -> None:
-    policy = agent_pr.classify(["supabase/migrations/202608300001_example.sql"])
+    policy = classify(["supabase/migrations/202608300001_example.sql"])
 
     assert policy.kind == "production"
     assert policy.risk == "high"
@@ -64,7 +54,7 @@ def test_migration_is_high_risk_and_requires_database_integration() -> None:
 
 
 def test_workflow_is_high_risk_control_plane() -> None:
-    policy = agent_pr.classify([".github/workflows/build.yml"])
+    policy = classify([".github/workflows/build.yml"])
 
     assert policy.kind == "control-plane"
     assert policy.risk == "high"
@@ -74,7 +64,7 @@ def test_workflow_is_high_risk_control_plane() -> None:
 
 
 def test_capability_registry_change_is_high_risk_truthfulness_work() -> None:
-    policy = agent_pr.classify(["backend/config/capabilities.json"])
+    policy = classify(["backend/config/capabilities.json"])
 
     assert policy.risk == "high"
     assert "capability-policy" in policy.flags
@@ -82,7 +72,7 @@ def test_capability_registry_change_is_high_risk_truthfulness_work() -> None:
 
 
 def test_dependency_lock_change_is_high_risk() -> None:
-    policy = agent_pr.classify(["package-lock.json"])
+    policy = classify(["package-lock.json"])
 
     assert policy.risk == "high"
     assert "dependencies" in policy.flags
@@ -90,13 +80,13 @@ def test_dependency_lock_change_is_high_risk() -> None:
 
 
 def test_real_stack_test_change_requests_real_stack_evidence() -> None:
-    policy = agent_pr.classify(["tests/real-stack/workflow.spec.ts"])
+    policy = classify(["tests/real-stack/workflow.spec.ts"])
 
     assert "fresh-real-stack-e2e" in policy.required_evidence
 
 
 def test_empty_diff_is_explicit() -> None:
-    policy = agent_pr.classify([])
+    policy = classify([])
 
     assert policy.kind == "empty"
     assert policy.check_mode == "none"
