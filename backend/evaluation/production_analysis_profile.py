@@ -16,10 +16,16 @@ import platform
 import tempfile
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+
+import music21.converter as m21_converter
 
 import analyze
+import engines.melody.interpretation as melody_interpretation
+import engines.melody.motif_discovery as motif_discovery
+import engines.registry as registry
 import music_features
 
 
@@ -82,12 +88,6 @@ def profile(input_path: Path, fmt: str) -> dict[str, Any]:
     original_harmony_factory = analyze.get_harmony_engine
     original_melody_factory = analyze.get_melody_engine
     original_rhythm = analyze._midi_rhythm
-
-    import engines.melody.interpretation as melody_interpretation
-    import engines.melody.motif_discovery as motif_discovery
-    import engines.registry as registry
-    import music21.converter as m21_converter
-
     original_theory_factory = registry.get_theory_engine
     original_m21_parse = m21_converter.parse
     original_interpret = melody_interpretation.interpret_melody
