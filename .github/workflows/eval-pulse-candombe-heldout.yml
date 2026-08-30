@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/eval-pulse-candombe-heldout.yml'
       - 'backend/evaluation/analysis_v3/pulse/**'
+      - 'backend/evaluation/lv_chordia_session_lifecycle.py'
       - 'backend/tests/test_pulse_candombe_*.py'
 
 permissions:
@@ -132,3 +133,45 @@ jobs:
             ${{ runner.temp }}/candombe-heldout/results/*.json
           if-no-files-found: warn
           retention-days: 14
+
+  lv-chordia-session-lifecycle:
+    name: lv-chordia-session-lifecycle-${{ matrix.arch }}
+    if: github.event.pull_request.head.ref == 'perf/lv-chordia-session-eval-v2'
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build production backend image natively
+        run: docker build --tag hello-ai-lv-session:${{ matrix.arch }} backend
+
+      - name: Measure retained lv-chordia ensemble lifecycle
+        run: |
+          set -euo pipefail
+          mkdir -p performance-results
+          chmod 777 performance-results
+          docker run --rm \
+            -v "$PWD/tests/fixtures/real-piano.m4a:/tmp/real-piano.m4a:ro" \
+            -v "$PWD/performance-results:/results" \
+            --entrypoint python \
+            "hello-ai-lv-session:${{ matrix.arch }}" \
+            -m evaluation.lv_chordia_session_lifecycle \
+            --input /tmp/real-piano.m4a \
+            --trials 3 \
+            --output /results/lv-chordia-session-${{ matrix.arch }}.json
+
+      - name: Upload lv-chordia lifecycle result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lv-chordia-session-${{ matrix.arch }}-${{ github.event.pull_request.head.sha }}
+          path: performance-results/lv-chordia-session-${{ matrix.arch }}.json
+          if-no-files-found: error
+          retention-days: 30
