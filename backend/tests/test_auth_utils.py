@@ -23,7 +23,7 @@ def _client_with_result(result=None, error: Exception | None = None):
 
 
 def _install_client(monkeypatch, client) -> None:
-    monkeypatch.setattr(auth_utils, "get_supabase_client", lambda: client)
+    monkeypatch.setattr(auth_utils, "get_supabase", lambda: client)
 
 
 def test_verify_token_requires_credentials():
