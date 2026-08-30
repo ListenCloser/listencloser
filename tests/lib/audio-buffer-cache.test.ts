@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearDecodedAudioCache, getDecodedAudio } from "@/lib/audio-buffer-cache";
+import {
+  clearDecodedAudioCache,
+  getDecodedAudio,
+  stableAudioCacheKey,
+} from "@/lib/audio-buffer-cache";
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -73,6 +77,65 @@ describe("audio-buffer-cache", () => {
     await expect(second).resolves.toBe(buffer);
     await expect(getDecodedAudio("https://audio.test/source.wav")).resolves.toBe(buffer);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats rotated signing credentials as the same immutable audio object", async () => {
+    const decode = deferred<AudioBuffer>();
+    const buffer = { duration: 14 } as AudioBuffer;
+    decodes.push(decode);
+
+    const firstUrl = "https://storage.test/object/audio.wav?token=first&expires=1";
+    const rotatedUrl = "https://storage.test/object/audio.wav?token=second&expires=2";
+
+    expect(stableAudioCacheKey(firstUrl)).toBe(stableAudioCacheKey(rotatedUrl));
+
+    const first = getDecodedAudio(firstUrl);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    decode.resolve(buffer);
+    await expect(first).resolves.toBe(buffer);
+
+    await expect(getDecodedAudio(rotatedUrl)).resolves.toBe(buffer);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(decodeCalls).toBe(1);
+  });
+
+  it("lets callers use immutable Version identity across unrelated retrieval URLs", async () => {
+    const decode = deferred<AudioBuffer>();
+    const buffer = { duration: 16 } as AudioBuffer;
+    decodes.push(decode);
+
+    const first = getDecodedAudio(
+      "https://storage-a.test/object.wav?token=one",
+      "version-1",
+    );
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    decode.resolve(buffer);
+    await expect(first).resolves.toBe(buffer);
+
+    await expect(
+      getDecodedAudio("https://storage-b.test/new-route.wav?token=two", "version-1"),
+    ).resolves.toBe(buffer);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(decodeCalls).toBe(1);
+  });
+
+  it("keeps distinct immutable storage paths isolated", async () => {
+    const firstDecode = deferred<AudioBuffer>();
+    const secondDecode = deferred<AudioBuffer>();
+    const firstBuffer = { duration: 8 } as AudioBuffer;
+    const secondBuffer = { duration: 9 } as AudioBuffer;
+    decodes.push(firstDecode, secondDecode);
+
+    const first = getDecodedAudio("https://storage.test/object/a.wav?token=one");
+    const second = getDecodedAudio("https://storage.test/object/b.wav?token=one");
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    firstDecode.resolve(firstBuffer);
+    secondDecode.resolve(secondBuffer);
+
+    await expect(first).resolves.toBe(firstBuffer);
+    await expect(second).resolves.toBe(secondBuffer);
+    expect(decodeCalls).toBe(2);
   });
 
   it("does not let a stale decode repopulate cache or erase a newer in-flight request", async () => {
