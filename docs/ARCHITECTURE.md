@@ -4,7 +4,7 @@
 
 This is the runtime contract for the shipped application.
 
-Architecture views use **C4 vocabulary** so one diagram does not mix user context, logical services, deployment hosts, and code-level detail. Mermaid is the source format for human-authored diagrams. See [`adr/0012-architecture-docs-as-code.md`](adr/0012-architecture-docs-as-code.md).
+Architecture views use **C4 vocabulary** so one diagram does not mix user context, logical services, deployment hosts, and code-level detail. Mermaid is the source format for human-authored diagrams. See [`adr/0013-architecture-docs-as-code.md`](adr/0013-architecture-docs-as-code.md).
 
 The maintained views are intentionally small:
 

@@ -1,4 +1,4 @@
-# 0012: Architecture documentation as code
+# 0013: Architecture documentation as code
 
 Status: accepted
 Date: 2026-08-30
