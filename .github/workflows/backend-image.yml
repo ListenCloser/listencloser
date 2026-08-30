@@ -78,7 +78,7 @@ jobs:
           set -euo pipefail
           mkdir -p notation-comparison
           chmod 0777 notation-comparison
-          docker run --rm \
+          docker run --rm -i \
             --user root \
             -v "$PWD/tests/fixtures/real-piano.m4a:/fixtures/real-piano.m4a:ro" \
             -v "$PWD/notation-comparison:/out" \
@@ -252,6 +252,7 @@ jobs:
           )
           print("NOTATION_COMPARISON=" + json.dumps(summary, sort_keys=True))
           PY
+          test -s notation-comparison/summary.json
       - name: Upload real-piano notation comparison evidence
         if: matrix.arch == 'amd64'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
