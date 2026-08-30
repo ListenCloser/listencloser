@@ -7,10 +7,11 @@ import styles from "./HarmonyEvidence.module.css";
 type HarmonicKind = "chord" | "roman_numeral" | "harmonic_function";
 
 export type HarmonicMoment = {
+  key: string;
   startSeconds: number;
-  chord?: Insight;
-  romanNumeral?: Insight;
-  harmonicFunction?: Insight;
+  chords: Insight[];
+  romanNumerals: Insight[];
+  harmonicFunctions: Insight[];
 };
 
 function normalizeMusicText(value: string): string {
@@ -60,18 +61,26 @@ export function groupHarmonicMoments(insights: Insight[], bpm: number): Harmonic
     const startSeconds = insightStartSeconds(item, bpm);
     if (startSeconds === null) continue;
 
-    // These derived harmonic labels are emitted from the same source boundary.
-    // Millisecond rounding absorbs serialization noise without joining nearby
-    // but genuinely distinct harmonic events.
-    const key = startSeconds.toFixed(3);
-    const moment = moments.get(key) ?? { startSeconds };
-    if (item.kind === "chord") moment.chord = item;
-    if (item.kind === "roman_numeral") moment.romanNumeral = item;
-    if (item.kind === "harmonic_function") moment.harmonicFunction = item;
+    // Only align records that share the same source boundary. Including the
+    // explicit end prevents unrelated labels that merely begin together from
+    // being presented as one harmonic event. Beat-only evidence still groups
+    // conservatively by its derived start when no second boundary is present.
+    const endSeconds = item.span.end_seconds;
+    const key = `${startSeconds.toFixed(3)}:${endSeconds == null ? "open" : endSeconds.toFixed(3)}`;
+    const moment = moments.get(key) ?? {
+      key,
+      startSeconds,
+      chords: [],
+      romanNumerals: [],
+      harmonicFunctions: [],
+    };
+    if (item.kind === "chord") moment.chords.push(item);
+    if (item.kind === "roman_numeral") moment.romanNumerals.push(item);
+    if (item.kind === "harmonic_function") moment.harmonicFunctions.push(item);
     moments.set(key, moment);
   }
 
-  return [...moments.values()].sort((left, right) => left.startSeconds - right.startSeconds);
+  return [...moments.values()].sort((left, right) => left.startSeconds - right.startSeconds || left.key.localeCompare(right.key));
 }
 
 function evidenceButtonLabel(kind: HarmonicKind, item: Insight, visibleLabel: string, startSeconds: number): string {
@@ -104,24 +113,31 @@ export default function HarmonyEvidence({
     }
   };
 
-  const renderEvidence = (kind: HarmonicKind, item: Insight | undefined, startSeconds: number) => {
-    if (!item) return <span className={styles.empty} aria-hidden="true">—</span>;
-    const visibleLabel = kind === "chord"
-      ? chordEvidenceLabel(item)
-      : kind === "roman_numeral"
-        ? romanNumeralEvidenceLabel(item)
-        : harmonicFunctionEvidenceLabel(item);
-    const kindClass = kind === "chord" ? styles.chord : kind === "roman_numeral" ? styles.degree : styles.function;
+  const renderEvidence = (kind: HarmonicKind, items: Insight[], startSeconds: number) => {
+    if (items.length === 0) return <span className={styles.empty} aria-hidden="true">—</span>;
     return (
-      <button
-        type="button"
-        className={`${styles.value} ${kindClass}`}
-        onClick={() => handleClick(item)}
-        title={normalizeMusicText(item.claim)}
-        aria-label={evidenceButtonLabel(kind, item, visibleLabel, startSeconds)}
-      >
-        {visibleLabel}
-      </button>
+      <div className={styles.cell}>
+        {items.map((item) => {
+          const visibleLabel = kind === "chord"
+            ? chordEvidenceLabel(item)
+            : kind === "roman_numeral"
+              ? romanNumeralEvidenceLabel(item)
+              : harmonicFunctionEvidenceLabel(item);
+          const kindClass = kind === "chord" ? styles.chord : kind === "roman_numeral" ? styles.degree : styles.function;
+          return (
+            <button
+              type="button"
+              className={`${styles.value} ${kindClass}`}
+              key={item.id}
+              onClick={() => handleClick(item)}
+              title={normalizeMusicText(item.claim)}
+              aria-label={evidenceButtonLabel(kind, item, visibleLabel, startSeconds)}
+            >
+              {visibleLabel}
+            </button>
+          );
+        })}
+      </div>
     );
   };
 
@@ -134,11 +150,11 @@ export default function HarmonyEvidence({
         <span role="columnheader">Function</span>
       </div>
       {moments.map((moment) => (
-        <div className={styles.moment} role="row" key={moment.startSeconds.toFixed(3)}>
+        <div className={styles.moment} role="row" key={moment.key}>
           <span className={styles.time} role="cell">{formatTime(moment.startSeconds)}</span>
-          <div role="cell">{renderEvidence("chord", moment.chord, moment.startSeconds)}</div>
-          <div role="cell">{renderEvidence("roman_numeral", moment.romanNumeral, moment.startSeconds)}</div>
-          <div role="cell">{renderEvidence("harmonic_function", moment.harmonicFunction, moment.startSeconds)}</div>
+          <div role="cell">{renderEvidence("chord", moment.chords, moment.startSeconds)}</div>
+          <div role="cell">{renderEvidence("roman_numeral", moment.romanNumerals, moment.startSeconds)}</div>
+          <div role="cell">{renderEvidence("harmonic_function", moment.harmonicFunctions, moment.startSeconds)}</div>
         </div>
       ))}
     </div>
