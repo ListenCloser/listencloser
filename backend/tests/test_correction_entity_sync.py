@@ -56,7 +56,9 @@ def test_note_entities_from_midi_bytes_materializes_every_instrument() -> None:
     assert all(entity.version_id == version_id for entity in entities)
 
 
-def test_correction_sync_replaces_partial_entities_from_persisted_midi(monkeypatch) -> None:
+def test_correction_sync_replaces_partial_entities_from_persisted_midi(
+    monkeypatch,
+) -> None:
     output_version_id = uuid4()
     workflow_id = uuid4()
     artifact_id = uuid4()
