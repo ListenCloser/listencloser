@@ -31,6 +31,7 @@ class MuseScoreNotationEngine:
 
     ENGINE = "musescore"
     DEFAULT_TIMEOUT_SECONDS = 120.0
+    _QT_PLATFORM_ARGS = ("-platform", "offscreen")
     _EXECUTABLE_CANDIDATES = (
         "MuseScore4",
         "mscore4",
@@ -109,7 +110,7 @@ class MuseScoreNotationEngine:
             )
 
             completed = self._run(
-                [executable, "--job", str(job_file)],
+                self._headless_command(executable, "--job", str(job_file)),
                 env=self._isolated_environment(root),
             )
             if completed.returncode != 0:
@@ -175,7 +176,12 @@ class MuseScoreNotationEngine:
         if self._version is not None:
             return self._version
 
-        completed = self._run([executable, "--version"], env=os.environ.copy())
+        env = os.environ.copy()
+        env.update({"QT_QPA_PLATFORM": "offscreen", "SKIP_LIBJACK": "1"})
+        completed = self._run(
+            self._headless_command(executable, "--version"),
+            env=env,
+        )
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout or "unknown error").strip()
             raise RuntimeError(
@@ -188,6 +194,11 @@ class MuseScoreNotationEngine:
             raise RuntimeError("MuseScore version probe returned no version")
         self._version = version_text
         return version_text
+
+    @classmethod
+    def _headless_command(cls, executable: str, *args: str) -> list[str]:
+        """Force Qt's offscreen platform even when AppRun overrides the environment."""
+        return [executable, *cls._QT_PLATFORM_ARGS, *args]
 
     def _run(self, args: list[str], *, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
         try:
