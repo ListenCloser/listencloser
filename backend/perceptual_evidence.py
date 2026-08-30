@@ -16,18 +16,18 @@ import numpy as np
 import soundfile as sf
 
 from audio_processing import decode_audio_to_wav
-from domain.perceptual_report import (
-    CANONICAL_SAMPLE_RATE as CANONICAL_SAMPLE_RATE,
-    DEFAULT_HOP_LENGTH as DEFAULT_HOP_LENGTH,
-    DEFAULT_N_FFT as DEFAULT_N_FFT,
-    FeatureName as FeatureName,
-    MeasuredFeatureSeries as MeasuredFeatureSeries,
-    PREPROCESSING_VERSION as PREPROCESSING_VERSION,
-    PerceptualEvidenceReport as PerceptualEvidenceReport,
-    PerceptualProvenance as PerceptualProvenance,
-    PerceptualSeriesEvidence as PerceptualSeriesEvidence,
-    REPORT_SCHEMA_VERSION as REPORT_SCHEMA_VERSION,
-)
+from domain import perceptual_report as _perceptual_report
+
+CANONICAL_SAMPLE_RATE = _perceptual_report.CANONICAL_SAMPLE_RATE
+DEFAULT_HOP_LENGTH = _perceptual_report.DEFAULT_HOP_LENGTH
+DEFAULT_N_FFT = _perceptual_report.DEFAULT_N_FFT
+FeatureName = _perceptual_report.FeatureName
+MeasuredFeatureSeries = _perceptual_report.MeasuredFeatureSeries
+PREPROCESSING_VERSION = _perceptual_report.PREPROCESSING_VERSION
+PerceptualEvidenceReport = _perceptual_report.PerceptualEvidenceReport
+PerceptualProvenance = _perceptual_report.PerceptualProvenance
+PerceptualSeriesEvidence = _perceptual_report.PerceptualSeriesEvidence
+REPORT_SCHEMA_VERSION = _perceptual_report.REPORT_SCHEMA_VERSION
 
 MIN_AUDIO_SAMPLES = DEFAULT_N_FFT
 
