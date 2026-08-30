@@ -47,7 +47,24 @@ def test_basic_pitch_prewarm_skips_when_default_engine_changes(monkeypatch):
     assert worker_warmup.prewarm_basic_pitch_inference() is False
 
 
-def test_librosa_prewarm_uses_non_silent_score_call_shape(monkeypatch):
+def test_beat_this_prewarm_is_default(monkeypatch):
+    import engines.beats.beat_this_engine as beat_this_engine
+
+    calls = []
+    monkeypatch.delenv("BEAT_ENGINE", raising=False)
+    monkeypatch.setattr(beat_this_engine, "prewarm_beat_this_model", lambda: calls.append("loaded"))
+
+    assert worker_warmup.prewarm_beat_this_inference() is True
+    assert calls == ["loaded"]
+
+
+def test_beat_this_prewarm_skips_for_librosa_rollback(monkeypatch):
+    monkeypatch.setenv("BEAT_ENGINE", "librosa")
+
+    assert worker_warmup.prewarm_beat_this_inference() is False
+
+
+def test_librosa_prewarm_uses_non_silent_score_call_shape_when_selected(monkeypatch):
     import librosa
 
     captured: dict[str, object] = {}
@@ -56,7 +73,7 @@ def test_librosa_prewarm_uses_non_silent_score_call_shape(monkeypatch):
         captured.update({"y": y, "sr": sr, "trim": trim})
         return np.asarray([120.0]), np.asarray([10, 20], dtype=int)
 
-    monkeypatch.delenv("BEAT_ENGINE", raising=False)
+    monkeypatch.setenv("BEAT_ENGINE", "librosa")
     monkeypatch.setattr(librosa.beat, "beat_track", fake_beat_track)
 
     assert worker_warmup.prewarm_librosa_beat_tracking() is True
@@ -87,7 +104,7 @@ def test_librosa_prewarm_click_train_has_nonempty_onset_envelope():
     assert onset_envelope.any()
 
 
-def test_librosa_prewarm_skips_when_default_engine_changes(monkeypatch):
-    monkeypatch.setenv("BEAT_ENGINE", "beat_this")
+def test_librosa_prewarm_skips_under_production_default(monkeypatch):
+    monkeypatch.delenv("BEAT_ENGINE", raising=False)
 
     assert worker_warmup.prewarm_librosa_beat_tracking() is False
