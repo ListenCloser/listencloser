@@ -66,6 +66,7 @@ subgraph lib["lib"]
   lib_musicxml_cache_ts["musicxml-cache.ts"]
   lib_notes_ts["notes.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
+  lib_public_recordings_ts["public-recordings.ts"]
   lib_query_client_ts["query-client.ts"]
   lib_relation_api_client_ts["relation-api-client.ts"]
   lib_representation_availability_ts["representation-availability.ts"]
@@ -129,6 +130,7 @@ components_workspace_-->lib_selection_ts
 components_workspace_-->lib_relation_api_client_ts
 components_workspace_-->components_AuthProvider_tsx
 components_workspace_-->lib_api_client_ts
+components_workspace_-->lib_public_recordings_ts
 components_workspace_-->lib_server_state_ts
 components_workspace_-->lib_supabase_ts
 components_workspace_-->lib_work_selection_ts
