@@ -68,10 +68,16 @@ def _m21_key(key_context: str) -> key.Key:
     return key.Key(tonic, mode)
 
 
+def _jams_label(root: str, quality: str) -> str:
+    if root == "N" or quality == "N":
+        return "N"
+    return f"{root}:{quality}"
+
+
 def _m21_chord_from_jams(root: str, quality: str) -> m21_chord.Chord:
     """Realize exactly the chord information present in an lv-chordia label."""
     root_number, bitmap, bass_number = mir_chord.encode(
-        f"{root}:{quality}",
+        _jams_label(root, quality),
         reduce_extended_chords=True,
     )
     if root_number < 0:
@@ -98,6 +104,9 @@ def baseline_prediction(case: TheoryCase) -> TheoryPrediction:
 
 def music21_prediction(case: TheoryCase) -> TheoryPrediction:
     """Interpret the same JAMS root/quality evidence with mir_eval + music21."""
+    if case.root == "N" or case.quality == "N":
+        return TheoryPrediction(numeral="", function="AMBIGUOUS")
+
     chord = _m21_chord_from_jams(case.root, case.quality)
     rn = roman.romanNumeralFromChord(chord, _m21_key(case.key_context))
 
