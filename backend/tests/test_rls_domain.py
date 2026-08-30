@@ -95,14 +95,18 @@ def test_real_auth_jwt_postgrest_rls_boundary(users):
     job_id = str(uuid.uuid4())
 
     # Prove Auth -> JWT -> PostgREST reaches the owner-scoped INSERT policy.
-    created_project = client_a.table("projects").insert(
-        {
-            "id": project_id,
-            "owner_id": user_a["uid"],
-            "name": "RLS smoke",
-            "description": "",
-        }
-    ).execute()
+    created_project = (
+        client_a.table("projects")
+        .insert(
+            {
+                "id": project_id,
+                "owner_id": user_a["uid"],
+                "name": "RLS smoke",
+                "description": "",
+            }
+        )
+        .execute()
+    )
     assert len(created_project.data) == 1
 
     # Seed derived/server-owned lineage through the service role.
@@ -122,7 +126,12 @@ def test_real_auth_jwt_postgrest_rls_boundary(users):
         }
     ).execute()
     service.table("workflows").insert(
-        {"id": workflow_id, "project_id": project_id, "kind": "understand", "parameters": {}}
+        {
+            "id": workflow_id,
+            "project_id": project_id,
+            "kind": "understand",
+            "parameters": {},
+        }
     ).execute()
     service.table("jobs").insert(
         {
@@ -146,13 +155,21 @@ def test_real_auth_jwt_postgrest_rls_boundary(users):
         assert len(client_a.table(table).select("id").eq("id", row_id).execute().data) == 1
         assert len(client_b.table(table).select("id").eq("id", row_id).execute().data) == 0
 
-    workspace = client_a.table("workspace_states").insert(
-        {"project_id": project_id, "owner_id": user_a["uid"], "tab": "analyze"}
-    ).execute()
+    workspace = (
+        client_a.table("workspace_states")
+        .insert({"project_id": project_id, "owner_id": user_a["uid"], "tab": "analyze"})
+        .execute()
+    )
     assert len(workspace.data) == 1
     workspace_id = workspace.data[0]["id"]
     assert (
-        len(client_b.table("workspace_states").select("id").eq("id", workspace_id).execute().data)
+        len(
+            client_b.table("workspace_states")
+            .select("id")
+            .eq("id", workspace_id)
+            .execute()
+            .data
+        )
         == 0
     )
 
