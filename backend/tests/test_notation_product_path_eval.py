@@ -263,6 +263,52 @@ def test_source_manifest_hydrates_prepared_paths_and_emits_rows(
     assert observed[0].source_id == "Bach/Prelude/test.mid"
 
 
+def test_prepared_contract_without_eligible_rows_fails_closed(
+    tmp_path,
+    monkeypatch,
+):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    monkeypatch.setenv("MUSIC_EVAL_CACHE_DIR", str(cache_dir))
+    source_manifest = tmp_path / "real_world_v1.json"
+    source_manifest.write_text(
+        json.dumps(
+            {
+                "name": "real_world_v1",
+                "clips": [
+                    {
+                        "id": "asap_fixture",
+                        "dataset": "asap",
+                        "source_id": "Bach/Prelude/test.mid",
+                        "category": "solo_piano",
+                    }
+                ],
+            }
+        )
+    )
+    (cache_dir / "prepared-real_world_v1.json").write_text(
+        json.dumps(
+            {
+                "corpus": "real_world_v1",
+                "clips": [
+                    {
+                        "id": "asap_fixture",
+                        "dataset": "asap",
+                        "status": "unavailable",
+                        "reason": "dataset materialization required",
+                    }
+                ],
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="no clips with prepared reference MIDI"):
+        notation_eval.run_notation_evaluation(
+            str(source_manifest),
+            str(tmp_path / "results"),
+        )
+
+
 def test_source_manifest_without_prepared_contract_fails_actionably(
     tmp_path,
     monkeypatch,
