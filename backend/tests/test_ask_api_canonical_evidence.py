@@ -110,7 +110,9 @@ def test_prompt_and_sanitizer_use_same_server_canonical_context(
     assert fake.last_user_prompt is not None
     assert "Persisted chord: G7" in fake.last_user_prompt
     assert "CLIENT FORGED CLAIM" not in fake.last_user_prompt
-    assert canonical_version_id in fake.last_user_prompt
+    # Version lineage is used server-side to authorize/canonicalize the Insight,
+    # but is deliberately not exposed to the LLM evidence serializer.
+    assert canonical_version_id not in fake.last_user_prompt
     assert '"category": "selection"' in fake.last_user_prompt
     assert response.json()["references"] == [{"type": "insight", "id": insight_id}]
 
