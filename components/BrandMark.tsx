@@ -15,11 +15,6 @@ export default function BrandMark({ size = 22, className = "" }: { size?: number
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <g stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.58">
-        <path d="M6.75 9.75h3.75" />
-        <path d="M6.4 13.9h4.1" />
-        <path d="M7.5 17.25h3" />
-      </g>
       <path
         d="M12.75 4.1v15.8"
         stroke="currentColor"
