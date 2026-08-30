@@ -25,19 +25,27 @@ describe("public recording catalog", () => {
     }
   });
 
+  it("keeps the starter catalog public-domain or CC0 while provenance is picker-only", () => {
+    for (const recording of PUBLIC_RECORDINGS) {
+      expect(recording.licenseLabel.toLowerCase()).toMatch(/public domain|cc0/);
+    }
+  });
+
   it("is intentionally not a classical-only catalog", () => {
     const styles = PUBLIC_RECORDINGS.map((recording) => recording.style.toLowerCase());
     expect(styles.some((style) => style.includes("classical"))).toBe(true);
     expect(styles.some((style) => style.includes("ragtime"))).toBe(true);
     expect(styles.some((style) => style.includes("tango"))).toBe(true);
     expect(styles.some((style) => style.includes("blues"))).toBe(true);
-    expect(styles.some((style) => style.includes("reggae"))).toBe(true);
+    expect(styles.some((style) => style.includes("jazz"))).toBe(true);
+    expect(styles.some((style) => style.includes("folk"))).toBe(true);
   });
 
   it("filters across titles, creators, styles, and tags", () => {
     expect(filterPublicRecordings("tango").map((recording) => recording.id)).toContain("el-choclo");
-    expect(filterPublicRecordings("Huber").map((recording) => recording.id)).toEqual(["e-blues"]);
-    expect(filterPublicRecordings("drums").map((recording) => recording.id)).toEqual(["reggae-bultron"]);
+    expect(filterPublicRecordings("Blackwell").map((recording) => recording.id)).toEqual(["how-long-blues"]);
+    expect(filterPublicRecordings("drums").map((recording) => recording.id)).toEqual(["jazz-ride-pattern"]);
+    expect(filterPublicRecordings("country").map((recording) => recording.id)).toEqual(["jesse-james"]);
   });
 });
 
