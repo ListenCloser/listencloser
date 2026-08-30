@@ -1,6 +1,10 @@
 """Decision-producing tests for the #657 equal-input theory bakeoff."""
 
-from evaluation.theory_music21_bakeoff import TheoryCase, evaluate_cases, music21_prediction
+from evaluation.theory_music21_bakeoff import (
+    TheoryCase,
+    evaluate_cases,
+    music21_prediction,
+)
 
 
 _CORE_CASES = [
