@@ -120,6 +120,12 @@ describe("extractObservedPulseGrid", () => {
     ).toBeNull();
     expect(
       extractObservedPulseGrid(
+        [rhythmInsight({ downbeats: [0.2], windows: undefined })],
+        "version-a",
+      ),
+    ).toBeNull();
+    expect(
+      extractObservedPulseGrid(
         [
           rhythmInsight({
             beats: undefined,
