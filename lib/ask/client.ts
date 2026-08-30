@@ -1,5 +1,7 @@
-import { apiFetch } from "@/lib/api";
+import { apiFetch, isApiRequestError } from "@/lib/api";
 import type { AskContext, AskResponse } from "./types";
+
+export { isApiRequestError };
 
 export type AskRequest = {
   question: string;
