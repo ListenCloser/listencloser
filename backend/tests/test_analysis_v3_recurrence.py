@@ -4,7 +4,6 @@ from uuid import UUID
 
 import numpy as np
 import pytest
-
 from backend.evaluation.analysis_v3.recurrence import (
     RECURRENCE_DIMENSIONS,
     build_fixed_perceptual_matrix,
