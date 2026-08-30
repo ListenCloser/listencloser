@@ -96,7 +96,7 @@ describe("extractObservedPulseGrid", () => {
 
   it("recovers losslessly persisted one-beat window boundaries without inventing downbeats", () => {
     const result = extractObservedPulseGrid(
-      [rhythmInsight({ beats: undefined, downbeats: undefined, windows: legacyBeatWindows })],
+      [rhythmInsight({ beats: null, downbeats: null, windows: legacyBeatWindows })],
       "version-a",
     );
 
@@ -144,8 +144,8 @@ describe("extractObservedPulseGrid", () => {
       extractObservedPulseGrid(
         [
           rhythmInsight({
-            beats: undefined,
-            downbeats: undefined,
+            beats: null,
+            downbeats: null,
             windows: [
               legacyBeatWindows[0],
               { ...legacyBeatWindows[1], start: 0.8 },
