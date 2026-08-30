@@ -33,7 +33,7 @@ jobs:
         run: |
           set +e
           mkdir -p deptry-output
-          uv run --project backend --with deptry==0.25.0 \
+          uv run --project backend --with deptry==0.25.1 \
             deptry backend \
             --config backend/pyproject.toml \
             --extend-exclude 'backend/tests' \
