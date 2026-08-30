@@ -15,6 +15,7 @@ from slowapi.errors import RateLimitExceeded
 from ask.api import router as ask_router
 from auth_utils import limiter
 from domain.api import router as domain_router
+from domain.relation_api import router as relation_router
 from domain.upload_api import router as upload_router
 from health_api import router as health_router
 from observability import configure_logging, init_sentry, init_telemetry, record_http_request
@@ -49,6 +50,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(domain_router)
+app.include_router(relation_router)
 app.include_router(upload_router)
 app.include_router(ask_router)
 app.include_router(health_router)

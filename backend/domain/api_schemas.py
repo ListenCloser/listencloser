@@ -4,9 +4,13 @@ Keep composite wire shapes explicit so FastAPI can publish an authoritative
 OpenAPI contract instead of falling back to untyped JSON responses.
 """
 
-from pydantic import BaseModel
+from typing import Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 from domain.models import Artifact, Job, Version, Work, Workflow
+from domain.relation_findings import GroundedRelationFinding
 
 
 class WorkArtifactBundleResponse(BaseModel):
@@ -40,3 +44,10 @@ class VersionResourceResponse(BaseModel):
     version: Version
     artifact: Artifact
     signed_url: str
+
+
+class PerceptualSpanComparisonResponse(BaseModel):
+    status: Literal["supported", "unavailable", "withheld", "failed"]
+    evidence_report_version_id: UUID | None = None
+    finding: GroundedRelationFinding | None = None
+    reasons: list[str] = Field(default_factory=list)
