@@ -15,6 +15,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from domain.perceptual_report import FeatureName
 from domain.relation_observations import (
     EvidenceRef,
     RelationMeasurement,
@@ -22,7 +23,6 @@ from domain.relation_observations import (
     RelationSufficiency,
     SecondsSpanLocator,
 )
-from perceptual_evidence import FeatureName
 
 FindingAction = Literal["focus", "compare", "evidence"]
 
