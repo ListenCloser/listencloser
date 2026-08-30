@@ -204,8 +204,7 @@ def _valid_measurement(measurement: RhythmDensityContextMeasurement) -> bool:
 def _valid_relation_provenance(observation: RhythmDensityContextObservation) -> bool:
     provenance = observation.provenance
     return (
-        provenance.get("comparison_locator_semantics")
-        == _EXPECTED_COMPARISON_LOCATOR_SEMANTICS
+        provenance.get("comparison_locator_semantics") == _EXPECTED_COMPARISON_LOCATOR_SEMANTICS
         and provenance.get("percentile_convention") == _EXPECTED_PERCENTILE_CONVENTION
         and provenance.get("rank_target") == _EXPECTED_RANK_TARGET
         and provenance.get("reference_window_independence_assumed") is False
