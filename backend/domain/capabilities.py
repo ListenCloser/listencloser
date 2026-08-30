@@ -1151,7 +1151,17 @@ def handle_analyze(job: Job, client) -> list[str]:
                 input_version.id,
                 "rhythm_density",
                 f"Note density profile: {len(note_density)} windows",
-                evidence={"windows": note_density[:50]},
+                evidence={
+                    "windows": note_density,
+                    "coverage": {
+                        "policy_version": "complete_series_v1",
+                        "total_generated_window_count": len(note_density),
+                        "stored_window_count": len(note_density),
+                        "start_seconds": note_density[0].get("start"),
+                        "end_seconds": note_density[-1].get("end"),
+                        "truncated": False,
+                    },
+                },
                 confidence=None,
                 job=job,
                 owner_id=owner_id,
