@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from contextlib import suppress
 
 import pytest
 
@@ -164,8 +165,5 @@ def test_owner_cannot_forge_server_authoritative_domain_rows():
             assert rows == [], f"forged row unexpectedly persisted in {table}"
     finally:
         service.table("projects").delete().eq("id", project_id).execute()
-        try:
+        with suppress(Exception):
             service.auth.admin.delete_user(user_id)
-        except Exception:
-            # Local Auth cleanup must not obscure the database authorization result.
-            pass
