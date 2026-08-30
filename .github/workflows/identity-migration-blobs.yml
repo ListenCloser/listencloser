@@ -1,0 +1,93 @@
+name: Identity Migration Blobs
+
+on:
+  push:
+    branches:
+      - chore/finish-listencloser-migration
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Create transformed Git blobs without updating refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import re
+          import subprocess
+          import urllib.request
+          from pathlib import Path
+
+          token = os.environ["GH_TOKEN"]
+          repository = os.environ["GH_REPOSITORY"]
+          skip_paths = {
+              "backend/domain/api.py",
+              "backend/domain/repositories.py",
+              ".github/workflows/identity-migration-blobs.yml",
+          }
+
+          exact_replacements = (
+              ("https://github.com/gr-rr/hello-ai.git", "https://github.com/ListenCloser/listencloser.git"),
+              ("https://github.com/gr-rr/hello-ai", "https://github.com/ListenCloser/listencloser"),
+              ("gr-rr/hello-ai", "ListenCloser/listencloser"),
+              ("hello-ai-wheat.vercel.app", "listen-closer.vercel.app"),
+              ("hello-ai-giancarloricci.vercel.app", "listen-closer.vercel.app"),
+              ("hello-ai-git-main-giancarloricci.vercel.app", "listen-closer.vercel.app"),
+          )
+
+          def transform(text: str) -> str:
+              for old, new in exact_replacements:
+                  text = text.replace(old, new)
+              return re.sub(r"hello-ai", "listencloser", text, flags=re.IGNORECASE)
+
+          def create_blob(content: str) -> str:
+              body = json.dumps({"content": content, "encoding": "utf-8"}).encode()
+              request = urllib.request.Request(
+                  f"https://api.github.com/repos/{repository}/git/blobs",
+                  data=body,
+                  method="POST",
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                      "Content-Type": "application/json",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)["sha"]
+
+          raw = subprocess.check_output(["git", "ls-files", "-s", "-z"])
+          manifest = []
+          for entry in raw.split(b"\0"):
+              if not entry:
+                  continue
+              metadata, raw_path = entry.split(b"\t", 1)
+              mode = metadata.split(b" ", 1)[0].decode()
+              path = raw_path.decode()
+              if path in skip_paths:
+                  continue
+              file_path = Path(path)
+              try:
+                  text = file_path.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              updated = transform(text)
+              if updated == text:
+                  continue
+              manifest.append({"path": path, "mode": mode, "sha": create_blob(updated)})
+
+          payload = base64.b64encode(json.dumps(manifest, separators=(",", ":")).encode()).decode()
+          print(f"MIGRATION_MANIFEST_B64={payload}")
+          print(f"Created {len(manifest)} unreferenced transformed blobs; no branch ref was updated.")
+          PY
