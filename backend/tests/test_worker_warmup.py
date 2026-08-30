@@ -3,10 +3,12 @@ from __future__ import annotations
 import wave
 
 import numpy as np
+import pytest
 
 from domain import worker_warmup
 
 
+@pytest.mark.integration
 def test_basic_pitch_prewarm_uses_normal_predict_call_shape(monkeypatch):
     import basic_pitch.inference as inference
 
