@@ -6,7 +6,7 @@ import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 import { deriveAskContext } from "@/lib/ask/context";
-import { askMusic } from "@/lib/ask/client";
+import { askMusic, isApiRequestError } from "@/lib/ask/client";
 import { deriveAskStarterPrompts } from "@/lib/ask/prompts";
 import {
   actionLabel,
@@ -16,7 +16,6 @@ import {
   validateAction,
   type ReferenceContext,
 } from "@/lib/ask/render";
-import { isApiRequestError } from "@/lib/api";
 import { composeNoteSelection } from "@/lib/selection";
 import type { PlaybackSource } from "@/lib/stores/transport";
 import type { AskAction, AskMessage, AskReference, AskResponse } from "@/lib/ask/types";
