@@ -83,9 +83,7 @@ def _density_insight(
         kind=kind,
         claim="Note density profile",
         evidence=(
-            {"windows": windows, "coverage": _coverage(windows)}
-            if evidence is None
-            else evidence
+            {"windows": windows, "coverage": _coverage(windows)} if evidence is None else evidence
         ),
         confidence=None,
         provenance={
