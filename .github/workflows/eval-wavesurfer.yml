@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/eval-wavesurfer.yml'
-      - 'app/__eval/wavesurfer/**'
+      - 'app/eval-wavesurfer/**'
       - 'tests/e2e/wavesurfer-eval.spec.ts'
 
 permissions:
@@ -25,16 +25,16 @@ jobs:
       - name: Install locked app dependencies
         run: npm ci
 
-      - name: Install pinned WaveSurfer candidate without changing the lockfile
-        run: npm install --no-save --package-lock=false --ignore-scripts wavesurfer.js@7.12.8
+      - name: Stage pinned WaveSurfer candidate outside the app dependency tree
+        run: |
+          mkdir -p /tmp/wavesurfer-candidate public/__wavesurfer-eval
+          npm install --prefix /tmp/wavesurfer-candidate --package-lock=false --ignore-scripts wavesurfer.js@7.12.8
+          cp /tmp/wavesurfer-candidate/node_modules/wavesurfer.js/dist/wavesurfer.min.js public/__wavesurfer-eval/wavesurfer.min.js
+          cp /tmp/wavesurfer-candidate/node_modules/wavesurfer.js/dist/plugins/regions.min.js public/__wavesurfer-eval/regions.min.js
+          cp tests/fixtures/real-piano.m4a public/__wavesurfer-eval/real-piano.m4a
 
       - name: Install Chromium
         run: npx playwright install chromium --with-deps
-
-      - name: Stage canonical audio fixture for equal-origin browser loading
-        run: |
-          mkdir -p public/__wavesurfer-eval
-          cp tests/fixtures/real-piano.m4a public/__wavesurfer-eval/real-piano.m4a
 
       - name: Build evaluation app
         run: npm run build
@@ -54,7 +54,7 @@ jobs:
       - name: Wait for app
         run: |
           for attempt in $(seq 1 60); do
-            if curl --fail --silent --show-error http://localhost:3000/__eval/wavesurfer >/dev/null; then
+            if curl --fail --silent --show-error http://localhost:3000/eval-wavesurfer >/dev/null; then
               exit 0
             fi
             sleep 1
