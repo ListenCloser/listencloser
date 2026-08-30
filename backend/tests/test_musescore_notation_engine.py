@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import json
+import pathlib
 import subprocess
-from pathlib import Path
 
 from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.registry import get_notation_engine
@@ -18,12 +16,12 @@ def _fake_musescore_run(args, **kwargs):
         return subprocess.CompletedProcess(args, 0, stdout="MuseScore Studio 4.7.5\n", stderr="")
 
     assert args[1] == "--job"
-    job_path = Path(args[2])
+    job_path = pathlib.Path(args[2])
     job = json.loads(job_path.read_text(encoding="utf-8"))
     assert len(job) == 1
-    assert Path(job[0]["in"]).read_bytes() == MIDI_BYTES
+    assert pathlib.Path(job[0]["in"]).read_bytes() == MIDI_BYTES
 
-    output_xml, output_midi = (Path(path) for path in job[0]["out"])
+    output_xml, output_midi = (pathlib.Path(path) for path in job[0]["out"])
     output_xml.write_bytes(MUSICXML_BYTES)
     output_midi.write_bytes(NOTATION_MIDI_BYTES)
     return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
@@ -56,7 +54,7 @@ def test_musescore_adapter_exports_normalized_midi_and_musicxml(monkeypatch):
 
 
 def test_musescore_adapter_isolated_headless_environment():
-    root = Path("/tmp/example")
+    root = pathlib.Path("/tmp/example")
     env = MuseScoreNotationEngine._isolated_environment(root)
 
     assert env["QT_QPA_PLATFORM"] == "offscreen"
