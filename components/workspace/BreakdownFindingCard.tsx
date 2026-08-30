@@ -6,6 +6,7 @@ import { requestWorkspaceOrientation } from "@/lib/inspector/orientation";
 import { formatTime } from "@/lib/format";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
+import styles from "./BreakdownFindingCard.module.css";
 
 function showLabel(action: Extract<LiveBreakdownAction, { type: "show" }>): string {
   return action.representationId === "listen" ? "Show waveform" : "Show piano roll";
@@ -64,7 +65,7 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
   };
 
   return (
-    <article className="inspector-breakdown-finding">
+    <article className={`inspector-breakdown-finding ${styles.finding}`}>
       <button
         type="button"
         className="inspector-breakdown-focus"
