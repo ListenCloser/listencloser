@@ -136,7 +136,7 @@ jobs:
 
   lv-chordia-ensemble-pareto:
     name: lv-chordia-ensemble-pareto-arm64
-    if: github.event.pull_request.head.ref == 'eval/lv-chordia-ensemble-pareto'
+    if: github.event.pull_request.head.ref == 'eval/lv-chordia-ensemble-pareto-v2'
     timeout-minutes: 60
     runs-on: ubuntu-24.04-arm
     steps:
