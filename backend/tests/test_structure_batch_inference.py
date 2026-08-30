@@ -71,10 +71,16 @@ class BatchAdapter(StructureAdapter):
     engine = "fake"
     supports_batch = True
 
-    def __init__(self, *, result_count: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        result_count: int | None = None,
+        batch_error: Exception | None = None,
+    ) -> None:
         super().__init__("cpu")
         self.batch_calls: list[list[str]] = []
         self.result_count = result_count
+        self.batch_error = batch_error
 
     def load(self) -> None:
         self._loaded = True
@@ -84,6 +90,8 @@ class BatchAdapter(StructureAdapter):
 
     def analyze_many(self, audio_paths: list[str]) -> list[StructureResult]:
         self.batch_calls.append(list(audio_paths))
+        if self.batch_error is not None:
+            raise self.batch_error
         count = len(audio_paths) if self.result_count is None else self.result_count
         return [
             StructureResult(
@@ -151,8 +159,25 @@ def test_batch_result_cardinality_mismatch_fails_closed(tmp_path: Path) -> None:
 
     assert result["aggregate"]["clips_scored"] == 0
     assert result["aggregate"]["clips_candidate_error"] == 2
+    assert result["candidate_batch_seconds"] is not None
     assert all(row["status"] == "candidate_error" for row in result["rows"])
     assert all("cardinality mismatch" in row["error"] for row in result["rows"])
+
+
+def test_batch_exception_fails_closed_without_fabricating_runtime(tmp_path: Path) -> None:
+    adapter = BatchAdapter(batch_error=RuntimeError("upstream batch failed"))
+    result = run_structure_evaluation(
+        "fake",
+        str(_manifest(tmp_path)),
+        adapter=adapter,
+    )
+
+    assert result["aggregate"]["clips_scored"] == 0
+    assert result["aggregate"]["clips_candidate_error"] == 2
+    assert result["candidate_batch_seconds"] is None
+    assert result["effective_seconds_per_clip"] is None
+    assert all(row["status"] == "candidate_error" for row in result["rows"])
+    assert all("upstream batch failed" in row["error"] for row in result["rows"])
 
 
 def test_allin1_uses_upstream_multi_track_api_once() -> None:
@@ -186,4 +211,6 @@ def test_allin1_uses_upstream_multi_track_api_once() -> None:
     assert all(result.ok for result in results)
     assert results[0].segments[0]["label"] == "intro"
     assert results[1].segments[1]["label"] == "chorus"
-    assert all(result.metadata["execution_mode"] == "upstream_batch" for result in results)
+    assert all(
+        result.metadata["execution_mode"] == "upstream_batch" for result in results
+    )
