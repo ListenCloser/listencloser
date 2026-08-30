@@ -12,6 +12,7 @@ import { formatTime } from "@/lib/format";
 import TabStrip from "@/components/ui/TabStrip";
 import AskPanel from "./AskPanel";
 import BreakdownFindingCard from "./BreakdownFindingCard";
+import PassageCompare from "./PassageCompare";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
 
@@ -277,10 +278,31 @@ function overlapsSelection(finding: BreakdownFinding, selection: MusicalSelectio
 function BreakdownSection({
   findings,
   selection,
+  analysisState,
 }: {
   findings: BreakdownFinding[];
   selection: MusicalSelection | null;
+  analysisState: ReturnType<typeof useWorkspace>["workspace"]["analysisState"];
 }) {
+  const emptyCopy = analysisState === "analyzing"
+    ? {
+        title: "Still looking for a strong time-linked finding",
+        body: "Supported context and evidence that has arrived is available below while analysis continues.",
+      }
+    : analysisState === "completed"
+      ? {
+          title: "No supported time-linked finding",
+          body: selection
+            ? "Analysis completed without a reliable localized claim for this selection. Try a wider passage or Ask about the available evidence."
+            : "Analysis completed without a reliable time-linked summary. Available context and source evidence remain below.",
+        }
+      : {
+          title: "No strong time-linked finding here yet",
+          body: selection
+            ? "The current evidence does not support a reliable localized claim for this selection. Try a wider passage or Ask about what is available."
+            : "The current evidence does not support a reliable time-linked summary yet. Available context and source evidence remain below.",
+        };
+
   return (
     <section className="inspector-section inspector-breakdown-section">
       <div className="inspector-section-heading">
@@ -290,10 +312,8 @@ function BreakdownSection({
 
       {findings.length === 0 ? (
         <div className="inspector-breakdown-sparse">
-          <strong>No strong time-linked finding here yet</strong>
-          <p>{selection
-            ? "The current evidence does not support a reliable localized claim for this selection. Try a wider passage or Ask about what is available."
-            : "The current evidence does not support a reliable time-linked summary yet. Available context and source evidence remain below."}</p>
+          <strong>{emptyCopy.title}</strong>
+          <p>{emptyCopy.body}</p>
         </div>
       ) : (
         <div className="inspector-breakdown-findings">
@@ -390,19 +410,47 @@ function BreakdownContent({
   const contextCount = overviewItems(contextInsights).length;
 
   if (exposedAll.length === 0 && rankedFindings.length === 0) {
+    const emptyState = workspace.analysisState === "analyzing"
+      ? {
+          title: "Analysis is still in progress",
+          body: workspace.selection
+            ? "Supported findings will appear here as evidence becomes available for this selection."
+            : "Breakdown will fill in as supported musical evidence becomes available. You can keep listening or move between views while processing continues.",
+        }
+      : workspace.analysisState === "completed"
+        ? {
+            title: "Analysis complete — no supported findings",
+            body: workspace.selection
+              ? "Processing finished, but the available evidence did not support a confident finding for this selection. Try a wider passage or Ask about the recording."
+              : "Processing finished, but the available evidence did not support a confident Breakdown. You can still Ask about the recording or inspect the available representations.",
+          }
+        : {
+            title: "No confident findings yet",
+            body: workspace.selection
+              ? "Try a wider selection or Ask about what is available."
+              : "Breakdown will appear here when there is enough musical evidence.",
+          };
+
     return (
-      <div className="inspector-content inspector-empty-state">
-        <strong>No confident findings yet</strong>
-        <p>{workspace.selection
-          ? "Try a wider selection or Ask about what is available."
-          : "Breakdown will appear here when there is enough musical evidence."}</p>
+      <div className="inspector-content inspector-analysis-content inspector-breakdown-content">
+        <div className="inspector-empty-state" aria-live="polite">
+          <strong>{emptyState.title}</strong>
+          <p>{emptyState.body}</p>
+        </div>
+        <PassageCompare />
       </div>
     );
   }
 
   return (
     <div className="inspector-content inspector-analysis-content inspector-breakdown-content">
-      <BreakdownSection findings={rankedFindings} selection={workspace.selection} />
+      <BreakdownSection
+        findings={rankedFindings}
+        selection={workspace.selection}
+        analysisState={workspace.analysisState}
+      />
+
+      <PassageCompare />
 
       {contextCount > 0 && <ContextSection insights={contextInsights} />}
 

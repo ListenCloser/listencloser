@@ -339,6 +339,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/works/{work_id}/relations/perceptual-span-comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare Perceptual Spans
+         * @description Compare two user-selected spans using persisted, lineage-checked evidence.
+         */
+        post: operations["compare_perceptual_spans_api_v1_works__work_id__relations_perceptual_span_comparison_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -813,6 +833,26 @@ export interface components {
          * @enum {string}
          */
         EntityKind: "note" | "chord" | "beat" | "measure" | "phrase" | "section" | "cadence" | "motif";
+        /**
+         * EvidenceRef
+         * @description #371-compatible namespaced reference to one series inside an analysis report.
+         */
+        EvidenceRef: {
+            /** Id */
+            id: string;
+            /**
+             * Namespace
+             * @default perceptual_series
+             * @constant
+             */
+            namespace: "perceptual_series";
+            /**
+             * Type
+             * @default external
+             * @constant
+             */
+            type: "external";
+        };
         /** FinalizeUploadBody */
         FinalizeUploadBody: {
             /** Byte Size */
@@ -825,6 +865,91 @@ export interface components {
             storage_key: string;
             /** Work Id */
             work_id?: string | null;
+        };
+        /**
+         * GroundedFindingMeasurement
+         * @description One user-facing literal clause tied to the exact evidence reference.
+         */
+        GroundedFindingMeasurement: {
+            /** Comparison Value */
+            comparison_value: number | number[];
+            /** Components */
+            components?: string[];
+            /** Delta */
+            delta: number | number[];
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "higher" | "lower" | "mixed" | "unchanged";
+            /**
+             * Feature
+             * @enum {string}
+             */
+            feature: "rms" | "spectral_centroid" | "relative_band_energy" | "onset_strength";
+            /** Normalization */
+            normalization: string;
+            /** Subject Value */
+            subject_value: number | number[];
+            /** Summary */
+            summary: string;
+            support_ref: components["schemas"]["EvidenceRef"];
+            /** Unit */
+            unit: string | null;
+        };
+        /**
+         * GroundedRelationFinding
+         * @description Relation-first product finding with enough support to audit every clause.
+         */
+        GroundedRelationFinding: {
+            /** Available Actions */
+            available_actions: ("focus" | "compare" | "evidence")[];
+            comparison_locator: components["schemas"]["SecondsSpanLocator"];
+            /** Evidence Summary */
+            evidence_summary: string;
+            /** Headline */
+            headline: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @default perceptual_span_comparison
+             * @constant
+             */
+            kind: "perceptual_span_comparison";
+            /**
+             * Maturity
+             * @default production
+             * @constant
+             */
+            maturity: "production";
+            /** Measurements */
+            measurements: components["schemas"]["GroundedFindingMeasurement"][];
+            /** Provenance */
+            provenance?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Relation Kind
+             * @default compare
+             * @constant
+             */
+            relation_kind: "compare";
+            /**
+             * Source Relation Id
+             * Format: uuid
+             */
+            source_relation_id: string;
+            subject_locator: components["schemas"]["SecondsSpanLocator"];
+            sufficiency: components["schemas"]["RelationSufficiency"];
+            /** Support Refs */
+            support_refs: components["schemas"]["EvidenceRef"][];
+            /**
+             * Trust Class
+             * @default deterministic_derived
+             * @constant
+             */
+            trust_class: "deterministic_derived";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1048,6 +1173,38 @@ export interface components {
              */
             voice: number;
         };
+        /**
+         * PerceptualSpanComparisonBody
+         * @description Compare two explicit seconds-authoritative spans in one audio Version.
+         */
+        PerceptualSpanComparisonBody: {
+            /** Comparison End Seconds */
+            comparison_end_seconds: number;
+            /** Comparison Start Seconds */
+            comparison_start_seconds: number;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Subject End Seconds */
+            subject_end_seconds: number;
+            /** Subject Start Seconds */
+            subject_start_seconds: number;
+        };
+        /** PerceptualSpanComparisonResponse */
+        PerceptualSpanComparisonResponse: {
+            /** Evidence Report Version Id */
+            evidence_report_version_id?: string | null;
+            finding?: components["schemas"]["GroundedRelationFinding"] | null;
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "supported" | "unavailable" | "withheld" | "failed";
+        };
         /** ProcessingStatus */
         ProcessingStatus: {
             /** Completed At */
@@ -1094,6 +1251,43 @@ export interface components {
              * Format: date-time
              */
             updated_at?: string;
+        };
+        /** RelationSufficiency */
+        RelationSufficiency: {
+            /**
+             * Gate
+             * @default USER_SELECTION_CAN_SUBSTITUTE_STRUCTURE
+             * @constant
+             */
+            gate: "USER_SELECTION_CAN_SUBSTITUTE_STRUCTURE";
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "supported" | "experimental" | "withhold";
+        };
+        /**
+         * SecondsSpanLocator
+         * @description Seconds-authoritative span whose validity is decided by sufficiency logic.
+         */
+        SecondsSpanLocator: {
+            /**
+             * Authority
+             * @default explicit
+             * @enum {string}
+             */
+            authority: "explicit" | "user_selected" | "trusted";
+            /** End Seconds */
+            end_seconds: number;
+            /**
+             * Source Artifact Version Id
+             * Format: uuid
+             */
+            source_artifact_version_id: string;
+            /** Start Seconds */
+            start_seconds: number;
         };
         /** Span */
         Span: {
@@ -1981,6 +2175,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeletedWorkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_perceptual_spans_api_v1_works__work_id__relations_perceptual_span_comparison_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PerceptualSpanComparisonBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerceptualSpanComparisonResponse"];
                 };
             };
             /** @description Validation Error */
