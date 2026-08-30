@@ -1,17 +1,7 @@
-"""Canonical note-level transcription evaluation metrics.
+"""Canonical note-level transcription metrics backed by ``mir_eval``.
 
-Matching and precision/recall/F1 are delegated to ``mir_eval.transcription``.
-The repository keeps only a small adapter around its existing ``Note`` and
-``TranscriptionMetrics`` result contracts.
-
-Two criteria are reported separately:
-
-- ``onset_*``: pitch + onset matching with offsets ignored;
-- ``note_*``: pitch + onset + offset matching using mir_eval's standard
-  duration-relative offset rule (20% of reference duration, with a 50 ms
-  minimum by default).
-
-The historical field names are preserved for durable result compatibility.
+The historical result fields stay stable, but matching and scoring belong to
+``mir_eval.transcription`` rather than repository-owned metric code.
 """
 
 from __future__ import annotations
@@ -43,18 +33,16 @@ class Note:
 
 @dataclass(frozen=True)
 class TranscriptionMetrics:
-    # onset+offset (strict note) matching
     note_precision: float
     note_recall: float
     note_f1: float
-    # onset+pitch matching, ignoring offsets
     onset_precision: float
     onset_recall: float
     onset_f1: float
     predicted_count: int
     reference_count: int
-    matched_count: int  # onset+offset matched pairs
-    onset_matched_count: int  # onset+pitch matched pairs
+    matched_count: int
+    onset_matched_count: int
     excessive_count: int
     missed_count: int
 
@@ -75,15 +63,12 @@ class TranscriptionMetrics:
         }
 
 
-def _mir_eval_inputs(notes: Sequence[Note]) -> tuple[np.ndarray, np.ndarray]:
-    """Convert repository note events into mir_eval intervals and Hz pitches."""
-    intervals = np.asarray([(note.start, note.end) for note in notes], dtype=float)
-    if intervals.size == 0:
-        intervals = np.empty((0, 2), dtype=float)
-    else:
-        intervals = intervals.reshape((-1, 2))
-    midi_pitches = np.asarray([note.pitch for note in notes], dtype=float)
-    return intervals, np.asarray(mir_eval.util.midi_to_hz(midi_pitches), dtype=float)
+def _mir_eval_inputs(notes: Sequence[Note]) -> tuple[list[Note], np.ndarray, np.ndarray]:
+    items = list(notes)
+    intervals = np.asarray([(note.start, note.end) for note in items], dtype=float).reshape((-1, 2))
+    midi = np.asarray([note.pitch for note in items], dtype=float)
+    pitches_hz = np.asarray(mir_eval.util.midi_to_hz(midi), dtype=float)
+    return items, intervals, pitches_hz
 
 
 def match_notes(
@@ -91,18 +76,9 @@ def match_notes(
     reference: Sequence[Note],
     onset_tolerance: float = 0.05,
 ) -> tuple[list[tuple[Note, Note]], list[Note], list[Note]]:
-    """Return canonical maximum pitch+onset matches and unmatched notes.
-
-    This preserves the historical helper contract while replacing the local
-    greedy matcher with mir_eval's maximum bipartite matching. Offsets are
-    intentionally ignored here; strict offset-aware scoring is computed by
-    ``compute_note_metrics``.
-    """
-    predicted_notes = list(predicted)
-    reference_notes = list(reference)
-    ref_intervals, ref_pitches = _mir_eval_inputs(reference_notes)
-    pred_intervals, pred_pitches = _mir_eval_inputs(predicted_notes)
-
+    """Preserve the old helper contract using mir_eval maximum matching."""
+    pred, pred_intervals, pred_pitches = _mir_eval_inputs(predicted)
+    ref, ref_intervals, ref_pitches = _mir_eval_inputs(reference)
     matching = mir_eval.transcription.match_notes(
         ref_intervals,
         ref_pitches,
@@ -113,17 +89,11 @@ def match_notes(
     )
     matched_ref = {ref_index for ref_index, _ in matching}
     matched_pred = {pred_index for _, pred_index in matching}
-    matched_pairs = [
-        (predicted_notes[pred_index], reference_notes[ref_index])
-        for ref_index, pred_index in matching
-    ]
-    unmatched_predicted = [
-        note for index, note in enumerate(predicted_notes) if index not in matched_pred
-    ]
-    unmatched_reference = [
-        note for index, note in enumerate(reference_notes) if index not in matched_ref
-    ]
-    return matched_pairs, unmatched_predicted, unmatched_reference
+    return (
+        [(pred[pred_index], ref[ref_index]) for ref_index, pred_index in matching],
+        [note for index, note in enumerate(pred) if index not in matched_pred],
+        [note for index, note in enumerate(ref) if index not in matched_ref],
+    )
 
 
 def compute_note_metrics(
@@ -132,49 +102,32 @@ def compute_note_metrics(
     onset_tolerance: float = 0.05,
     offset_tolerance: float = 0.05,
 ) -> TranscriptionMetrics:
-    """Score note transcription with mir_eval's canonical matching rules.
+    """Score with mir_eval's standard pitch/onset/offset transcription rules.
 
-    ``offset_tolerance`` is retained for API compatibility and is passed as
-    mir_eval's minimum offset tolerance. The canonical duration-relative
-    ``offset_ratio=0.2`` remains enabled, so long reference notes receive the
-    standard 20% offset window rather than a repository-specific fixed window.
+    ``offset_tolerance`` remains for caller compatibility and becomes mir_eval's
+    minimum offset tolerance. The standard 20% reference-duration tolerance is
+    retained instead of the former repository-specific fixed offset window.
     """
-    predicted_notes = list(predicted)
-    reference_notes = list(reference)
-    pred_count = len(predicted_notes)
-    ref_count = len(reference_notes)
-
-    ref_intervals, ref_pitches = _mir_eval_inputs(reference_notes)
-    pred_intervals, pred_pitches = _mir_eval_inputs(predicted_notes)
-
-    note_precision, note_recall, note_f1, _ = mir_eval.transcription.precision_recall_f1_overlap(
+    pred, pred_intervals, pred_pitches = _mir_eval_inputs(predicted)
+    ref, ref_intervals, ref_pitches = _mir_eval_inputs(reference)
+    kwargs = {
+        "onset_tolerance": onset_tolerance,
+        "offset_ratio": 0.2,
+        "offset_min_tolerance": offset_tolerance,
+    }
+    scores = mir_eval.transcription.evaluate(
         ref_intervals,
         ref_pitches,
         pred_intervals,
         pred_pitches,
-        onset_tolerance=onset_tolerance,
-        offset_ratio=0.2,
-        offset_min_tolerance=offset_tolerance,
+        **kwargs,
     )
-    onset_precision, onset_recall, onset_f1, _ = (
-        mir_eval.transcription.precision_recall_f1_overlap(
-            ref_intervals,
-            ref_pitches,
-            pred_intervals,
-            pred_pitches,
-            onset_tolerance=onset_tolerance,
-            offset_ratio=None,
-        )
-    )
-
     strict_matching = mir_eval.transcription.match_notes(
         ref_intervals,
         ref_pitches,
         pred_intervals,
         pred_pitches,
-        onset_tolerance=onset_tolerance,
-        offset_ratio=0.2,
-        offset_min_tolerance=offset_tolerance,
+        **kwargs,
     )
     onset_matching = mir_eval.transcription.match_notes(
         ref_intervals,
@@ -188,16 +141,16 @@ def compute_note_metrics(
     onset_matched_count = len(onset_matching)
 
     return TranscriptionMetrics(
-        note_precision=float(note_precision),
-        note_recall=float(note_recall),
-        note_f1=float(note_f1),
-        onset_precision=float(onset_precision),
-        onset_recall=float(onset_recall),
-        onset_f1=float(onset_f1),
-        predicted_count=pred_count,
-        reference_count=ref_count,
+        note_precision=float(scores["Precision"]),
+        note_recall=float(scores["Recall"]),
+        note_f1=float(scores["F-measure"]),
+        onset_precision=float(scores["Precision_no_offset"]),
+        onset_recall=float(scores["Recall_no_offset"]),
+        onset_f1=float(scores["F-measure_no_offset"]),
+        predicted_count=len(pred),
+        reference_count=len(ref),
         matched_count=matched_count,
         onset_matched_count=onset_matched_count,
-        excessive_count=pred_count - onset_matched_count,
-        missed_count=ref_count - onset_matched_count,
+        excessive_count=len(pred) - onset_matched_count,
+        missed_count=len(ref) - onset_matched_count,
     )
