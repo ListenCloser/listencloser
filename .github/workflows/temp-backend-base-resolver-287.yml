@@ -6,6 +6,11 @@ on:
     branches: [devex/backend-worker-dependency-group-287]
     paths:
       - '.github/workflows/temp-backend-base-resolver-287.yml'
+      - 'backend/pyproject.toml'
+      - 'backend/engines/registry.py'
+      - 'backend/tests/test_engines/test_registry.py'
+      - 'backend/tests/test_engines/test_lstom_smoke.py'
+      - 'backend/tests/test_engines/test_harmony_melody_equivalence.py'
 
 permissions:
   contents: write
