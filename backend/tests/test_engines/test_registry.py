@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from engines.beats.beat_this_engine import BeatThisEngine
 from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.lstom_engine import LStoMMelodyEngine
@@ -26,15 +27,14 @@ class TestRegistryDefaults:
         engine = get_transcription_engine()
         assert isinstance(engine, BasicPitchEngine)
 
-    def test_default_beat_is_librosa(self):
+    def test_default_beat_is_beat_this(self, monkeypatch):
+        monkeypatch.delenv("BEAT_ENGINE", raising=False)
         engine = get_beat_engine()
-        assert isinstance(engine, LibrosaBeatEngine)
-
-    def test_explicit_beat_this_opt_in(self):
-        from engines.beats.beat_this_engine import BeatThisEngine
-
-        engine = get_beat_engine(name="beat_this")
         assert isinstance(engine, BeatThisEngine)
+
+    def test_explicit_librosa_rollback(self):
+        engine = get_beat_engine(name="librosa")
+        assert isinstance(engine, LibrosaBeatEngine)
 
     def test_default_structure_is_allin1(self):
         engine = get_structure_engine()
@@ -61,6 +61,10 @@ class TestRegistryExplicitSelection:
     def test_select_librosa_explicitly(self):
         engine = get_beat_engine("librosa")
         assert isinstance(engine, LibrosaBeatEngine)
+
+    def test_select_beat_this_explicitly(self):
+        engine = get_beat_engine("beat_this")
+        assert isinstance(engine, BeatThisEngine)
 
     def test_unknown_engine_raises(self):
         with pytest.raises(ValueError, match="Unknown transcription engine"):

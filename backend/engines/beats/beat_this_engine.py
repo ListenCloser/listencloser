@@ -1,42 +1,57 @@
-"""Beat This! beat/downbeat tracking engine (experimental).
+"""Beat This! beat/downbeat tracking engine.
 
-Installed optionally behind the BeatTrackingEngine interface.
-Fails explicitly when beat_this is not installed; does not silently fall back.
+The production adapter pins the same ``final0`` checkpoint baked into the
+backend image. The model is cached once per worker process so asynchronous jobs
+do not repay checkpoint construction on every score. Failures are explicit;
+production never silently falls back to the legacy librosa tracker.
 """
 
 from __future__ import annotations
 
 import os
 import tempfile
+from functools import lru_cache
 from typing import Any
 
 from engines.base import BeatTrackingEngine, BeatTrackingResult, EngineProvenance
 
+_CHECKPOINT = "final0"
+_DEVICE = "cpu"
+
+
+@lru_cache(maxsize=1)
+def _load_model():
+    """Load the pinned production model once per process."""
+    from beat_this.inference import File2Beats  # type: ignore[import-untyped]
+
+    return File2Beats(checkpoint_path=_CHECKPOINT, device=_DEVICE)
+
+
+def prewarm_beat_this_model() -> None:
+    """Load the production Beat This checkpoint before the worker claims jobs."""
+    _load_model()
+
 
 class BeatThisEngine(BeatTrackingEngine):
     ENGINE = "beat_this"
-
-    def __init__(self) -> None:
-        pass
 
     @property
     def provenance(self) -> EngineProvenance:
         return EngineProvenance(
             engine=self.ENGINE,
             library_version=_beat_this_version(),
-            parameters={"device": "cpu"},
+            model=_CHECKPOINT,
+            parameters={"device": _DEVICE, "checkpoint": _CHECKPOINT},
         )
 
     def analyze(self, wav_bytes: bytes, **kwargs: Any) -> BeatTrackingResult:
-        from beat_this.inference import File2Beats  # type: ignore[import-untyped]
-
+        model = _load_model()
         tmp_path: str | None = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                 f.write(wav_bytes)
                 f.flush()
                 tmp_path = f.name
-            model = File2Beats(device="cpu")
             beats, downbeats = model(tmp_path)
         finally:
             if tmp_path and os.path.exists(tmp_path):

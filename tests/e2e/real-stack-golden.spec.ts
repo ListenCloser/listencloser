@@ -179,8 +179,9 @@ test("real audio golden path", async ({ page }) => {
     const measures = page.locator(".sheet-music-container g.vf-measure");
     const measureCount = await measures.count();
     expect(measureCount).toBeGreaterThan(2);
-    const targetMeasure = measures.nth(2);
-    const targetBox = await targetMeasure.boundingBox();
+    const logicalThirdMeasure = page.locator('.sheet-music-container g.vf-measure[id="3"]').first();
+    await expect(logicalThirdMeasure).toBeAttached();
+    const targetBox = await logicalThirdMeasure.boundingBox();
     expect(targetBox).not.toBeNull();
     const beforeSeek = await transportPosition(page);
     await page.mouse.click(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2);

@@ -84,6 +84,31 @@ def prewarm_basic_pitch_inference() -> bool:
     return True
 
 
+def prewarm_beat_this_inference() -> bool:
+    """Load the promoted Beat This model before the worker claims user jobs.
+
+    Beat This is the registry default. Its exact ``final0`` checkpoint is baked
+    into the production image and cached by the production adapter once per
+    process. Operators can set ``BEAT_ENGINE=librosa`` to roll back; in that
+    mode this warmup is skipped and the librosa rollback warmup runs instead.
+    """
+
+    beat_engine = os.environ.get("BEAT_ENGINE", "beat_this")
+    if beat_engine != "beat_this":
+        logger.info("beat_this_prewarm_skipped", extra={"beat_engine": beat_engine})
+        return False
+
+    from engines.beats.beat_this_engine import prewarm_beat_this_model
+
+    started = time.perf_counter()
+    prewarm_beat_this_model()
+    logger.info(
+        "beat_this_prewarm_complete",
+        extra={"duration_s": round(time.perf_counter() - started, 3)},
+    )
+    return True
+
+
 def _librosa_prewarm_signal() -> np.ndarray:
     """Build a tiny deterministic click train that traverses beat tracking.
 
@@ -103,20 +128,9 @@ def _librosa_prewarm_signal() -> np.ndarray:
 
 
 def prewarm_librosa_beat_tracking() -> bool:
-    """Pay librosa/Numba beat-tracking cold cost before worker readiness.
+    """Warm librosa only when it is explicitly selected as the rollback engine."""
 
-    Score uses the default beat engine, which is librosa unless ``BEAT_ENGINE``
-    overrides it. The first real ``librosa.beat.beat_track`` call can spend
-    many seconds compiling lazy Numba kernels. Running the production call
-    shape on a deterministic non-silent click train moves that one-time
-    process cost out of the first user's score-generation path.
-
-    Returns ``True`` when the warmup ran and ``False`` when another configured
-    beat engine made it unnecessary. Exceptions intentionally propagate so the
-    worker entrypoint can log them while continuing startup.
-    """
-
-    beat_engine = os.environ.get("BEAT_ENGINE", "librosa")
+    beat_engine = os.environ.get("BEAT_ENGINE", "beat_this")
     if beat_engine != "librosa":
         logger.info("librosa_beat_prewarm_skipped", extra={"beat_engine": beat_engine})
         return False
