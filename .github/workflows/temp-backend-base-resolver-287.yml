@@ -46,10 +46,9 @@ jobs:
           export VENV_BYTES="$(du -sb backend/.venv | cut -f1)"
           backend/.venv/bin/python - <<'PY'
           import importlib.util
-          import os
           import supabase_auth
 
-          heavy = ['basic_pitch', 'beat_this', 'torch', 'torchaudio', 'transkun', 'moduleconf', 'soxr', 'lv_chordia']
+          heavy = ['basic_pitch', 'beat_this', 'torch', 'torchaudio', 'transkun', 'moduleconf', 'lv_chordia']
           leaked = [name for name in heavy if importlib.util.find_spec(name) is not None]
           if leaked:
               raise SystemExit(f'worker modules leaked into lightweight environment: {leaked}')
@@ -72,6 +71,7 @@ jobs:
                   'uv_cache_bytes_approx': 865_000_000,
               },
               'worker_group_excluded': True,
+              'expected_shared_transitive_modules': ['soxr via librosa'],
           }, indent=2, sort_keys=True) + '\n')
           PY
       - name: Run required unit suite without worker group
