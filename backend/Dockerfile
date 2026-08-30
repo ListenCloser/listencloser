@@ -91,6 +91,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 ffmpeg fluidsynth fluid-soundfont-gm curl \
+    libegl1 libopengl0 libnss3 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/.venv /app/.venv
@@ -108,6 +109,7 @@ RUN set -eux; \
     QT_QPA_PLATFORM=offscreen SKIP_LIBJACK=1 "$MUSESCORE_BIN" --version; \
     python -c "import pretty_midi; m=pretty_midi.PrettyMIDI(); i=pretty_midi.Instrument(program=0); i.notes.append(pretty_midi.Note(velocity=90,pitch=60,start=0.0,end=1.0)); m.instruments.append(i); m.write('/tmp/musescore-smoke.mid')"; \
     QT_QPA_PLATFORM=offscreen SKIP_LIBJACK=1 "$MUSESCORE_BIN" \
+      --no-synthesizer --no-midi --no-webview \
       --export-to /tmp/musescore-smoke.musicxml /tmp/musescore-smoke.mid; \
     grep -aq '<score-partwise' /tmp/musescore-smoke.musicxml; \
     rm -f /tmp/musescore-smoke.mid /tmp/musescore-smoke.musicxml
