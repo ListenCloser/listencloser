@@ -77,7 +77,11 @@ def classify_version_storage_locator(
                 StorageLocatorKind.untrusted,
                 "job_path_mismatch",
             )
-        return StorageLocatorDecision(True, StorageLocatorKind.worker_output, "trusted_worker_output")
+        return StorageLocatorDecision(
+            True,
+            StorageLocatorKind.worker_output,
+            "trusted_worker_output",
+        )
 
     if len(parts) != 4:
         return StorageLocatorDecision(False, StorageLocatorKind.untrusted, "owner_path_shape")
