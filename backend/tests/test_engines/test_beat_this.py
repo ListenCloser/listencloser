@@ -32,19 +32,30 @@ class TestBeatThisRegistry:
         engine = get_beat_engine("beat_this")
         assert isinstance(engine, BeatThisEngine)
 
+    def test_provenance_pins_deployed_checkpoint(self):
+        from engines.registry import get_beat_engine
+
+        provenance = get_beat_engine("beat_this").provenance
+        assert provenance.model == "final0"
+        assert provenance.parameters["checkpoint"] == "final0"
+        assert provenance.parameters["device"] == "cpu"
+
     def test_unknown_beat_engine_raises(self):
         from engines.registry import get_beat_engine
 
         with pytest.raises(ValueError):
             get_beat_engine("nonexistent")
 
-    def test_beat_this_runtime_failure_is_explicit(self):
-        from engines.beats.beat_this_engine import BeatThisEngine
-        from engines.registry import get_beat_engine
+    def test_beat_this_runtime_failure_is_explicit(self, monkeypatch):
+        """A candidate failure must not silently route to the legacy tracker."""
+        import engines.beats.beat_this_engine as beat_this_module
 
-        engine = get_beat_engine("beat_this")
-        assert isinstance(engine, BeatThisEngine)
-        with pytest.raises((RuntimeError, ImportError, ValueError, OSError)):
+        def fail_load():
+            raise RuntimeError("checkpoint unavailable")
+
+        monkeypatch.setattr(beat_this_module, "_load_model", fail_load)
+        engine = beat_this_module.BeatThisEngine()
+        with pytest.raises(RuntimeError, match="checkpoint unavailable"):
             engine.analyze(b"test")
 
 
