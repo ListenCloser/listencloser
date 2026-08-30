@@ -53,6 +53,7 @@ services:
       OTEL_SERVICE_NAME: hello-ai-worker
       WORKER_HEALTH_FILE: /app/runtime/worker-heartbeat.json
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+      NUMBA_CACHE_DIR: ${NUMBA_CACHE_DIR:-/app/runtime/numba-cache}
       ALLIN1_ENABLED: ${ALLIN1_ENABLED:-false}
       ALLIN1_MODEL: ${ALLIN1_MODEL:-harmonix-all}
       ALLIN1_DEVICE: ${ALLIN1_DEVICE:-cpu}
