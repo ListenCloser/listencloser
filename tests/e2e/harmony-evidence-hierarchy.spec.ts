@@ -21,7 +21,7 @@ test("harmony evidence aligns chord, degree, and function without repeating key 
   const table = page.getByRole("table", { name: "Harmonic evidence timeline" });
   await expect(table).toBeVisible();
   await expect(table.getByRole("columnheader")).toHaveText(["Time", "Chord", "Degree", "Function"]);
-  await expect(table.locator(".inspector-harmony-row").filter({ hasNot: page.locator(".inspector-harmony-header") })).toHaveCount(6);
+  await expect(table.locator(".inspector-harmony-row:not(.inspector-harmony-header)")).toHaveCount(6);
 
   // Key is already promoted once in Context. The compact degree column should
   // not repeat `(A minor)` on every row, while the original claim remains the
