@@ -198,6 +198,26 @@ def test_malformed_complete_series_metadata_withholds_before_context_statistics(
     assert "marked truncated" in reasons
 
 
+def test_work_context_delegates_incompatible_contracts_to_public_density_validator():
+    windows = [
+        _window(0.0, 2.0, 1.0, step_size=2.0),
+        _window(2.0, 4.0, 2.0, step_size=2.0),
+        _window(4.0, 6.0, 3.0, step_size=2.0),
+        _window(6.0, 8.0, 4.0, step_size=2.0),
+        _window(8.0, 10.0, 5.0, step_size=1.0),
+    ]
+    evidence, source_version_id = _evidence(windows, coverage=_coverage(windows))
+
+    result = contextualize_rhythm_density_within_work(
+        evidence,
+        subject_locator=_locator(source_version_id, 4.0, 6.0),
+    )
+
+    assert result.sufficiency.status == "withhold"
+    assert result.measurements == []
+    assert any("step_size" in reason for reason in result.sufficiency.reasons)
+
+
 def test_reference_median_and_iqr_are_robust_to_one_extreme_window():
     windows = [
         _window(0.0, 2.0, 1.0, step_size=2.0),
