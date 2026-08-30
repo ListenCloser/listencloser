@@ -93,7 +93,7 @@ flowchart TB
     end
 
     Browser --> Next
-    Next --> Auth
+    Browser --> Auth
     Next --> API
     API --> DB
     API --> Storage
