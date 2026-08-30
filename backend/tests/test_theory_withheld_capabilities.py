@@ -16,9 +16,27 @@ from engines.theory.theory_engine import TheoryEngine
 def test_production_theory_keeps_withheld_capabilities_empty() -> None:
     result = TheoryEngine().analyze(
         [
-            {"id": "c1", "root": "C", "quality": "maj", "start": 0.0, "end": 1.0},
-            {"id": "c2", "root": "G", "quality": "maj", "start": 1.0, "end": 2.0},
-            {"id": "c3", "root": "C", "quality": "maj", "start": 2.0, "end": 4.0},
+            {
+                "id": "c1",
+                "root": "C",
+                "quality": "maj",
+                "start": 0.0,
+                "end": 1.0,
+            },
+            {
+                "id": "c2",
+                "root": "G",
+                "quality": "maj",
+                "start": 1.0,
+                "end": 2.0,
+            },
+            {
+                "id": "c3",
+                "root": "C",
+                "quality": "maj",
+                "start": 2.0,
+                "end": 4.0,
+            },
         ],
         global_key="C major",
         key_source="test",
