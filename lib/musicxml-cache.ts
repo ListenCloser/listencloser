@@ -2,14 +2,9 @@ import type { QueryClient } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/query-client";
 
 const MUSICXML_CACHE_TTL_MS = 5 * 60 * 1000;
-const musicXmlRootKey = ["artifact-text", "musicxml"] as const;
 
 function musicXmlKey(versionId: string) {
-  return [...musicXmlRootKey, versionId] as const;
-}
-
-export function clearMusicXmlCache(queryClient: QueryClient = getQueryClient()): void {
-  queryClient.removeQueries({ queryKey: musicXmlRootKey });
+  return ["artifact-text", "musicxml", versionId] as const;
 }
 
 export async function getMusicXml(
