@@ -32,30 +32,68 @@ def _stub_worker_runtime(monkeypatch, events: list[str]) -> None:
     monkeypatch.setattr(worker_entry.signal, "signal", lambda *_args: None)
 
 
-def test_worker_prewarms_before_run(monkeypatch):
+def test_worker_prewarms_transcription_then_beats_before_run(monkeypatch):
     events: list[str] = []
     _stub_worker_runtime(monkeypatch, events)
     monkeypatch.setattr(
         worker_entry,
+        "prewarm_basic_pitch_inference",
+        lambda: events.append("basic_pitch") or True,
+    )
+    monkeypatch.setattr(
+        worker_entry,
         "prewarm_librosa_beat_tracking",
-        lambda: events.append("prewarm") or True,
+        lambda: events.append("librosa") or True,
     )
 
     worker_entry.main()
 
-    assert events == ["prewarm", "run"]
+    assert events == ["basic_pitch", "librosa", "run"]
 
 
-def test_worker_still_runs_when_prewarm_fails(monkeypatch):
+def test_worker_continues_to_beats_and_run_when_basic_pitch_prewarm_fails(monkeypatch):
     events: list[str] = []
     _stub_worker_runtime(monkeypatch, events)
 
-    def fail_prewarm() -> bool:
-        events.append("prewarm")
-        raise RuntimeError("synthetic warmup failure")
+    def fail_basic_pitch_prewarm() -> bool:
+        events.append("basic_pitch")
+        raise RuntimeError("synthetic Basic Pitch warmup failure")
 
-    monkeypatch.setattr(worker_entry, "prewarm_librosa_beat_tracking", fail_prewarm)
+    monkeypatch.setattr(
+        worker_entry,
+        "prewarm_basic_pitch_inference",
+        fail_basic_pitch_prewarm,
+    )
+    monkeypatch.setattr(
+        worker_entry,
+        "prewarm_librosa_beat_tracking",
+        lambda: events.append("librosa") or True,
+    )
 
     worker_entry.main()
 
-    assert events == ["prewarm", "run"]
+    assert events == ["basic_pitch", "librosa", "run"]
+
+
+def test_worker_still_runs_when_librosa_prewarm_fails(monkeypatch):
+    events: list[str] = []
+    _stub_worker_runtime(monkeypatch, events)
+    monkeypatch.setattr(
+        worker_entry,
+        "prewarm_basic_pitch_inference",
+        lambda: events.append("basic_pitch") or True,
+    )
+
+    def fail_librosa_prewarm() -> bool:
+        events.append("librosa")
+        raise RuntimeError("synthetic librosa warmup failure")
+
+    monkeypatch.setattr(
+        worker_entry,
+        "prewarm_librosa_beat_tracking",
+        fail_librosa_prewarm,
+    )
+
+    worker_entry.main()
+
+    assert events == ["basic_pitch", "librosa", "run"]
