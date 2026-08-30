@@ -40,7 +40,7 @@ jobs:
           echo "Changed paths:"
           sed 's/^/  - /' "$changed"
 
-          scope="$(python3 scripts/check_merge_evidence.py --production-scope <"$changed")"
+          scope="$(python3 scripts/classify_production_scope.py --production-scope <"$changed")"
           frontend=false
           backend=false
           if grep -qx 'frontend' <<<"$scope"; then
