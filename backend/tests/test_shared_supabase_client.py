@@ -13,7 +13,7 @@ def test_auth_and_repositories_return_the_same_process_client(monkeypatch):
     monkeypatch.setattr(repositories, "_sb_client", sentinel)
 
     assert repositories.get_supabase() is sentinel
-    assert auth_utils.get_supabase_client() is sentinel
+    assert auth_utils.get_supabase() is sentinel
 
 
 def test_shared_client_is_constructed_once_under_concurrent_first_access(monkeypatch):
@@ -39,7 +39,7 @@ def test_shared_client_is_constructed_once_under_concurrent_first_access(monkeyp
     assert constructed == [
         ("https://project.supabase.invalid", "service-role-test-key"),
     ]
-    assert auth_utils.get_supabase_client() is sentinel
+    assert auth_utils.get_supabase() is sentinel
 
 
 def test_missing_service_role_configuration_stays_unconfigured(monkeypatch):
@@ -50,5 +50,5 @@ def test_missing_service_role_configuration_stays_unconfigured(monkeypatch):
     monkeypatch.setattr(repositories, "create_client", create_client)
 
     assert repositories.get_supabase() is None
-    assert auth_utils.get_supabase_client() is None
+    assert auth_utils.get_supabase() is None
     create_client.assert_not_called()
