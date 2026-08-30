@@ -43,7 +43,7 @@ vi.mock("@/lib/representations", () => {
   const availableDefinitions = definitions.slice(0, 2);
 
   return {
-    REPRESENTATION_DEFINITIONS: definitions,
+    REPRESENTATIONS: definitions,
     availableRepresentations: () => availableDefinitions,
     representationById: (id: string) => definitions.find((definition) => definition.id === id),
   };
