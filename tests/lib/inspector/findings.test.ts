@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveFindings } from "@/lib/inspector/findings";
+import { rankBreakdownFindings } from "@/lib/inspector/breakdown";
 import type { Insight } from "@/lib/domain.types";
 
 function insight(overrides: Partial<Insight>): Insight {
@@ -242,22 +243,29 @@ describe("deriveFindings", () => {
       }
     });
 
-    it("limits findings to 8", () => {
-      const insights: Insight[] = [];
-      for (let i = 0; i < 20; i++) {
-        insights.push(insight({
-          id: `density-${i}`,
-          kind: "rhythm_density",
-          evidence: {
-            windows: [
-              { start: i * 10, end: i * 10 + 2, density: 5 },
-              { start: i * 10 + 2, end: i * 10 + 4, density: 20 },
-            ],
-          },
-        }));
-      }
+    it("does not truncate later candidates before Breakdown ranking", () => {
+      const insights: Insight[] = Array.from({ length: 9 }, (_, index) => insight({
+        id: `early-sparse-${index}`,
+        kind: "melody_activity_sparse",
+        claim: `Sparse melodic passage ${index}`,
+        span: makeSpan(index * 2, index * 2 + 1),
+        evidence: {},
+      }));
+      insights.push(insight({
+        id: "late-register-peak",
+        kind: "melody_register_peak",
+        claim: "Highest melody note: C6",
+        span: makeSpan(100, 101),
+        evidence: { pitch: 84 },
+      }));
 
-      expect(deriveFindings(insights).length).toBeLessThanOrEqual(8);
+      const findings = deriveFindings(insights);
+      expect(findings).toHaveLength(10);
+      expect(findings.at(-1)?.kind).toBe("melody_register_peak");
+
+      const ranked = rankBreakdownFindings(findings, null, 5);
+      expect(ranked[0].kind).toBe("melody_register_peak");
+      expect(ranked.some((finding) => finding.kind === "melody_register_peak")).toBe(true);
     });
   });
 
