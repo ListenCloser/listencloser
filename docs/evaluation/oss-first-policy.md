@@ -16,6 +16,41 @@ Do not require OSS to defeat bespoke code before adoption. Instead:
 
 For standard infrastructure such as canonical MIR metrics and supported dataset loaders, prefer the established OSS implementation directly after contract verification. Do not run ceremonial bakeoffs merely to justify deleting equivalent repository-local code.
 
+## Initial decision matrix
+
+Do not restart a broad model-zoo survey before these already-identified seams are resolved.
+
+| Capability | Default/control | Candidate(s) to evaluate | Burden of proof |
+| --- | --- | --- | --- |
+| beat/downbeat | exact current production path | Beat This; BeatNet only where it adds decision value | custom/librosa path must justify surviving a credible OSS replacement |
+| transcription | upstream Basic Pitch behavior | Transkun; Piano Transcription Inference where domain-appropriate | custom Basic Pitch postprocessing must prove incremental value rule-by-rule |
+| Roman numeral / harmonic function | current production `theory_interpreter` | `music21` on the same trusted-key + root/quality contract | bespoke mapping survives only with measured same-contract advantage |
+| cadence / local key region | withheld | none until a candidate earns re-entry | already-rejected heuristics stay deleted; do not replace them speculatively |
+| structure | current product path / All-In-One where configured | additional maintained segmentation OSS only for a live decision | do not create another structure framework merely to compare tools |
+| notation / performance-to-score | current stage-separated pipeline | `music21`, Partitura, MuseScore tooling by the responsibility each actually owns | bespoke quantization/normalization rules must prove product-specific value |
+
+The matrix is intentionally bounded. Add a candidate only when it can plausibly change a production decision.
+
+## Initial dataset policy
+
+The repository currently has adapters for ASAP, BabySlakh, GuitarSet, MAESTRO, and Slakh. Treat them as task-specific evidence sources, not one interchangeable benchmark pool.
+
+- **MAESTRO**: piano transcription/performance-MIDI evidence; record model-training overlap before claiming held-out performance.
+- **ASAP**: performance-to-score, aligned symbolic, and beat/downbeat evidence for classical piano; its current adapter requires manual acquisition and does not claim an official train/test split.
+- **GuitarSet**: real guitar transcription/rhythm evidence; do not treat a model's training corpus as held-out promotion evidence.
+- **Slakh / BabySlakh**: useful multi-instrument and stage-isolation evidence; label synthetic audio explicitly rather than treating it as equivalent to real recordings.
+- **Product fixtures**: regression/product-path evidence only; never silently promote them to a general MIR benchmark.
+
+For the default Beat This checkpoints, use GTZAN or another independently held-out corpus for promotion evidence unless checkpoint-specific provenance establishes a valid alternative. Upstream Beat This documentation states that its main `final*` models were trained on all of its considered data except GTZAN and warns that evaluation on training datasets can be unfairly optimistic.
+
+Dataset validity is per **candidate × checkpoint × split**, not a permanent property of a dataset. Every durable result must label training overlap / held-out status explicitly.
+
+## Canonical dataset and metric tooling
+
+Prefer `mirdata` for datasets it supports when its exact dataset version, annotation surface, and acquisition behavior satisfy the evaluation contract. Its purpose is reproducible MIR dataset access and it currently includes, among others, GuitarSet and MAESTRO. Do not delete a local adapter until that contract is verified; keep thin local handling only for gaps such as unsupported alignment/materialization requirements.
+
+Prefer `mir_eval` for standard MIR scoring where its task semantics match the question. In particular, its beat evaluator provides canonical beat F-measure and additional established beat metrics; it also provides standard evaluators for chord, transcription, and segmentation tasks. Repository-local standard metric reimplementations should be deletion targets. Product-specific diagnostics may remain when they measure something the canonical MIR metric does not, such as latency, score readability/tie fragmentation, representation lineage, or downstream claim sensitivity.
+
 ## Custom heuristics layered over OSS
 
 Evaluate each custom rule as an ablation:
