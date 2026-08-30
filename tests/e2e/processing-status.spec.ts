@@ -11,16 +11,13 @@ async function startProcessing(page: Page, filename: string) {
   );
   await page.reload();
 
-  const importButton = page.getByRole("complementary").getByRole("button", { name: "Import audio" });
-  if (!(await importButton.isVisible())) {
-    const showLibrary = page.getByRole("button", { name: "Show library" });
-    await expect(showLibrary).toBeVisible({ timeout: 5_000 });
-    await showLibrary.click();
-  }
-  await expect(importButton).toBeVisible({ timeout: 20_000 });
-  await expect(importButton).toBeEnabled({ timeout: 10_000 });
-  await importButton.click();
-  await page.locator('input[type="file"]').setInputFiles({
+  // This spec owns processing-notice behavior, not Library responsive chrome.
+  // The durable hidden input is the actual import boundary and is present in
+  // HomeContent at every workspace width, so drive it directly instead of
+  // making this regression depend on whether the Library drawer is expanded.
+  const fileInput = page.locator("#audio-import-input");
+  await expect(fileInput).toHaveCount(1, { timeout: 20_000 });
+  await fileInput.setInputFiles({
     name: filename,
     mimeType: "audio/mp4",
     buffer: Buffer.from("mock processing status payload"),
