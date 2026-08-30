@@ -1,0 +1,80 @@
+name: WaveSurfer Equal-Contract Eval
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/eval-wavesurfer.yml'
+      - 'app/__eval/wavesurfer/**'
+      - 'tests/e2e/wavesurfer-eval.spec.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    if: github.head_ref == 'eval/wavesurfer-equal-contract-688'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - name: Install locked app dependencies
+        run: npm ci
+
+      - name: Install pinned WaveSurfer candidate without changing the lockfile
+        run: npm install --no-save --package-lock=false --ignore-scripts wavesurfer.js@7.12.8
+
+      - name: Install Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Stage canonical audio fixture for equal-origin browser loading
+        run: |
+          mkdir -p public/__wavesurfer-eval
+          cp tests/fixtures/real-piano.m4a public/__wavesurfer-eval/real-piano.m4a
+
+      - name: Build evaluation app
+        run: npm run build
+        env:
+          NEXT_PUBLIC_MOCK_ENABLED: "true"
+          NEXT_PUBLIC_SUPABASE_URL: "https://cijhpddqvvzyzfzmkdnn.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key"
+
+      - name: Start evaluation app
+        run: npm run start > /tmp/wavesurfer-eval-next.log 2>&1 &
+        env:
+          NODE_ENV: test
+          NEXT_PUBLIC_MOCK_ENABLED: "true"
+          NEXT_PUBLIC_SUPABASE_URL: "https://cijhpddqvvzyzfzmkdnn.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key"
+
+      - name: Wait for app
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://localhost:3000/__eval/wavesurfer >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/wavesurfer-eval-next.log
+          exit 1
+
+      - name: Run equal-contract browser measurement
+        run: npx playwright test tests/e2e/wavesurfer-eval.spec.ts --reporter=line
+        env:
+          RUN_WAVESURFER_EVAL: "true"
+
+      - name: Upload measured result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wavesurfer-equal-contract
+          path: |
+            artifacts/wavesurfer-equal-contract.json
+            test-results/
+            /tmp/wavesurfer-eval-next.log
+          if-no-files-found: ignore
+          retention-days: 7
