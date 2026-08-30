@@ -1,0 +1,236 @@
+name: MAESTRO Heldout Piano Profile Result V2
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/eval-maestro-heldout-piano-profile-result-v2.yml'
+      - 'backend/evaluation/results/piano/maestro_test_production_profiles_v1.json'
+      - 'backend/evaluation/results/piano/maestro_test_production_profiles_v1.provenance.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maestro-heldout-profile-v2-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  result:
+    name: exact-production-heldout-profile-result
+    if: github.event.pull_request.head.ref == 'eval/maestro-heldout-piano-profile-result-v1'
+    timeout-minutes: 90
+    runs-on: ubuntu-latest
+    env:
+      MUSIC_EVAL_CACHE_DIR: /tmp/maestro-heldout-cache
+      TRANSKUN_UPSTREAM_SHA: c5cb8370e17b4a1650b5971ba87ee4b0d208e5b6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Resolve exact product baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          product_sha="$(git merge-base HEAD origin/main)"
+          echo "PRODUCT_SHA=$product_sha" >> "$GITHUB_ENV"
+          echo "Product baseline: $product_sha"
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+
+      - name: Materialize all pinned MAESTRO test excerpts
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python -m evaluation.datasets.prepare \
+            --corpus real_world_v1 \
+            --dataset maestro \
+            > "$RUNNER_TEMP/maestro-prepare.log"
+          cat "$RUNNER_TEMP/maestro-prepare.log"
+
+      - name: Verify test split and build exact evaluator manifest
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          from evaluation.models import CorpusManifest
+
+          repo = Path(os.environ['GITHUB_WORKSPACE'])
+          cache = Path(os.environ['MUSIC_EVAL_CACHE_DIR'])
+          source_path = repo / 'backend/evaluation/corpora/real_world_v1.json'
+          source = json.loads(source_path.read_text())
+          clips = [clip for clip in source['clips'] if clip['dataset'] == 'maestro']
+          assert len(clips) == 15, len(clips)
+          assert all(clip.get('split') == 'test' for clip in clips)
+
+          report_path = cache / 'prepared-real_world_v1.json'
+          report = json.loads(report_path.read_text())
+          assert report['total'] == 15, report
+          assert report['ok'] == 15, report
+          assert report['manual'] == 0, report
+          assert report['error'] == 0, report
+          by_id = {row['id']: row for row in report['clips']}
+          assert set(by_id) == {clip['id'] for clip in clips}
+
+          metadata_path = cache / 'maestro' / 'maestro-v3.0.0.json'
+          metadata = json.loads(metadata_path.read_text())
+          split = metadata['split']
+          midi = metadata['midi_filename']
+          audio = metadata['audio_filename']
+          manifest_rows = []
+          validity_rows = []
+          for clip in clips:
+              matches = [
+                  idx for idx, filename in midi.items()
+                  if filename == clip['source_id'] or filename.endswith(clip['source_id'])
+              ]
+              assert len(matches) == 1, (clip['id'], matches)
+              idx = matches[0]
+              assert split[idx] == 'test', (clip['id'], split[idx])
+              prepared = by_id[clip['id']]
+              assert prepared['status'] == 'ok', prepared
+              audio_path = Path(prepared['audio']).resolve()
+              reference_midi = Path(prepared['reference_midi']).resolve()
+              assert audio_path.is_file() and reference_midi.is_file()
+              manifest_rows.append({
+                  'id': clip['id'],
+                  'audio': str(audio_path),
+                  'reference_midi': str(reference_midi),
+                  'category': clip['category'],
+                  'dataset': 'maestro',
+                  'split': 'test',
+                  'source_id': clip['source_id'],
+                  'license': clip['license'],
+                  'metrics': clip.get('metrics', []),
+                  'excerpt_start': clip['excerpt_start'],
+                  'excerpt_end': clip['excerpt_end'],
+              })
+              validity_rows.append({
+                  'clip_id': clip['id'],
+                  'metadata_index': idx,
+                  'split': split[idx],
+                  'midi_filename': midi[idx],
+                  'audio_filename': audio[idx],
+                  'excerpt_start': clip['excerpt_start'],
+                  'excerpt_end': clip['excerpt_end'],
+              })
+
+          manifest = {
+              'name': 'maestro_test_production_profiles_v1',
+              'description': '15 held-out MAESTRO V3 test excerpts for exact product AMT comparison.',
+              'clips': manifest_rows,
+          }
+          manifest_path = Path(os.environ['RUNNER_TEMP']) / 'maestro-heldout-manifest.json'
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+          assert len(CorpusManifest.from_file(str(manifest_path)).clips) == 15
+
+          def sha256(path):
+              digest = hashlib.sha256()
+              with Path(path).open('rb') as handle:
+                  for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          provenance = {
+              'schema_version': 1,
+              'hello_ai_sha': os.environ['PRODUCT_SHA'],
+              'corpus': {
+                  'name': 'real_world_v1',
+                  'source_manifest_sha256': sha256(source_path),
+                  'selected_dataset': 'maestro',
+                  'selected_clips': 15,
+              },
+              'maestro': {
+                  'version': 'v3.0.0',
+                  'source': 'https://magenta.tensorflow.org/datasets/maestro',
+                  'license': 'CC BY-NC-SA 4.0',
+                  'metadata_sha256': sha256(metadata_path),
+                  'archive_url': 'https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0.zip',
+                  'materializer': 'evaluation.datasets.maestro.MaestroAdapter',
+                  'audio_acquisition': 'bounded ZIP64 HTTP range extraction per selected member',
+              },
+              'transkun': {
+                  'upstream_repo': 'https://github.com/Yujia-Yan/Transkun',
+                  'upstream_sha_reviewed': os.environ['TRANSKUN_UPSTREAM_SHA'],
+                  'production_library_version': '2.0.1',
+                  'official_model_card_dataset': 'MAESTRO V3',
+                  'default_checkpoint_convention': 'V2 No Pedal Ext; fine-tuned from V2 Aug',
+              },
+              'validity': {
+                  'maestro_split': 'test',
+                  'transkun_training_dataset': 'MAESTRO V3 train',
+                  'exact_performance_overlap_with_training_split': False,
+                  'promotion_gate': 'held-out MAESTRO test split',
+              },
+              'clips': validity_rows,
+          }
+          provenance_path = Path(os.environ['RUNNER_TEMP']) / 'maestro-heldout-provenance.json'
+          provenance_path.write_text(json.dumps(provenance, indent=2) + '\n')
+          print('validated 15 MAESTRO test rows')
+          PY
+
+      - name: Run exact production Auto and Solo Piano profiles
+        working-directory: backend
+        env:
+          TF_CPP_MIN_LOG_LEVEL: '2'
+        shell: bash
+        run: |
+          set -euo pipefail
+          env -u TRANSCRIPTION_ENGINE uv run python -m evaluation.piano_transcription_profiles \
+            --manifest "$RUNNER_TEMP/maestro-heldout-manifest.json" \
+            --hello-ai-sha "$PRODUCT_SHA" \
+            --output "$RUNNER_TEMP/maestro-heldout-results.json"
+
+      - name: Require all held-out rows measured
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          result = json.loads((Path(os.environ['RUNNER_TEMP']) / 'maestro-heldout-results.json').read_text())
+          assert result['hello_ai_sha'] == os.environ['PRODUCT_SHA']
+          assert result['manifest']['clips'] == 15
+          assert result['summary']['auto']['measured'] == 15, result['summary']['auto']
+          assert result['summary']['solo_piano']['measured'] == 15, result['summary']['solo_piano']
+          assert len(result['rows']) == 30
+          assert all(row['status'] == 'measured' for row in result['rows'])
+          assert {row['clip_provenance']['split'] for row in result['rows']} == {'test'}
+          print(json.dumps(result['summary'], indent=2))
+          PY
+
+      - name: Upload held-out result and provenance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: maestro-heldout-piano-production-profiles
+          path: |
+            ${{ runner.temp }}/maestro-heldout-results.json
+            ${{ runner.temp }}/maestro-heldout-provenance.json
+            ${{ runner.temp }}/maestro-heldout-manifest.json
+          if-no-files-found: error
+          retention-days: 14
