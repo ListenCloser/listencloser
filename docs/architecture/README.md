@@ -12,6 +12,8 @@ A contributor should be able to answer the following without reconstructing the 
 - how an import becomes durable derived artifacts and evidence;
 - which component owns authentication, authorization, workflow intent, execution, persistence, and rendering;
 - which state is durable and which is browser-local;
+- which OSS/models are used for which responsibility and what actually makes one production-safe;
+- how evaluation flows from dataset/baseline/metric to durable result and capability policy;
 - where production engine selection differs from library defaults;
 - which files are authoritative when documentation and code disagree.
 
@@ -27,6 +29,8 @@ These documents are descriptive. If a diagram cannot be made truthful without in
 | [Frontend components](frontend-components.md) | Workspace coordinator, API/data layer, representations, transport and Inspector |
 | [Data model](data-model.md) | Project/Work/Artifact/Version lineage plus evidence and durable execution |
 | [Understand sequence](dynamic-understand.md) | Import → persist → queue → execute → hydrate/reopen |
+| [OSS/model inventory](oss-inventory.md) | Framework/model responsibility map without duplicating lockfile versions |
+| [Evaluation architecture](evaluation.md) | Dataset → exact baseline/candidate → metric → result → product decision |
 | [Control plane](control-plane.md) | Local checks, CI evidence tiers, build/deploy/smoke boundary |
 | [Sources of truth](sot.md) | Question → canonical machine/code authority |
 
