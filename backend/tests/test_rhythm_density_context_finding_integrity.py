@@ -2,9 +2,7 @@ from uuid import uuid4
 
 from domain.relation_observations import SecondsSpanLocator
 from domain.rhythm_density_context import contextualize_rhythm_density_within_work
-from domain.rhythm_density_context_findings import (
-    compose_grounded_rhythm_density_context_finding,
-)
+from domain.rhythm_density_context_findings import compose_grounded_rhythm_density_context_finding
 from domain.rhythm_density_relations import RhythmDensityEvidence
 
 
@@ -74,10 +72,7 @@ def test_composer_rejects_subject_locator_source_version_drift():
         update={"source_artifact_version_id": uuid4()}
     )
 
-    assert (
-        _compose(observation.model_copy(update={"subject_locator": drifted_locator}))
-        is None
-    )
+    assert _compose(observation.model_copy(update={"subject_locator": drifted_locator})) is None
 
 
 def test_composer_rejects_support_ref_evidence_id_drift():
@@ -86,9 +81,7 @@ def test_composer_rejects_support_ref_evidence_id_drift():
         update={"id": f"{uuid4()}:rhythm_density"}
     )
 
-    assert (
-        _compose(observation.model_copy(update={"support_refs": [drifted_ref]})) is None
-    )
+    assert _compose(observation.model_copy(update={"support_refs": [drifted_ref]})) is None
 
 
 def test_composer_rejects_positive_reference_count_with_empty_coverage():
@@ -101,10 +94,7 @@ def test_composer_rejects_positive_reference_count_with_empty_coverage():
         }
     )
 
-    assert (
-        _compose(observation.model_copy(update={"reference_population": empty_coverage}))
-        is None
-    )
+    assert _compose(observation.model_copy(update={"reference_population": empty_coverage})) is None
 
 
 def test_composer_rejects_reference_interval_outside_source_coverage_envelope():
@@ -126,8 +116,6 @@ def test_composer_rejects_reference_interval_outside_source_coverage_envelope():
     )
 
     assert (
-        _compose(
-            observation.model_copy(update={"reference_population": outside_envelope})
-        )
+        _compose(observation.model_copy(update={"reference_population": outside_envelope}))
         is None
     )
