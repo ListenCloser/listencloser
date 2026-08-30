@@ -3,6 +3,7 @@ import {
   computeSpectrogram,
   frequencyToY,
   logarithmicBinMap,
+  logarithmicFrequencyTicks,
   timeToX,
   xToTime,
 } from "@/lib/spectrogram";
@@ -19,6 +20,29 @@ describe("spectrogram coordinate mapping", () => {
     expect(frequencyToY(40, 40, 20_000, 400)).toBe(400);
     expect(frequencyToY(20_000, 40, 20_000, 400)).toBe(0);
     expect(frequencyToY(400, 40, 20_000, 400)).toBeCloseTo(252, 0);
+  });
+
+  it("uses readable 1-2-5 ticks across the measured logarithmic band", () => {
+    expect(logarithmicFrequencyTicks(40, 22_050)).toEqual([
+      50,
+      100,
+      200,
+      500,
+      1_000,
+      2_000,
+      5_000,
+      10_000,
+      20_000,
+    ]);
+    expect(logarithmicFrequencyTicks(40, 4_000)).toEqual([
+      50,
+      100,
+      200,
+      500,
+      1_000,
+      2_000,
+    ]);
+    expect(logarithmicFrequencyTicks(0, 20_000)).toEqual([]);
   });
 
   it("generates monotonic logarithmic FFT bin rows", () => {
