@@ -1,18 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/AuthProvider";
 import Tooltip from "@/components/ui/Tooltip";
-import { getWorkBundle } from "@/lib/api-client";
+import LibraryImportControl from "@/components/workspace/LibraryImportControl";
+import { getWorkBundle, startUnderstandWorkflow, uploadArtifact } from "@/lib/api-client";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 import {
+  refreshProjectWorks,
   useDeleteWorkMutation,
   useLibraryProject,
   useProjectWorks,
 } from "@/lib/server-state";
+import { downloadPublicRecording, type PublicRecording } from "@/lib/public-recordings";
 import { presentableTitle } from "@/lib/format";
 import { successorAfterDelete } from "@/lib/work-selection";
 
@@ -138,6 +142,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   } = useWorkspace();
   const { clearActiveSource } = useTransport();
   const { resetTimeline } = useTimeline();
+  const queryClient = useQueryClient();
   const projectQuery = useLibraryProject(signedIn ? user?.id ?? "" : "");
   const project = projectQuery.data;
   const worksQuery = useProjectWorks(project?.id ?? "");
@@ -159,6 +164,30 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   async function signOut() {
     await supabase?.auth.signOut();
     window.location.reload();
+  }
+
+  async function handlePublicImport(recording: PublicRecording) {
+    if (!project) throw new Error("Your library is still loading.");
+    if (!canImport) throw new Error("Audio processing is temporarily unavailable.");
+
+    // Resolve and download only allowlisted Commons catalog entries. The file
+    // then crosses the exact same signed-upload durability boundary as a local
+    // recording; there is no separate demo/sample persistence path.
+    const file = await downloadPublicRecording(recording);
+    const { artifact, version } = await uploadArtifact(project.id, file);
+    await refreshProjectWorks(queryClient, project.id);
+
+    try {
+      await startUnderstandWorkflow(version.id, project.id, workspace.transcriptionProfile);
+    } catch (cause) {
+      // Upload durability still wins if enrichment dispatch fails. Open the
+      // saved Work so the user can see/retry it through the normal product path.
+      setActiveWorkId(artifact.work_id);
+      const detail = cause instanceof Error ? `: ${cause.message}` : ".";
+      throw new Error(`Recording saved, but processing could not start${detail}`);
+    }
+
+    setActiveWorkId(artifact.work_id);
   }
 
   async function handleDelete(workId: string) {
@@ -199,20 +228,13 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
         </div>
         {signedIn && (
           <>
-            <button
-              type="button"
-              className="library-import-btn"
-              onClick={requestImport}
+            <LibraryImportControl
               disabled={!importReady}
-              aria-label="Import audio"
-              aria-busy={projectQuery.isPending || undefined}
-              aria-describedby={importStatusId}
-            >
-              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-                <path d="M7.5 2v11M2 7.5h11" />
-              </svg>
-              <span>Import audio</span>
-            </button>
+              busy={projectQuery.isPending}
+              statusId={importStatusId}
+              onUpload={requestImport}
+              onImport={handlePublicImport}
+            />
             {importStatus && <span id="library-import-status" className="library-import-status" role="status">{importStatus}</span>}
             <ImportSettings profile={workspace.transcriptionProfile} onChange={setTranscriptionProfile} />
           </>
@@ -228,7 +250,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
         ) : works.length === 0 ? (
           <div className="library-empty library-empty-v3">
             <strong>No recordings yet</strong>
-            <p>Import audio to begin.</p>
+            <p>Upload or choose a public recording to begin.</p>
           </div>
         ) : works.map((work) => {
           const selected = workspace.activeWorkId === work.id;
