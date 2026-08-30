@@ -115,8 +115,14 @@ def test_exact_repeated_window_is_top_non_overlapping_match() -> None:
 
     assert matches[0].start_seconds == pytest.approx(5.5)
     assert matches[0].distance == pytest.approx(0.0, abs=1e-12)
-    assert all(value == pytest.approx(0.0, abs=1e-12) for value in matches[0].component_distances.values())
-    assert all(not (match.start_seconds < 2.2 and match.end_seconds > 1.0) for match in matches)
+    assert all(
+        value == pytest.approx(0.0, abs=1e-12)
+        for value in matches[0].component_distances.values()
+    )
+    assert all(
+        not (match.start_seconds < 2.2 and match.end_seconds > 1.0)
+        for match in matches
+    )
 
 
 def test_per_dimension_z_normalization_preserves_scaled_offset_shape() -> None:
@@ -157,7 +163,10 @@ def test_component_distances_keep_changed_dimension_diagnosable() -> None:
     assert matches[0].start_seconds == pytest.approx(6.0)
     assert matches[0].component_distances["band_low"] > 0.5
     for dimension in set(RECURRENCE_DIMENSIONS) - {"band_low"}:
-        assert matches[0].component_distances[dimension] == pytest.approx(0.0, abs=1e-12)
+        assert matches[0].component_distances[dimension] == pytest.approx(
+            0.0,
+            abs=1e-12,
+        )
 
 
 def test_constant_window_semantics_match_stumpy_normalized_convention() -> None:
@@ -206,11 +215,14 @@ def test_ranked_matches_are_non_overlapping_with_each_other() -> None:
         max_matches=3,
     )
 
-    assert matches[0].start_seconds in pytest.approx([5.0, 5.1], abs=0.11)
+    assert matches[0].start_seconds == pytest.approx(5.1)
     assert any(match.start_seconds == pytest.approx(8.0) for match in matches)
     for index, match in enumerate(matches):
         for other in matches[index + 1 :]:
-            assert match.end_seconds <= other.start_seconds or other.end_seconds <= match.start_seconds
+            assert (
+                match.end_seconds <= other.start_seconds
+                or other.end_seconds <= match.start_seconds
+            )
 
 
 def test_mismatched_frame_grid_fails_closed() -> None:
@@ -219,7 +231,8 @@ def test_mismatched_frame_grid_fails_closed() -> None:
     shifted = report.series["spectral_centroid"].model_copy(
         update={
             "frame_times_seconds": [
-                value + 0.01 for value in report.series["spectral_centroid"].frame_times_seconds
+                value + 0.01
+                for value in report.series["spectral_centroid"].frame_times_seconds
             ]
         }
     )
