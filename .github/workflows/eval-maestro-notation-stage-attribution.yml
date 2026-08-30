@@ -1,6 +1,13 @@
 name: MAESTRO notation stage attribution
 
 on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'backend/evaluation/notation_eval.py'
+      - 'backend/tests/test_notation_product_path_eval.py'
+      - '.github/workflows/eval-maestro-notation-stage-attribution.yml'
   push:
     branches:
       - eval/maestro-notation-stage-attribution
@@ -15,6 +22,7 @@ concurrency:
 jobs:
   result:
     name: held-out-stage-attribution
+    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'eval/maestro-notation-stage-attribution'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -23,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
