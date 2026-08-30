@@ -38,7 +38,7 @@ For production claims, the deployed release SHA and live configuration matter. A
 3. actual dependency/schema contracts in code;
 4. [`MASTER_SPEC.md`](MASTER_SPEC.md) only when target/future architecture is relevant.
 
-The architecture diagrams are deliberately not exhaustive code maps. Human-authored Mermaid views describe stable intended boundaries; import graphs and database relationships that can be derived from code/schema should be generated mechanically rather than redrawn by hand. See [`adr/0012-architecture-docs-as-code.md`](adr/0012-architecture-docs-as-code.md).
+The architecture diagrams are deliberately not exhaustive code maps. Human-authored Mermaid views describe stable intended boundaries; import graphs and database relationships that can be derived from code/schema are generated mechanically rather than redrawn by hand. See [`adr/0012-architecture-docs-as-code.md`](adr/0012-architecture-docs-as-code.md), [`generated/frontend-dependencies.md`](generated/frontend-dependencies.md), and [`generated/database/README.md`](generated/database/README.md).
 
 ### Evaluation / research
 
@@ -63,7 +63,7 @@ Architecture docs use a small OSS-first docs-as-code convention:
 - **ADRs** for the rationale and revisit conditions behind durable decisions;
 - **generated views** for facts that can be derived from imports or the PostgreSQL schema rather than hand-maintained copies.
 
-The preferred generated-truth tools for a bounded follow-up are dependency-cruiser (TypeScript/JavaScript), Import Linter/Grimp (Python imports), deptry (Python dependency declarations), and tbls (PostgreSQL/Supabase schema docs). They are not yet part of the required build merely because they are named here; their adoption must land with deterministic configuration and lock/runtime validation.
+The live generated-truth contracts are dependency-cruiser for TypeScript/JavaScript imports, Import Linter/Grimp for Python import boundaries, and tbls for the PostgreSQL/Supabase application schema. Their generated views and checks are part of required CI. deptry has been characterized for shipped Python dependency declarations, but its permanent manifest cleanup/gate remains a follow-up after the repository-identity migration so the canonical lockfile is edited once.
 
 Do not add a binary architecture image or a second diagram DSL when Mermaid expresses the same maintained view adequately. If repeated Mermaid diagrams eventually duplicate one architecture model enough to cause drift, evaluate Structurizr DSL as the single model rather than layering on another independent diagram source.
 
@@ -90,6 +90,7 @@ Do not use a future-looking spec to claim a capability is implemented. Do not us
 - `MASTER_SPEC.md` — product and target-architecture direction.
 - `OPS.md` — operations/release procedures.
 - `adr/` — accepted durable decisions.
+- `generated/` — mechanically derived architecture/schema views; regenerate from their source rather than hand-editing.
 - machine-readable registries/contracts in source control.
 
 These should be updated when their owned contract changes.

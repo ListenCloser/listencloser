@@ -23,6 +23,7 @@ jobs:
       pull-requests: read
     outputs:
       ci: ${{ steps.filter.outputs.ci }}
+      docs: ${{ steps.filter.outputs.docs }}
       e2e: ${{ steps.filter.outputs.e2e }}
       real_stack: ${{ steps.filter.outputs.real_stack }}
       database: ${{ steps.filter.outputs.database }}
@@ -39,6 +40,11 @@ jobs:
               - '**'
               - '!*.md'
               - '!docs/**'
+            docs:
+              - '**/*.md'
+              - '.lychee.toml'
+              - '.github/workflows/docs.yml'
+              - '.github/workflows/build.yml'
             e2e:
               - '**'
               - '!*.md'
@@ -137,6 +143,11 @@ jobs:
     uses: ./.github/workflows/ci.yml
     secrets: inherit
 
+  docs:
+    if: github.event_name != 'push' && needs.classify.outputs.docs == 'true'
+    needs: classify
+    uses: ./.github/workflows/docs.yml
+
   e2e:
     if: github.event_name != 'push' && needs.classify.outputs.e2e == 'true'
     needs: classify
@@ -193,6 +204,7 @@ jobs:
       - classify
       - compile
       - ci
+      - docs
       - e2e
       - real-stack
       - database
@@ -208,6 +220,7 @@ jobs:
           CLASSIFY: ${{ needs.classify.result }}
           COMPILE: ${{ needs.compile.result }}
           CI: ${{ needs.ci.result }}
+          DOCS: ${{ needs.docs.result }}
           E2E: ${{ needs.e2e.result }}
           REAL_STACK: ${{ needs.real-stack.result }}
           DATABASE: ${{ needs.database.result }}
@@ -230,6 +243,7 @@ jobs:
             test "$CODEQL" = success
             test "$GITLEAKS" = success
             require_success_or_skip CI "$CI"
+            require_success_or_skip DOCS "$DOCS"
             require_success_or_skip E2E "$E2E"
             require_success_or_skip REAL_STACK "$REAL_STACK"
             require_success_or_skip DATABASE "$DATABASE"
