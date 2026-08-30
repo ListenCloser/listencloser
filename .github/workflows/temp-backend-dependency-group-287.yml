@@ -1,5 +1,6 @@
 name: Temporary backend dependency group resolver
 
+# Final x64 characterization after the lightweight suite proved the worker boundary.
 on:
   push:
     branches: [devex/backend-worker-dependency-group-287]
