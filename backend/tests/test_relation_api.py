@@ -47,6 +47,30 @@ def _snapshot():
     )
 
 
+def _add_worker_report(snapshot, source_version, *, storage_key=None):
+    report_artifact = Artifact(
+        work_id=snapshot.work.id,
+        kind=ArtifactKind.analysis_report,
+        mime_type="application/json",
+    )
+    job_id = uuid4()
+    report_version = Version(
+        artifact_id=report_artifact.id,
+        parent_version_id=source_version.id,
+        lineage=[source_version.id],
+        storage_key=storage_key
+        or f"jobs/{job_id}/attempt-0/perceptual-series.json",
+        storage_bucket="artifacts",
+        created_by="owner-1",
+        produced_by_job_id=job_id,
+        label="Perceptual series evidence",
+    )
+    snapshot.artifacts.append(report_artifact)
+    snapshot.versions_by_artifact[report_artifact.id] = [report_version]
+    snapshot.jobs.append(SimpleNamespace(id=job_id))
+    return report_version, job_id
+
+
 def _body(source_version_id):
     return {
         "source_version_id": str(source_version_id),
@@ -117,22 +141,14 @@ def test_source_version_must_belong_to_requested_work(
     assert response.json()["detail"] == "Source version not found in work"
 
 
-def test_route_reads_report_from_the_version_bucket_and_key(
+def test_route_reads_report_only_after_storage_locator_authorization(
     client,
     monkeypatch,
     override_auth,
 ):
     snapshot, source_version = _snapshot()
+    report_version, _ = _add_worker_report(snapshot, source_version)
     _install_snapshot(monkeypatch, snapshot)
-    report_version = Version(
-        artifact_id=uuid4(),
-        parent_version_id=source_version.id,
-        lineage=[source_version.id],
-        storage_key="jobs/example/perceptual-series.json",
-        storage_bucket="artifacts",
-        created_by="owner-1",
-        label="Perceptual series evidence",
-    )
     downloads = []
 
     class FakeBucket:
@@ -177,7 +193,79 @@ def test_route_reads_report_from_the_version_bucket_and_key(
     assert response.status_code == 200
     assert response.json()["status"] == "failed"
     assert response.json()["evidence_report_version_id"] == str(report_version.id)
-    assert downloads == [("artifacts", "jobs/example/perceptual-series.json")]
+    assert downloads == [("artifacts", report_version.storage_key)]
+
+
+def test_report_storage_locator_is_rejected_before_privileged_download():
+    snapshot, source_version = _snapshot()
+    other_job_id = uuid4()
+    report_version, _ = _add_worker_report(
+        snapshot,
+        source_version,
+        storage_key=f"jobs/{other_job_id}/attempt-0/perceptual-series.json",
+    )
+    downloads = []
+
+    class FakeBucket:
+        def download(self, key):
+            downloads.append(key)
+            return b"should-not-download"
+
+    class FakeStorage:
+        def from_(self, bucket):
+            return FakeBucket()
+
+    loader = relation_api._authorized_report_loader(
+        snapshot,
+        SimpleNamespace(storage=FakeStorage()),
+        "owner-1",
+    )
+
+    with pytest.raises(PermissionError, match="storage locator is not authorized"):
+        loader(report_version)
+
+    assert downloads == []
+
+
+def test_report_version_must_be_in_authorized_snapshot_before_download():
+    snapshot, source_version = _snapshot()
+    report_artifact = Artifact(
+        work_id=snapshot.work.id,
+        kind=ArtifactKind.analysis_report,
+        mime_type="application/json",
+    )
+    report_version = Version(
+        artifact_id=report_artifact.id,
+        parent_version_id=source_version.id,
+        lineage=[source_version.id],
+        storage_key=(
+            f"owner-1/{snapshot.work.project_id}/{report_artifact.id}/perceptual-series.json"
+        ),
+        storage_bucket="artifacts",
+        created_by="owner-1",
+        label="Perceptual series evidence",
+    )
+    downloads = []
+
+    class FakeBucket:
+        def download(self, key):
+            downloads.append(key)
+            return b"should-not-download"
+
+    class FakeStorage:
+        def from_(self, bucket):
+            return FakeBucket()
+
+    loader = relation_api._authorized_report_loader(
+        snapshot,
+        SimpleNamespace(storage=FakeStorage()),
+        "owner-1",
+    )
+
+    with pytest.raises(PermissionError, match="not in the authorized Work snapshot"):
+        loader(report_version)
+
+    assert downloads == []
 
 
 def test_unknown_work_returns_404(client, monkeypatch, override_auth):
