@@ -2,7 +2,9 @@ from uuid import uuid4
 
 from domain.relation_observations import SecondsSpanLocator
 from domain.rhythm_density_context import contextualize_rhythm_density_within_work
-from domain.rhythm_density_context_findings import compose_grounded_rhythm_density_context_finding
+from domain.rhythm_density_context_findings import (
+    compose_grounded_rhythm_density_context_finding,
+)
 from domain.rhythm_density_relations import RhythmDensityEvidence
 
 
