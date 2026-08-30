@@ -152,14 +152,8 @@ def test_real_auth_jwt_postgrest_rls_boundary(users):
         "jobs": job_id,
     }
     for table, row_id in owned_rows.items():
-        assert (
-            len(client_a.table(table).select("id").eq("id", row_id).execute().data)
-            == 1
-        )
-        assert (
-            len(client_b.table(table).select("id").eq("id", row_id).execute().data)
-            == 0
-        )
+        assert len(client_a.table(table).select("id").eq("id", row_id).execute().data) == 1
+        assert len(client_b.table(table).select("id").eq("id", row_id).execute().data) == 0
 
     workspace = (
         client_a.table("workspace_states")
