@@ -102,17 +102,18 @@ jobs:
           username: ${{ secrets.ORACLE_VM_USER }}
           key: ${{ secrets.ORACLE_VM_SSH_KEY }}
           command_timeout: 18m
-          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA,LLM_BASE_URL,LLM_API_KEY,LLM_MODEL,OTEL_EXPORTER_OTLP_ENDPOINT,OTEL_EXPORTER_OTLP_HEADERS,BACKEND_IMAGE_REPOSITORY,GHCR_USERNAME,GHCR_TOKEN
+          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA,LLM_BASE_URL,LLM_API_KEY,LLM_MODEL,OTEL_EXPORTER_OTLP_ENDPOINT,OTEL_EXPORTER_OTLP_HEADERS,BACKEND_IMAGE_REPOSITORY,GHCR_USERNAME,GHCR_TOKEN,CANONICAL_REPOSITORY_URL
           script: |
             set -euo pipefail
             if [ ! -d ~/hello-ai/.git ]; then
-              echo "[deploy] first boot — cloning repo"
-              git clone https://github.com/gr-rr/hello-ai.git ~/hello-ai
+              echo "[deploy] first boot — cloning canonical repo"
+              git clone "$CANONICAL_REPOSITORY_URL" ~/hello-ai
               export DEPLOY_PREVIOUS_SHA=""
             else
               export DEPLOY_PREVIOUS_SHA="$(cd ~/hello-ai && git rev-parse HEAD)"
             fi
             cd ~/hello-ai
+            git remote set-url origin "$CANONICAL_REPOSITORY_URL"
             git fetch --quiet origin main
             git cat-file -e "${DEPLOY_SHA}^{commit}"
             git reset --hard "$DEPLOY_SHA"
@@ -135,3 +136,4 @@ jobs:
           BACKEND_IMAGE_REPOSITORY: ${{ env.IMAGE_NAME }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANONICAL_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}.git
