@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import sys
 
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "agent_pr.py"
 SPEC = importlib.util.spec_from_file_location("agent_pr", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 agent_pr = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = agent_pr
 SPEC.loader.exec_module(agent_pr)
 
 
