@@ -19,6 +19,7 @@ LEGACY_IDENTIFIERS = (
 )
 
 EXACT_LIVE_PATHS = {
+    ".devcontainer/devcontainer.json",
     ".env.example",
     ".gitignore",
     ".gitleaks.toml",
@@ -50,6 +51,13 @@ HISTORICAL_PREFIXES = (
     "supabase/migrations/",
     "design/mockups/",
 )
+
+# These older product labels are ambiguous in ordinary prose, so reject them
+# only on the local-runtime surfaces where they are definitely stale identity.
+PATH_LEGACY_IDENTIFIERS = {
+    ".devcontainer/devcontainer.json": ("Music AI Studio",),
+    "docker-compose.yml": ("music-ai-",),
+}
 
 COMPATIBILITY_PATTERNS = {
     ".gitignore": ("hello-ai-worktrees/",),
@@ -104,10 +112,11 @@ def main() -> int:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
+        identifiers = LEGACY_IDENTIFIERS + PATH_LEGACY_IDENTIFIERS.get(rel, ())
         for line_number, line in enumerate(text.splitlines(), start=1):
             folded = line.casefold()
             allowed = COMPATIBILITY_PATTERNS.get(rel, ())
-            for identifier in LEGACY_IDENTIFIERS:
+            for identifier in identifiers:
                 if identifier.casefold() not in folded:
                     continue
                 if any(pattern.casefold() in folded for pattern in allowed):
