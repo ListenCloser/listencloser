@@ -48,6 +48,7 @@ def override_supabase(monkeypatch):
     monkeypatch.setattr(repo, "get_supabase", lambda: SimpleNamespace())
     monkeypatch.setattr("ask.api.WorkRepo", FakeWorkRepo)
     monkeypatch.setattr("ask.api.get_supabase", lambda: SimpleNamespace())
+    monkeypatch.setattr("ask.api.load_canonical_ask_context", lambda sb, context: context)
 
 
 @pytest.fixture
@@ -190,8 +191,8 @@ def test_selection_specific_and_whole_work_evidence_remain_distinguishable(
 
     assert fake.last_user_prompt is not None
     assert "insight-selection" in fake.last_user_prompt
-    assert '"category": "selection"' in fake.last_user_prompt
-    assert '"category": "whole-work"' in fake.last_user_prompt
+    assert '\"category\": \"selection\"' in fake.last_user_prompt
+    assert '\"category\": \"whole-work\"' in fake.last_user_prompt
 
 
 def test_insufficient_evidence_answer_accepted(
@@ -244,7 +245,9 @@ def test_invalid_representation_action_removed(
     client, override_auth, override_supabase, override_provider
 ):
     payload = _valid_response_payload()
-    payload["suggestedActions"] = [{"type": "show_representation", "representationId": "harmony"}]
+    payload["suggestedActions"] = [
+        {"type": "show_representation", "representationId": "harmony"}
+    ]
     override_provider(FakeLLMProvider(responses=[payload]))
 
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
@@ -257,7 +260,9 @@ def test_negative_time_reference_removed(
     client, override_auth, override_supabase, override_provider
 ):
     payload = _valid_response_payload()
-    payload["references"] = [{"type": "time", "start": -1.0, "end": 3.0, "domain": "performance"}]
+    payload["references"] = [
+        {"type": "time", "start": -1.0, "end": 3.0, "domain": "performance"}
+    ]
     override_provider(FakeLLMProvider(responses=[payload]))
 
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
@@ -267,7 +272,9 @@ def test_negative_time_reference_removed(
 
 def test_reversed_time_range_removed(client, override_auth, override_supabase, override_provider):
     payload = _valid_response_payload()
-    payload["references"] = [{"type": "time", "start": 10.0, "end": 3.0, "domain": "performance"}]
+    payload["references"] = [
+        {"type": "time", "start": 10.0, "end": 3.0, "domain": "performance"}
+    ]
     override_provider(FakeLLMProvider(responses=[payload]))
 
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
@@ -279,7 +286,9 @@ def test_cross_domain_unsafe_action_removed(
     client, override_auth, override_supabase, override_provider
 ):
     payload = _valid_response_payload()
-    payload["suggestedActions"] = [{"type": "seek", "seconds": 2.0, "domain": "notation"}]
+    payload["suggestedActions"] = [
+        {"type": "seek", "seconds": 2.0, "domain": "notation"}
+    ]
     override_provider(FakeLLMProvider(responses=[payload]))
 
     response = client.post("/api/v1/ask", json=_ask_body(), headers=AUTH_HEADER)
@@ -365,7 +374,7 @@ def test_fake_provider_receives_expected_grounded_evidence(
     assert fake.last_user_prompt is not None
     assert "Chord: G7" in fake.last_user_prompt
     assert "Key: C major" in fake.last_user_prompt
-    assert '"work_id": "00000000-0000-0000-0000-000000000001"' in fake.last_user_prompt
+    assert '\"work_id\": \"00000000-0000-0000-0000-000000000001\"' in fake.last_user_prompt
     assert "note-1" in fake.last_user_prompt
 
 

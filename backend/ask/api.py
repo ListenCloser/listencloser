@@ -6,7 +6,8 @@ and never invents evidence. The flow is:
 
     validate request (FastAPI + Pydantic → structured 422)
       → verify the authenticated caller can access the referenced work
-      → build the grounded prompt from supplied evidence
+      → resolve client-selected Insight IDs to server-authoritative evidence
+      → build the grounded prompt from canonical evidence
       → call the LLMProvider (finite timeout)
       → validate model output with Pydantic
       → deterministically drop ungrounded references/actions
@@ -23,6 +24,7 @@ from domain.repositories import WorkRepo, get_supabase
 
 from .config import LLMSettings, load_llm_settings
 from .contracts import AskRequest, AskResponse
+from .evidence import load_canonical_ask_context
 from .grounding import build_grounded_prompts
 from .providers import (
     AskModelOutputError,
@@ -65,6 +67,12 @@ async def create_ask(
     if work is None:
         raise HTTPException(status_code=404, detail="Work not found")
 
+    # The browser chooses which persisted Insight IDs are relevant to its
+    # current view, but it is not authoritative for their claim/kind/span or
+    # Work membership. Resolve those fields from server-owned persistence and
+    # use the resulting context consistently for both prompting and sanitizing.
+    canonical_context = load_canonical_ask_context(sb, body.context)
+
     provider: LLMProvider | None = build_provider(settings, client=request.app.state.http_client)
     if provider is None:
         logger.warning("ask_provider_unconfigured")
@@ -73,7 +81,7 @@ async def create_ask(
             detail="Ask is not configured. Contact your administrator.",
         )
 
-    system_prompt, user_prompt = build_grounded_prompts(body.question, body.context)
+    system_prompt, user_prompt = build_grounded_prompts(body.question, canonical_context)
 
     try:
         response = await provider.complete_structured(
@@ -98,8 +106,9 @@ async def create_ask(
         raise HTTPException(status_code=502, detail="Ask failed.") from exc
 
     # Deterministic sanitization — a single invalid optional reference/action
-    # never fails the whole answer; it is dropped.
-    safe = sanitize_response(response, body.context)
+    # never fails the whole answer; it is dropped. Use the same canonical
+    # evidence context the provider saw, never the untrusted request copy.
+    safe = sanitize_response(response, canonical_context)
 
     logger.info(
         "ask_completed",
