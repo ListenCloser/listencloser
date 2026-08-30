@@ -16,6 +16,7 @@ This repository is developed heavily with autonomous coding agents. Treat this f
 - One qualitative fixture does not establish algorithm quality.
 - Oracle evaluation does not establish end-to-end product accuracy.
 - A "pre-existing failure" must be reproduced on current `main` or otherwise demonstrated, not asserted.
+- Evidence-producing workflows fail closed: if a benchmark, screenshot, report, or machine-readable artifact is part of the proof, the workflow must fail when that artifact is missing or empty rather than silently uploading nothing.
 
 ## 2. OSS-first for music/ML algorithms
 
@@ -71,6 +72,8 @@ Do not create a new abstraction when an existing one can be extended cleanly. Do
 
 Avoid large orchestration modules becoming homes for unrelated behavior; coordinators should delegate to typed services/adapters.
 
+For shared contracts (API/schema, persistence rows, temporal coordinates, capability policy, provenance, transport state), inventory affected consumers before changing the contract and add compatibility/regression coverage at the boundary. A green producer-only test is not sufficient evidence that downstream consumers still interpret the contract correctly.
+
 ## 6. Evaluation lifecycle
 
 Algorithmic capabilities follow this lifecycle:
@@ -88,6 +91,8 @@ A production recommendation requires, where relevant:
 - integration/real-stack verification.
 
 Do not tune against the final evaluation set. Keep oracle/component evaluation separate from end-to-end evaluation.
+
+Evaluation code should reuse the production implementation or a shared scorer when the question is production quality. Oracle/ceiling experiments are useful, but label them explicitly and pair them with the actual production path before making product conclusions. Prefer task-standard metrics (`mir_eval`, MIREX-style definitions, or a cited benchmark protocol) over bespoke matching/scoring; if a private metric is necessary, compare it against a standard reference and document the behavioral difference.
 
 ## 7. Testing expectations
 
@@ -123,6 +128,8 @@ For substantial new dependencies record:
 
 Keep test/development dependencies out of runtime dependency sets when practical. Production-critical engine versions should not float unintentionally.
 
+Routine dependency automation may group compatible minor/patch updates, but do not bundle major framework, language-runtime, database, ML-runtime, or toolchain migrations into a generic update rollup. Those upgrades need an explicit compatibility scope and the evidence appropriate to the runtime they affect. Security updates remain enabled and should be handled promptly.
+
 ## 10. Pull request standard
 
 Every meaningful PR should explain:
@@ -137,6 +144,12 @@ Every meaningful PR should explain:
 - Remaining limitations
 
 Screenshots/videos belong in PR evidence, not committed to the repository unless they are intentional test fixtures.
+
+A PR is an integration unit, not a permanent coordination document. Long-lived product/research direction belongs in a tracked issue or versioned repository document; PRs should contain changes intended to merge. If a prototype is intentionally not mergeable, preserve the useful result in docs/evaluation artifacts and close the PR rather than using it as a living source of truth.
+
+When a PR is replaced, replayed, or superseded, close the old PR promptly and point both descriptions at the canonical successor. There should be only one merge candidate for a logical change. Do not keep duplicate PR objects open merely to preserve discussion history.
+
+Stacked PRs must declare their parent/dependency and contain only the child delta relative to that parent. After the parent merges, retarget/rebase the child promptly and re-run the evidence relevant to the integrated head. Avoid deep stacks across shared runtime/control-plane surfaces.
 
 ## 11. Autonomous behavior
 
@@ -154,9 +167,12 @@ Escalate only for genuine blockers such as:
 
 Parallel implementation and validation are the default. Unrelated autonomous agents should not wait for each other merely because another PR is open.
 
+- Before starting a new implementation lane, search current open PRs/issues for the same problem, files, or shared contract. Extend or sequence behind an existing owner when the overlap is material instead of creating a competing implementation.
 - Multiple production PRs may be non-draft and run CI concurrently when they own bounded, independent changes.
 - Prefer small PRs with clear ownership domains. Direct same-file edits are an obvious overlap; shared contracts such as `lib/`, API/state layers, backend runtime/database surfaces, dependency/config files, CI, and cross-cutting tests are broader integration surfaces and should be treated more conservatively.
 - Do not reserve broad areas of the repository preemptively. Two leaf UI components, two independent evaluation experiments, or other demonstrably disjoint changes may proceed in parallel.
+- Treat control-plane files (`AGENTS.md`, `CODEOWNERS`, `.github/**`, merge/evidence scripts, deploy scripts, dependency/runtime manifests, migrations) as high-contention surfaces. Changes there must be narrow, must not opportunistically carry product work, and require owner review plus the strongest risk-relevant evidence.
+- A PR must not be able to weaken the policy used to approve that same PR. Changes to merge/evidence enforcement should be validated against the previously protected policy on `main` or an external repository ruleset/manual review, in addition to testing the proposed policy itself.
 - Do not rebase or restart work merely because `main` moved while development or CI is in progress. Finish the branch and its relevant evidence first.
 - The protected `Build` context remains the merge gate. The repository currently requires an up-to-date base before final merge, so when another PR lands GitHub may require the stale-but-ready branch to refresh and run a final check cycle. Perform that refresh mechanically; it is an integration constraint, not a reason to serialize development beforehand.
 - Enable native GitHub auto-merge for ordinary production PRs once their required evidence is green. If GitHub invalidates the required check after `main` advances, update the branch and let the checks rerun; do not ask another agent to stop unrelated work.
