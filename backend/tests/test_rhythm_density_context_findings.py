@@ -107,9 +107,7 @@ def test_supported_context_composes_literal_focusable_finding():
         "Median event density here is higher than the median elsewhere in this Work "
         "(5 vs 1.5 events/beat)."
     )
-    assert finding.evidence_summary == (
-        "Reference middle 50%: 1–2 events/beat. Empirical mid-rank percentile: 100.0."
-    )
+    assert finding.evidence_summary == "Middle half elsewhere in this Work: 1–2 events/beat."
 
 
 def test_extrema_subject_origin_preserves_selection_conditioning_without_salience_claim():
