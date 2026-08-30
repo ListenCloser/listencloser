@@ -1,5 +1,5 @@
 {
-  "name": "Music AI Studio",
+  "name": "Listen Closer",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "opencode",
   "workspaceFolder": "/workspace",
