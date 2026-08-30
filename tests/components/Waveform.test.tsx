@@ -32,13 +32,19 @@ const canvasContext = {
   fillText: vi.fn(),
   strokeRect: vi.fn(),
   beginPath: vi.fn(),
+  closePath: vi.fn(),
   moveTo: vi.fn(),
   lineTo: vi.fn(),
+  fill: vi.fn(),
   stroke: vi.fn(),
+  save: vi.fn(),
+  restore: vi.fn(),
   fillStyle: "",
   strokeStyle: "",
   globalAlpha: 1,
   lineWidth: 1,
+  lineJoin: "miter" as CanvasLineJoin,
+  lineCap: "butt" as CanvasLineCap,
   font: "",
   textAlign: "center" as CanvasTextAlign,
 };
@@ -65,6 +71,7 @@ describe("Waveform source continuity", () => {
 
     expect(canvas).toHaveAttribute("data-waveform-state", "loading");
     expect(canvas).toHaveAttribute("data-waveform-segments", "0");
+    expect(canvas).toHaveAttribute("data-waveform-renderer", "min-max-envelope");
     expect(canvas).toHaveAttribute("aria-busy", "true");
     expect(screen.getByText("Decoding recording…")).toBeInTheDocument();
 
