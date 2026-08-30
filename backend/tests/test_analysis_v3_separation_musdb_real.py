@@ -3,10 +3,9 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
+from backend.evaluation.analysis_v3.separation import run_musdb_real
 import numpy as np
 import pytest
-
-from backend.evaluation.analysis_v3.separation import run_musdb_real
 
 
 def test_channel_first_accepts_mono_and_both_stereo_layouts():
