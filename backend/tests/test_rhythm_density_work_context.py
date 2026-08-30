@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from domain.relation_observations import SecondsSpanLocator
+from domain.relation_observations import RelationObservation, SecondsSpanLocator
 from domain.rhythm_density_context import (
     RhythmDensityContextObservation,
     contextualize_rhythm_density_within_work,
@@ -81,11 +81,16 @@ def test_work_context_excludes_every_window_intersecting_subject():
         subject_locator=_locator(source_version_id, 4.0, 6.0),
     )
 
+    assert isinstance(result, RelationObservation)
+    assert result.comparison_locator is None
     assert result.sufficiency.status == "supported"
     assert result.reference_population is not None
     assert result.reference_population.eligible_window_count == 6
     assert result.reference_population.excluded_intersecting_window_count == 3
-    assert result.reference_population.eligible_intervals_seconds == [(0.0, 4.0), (6.0, 10.0)]
+    assert result.reference_population.eligible_intervals_seconds == [
+        (0.0, 4.0),
+        (6.0, 10.0),
+    ]
     assert result.reference_population.eligible_coverage_seconds == 8.0
 
     measurement = result.measurements[0]
@@ -93,6 +98,7 @@ def test_work_context_excludes_every_window_intersecting_subject():
     assert measurement.reference_median == 1.5
     assert measurement.reference_q1 == 1.0
     assert measurement.reference_q3 == 2.0
+    assert measurement.reference_iqr == 1.0
     assert measurement.delta_from_reference_median == 3.5
     assert measurement.direction == "higher"
     assert measurement.empirical_midrank_percentile == 100.0
@@ -192,6 +198,30 @@ def test_malformed_complete_series_metadata_withholds_before_context_statistics(
     assert "marked truncated" in reasons
 
 
+def test_reference_median_and_iqr_are_robust_to_one_extreme_window():
+    windows = [
+        _window(0.0, 2.0, 1.0, step_size=2.0),
+        _window(2.0, 4.0, 1.0, step_size=2.0),
+        _window(4.0, 6.0, 2.0, step_size=2.0),
+        _window(6.0, 8.0, 1.0, step_size=2.0),
+        _window(8.0, 10.0, 1.0, step_size=2.0),
+        _window(10.0, 12.0, 100.0, step_size=2.0),
+    ]
+    evidence, source_version_id = _evidence(windows, coverage=_coverage(windows))
+
+    result = contextualize_rhythm_density_within_work(
+        evidence,
+        subject_locator=_locator(source_version_id, 4.0, 6.0),
+    )
+
+    assert result.sufficiency.status == "supported"
+    measurement = result.measurements[0]
+    assert measurement.reference_window_count == 5
+    assert measurement.reference_median == 1.0
+    assert measurement.reference_iqr == 0.0
+    assert measurement.empirical_midrank_percentile == 80.0
+
+
 def test_context_observation_preserves_support_contract_and_non_inferential_provenance():
     windows = [
         _window(0.0, 2.0, 1.0, step_size=2.0),
@@ -211,11 +241,20 @@ def test_context_observation_preserves_support_contract_and_non_inferential_prov
     assert len(result.support_refs) == 1
     assert result.support_refs[0].namespace == "rhythm_density_insight"
     assert result.support_refs[0].id == f"{evidence.evidence_id}:rhythm_density"
+    assert result.provenance["comparison_locator_semantics"] == (
+        "none_discontinuous_reference_population"
+    )
     assert result.provenance["reference_window_independence_assumed"] is False
+    assert result.provenance["inferential_statistics_emitted"] is False
     assert result.provenance["semantic_interpretation_emitted"] is False
     assert result.provenance["quartile_method"] == "linear"
     assert result.provenance["percentile_convention"] == "empirical_midrank_reference_windows_v1"
     assert result.provenance["persistence_coverage"] == _coverage(windows)
 
-    restored = RhythmDensityContextObservation.model_validate(result.model_dump(mode="json"))
+    payload = result.model_dump(mode="json")
+    assert "statement" not in payload
+    assert "claim" not in payload
+    assert "significant" not in result.model_dump_json().lower()
+
+    restored = RhythmDensityContextObservation.model_validate(payload)
     assert restored == result
