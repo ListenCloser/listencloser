@@ -44,6 +44,14 @@ def _client_as_user(access_token: str):
     return client
 
 
+def _insert_rows(client, table: str, payload: dict):
+    return client.table(table).insert(payload).execute().data
+
+
+def _select_ids(client, table: str, row_id: str):
+    return client.table(table).select("id").eq("id", row_id).execute().data
+
+
 def _create_user(prefix: str, password: str = "test-password-123") -> dict[str, str]:
     service = _sb_service()
     email = f"rls-{prefix}-{uuid.uuid4().hex[:8]}@example.com"
@@ -94,54 +102,57 @@ def test_real_auth_jwt_postgrest_rls_boundary(users):
     workflow_id = str(uuid.uuid4())
     job_id = str(uuid.uuid4())
 
-    # Prove Auth -> JWT -> PostgREST reaches the owner-scoped INSERT policy.
-    created_project = (
-        client_a.table("projects")
-        .insert(
-            {
-                "id": project_id,
-                "owner_id": user_a["uid"],
-                "name": "RLS smoke",
-                "description": "",
-            }
-        )
-        .execute()
-    )
-    assert len(created_project.data) == 1
+    project_payload = {
+        "id": project_id,
+        "owner_id": user_a["uid"],
+        "name": "RLS smoke",
+        "description": "",
+    }
+    assert len(_insert_rows(client_a, "projects", project_payload)) == 1
 
     # Seed derived/server-owned lineage through the service role.
-    service.table("works").insert(
-        {"id": work_id, "project_id": project_id, "title": "RLS work"}
-    ).execute()
-    service.table("artifacts").insert(
-        {"id": artifact_id, "work_id": work_id, "kind": "audio_original"}
-    ).execute()
-    service.table("artifact_versions").insert(
+    _insert_rows(
+        service,
+        "works",
+        {"id": work_id, "project_id": project_id, "title": "RLS work"},
+    )
+    _insert_rows(
+        service,
+        "artifacts",
+        {"id": artifact_id, "work_id": work_id, "kind": "audio_original"},
+    )
+    _insert_rows(
+        service,
+        "artifact_versions",
         {
             "id": version_id,
             "artifact_id": artifact_id,
             "storage_key": "rls-smoke/source.wav",
             "storage_bucket": "artifacts",
             "lineage": [],
-        }
-    ).execute()
-    service.table("workflows").insert(
+        },
+    )
+    _insert_rows(
+        service,
+        "workflows",
         {
             "id": workflow_id,
             "project_id": project_id,
             "kind": "understand",
             "parameters": {},
-        }
-    ).execute()
-    service.table("jobs").insert(
+        },
+    )
+    _insert_rows(
+        service,
+        "jobs",
         {
             "id": job_id,
             "workflow_id": workflow_id,
             "capability_name": "understand",
             "capability_version": "1.0",
             "stage": "queued",
-        }
-    ).execute()
+        },
+    )
 
     owned_rows = {
         "projects": project_id,
@@ -152,38 +163,32 @@ def test_real_auth_jwt_postgrest_rls_boundary(users):
         "jobs": job_id,
     }
     for table, row_id in owned_rows.items():
-        assert len(client_a.table(table).select("id").eq("id", row_id).execute().data) == 1
-        assert len(client_b.table(table).select("id").eq("id", row_id).execute().data) == 0
+        assert len(_select_ids(client_a, table, row_id)) == 1
+        assert _select_ids(client_b, table, row_id) == []
 
-    workspace = (
-        client_a.table("workspace_states")
-        .insert({"project_id": project_id, "owner_id": user_a["uid"], "tab": "analyze"})
-        .execute()
-    )
-    assert len(workspace.data) == 1
-    workspace_id = workspace.data[0]["id"]
-    assert (
-        len(
-            client_b.table("workspace_states")
-            .select("id")
-            .eq("id", workspace_id)
-            .execute()
-            .data
-        )
-        == 0
-    )
+    workspace_payload = {
+        "project_id": project_id,
+        "owner_id": user_a["uid"],
+        "tab": "analyze",
+    }
+    workspace = _insert_rows(client_a, "workspace_states", workspace_payload)
+    assert len(workspace) == 1
+    workspace_id = workspace[0]["id"]
+    assert _select_ids(client_b, "workspace_states", workspace_id) == []
 
     # Browser JWTs have SELECT-only grants on server-owned Jobs. The direct SQL
     # suite proves the broader policy/privilege matrix; this proves PostgREST
     # surfaces the denial rather than bypassing it.
     with pytest.raises(APIError):
-        client_a.table("jobs").insert(
+        _insert_rows(
+            client_a,
+            "jobs",
             {
                 "workflow_id": workflow_id,
                 "capability_name": "understand",
                 "capability_version": "1.0",
-            }
-        ).execute()
+            },
+        )
 
     # Conversely, the service-role API path must retain server mutation authority.
     service.table("jobs").update({"stage": "running"}).eq("id", job_id).execute()
