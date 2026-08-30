@@ -151,7 +151,7 @@ function PassageCompareForSource({
   const focusRange = (range: PassageRange) => {
     // Relation locators are performance-time seconds. Score playback is
     // notation-time, so never apply performance seconds directly to Score.
-    if (transport.activeSource?.role !== "score") {
+    if (transport?.activeSource?.role !== "score") {
       seek(range.start);
     }
     setSelection({
