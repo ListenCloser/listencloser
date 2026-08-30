@@ -25,11 +25,11 @@ describe('PianoRoll', () => {
     expect(screen.getAllByText(/G4/).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('distinguishes beats from subdivisions without inventing measure lines', () => {
+  it('keeps the scalar-BPM timing scaffold conservative', () => {
     const { container } = render(<PianoRoll notes={mockNotes} bpm={120} />)
 
-    expect(container.querySelectorAll('[data-grid-kind="beat"]').length).toBeGreaterThan(0)
-    expect(container.querySelectorAll('[data-grid-kind="subdivision"]').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('[data-grid-kind="tempo-beat"]').length).toBeGreaterThan(0)
+    expect(container.querySelector('[data-grid-kind="subdivision"]')).not.toBeInTheDocument()
     expect(container.querySelector('[data-grid-kind="measure"]')).not.toBeInTheDocument()
     expect(container.querySelector('[data-pitch-lane="octave-anchor"]')).toBeInTheDocument()
     expect(container.querySelector('[data-ruler-kind="elapsed-time"]')).toBeInTheDocument()
