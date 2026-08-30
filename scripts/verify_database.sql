@@ -113,11 +113,13 @@ begin
       if not has_table_privilege(role_name, format('public.%I', table_name), 'SELECT') then
         raise exception '% must retain SELECT on public.%', role_name, table_name;
       end if;
-      if has_table_privilege(
-        role_name,
-        format('public.%I', table_name),
-        'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'
-      ) then
+      if has_table_privilege(role_name, format('public.%I', table_name), 'INSERT')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'UPDATE')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'DELETE')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'TRUNCATE')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'REFERENCES')
+        or has_table_privilege(role_name, format('public.%I', table_name), 'TRIGGER')
+      then
         raise exception '% has forbidden mutation privilege on public.%', role_name, table_name;
       end if;
     end loop;
