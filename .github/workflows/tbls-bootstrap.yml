@@ -1,0 +1,51 @@
+name: tbls bootstrap
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/tbls-bootstrap.yml'
+
+concurrency:
+  group: tbls-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  database-schema-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.113.0
+      - name: Start fresh local Supabase and apply every migration
+        run: supabase start
+      - name: Install pinned tbls
+        run: |
+          set -euo pipefail
+          curl -fsSLo /tmp/tbls.tar.gz \
+            https://github.com/k1LoW/tbls/releases/download/v1.95.0/tbls_v1.95.0_linux_amd64.tar.gz
+          echo '035110bb1b5bc1b918c375e5bd7c2b5922c5f517cc0886e5bf4f867dfa836259  /tmp/tbls.tar.gz' | sha256sum --check -
+          tar -xzf /tmp/tbls.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/tbls /usr/local/bin/tbls
+          tbls version
+      - name: Characterize fresh database schema
+        run: |
+          set -euo pipefail
+          mkdir -p database-output
+          export TBLS_DSN='pg://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable'
+          tbls out -t json -o database-output/schema.json
+          tbls out -t mermaid -o database-output/schema.mmd
+          jq -r '.tables[] | [.name, (.type // "table")] | @tsv' database-output/schema.json | sort | tee database-output/tables.txt
+      - name: Upload schema characterization
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tbls-schema-${{ github.run_attempt }}
+          path: database-output/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
