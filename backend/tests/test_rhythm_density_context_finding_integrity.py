@@ -46,14 +46,15 @@ def _supported_observation():
         },
         pulse_provenance={"engine": "beat_this", "engine_version": "1.1.0"},
     )
+    subject_locator = SecondsSpanLocator(
+        start_seconds=4.0,
+        end_seconds=6.0,
+        source_artifact_version_id=source_version_id,
+        authority="user_selected",
+    )
     observation = contextualize_rhythm_density_within_work(
         evidence,
-        subject_locator=SecondsSpanLocator(
-            start_seconds=4.0,
-            end_seconds=6.0,
-            source_artifact_version_id=source_version_id,
-            authority="user_selected",
-        ),
+        subject_locator=subject_locator,
     )
     assert observation.sufficiency.status == "supported"
     return observation
@@ -71,8 +72,9 @@ def test_composer_rejects_subject_locator_source_version_drift():
     drifted_locator = observation.subject_locator.model_copy(
         update={"source_artifact_version_id": uuid4()}
     )
+    tampered = observation.model_copy(update={"subject_locator": drifted_locator})
 
-    assert _compose(observation.model_copy(update={"subject_locator": drifted_locator})) is None
+    assert _compose(tampered) is None
 
 
 def test_composer_rejects_support_ref_evidence_id_drift():
@@ -80,8 +82,9 @@ def test_composer_rejects_support_ref_evidence_id_drift():
     drifted_ref = observation.support_refs[0].model_copy(
         update={"id": f"{uuid4()}:rhythm_density"}
     )
+    tampered = observation.model_copy(update={"support_refs": [drifted_ref]})
 
-    assert _compose(observation.model_copy(update={"support_refs": [drifted_ref]})) is None
+    assert _compose(tampered) is None
 
 
 def test_composer_rejects_positive_reference_count_with_empty_coverage():
@@ -93,8 +96,9 @@ def test_composer_rejects_positive_reference_count_with_empty_coverage():
             "eligible_coverage_seconds": 0.0,
         }
     )
+    tampered = observation.model_copy(update={"reference_population": empty_coverage})
 
-    assert _compose(observation.model_copy(update={"reference_population": empty_coverage})) is None
+    assert _compose(tampered) is None
 
 
 def test_composer_rejects_reference_interval_outside_source_coverage_envelope():
@@ -102,20 +106,15 @@ def test_composer_rejects_reference_interval_outside_source_coverage_envelope():
     assert observation.reference_population is not None
     population = observation.reference_population
     intervals = list(population.eligible_intervals_seconds)
-    intervals.append(
-        (
-            population.source_coverage_end_seconds + 1.0,
-            population.source_coverage_end_seconds + 2.0,
-        )
-    )
+    outside_start = population.source_coverage_end_seconds + 1.0
+    outside_end = population.source_coverage_end_seconds + 2.0
+    intervals.append((outside_start, outside_end))
     outside_envelope = population.model_copy(
         update={
             "eligible_intervals_seconds": intervals,
             "eligible_coverage_seconds": population.eligible_coverage_seconds + 1.0,
         }
     )
+    tampered = observation.model_copy(update={"reference_population": outside_envelope})
 
-    assert (
-        _compose(observation.model_copy(update={"reference_population": outside_envelope}))
-        is None
-    )
+    assert _compose(tampered) is None
