@@ -33,7 +33,7 @@ function passageLabel(range: PassageRange): string {
 function unavailableCopy(status: PerceptualSpanComparisonResponse["status"]): string | null {
   switch (status) {
     case "unavailable":
-      return "Measured perceptual evidence is not available for this recording yet.";
+      return "Measured perceptual evidence is not available for this recording.";
     case "withheld":
       return "These passages do not have enough validated evidence for a grounded comparison.";
     case "failed":
@@ -74,7 +74,7 @@ function PassageCompareForSource({
   selectedRange: PassageRange | null;
   setSelection: SetSelection;
 }) {
-  const { seek } = useTransport();
+  const { seek, transport } = useTransport();
   const requestGeneration = useRef(0);
   const [referenceRange, setReferenceRange] = useState<PassageRange | null>(null);
   const [result, setResult] = useState<PerceptualSpanComparisonResponse | null>(null);
@@ -90,7 +90,9 @@ function PassageCompareForSource({
     && comparisonRange !== null
     && sameRange(resultComparisonRange, comparisonRange);
   const resultForCurrentComparison = resultMatchesComparison ? result : null;
-  const groundedFinding = result?.status === "supported" ? result.finding : null;
+  const groundedFinding = resultForCurrentComparison?.status === "supported"
+    ? resultForCurrentComparison.finding
+    : null;
   const unavailableMessage = resultForCurrentComparison
     ? unavailableCopy(resultForCurrentComparison.status)
     : null;
@@ -147,7 +149,11 @@ function PassageCompareForSource({
   };
 
   const focusRange = (range: PassageRange) => {
-    seek(range.start);
+    // Relation locators are performance-time seconds. Score playback is
+    // notation-time, so never apply performance seconds directly to Score.
+    if (transport.activeSource?.role !== "score") {
+      seek(range.start);
+    }
     setSelection({
       timeRange: { start: range.start, end: range.end, domain: "performance" },
       provenance: { origin: null, timeExact: true, measureApproximate: false },
