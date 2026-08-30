@@ -22,10 +22,10 @@ from domain.relation_observations import (
     SecondsSpanLocator,
 )
 from domain.rhythm_density_relations import (
-    RhythmDensityEvidence,
-    RhythmDensityEvidenceRef,
     _NUMERIC_ATOL,
     _NUMERIC_RTOL,
+    RhythmDensityEvidence,
+    RhythmDensityEvidenceRef,
     _coverage_error_for_span,
     _direction,
     _validate_locator,
@@ -265,7 +265,10 @@ def contextualize_rhythm_density_within_work(
             population,
         )
 
-    reference_values = np.asarray([window["density"] for window in reference_windows], dtype=float)
+    reference_values = np.asarray(
+        [window["density"] for window in reference_windows],
+        dtype=float,
+    )
     subject_value = float(np.median(subject_values))
     reference_median = float(np.median(reference_values))
     q1, q3 = np.percentile(reference_values, [25.0, 75.0], method=_QUARTILE_METHOD)
