@@ -47,21 +47,24 @@ jobs:
           )"
           BASE_BYTES="$(du -sb backend/.venv | cut -f1)"
           export BASE_SYNC_SECONDS BASE_PACKAGES BASE_BYTES
-          python - <<'PY'
+          backend/.venv/bin/python - <<'PY'
           import importlib.util
           import json
           import os
+          import supabase_auth
           from pathlib import Path
 
-          heavy = ['basic_pitch', 'beat_this', 'torch', 'torchaudio', 'transkun', 'moduleconf', 'soxr', 'lv_chordia']
+          heavy = ['basic_pitch', 'beat_this', 'torch', 'torchaudio', 'transkun', 'moduleconf', 'lv_chordia']
           unexpected = [name for name in heavy if importlib.util.find_spec(name) is not None]
           if unexpected:
               raise SystemExit(f'worker packages leaked into lightweight environment: {unexpected}')
+          assert supabase_auth
           Path('/tmp/base.json').write_text(json.dumps({
               'sync_seconds': float(os.environ['BASE_SYNC_SECONDS']),
               'installed_distributions': int(os.environ['BASE_PACKAGES']),
               'venv_bytes': int(os.environ['BASE_BYTES']),
               'worker_modules_absent': heavy,
+              'expected_shared_transitive_modules': ['soxr via librosa'],
           }, sort_keys=True))
           PY
       - name: Prove required unit suite collects and runs without worker group
