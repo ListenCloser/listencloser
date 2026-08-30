@@ -100,10 +100,12 @@ test.describe("theory annotations (MSW)", () => {
     const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
 
     await expect(table).toBeVisible();
-    await expect(table.getByRole("columnheader")).toHaveText(["Time", "Chord", "Degree", "Function"]);
-    await expect(table.getByRole("button", { name: "C maj" }).first()).toBeVisible();
-    await expect(table.getByRole("button", { name: "I (A minor)" }).first()).toBeVisible();
-    await expect(table.getByRole("button", { name: "TONIC (I)" }).first()).toBeVisible();
+    await expect(table.getByRole("columnheader")).toHaveText(["Time", "Harmony"]);
+    await expect(table.getByRole("button", { name: "C maj", exact: true }).first()).toBeVisible();
+    await expect(table.getByRole("button", { name: "I", exact: true }).first()).toBeVisible();
+    await expect(table.getByRole("button", { name: "Tonic", exact: true }).first()).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Degree" })).toHaveCount(0);
+    await expect(table.getByRole("columnheader", { name: "Function" })).toHaveCount(0);
   });
 
   test("all 6 chord entries rendered in the harmonic timeline", async ({ page }) => {
@@ -114,10 +116,10 @@ test.describe("theory annotations (MSW)", () => {
     const harmony = await openHarmonyEvidence(page);
     const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
 
-    await expect(table.getByRole("button", { name: "C maj" })).toHaveCount(3);
-    await expect(table.getByRole("button", { name: "G min" })).toHaveCount(1);
-    await expect(table.getByRole("button", { name: "F maj" })).toHaveCount(1);
-    await expect(table.getByRole("button", { name: "G7" })).toHaveCount(1);
+    await expect(table.getByRole("button", { name: "C maj", exact: true })).toHaveCount(3);
+    await expect(table.getByRole("button", { name: "G min", exact: true })).toHaveCount(1);
+    await expect(table.getByRole("button", { name: "F maj", exact: true })).toHaveCount(1);
+    await expect(table.getByRole("button", { name: "G7", exact: true })).toHaveCount(1);
   });
 
   test("all 6 roman numeral entries remain accessible without repeating key text visibly", async ({ page }) => {
@@ -128,11 +130,15 @@ test.describe("theory annotations (MSW)", () => {
     const harmony = await openHarmonyEvidence(page);
     const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
 
-    await expect(table.getByRole("button", { name: "I (A minor)" })).toHaveCount(3);
-    await expect(table.getByRole("button", { name: "v (A minor)", exact: true })).toHaveCount(1);
-    await expect(table.getByRole("button", { name: "iv (A minor)", exact: true })).toHaveCount(1);
-    await expect(table.getByRole("button", { name: "V7 (A minor)" })).toHaveCount(1);
-    await expect(table).not.toContainText("(A minor)");
+    await expect(table.getByRole("button", { name: "I", exact: true })).toHaveCount(3);
+    await expect(table.getByRole("button", { name: "v", exact: true })).toHaveCount(1);
+    await expect(table.getByRole("button", { name: "iv", exact: true })).toHaveCount(1);
+    await expect(table.getByRole("button", { name: "V7", exact: true })).toHaveCount(1);
+    await expect(table.getByRole("button").filter({ hasText: "(A minor)" })).toHaveCount(0);
+
+    const firstDetails = table.getByText("Evidence details", { exact: true }).first();
+    await firstDetails.click();
+    await expect(table.getByText("I (A minor)", { exact: true }).first()).toBeVisible();
   });
 
   test("Clicking a chord in Inspector sets selection", async ({ page }) => {
@@ -143,7 +149,7 @@ test.describe("theory annotations (MSW)", () => {
     const harmony = await openHarmonyEvidence(page);
     const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
 
-    await table.getByRole("button", { name: "C maj" }).first().click();
+    await table.getByRole("button", { name: "C maj", exact: true }).first().click();
 
     await expect(page.locator(".inspector-scope-value")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("0:00–0:02")).toBeVisible();
