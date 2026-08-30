@@ -2,6 +2,11 @@ name: E2E
 
 on:
   workflow_call:
+    secrets:
+      NEXT_PUBLIC_SENTRY_DSN:
+        required: false
+      ARGOS_TOKEN:
+        required: false
   push:
     branches: [main]
     paths-ignore:
@@ -9,6 +14,9 @@ on:
       - 'docs/**'
       - 'backend/**'
       - 'supabase/**'
+
+permissions:
+  contents: read
 
 concurrency:
   group: e2e-${{ github.ref }}
