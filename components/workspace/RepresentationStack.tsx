@@ -4,7 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import TabStrip from "@/components/ui/TabStrip";
 import Tooltip from "@/components/ui/Tooltip";
 import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
-import { availableRepresentations, type RepresentationId } from "@/lib/representations";
+import {
+  REPRESENTATIONS,
+  availableRepresentations,
+  type RepresentationId,
+} from "@/lib/representations";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
@@ -38,11 +42,21 @@ function TranscriptionModeToggle() {
 function WorkspaceLoadingSkeleton() {
   return (
     <main className="piece-desk piece-loading-shell" aria-busy="true" aria-label="Opening recording">
-      <div className="representation-toolbar representation-toolbar-loading" aria-hidden="true">
-        <span className="loading-pill loading-pill-wide" />
-        <span className="loading-pill" />
-        <span className="loading-pill" />
-        <span className="loading-pill" />
+      <div className="representation-toolbar">
+        <div className="piece-view-tabs piece-view-tabs-v3" aria-hidden="true">
+          {REPRESENTATIONS.map((definition) => (
+            <button key={definition.id} type="button" disabled tabIndex={-1}>
+              {definition.title}
+            </button>
+          ))}
+        </div>
+        <span
+          className="muted"
+          style={{ alignSelf: "center", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
+          aria-hidden="true"
+        >
+          Opening…
+        </span>
       </div>
       <div className="piece-loading-canvas" role="status">
         <div className="piece-loading-visual" aria-hidden="true">
@@ -67,9 +81,15 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     [workspace.representations, workspace.insights.length],
   );
   const available = useMemo(() => availableRepresentations(availability), [availability]);
+  const availableIds = useMemo(
+    () => new Set(available.map((definition) => definition.id)),
+    [available],
+  );
   const activeView = available.some((view) => view.id === workspace.activeRepresentation)
     ? workspace.activeRepresentation
     : available[0]?.id ?? null;
+  const preparingRepresentations =
+    workspace.analysisState === "analyzing" && available.length < REPRESENTATIONS.length;
 
   useEffect(() => {
     // Initialize selection when a Work first exposes representations, but do
@@ -148,14 +168,27 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 
   return (
     <main className="piece-desk piece-desk-v3">
-      <div className="representation-toolbar">
+      <div className="representation-toolbar" aria-busy={preparingRepresentations || undefined}>
         <TabStrip
           className="piece-view-tabs piece-view-tabs-v3"
           label="Music representation"
-          items={available.map((def) => ({ id: def.id, label: def.title }))}
+          items={REPRESENTATIONS.map((definition) => ({
+            id: definition.id,
+            label: definition.title,
+            disabled: !availableIds.has(definition.id),
+          }))}
           value={activeView}
           onChange={setActiveRepresentation}
         />
+        {preparingRepresentations && (
+          <span
+            className="muted"
+            role="status"
+            style={{ alignSelf: "center", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
+          >
+            Preparing representations…
+          </span>
+        )}
       </div>
 
       {renderedViews.map((definition) => {

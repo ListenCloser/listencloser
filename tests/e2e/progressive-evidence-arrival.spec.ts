@@ -34,14 +34,23 @@ test("a durable recording stays usable while understand artifacts arrive", async
   await expect(page.locator(".operation-layer")).not.toBeVisible();
 
   // The mock Work bundle intentionally exposes only the durable source during
-  // the first processing polls. No local timer may fabricate later views.
-  await expect(page.getByRole("tab", { name: "Piano Roll" })).not.toBeVisible();
-  await expect(page.getByRole("tab", { name: "Score" })).not.toBeVisible();
+  // the first processing polls. Keep the complete representation navigation in
+  // place instead of inserting Piano Roll / Score later; unavailable views are
+  // disabled until the source-of-truth bundle actually exposes their payloads.
+  const representationTabs = page.getByRole("tablist", { name: "Music representation" });
+  const pianoRollTab = representationTabs.getByRole("tab", { name: "Piano Roll" });
+  const scoreTab = representationTabs.getByRole("tab", { name: "Score" });
+  await expect(representationTabs.getByRole("tab")).toHaveCount(4);
+  await expect(pianoRollTab).toBeVisible();
+  await expect(scoreTab).toBeVisible();
+  await expect(pianoRollTab).toBeDisabled();
+  await expect(scoreTab).toBeDisabled();
 
-  // When the backend bundle actually exposes new artifacts, they join the same
-  // workspace without stealing the active representation or playback source.
-  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("tab", { name: "Score" })).toBeVisible({ timeout: 10_000 });
+  // When the backend bundle actually exposes new artifacts, the same tabs
+  // become interactive without stealing the active representation or source.
+  await expect(pianoRollTab).toBeEnabled({ timeout: 10_000 });
+  await expect(scoreTab).toBeEnabled({ timeout: 10_000 });
+  await expect(representationTabs.getByRole("tab")).toHaveCount(4);
   await expect(page.getByRole("tab", { name: "Waveform" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible();
   await expect(page.getByText("Recording saved.", { exact: true })).not.toBeVisible({ timeout: 5_000 });
