@@ -211,6 +211,4 @@ def test_allin1_uses_upstream_multi_track_api_once() -> None:
     assert all(result.ok for result in results)
     assert results[0].segments[0]["label"] == "intro"
     assert results[1].segments[1]["label"] == "chorus"
-    assert all(
-        result.metadata["execution_mode"] == "upstream_batch" for result in results
-    )
+    assert all(result.metadata["execution_mode"] == "upstream_batch" for result in results)
