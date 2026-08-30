@@ -1,4 +1,5 @@
-import { apiFetch } from "./api";
+import { apiClient, apiFetch, apiResponseError } from "./api";
+import type { components } from "./api-types";
 import { getQueryClient } from "./query-client";
 import { supabase } from "./supabase";
 import type {
@@ -21,6 +22,50 @@ type UploadIntent = {
   token: string;
   max_bytes: number;
 };
+
+type ProjectWire = components["schemas"]["Project"];
+type WorkWire = components["schemas"]["Work"];
+
+function normalizeProject(project: ProjectWire): Project {
+  if (
+    project.id === undefined ||
+    project.created_at === undefined ||
+    project.updated_at === undefined ||
+    project.archived_at === undefined
+  ) {
+    throw new Error("Invalid Project response: persisted fields are missing");
+  }
+  return {
+    ...project,
+    id: project.id,
+    created_at: project.created_at,
+    updated_at: project.updated_at,
+    archived_at: project.archived_at,
+  };
+}
+
+function normalizeWork(work: WorkWire): Work {
+  if (
+    work.id === undefined ||
+    work.created_at === undefined ||
+    work.updated_at === undefined ||
+    work.composer === undefined
+  ) {
+    throw new Error("Invalid Work response: persisted fields are missing");
+  }
+  return {
+    ...work,
+    id: work.id,
+    created_at: work.created_at,
+    updated_at: work.updated_at,
+    composer: work.composer,
+  };
+}
+
+function requireResponseData<T>(result: { data?: T; error?: unknown; response: Response }): T {
+  if (result.data !== undefined) return result.data;
+  throw apiResponseError(result.error, result.response.status);
+}
 
 const WORK_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -144,25 +189,30 @@ export function clearWorkDataCache(): void {
 }
 
 export async function createProject(name: string, description?: string): Promise<Project> {
-  return apiFetch<Project>("/api/v1/projects", {
-    method: "POST",
-    body: JSON.stringify({ name, description: description ?? "" }),
+  const result = await apiClient.POST("/api/v1/projects", {
+    body: { name, description: description ?? "" },
   });
+  return normalizeProject(requireResponseData(result));
 }
 
 export async function listProjects(): Promise<Project[]> {
-  return apiFetch<Project[]>("/api/v1/projects");
+  const result = await apiClient.GET("/api/v1/projects");
+  return requireResponseData(result).map(normalizeProject);
 }
 
 export async function createWork(projectId: string, title: string, composer?: string): Promise<Work> {
-  return apiFetch<Work>(`/api/v1/projects/${projectId}/works`, {
-    method: "POST",
-    body: JSON.stringify({ title, composer: composer ?? null }),
+  const result = await apiClient.POST("/api/v1/projects/{project_id}/works", {
+    params: { path: { project_id: projectId } },
+    body: { title, composer: composer ?? null },
   });
+  return normalizeWork(requireResponseData(result));
 }
 
 export async function listWorks(projectId: string): Promise<Work[]> {
-  return apiFetch<Work[]>(`/api/v1/projects/${projectId}/works`);
+  const result = await apiClient.GET("/api/v1/projects/{project_id}/works", {
+    params: { path: { project_id: projectId } },
+  });
+  return requireResponseData(result).map(normalizeWork);
 }
 
 export async function getWorkBundle(workId: string): Promise<WorkBundle> {
