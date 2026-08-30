@@ -17,7 +17,7 @@ def test_worker_module_reexports_canonical_report_contract() -> None:
 
 
 def test_api_entrypoint_import_does_not_require_dsp_runtime() -> None:
-    code = r'''
+    code = r"""
 import importlib.abc
 import sys
 
@@ -35,7 +35,7 @@ sys.meta_path.insert(0, BlockDSP())
 import main  # noqa: F401
 
 assert not blocked_roots.intersection(sys.modules)
-'''
+"""
     result = subprocess.run(
         [sys.executable, "-c", code],
         cwd=BACKEND_ROOT,
