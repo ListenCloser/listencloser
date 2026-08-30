@@ -1,8 +1,8 @@
 {
-  "name": "hello-ai",
+  "name": "listencloser",
   "version": "2.0.0",
   "private": true,
-  "description": "Music AI Studio — transcribe audio to MIDI and sheet music, and manage your music library.",
+  "description": "Listen Closer — a music understanding workspace for synchronized representations, playback, and evidence-backed analysis.",
   "engines": {
     "node": "22.x"
   },
