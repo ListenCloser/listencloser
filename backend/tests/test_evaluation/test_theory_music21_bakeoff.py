@@ -51,6 +51,9 @@ _SUBMISSION_QUALITIES = [
     "maj",
 ]
 
+# Pitch spellings used by lv-chordia's own NUM_TO_ABS_SCALE table.
+_LV_ROOTS = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
+
 
 def test_music21_matches_or_beats_handwritten_core_contract():
     report = evaluate_cases(_CORE_CASES)
@@ -70,10 +73,13 @@ def test_music21_handles_quality_evidence_handwritten_mapper_collapses():
     assert "7" in prediction.numeral
 
 
-def test_music21_accepts_authoritative_lv_chordia_submission_vocabulary():
-    for quality in _SUBMISSION_QUALITIES:
-        prediction = music21_prediction(TheoryCase(f"quality-{quality}", "C major", "C", quality))
-        assert prediction.numeral, quality
+def test_music21_accepts_every_transposition_of_submission_vocabulary():
+    for root in _LV_ROOTS:
+        for quality in _SUBMISSION_QUALITIES:
+            prediction = music21_prediction(
+                TheoryCase(f"{root}-{quality}", "C major", root, quality)
+            )
+            assert prediction.numeral, (root, quality)
 
 
 def test_music21_preserves_slash_bass_that_handwritten_mapper_drops():
@@ -81,3 +87,11 @@ def test_music21_preserves_slash_bass_that_handwritten_mapper_drops():
 
     assert baseline_prediction(case).numeral == "I"
     assert music21_prediction(case).numeral == "I6"
+
+
+def test_music21_withholds_no_chord_that_handwritten_mapper_hallucinates_as_tonic():
+    case = TheoryCase("no-chord", "C major", "N", "N")
+
+    assert baseline_prediction(case).numeral == "I"
+    assert music21_prediction(case).numeral == ""
+    assert music21_prediction(case).function == "AMBIGUOUS"
