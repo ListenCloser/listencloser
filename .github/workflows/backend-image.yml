@@ -2,16 +2,6 @@ name: Backend Image
 
 on:
   workflow_call:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'backend/**'
-      - '!backend/evaluation/**'
-      - '!backend/tests/**'
-      - '.github/workflows/backend-image.yml'
-      - '.github/workflows/deploy-backend.yml'
-      - 'scripts/deploy.sh'
 
 concurrency:
   group: backend-image-${{ github.ref }}
@@ -22,7 +12,6 @@ permissions:
 
 jobs:
   deploy-contract:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Validate deploy contract
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -60,7 +49,6 @@ jobs:
           PY
 
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Build backend image (${{ matrix.arch }})
     strategy:
       fail-fast: false
