@@ -3,10 +3,8 @@ import pathlib
 import subprocess
 
 import pytest
-
 from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.registry import get_notation_engine
-
 
 MIDI_BYTES = b"MThd" + b"\x00" * 32
 MUSICXML_BYTES = b'<?xml version="1.0"?><score-partwise version="4.0"></score-partwise>'
