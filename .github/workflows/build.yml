@@ -63,6 +63,10 @@ jobs:
               - '.github/workflows/build.yml'
             database:
               - 'supabase/migrations/**'
+              - 'supabase/tests/**'
+              - 'supabase/config.toml'
+              - 'supabase/tbls.yml'
+              - 'docs/generated/database/**'
               - 'backend/domain/**'
               - 'backend/music_features.py'
               - 'backend/tests/integration/**'
