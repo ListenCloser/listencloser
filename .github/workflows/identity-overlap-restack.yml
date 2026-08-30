@@ -1,0 +1,58 @@
+name: Identity overlap restack
+
+on:
+  push:
+    branches: [chore/identity-migration-762]
+    paths:
+      - '.github/workflows/identity-overlap-restack.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Preserve current-main deploy fixes and layer identity only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin main
+          git show origin/main:.github/workflows/backend-image.yml > .github/workflows/backend-image.yml
+          git show origin/main:scripts/deploy.sh > scripts/deploy.sh
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          backend = Path('.github/workflows/backend-image.yml')
+          text = backend.read_text()
+          for old, new in {
+              'ghcr.io/gr-rr/hello-ai-backend': 'ghcr.io/listencloser/listencloser-backend',
+              '/tmp/hello-ai-compose.yml': '/tmp/listencloser-compose.yml',
+              'hello-ai-backend': 'listencloser-backend',
+              'hello-ai-numba': 'listencloser-numba',
+          }.items():
+              text = text.replace(old, new)
+          backend.write_text(text)
+
+          deploy = Path('scripts/deploy.sh')
+          text = deploy.read_text()
+          text = text.replace('${DEPLOY_DIR:-$HOME/hello-ai}', '${DEPLOY_DIR:-$HOME/listencloser}')
+          text = text.replace('hello-ai-backend:local', 'listencloser-backend:local')
+          deploy.write_text(text)
+          PY
+
+          grep -Fq 'REPO_URL="https://github.com/ListenCloser/listencloser.git"' scripts/deploy.sh
+          grep -Fq -- '-e BEAT_ENGINE=librosa --entrypoint python worker' scripts/deploy.sh
+          grep -Fq 'listencloser-backend' .github/workflows/backend-image.yml
+          git diff --check
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/backend-image.yml scripts/deploy.sh
+          git commit -m 'fix: preserve current deploy behavior during identity migration'
+          git push origin HEAD:chore/identity-migration-762
