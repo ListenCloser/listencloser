@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import Tooltip from "@/components/ui/Tooltip";
+import { getWorkBundle } from "@/lib/api-client";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
@@ -15,13 +16,16 @@ import {
 import { presentableTitle } from "@/lib/format";
 import { successorAfterDelete } from "@/lib/work-selection";
 
-function WorkRow({
+const POINTER_PREFETCH_DELAY_MS = 120;
+
+export function WorkRow({
   work,
   selected,
   isLoading,
   isDeleting,
   onDelete,
   onOpen,
+  onPrefetch,
 }: {
   work: { id: string; title: string };
   selected: boolean;
@@ -29,13 +33,36 @@ function WorkRow({
   isDeleting: boolean;
   onDelete: () => void;
   onOpen: () => void;
+  onPrefetch: () => void;
 }) {
   const title = presentableTitle(work.title);
+  const pointerPrefetchRef = useRef<number | null>(null);
   // A library row describes durable availability, not whatever part of the
   // selected work happens to have hydrated into the workspace store. The old
   // Imported/Ready/Analyzed labels therefore changed as you clicked between
   // rows even though nothing about the saved recording had changed.
   const status = isDeleting ? "Deleting" : isLoading ? "Opening" : "Ready";
+
+  const cancelPointerPrefetch = () => {
+    if (pointerPrefetchRef.current === null) return;
+    window.clearTimeout(pointerPrefetchRef.current);
+    pointerPrefetchRef.current = null;
+  };
+
+  const prefetchImmediately = () => {
+    cancelPointerPrefetch();
+    if (!selected && !isDeleting) onPrefetch();
+  };
+
+  const schedulePointerPrefetch = () => {
+    if (selected || isDeleting || pointerPrefetchRef.current !== null) return;
+    pointerPrefetchRef.current = window.setTimeout(() => {
+      pointerPrefetchRef.current = null;
+      onPrefetch();
+    }, POINTER_PREFETCH_DELAY_MS);
+  };
+
+  useEffect(() => cancelPointerPrefetch, []);
 
   return (
     <div className={`library-work-row${selected ? " selected" : ""}`}>
@@ -43,6 +70,9 @@ function WorkRow({
         type="button"
         className="library-work-btn"
         onClick={onOpen}
+        onPointerEnter={schedulePointerPrefetch}
+        onPointerLeave={cancelPointerPrefetch}
+        onFocus={prefetchImmediately}
         aria-current={selected ? "true" : undefined}
         disabled={isDeleting}
       >
@@ -210,6 +240,12 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               isLoading={workspace.isLoadingWork && selected}
               isDeleting={deletingId === work.id}
               onDelete={() => void handleDelete(work.id)}
+              onPrefetch={() => {
+                // Intent prefetch is deliberately bounded to one hovered or
+                // keyboard-focused row. The revisioned Work cache deduplicates
+                // this request with the eventual click/load path.
+                void getWorkBundle(work.id).catch(() => undefined);
+              }}
               onOpen={() => {
                 if (!selected) clearActiveSource();
                 setActiveWorkId(work.id);
