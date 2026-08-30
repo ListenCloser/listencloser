@@ -1,8 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkBundle } from "@/lib/domain.types";
 
+const { mockUploadToSignedUrl } = vi.hoisted(() => ({
+  mockUploadToSignedUrl: vi.fn(),
+}));
+
 vi.mock("@/lib/api", () => ({ apiFetch: vi.fn() }));
-vi.mock("@/lib/supabase", () => ({ supabase: null }));
+vi.mock("@/lib/supabase", () => ({
+  supabase: {
+    storage: {
+      from: vi.fn(() => ({ uploadToSignedUrl: mockUploadToSignedUrl })),
+    },
+  },
+}));
 
 import { apiFetch } from "@/lib/api";
 import {
@@ -72,17 +82,28 @@ function installUploadResult() {
     },
     version: sourceBundle("uploaded").artifacts[0].latest_version!,
   };
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(uploadResult), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  })));
+  mockUploadToSignedUrl.mockResolvedValue({ error: null });
+  mockApiFetch.mockImplementation(async (url, options) => {
+    if (url === "/api/v1/projects/project-1/artifacts/upload-intent" && options?.method === "POST") {
+      return {
+        bucket: "artifacts",
+        storage_key: "work-1/source.wav",
+        token: "signed-token",
+        max_bytes: 10_000,
+      };
+    }
+    if (url === "/api/v1/projects/project-1/artifacts/finalize-upload" && options?.method === "POST") {
+      return uploadResult;
+    }
+    throw new Error(`Unexpected upload API call: ${url}`);
+  });
 }
 
 describe("fresh upload Work invalidation", () => {
   beforeEach(() => {
     clearWorkDataCache();
     mockApiFetch.mockReset();
-    vi.unstubAllGlobals();
+    mockUploadToSignedUrl.mockReset();
   });
 
   it("workflow start does not join or cache a source-only Work request that began after upload", async () => {
