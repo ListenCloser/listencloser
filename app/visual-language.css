@@ -1,3 +1,375 @@
+/* Consolidated visual-language styling.
+ *
+ * This file preserves the previous import order of visual-language-v5.css
+ * followed by visual-language-v6.css. Keep newer interaction overrides after
+ * the base editorial layer so cascade behavior remains unchanged.
+ */
+
+/* Visual language V5 — editorial instrument
+ * Reference-led craft pass: quiet professional editor chrome, explicit controls,
+ * typography/spacing over card borders, and music surfaces as the visual focus.
+ */
+
+:root {
+  --v5-canvas: #1b1a17;
+  --v5-chrome: #201f1b;
+  --v5-panel: #24231f;
+  --v5-raised: #2a2822;
+  --v5-hover: #302d27;
+  --v5-text: #f1ede4;
+  --v5-text-2: #bbb5aa;
+  --v5-text-3: #817c72;
+  --v5-line: rgba(241, 237, 228, 0.07);
+  --v5-line-strong: rgba(241, 237, 228, 0.13);
+  --v5-accent: #d6b56d;
+  --v5-accent-soft: rgba(214, 181, 109, 0.10);
+  --v5-focus: 0 0 0 2px rgba(214, 181, 109, 0.26);
+}
+
+/* The product reads as one instrument, not a grid of cards. */
+.studio-shell-v3,
+.studio-canvas-area-v3,
+.piece-desk-v3,
+.piece-loading-shell,
+.piece-empty-v3,
+.welcome-page-v4 {
+  background: var(--v5-canvas) !important;
+  background-image: none !important;
+}
+
+.studio-library-v3,
+.studio-inspector-v3,
+.transport-bar-v3,
+.representation-toolbar,
+.studio-header-v3 {
+  border-color: var(--v5-line) !important;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: none;
+  box-shadow: var(--v5-focus);
+}
+
+/* Analysis is a reading surface: interpretation → moments → evidence. */
+.inspector-analysis-content {
+  padding: 14px 16px 28px;
+}
+
+.inspector-section {
+  padding: 15px 0 17px;
+  border-bottom-color: var(--v5-line);
+}
+
+.inspector-section-heading h3 {
+  color: var(--v5-text-2);
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.075em;
+}
+
+.inspector-summary {
+  margin: 0;
+  color: #d8d3c9;
+  font-size: 12px;
+  line-height: 1.62;
+  letter-spacing: -0.006em;
+}
+
+.inspector-meta-line {
+  margin: 12px 0 0;
+  padding: 9px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 15px;
+  border-top: 1px solid var(--v5-line);
+}
+
+.inspector-meta-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.inspector-meta-item dt {
+  color: var(--v5-text-3);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+}
+
+.inspector-meta-item dd {
+  margin: 0;
+  color: var(--v5-text-2);
+  font-size: 10.5px;
+  font-weight: 560;
+}
+
+.inspector-overview-row,
+.inspector-overview-item {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.inspector-finding,
+.inspector-seq-btn,
+.inspector-evidence-jump {
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.inspector-finding,
+.inspector-evidence-jump {
+  padding-inline: 5px !important;
+}
+
+.inspector-finding:hover,
+.inspector-seq-btn:hover,
+.inspector-evidence-jump:hover {
+  background: rgba(255, 255, 255, 0.035) !important;
+}
+
+.inspector-evidence-section {
+  border-bottom: 0;
+}
+
+.inspector-evidence-group {
+  border-top: 1px solid var(--v5-line);
+}
+
+.inspector-evidence-group summary {
+  min-height: 34px;
+  padding: 0 2px;
+  color: #a7a198;
+}
+
+.inspector-evidence-count {
+  color: var(--v5-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector-scope {
+  max-width: 150px;
+  background: transparent !important;
+  border-color: var(--v5-line-strong) !important;
+}
+
+.inspector-scope-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-scope-clear {
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.inspector-empty-state {
+  gap: 8px;
+  align-content: start;
+  padding-top: 28px;
+}
+
+.inspector-empty-mark,
+.ask-empty-mark {
+  display: none !important;
+}
+
+/* Ask is a contextual inspector mode, not branded chat chrome. */
+.ask-empty {
+  align-items: stretch;
+  text-align: left;
+  padding: 18px 2px 12px;
+}
+
+.ask-empty strong {
+  color: #d8d3c9;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ask-empty p {
+  max-width: none;
+  color: var(--v5-text-3);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.ask-prompts {
+  gap: 0;
+  margin-top: 8px;
+  border-top: 1px solid var(--v5-line);
+}
+
+.ask-prompt {
+  min-height: 38px;
+  justify-content: flex-start;
+  padding: 0 2px;
+  border: 0 !important;
+  border-bottom: 1px solid var(--v5-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #aaa49a !important;
+  text-align: left;
+}
+
+.ask-prompt:hover {
+  color: var(--v5-text) !important;
+  background: transparent !important;
+}
+
+.ask-composer {
+  border-top-color: var(--v5-line) !important;
+  background: var(--v5-panel) !important;
+}
+
+.ask-input {
+  background: rgba(255, 255, 255, 0.025) !important;
+  border-color: var(--v5-line-strong) !important;
+}
+
+/* Transport controls should be recognizable before tooltips. */
+.transport-playback-zone {
+  grid-template-columns: 34px 36px minmax(80px, 1fr) 36px auto auto;
+}
+
+.transport-ctrl-labeled {
+  width: auto !important;
+  min-width: 48px;
+  padding: 0 7px;
+  gap: 5px;
+}
+
+.transport-ctrl-text {
+  display: inline;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+}
+
+.transport-ctrl-labeled.active {
+  background: var(--v5-accent-soft) !important;
+}
+
+/* Import is a clear primary utility, while transcription settings stay quiet. */
+.library-import-btn {
+  min-height: 32px;
+  border-color: rgba(214, 181, 109, 0.18) !important;
+  background: rgba(214, 181, 109, 0.075) !important;
+}
+
+.library-import-btn:not(:disabled):hover {
+  border-color: rgba(214, 181, 109, 0.28) !important;
+  background: rgba(214, 181, 109, 0.11) !important;
+}
+
+.library-import-btn:disabled {
+  opacity: 0.38;
+}
+
+/* Status/progress stays inside the viewport and never behaves like a modal. */
+.operation-layer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.piece-processing-card {
+  box-sizing: border-box !important;
+  max-width: calc(100vw - 32px) !important;
+  overflow: hidden;
+}
+
+.piece-processing-card progress {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.piece-processing-filename,
+.piece-processing-stage,
+.piece-processing-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.piece-processing-stage {
+  white-space: nowrap;
+}
+
+/* Score playback is explicit, but visually secondary to the notation. */
+.score-playback-strip {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 2px 6px;
+}
+
+.score-playback-action,
+.score-playback-state {
+  min-height: 25px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 9.5px;
+}
+
+.score-playback-action {
+  border: 1px solid rgba(214, 181, 109, 0.20);
+  background: rgba(214, 181, 109, 0.07);
+  color: #dbc180;
+  cursor: pointer;
+}
+
+.score-playback-action:hover {
+  background: rgba(214, 181, 109, 0.11);
+}
+
+.score-playback-state {
+  color: var(--v5-text-3);
+}
+
+.score-playback-state:not(.score-playback-state-muted) {
+  color: #a8a197;
+}
+
+.sheet-music-container [data-score-cursor] {
+  filter: drop-shadow(0 0 1px rgba(114, 169, 196, 0.18));
+}
+
+@media (max-width: 980px) {
+  .transport-ctrl-labeled {
+    min-width: 29px;
+    padding: 0;
+  }
+  .transport-ctrl-text {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piece-view-tabs-v3 > button,
+  .transport-ctrl,
+  .library-import-btn,
+  .ask-prompt {
+    transition: none !important;
+  }
+}
+
 /* V6 reference-led interaction polish
  * Based on the reference board in docs/design/reference-board.md.
  * This layer tightens repeated interaction primitives without changing the
