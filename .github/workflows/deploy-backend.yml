@@ -105,14 +105,14 @@ jobs:
           envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_ANON_KEY,SENTRY_DSN_BACKEND,SENTRY_ENV,DEPLOY_SHA,LLM_BASE_URL,LLM_API_KEY,LLM_MODEL,OTEL_EXPORTER_OTLP_ENDPOINT,OTEL_EXPORTER_OTLP_HEADERS,BACKEND_IMAGE_REPOSITORY,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -euo pipefail
-            if [ ! -d ~/listencloser/.git ]; then
+            if [ ! -d ~/hello-ai/.git ]; then
               echo "[deploy] first boot — cloning repo"
-              git clone https://github.com/ListenCloser/listencloser.git ~/listencloser
+              git clone https://github.com/ListenCloser/listencloser.git ~/hello-ai
               export DEPLOY_PREVIOUS_SHA=""
             else
-              export DEPLOY_PREVIOUS_SHA="$(cd ~/listencloser && git rev-parse HEAD)"
+              export DEPLOY_PREVIOUS_SHA="$(cd ~/hello-ai && git rev-parse HEAD)"
             fi
-            cd ~/listencloser
+            cd ~/hello-ai
             git fetch --quiet origin main
             git cat-file -e "${DEPLOY_SHA}^{commit}"
             git reset --hard "$DEPLOY_SHA"

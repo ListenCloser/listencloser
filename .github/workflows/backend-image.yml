@@ -46,6 +46,8 @@ jobs:
           assert 'use_numba_cache_for_release "$TARGET_HEAD"' in deploy
           assert 'use_numba_cache_for_release "$PREV_HEAD"' in deploy
           assert 'from domain.worker_warmup import prewarm_librosa_beat_tracking' in deploy
+          assert '-e BEAT_ENGINE=librosa --entrypoint python worker' in deploy
+          assert 'REPO_URL="https://github.com/ListenCloser/listencloser.git"' in deploy
           PY
 
   build:
