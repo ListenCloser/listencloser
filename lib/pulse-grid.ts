@@ -5,6 +5,7 @@ export type ObservedPulseGrid = {
   beatsSeconds: number[];
   downbeatsSeconds: number[];
   provenance: Record<string, unknown>;
+  source: "explicit_pulse" | "beat_relative_windows";
 };
 
 function increasingSeconds(value: unknown): number[] | null {
@@ -18,6 +19,44 @@ function increasingSeconds(value: unknown): number[] | null {
   return result;
 }
 
+function beatsFromOneBeatWindows(value: unknown): number[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const beats: number[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") return null;
+    const window = item as Record<string, unknown>;
+    if (
+      window.mode !== "beat_relative"
+      || window.unit !== "events_per_beat"
+      || window.window_size !== 1
+      || window.step_size !== 1
+    ) {
+      return null;
+    }
+    const start = window.start;
+    const end = window.end;
+    if (
+      typeof start !== "number"
+      || typeof end !== "number"
+      || !Number.isFinite(start)
+      || !Number.isFinite(end)
+      || start < 0
+      || end <= start
+    ) {
+      return null;
+    }
+    if (beats.length === 0) {
+      beats.push(start);
+    } else if (Math.abs(start - beats[beats.length - 1]) > 1e-9) {
+      return null;
+    }
+    beats.push(end);
+  }
+
+  return increasingSeconds(beats);
+}
+
 function createdAtMillis(insight: Insight): number {
   const value = Date.parse(insight.created_at);
   return Number.isFinite(value) ? value : 0;
@@ -26,10 +65,12 @@ function createdAtMillis(insight: Insight): number {
 /**
  * Return the newest valid observed pulse grid for exactly one representation Version.
  *
- * Pulse coordinates are persisted on the broad `rhythm` evidence object because
- * that is already the version-scoped pulse-derived analysis contract. Consumers
- * should use this adapter rather than reverse-engineering beat positions from
- * density-window boundaries.
+ * New analyses may persist explicit `beats_seconds` / `downbeats_seconds` on the
+ * version-scoped rhythm evidence. Existing saved analyses already preserve the
+ * observed beat coordinates losslessly as consecutive one-beat density-window
+ * boundaries, so this adapter can recover those beats without inventing BPM
+ * subdivisions. Downbeats are never reconstructed from those windows because
+ * meter/bar-start semantics are not encoded there.
  */
 export function extractObservedPulseGrid(
   insights: Insight[],
@@ -42,17 +83,37 @@ export function extractObservedPulseGrid(
     .sort((a, b) => createdAtMillis(b) - createdAtMillis(a));
 
   for (const insight of candidates) {
-    const beats = increasingSeconds(insight.evidence?.beats_seconds);
-    const downbeats = increasingSeconds(insight.evidence?.downbeats_seconds);
-    if (!beats || beats.length < 2 || !downbeats) continue;
-    if (insight.evidence?.pulse_coordinate_unit !== "seconds") continue;
+    const explicitBeats = increasingSeconds(insight.evidence?.beats_seconds);
+    const explicitDownbeats = insight.evidence?.downbeats_seconds === undefined
+      ? []
+      : increasingSeconds(insight.evidence.downbeats_seconds);
+    if (
+      explicitBeats
+      && explicitBeats.length >= 2
+      && explicitDownbeats
+      && insight.evidence?.pulse_coordinate_unit === "seconds"
+    ) {
+      return {
+        versionId,
+        beatsSeconds: explicitBeats,
+        downbeatsSeconds: explicitDownbeats,
+        provenance: (insight.provenance ?? {}) as Record<string, unknown>,
+        source: "explicit_pulse",
+      };
+    }
 
-    return {
-      versionId,
-      beatsSeconds: beats,
-      downbeatsSeconds: downbeats,
-      provenance: (insight.provenance ?? {}) as Record<string, unknown>,
-    };
+    const recoveredBeats = beatsFromOneBeatWindows(
+      insight.evidence?.onset_density_over_time,
+    );
+    if (recoveredBeats && recoveredBeats.length >= 2) {
+      return {
+        versionId,
+        beatsSeconds: recoveredBeats,
+        downbeatsSeconds: [],
+        provenance: (insight.provenance ?? {}) as Record<string, unknown>,
+        source: "beat_relative_windows",
+      };
+    }
   }
 
   return null;
