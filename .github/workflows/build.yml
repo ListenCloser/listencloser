@@ -33,6 +33,7 @@ jobs:
         id: filter
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
+          predicate-quantifier: some-with-excludes
           filters: |
             ci:
               - '**'
@@ -126,24 +127,6 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
-  frontend-tests:
-    name: frontend-tests
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: package.json
-          cache: npm
-      - run: npm ci
-      - run: npm test
-
   ci:
     if: github.event_name != 'push' && needs.classify.outputs.ci == 'true'
     needs: classify
@@ -205,7 +188,6 @@ jobs:
     needs:
       - classify
       - compile
-      - frontend-tests
       - ci
       - e2e
       - real-stack
@@ -221,7 +203,6 @@ jobs:
         env:
           CLASSIFY: ${{ needs.classify.result }}
           COMPILE: ${{ needs.compile.result }}
-          FRONTEND_TESTS: ${{ needs.frontend-tests.result }}
           CI: ${{ needs.ci.result }}
           E2E: ${{ needs.e2e.result }}
           REAL_STACK: ${{ needs.real-stack.result }}
@@ -240,7 +221,6 @@ jobs:
             esac
           }
           test "$COMPILE" = success
-          test "$FRONTEND_TESTS" = success
           if [ "${{ github.event_name }}" != push ]; then
             test "$CLASSIFY" = success
             test "$CODEQL" = success

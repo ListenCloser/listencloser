@@ -2,24 +2,6 @@ name: Real-stack E2E
 
 on:
   workflow_call:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'backend/**'
-      - '!backend/evaluation/**'
-      - '!backend/tests/**'
-      - 'app/**'
-      - 'components/**'
-      - 'lib/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'next.config.mjs'
-      - 'tsconfig.json'
-      - 'tests/e2e/real-stack-workflow.spec.ts'
-      - 'tests/e2e/real-stack-golden.spec.ts'
-      - 'playwright.realstack.config.ts'
-      - '.github/workflows/real-stack-e2e.yml'
   push:
     branches: [main]
     paths:
@@ -43,7 +25,6 @@ concurrency:
 
 jobs:
   real-stack:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
