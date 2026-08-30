@@ -229,7 +229,9 @@ def run_structure_evaluation(
                     row["error"] = result.error
                     continue
 
-                metrics = compute_structure_boundary_metrics(result.segments, clip.reference.sections)
+                metrics = compute_structure_boundary_metrics(
+                    result.segments, clip.reference.sections
+                )
                 row["status"] = "scored"
                 row["predicted_segments"] = result.segments
                 row["metrics"] = metrics.to_dict()
