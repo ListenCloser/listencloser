@@ -182,6 +182,21 @@ def test_audio_pulse_overrides_placeholder_tempo(sb, monkeypatch):
     assert tempo.evidence["bpm"] == 138.0
     assert tempo.evidence["source"] == "audio_beat_tracking"
     assert tempo.provenance.get("engine", {}).get("engine") == "beat_this"
+
+    # The promoted density series and its completeness envelope must survive the
+    # actual Postgres JSONB round-trip; mocked persistence alone is insufficient
+    # for downstream coverage decisions.
+    density = next(i for i in insights if i.kind == "rhythm_density")
+    windows = density.evidence["windows"]
+    coverage = density.evidence["coverage"]
+    assert windows
+    assert coverage["policy_version"] == "complete_series_v1"
+    assert coverage["total_generated_window_count"] == len(windows)
+    assert coverage["stored_window_count"] == len(windows)
+    assert coverage["start_seconds"] == windows[0]["start"]
+    assert coverage["end_seconds"] == windows[-1]["end"]
+    assert coverage["truncated"] is False
+
     # Beats/downbeats are evidence; (N, 4) is a notation claim the pulse model
     # does not support — meter must stay unknown.
     assert "time_signature" not in kinds, "audio path must not persist a meter"
