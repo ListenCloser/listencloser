@@ -175,7 +175,15 @@ class OpenAICompatibleLLMProvider:
             "Content-Type": "application/json",
         }
         try:
-            response = await self._client.post(endpoint, json=payload, headers=headers)
+            # Apply the Ask-specific timeout even when the provider reuses the
+            # application-wide AsyncClient. Without the per-request override,
+            # ASK_LLM_TIMEOUT_SECONDS was silently ignored for shared clients.
+            response = await self._client.post(
+                endpoint,
+                json=payload,
+                headers=headers,
+                timeout=self._timeout_seconds,
+            )
         except httpx.TimeoutException as exc:
             raise AskProviderTimeoutError("provider request timed out") from exc
         except httpx.HTTPError as exc:
