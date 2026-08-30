@@ -123,6 +123,7 @@ def run_structure_evaluation(
 
     candidate_adapter = adapter or ADAPTERS[candidate](device=device)
     metadata = candidate_adapter.metadata()
+    execution_mode = "batch" if candidate_adapter.supports_batch else "per_clip"
 
     rows: list[dict[str, Any]] = []
     eligible: list[tuple[Any, dict[str, Any], Path]] = []
@@ -171,7 +172,11 @@ def run_structure_evaluation(
             "status": "completed",
             "device": device,
             "allow_training_overlap": allow_training_overlap,
+            "execution_mode": execution_mode,
+            "eligible_clip_count": 0,
             "load_seconds": 0.0,
+            "candidate_batch_seconds": 0.0,
+            "effective_seconds_per_clip": None,
             "process_peak_rss_mb": _peak_rss_mb(),
             "candidate_metadata": asdict(metadata),
             "aggregate": _aggregate(rows),
@@ -192,19 +197,30 @@ def run_structure_evaluation(
         }
     load_seconds = round(time.monotonic() - load_start, 4)
 
-    for clip, row, audio_path in eligible:
-        result = candidate_adapter.timed_analyze(str(audio_path))
-        row["latency_seconds"] = result.latency_seconds
-        row["candidate_output_metadata"] = result.metadata
-        if not result.ok:
+    audio_paths = [str(audio_path) for _, _, audio_path in eligible]
+    candidate_results, candidate_batch_seconds = candidate_adapter.timed_analyze_many(audio_paths)
+    if len(candidate_results) != len(eligible):
+        error = (
+            "candidate result cardinality mismatch: "
+            f"expected {len(eligible)}, received {len(candidate_results)}"
+        )
+        for _, row, _ in eligible:
             row["status"] = "candidate_error"
-            row["error"] = result.error
-            continue
+            row["error"] = error
+    else:
+        for (clip, row, _), result in zip(eligible, candidate_results, strict=True):
+            if result.latency_seconds is not None:
+                row["latency_seconds"] = result.latency_seconds
+            row["candidate_output_metadata"] = result.metadata
+            if not result.ok:
+                row["status"] = "candidate_error"
+                row["error"] = result.error
+                continue
 
-        metrics = compute_structure_boundary_metrics(result.segments, clip.reference.sections)
-        row["status"] = "scored"
-        row["predicted_segments"] = result.segments
-        row["metrics"] = metrics.to_dict()
+            metrics = compute_structure_boundary_metrics(result.segments, clip.reference.sections)
+            row["status"] = "scored"
+            row["predicted_segments"] = result.segments
+            row["metrics"] = metrics.to_dict()
 
     return {
         "task": "structure_boundary_detection",
@@ -213,7 +229,11 @@ def run_structure_evaluation(
         "status": "completed",
         "device": device,
         "allow_training_overlap": allow_training_overlap,
+        "execution_mode": execution_mode,
+        "eligible_clip_count": len(eligible),
         "load_seconds": load_seconds,
+        "candidate_batch_seconds": candidate_batch_seconds,
+        "effective_seconds_per_clip": round(candidate_batch_seconds / len(eligible), 4),
         "process_peak_rss_mb": _peak_rss_mb(),
         "candidate_metadata": asdict(metadata),
         "aggregate": _aggregate(rows),
