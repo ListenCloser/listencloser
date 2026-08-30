@@ -37,7 +37,7 @@ insert into public.artifact_versions (
   'dddddddd-dddd-dddd-dddd-dddddddddddd',
   'rls-test/source.wav',
   'artifacts',
-  '[]'::jsonb
+  array[]::uuid[]
 );
 
 insert into public.workflows (id, project_id, kind)
@@ -107,7 +107,7 @@ select is(
   'foreign project is invisible'
 );
 select is(
-  (select count(*) from public.works where id = 'bbbbbbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  (select count(*) from public.works where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
   0::bigint,
   'foreign work is invisible'
 );
