@@ -21,7 +21,6 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-          import base64
           import json
           import os
           import re
@@ -87,7 +86,7 @@ jobs:
                   continue
               manifest.append({"path": path, "mode": mode, "sha": create_blob(updated)})
 
-          payload = base64.b64encode(json.dumps(manifest, separators=(",", ":")).encode()).decode()
-          print(f"MIGRATION_MANIFEST_B64={payload}")
+          manifest_sha = create_blob(json.dumps(manifest, separators=(",", ":")))
+          print(f"MIGRATION_MANIFEST_BLOB={manifest_sha}")
           print(f"Created {len(manifest)} unreferenced transformed blobs; no branch ref was updated.")
           PY
