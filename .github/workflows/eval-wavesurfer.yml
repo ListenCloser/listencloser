@@ -5,8 +5,10 @@ on:
     paths:
       - '.github/workflows/eval-wavesurfer.yml'
       - 'app/eval-wavesurfer/**'
+      - 'app/eval-wavesurfer-spectrogram/**'
       - 'tests/e2e/wavesurfer-eval.spec.ts'
       - 'tests/e2e/wavesurfer-shared-peaks-eval.spec.ts'
+      - 'tests/e2e/wavesurfer-spectrogram-eval.spec.ts'
 
 permissions:
   contents: read
@@ -32,6 +34,7 @@ jobs:
           npm install --prefix /tmp/wavesurfer-candidate --package-lock=false --ignore-scripts wavesurfer.js@7.12.8
           cp /tmp/wavesurfer-candidate/node_modules/wavesurfer.js/dist/wavesurfer.min.js public/__wavesurfer-eval/wavesurfer.min.js
           cp /tmp/wavesurfer-candidate/node_modules/wavesurfer.js/dist/plugins/regions.min.js public/__wavesurfer-eval/regions.min.js
+          cp /tmp/wavesurfer-candidate/node_modules/wavesurfer.js/dist/plugins/spectrogram.min.js public/__wavesurfer-eval/spectrogram.min.js
           cp tests/fixtures/real-piano.m4a public/__wavesurfer-eval/real-piano.m4a
 
       - name: Install Chromium
@@ -55,7 +58,8 @@ jobs:
       - name: Wait for app
         run: |
           for attempt in $(seq 1 60); do
-            if curl --fail --silent --show-error http://localhost:3000/eval-wavesurfer >/dev/null; then
+            if curl --fail --silent --show-error http://localhost:3000/eval-wavesurfer >/dev/null \
+              && curl --fail --silent --show-error http://localhost:3000/eval-wavesurfer-spectrogram >/dev/null; then
               exit 0
             fi
             sleep 1
@@ -68,6 +72,7 @@ jobs:
           npx playwright test
           tests/e2e/wavesurfer-eval.spec.ts
           tests/e2e/wavesurfer-shared-peaks-eval.spec.ts
+          tests/e2e/wavesurfer-spectrogram-eval.spec.ts
           --reporter=line
         env:
           RUN_WAVESURFER_EVAL: "true"
@@ -80,6 +85,9 @@ jobs:
           path: |
             artifacts/wavesurfer-equal-contract.json
             artifacts/wavesurfer-shared-peaks.json
+            artifacts/wavesurfer-spectrogram.json
+            artifacts/wavesurfer-spectrogram-baseline.png
+            artifacts/wavesurfer-spectrogram-candidate.png
             test-results/
             /tmp/wavesurfer-eval-next.log
           if-no-files-found: ignore
