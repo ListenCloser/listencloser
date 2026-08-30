@@ -312,6 +312,7 @@ export default function PianoRoll({
           {/* Selected time range stays subordinate to notes and active time. */}
           {visibleTimeRange && (
             <rect
+              data-selection-range="true"
               data-selection-emphasized={emphasizeSelection ? "true" : undefined}
               x={timeToX(visibleTimeRange.start)}
               y={TOP_PAD}
