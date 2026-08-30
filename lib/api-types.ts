@@ -1147,8 +1147,7 @@ export interface components {
             output_version_ids: string[];
             /** Progress */
             progress: number;
-            /** Stage */
-            stage: string;
+            stage: components["schemas"]["JobStage"];
             /** Workflow Id */
             workflow_id: string;
         };
