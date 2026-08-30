@@ -27,7 +27,7 @@ jobs:
           cache-dependency-glob: 'backend/uv.lock'
       - name: Sync locked backend environment
         run: uv sync --project backend --locked
-      - name: Characterize backend dependency hygiene
+      - name: Characterize shipped-backend dependency hygiene
         id: deptry
         shell: bash
         run: |
@@ -36,7 +36,7 @@ jobs:
           uv run --project backend --with deptry==0.25.1 \
             deptry backend \
             --config backend/pyproject.toml \
-            --extend-exclude 'backend/tests' \
+            --extend-exclude 'backend/(tests|evaluation|scripts)' \
             --json-output deptry-output/report.json
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
