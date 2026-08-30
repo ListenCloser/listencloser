@@ -104,9 +104,10 @@ export default function Waveform({
 
     const styles = getComputedStyle(document.documentElement);
     const muted = styles.getPropertyValue("--muted").trim() || "#575a5e";
+    const fontSans = styles.getPropertyValue("--font-sans").trim() || "sans-serif";
 
     ctx.fillStyle = muted;
-    ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.font = `10px ${fontSans}`;
     ctx.textAlign = "center";
 
     // Very sparse: aim for 3-5 labels
