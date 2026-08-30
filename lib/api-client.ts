@@ -189,7 +189,11 @@ export async function getWorkBundle(workId: string): Promise<WorkBundle> {
     bumpWorkRevision(epoch, workId);
     if (midiVersionId) invalidateVersionData(epoch, midiVersionId);
   } else if (midiVersionId) {
-    await Promise.allSettled([getEntities(midiVersionId), getInsights(midiVersionId)]);
+    // Warm immutable child evidence, but never make it part of the Work-open
+    // critical path. HomeContent can expose durable audio as soon as the bundle
+    // arrives, while its foreground child reads deduplicate against these same
+    // TanStack keys if the warm-up is still in flight.
+    void Promise.allSettled([getEntities(midiVersionId), getInsights(midiVersionId)]);
   }
 
   return bundle;
