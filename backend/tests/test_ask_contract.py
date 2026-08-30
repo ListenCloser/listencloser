@@ -98,6 +98,12 @@ def contract_env(monkeypatch):
     monkeypatch.setattr(repo, "get_supabase", lambda: SimpleNamespace())
     monkeypatch.setattr("ask.api.WorkRepo", FakeWorkRepo)
     monkeypatch.setattr("ask.api.get_supabase", lambda: SimpleNamespace())
+    # This fixture proves the frontend/backend wire contract only. Persistence
+    # authorization/canonicalization is covered by test_ask_evidence.py and
+    # test_ask_api_canonical_evidence.py; keep those concerns out of this fixture.
+    monkeypatch.setattr(
+        "ask.api.load_canonical_ask_context", lambda sb, context: context
+    )
     monkeypatch.setattr(
         "ask.api.build_provider",
         lambda settings, client=None: FakeLLMProvider(
