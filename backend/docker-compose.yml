@@ -48,7 +48,6 @@ services:
       SENTRY_ENV: ${SENTRY_ENV:-production}
       RELEASE: ${RELEASE:-development}
       HARMONY_ENGINE: lv_chordia
-      BEAT_ENGINE: ${BEAT_ENGINE:-beat_this}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       OTEL_SERVICE_NAME: hello-ai-worker
