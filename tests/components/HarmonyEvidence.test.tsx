@@ -52,17 +52,27 @@ const harmonicFunction = insight("hf-1", "harmonic_function", "TONIC (I)", 0, 2,
 const nextChord = insight("chord-2", "chord", "G min", 2, 4, { root: "G", quality: "min" });
 
 describe("HarmonyEvidence", () => {
-  it("groups derived labels into one row per shared musical moment", () => {
+  it("groups derived labels into one row per shared musical span", () => {
     const moments = groupHarmonicMoments([harmonicFunction, nextChord, numeral, chord], 120);
 
     expect(moments).toHaveLength(2);
     expect(moments[0]).toMatchObject({
       startSeconds: 0,
-      chord: { id: "chord-1" },
-      romanNumeral: { id: "rn-1" },
-      harmonicFunction: { id: "hf-1" },
+      chords: [{ id: "chord-1" }],
+      romanNumerals: [{ id: "rn-1" }],
+      harmonicFunctions: [{ id: "hf-1" }],
     });
-    expect(moments[1]).toMatchObject({ startSeconds: 2, chord: { id: "chord-2" } });
+    expect(moments[1]).toMatchObject({ startSeconds: 2, chords: [{ id: "chord-2" }] });
+  });
+
+  it("preserves multiple same-kind evidence records that share one span", () => {
+    const alternateChord = insight("chord-alt", "chord", "C5", 0, 2, { root: "C", quality: "5" });
+    const moments = groupHarmonicMoments([chord, alternateChord, numeral, harmonicFunction], 120);
+
+    expect(moments).toHaveLength(1);
+    expect(moments[0].chords.map((item) => item.id)).toEqual(["chord-1", "chord-alt"]);
+    expect(moments[0].romanNumerals).toHaveLength(1);
+    expect(moments[0].harmonicFunctions).toHaveLength(1);
   });
 
   it("removes duplicated key/numeral context from visible labels only", () => {
