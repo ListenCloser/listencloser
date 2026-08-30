@@ -1,9 +1,17 @@
-"""Beat and downbeat evaluation metrics."""
+"""Canonical beat and downbeat evaluation metrics.
+
+Timestamp matching and beat F-measure are delegated to ``mir_eval``. This
+module only adapts the repository's existing result contract and retains the
+product-specific BPM error fields.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
+import mir_eval
+import numpy as np
 
 
 @dataclass(frozen=True)
@@ -50,26 +58,23 @@ class BeatMetrics:
         }
 
 
-def _match_timestamps(
+def _canonical_event_metrics(
     predicted: list[float],
     reference: list[float],
     tolerance: float,
-) -> tuple[int, list[float], list[float]]:
-    """Greedy timestamp matching. Returns (matched_count, unmatched_pred, unmatched_ref)."""
-    pred = sorted(predicted)
-    ref = sorted(reference)
-    matched = 0
-    unmatched_pred = list(pred)
-    unmatched_ref = list(ref)
+) -> tuple[float, float, float, int]:
+    """Return precision/recall/F1/matches using mir_eval's maximum matching."""
+    pred = np.asarray(sorted(predicted), dtype=float)
+    ref = np.asarray(sorted(reference), dtype=float)
+    if ref.size == 0 or pred.size == 0:
+        return 0.0, 0.0, 0.0, 0
 
-    for r in ref:
-        for i, p in enumerate(unmatched_pred):
-            if abs(p - r) <= tolerance:
-                matched += 1
-                unmatched_pred.pop(i)
-                break
-
-    return matched, unmatched_pred, unmatched_ref
+    matching = mir_eval.util.match_events(ref, pred, window=tolerance)
+    matched = len(matching)
+    precision = matched / len(pred)
+    recall = matched / len(ref)
+    f1 = mir_eval.beat.f_measure(ref, pred, f_measure_threshold=tolerance)
+    return float(precision), float(recall), float(f1), matched
 
 
 def compute_beat_metrics(
@@ -81,6 +86,7 @@ def compute_beat_metrics(
     reference_downbeats: list[float] | None,
     tolerance: float = 0.07,
 ) -> BeatMetrics:
+    """Score beat evidence with mir_eval's canonical 70 ms convention by default."""
     bpm_abs = None
     bpm_rel_pct = None
     beat_p = beat_r = beat_f1 = None
@@ -93,22 +99,18 @@ def compute_beat_metrics(
         bpm_rel_pct = bpm_abs / reference_bpm * 100 if reference_bpm > 0 else 0.0
 
     if reference_beats is not None and predicted_beats is not None:
-        matched_beats, _, _ = _match_timestamps(predicted_beats, reference_beats, tolerance)
-        p_count = len(predicted_beats)
-        r_count = len(reference_beats)
-        beat_p = matched_beats / p_count if p_count > 0 else 0.0
-        beat_r = matched_beats / r_count if r_count > 0 else 0.0
-        beat_f1 = 2 * beat_p * beat_r / (beat_p + beat_r) if (beat_p + beat_r) > 0 else 0.0
+        beat_p, beat_r, beat_f1, matched_beats = _canonical_event_metrics(
+            predicted_beats,
+            reference_beats,
+            tolerance,
+        )
 
     if reference_downbeats is not None and predicted_downbeats is not None:
-        matched_dbs, _, _ = _match_timestamps(
-            predicted_downbeats, reference_downbeats, tolerance * 2
+        db_p, db_r, db_f1, matched_dbs = _canonical_event_metrics(
+            predicted_downbeats,
+            reference_downbeats,
+            tolerance,
         )
-        p_db = len(predicted_downbeats)
-        r_db = len(reference_downbeats)
-        db_p = matched_dbs / p_db if p_db > 0 else 0.0
-        db_r = matched_dbs / r_db if r_db > 0 else 0.0
-        db_f1 = 2 * db_p * db_r / (db_p + db_r) if (db_p + db_r) > 0 else 0.0
 
     return BeatMetrics(
         bpm_absolute_error=bpm_abs,
