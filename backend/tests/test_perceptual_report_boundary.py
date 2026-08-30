@@ -4,7 +4,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from domain.perceptual_report import PerceptualEvidenceReport as LightweightPerceptualEvidenceReport
+from domain.perceptual_report import (
+    PerceptualEvidenceReport as LightweightPerceptualEvidenceReport,
+)
 from perceptual_evidence import PerceptualEvidenceReport as WorkerPerceptualEvidenceReport
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
