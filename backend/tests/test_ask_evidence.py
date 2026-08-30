@@ -109,7 +109,7 @@ def test_canonicalization_replaces_client_fields_recomputes_category_and_drops_i
     assert item.category == "selection"
 
 
-def test_batch_loader_proves_version_belongs_to_requested_work():
+def test_batch_loader_authorizes_work_versions_before_loading_requested_insights():
     work_id = uuid4()
     other_work_id = uuid4()
     allowed_artifact = uuid4()
@@ -130,17 +130,17 @@ def test_batch_loader_proves_version_belongs_to_requested_work():
     )
 
     rows = {
-        "insights": [
-            allowed_insight.model_dump(mode="json"),
-            foreign_insight.model_dump(mode="json"),
+        "artifacts": [
+            {"id": str(allowed_artifact), "work_id": str(work_id)},
+            {"id": str(foreign_artifact), "work_id": str(other_work_id)},
         ],
         "artifact_versions": [
             {"id": str(allowed_version), "artifact_id": str(allowed_artifact)},
             {"id": str(foreign_version), "artifact_id": str(foreign_artifact)},
         ],
-        "artifacts": [
-            {"id": str(allowed_artifact), "work_id": str(work_id)},
-            {"id": str(foreign_artifact), "work_id": str(other_work_id)},
+        "insights": [
+            allowed_insight.model_dump(mode="json"),
+            foreign_insight.model_dump(mode="json"),
         ],
     }
     calls = []
@@ -148,23 +148,34 @@ def test_batch_loader_proves_version_belongs_to_requested_work():
     class FakeQuery:
         def __init__(self, table):
             self.table = table
-            self.ids = []
+            self.filters = []
 
         def select(self, columns):
-            assert columns == "*"
+            self.columns = columns
             return self
 
-        def in_(self, column, ids):
-            assert column == "id"
-            self.ids = list(ids)
+        def eq(self, column, value):
+            self.filters.append(("eq", column, str(value)))
+            return self
+
+        def in_(self, column, values):
+            self.filters.append(("in", column, {str(value) for value in values}))
             return self
 
         def execute(self):
-            calls.append((self.table, tuple(self.ids)))
-            allowed = set(self.ids)
-            return SimpleNamespace(
-                data=[row for row in rows[self.table] if str(row["id"]) in allowed]
-            )
+            calls.append((self.table, tuple(self.filters)))
+            result = list(rows[self.table])
+            for kind, column, expected in self.filters:
+                if kind == "eq":
+                    result = [row for row in result if str(row[column]) == expected]
+                else:
+                    result = [row for row in result if str(row[column]) in expected]
+            if self.columns != "*":
+                result = [
+                    {column: row[column] for column in self.columns.split(",")}
+                    for row in result
+                ]
+            return SimpleNamespace(data=result)
 
     class FakeSupabase:
         def table(self, table):
@@ -178,4 +189,10 @@ def test_batch_loader_proves_version_belongs_to_requested_work():
 
     assert [item.insight.id for item in resolved.visibleInsights] == [str(allowed_insight.id)]
     assert resolved.visibleInsights[0].insight.claim == "Key: C major"
-    assert [name for name, _ in calls] == ["insights", "artifact_versions", "artifacts"]
+    assert [name for name, _ in calls] == ["artifacts", "artifact_versions", "insights"]
+    insight_filters = calls[-1][1]
+    assert (
+        "in",
+        "version_id",
+        {str(allowed_version)},
+    ) in insight_filters

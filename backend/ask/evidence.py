@@ -1,11 +1,11 @@
 """Server-authoritative evidence resolution for grounded Ask requests.
 
 The browser may choose which persisted Insights are relevant to the current UI,
-but it is not an authority for musical-analysis content. This module resolves
-those requested Insight IDs back to persisted rows, proves their Versions belong
-to the already-authorized Work, reapplies Ask exposure policy, and recomputes
-selection/whole-work categorization from canonical spans before any evidence is
-shown to the LLM or output sanitizer.
+but it is not an authority for musical-analysis content. This module proves the
+requested Work's Version set first, then resolves only requested Insight IDs
+inside that set, reapplies Ask exposure policy, and recomputes selection/
+whole-work categorization from canonical spans before any evidence is shown to
+the LLM or output sanitizer.
 """
 
 from __future__ import annotations
@@ -114,54 +114,69 @@ def canonicalize_ask_context(
     return context.model_copy(update={"visibleInsights": visible})
 
 
-def _load_rows(sb, table: str, ids: list[UUID]) -> list[dict]:
-    if not ids:
+def _uuid_column(rows: list[dict], column: str) -> list[UUID]:
+    values: list[UUID] = []
+    for row in rows:
+        try:
+            values.append(UUID(str(row[column])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return values
+
+
+def _load_allowed_version_ids(sb, work_id: UUID) -> set[UUID]:
+    artifact_result = (
+        sb.table("artifacts").select("id").eq("work_id", str(work_id)).execute()
+    )
+    artifact_ids = _uuid_column(list(artifact_result.data or []), "id")
+    if not artifact_ids:
+        return set()
+
+    version_result = (
+        sb.table("artifact_versions")
+        .select("id")
+        .in_("artifact_id", [str(item) for item in artifact_ids])
+        .execute()
+    )
+    return set(_uuid_column(list(version_result.data or []), "id"))
+
+
+def _load_authorized_insights(
+    sb,
+    requested_ids: list[UUID],
+    allowed_version_ids: set[UUID],
+) -> list[Insight]:
+    if not requested_ids or not allowed_version_ids:
         return []
-    result = sb.table(table).select("*").in_("id", [str(item) for item in ids]).execute()
-    return list(result.data or [])
+
+    result = (
+        sb.table("insights")
+        .select("*")
+        .in_("id", [str(item) for item in requested_ids])
+        .in_("version_id", [str(item) for item in allowed_version_ids])
+        .execute()
+    )
+    persisted: list[Insight] = []
+    for row in list(result.data or []):
+        try:
+            persisted.append(Insight.model_validate(row))
+        except ValidationError:
+            continue
+    return persisted
 
 
 def load_canonical_ask_context(sb, context: AskContext) -> AskContext:
-    """Resolve requested Ask Insights and Work membership in bounded batch queries."""
+    """Resolve requested Ask Insights only inside the authorized Work's Versions."""
 
     requested_ids = _requested_insight_ids(context)
     if not requested_ids:
         return context.model_copy(update={"visibleInsights": []})
 
-    persisted: list[Insight] = []
-    for row in _load_rows(sb, "insights", requested_ids):
-        try:
-            persisted.append(Insight.model_validate(row))
-        except ValidationError:
-            continue
-
-    version_ids = list({insight.version_id for insight in persisted})
-    version_rows = _load_rows(sb, "artifact_versions", version_ids)
-    artifact_id_by_version: dict[UUID, UUID] = {}
-    for row in version_rows:
-        try:
-            version_id = UUID(str(row["id"]))
-            artifact_id = UUID(str(row["artifact_id"]))
-        except (KeyError, TypeError, ValueError):
-            continue
-        artifact_id_by_version[version_id] = artifact_id
-
-    artifact_ids = list(set(artifact_id_by_version.values()))
-    artifact_rows = _load_rows(sb, "artifacts", artifact_ids)
-    work_id_by_artifact: dict[UUID, UUID] = {}
-    for row in artifact_rows:
-        try:
-            artifact_id = UUID(str(row["id"]))
-            work_id = UUID(str(row["work_id"]))
-        except (KeyError, TypeError, ValueError):
-            continue
-        work_id_by_artifact[artifact_id] = work_id
-
-    allowed_version_ids = {
-        version_id
-        for version_id, artifact_id in artifact_id_by_version.items()
-        if work_id_by_artifact.get(artifact_id) == context.workId
-    }
+    # Work ownership is established by the API before this function runs. Build
+    # the authorized Version set first so a service-role query never loads an
+    # arbitrary foreign Insight row merely because the client supplied its ID.
+    allowed_version_ids = _load_allowed_version_ids(sb, context.workId)
+    persisted = _load_authorized_insights(sb, requested_ids, allowed_version_ids)
     return canonicalize_ask_context(
         context,
         persisted_insights=persisted,
