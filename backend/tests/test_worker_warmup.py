@@ -1,8 +1,50 @@
 from __future__ import annotations
 
+import wave
+
 import numpy as np
 
 from domain import worker_warmup
+
+
+def test_basic_pitch_prewarm_uses_normal_predict_call_shape(monkeypatch):
+    import basic_pitch.inference as inference
+
+    captured: dict[str, object] = {}
+
+    def fake_predict(audio_path, *, onset_threshold, frame_threshold):
+        with wave.open(str(audio_path), "rb") as wav_file:
+            captured.update(
+                {
+                    "channels": wav_file.getnchannels(),
+                    "sample_width": wav_file.getsampwidth(),
+                    "sample_rate": wav_file.getframerate(),
+                    "frames": wav_file.readframes(wav_file.getnframes()),
+                    "onset_threshold": onset_threshold,
+                    "frame_threshold": frame_threshold,
+                }
+            )
+        return {}, object(), []
+
+    monkeypatch.delenv("TRANSCRIPTION_ENGINE", raising=False)
+    monkeypatch.setattr(inference, "predict", fake_predict)
+
+    assert worker_warmup.prewarm_basic_pitch_inference() is True
+
+    pcm = np.frombuffer(captured["frames"], dtype="<i2")
+    assert pcm.size == int(22050 * 0.5)
+    assert np.any(pcm != 0)
+    assert captured["channels"] == 1
+    assert captured["sample_width"] == 2
+    assert captured["sample_rate"] == 22050
+    assert captured["onset_threshold"] == 0.5
+    assert captured["frame_threshold"] == 0.3
+
+
+def test_basic_pitch_prewarm_skips_when_default_engine_changes(monkeypatch):
+    monkeypatch.setenv("TRANSCRIPTION_ENGINE", "transkun")
+
+    assert worker_warmup.prewarm_basic_pitch_inference() is False
 
 
 def test_librosa_prewarm_uses_non_silent_score_call_shape(monkeypatch):
