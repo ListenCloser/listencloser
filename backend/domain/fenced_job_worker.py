@@ -388,15 +388,23 @@ class FencedJobWorker(JobWorker):
             raise RuntimeError(f"job {job_id} has no active execution token")
         return token
 
-    def _forget_execution_token(self, job_id: str) -> None:
+    def _forget_execution_token(self, job_id: str, expected_token: str) -> None:
+        """Forget only the generation owned by the finishing execution."""
         with self._execution_tokens_lock:
-            self._execution_tokens.pop(job_id, None)
+            if self._execution_tokens.get(job_id) == expected_token:
+                self._execution_tokens.pop(job_id, None)
 
     def _handler_client(self, job_id: str) -> _HandlerClient:
         """Return the exact-attempt persistence client for internal tests/adapters."""
         return _HandlerClient(self._raw_client(), job_id, self._execution_token(job_id))
 
     def _claim_job(self, job_id: str) -> bool:
+        # A direct/specific-id path must not create a second local generation
+        # while this process still owns an execution of the same logical Job.
+        with self._execution_tokens_lock:
+            if job_id in self._execution_tokens:
+                return False
+
         token = str(uuid4())
         expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
         result = (
@@ -431,7 +439,35 @@ class FencedJobWorker(JobWorker):
         token = row.get("execution_token")
         if not token:
             raise RuntimeError("claim_next_job returned no execution token")
-        self._remember_execution_token(job_id, str(token))
+        token = str(token)
+
+        # A retry can become queued just before its old future's done callback
+        # removes the Job from _in_flight. Do not let the polling thread create a
+        # successor generation in that tiny window: the old heartbeat would
+        # otherwise look up the new token and could extend the successor lease.
+        with self._in_flight_lock:
+            duplicate_local = job_id in self._in_flight
+        if duplicate_local:
+            (
+                self._raw_client()
+                .table("jobs")
+                .update(
+                    {
+                        "stage": "queued",
+                        "worker_id": None,
+                        "lease_expires_at": None,
+                        "execution_token": None,
+                    }
+                )
+                .eq("id", job_id)
+                .eq("worker_id", self._worker_id)
+                .eq("execution_token", token)
+                .eq("stage", "claimed")
+                .execute()
+            )
+            return None
+
+        self._remember_execution_token(job_id, token)
         return row
 
     def _renew_lease(self, job_id: str) -> None:
@@ -470,9 +506,11 @@ class FencedJobWorker(JobWorker):
         try:
             super()._execute_job(job_row, already_claimed=already_claimed)
         finally:
+            attempt_token = getattr(self._thread_attempt, "execution_token", None)
             self._thread_attempt.job_id = None
             self._thread_attempt.execution_token = None
-            self._forget_execution_token(job_id)
+            if attempt_token:
+                self._forget_execution_token(job_id, str(attempt_token))
 
     def update_progress(self, job_id: str, progress: float, message: str = "") -> None:
         """Fence externally-invoked progress updates even outside the handler thread."""
