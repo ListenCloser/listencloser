@@ -79,7 +79,12 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(loopBtn).toHaveAttribute("aria-pressed", "false");
     await expect(loopBtn).toBeDisabled();
     await expect(loopBtn).not.toHaveAttribute("title");
-    await loopBtn.hover();
+    // Disabled native controls cannot receive pointer events. Tooltip owns a
+    // stable disabled-trigger wrapper specifically so hover help remains
+    // available without making the control falsely interactive.
+    const disabledLoopAnchor = page.locator("[data-tooltip-disabled-trigger]").filter({ has: loopBtn });
+    await expect(disabledLoopAnchor).toBeVisible();
+    await disabledLoopAnchor.hover();
     await expect(page.getByRole("tooltip", { name: "Select a passage to loop" })).toBeVisible();
     await expect(loopBtn.getByText("Loop", { exact: true })).toBeVisible();
 
