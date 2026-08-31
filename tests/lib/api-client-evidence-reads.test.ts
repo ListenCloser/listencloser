@@ -20,6 +20,7 @@ vi.mock("@/lib/api", () => ({ apiFetch }));
 vi.mock("@/lib/supabase", () => ({ supabase: null }));
 
 import { clearWorkDataCache, getEntities, getInsights } from "@/lib/api-client";
+import { getQueryClient } from "@/lib/query-client";
 
 const span = {
   start_seconds: 0,
@@ -67,6 +68,7 @@ const ok = <T,>(data: T) => ({
 
 describe("generated entity and insight read transport", () => {
   beforeEach(() => {
+    getQueryClient().clear();
     clearWorkDataCache();
     get.mockReset();
     apiFetch.mockReset();
@@ -89,7 +91,10 @@ describe("generated entity and insight read transport", () => {
 
   it("fails closed when a persisted Entity omits its server-materialized id", async () => {
     const { id: _id, ...invalidEntity } = entity;
-    get.mockResolvedValueOnce(ok([invalidEntity]));
+    // TanStack Query may retry a rejected query. Return the same malformed
+    // payload on every attempt so the assertion remains about normalization,
+    // not mock exhaustion.
+    get.mockResolvedValue(ok([invalidEntity]));
 
     await expect(getEntities(entity.version_id)).rejects.toThrow(
       'Invalid Entity response: missing server field "id"',
@@ -98,7 +103,7 @@ describe("generated entity and insight read transport", () => {
 
   it("fails closed when a persisted span omits a server-materialized coordinate", async () => {
     const { end_measure: _endMeasure, ...invalidSpan } = span;
-    get.mockResolvedValueOnce(ok([{ ...entity, span: invalidSpan }]));
+    get.mockResolvedValue(ok([{ ...entity, span: invalidSpan }]));
 
     await expect(getEntities(entity.version_id)).rejects.toThrow(
       'Invalid Span response: missing server field "end_measure"',
@@ -107,7 +112,7 @@ describe("generated entity and insight read transport", () => {
 
   it("fails closed when a persisted Insight omits a server-materialized evidence field", async () => {
     const { evidence: _evidence, ...invalidInsight } = insight;
-    get.mockResolvedValueOnce(ok([invalidInsight]));
+    get.mockResolvedValue(ok([invalidInsight]));
 
     await expect(getInsights(entity.version_id)).rejects.toThrow(
       'Invalid Insight response: missing server field "evidence"',
