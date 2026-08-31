@@ -95,10 +95,6 @@ Do not use a future-looking spec to claim a capability is implemented. Do not us
 
 These should be updated when their owned contract changes.
 
-### Operational snapshots
-
-Files such as `CURRENT_STATE.md` are orientation aids. They should summarize stable current invariants and point to machine-readable/runtime authorities rather than duplicate engine versions, benchmark numbers, or recent PR inventories that rapidly go stale.
-
 ### Research / evaluation evidence
 
 Research landscape, benchmark reports, and experiment results are evidence for a defined question and protocol. They do not become production architecture merely because an experiment succeeded.
@@ -107,7 +103,9 @@ Keep durable measured results; retire one-shot workflow scaffolding and stale br
 
 ### Historical / superseded
 
-Audit documents, old product visions, old roadmaps, deployment experiments, and superseded design notes may be useful provenance. They must carry an explicit historical/superseded banner if retained. Historical prose never overrides current code, canonical docs, registry policy, or ADRs.
+Historical prose may remain in the maintained tree only when it carries durable provenance or rationale that is still useful to a contributor. If retained, it must carry an explicit historical/superseded banner and point to the current replacement authority. Otherwise delete it and rely on git/PR history for archaeology.
+
+Historical prose never overrides current code, canonical docs, registry policy, or ADRs.
 
 ## Documentation hygiene rules
 
@@ -120,5 +118,6 @@ When changing docs:
 - Put reusable evaluation rules in `EVALUATION_METHODOLOGY.md`; put current decisions in `EVALUATION_DECISIONS.md`.
 - Put unresolved work in GitHub issues; close/supersede duplicates instead of growing parallel roadmaps.
 - Prefer Mermaid for maintained human diagrams; generate dependency/schema views from their source when possible.
-- If a file is no longer authoritative but has useful history, label it historical or move it under an archive boundary rather than quietly leaving contradictory instructions.
+- Do not create an `archive/` or snapshot directory merely to avoid deletion; git/PR history already preserves removed prose.
+- If historical prose has continuing provenance value, retain it only with an explicit historical/superseded banner and a pointer to the current authority.
 - Delete documentation that has neither current authority nor durable historical/evaluation value.
