@@ -141,7 +141,7 @@ jobs:
 
       - name: Run measured-change discovery probe
         run: |
-          uv run --project backend python -m \
+          PYTHONPATH=backend uv run --project backend python -m \
             backend.evaluation.analysis_v3.perceptual.run_change_probe \
             --track splice_a "$MEASURED_CHANGE_ROOT/splices/splice-a.wav" \
             --expected-boundary splice_a 12 \
