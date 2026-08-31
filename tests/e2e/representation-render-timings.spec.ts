@@ -301,4 +301,63 @@ test.describe("representation render timing contract (MSW)", () => {
     await scoreTab.click();
     expect(await firstScoreMeasure.count()).toBeGreaterThan(0);
   });
+
+  test("records Score click latency after sustained pointer intent", async ({ page }, testInfo) => {
+    await page.goto("/");
+    await waitForWorkspaceData(page);
+    await expect(page.getByTestId("waveform-canvas")).toHaveAttribute("data-waveform-state", "ready", { timeout: 30_000 });
+
+    const scoreTab = page.getByRole("tab", { name: "Score" });
+    const firstScoreMeasure = page.locator(".sheet-music-container g.vf-measure").first();
+    const resourceOffset = await page.evaluate(() => performance.getEntriesByType("resource").length);
+
+    // This is intentionally outside the click measurement. The feature only
+    // claims to overlap module loading with deliberate pre-click intent, not to
+    // make a zero-lead-time click magically free. The deterministic component
+    // test separately pins the 120 ms dwell threshold/cancellation contract.
+    const intentLeadTimeMs = 300;
+    await scoreTab.hover();
+    await page.waitForTimeout(intentLeadTimeMs);
+
+    const warmupResources = await page.evaluate((offset) => {
+      return (performance.getEntriesByType("resource") as PerformanceResourceTiming[])
+        .slice(offset)
+        .map((entry) => {
+          const url = new URL(entry.name, window.location.href);
+          return {
+            path: `${url.pathname}${url.search}`,
+            initiator: entry.initiatorType,
+            duration_ms: Math.round(entry.duration * 10) / 10,
+          };
+        })
+        .filter((entry) => entry.path.includes("/_next/static/chunks/"));
+    }, resourceOffset);
+
+    const clickToReady = await measureTransition({
+      page,
+      label: "score:intent-warmed",
+      action: () => scoreTab.click(),
+      useful: () => waitForVisible(firstScoreMeasure),
+      ready: async () => {
+        await waitForVisible(firstScoreMeasure);
+        await expect(page.locator(".sheet-music-container")).toHaveCSS("cursor", "pointer");
+      },
+    });
+
+    const timing = {
+      environment: "playwright-msw-ci",
+      note: "Diagnostic only: intent lead time is deliberately excluded from click-to-ready latency.",
+      intent_lead_time_ms: intentLeadTimeMs,
+      warmup_chunk_resources: warmupResources,
+      click_to_ready: clickToReady,
+    };
+
+    console.log(`REPRESENTATION_INTENT_WARM_TIMING ${JSON.stringify(timing)}`);
+    await testInfo.attach("representation-intent-warm-timing.json", {
+      body: Buffer.from(JSON.stringify(timing, null, 2)),
+      contentType: "application/json",
+    });
+
+    expect(await firstScoreMeasure.count()).toBeGreaterThan(0);
+  });
 });

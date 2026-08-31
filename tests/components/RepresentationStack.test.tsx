@@ -1,9 +1,17 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import RepresentationStack from "@/components/workspace/RepresentationStack";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
 import { WorkspaceProvider } from "@/lib/stores/workspace";
+
+const scoreRendererMocks = vi.hoisted(() => ({
+  preloadScoreRenderer: vi.fn(),
+}));
+
+vi.mock("@/lib/score-renderer", () => ({
+  preloadScoreRenderer: scoreRendererMocks.preloadScoreRenderer,
+}));
 
 vi.mock("@/lib/representations", () => {
   const definitions = [
@@ -50,6 +58,7 @@ vi.mock("@/lib/representations", () => {
 });
 
 afterEach(() => {
+  scoreRendererMocks.preloadScoreRenderer.mockReset();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -94,6 +103,47 @@ describe("RepresentationStack", () => {
 
     await user.click(screen.getByRole("tab", { name: "Waveform" }));
     expect(screen.getByRole("textbox", { name: "Waveform local state" })).toHaveValue("preserved-view-state");
+  });
+
+  it("warms the Score renderer only after deliberate pointer dwell and cancels incidental hover", () => {
+    vi.useFakeTimers();
+    render(
+      <WorkspaceProvider>
+        <RepresentationStack signedIn canImport />
+      </WorkspaceProvider>,
+    );
+
+    const scoreTab = screen.getByRole("tab", { name: "Score" });
+
+    fireEvent.pointerEnter(scoreTab);
+    act(() => {
+      vi.advanceTimersByTime(119);
+    });
+    expect(scoreRendererMocks.preloadScoreRenderer).not.toHaveBeenCalled();
+
+    fireEvent.pointerLeave(scoreTab);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(scoreRendererMocks.preloadScoreRenderer).not.toHaveBeenCalled();
+
+    fireEvent.pointerEnter(scoreTab);
+    act(() => {
+      vi.advanceTimersByTime(120);
+    });
+    expect(scoreRendererMocks.preloadScoreRenderer).toHaveBeenCalledTimes(1);
+  });
+
+  it("warms the Score renderer immediately for keyboard focus intent", () => {
+    render(
+      <WorkspaceProvider>
+        <RepresentationStack signedIn canImport />
+      </WorkspaceProvider>,
+    );
+
+    fireEvent.focus(screen.getByRole("tab", { name: "Score" }));
+
+    expect(scoreRendererMocks.preloadScoreRenderer).toHaveBeenCalledTimes(1);
   });
 
   it("briefly strengthens the active representation's real selection without remounting it", () => {

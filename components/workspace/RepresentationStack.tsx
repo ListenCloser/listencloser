@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import TabStrip from "@/components/ui/TabStrip";
+import TabStrip, { type TabIntentSource } from "@/components/ui/TabStrip";
 import Tooltip from "@/components/ui/Tooltip";
 import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
 import {
@@ -9,11 +9,13 @@ import {
   availableRepresentations,
   type RepresentationId,
 } from "@/lib/representations";
+import { preloadScoreRenderer } from "@/lib/score-renderer";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
 
 const ORIENTATION_CUE_MS = 560;
+const SCORE_POINTER_INTENT_MS = 120;
 
 function TranscriptionModeToggle() {
   const { workspace, setTranscriptionProfile } = useWorkspace();
@@ -76,6 +78,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   const [orientationCue, setOrientationCue] = useState(false);
   const orientationFrame = useRef<number | null>(null);
   const orientationTimeout = useRef<number | null>(null);
+  const scoreIntentTimeout = useRef<number | null>(null);
   const availability = useMemo(
     () => deriveAvailability(workspace.representations, workspace.insights.length),
     [workspace.representations, workspace.insights.length],
@@ -90,6 +93,29 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     : available[0]?.id ?? null;
   const preparingRepresentations =
     workspace.analysisState === "analyzing" && available.length < REPRESENTATIONS.length;
+
+  function cancelScoreIntentWarmup() {
+    if (scoreIntentTimeout.current === null) return;
+    window.clearTimeout(scoreIntentTimeout.current);
+    scoreIntentTimeout.current = null;
+  }
+
+  function handleRepresentationIntentStart(id: RepresentationId, source: TabIntentSource) {
+    if (id !== "score" || activeView === "score" || !availableIds.has("score")) return;
+    cancelScoreIntentWarmup();
+    if (source === "focus") {
+      preloadScoreRenderer();
+      return;
+    }
+    scoreIntentTimeout.current = window.setTimeout(() => {
+      scoreIntentTimeout.current = null;
+      preloadScoreRenderer();
+    }, SCORE_POINTER_INTENT_MS);
+  }
+
+  function handleRepresentationIntentEnd(id: RepresentationId, source: TabIntentSource) {
+    if (id === "score" && source === "pointer") cancelScoreIntentWarmup();
+  }
 
   useEffect(() => {
     // Initialize selection when a Work first exposes representations, but do
@@ -133,6 +159,10 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     return () => {
       window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, handleOrientation);
       cancelPendingCue();
+      if (scoreIntentTimeout.current !== null) {
+        window.clearTimeout(scoreIntentTimeout.current);
+        scoreIntentTimeout.current = null;
+      }
     };
   }, []);
 
@@ -141,6 +171,10 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   // audio. Preserve views after their first visit within a work session so a
   // tab switch is a visibility change rather than a destroy/rebuild cycle.
   useEffect(() => {
+    if (scoreIntentTimeout.current !== null) {
+      window.clearTimeout(scoreIntentTimeout.current);
+      scoreIntentTimeout.current = null;
+    }
     setMountedViews(new Set());
     setOrientationCue(false);
   }, [workspace.activeWorkId]);
@@ -178,7 +212,12 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
             disabled: !availableIds.has(definition.id),
           }))}
           value={activeView}
-          onChange={setActiveRepresentation}
+          onChange={(nextView) => {
+            cancelScoreIntentWarmup();
+            setActiveRepresentation(nextView);
+          }}
+          onIntentStart={handleRepresentationIntentStart}
+          onIntentEnd={handleRepresentationIntentEnd}
         />
         {preparingRepresentations && (
           <span
