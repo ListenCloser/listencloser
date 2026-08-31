@@ -167,6 +167,43 @@ class _FencedDelete:
         ).execute()
 
 
+class _PendingArtifactSelect:
+    """Provide read-your-writes for an Artifact held until Version publication.
+
+    ``VersionRepo.create`` verifies the Artifact owner before issuing its insert.
+    A fenced Artifact is deliberately not durable yet, so that repository lookup
+    must see the in-memory row or atomic Artifact+Version publication can never
+    reach the database RPC.
+    """
+
+    def __init__(self, client: "_HandlerClient", query: Any, columns: str) -> None:
+        self._client = client
+        self._query = query
+        self._columns = columns
+        self._artifact_id: str | None = None
+
+    def eq(self, column: str, value: Any) -> "_PendingArtifactSelect":
+        self._query = self._query.eq(column, value)
+        if column == "id":
+            self._artifact_id = str(value)
+        return self
+
+    def execute(self) -> Any:
+        if self._artifact_id is not None:
+            artifact = self._client.find_pending_artifact(self._artifact_id)
+            if artifact is not None:
+                if self._columns.strip() == "*":
+                    row = dict(artifact)
+                else:
+                    selected = [column.strip() for column in self._columns.split(",")]
+                    row = {column: artifact.get(column) for column in selected}
+                return SimpleNamespace(data=[row])
+        return self._query.execute()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._query, name)
+
+
 class _HandlerTable:
     """Read-through table facade with fail-closed handler mutation policy."""
 
@@ -174,6 +211,12 @@ class _HandlerTable:
         self._client = client
         self._name = name
         self._table = client.raw.table(name)
+
+    def select(self, columns: str = "*", *args: Any, **kwargs: Any) -> Any:
+        query = self._table.select(columns, *args, **kwargs)
+        if self._name == "artifacts" and not args and not kwargs:
+            return _PendingArtifactSelect(self._client, query, columns)
+        return query
 
     def insert(
         self,
@@ -292,6 +335,10 @@ class _HandlerClient:
         if key in self._pending_artifacts:
             raise RuntimeError(f"Artifact {key} is already pending publication")
         self._pending_artifacts[key] = artifact
+
+    def find_pending_artifact(self, artifact_id: str) -> dict[str, Any] | None:
+        artifact = self._pending_artifacts.get(artifact_id)
+        return dict(artifact) if artifact is not None else None
 
     def pending_artifact(self, artifact_id: str) -> dict[str, Any]:
         artifact = self._pending_artifacts.get(artifact_id)
