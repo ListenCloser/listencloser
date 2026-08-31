@@ -56,6 +56,26 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
 
+      - name: Resolve production harmony routing
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import re
+          from pathlib import Path
+
+          compose = Path("backend/docker-compose.yml").read_text()
+          values = re.findall(
+              r"^\s+HARMONY_ENGINE:\s*([A-Za-z0-9_.-]+)\s*$",
+              compose,
+              flags=re.MULTILINE,
+          )
+          if len(values) != 2 or len(set(values)) != 1:
+              raise SystemExit(
+                  f"production Compose must declare one shared API/worker HARMONY_ENGINE, got {values}"
+              )
+          print(f"HARMONY_ENGINE={values[0]}")
+          PY
+
       - name: Build production backend image for the real stack
         run: docker build --tag listencloser-real-stack-backend backend
 
@@ -67,6 +87,7 @@ jobs:
             -e SUPABASE_URL \
             -e SUPABASE_ANON_KEY \
             -e SUPABASE_SERVICE_ROLE_KEY \
+            -e HARMONY_ENGINE \
             listencloser-real-stack-backend \
             > /tmp/backend.log 2>&1 &
           echo $! > /tmp/backend.pid
@@ -79,6 +100,7 @@ jobs:
             -e SUPABASE_URL \
             -e SUPABASE_ANON_KEY \
             -e SUPABASE_SERVICE_ROLE_KEY \
+            -e HARMONY_ENGINE \
             --entrypoint python \
             listencloser-real-stack-backend worker.py \
             > /tmp/worker.log 2>&1 &
@@ -126,6 +148,33 @@ jobs:
           tail -40 /tmp/worker.log || true
           tail -40 /tmp/frontend.log || true
           exit 1
+
+      - name: Verify production harmony engine routing
+        run: |
+          set -euo pipefail
+          routing_json="$(
+            docker exec listencloser-realstack-worker \
+              python -c 'import json, os; from engines.registry import get_harmony_engine; engine = get_harmony_engine(); print(json.dumps({"configured": os.environ.get("HARMONY_ENGINE"), "selected_engine": engine.provenance.engine, "selected_class": type(engine).__name__}, sort_keys=True))' \
+              | tail -1
+          )"
+          python3 - "$routing_json" "$HARMONY_ENGINE" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          record = json.loads(sys.argv[1])
+          expected = sys.argv[2]
+          if record.get("configured") != expected:
+              raise SystemExit(
+                  f"worker HARMONY_ENGINE mismatch: expected {expected!r}, got {record.get('configured')!r}"
+              )
+          if not record.get("selected_engine") or not record.get("selected_class"):
+              raise SystemExit(f"worker harmony registry returned incomplete provenance: {record}")
+          record["source"] = "backend/docker-compose.yml"
+          path = Path("/tmp/harmony-engine-routing.json")
+          path.write_text(json.dumps(record, sort_keys=True) + "\n")
+          print(path.read_text(), end="")
+          PY
 
       - name: Run real-stack browser test with MuseScore artifact observer
         env:
@@ -237,6 +286,12 @@ jobs:
 
           if not output:
               raise SystemExit('no understand performance records found')
+          routing_path = Path('/tmp/harmony-engine-routing.json')
+          if not routing_path.exists():
+              raise SystemExit('missing verified harmony engine routing evidence')
+          routing = json.loads(routing_path.read_text())
+          output.insert(0, {'msg': 'engine_routing', **routing})
+
           path = Path('performance-results/understand-stage-timing.jsonl')
           path.write_text(''.join(json.dumps(item, sort_keys=True) + '\n' for item in output))
           print(path.read_text(), end='')
