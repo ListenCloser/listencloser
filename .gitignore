@@ -39,6 +39,7 @@ supabase/.temp/
 
 # Local git worktrees (never commit; stale gitlinks previously tracked)
 hello-ai-worktrees/
+listencloser-worktrees/
 
 # Committed docs audits (kept locally, not in git)
 docs/audits/

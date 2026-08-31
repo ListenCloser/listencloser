@@ -1,5 +1,5 @@
 """
-Postgres-backed durable job worker loop for hello-ai.
+Postgres-backed durable job worker loop for listencloser.
 
 Uses the Supabase ``jobs`` table as the backing store with durable leases.
 Queue execution is at-least-once across worker crashes/recovery, so handlers must
@@ -43,7 +43,7 @@ from observability import get_tracer, record_job_execution, record_orphans_recov
 from .models import Capability, Job, JobLifecycle
 
 logger = logging.getLogger("job_worker")
-_tracer = get_tracer("hello-ai-worker")
+_tracer = get_tracer("listencloser-worker")
 
 
 def _parse_datetime(val: Any) -> datetime | None:
@@ -145,7 +145,7 @@ class JobWorker:
             "started_at": self._started_at.isoformat(),
             "heartbeat_at": datetime.now(UTC).isoformat(),
         }
-        health_path = Path(os.environ.get("WORKER_HEALTH_FILE", "/tmp/hello-ai-worker.json"))
+        health_path = Path(os.environ.get("WORKER_HEALTH_FILE", "/tmp/listencloser-worker.json"))
         try:
             health_path.parent.mkdir(parents=True, exist_ok=True)
             temporary_path = health_path.with_suffix(".tmp")
