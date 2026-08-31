@@ -90,6 +90,16 @@ A custom metric is justified only when a named product property is not represent
 
 Always retain per-item/failure distributions where practical. Aggregate means alone hide negative tails that are often operationally important for music systems.
 
+### OSS-first adoption and custom-ablation rule
+
+For a mature MIR problem with a credible maintained OSS implementation, treat OSS as the presumptive implementation after verifying its input/output contract, license, maintenance status, runtime, and deployment fit. Do not require standard OSS to defeat an equivalent repository-local implementation in a ceremonial bakeoff before replacing bespoke machinery.
+
+Where quality can materially differ, run the smallest valid evaluation needed to detect regression. A repository-local implementation or heuristic bears the burden of demonstrating a meaningful, reproducible advantage on held-out or production-path evidence; otherwise prefer the OSS implementation and delete the bespoke alternative, obsolete fallbacks, and dedicated helper/tests.
+
+Custom rules layered over OSS should be evaluated as an ablation: **upstream OSS** versus **upstream OSS + custom rule**. The custom layer survives only if it demonstrates incremental value on valid evidence. Disabled fallbacks are not retained merely "just in case."
+
+For standard infrastructure such as accepted MIR metrics and supported dataset loaders, contract verification is normally sufficient. Prefer a small evaluation stack—canonical dataset/metric tooling, thin normalization adapters, compact machine-readable results, and ordinary tests—over experiment databases, dashboards, or bespoke orchestration without a demonstrated requirement.
+
 ## 5. Separate model quality from product value
 
 Objective quality can be necessary without being sufficient for production adoption.
