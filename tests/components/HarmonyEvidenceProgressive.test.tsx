@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import HarmonyEvidence, { harmonyEvidenceSummary } from "@/components/workspace/HarmonyEvidence";
+import HarmonyEvidence, { harmonyEvidenceSummary } from "@/components/workspace/inspector/HarmonyEvidence";
 import type { Insight } from "@/lib/domain.types";
 
 function insight(id: string, kind: string, claim: string, evidence: Record<string, unknown> = {}): Insight {

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import PassageCompare from "@/components/workspace/PassageCompare";
+import PassageCompare from "@/components/workspace/inspector/PassageCompare";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 
 const mocks = vi.hoisted(() => ({

@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import AskPanel from "@/components/workspace/AskPanel";
+import AskPanel from "@/components/workspace/inspector/AskPanel";
 import { AskRequestError, askMusic } from "@/lib/ask/client";
 import type { AskResponse } from "@/lib/ask/types";
 import { TimelineProvider } from "@/lib/stores/timeline";

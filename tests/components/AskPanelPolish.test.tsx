@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
-import AskPanel, { askErrorMessage } from "@/components/workspace/AskPanel";
+import AskPanel, { askErrorMessage } from "@/components/workspace/inspector/AskPanel";
 import { TimelineProvider } from "@/lib/stores/timeline";
 import { TransportProvider } from "@/lib/stores/transport";
 import { useWorkspace, WorkspaceProvider } from "@/lib/stores/workspace";
