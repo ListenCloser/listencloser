@@ -84,6 +84,14 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         assert after_stale_heartbeat["execution_token"] == current_token
         assert after_stale_heartbeat["lease_expires_at"] == current_lease
 
+        # Production uploads bytes before publishing the Artifact/Version. Model
+        # that completed, attempt-scoped upload mapping without writing a real
+        # test blob: stale A may leave private orphan bytes, but its DB publish
+        # must still fail after B has taken ownership.
+        stale_storage_key = f"jobs/{job_id}/stale-attempt/characterization.json"
+        stale_scoped_key = stale_client.scope_storage_key(stale_storage_key)
+        stale_client.remember_storage_key(stale_storage_key, stale_scoped_key)
+
         # A stale execution may still finish inference, but its normal production
         # output helper is now fenced at the durable persistence boundary.
         with pytest.raises(Exception, match="stale job execution cannot publish output"):
@@ -91,7 +99,7 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
                 stale_client,
                 UUID(work_id),
                 ArtifactKind.analysis_report,
-                f"jobs/{job_id}/stale-attempt/characterization.json",
+                stale_storage_key,
                 2,
                 None,
                 stale_job,
@@ -126,11 +134,14 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         # takeover into a permanent failure mode.
         current_job = worker_b._row_to_job(after_takeover)
         current_client = worker_b._handler_client(job_id)
+        current_storage_key = f"jobs/{job_id}/current-attempt/characterization.json"
+        current_scoped_key = current_client.scope_storage_key(current_storage_key)
+        current_client.remember_storage_key(current_storage_key, current_scoped_key)
         current_version_id = _create_output_version(
             current_client,
             UUID(work_id),
             ArtifactKind.analysis_report,
-            f"jobs/{job_id}/current-attempt/characterization.json",
+            current_storage_key,
             2,
             None,
             current_job,
@@ -155,6 +166,6 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         )
         assert len(current_rows) == 1
         assert current_rows[0]["produced_by_job_id"] == job_id
-        assert current_rows[0]["storage_key"].endswith("characterization.json")
+        assert current_rows[0]["storage_key"] == current_scoped_key
     finally:
         sb.table("projects").delete().eq("id", project_id).execute()
