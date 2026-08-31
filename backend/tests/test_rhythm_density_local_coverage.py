@@ -55,8 +55,8 @@ def _locator(source_version_id, start: float, end: float):
 @pytest.mark.parametrize(
     ("span", "expected_fragment"),
     [
-        ((4.0, 10.0), "outside local rhythm density evidence coverage"),
-        ((1.0, 7.0), "outside local rhythm density evidence coverage"),
+        ((4.0, 10.0), "outside rhythm density evidence coverage"),
+        ((1.0, 7.0), "outside rhythm density evidence coverage"),
     ],
 )
 def test_remote_series_bounds_do_not_hide_missing_local_edge_coverage(span, expected_fragment):
@@ -143,6 +143,6 @@ def test_tempo_changing_span_uses_selected_local_hop_not_remote_series_boundary(
     assert result.sufficiency.status == "withhold"
     assert result.measurements == []
     assert any(
-        "outside local rhythm density evidence coverage" in reason
+        "outside rhythm density evidence coverage" in reason
         for reason in result.sufficiency.reasons
     )
