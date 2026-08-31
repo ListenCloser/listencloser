@@ -1,8 +1,9 @@
 """Security regression tests for server-authoritative domain tables.
 
-Authenticated owners may read their derived domain graph, but artifact lineage,
-analysis evidence, workflows, and jobs are produced by FastAPI/the worker and
-must not be forgeable directly through the browser Data API.
+ListenCloser domain state is read and written through FastAPI/the worker. Browser
+Supabase access is reserved for Auth and authorized Storage operations, so an
+authenticated owner must not be able to read or forge domain rows through the
+PostgREST Data API directly.
 """
 
 from __future__ import annotations
@@ -51,6 +52,13 @@ def _create_user():
     return user_response.user.id, session.session.access_token
 
 
+def _browser_select(client, table: str, row_id: str):
+    try:
+        return client.table(table).select("id").eq("id", row_id).execute().data
+    except Exception:
+        return None
+
+
 def _browser_insert(client, table: str, payload: dict):
     try:
         return client.table(table).insert(payload).execute().data
@@ -58,7 +66,7 @@ def _browser_insert(client, table: str, payload: dict):
         return None
 
 
-def test_owner_cannot_forge_server_authoritative_domain_rows():
+def test_browser_cannot_access_server_authoritative_domain_rows():
     if not (SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY):
         pytest.skip("SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY required")
 
@@ -73,7 +81,7 @@ def test_owner_cannot_forge_server_authoritative_domain_rows():
     workflow_id = str(uuid.uuid4())
 
     try:
-        # Seed a fully owner-visible graph through the trusted service-role path.
+        # Seed a representative domain graph through the trusted service-role path.
         service.table("projects").insert(
             {
                 "id": project_id,
@@ -101,10 +109,24 @@ def test_owner_cannot_forge_server_authoritative_domain_rows():
             {"id": workflow_id, "project_id": project_id, "kind": "understand"}
         ).execute()
 
-        # Browser SELECT remains available through the existing owner RLS chain.
-        assert browser.table("artifacts").select("id").eq("id", artifact_id).execute().data
-        assert browser.table("artifact_versions").select("id").eq("id", version_id).execute().data
-        assert browser.table("workflows").select("id").eq("id", workflow_id).execute().data
+        # The trusted persistence path remains readable after browser ACL removal.
+        trusted_rows = {
+            "projects": project_id,
+            "works": work_id,
+            "artifacts": artifact_id,
+            "artifact_versions": version_id,
+            "workflows": workflow_id,
+        }
+        for table, row_id in trusted_rows.items():
+            rows = service.table(table).select("id").eq("id", row_id).execute().data
+            assert rows, f"service role unexpectedly lost access to {table}"
+
+        # Owner-scoped RLS remains defense in depth, but browser roles no longer
+        # receive table privileges that make the domain schema a second data API.
+        for table, row_id in trusted_rows.items():
+            assert not _browser_select(
+                browser, table, row_id
+            ), f"authenticated browser must not directly SELECT from {table}"
 
         forged = {
             "artifacts": {
@@ -154,9 +176,9 @@ def test_owner_cannot_forge_server_authoritative_domain_rows():
 
         for table, payload in forged.items():
             result = _browser_insert(browser, table, payload)
-            assert not result, f"authenticated owner must not directly INSERT into {table}"
+            assert not result, f"authenticated browser must not directly INSERT into {table}"
 
-        # No attempted row may exist behind a swallowed PostgREST/RLS error.
+        # No attempted row may exist behind a swallowed PostgREST/ACL error.
         for table, payload in forged.items():
             rows = service.table(table).select("id").eq("id", payload["id"]).execute().data
             assert rows == [], f"forged row unexpectedly persisted in {table}"

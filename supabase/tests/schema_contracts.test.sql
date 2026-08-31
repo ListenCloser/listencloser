@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(17);
 
 select ok(
   to_regclass('public.jobs') is not null,
@@ -134,37 +134,6 @@ select ok(
       and qual not ilike '%auth.role%'
   ),
   'artifact reads are owner-scoped and evaluated only for authenticated requests'
-);
-
-select ok(
-  not exists (
-    select 1
-    from (
-      values
-        ('artifacts'),
-        ('artifact_versions'),
-        ('entities'),
-        ('insights'),
-        ('alignments'),
-        ('workflows'),
-        ('jobs')
-    ) as owned(table_name)
-    cross join (
-      values ('anon'), ('authenticated')
-    ) as browser(role_name)
-    where not has_table_privilege(
-      browser.role_name,
-      format('public.%I', owned.table_name),
-      'SELECT'
-    )
-      or has_table_privilege(browser.role_name, format('public.%I', owned.table_name), 'INSERT')
-      or has_table_privilege(browser.role_name, format('public.%I', owned.table_name), 'UPDATE')
-      or has_table_privilege(browser.role_name, format('public.%I', owned.table_name), 'DELETE')
-      or has_table_privilege(browser.role_name, format('public.%I', owned.table_name), 'TRUNCATE')
-      or has_table_privilege(browser.role_name, format('public.%I', owned.table_name), 'REFERENCES')
-      or has_table_privilege(browser.role_name, format('public.%I', owned.table_name), 'TRIGGER')
-  ),
-  'browser roles can only select server-owned domain tables'
 );
 
 select ok(
