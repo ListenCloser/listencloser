@@ -296,6 +296,7 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
             result["pulse_coordinate_unit"] = "seconds"
         return result
     except Exception:
+        logger.exception("midi rhythm analysis failed")
         return None
 
 
