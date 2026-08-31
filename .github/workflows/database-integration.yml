@@ -11,6 +11,7 @@ on:
       - 'docs/generated/database/**'
       - 'backend/domain/**'
       - 'backend/music_features.py'
+      - 'backend/scripts/install_musescore.sh'
       - 'backend/tests/integration/**'
       - 'backend/pyproject.toml'
       - 'backend/uv.lock'
