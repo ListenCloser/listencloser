@@ -13,8 +13,6 @@ import os
 import tempfile
 from uuid import UUID
 
-import numpy as np
-
 import analyze
 import music_features
 from domain.capability_policy import is_product_evidence
@@ -250,14 +248,8 @@ def _create_insight(
 
 
 # ---------------------------------------------------------------------------
-# Audio descriptor extraction (Essentia / librosa)
+# Harmony cleanup helper
 # ---------------------------------------------------------------------------
-
-_KS_MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])  # type: ignore[arg-type]
-_KS_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])  # type: ignore[arg-type]
-_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-
-_ESSENTIA_UNSUPPORTED_OS = False
 
 
 def _merge_adjacent_identical_chords(chords: list[dict]) -> list[dict]:
@@ -290,125 +282,6 @@ def _merge_adjacent_identical_chords(chords: list[dict]) -> list[dict]:
 
     merged.append(current)
     return merged
-
-
-def _extract_essentia(audio: np.ndarray, sr: float) -> dict | None:
-    try:
-        import essentia.standard as es
-    except Exception:
-        return None
-
-    try:
-        if _ESSENTIA_UNSUPPORTED_OS:
-            return None
-        audio_es = np.array(audio, dtype=np.float32)
-        result: dict = {}
-
-        bpm_extractor = es.RhythmExtractor2013(method="multifeature")
-        bpm_val, _, _, _, _ = bpm_extractor(audio_es)
-        result["bpm"] = round(float(bpm_val), 1)
-
-        key_extractor = es.KeyExtractor()
-        key_str, key_scale, key_strength = key_extractor(audio_es)
-        tonic = "C"
-        mode = "major"
-        if key_str is not None:
-            tonic = str(key_str)
-        if key_scale is not None:
-            mode = str(key_scale).lower()
-        result["key"] = {
-            "tonic": tonic,
-            "mode": mode,
-            "confidence": round(float(key_strength), 3) if key_strength else None,
-        }
-
-        loudness_extractor = es.LoudnessEBUR128()
-        _, _, integrated, _ = loudness_extractor(audio_es)
-        result["loudness"] = round(float(integrated), 1)
-
-        centroid_extractor = es.Centroid()
-        centroid_val = centroid_extractor(audio_es)
-        result["spectral_centroid"] = round(float(centroid_val), 0)
-
-        return result
-    except Exception:
-        logger.warning("essentia extraction failed, falling back to librosa")
-        return None
-
-
-def _extract_librosa(audio: np.ndarray, sr: float) -> dict:
-    import librosa
-    import numpy as np
-
-    result: dict = {}
-
-    try:
-        tempo, _ = librosa.beat.beat_track(y=audio, sr=float(sr))
-        if tempo is not None and float(tempo) > 0:
-            result["bpm"] = round(float(tempo), 1)
-    except Exception:
-        logger.debug("librosa tempo extraction failed")
-
-    try:
-        y_harm = librosa.effects.harmonic(audio)
-        chroma = librosa.feature.chroma_cqt(y=y_harm, sr=float(sr))
-        chroma_mean = np.mean(chroma, axis=1)
-        if chroma_mean.sum() > 0:
-            chroma_mean = chroma_mean / chroma_mean.max()
-
-        best_corr = -1.0
-        best_tonic = "C"
-        best_mode = "major"
-        for shift in range(12):
-            rolled = np.roll(chroma_mean, shift)
-            corr_major = float(np.dot(rolled, _KS_MAJOR))
-            corr_minor = float(np.dot(rolled, _KS_MINOR))
-            if corr_major > best_corr:
-                best_corr = corr_major
-                best_tonic = _NOTES[shift]
-                best_mode = "major"
-            if corr_minor > best_corr:
-                best_corr = corr_minor
-                best_tonic = _NOTES[shift]
-                best_mode = "minor"
-
-        max_possible = float(np.dot(_KS_MAJOR, _KS_MAJOR))
-        confidence = best_corr / max_possible if max_possible > 0 else 0.0
-        result["key"] = {
-            "tonic": best_tonic,
-            "mode": best_mode,
-            "confidence": round(min(max(confidence, 0.0), 1.0), 3),
-        }
-    except Exception:
-        logger.debug("librosa key extraction failed")
-
-    try:
-        rms = librosa.feature.rms(y=audio)
-        rms_db = 20 * np.log10(np.mean(rms) + 1e-10)
-        loudness_lufs = round(float(rms_db - 18.0), 1)
-        result["loudness"] = loudness_lufs
-    except Exception:
-        logger.debug("librosa loudness extraction failed")
-
-    try:
-        centroid = librosa.feature.spectral_centroid(y=audio, sr=float(sr))
-        result["spectral_centroid"] = round(float(np.mean(centroid)), 0)
-    except Exception:
-        logger.debug("librosa spectral centroid extraction failed")
-
-    return result
-
-
-def _extract_audio_descriptors(audio: np.ndarray, sr: float) -> dict:
-    """Extract BPM, key, loudness, and spectral centroid.
-
-    Tries Essentia first for higher-quality results; falls back to
-    librosa (already a project dependency) when Essentia is unavailable.
-    """
-    result = _extract_essentia(audio, sr)
-    if result is not None:
-        return result
-    return _extract_librosa(audio, sr)
 
 
 # ---------------------------------------------------------------------------
@@ -1940,107 +1813,6 @@ def handle_generate_continuation(job: Job, client) -> list[str]:
     return [str(output_version_id)]
 
 
-def handle_describe(job: Job, client) -> list[str]:
-    """Extract audio descriptors using Essentia (or librosa fallback).
-
-    Computes BPM, key, loudness, and spectral centroid from an audio
-    version.  Produces one Insight per descriptor.
-    """
-    import io
-
-    import numpy as np
-    import soundfile as sf
-
-    if not job.input_version_ids:
-        raise ValueError("describe requires at least one input version")
-
-    owner_id = _resolve_owner_id(client, job.workflow_id)
-    _update_progress(client, job.id, 0.1, "looking up input audio")
-
-    input_version = _lookup_version(client, job.input_version_ids[0])
-
-    _update_progress(client, job.id, 0.2, "downloading audio")
-    audio_bytes = download_version_bytes(input_version, client)
-
-    _update_progress(client, job.id, 0.3, "loading audio samples")
-    audio_data, sr = sf.read(io.BytesIO(audio_bytes))
-    if audio_data.ndim > 1:
-        audio_data = np.mean(audio_data, axis=1)
-
-    _update_progress(client, job.id, 0.4, "extracting descriptors")
-    descriptors = _extract_audio_descriptors(audio_data, float(sr))
-
-    insight_ids: list[str] = []
-
-    _update_progress(client, job.id, 0.5, "storing BPM insight")
-    bpm = descriptors.get("bpm")
-    if bpm is not None:
-        bid = _create_insight(
-            client,
-            input_version.id,
-            "bpm",
-            f"Tempo: {bpm} BPM",
-            evidence={"bpm": bpm},
-            confidence=None,
-            job=job,
-            owner_id=owner_id,
-            method="detected",
-        )
-        insight_ids.append(str(bid))
-
-    _update_progress(client, job.id, 0.6, "storing key insight")
-    key_data = descriptors.get("key")
-    if key_data:
-        key_conf = key_data.get("confidence")
-        kid = _create_insight(
-            client,
-            input_version.id,
-            "key",
-            f"Key: {key_data['tonic']} {key_data['mode']}",
-            evidence=key_data,
-            confidence=float(key_conf) if key_conf is not None else None,
-            job=job,
-            owner_id=owner_id,
-            method="detected",
-        )
-        insight_ids.append(str(kid))
-
-    _update_progress(client, job.id, 0.7, "storing loudness insight")
-    loudness = descriptors.get("loudness")
-    if loudness is not None:
-        lid = _create_insight(
-            client,
-            input_version.id,
-            "loudness",
-            f"Integrated loudness: {loudness:.1f} LUFS",
-            evidence={"loudness_lufs": loudness},
-            confidence=None,
-            job=job,
-            owner_id=owner_id,
-            method="detected",
-        )
-        insight_ids.append(str(lid))
-
-    _update_progress(client, job.id, 0.8, "storing spectral centroid insight")
-    centroid = descriptors.get("spectral_centroid")
-    if centroid is not None:
-        cid = _create_insight(
-            client,
-            input_version.id,
-            "spectral_centroid",
-            f"Spectral centroid: {centroid:.0f} Hz",
-            evidence={"spectral_centroid_hz": centroid},
-            confidence=None,
-            job=job,
-            owner_id=owner_id,
-            method="detected",
-        )
-        insight_ids.append(str(cid))
-
-    _update_progress(client, job.id, 1.0, f"describe complete ({len(insight_ids)} insights)")
-    return insight_ids
-
-
 def register_all_capabilities(worker) -> None:
     """Register every capability handler with *worker*."""
     worker.register("transcribe", "1.0", handle_transcribe)
@@ -2055,4 +1827,3 @@ def register_all_capabilities(worker) -> None:
     worker.register("transform", "1.0", handle_transform)
     worker.register("variation", "1.0", handle_variation)
     worker.register("generate_continuation", "1.0", handle_generate_continuation)
-    worker.register("describe", "1.0", handle_describe)
