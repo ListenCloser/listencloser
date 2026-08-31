@@ -1,14 +1,27 @@
 import { render, screen } from "@testing-library/react";
-import SheetMusic, { insertHighlightRect } from "@/components/SheetMusic";
+import SheetMusic, {
+  insertHighlightRect,
+  insertLogicalHighlightRect,
+} from "@/components/SheetMusic";
 
-function makeGroup(
-  getBBox: () => { x: number; y: number; width: number; height: number },
-): SVGGElement {
+type Box = { x: number; y: number; width: number; height: number };
+
+function makeGroup(getBBox: () => Box): SVGGElement {
   const ns = "http://www.w3.org/2000/svg";
   const g = document.createElementNS(ns, "g");
   g.classList.add("vf-measure");
   (g as any).getBBox = getBBox;
   return g;
+}
+
+function makeStructuralGroup(measureBox: Box, staveBox: Box): SVGGElement {
+  const ns = "http://www.w3.org/2000/svg";
+  const group = makeGroup(() => measureBox);
+  const stave = document.createElementNS(ns, "g");
+  stave.classList.add("vf-stave");
+  (stave as any).getBBox = () => staveBox;
+  group.appendChild(stave);
+  return group;
 }
 
 describe("insertHighlightRect", () => {
@@ -64,6 +77,57 @@ describe("insertHighlightRect", () => {
     insertHighlightRect(g, "data-selection-highlight", "blue", "0.3", "blue", "1", "4 3");
     expect(g.querySelectorAll("[data-playback-highlight]").length).toBe(1);
     expect(g.querySelectorAll("[data-selection-highlight]").length).toBe(1);
+  });
+});
+
+describe("insertLogicalHighlightRect", () => {
+  it("uses one structural overlay for treble and bass groups of the same measure", () => {
+    const treble = makeStructuralGroup(
+      { x: 0, y: 0, width: 220, height: 180 },
+      { x: 10, y: 20, width: 100, height: 30 },
+    );
+    const bass = makeStructuralGroup(
+      { x: -20, y: -30, width: 260, height: 230 },
+      { x: 10, y: 70, width: 100, height: 30 },
+    );
+
+    const ok = insertLogicalHighlightRect(
+      [treble, bass],
+      "data-selection-highlight",
+      "blue",
+      "0.1",
+      "blue",
+      "1",
+      "none",
+    );
+
+    expect(ok).toBe(true);
+    expect(treble.querySelectorAll("[data-selection-highlight]")).toHaveLength(1);
+    expect(bass.querySelectorAll("[data-selection-highlight]")).toHaveLength(0);
+
+    const rect = treble.querySelector<SVGRectElement>("[data-selection-highlight]");
+    expect(rect).not.toBeNull();
+    expect(Number(rect!.getAttribute("x"))).toBeCloseTo(11.5);
+    expect(Number(rect!.getAttribute("y"))).toBeCloseTo(18.95);
+    expect(Number(rect!.getAttribute("width"))).toBeCloseTo(97);
+    expect(Number(rect!.getAttribute("height"))).toBeCloseTo(82.1);
+  });
+
+  it("does not duplicate a logical overlay when the same measure is updated again", () => {
+    const treble = makeStructuralGroup(
+      { x: 0, y: 0, width: 200, height: 100 },
+      { x: 10, y: 20, width: 80, height: 30 },
+    );
+    const bass = makeStructuralGroup(
+      { x: 0, y: 0, width: 200, height: 100 },
+      { x: 10, y: 60, width: 80, height: 30 },
+    );
+
+    insertLogicalHighlightRect([treble, bass], "data-annotation-highlight", "red", "0.1", "red", "1", "none");
+    insertLogicalHighlightRect([treble, bass], "data-annotation-highlight", "red", "0.2", "red", "2", "none");
+
+    expect(treble.querySelectorAll("[data-annotation-highlight]")).toHaveLength(1);
+    expect(bass.querySelectorAll("[data-annotation-highlight]")).toHaveLength(0);
   });
 });
 

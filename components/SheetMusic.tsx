@@ -9,6 +9,7 @@ import {
   measureStructuralBox,
   measureStructuralClientRect,
   unionMeasureClientRects,
+  unionMeasureStructuralBoxes,
 } from "@/lib/score-measure-geometry";
 
 type Props = {
@@ -31,7 +32,46 @@ type Props = {
   onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 };
 
-/** Insert an overlay inside the structural OSMD/VexFlow measure bounds. */
+function insertRect(
+  owner: SVGGraphicsElement,
+  box: { x: number; y: number; width: number; height: number },
+  dataAttr: string,
+  fill: string,
+  fillOpacity: string,
+  stroke: string,
+  strokeWidth: string,
+  strokeDasharray: string,
+): boolean {
+  if (box.width === 0 || box.height === 0) return false;
+  const insetX = Math.min(1.5, box.width / 8);
+  const insetY = Math.min(0.75, box.height / 10);
+  const insetBox = {
+    x: box.x + insetX,
+    y: box.y + insetY,
+    width: Math.max(0, box.width - insetX * 2),
+    height: Math.max(0, box.height - insetY * 2),
+  };
+  if (insetBox.width === 0 || insetBox.height === 0) return false;
+
+  const NS = "http://www.w3.org/2000/svg";
+  const rect = document.createElementNS(NS, "rect");
+  rect.setAttribute(dataAttr, "true");
+  rect.setAttribute("x", String(insetBox.x));
+  rect.setAttribute("y", String(insetBox.y));
+  rect.setAttribute("width", String(insetBox.width));
+  rect.setAttribute("height", String(insetBox.height));
+  rect.setAttribute("fill", fill);
+  rect.setAttribute("fill-opacity", fillOpacity);
+  rect.setAttribute("stroke", stroke);
+  rect.setAttribute("stroke-width", strokeWidth);
+  rect.setAttribute("stroke-dasharray", strokeDasharray);
+  rect.setAttribute("rx", "2");
+  rect.setAttribute("pointer-events", "none");
+  owner.insertBefore(rect, owner.firstChild);
+  return true;
+}
+
+/** Insert an overlay inside one rendered OSMD/VexFlow measure group. */
 export function insertHighlightRect(
   group: SVGGraphicsElement,
   dataAttr: string,
@@ -43,37 +83,33 @@ export function insertHighlightRect(
 ): boolean {
   if (group.querySelector(`[${dataAttr}]`)) return true;
   const structuralBox = measureStructuralBox(group);
-  if (!structuralBox || structuralBox.width === 0 || structuralBox.height === 0) return false;
+  if (!structuralBox) return false;
+  return insertRect(group, structuralBox, dataAttr, fill, fillOpacity, stroke, strokeWidth, strokeDasharray);
+}
 
-  // Preserve the existing overlay contract: after selecting the structural
-  // stave footprint, inset slightly so selection never visually spills beyond
-  // its measure boundary.
-  const insetX = Math.min(1.5, structuralBox.width / 8);
-  const insetY = Math.min(0.75, structuralBox.height / 10);
-  const box = {
-    x: structuralBox.x + insetX,
-    y: structuralBox.y + insetY,
-    width: Math.max(0, structuralBox.width - insetX * 2),
-    height: Math.max(0, structuralBox.height - insetY * 2),
-  };
-  if (box.width === 0 || box.height === 0) return false;
-
-  const NS = "http://www.w3.org/2000/svg";
-  const rect = document.createElementNS(NS, "rect");
-  rect.setAttribute(dataAttr, "true");
-  rect.setAttribute("x", String(box.x));
-  rect.setAttribute("y", String(box.y));
-  rect.setAttribute("width", String(box.width));
-  rect.setAttribute("height", String(box.height));
-  rect.setAttribute("fill", fill);
-  rect.setAttribute("fill-opacity", fillOpacity);
-  rect.setAttribute("stroke", stroke);
-  rect.setAttribute("stroke-width", strokeWidth);
-  rect.setAttribute("stroke-dasharray", strokeDasharray);
-  rect.setAttribute("rx", "2");
-  rect.setAttribute("pointer-events", "none");
-  group.insertBefore(rect, group.firstChild);
-  return true;
+/**
+ * Insert exactly one overlay for a logical measure, even when OSMD represents
+ * that measure as separate treble and bass `vf-measure` groups.
+ *
+ * Geometry comes from the union of structural stave footprints, so ties,
+ * slurs, lyrics, and other descendants cannot inflate the visible highlight.
+ * The first measure group owns the rectangle only as an SVG stacking host; the
+ * rectangle itself spans the full logical grand-staff footprint.
+ */
+export function insertLogicalHighlightRect(
+  groups: SVGGraphicsElement[],
+  dataAttr: string,
+  fill: string,
+  fillOpacity: string,
+  stroke: string,
+  strokeWidth: string,
+  strokeDasharray: string,
+): boolean {
+  if (groups.length === 0) return false;
+  if (groups.some((group) => group.querySelector(`[${dataAttr}]`))) return true;
+  const structuralBox = unionMeasureStructuralBoxes(groups);
+  if (!structuralBox) return false;
+  return insertRect(groups[0], structuralBox, dataAttr, fill, fillOpacity, stroke, strokeWidth, strokeDasharray);
 }
 
 function svgPoint(svg: SVGSVGElement, clientX: number, clientY: number) {
@@ -208,9 +244,7 @@ export default function SheetMusic({
 
     if (playbackMeasureRef.current !== measureIdx) {
       container.querySelectorAll("[data-playback-highlight]").forEach((node) => node.remove());
-      for (const group of groups) {
-        insertHighlightRect(group, "data-playback-highlight", "var(--score-playback)", "0.045", "var(--score-playback)", "0.6", "none");
-      }
+      insertLogicalHighlightRect(groups, "data-playback-highlight", "var(--score-playback)", "0.045", "var(--score-playback)", "0.6", "none");
       const previousMeasure = playbackMeasureRef.current;
       playbackMeasureRef.current = measureIdx;
 
@@ -236,17 +270,15 @@ export default function SheetMusic({
 
     for (let idx = selectedMeasures.start; idx <= selectedMeasures.end; idx += 1) {
       const groups = measureGroupsForIndex(container, idx);
-      for (const group of groups) {
-        insertHighlightRect(
-          group,
-          "data-selection-highlight",
-          "var(--accent)",
-          emphasizeSelection ? (measureApproximate ? "0.12" : "0.2") : (measureApproximate ? "0.07" : "0.11"),
-          "var(--accent)",
-          emphasizeSelection ? "1.6" : "0.9",
-          measureApproximate ? "3 3" : "none",
-        );
-      }
+      insertLogicalHighlightRect(
+        groups,
+        "data-selection-highlight",
+        "var(--accent)",
+        emphasizeSelection ? (measureApproximate ? "0.12" : "0.2") : (measureApproximate ? "0.07" : "0.11"),
+        "var(--accent)",
+        emphasizeSelection ? "1.6" : "0.9",
+        measureApproximate ? "3 3" : "none",
+      );
     }
   }, [emphasizeSelection, measureApproximate, measureStarts, osmdReady, selectedMeasures]);
 
@@ -262,17 +294,15 @@ export default function SheetMusic({
       const colors = ANNOTATION_COLORS[annotation.category];
       const focused = annotation.id === focusedAnnotationId;
       for (let idx = range.start; idx <= range.end; idx += 1) {
-        for (const group of measureGroupsForIndex(container, idx)) {
-          insertHighlightRect(
-            group,
-            "data-annotation-highlight",
-            colors.fill,
-            focused ? "0.12" : "0.045",
-            colors.stroke,
-            focused ? "1" : "0.45",
-            "none",
-          );
-        }
+        insertLogicalHighlightRect(
+          measureGroupsForIndex(container, idx),
+          "data-annotation-highlight",
+          colors.fill,
+          focused ? "0.12" : "0.045",
+          colors.stroke,
+          focused ? "1" : "0.45",
+          "none",
+        );
       }
     }
   }, [annotations, focusedAnnotationId, measureStarts, osmdReady]);
