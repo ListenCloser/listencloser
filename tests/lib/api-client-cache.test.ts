@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Entity, WorkBundle } from "@/lib/domain.types";
 
-const { get } = vi.hoisted(() => ({ get: vi.fn() }));
+const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 
-vi.mock("@/lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("@/lib/openapi-client", () => ({
-  openapiClient: { GET: get },
+  openapiClient: { GET: get, POST: post },
   requireOpenApiData: <T,>({ data, error, response }: { data?: T; error?: unknown; response: Response }): T => {
     if (data !== undefined) return data;
     const message =
@@ -17,7 +16,6 @@ vi.mock("@/lib/openapi-client", () => ({
 }));
 vi.mock("@/lib/supabase", () => ({ supabase: null }));
 
-import { apiFetch } from "@/lib/api";
 import {
   clearWorkDataCache,
   getEntities,
@@ -26,8 +24,6 @@ import {
   startUnderstandWorkflow,
   startVariationWorkflow,
 } from "@/lib/api-client";
-
-const mockApiFetch = vi.mocked(apiFetch);
 
 function savedBundle(title = "Piece"): WorkBundle {
   return bundleFor("work-1", ["midi-1"], title);
@@ -78,6 +74,51 @@ function bundleFor(workId: string, versionIds: string[], title = "Piece"): WorkB
   };
 }
 
+function workflowJob() {
+  return {
+    workflow: {
+      id: "workflow-1",
+      project_id: "project-1",
+      kind: "understand" as const,
+      target_version_id: "midi-1",
+      parameters: {},
+      created_at: "2026-08-28T00:00:00Z",
+    },
+    job: {
+      id: "job-1",
+      workflow_id: "workflow-1",
+      capability: {
+        name: "understand",
+        version: "1",
+        accepted_input_kinds: [],
+        produces_output_kinds: [],
+        parameters: {},
+        failure_modes: [],
+      },
+      lifecycle: {
+        current: "queued" as const,
+        progress: 0,
+        message: "",
+        stages: [],
+        retry_count: 0,
+        max_retries: 3,
+        lease_expires_at: null,
+        started_at: null,
+        completed_at: null,
+      },
+      input_version_ids: ["midi-1"],
+      output_version_ids: [],
+      parameters: {},
+      cache_key: null,
+      error: null,
+      error_details: {},
+      provenance: {},
+      created_at: "2026-08-28T00:00:00Z",
+      created_by: null,
+    },
+  };
+}
+
 function entity(id: string): Entity {
   return {
     id,
@@ -118,25 +159,23 @@ const ok = <T,>(data: T) => ({
 });
 
 function installResponses() {
-  mockApiFetch.mockImplementation(async (url, options) => {
-    if (url === "/api/v1/works/work-1") return savedBundle();
-    if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
-      return { workflow: {}, job: {} };
-    }
-    throw new Error(`Unexpected API call: ${url}`);
-  });
   get.mockImplementation(async (path) => {
+    if (path === "/api/v1/works/{work_id}") return ok(savedBundle());
     if (path === "/api/v1/versions/{version_id}/entities") return ok([]);
     if (path === "/api/v1/versions/{version_id}/insights") return ok([]);
     throw new Error(`Unexpected generated GET: ${path}`);
+  });
+  post.mockImplementation(async (path) => {
+    if (path === "/api/v1/workflows/understand") return ok(workflowJob());
+    throw new Error(`Unexpected generated POST: ${path}`);
   });
 }
 
 describe("saved work hydration cache", () => {
   beforeEach(() => {
     clearWorkDataCache();
-    mockApiFetch.mockReset();
     get.mockReset();
+    post.mockReset();
     installResponses();
   });
 
@@ -149,8 +188,10 @@ describe("saved work hydration cache", () => {
     const second = await getWorkBundle("work-1");
 
     expect(second).toBe(first);
-    expect(mockApiFetch).toHaveBeenCalledTimes(1);
-    expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/works/work-1");
+    expect(get.mock.calls.filter(([path]) => path === "/api/v1/works/{work_id}")).toHaveLength(1);
+    expect(get).toHaveBeenCalledWith("/api/v1/works/{work_id}", {
+      params: { path: { work_id: "work-1" } },
+    });
     expect(get).toHaveBeenCalledWith("/api/v1/versions/{version_id}/entities", {
       params: { path: { version_id: "midi-1" } },
     });
@@ -162,7 +203,7 @@ describe("saved work hydration cache", () => {
   it("deduplicates simultaneous opens of the same work", async () => {
     await Promise.all([getWorkBundle("work-1"), getWorkBundle("work-1")]);
 
-    expect(mockApiFetch.mock.calls.filter(([url]) => url === "/api/v1/works/work-1")).toHaveLength(1);
+    expect(get.mock.calls.filter(([path]) => path === "/api/v1/works/{work_id}")).toHaveLength(1);
   });
 
   it("invalidates a cached work when processing starts from one of its versions", async () => {
@@ -170,7 +211,14 @@ describe("saved work hydration cache", () => {
     await startUnderstandWorkflow("midi-1", "project-1", "auto");
     await getWorkBundle("work-1");
 
-    expect(mockApiFetch.mock.calls.filter(([url]) => url === "/api/v1/works/work-1")).toHaveLength(2);
+    expect(get.mock.calls.filter(([path]) => path === "/api/v1/works/{work_id}")).toHaveLength(2);
+    expect(post).toHaveBeenCalledWith("/api/v1/workflows/understand", {
+      body: {
+        version_id: "midi-1",
+        project_id: "project-1",
+        transcription_profile: "auto",
+      },
+    });
   });
 
   it("does not let an invalidated in-flight work open overwrite a newer cache", async () => {
@@ -183,16 +231,19 @@ describe("saved work hydration cache", () => {
     const staleBundle = deferred<WorkBundle>();
     const freshBundle = savedBundle("Fresh piece");
     let workFetches = 0;
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === "/api/v1/works/work-1") {
+    get.mockImplementation(async (path) => {
+      if (path === "/api/v1/works/{work_id}") {
         workFetches += 1;
-        if (workFetches === 1) return staleBundle.promise;
-        return freshBundle;
+        const data = await (workFetches === 1 ? staleBundle.promise : Promise.resolve(freshBundle));
+        return ok(data);
       }
-      if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
-        return { workflow: {}, job: {} };
-      }
-      throw new Error(`Unexpected API call: ${url}`);
+      if (path === "/api/v1/versions/{version_id}/entities") return ok([]);
+      if (path === "/api/v1/versions/{version_id}/insights") return ok([]);
+      throw new Error(`Unexpected generated GET: ${path}`);
+    });
+    post.mockImplementation(async (path) => {
+      if (path === "/api/v1/workflows/understand") return ok(workflowJob());
+      throw new Error(`Unexpected generated POST: ${path}`);
     });
 
     const staleOpen = getWorkBundle("work-1");
@@ -216,26 +267,31 @@ describe("saved work hydration cache", () => {
   it("invalidates a bundle fetched while a variation mutation is in flight", async () => {
     await getWorkBundle("work-1");
 
-    const mutation = deferred<unknown>();
+    const mutation = deferred<ReturnType<typeof ok>>();
     let workFetches = 0;
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === "/api/v1/workflows/variation" && options?.method === "POST") {
-        return mutation.promise;
-      }
-      if (url === "/api/v1/works/work-1") {
+    get.mockImplementation(async (path) => {
+      if (path === "/api/v1/works/{work_id}") {
         workFetches += 1;
-        return workFetches === 1
-          ? savedBundle("Pre-commit variation")
-          : savedBundle("Fresh after variation");
+        return ok(
+          workFetches === 1
+            ? savedBundle("Pre-commit variation")
+            : savedBundle("Fresh after variation"),
+        );
       }
-      throw new Error(`Unexpected API call: ${url}`);
+      if (path === "/api/v1/versions/{version_id}/entities") return ok([]);
+      if (path === "/api/v1/versions/{version_id}/insights") return ok([]);
+      throw new Error(`Unexpected generated GET: ${path}`);
+    });
+    post.mockImplementation(async (path) => {
+      if (path === "/api/v1/workflows/variation") return mutation.promise;
+      throw new Error(`Unexpected generated POST: ${path}`);
     });
 
     const variation = startVariationWorkflow("midi-1", "project-1", 2);
     const preCommit = await getWorkBundle("work-1");
     expect(preCommit.work.title).toBe("Pre-commit variation");
 
-    mutation.resolve({ workflow: {}, job: {} });
+    mutation.resolve(ok(workflowJob()));
     await variation;
 
     const fresh = await getWorkBundle("work-1");
@@ -245,30 +301,42 @@ describe("saved work hydration cache", () => {
 
   it("invalidates both Works fetched while a compare mutation is in flight", async () => {
     clearWorkDataCache();
-    mockApiFetch.mockImplementation(async (url) => {
-      if (url === "/api/v1/works/work-a") return bundleFor("work-a", ["midi-a"], "A");
-      if (url === "/api/v1/works/work-b") return bundleFor("work-b", ["midi-b"], "B");
-      throw new Error(`Unexpected API call: ${url}`);
+    get.mockImplementation(async (path, options) => {
+      if (path === "/api/v1/works/{work_id}") {
+        const workId = options?.params?.path?.work_id;
+        if (workId === "work-a") return ok(bundleFor("work-a", ["midi-a"], "A"));
+        if (workId === "work-b") return ok(bundleFor("work-b", ["midi-b"], "B"));
+      }
+      if (path === "/api/v1/versions/{version_id}/entities") return ok([]);
+      if (path === "/api/v1/versions/{version_id}/insights") return ok([]);
+      throw new Error(`Unexpected generated GET: ${path}`);
     });
     await Promise.all([getWorkBundle("work-a"), getWorkBundle("work-b")]);
 
-    const mutation = deferred<unknown>();
+    const mutation = deferred<ReturnType<typeof ok>>();
     const workFetches = new Map<string, number>();
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === "/api/v1/workflows/compare" && options?.method === "POST") {
-        return mutation.promise;
+    get.mockImplementation(async (path, options) => {
+      if (path === "/api/v1/works/{work_id}") {
+        const workId = options?.params?.path?.work_id;
+        if (workId === "work-a" || workId === "work-b") {
+          const nextCount = (workFetches.get(workId) ?? 0) + 1;
+          workFetches.set(workId, nextCount);
+          return ok(
+            bundleFor(
+              workId,
+              [workId === "work-a" ? "midi-a" : "midi-b"],
+              nextCount === 1 ? `Pre-commit ${workId}` : `Fresh ${workId}`,
+            ),
+          );
+        }
       }
-      if (url === "/api/v1/works/work-a" || url === "/api/v1/works/work-b") {
-        const workId = url.endsWith("work-a") ? "work-a" : "work-b";
-        const nextCount = (workFetches.get(workId) ?? 0) + 1;
-        workFetches.set(workId, nextCount);
-        return bundleFor(
-          workId,
-          [workId === "work-a" ? "midi-a" : "midi-b"],
-          nextCount === 1 ? `Pre-commit ${workId}` : `Fresh ${workId}`,
-        );
-      }
-      throw new Error(`Unexpected API call: ${url}`);
+      if (path === "/api/v1/versions/{version_id}/entities") return ok([]);
+      if (path === "/api/v1/versions/{version_id}/insights") return ok([]);
+      throw new Error(`Unexpected generated GET: ${path}`);
+    });
+    post.mockImplementation(async (path) => {
+      if (path === "/api/v1/workflows/compare") return mutation.promise;
+      throw new Error(`Unexpected generated POST: ${path}`);
     });
 
     const compare = startCompareWorkflow("midi-a", "midi-b", "project-1");
@@ -278,7 +346,7 @@ describe("saved work hydration cache", () => {
       "Pre-commit work-b",
     ]);
 
-    mutation.resolve({ workflow: {}, job: {} });
+    mutation.resolve(ok(workflowJob()));
     await compare;
 
     const fresh = await Promise.all([getWorkBundle("work-a"), getWorkBundle("work-b")]);
@@ -289,19 +357,24 @@ describe("saved work hydration cache", () => {
   it("keeps same-Work multi-version compare invalidation coherent", async () => {
     clearWorkDataCache();
     let workFetches = 0;
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === "/api/v1/works/work-1") {
+    get.mockImplementation(async (path) => {
+      if (path === "/api/v1/works/{work_id}") {
         workFetches += 1;
-        return bundleFor(
-          "work-1",
-          ["midi-a", "midi-b"],
-          workFetches === 1 ? "Before compare" : "After compare",
+        return ok(
+          bundleFor(
+            "work-1",
+            ["midi-a", "midi-b"],
+            workFetches === 1 ? "Before compare" : "After compare",
+          ),
         );
       }
-      if (url === "/api/v1/workflows/compare" && options?.method === "POST") {
-        return { workflow: {}, job: {} };
-      }
-      throw new Error(`Unexpected API call: ${url}`);
+      if (path === "/api/v1/versions/{version_id}/entities") return ok([]);
+      if (path === "/api/v1/versions/{version_id}/insights") return ok([]);
+      throw new Error(`Unexpected generated GET: ${path}`);
+    });
+    post.mockImplementation(async (path) => {
+      if (path === "/api/v1/workflows/compare") return ok(workflowJob());
+      throw new Error(`Unexpected generated POST: ${path}`);
     });
 
     await getWorkBundle("work-1");
@@ -326,11 +399,9 @@ describe("saved work hydration cache", () => {
       if (path === "/api/v1/versions/{version_id}/insights") return ok([]);
       throw new Error(`Unexpected generated GET: ${path}`);
     });
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
-        return { workflow: {}, job: {} };
-      }
-      throw new Error(`Unexpected API call: ${url}`);
+    post.mockImplementation(async (path) => {
+      if (path === "/api/v1/workflows/understand") return ok(workflowJob());
+      throw new Error(`Unexpected generated POST: ${path}`);
     });
 
     const staleRequest = getEntities("midi-1");
