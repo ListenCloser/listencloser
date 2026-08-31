@@ -46,6 +46,7 @@ def get_transcription_engine(
         onset_threshold: Onset threshold for engines that support it.
         frame_threshold: Frame threshold for engines that support it.
     """
+    # Profile-based routing (only applies when no explicit name given)
     if name is None:
         if profile == "solo_piano":
             name = "transkun"
@@ -138,7 +139,11 @@ def get_melody_engine(
                  "auto" -> lstom (default). None uses env var or lstom.
     """
     if name is None:
-        if profile in ("pop", "classical"):
+        if profile == "pop":
+            name = "lstom"
+        elif profile == "classical":
+            # Classical not formally validated; use LStoM with experimental status.
+            # Do NOT fall back to skyline — it performs substantially worse.
             name = "lstom"
         elif profile in ("auto", None):
             name = os.environ.get("MELODY_ENGINE", "lstom")
