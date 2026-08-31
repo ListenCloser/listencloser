@@ -78,13 +78,14 @@ describe("shared selection loop scope", () => {
     const user = userEvent.setup();
     renderHarness();
 
-    const loop = await screen.findByRole("button", { name: "Toggle selected passage loop" });
-    expect(loop).toBeDisabled();
+    const loopControl = () => screen.getByRole("button", { name: "Toggle selected passage loop" });
+    await screen.findByRole("button", { name: "Toggle selected passage loop" });
+    expect(loopControl()).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Loop selection" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Select A" }));
-    await waitFor(() => expect(loop).toBeEnabled());
-    await user.click(loop);
+    await waitFor(() => expect(loopControl()).toBeEnabled());
+    await user.click(loopControl());
     await waitFor(() => expect(screen.getByTestId("loop-range")).toHaveTextContent("2-4:on"));
 
     await user.click(screen.getByRole("button", { name: "Select B" }));
@@ -92,6 +93,6 @@ describe("shared selection loop scope", () => {
 
     await user.click(screen.getByRole("button", { name: "Clear selection" }));
     await waitFor(() => expect(screen.getByTestId("loop-range")).toHaveTextContent("none:off"));
-    expect(loop).toBeDisabled();
+    expect(loopControl()).toBeDisabled();
   });
 });
