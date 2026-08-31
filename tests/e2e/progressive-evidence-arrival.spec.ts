@@ -20,6 +20,7 @@ test("a durable recording stays usable while understand artifacts arrive", async
   // control becomes enabled only after the queue endpoint confirms readiness.
   await expect(importButton).toBeEnabled({ timeout: 10_000 });
   await importButton.click();
+  await page.getByRole("menuitem", { name: /Upload recording/ }).click();
   await page.locator('input[type="file"]').setInputFiles({
     name: "progressive-fixture.m4a",
     mimeType: "audio/mp4",

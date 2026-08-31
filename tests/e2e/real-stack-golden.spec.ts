@@ -78,6 +78,7 @@ async function importWithRetry(page: import("@playwright/test").Page) {
       .getByRole("button", { name: "Import audio" });
     await expect(importButton).toBeEnabled({ timeout: 30_000 });
     await importButton.click();
+    await page.getByRole("menuitem", { name: /Upload recording/ }).click();
     await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
 
     const processing = page.getByRole("progressbar");
