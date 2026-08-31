@@ -105,7 +105,7 @@ def test_handler_storage_is_attempt_scoped_and_cleanup_is_non_destructive() -> N
     client.storage.from_("artifacts").upload(original_key, b"payload")
     assert raw.storage.bucket.uploaded == [scoped_key]
     assert client.rewrite_output_row({"storage_key": original_key}) == {
-        "storage_key": scoped_key
+        "storage_key": scoped_key,
     }
 
     # A stale handler must never call the external Storage delete API: there is
@@ -138,7 +138,7 @@ def test_failed_upload_is_not_publishable_by_logical_storage_key() -> None:
     # must see the original unscoped key and reject publication rather than
     # accepting a Version that points at an object that was never written.
     assert client.rewrite_output_row({"storage_key": original_key}) == {
-        "storage_key": original_key
+        "storage_key": original_key,
     }
 
 
@@ -205,5 +205,5 @@ def test_queue_claim_releases_duplicate_local_generation(
                 ("execution_token", "token-b"),
                 ("stage", "claimed"),
             ],
-        )
+        ),
     ]
