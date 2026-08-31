@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -197,8 +198,6 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         assert current_rows[0]["storage_key"] == current_scoped_key
     finally:
         if uploaded_keys:
-            try:
+            with suppress(Exception):
                 sb.storage.from_("artifacts").remove(uploaded_keys)
-            except Exception:
-                pass
         sb.table("projects").delete().eq("id", project_id).execute()
