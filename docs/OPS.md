@@ -95,30 +95,18 @@ full migration history plus an insert/claim/run/succeed lifecycle check.
 
 ## Deployed understanding smoke test
 
-This command creates a persisted work in the supplied project and verifies the
-entire Vercel → FastAPI → worker → Supabase loop:
-
-```bash
-HELLO_AI_APP_URL=https://hello-ai.vercel.app \
-HELLO_AI_PROJECT_ID=<project-uuid> \
-SUPABASE_ACCESS_TOKEN=<short-lived-user-token> \
-python scripts/smoke_understand.py path/to/licensed-fixture.wav
-```
-
-It requires queue health to be ready, waits for the job, then verifies original
-audio, MIDI, rendered audio, MusicXML, note entities, and insights. Never commit
-the access token or private fixture.
+Use `.github/workflows/production-smoke.yml` as the maintained deployed verification contract. It verifies the production release and durable application path without requiring a repository-owned user token or a deleted local smoke helper. Use the required real-stack workflow for local Vercel-like → FastAPI → worker → Supabase verification before merge.
 
 ## CI (did my PR break anything?)
 Repo → Actions tab. Workflows: `build.yml` (build+vitest, blocks), `ci.yml` (lint+typecheck+ruff+pytest, blocks), `e2e.yml` (Playwright vs mocks, blocks), `database-integration.yml` (real local Postgres/Supabase migrations), `argos.yml` (visual, NON-blocking), `codeql.yml`, `gitleaks.yml`, `dependency-review.yml`, `deploy-backend.yml` (push only).
 
 ## Vercel production ownership
 
-`hello-ai.vercel.app` must be assigned to the v2 project built from this repo's
+`listen-closer.vercel.app` must be assigned to the v2 project built from this repo's
 `main` branch. A green Vercel preview is not production. Required environment:
 `BACKEND_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`. After aliasing, verify the root title is
-`hello-ai — Music Studio` and `/api/health/queue` is ready before smoke testing.
+`Listen Closer` and `/api/health/queue` is ready before smoke testing.
 
 ## Argos (visual diffs)
 `https://app.argos-ci.com` (needs `ARGOS_TOKEN` repo secret); also comments a visual diff on each PR. Non-blocking by design.
