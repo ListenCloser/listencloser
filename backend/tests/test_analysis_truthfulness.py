@@ -15,9 +15,10 @@ pytest.importorskip("music21", reason="music21 not installed")
 import pretty_midi  # noqa: E402
 from music21 import stream  # noqa: E402
 
-from analyze import _m21_chords, _m21_key, analyze_midi  # noqa: E402
+from analyze import analyze_midi  # noqa: E402
 from domain.capabilities import _transcription_defaults_pulse  # noqa: E402
 from domain.models import Version  # noqa: E402
+from engines.harmony.music21_engine import _m21_chords, _m21_key  # noqa: E402
 
 
 class _FakeTonic:
