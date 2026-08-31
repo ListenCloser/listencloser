@@ -226,7 +226,7 @@ function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canIm
           <summary>Transcription</summary>
           <TranscriptionModeToggle />
         </details>
-        <small>WAV, MP3, M4A, FLAC, OGG, AAC · up to 4 MB</small>
+        <small>WAV, MP3, M4A, FLAC, OGG, AAC</small>
       </div>
     </main>
   );
