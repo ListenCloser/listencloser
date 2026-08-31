@@ -1,0 +1,113 @@
+name: Apply issue 965 once
+
+on:
+  push:
+    branches:
+      - fix/965-delete-describe
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/965-delete-describe
+      - name: Delete legacy describe path and its obsolete tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          capabilities_path = Path('backend/domain/capabilities.py')
+          text = capabilities_path.read_text()
+
+          text = text.replace(
+              '# Audio descriptor extraction (Essentia / librosa)',
+              '# Harmony cleanup helper',
+              1,
+          )
+          constants_start = text.index('_KS_MAJOR =')
+          helper_start = text.index('def _merge_adjacent_identical_chords', constants_start)
+          text = text[:constants_start] + text[helper_start:]
+
+          extract_start = text.index('\ndef _extract_essentia(')
+          public_marker = text.index(
+              '\n# ---------------------------------------------------------------------------\n# Public',
+              extract_start,
+          )
+          text = text[:extract_start] + '\n' + text[public_marker:]
+
+          describe_start = text.index('\ndef handle_describe(')
+          register_start = text.index('\ndef register_all_capabilities(', describe_start)
+          text = text[:describe_start] + '\n' + text[register_start:]
+          text = text.replace(
+              '    worker.register("describe", "1.0", handle_describe)\n',
+              '',
+              1,
+          )
+
+          forbidden = (
+              'handle_describe',
+              '_extract_audio_descriptors',
+              '_extract_essentia',
+              '_extract_librosa',
+              '_KS_MAJOR',
+              '_KS_MINOR',
+              '_ESSENTIA_UNSUPPORTED_OS',
+              'loudness_lufs',
+              'Integrated loudness:',
+          )
+          for token in forbidden:
+              assert token not in text, token
+          capabilities_path.write_text(text)
+
+          old_test = Path('backend/tests/test_describe_confidence.py')
+          test_text = old_test.read_text()
+          first_describe = test_text.index('def test_describe_insights_have_no_fabricated_confidence')
+          audio_structure = test_text.index('def test_audio_structure_insights_have_no_fabricated_confidence')
+          test_text = test_text[:first_describe] + test_text[audio_structure:]
+          future_import = test_text.index('from __future__')
+          test_text = (
+              '"""Guard test: audio_structure must not fabricate confidence."""\n\n'
+              + test_text[future_import:]
+          )
+          test_text = test_text.replace('import numpy as np\n', '')
+          test_text = test_text.replace('import pytest\n', '')
+          new_test = Path('backend/tests/test_audio_structure_confidence.py')
+          new_test.write_text(test_text)
+          old_test.unlink()
+
+          registration_test = Path('backend/tests/test_capability_registration.py')
+          assert not registration_test.exists()
+          registration_test.write_text(
+              '"""Worker capability registration truthfulness guards."""\n\n'
+              'from domain.capabilities import register_all_capabilities\n\n\n'
+              'class _RecordingWorker:\n'
+              '    def __init__(self) -> None:\n'
+              '        self.names: list[str] = []\n\n'
+              '    def register(self, name: str, version: str, handler) -> None:\n'
+              '        self.names.append(name)\n\n\n'
+              'def test_legacy_describe_capability_is_not_registered() -> None:\n'
+              '    worker = _RecordingWorker()\n'
+              '    register_all_capabilities(worker)\n\n'
+              '    assert "describe" not in worker.names\n'
+              '    assert "audio_structure" in worker.names\n'
+          )
+          PY
+
+          rm .github/workflows/audit-965-once.yml .github/workflows/apply-965-once.yml
+          python -m pip install 'ruff==0.5.7'
+          ruff format backend/domain/capabilities.py backend/tests/test_audio_structure_confidence.py backend/tests/test_capability_registration.py
+          ruff check backend/domain/capabilities.py backend/tests/test_audio_structure_confidence.py backend/tests/test_capability_registration.py
+          python -m compileall -q backend/domain/capabilities.py backend/tests/test_audio_structure_confidence.py backend/tests/test_capability_registration.py
+          git diff --check
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 1
+          git commit -m 'fix(analysis): delete legacy describe capability'
+          git push origin HEAD:fix/965-delete-describe
