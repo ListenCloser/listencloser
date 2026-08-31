@@ -130,6 +130,12 @@ class RhythmResult(TypedDict):
     onset_density_seconds_over_time: list[DensityWindow]
     rest_segments: list[dict[str, float]]
     beat_phase_distribution: list[dict[str, float]]
+    # Exact version-scoped audio pulse evidence. These keys are omitted when a
+    # trustworthy observed pulse was not supplied; scalar MIDI tempo must never
+    # masquerade as a detected grid.
+    beats_seconds: NotRequired[list[float]]
+    downbeats_seconds: NotRequired[list[float]]
+    pulse_coordinate_unit: NotRequired[str]
 
 
 class MelodyResult(TypedDict):
@@ -165,6 +171,41 @@ class AnalysisResult(TypedDict):
 # The implementations now live in engines.harmony.music21_engine.
 
 # ── Rhythm analysis (ISSUE-010) ────────────────────────────────────────────
+
+
+def _strictly_increasing_seconds(value: object) -> list[float] | None:
+    """Normalize a detector coordinate array without inventing or reordering time."""
+    if not isinstance(value, list | tuple):
+        return None
+    result: list[float] = []
+    for item in value:
+        if isinstance(item, bool) or not isinstance(item, int | float | np.number):
+            return None
+        seconds = float(item)
+        if not np.isfinite(seconds) or seconds < 0:
+            return None
+        if result and seconds <= result[-1]:
+            return None
+        result.append(seconds)
+    return result
+
+
+def _explicit_pulse_seconds(pulse: dict | None) -> tuple[list[float], list[float]] | None:
+    """Return trustworthy observed beat/downbeat seconds or fail closed.
+
+    Beat This exposes beat and downbeat timestamps as separate output arrays, so
+    each array is validated independently. Downbeats remain model-estimated
+    bar-start evidence, not notated meter, and are never reconstructed from beat
+    count, BPM, or a default time signature.
+    """
+    if not pulse:
+        return None
+    beats = _strictly_increasing_seconds(pulse.get("beats"))
+    raw_downbeats = pulse.get("downbeats")
+    downbeats = [] if raw_downbeats is None else _strictly_increasing_seconds(raw_downbeats)
+    if beats is None or len(beats) < 2 or downbeats is None:
+        return None
+    return beats, downbeats
 
 
 def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | None:
@@ -234,7 +275,7 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
         rest_segments = _detect_rests(all_onsets, duration, min_gap=1.0)
         beat_phase_distribution = _beat_phase_distribution(all_onsets, beats or [])
 
-        return RhythmResult(
+        result = RhythmResult(
             beat_count=beat_count,
             avg_note_duration=round(avg_duration, 3),
             offbeat_onset_ratio=offbeat_onset_ratio,
@@ -247,6 +288,13 @@ def _midi_rhythm(midi_path: str, pulse: dict | None = None) -> RhythmResult | No
             rest_segments=rest_segments,
             beat_phase_distribution=beat_phase_distribution,
         )
+        explicit_pulse = _explicit_pulse_seconds(pulse)
+        if explicit_pulse is not None:
+            beats_seconds, downbeats_seconds = explicit_pulse
+            result["beats_seconds"] = beats_seconds
+            result["downbeats_seconds"] = downbeats_seconds
+            result["pulse_coordinate_unit"] = "seconds"
+        return result
     except Exception:
         return None
 
