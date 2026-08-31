@@ -9,6 +9,7 @@ from domain import worker_warmup
 
 
 @pytest.mark.integration
+@pytest.mark.worker
 def test_basic_pitch_prewarm_uses_normal_predict_call_shape(monkeypatch):
     import basic_pitch.inference as inference
 
