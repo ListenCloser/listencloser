@@ -14,12 +14,15 @@ class _Bucket:
         self.downloaded: list[str] = []
         self.uploaded: list[str] = []
         self.removed: list[str] = []
+        self.fail_upload = False
 
     def download(self, path: str) -> bytes:
         self.downloaded.append(path)
         return b"payload"
 
     def upload(self, path: str, *_args: Any, **_kwargs: Any) -> dict[str, str]:
+        if self.fail_upload:
+            raise RuntimeError("simulated upload failure")
         self.uploaded.append(path)
         return {"path": path}
 
@@ -120,6 +123,23 @@ def test_handler_storage_is_attempt_scoped_and_cleanup_is_non_destructive() -> N
 
     with pytest.raises(RuntimeError, match="raw client operation raw"):
         _ = client.raw
+
+
+def test_failed_upload_is_not_publishable_by_logical_storage_key() -> None:
+    _worker, raw, client = _handler_client()
+    original_key = "jobs/job-1/attempt-0/missing.bin"
+
+    raw.storage.bucket.fail_upload = True
+    with pytest.raises(RuntimeError, match="simulated upload failure"):
+        client.storage.from_("artifacts").upload(original_key, b"payload")
+
+    # Only a successful Storage write may establish the logical→scoped mapping.
+    # If a capability catches an upload error and continues, the database fence
+    # must see the original unscoped key and reject publication rather than
+    # accepting a Version that points at an object that was never written.
+    assert client.rewrite_output_row({"storage_key": original_key}) == {
+        "storage_key": original_key
+    }
 
 
 def test_pending_artifact_is_visible_to_repository_owner_verification() -> None:
