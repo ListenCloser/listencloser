@@ -85,6 +85,11 @@ test.describe("workspace ergonomics (MSW)", () => {
     const playBtn = page.getByRole("button", { name: "Play", exact: true });
     await expect(playBtn).toBeVisible();
     await expect(playBtn).not.toHaveAttribute("title");
+    // Leave the pointer tooltip before establishing keyboard modality. Keeping
+    // the pointer over a different Radix trigger makes this a mixed-input race
+    // instead of the keyboard-focus contract this assertion is meant to test.
+    await page.mouse.move(0, 0);
+    await expect(page.getByRole("tooltip", { name: "Loop entire source" })).toBeHidden();
     // Establish keyboard input modality before returning focus to Play. The
     // tooltip should follow :focus-visible, not linger after pointer/touch focus.
     await playBtn.focus();
