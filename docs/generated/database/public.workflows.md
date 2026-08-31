@@ -52,6 +52,7 @@ erDiagram
   uuid created_by
   jsonb error_details
   text error_message
+  uuid execution_token
   uuid id
   uuid__ input_version_ids
   timestamp_with_time_zone lease_expires_at
