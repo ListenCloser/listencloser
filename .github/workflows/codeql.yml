@@ -31,3 +31,8 @@ jobs:
           languages: ${{ matrix.language }}
       - uses: github/codeql-action/autobuild@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
       - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          # Merge-queue refs are ephemeral and can disappear while CodeQL is
+          # uploading SARIF. PR and main runs already own durable code-scanning
+          # uploads; merge-group runs still execute the complete analysis here.
+          upload: ${{ github.event_name == 'merge_group' && 'never' || 'always' }}
