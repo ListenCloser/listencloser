@@ -65,9 +65,7 @@ jobs:
       - name: Commit generated selector slice
         run: |
           set -euo pipefail
-          git rm .github/workflows/score-selector-bootstrap.yml scripts/_apply_score_selector.py .github/workflows/pm2s-smoke.yml
           git add \
-            .github/workflows/backend-image.yml \
             app/page.tsx \
             backend/domain/api.py \
             backend/domain/capabilities.py \
