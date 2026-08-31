@@ -117,13 +117,13 @@ function ImportSettings({
   onChange: (profile: TranscriptionProfile) => void;
 }) {
   return (
-    <details className="library-import-settings">
-      <summary>Transcription · {profile === "solo_piano" ? "Solo piano" : "Auto"}</summary>
+    <details className="library-import-settings" open>
+      <summary>Transcription for new imports · {profile === "solo_piano" ? "Solo piano" : "Auto"}</summary>
       <div className="library-import-settings-body" role="group" aria-label="Transcription mode">
-        <Tooltip stretch content="Best default for most recordings">
+        <Tooltip stretch content="General and mixed recordings">
           <button type="button" className={profile === "auto" ? "active" : ""} aria-pressed={profile === "auto"} onClick={() => onChange("auto")}>Auto</button>
         </Tooltip>
-        <Tooltip stretch content="Prefer piano-specific transcription">
+        <Tooltip stretch content="Best measured transcription for known solo piano">
           <button type="button" className={profile === "solo_piano" ? "active" : ""} aria-pressed={profile === "solo_piano"} onClick={() => onChange("solo_piano")}>Solo piano</button>
         </Tooltip>
       </div>
