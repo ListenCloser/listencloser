@@ -1,9 +1,9 @@
 """Pipeline smoke test against a real disposable database.
 
 Runs the durable understand pipeline end-to-end (transcribe → score → analyze →
-persist) with deterministic fixture transcription substituted for the expensive
-ML engine. Persistence, jobs, schema constraints, artifact relationships, and
-retrieval are all real — only the transcription inference is stubbed.
+persist) with deterministic transcription and notation fixtures substituted for
+external inference/toolchain dependencies. Persistence, jobs, schema constraints,
+artifact relationships, and retrieval are all real.
 
 This test fails on the pre-migration schema because ``handle_analyze`` persists
 heuristic insights with ``confidence = NULL``.
@@ -78,6 +78,19 @@ def _fixture_transcription() -> TranscriptionResult:
     )
 
 
+def _fixture_notation(midi_bytes: bytes, beat_times: list[float], **kwargs) -> dict:
+    """Return deterministic notation artifacts without requiring MuseScore in DB CI."""
+    return {
+        "notation_midi": midi_bytes,
+        "musicxml": (
+            b'<?xml version="1.0" encoding="UTF-8"?>'
+            b'<score-partwise version="4.0"><part-list/></score-partwise>'
+        ),
+        "quantization_report": {"profile": "fixture"},
+        "provenance": {"engine": "fixture", "library_version": "test"},
+    }
+
+
 class _FixtureEngine:
     def transcribe(self, audio_bytes, fmt="wav", **kwargs):
         return _fixture_transcription()
@@ -112,6 +125,10 @@ def test_understand_pipeline_persists_full_bundle(sb, monkeypatch):
         music_features, "get_transcription_engine_for_job", lambda *a, **k: _FixtureEngine()
     )
     monkeypatch.setattr(music_features, "structure_with_engine", lambda wav: None)
+    # This is a persistence smoke test, not an external-binary integration test.
+    # Keep the durable score path real while replacing MuseScore conversion with
+    # deterministic notation bytes, just as transcription inference is stubbed.
+    monkeypatch.setattr(music_features, "notation_with_engine", _fixture_notation)
     # The fixture already supplies valid WAV bytes; skip the ffmpeg decode so the
     # smoke test exercises persistence without an external audio toolchain.
     monkeypatch.setattr(
