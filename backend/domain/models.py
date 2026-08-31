@@ -193,7 +193,7 @@ class Alignment(BaseModel):
     source_unit: TimelineUnit
     target_unit: TimelineUnit
     mapping_data: dict[str, Any] = Field(default_factory=dict)
-    confidence: float = Field(ge=0.0, le=1.0, default=1.0)
+    confidence: float | None = Field(ge=0.0, le=1.0, default=None)
     created_at: datetime = Field(default_factory=utc_now)
     produced_by_job_id: UUID | None = None
 
