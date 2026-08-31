@@ -55,6 +55,7 @@ set search_path = ''
 as $$
 declare
   v_workflow_id uuid;
+  v_input_version_ids uuid[];
   v_artifact public.artifacts%rowtype;
   v_version public.artifact_versions%rowtype;
   v_published jsonb;
@@ -65,8 +66,8 @@ begin
       message = 'fenced version publication requires one Artifact and one Version object';
   end if;
 
-  select workflow_id
-  into v_workflow_id
+  select workflow_id, input_version_ids
+  into v_workflow_id, v_input_version_ids
   from public.jobs
   where id = p_job_id
     and stage = 'running'
@@ -105,6 +106,21 @@ begin
     raise exception using
       errcode = '42501',
       message = 'job cannot publish an Artifact outside its Workflow project';
+  end if;
+
+  if v_version.parent_version_id is not null
+    and not exists (
+      select 1
+      from public.artifact_versions parent
+      where parent.id = v_version.parent_version_id
+        and (
+          parent.id = any(coalesce(v_input_version_ids, '{}'::uuid[]))
+          or parent.produced_by_job_id = p_job_id
+        )
+    ) then
+    raise exception using
+      errcode = '42501',
+      message = 'job cannot parent a Version outside its input/output graph';
   end if;
 
   insert into public.artifacts (
