@@ -1,4 +1,3 @@
-import { apiFetch } from "./api";
 import type { components } from "./api-types";
 import { openapiClient, requireOpenApiData } from "./openapi-client";
 import { getQueryClient } from "./query-client";
@@ -15,6 +14,10 @@ import type {
   JobStatus,
   VersionResource,
   WorkBundle,
+  WorkArtifactBundle,
+  Capability,
+  ProcessingStatus,
+  JobLifecycle,
 } from "./domain.types";
 
 type ApiProject = components["schemas"]["Project"];
@@ -26,14 +29,39 @@ type ApiSpan = components["schemas"]["Span"];
 type ApiCadence = components["schemas"]["Cadence"];
 type ApiEntity = components["schemas"]["Entity"];
 type ApiInsight = components["schemas"]["Insight"];
+type ApiCapability = components["schemas"]["Capability"];
+type ApiProcessingStatus = components["schemas"]["ProcessingStatus"];
+type ApiJobLifecycle = components["schemas"]["JobLifecycle"];
+type ApiJob = components["schemas"]["Job"];
+type ApiWorkflow = components["schemas"]["Workflow"];
+type ApiWorkflowJobResponse = components["schemas"]["WorkflowJobResponse"];
+type ApiWorkArtifactBundle = components["schemas"]["WorkArtifactBundleResponse"];
+type ApiWorkBundle = components["schemas"]["WorkBundleResponse"];
+type ApiUnderstandWorkflowBody = components["schemas"]["UnderstandWorkflowBody"];
 type DomainCadence = NonNullable<Entity["cadence"]>;
 
-function assertProjectResponse(value: ApiProject): asserts value is Project {
-  for (const field of ["id", "description", "created_at", "updated_at", "archived_at"] as const) {
+type Materialized<T, K extends keyof T> = T & {
+  [P in K]-?: Exclude<T[P], undefined>;
+};
+
+function assertMaterializedFields<T extends object, K extends keyof T>(
+  value: T,
+  fields: readonly K[],
+  label: string,
+): asserts value is Materialized<T, K> {
+  for (const field of fields) {
     if (value[field] === undefined) {
-      throw new Error(`Invalid Project response: missing server field "${field}"`);
+      throw new Error(`Invalid ${label} response: missing server field "${String(field)}"`);
     }
   }
+}
+
+function assertProjectResponse(value: ApiProject): asserts value is Project {
+  assertMaterializedFields(
+    value,
+    ["id", "description", "created_at", "updated_at", "archived_at"] as const,
+    "Project",
+  );
 }
 
 function normalizeProject(value: ApiProject): Project {
@@ -42,11 +70,7 @@ function normalizeProject(value: ApiProject): Project {
 }
 
 function assertWorkResponse(value: ApiWork): asserts value is Work {
-  for (const field of ["id", "composer", "created_at", "updated_at"] as const) {
-    if (value[field] === undefined) {
-      throw new Error(`Invalid Work response: missing server field "${field}"`);
-    }
-  }
+  assertMaterializedFields(value, ["id", "composer", "created_at", "updated_at"] as const, "Work");
 }
 
 function normalizeWork(value: ApiWork): Work {
@@ -55,11 +79,7 @@ function normalizeWork(value: ApiWork): Work {
 }
 
 function assertArtifactResponse(value: ApiArtifact): asserts value is Artifact {
-  for (const field of ["id", "created_at"] as const) {
-    if (value[field] === undefined) {
-      throw new Error(`Invalid Artifact response: missing server field "${field}"`);
-    }
-  }
+  assertMaterializedFields(value, ["id", "created_at"] as const, "Artifact");
 }
 
 function normalizeArtifact(value: ApiArtifact): Artifact {
@@ -68,21 +88,21 @@ function normalizeArtifact(value: ApiArtifact): Artifact {
 }
 
 function assertVersionResponse(value: ApiVersion): asserts value is Version {
-  for (const field of [
-    "id",
-    "parent_version_id",
-    "lineage",
-    "byte_size",
-    "sha256",
-    "created_at",
-    "created_by",
-    "produced_by_job_id",
-    "metadata",
-  ] as const) {
-    if (value[field] === undefined) {
-      throw new Error(`Invalid Version response: missing server field "${field}"`);
-    }
-  }
+  assertMaterializedFields(
+    value,
+    [
+      "id",
+      "parent_version_id",
+      "lineage",
+      "byte_size",
+      "sha256",
+      "created_at",
+      "created_by",
+      "produced_by_job_id",
+      "metadata",
+    ] as const,
+    "Version",
+  );
 }
 
 function normalizeVersion(value: ApiVersion): Version {
@@ -99,24 +119,22 @@ function normalizeVersionResource(value: ApiVersionResource): VersionResource {
 }
 
 function assertSpanResponse(value: ApiSpan): asserts value is Entity["span"] {
-  for (const field of [
-    "start_seconds",
-    "end_seconds",
-    "start_beat",
-    "end_beat",
-    "start_measure",
-    "end_measure",
-  ] as const) {
-    if (value[field] === undefined) {
-      throw new Error(`Invalid Span response: missing server field "${field}"`);
-    }
-  }
+  assertMaterializedFields(
+    value,
+    [
+      "start_seconds",
+      "end_seconds",
+      "start_beat",
+      "end_beat",
+      "start_measure",
+      "end_measure",
+    ] as const,
+    "Span",
+  );
 }
 
 function assertCadenceResponse(value: ApiCadence): asserts value is DomainCadence {
-  if (value.chords === undefined) {
-    throw new Error('Invalid Cadence response: missing server field "chords"');
-  }
+  assertMaterializedFields(value, ["chords"] as const, "Cadence");
 }
 
 function assertEntityResponse(value: ApiEntity): asserts value is Entity {
@@ -136,20 +154,20 @@ function normalizeEntity(value: ApiEntity): Entity {
 }
 
 function assertInsightResponse(value: ApiInsight): asserts value is Insight {
-  for (const field of [
-    "id",
-    "entity_ids",
-    "evidence",
-    "confidence",
-    "provenance",
-    "created_at",
-    "created_by",
-    "produced_by_job_id",
-  ] as const) {
-    if (value[field] === undefined) {
-      throw new Error(`Invalid Insight response: missing server field "${field}"`);
-    }
-  }
+  assertMaterializedFields(
+    value,
+    [
+      "id",
+      "entity_ids",
+      "evidence",
+      "confidence",
+      "provenance",
+      "created_at",
+      "created_by",
+      "produced_by_job_id",
+    ] as const,
+    "Insight",
+  );
   if (value.span === undefined) {
     throw new Error('Invalid Insight response: missing server field "span"');
   }
@@ -159,6 +177,91 @@ function assertInsightResponse(value: ApiInsight): asserts value is Insight {
 function normalizeInsight(value: ApiInsight): Insight {
   assertInsightResponse(value);
   return value;
+}
+
+function normalizeCapability(value: ApiCapability): Capability {
+  assertMaterializedFields(
+    value,
+    ["accepted_input_kinds", "failure_modes", "parameters", "produces_output_kinds"] as const,
+    "Capability",
+  );
+  return value;
+}
+
+function normalizeProcessingStatus(value: ApiProcessingStatus): ProcessingStatus {
+  assertMaterializedFields(value, ["started_at", "completed_at"] as const, "ProcessingStatus");
+  return value;
+}
+
+function normalizeJobLifecycle(value: ApiJobLifecycle): JobLifecycle {
+  assertMaterializedFields(
+    value,
+    ["stages", "lease_expires_at", "started_at", "completed_at"] as const,
+    "JobLifecycle",
+  );
+  return {
+    ...value,
+    stages: value.stages.map(normalizeProcessingStatus),
+  };
+}
+
+function normalizeJob(value: ApiJob): Job {
+  assertMaterializedFields(
+    value,
+    [
+      "cache_key",
+      "created_at",
+      "created_by",
+      "error",
+      "error_details",
+      "id",
+      "input_version_ids",
+      "lifecycle",
+      "output_version_ids",
+      "parameters",
+      "provenance",
+    ] as const,
+    "Job",
+  );
+  return {
+    ...value,
+    capability: normalizeCapability(value.capability),
+    lifecycle: normalizeJobLifecycle(value.lifecycle),
+  };
+}
+
+function normalizeWorkflow(value: ApiWorkflow): Workflow {
+  assertMaterializedFields(
+    value,
+    ["created_at", "id", "parameters", "target_version_id"] as const,
+    "Workflow",
+  );
+  return value;
+}
+
+function normalizeWorkflowJobResponse(value: ApiWorkflowJobResponse): { workflow: Workflow; job: Job } {
+  return {
+    workflow: normalizeWorkflow(value.workflow),
+    job: normalizeJob(value.job),
+  };
+}
+
+function normalizeWorkArtifactBundle(value: ApiWorkArtifactBundle): WorkArtifactBundle {
+  assertMaterializedFields(value, ["latest_version", "signed_url"] as const, "WorkArtifactBundle");
+  return {
+    ...value,
+    artifact: normalizeArtifact(value.artifact),
+    latest_version: value.latest_version ? normalizeVersion(value.latest_version) : null,
+    versions: value.versions.map(normalizeVersion),
+  };
+}
+
+function normalizeWorkBundle(value: ApiWorkBundle): WorkBundle {
+  return {
+    work: normalizeWork(value.work),
+    artifacts: value.artifacts.map(normalizeWorkArtifactBundle),
+    jobs: value.jobs.map(normalizeJob),
+  };
 }
 
 const WORK_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -315,7 +418,12 @@ export async function getWorkBundle(workId: string): Promise<WorkBundle> {
   const revision = workRevision(epoch, workId);
   const bundle = await queryClient.fetchQuery({
     queryKey: workDataKeys.work(epoch, workId, revision),
-    queryFn: () => apiFetch<WorkBundle>(`/api/v1/works/${workId}`),
+    queryFn: async () => {
+      const result = await openapiClient.GET("/api/v1/works/{work_id}", {
+        params: { path: { work_id: workId } },
+      });
+      return normalizeWorkBundle(requireOpenApiData(result));
+    },
     staleTime: WORK_CACHE_TTL_MS,
   });
 
@@ -421,16 +529,21 @@ export async function startUnderstandWorkflow(
   projectId: string,
   transcriptionProfile?: string,
 ): Promise<{ workflow: Workflow; job: Job }> {
-  return mutateVersionWorks([versionId], () =>
-    apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/understand", {
-      method: "POST",
-      body: JSON.stringify({
-        version_id: versionId,
-        project_id: projectId,
-        ...(transcriptionProfile ? { transcription_profile: transcriptionProfile } : {}),
-      }),
-    }),
-  );
+  const body: ApiUnderstandWorkflowBody = {
+    version_id: versionId,
+    project_id: projectId,
+  };
+  if (transcriptionProfile !== undefined) {
+    if (transcriptionProfile !== "auto" && transcriptionProfile !== "solo_piano") {
+      throw new Error(`Unsupported transcription profile: ${transcriptionProfile}`);
+    }
+    body.transcription_profile = transcriptionProfile;
+  }
+
+  return mutateVersionWorks([versionId], async () => {
+    const result = await openapiClient.POST("/api/v1/workflows/understand", { body });
+    return normalizeWorkflowJobResponse(requireOpenApiData(result));
+  });
 }
 
 export async function startVariationWorkflow(
@@ -438,16 +551,16 @@ export async function startVariationWorkflow(
   projectId: string,
   transposeSemitones: number,
 ): Promise<{ workflow: Workflow; job: Job }> {
-  return mutateVersionWorks([versionId], () =>
-    apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/variation", {
-      method: "POST",
-      body: JSON.stringify({
+  return mutateVersionWorks([versionId], async () => {
+    const result = await openapiClient.POST("/api/v1/workflows/variation", {
+      body: {
         version_id: versionId,
         project_id: projectId,
         transpose_semitones: transposeSemitones,
-      }),
-    }),
-  );
+      },
+    });
+    return normalizeWorkflowJobResponse(requireOpenApiData(result));
+  });
 }
 
 export async function startCompareWorkflow(
@@ -455,16 +568,16 @@ export async function startCompareWorkflow(
   versionIdB: string,
   projectId: string,
 ): Promise<{ workflow: Workflow; job: Job }> {
-  return mutateVersionWorks([versionIdA, versionIdB], () =>
-    apiFetch<{ workflow: Workflow; job: Job }>("/api/v1/workflows/compare", {
-      method: "POST",
-      body: JSON.stringify({
+  return mutateVersionWorks([versionIdA, versionIdB], async () => {
+    const result = await openapiClient.POST("/api/v1/workflows/compare", {
+      body: {
         version_id_a: versionIdA,
         version_id_b: versionIdB,
         project_id: projectId,
-      }),
-    }),
-  );
+      },
+    });
+    return normalizeWorkflowJobResponse(requireOpenApiData(result));
+  });
 }
 
 export async function getJob(jobId: string): Promise<JobStatus> {
