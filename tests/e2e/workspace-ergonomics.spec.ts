@@ -74,12 +74,18 @@ test.describe("workspace ergonomics (MSW)", () => {
   test("loop and playback controls expose their current action", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
-    const loopBtn = page.getByRole("button", { name: "Toggle loop" });
+    const loopBtn = page.getByRole("button", { name: "Toggle selected passage loop" });
     await expect(loopBtn).toBeVisible();
     await expect(loopBtn).toHaveAttribute("aria-pressed", "false");
+    await expect(loopBtn).toBeDisabled();
     await expect(loopBtn).not.toHaveAttribute("title");
-    await loopBtn.hover();
-    await expect(page.getByRole("tooltip", { name: "Loop entire source" })).toBeVisible();
+    // Disabled native controls cannot receive pointer events. Tooltip owns a
+    // stable disabled-trigger wrapper specifically so hover help remains
+    // available without making the control falsely interactive.
+    const disabledLoopAnchor = page.locator("[data-tooltip-disabled-trigger]").filter({ has: loopBtn });
+    await expect(disabledLoopAnchor).toBeVisible();
+    await disabledLoopAnchor.hover();
+    await expect(page.getByRole("tooltip", { name: "Select a passage to loop" })).toBeVisible();
     await expect(loopBtn.getByText("Loop", { exact: true })).toBeVisible();
 
     const playBtn = page.getByRole("button", { name: "Play", exact: true });
@@ -93,13 +99,29 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(playBtn).toBeFocused();
     await expect(page.getByRole("tooltip", { name: "Play recording" })).toBeVisible();
 
+    // A visible passage selection enables the same Loop control; there is no
+    // second loop-region affordance.
+    const canvas = page.getByTestId("waveform-canvas");
+    await expect(canvas).toBeVisible();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("waveform canvas not found");
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2, { steps: 5 });
+    await page.mouse.up();
+
+    await expect(loopBtn).toBeEnabled();
+    await page.mouse.move(0, 0);
+    await loopBtn.hover();
+    await expect(page.getByRole("tooltip", { name: "Loop selected passage" })).toBeVisible();
+
     // Radix dismisses a tooltip when its trigger is activated. Re-enter the
     // trigger before asserting the help for its newly toggled action.
     await loopBtn.click();
     await expect(loopBtn).toHaveAttribute("aria-pressed", "true");
     await page.mouse.move(0, 0);
     await loopBtn.hover();
-    await expect(page.getByRole("tooltip", { name: "Turn loop off" })).toBeVisible();
+    await expect(page.getByRole("tooltip", { name: "Turn passage loop off" })).toBeVisible();
   });
 
   test("library keeps the import action explicit on desktop", async ({ page }) => {

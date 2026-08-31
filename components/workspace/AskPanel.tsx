@@ -169,15 +169,22 @@ export default function AskPanel() {
       case "seek":
         seek(action.seconds);
         break;
-      case "loop":
+      case "loop": {
+        if (!activeSource) return;
+        const domain = activeSource.role === "score" ? "notation" : "performance";
+        setSelection({
+          timeRange: { start: action.start, end: action.end, domain },
+          provenance: { origin: null, timeExact: true, measureApproximate: false },
+        });
         setLoop(action.start, action.end);
         if (!transport.loopEnabled) toggleLoop();
         break;
+      }
       case "show_representation":
         setActiveRepresentation(action.representationId);
         break;
     }
-  }, [activeSource, seek, setActiveRepresentation, setLoop, toggleLoop, transport.loopEnabled]);
+  }, [activeSource, seek, setActiveRepresentation, setLoop, setSelection, toggleLoop, transport.loopEnabled]);
 
   const scope = describeAskContext(workspace.selection);
   const showScope = Boolean(workspace.selection && scope);

@@ -250,7 +250,10 @@ test("real audio golden path", async ({ page }) => {
     // Shared selection across representations
     await page.getByRole("tab", { name: "Waveform" }).click();
     await selectWaveformRegion(page, 0.2, 0.6);
-    await expect(page.getByRole("button", { name: "Loop selection" })).toBeVisible();
+    const loop = page.getByRole("button", { name: "Toggle selected passage loop" });
+    await expect(loop).toBeVisible();
+    await expect(loop).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Loop selection" })).toHaveCount(0);
 
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });

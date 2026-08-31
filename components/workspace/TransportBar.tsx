@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import ListboxMenu from "@/components/ui/ListboxMenu";
 import Tooltip from "@/components/ui/Tooltip";
 import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
@@ -129,19 +130,34 @@ export default function TransportBar() {
   const activeDomain = sourceDomain(activeSource);
   const domainMatches = selectionDomain !== null && activeDomain !== null && selectionDomain === activeDomain;
 
-  const loopSelectionActive =
-    loopEnabled &&
-    loopStart !== null &&
-    loopEnd !== null &&
-    selectionTimeRange !== null &&
-    Math.abs(loopStart - selectionTimeRange.start) < 0.05 &&
-    Math.abs(loopEnd - selectionTimeRange.end) < 0.05;
+  // A passage loop is only meaningful while the visible shared selection is
+  // its scope. If the selection changes while looping, follow it. If the
+  // selection disappears or becomes incompatible with the active source,
+  // disable the loop rather than leaving invisible stale loop bounds behind.
+  useEffect(() => {
+    if (!loopEnabled) return;
+    if (!selectionTimeRange || !domainMatches) {
+      setLoop(null, null);
+      toggleLoop();
+      return;
+    }
+    const followsSelection =
+      loopStart !== null &&
+      loopEnd !== null &&
+      Math.abs(loopStart - selectionTimeRange.start) < 0.05 &&
+      Math.abs(loopEnd - selectionTimeRange.end) < 0.05;
+    if (!followsSelection) {
+      setLoop(selectionTimeRange.start, selectionTimeRange.end);
+    }
+  }, [domainMatches, loopEnabled, loopEnd, loopStart, selectionTimeRange, setLoop, toggleLoop]);
 
-  const applyLoopSelection = () => {
-    if (!selectionTimeRange || !hasSource || !domainMatches) return;
-    setLoop(selectionTimeRange.start, selectionTimeRange.end);
-    if (!loopEnabled) toggleLoop();
-  };
+  const loopHelp = loopEnabled
+    ? "Turn passage loop off"
+    : !selectionTimeRange
+      ? "Select a passage to loop"
+      : !domainMatches
+        ? "Selection uses a different time domain"
+        : "Loop selected passage";
 
   if (!hasSource && sources.length === 0) {
     return <footer className="transport-bar transport-bar-v3 transport-bar-idle" aria-label="Playback" />;
@@ -191,17 +207,22 @@ export default function TransportBar() {
           disabled={!hasSource || duration <= 0}
         />
         <span className="transport-time transport-time-muted">{formatTime(duration)}</span>
-        <Tooltip content={loopEnabled ? "Turn loop off" : "Loop entire source"}>
+        <Tooltip content={loopHelp}>
           <button
             type="button"
             className={`transport-ctrl transport-ctrl-labeled${loopEnabled ? " active" : ""}`}
             onClick={() => {
-              if (!loopEnabled && (loopStart === null || loopEnd === null) && duration > 0) setLoop(0, duration);
+              if (!selectionTimeRange || !domainMatches) return;
+              if (loopEnabled) {
+                toggleLoop();
+                return;
+              }
+              setLoop(selectionTimeRange.start, selectionTimeRange.end);
               toggleLoop();
             }}
-            aria-label="Toggle loop"
+            aria-label="Toggle selected passage loop"
             aria-pressed={loopEnabled}
-            disabled={!hasSource}
+            disabled={!hasSource || !selectionTimeRange || !domainMatches}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M11 3h3v3" /><path d="M14 3l-3.25 3.25" /><path d="M5 13H2v-3" /><path d="M2 13l3.25-3.25" /><path d="M13.5 6A5.5 5.5 0 0 0 4 3.75" /><path d="M2.5 10A5.5 5.5 0 0 0 12 12.25" />
@@ -209,23 +230,6 @@ export default function TransportBar() {
             <span className="transport-ctrl-text">Loop</span>
           </button>
         </Tooltip>
-        {selectionTimeRange && (
-          <Tooltip content={domainMatches ? "Loop selected region" : "Selection uses a different time domain"}>
-            <button
-              type="button"
-              className={`transport-ctrl transport-ctrl-labeled${loopSelectionActive ? " active" : ""}`}
-              onClick={applyLoopSelection}
-              aria-label="Loop selection"
-              aria-pressed={loopSelectionActive}
-              disabled={!hasSource || !domainMatches}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-                <rect x="3" y="5" width="10" height="6" rx="1.5" strokeDasharray="2 2" />
-              </svg>
-              <span className="transport-ctrl-text">Loop selection</span>
-            </button>
-          </Tooltip>
-        )}
       </div>
 
       <div className="transport-compare-zone">

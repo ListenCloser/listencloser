@@ -27,12 +27,16 @@ test.describe("synchronized spectrogram (MSW)", () => {
     const seek = page.getByRole("slider", { name: "Playback position" });
     await expect.poll(async () => Number(await seek.inputValue())).toBeGreaterThan(0);
 
-    // A horizontal drag creates the shared performance-time selection.
+    // A horizontal drag creates the shared performance-time selection and
+    // enables the one canonical passage-loop control.
     await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width * 0.65, box.y + box.height / 2, { steps: 6 });
     await page.mouse.up();
-    await expect(page.getByRole("button", { name: "Loop selection" })).toBeVisible();
+    const loop = page.getByRole("button", { name: "Toggle selected passage loop" });
+    await expect(loop).toBeVisible();
+    await expect(loop).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Loop selection" })).toHaveCount(0);
 
     // Core views retain the same selection and transport position.
     const position = await seek.inputValue();
@@ -40,6 +44,6 @@ test.describe("synchronized spectrogram (MSW)", () => {
     await expect(page.getByTestId("waveform-canvas")).toBeVisible();
     await expect(seek).toHaveValue(position);
     await openSpectrogram(page);
-    await expect(page.getByRole("button", { name: "Loop selection" })).toBeVisible();
+    await expect(loop).toBeEnabled();
   });
 });

@@ -33,6 +33,7 @@ export default function PianoRoll({
   selectedNoteIds,
   emphasizeSelection = false,
   onSelectRange,
+  onClearSelection,
   onAnnotationClick,
 }: {
   notes: Note[];
@@ -46,6 +47,7 @@ export default function PianoRoll({
   emphasizeSelection?: boolean;
   onSelectRange?: (start: number, end: number) => void;
   onSelectNotes?: (ids: string[]) => void;
+  onClearSelection?: () => void;
   onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -149,9 +151,10 @@ export default function PianoRoll({
         }
       }
     }
-    if (onSeek) {
-      onSeek(clickTime);
-    }
+    // A plain click is a seek, not a second selection gesture. Clear any
+    // sticky passage scope before moving the playhead.
+    onClearSelection?.();
+    onSeek?.(clickTime);
   }
 
   const rangeSelectedIds = visibleTimeRange

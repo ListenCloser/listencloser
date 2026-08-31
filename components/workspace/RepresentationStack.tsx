@@ -71,7 +71,7 @@ function WorkspaceLoadingSkeleton() {
 }
 
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
-  const { workspace, requestImport, setActiveRepresentation } = useWorkspace();
+  const { workspace, requestImport, setActiveRepresentation, clearSelection } = useWorkspace();
   const [mountedViews, setMountedViews] = useState<Set<RepresentationId>>(() => new Set());
   const [orientationCue, setOrientationCue] = useState(false);
   const orientationFrame = useRef<number | null>(null);
@@ -100,6 +100,15 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     if (workspace.activeRepresentation !== null) return;
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      clearSelection();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [clearSelection]);
 
   // The shared selection is authoritative. This local cue only strengthens the
   // actual selected destination after Focus/Show and then returns it to quiet.
