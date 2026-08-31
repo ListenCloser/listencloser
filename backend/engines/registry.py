@@ -138,9 +138,7 @@ def get_melody_engine(
                  "auto" -> lstom (default). None uses env var or lstom.
     """
     if name is None:
-        if profile == "pop":
-            name = "lstom"
-        elif profile == "classical":
+        if profile in ("pop", "classical"):
             name = "lstom"
         elif profile in ("auto", None):
             name = os.environ.get("MELODY_ENGINE", "lstom")
