@@ -32,11 +32,8 @@ subgraph components["components"]
   components_AuthProvider_tsx["AuthProvider.tsx"]
   components_BrandMark_tsx["BrandMark.tsx"]
   components_MSWInit_tsx["MSWInit.tsx"]
-  components_PianoRoll_tsx["PianoRoll.tsx"]
   components_QueryProvider_tsx["QueryProvider.tsx"]
   components_SheetMusic_tsx["SheetMusic.tsx"]
-  components_Spectrogram_tsx["Spectrogram.tsx"]
-  components_Waveform_tsx["Waveform.tsx"]
   subgraph components_ui["ui"]
     components_ui_[" "]
   end
@@ -74,7 +71,7 @@ subgraph lib["lib"]
   lib_query_client_ts["query-client.ts"]
   lib_relation_api_client_ts["relation-api-client.ts"]
   lib_representation_availability_ts["representation-availability.ts"]
-  lib_representations_tsx["representations.tsx"]
+  lib_representations_ts["representations.ts"]
   lib_score_measure_geometry_ts["score-measure-geometry.ts"]
   lib_score_renderer_ts["score-renderer.ts"]
   lib_selection_ts["selection.ts"]
@@ -116,18 +113,10 @@ app_page_tsx-->lib_supabase_ts
 components_AuthProvider_tsx-->lib_api_client_ts
 components_AuthProvider_tsx-->lib_musicxml_cache_ts
 components_AuthProvider_tsx-->lib_supabase_ts
-components_PianoRoll_tsx-->lib_notes_ts
 components_QueryProvider_tsx-->lib_query_client_ts
 components_SheetMusic_tsx-->lib_analysis_annotations_ts
 components_SheetMusic_tsx-->lib_measure_ts
 components_SheetMusic_tsx-->lib_score_measure_geometry_ts
-components_Spectrogram_tsx-->lib_canvas_typography_ts
-components_Spectrogram_tsx-->lib_color_ts
-components_Spectrogram_tsx-->lib_spectrogram_ts
-components_Spectrogram_tsx-->lib_spectrogram_data_ts
-components_Waveform_tsx-->lib_audio_buffer_cache_ts
-components_Waveform_tsx-->lib_canvas_typography_ts
-components_Waveform_tsx-->lib_color_ts
 components_workspace_-->lib_stores_
 components_workspace_-->components_ui_
 components_workspace_-->lib_format_ts
@@ -142,8 +131,17 @@ components_workspace_-->lib_server_state_ts
 components_workspace_-->lib_supabase_ts
 components_workspace_-->lib_work_selection_ts
 components_workspace_-->lib_representation_availability_ts
-components_workspace_-->lib_representations_tsx
 components_workspace_-->lib_score_renderer_ts
+components_workspace_-->components_SheetMusic_tsx
+components_workspace_-->lib_analysis_annotations_ts
+components_workspace_-->lib_pulse_grid_ts
+components_workspace_-->lib_representations_ts
+components_workspace_-->lib_notes_ts
+components_workspace_-->lib_canvas_typography_ts
+components_workspace_-->lib_color_ts
+components_workspace_-->lib_spectrogram_ts
+components_workspace_-->lib_spectrogram_data_ts
+components_workspace_-->lib_audio_buffer_cache_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
 lib_analysis_annotations_ts-->lib_inspector_
 lib_api_client_ts-->lib_openapi_client_ts
@@ -153,7 +151,7 @@ lib_api_ts-->lib_supabase_ts
 lib_ask_-->lib_api_ts
 lib_ask_-->lib_inspector_
 lib_ask_-->lib_format_ts
-lib_ask_-->lib_representations_tsx
+lib_ask_-->lib_representations_ts
 lib_ask_-->lib_selection_ts
 lib_inspector_-->lib_format_ts
 lib_job_tracking_ts-->lib_api_client_ts
@@ -161,14 +159,6 @@ lib_job_tracking_ts-->lib_query_client_ts
 lib_musicxml_cache_ts-->lib_query_client_ts
 lib_openapi_client_ts-->lib_supabase_ts
 lib_relation_api_client_ts-->lib_openapi_client_ts
-lib_representations_tsx-->components_PianoRoll_tsx
-lib_representations_tsx-->components_SheetMusic_tsx
-lib_representations_tsx-->components_Spectrogram_tsx
-lib_representations_tsx-->components_Waveform_tsx
-lib_representations_tsx-->lib_analysis_annotations_ts
-lib_representations_tsx-->lib_pulse_grid_ts
-lib_representations_tsx-->lib_selection_ts
-lib_representations_tsx-->lib_stores_
 lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts
 lib_spectrogram_data_ts-->lib_query_client_ts
