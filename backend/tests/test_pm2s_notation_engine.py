@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import shutil
-from pathlib import Path
 from typing import Any
 
 import pretty_midi
@@ -75,7 +74,7 @@ def test_pm2s_preserves_learned_score_midi_and_passes_explicit_end_time() -> Non
     assert result.quantization_report["beat_grid_consumed"] is False
 
 
-def test_pm2s_failure_propagates_without_invoking_exporter(tmp_path: Path) -> None:
+def test_pm2s_failure_propagates_without_invoking_exporter() -> None:
     class _FailingConverter:
         def convert(self, source: str, destination: str, **kwargs: Any) -> None:
             raise RuntimeError("pm2s inference failed")
