@@ -7,7 +7,7 @@ import pytest
 from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
-from engines.notation.music21_engine import Music21NotationEngine
+from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.registry import (
     get_beat_engine,
     get_harmony_engine,
@@ -45,9 +45,10 @@ class TestRegistryDefaults:
         engine = get_structure_engine()
         assert isinstance(engine, AllInOneEngine)
 
-    def test_default_notation_is_music21(self):
+    def test_default_notation_is_musescore(self, monkeypatch):
+        monkeypatch.delenv("NOTATION_ENGINE", raising=False)
         engine = get_notation_engine()
-        assert isinstance(engine, Music21NotationEngine)
+        assert isinstance(engine, MuseScoreNotationEngine)
 
     def test_default_harmony_is_music21(self):
         engine = get_harmony_engine()
@@ -83,11 +84,17 @@ class TestRegistryExplicitSelection:
         engine = get_beat_engine("beat_this")
         assert isinstance(engine, BeatThisEngine)
 
+    def test_music21_notation_is_rejected(self):
+        with pytest.raises(ValueError, match="Unknown notation engine"):
+            get_notation_engine("music21")
+
     def test_unknown_engine_raises(self):
         with pytest.raises(ValueError, match="Unknown transcription engine"):
             get_transcription_engine("nonexistent")
         with pytest.raises(ValueError, match="Unknown beat engine"):
             get_beat_engine("made_up")
+        with pytest.raises(ValueError, match="Unknown notation engine"):
+            get_notation_engine("made_up")
         with pytest.raises(ValueError, match="Unknown harmony engine"):
             get_harmony_engine("made_up")
         with pytest.raises(ValueError, match="Unknown melody engine"):
@@ -129,10 +136,12 @@ class TestProvenance:
         assert p.engine == "librosa"
         # library_version may be "unknown" if librosa not installed locally
 
-    def test_music21_provenance(self):
-        engine = Music21NotationEngine()
+    def test_musescore_provenance(self):
+        engine = MuseScoreNotationEngine(executable="/test/musescore")
+        engine._version = "MuseScore Studio 4 test"
         p = engine.provenance
-        assert p.engine == "music21"
+        assert p.engine == "musescore"
+        assert p.library_version == "MuseScore Studio 4 test"
 
     @pytest.mark.integration
     @pytest.mark.worker
