@@ -16,7 +16,7 @@ def test_deploy_triggers_on_supabase_storage_config() -> None:
 
 def test_deploy_syncs_buckets_after_database_migrations() -> None:
     workflow = DEPLOY_WORKFLOW.read_text()
-    db_push = 'supabase db push --linked --password "$SUPABASE_DB_PASSWORD"'
+    db_push = 'supabase db push --linked --include-all --password "$SUPABASE_DB_PASSWORD"'
     bucket_seed = "supabase seed buckets --linked"
 
     assert db_push in workflow

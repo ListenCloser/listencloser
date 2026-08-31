@@ -84,7 +84,9 @@ jobs:
         run: |
           set -euo pipefail
           supabase link --project-ref cijhpddqvvzyzfzmkdnn
-          supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
+          # Merge queue can land independently authored migration timestamps out of order.
+          # Apply every missing history entry rather than rejecting older pending migrations.
+          supabase db push --linked --include-all --password "$SUPABASE_DB_PASSWORD"
           supabase seed buckets --linked
 
   deploy:

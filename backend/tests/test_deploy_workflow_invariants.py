@@ -1,17 +1,21 @@
-"""Steady-state deploy invariants.
+"""Steady-state deploy migration-history invariants.
 
-The deploy workflow must never mutate historical migration status or
-force-replay migrations. A previous version of deploy-backend.yml ran
+The deploy workflow must never mutate historical migration status. A previous
+version of deploy-backend.yml combined
 
     supabase migration repair --status reverted 20260716 20260728
     supabase db push --include-all
 
-on every deployment, which re-applied 202607160001_finetune_studio.sql and
-recreated the permissive jobs/models policies and the vestigial models table
-on the production database. The one-time history correction for that rename
-transition lives in a separate, manually-triggered workflow
-(.github/workflows/migrate-history-correction.yml) and must not re-enter the
-steady-state deploy path.
+on every deployment. The dangerous operation was the history rewrite: it made
+already-applied migrations look pending, after which the push re-applied them
+and recreated retired production objects/policies.
+
+`db push --include-all` by itself has a different purpose in the current
+merge-queue topology: it lets Supabase apply a genuinely missing local
+migration whose timestamp sorts before the current remote tip. Already-recorded
+migrations remain recorded and are not made pending. The one-time history
+correction for the old rename transition stays in the separate manually
+triggered workflow (.github/workflows/migrate-history-correction.yml).
 """
 
 from __future__ import annotations
@@ -29,8 +33,9 @@ def test_steady_state_deploy_never_repairs_migration_history() -> None:
     ), "deploy-backend.yml must not mutate migration history during steady-state deploys"
 
 
-def test_steady_state_deploy_never_force_replays_migrations() -> None:
+def test_steady_state_deploy_applies_missing_out_of_order_history_without_repair() -> None:
     text = DEPLOY_WORKFLOW.read_text()
-    assert (
-        "--include-all" not in text
-    ), "deploy-backend.yml must not force-replay already-applied migrations"
+    command = 'supabase db push --linked --include-all --password "$SUPABASE_DB_PASSWORD"'
+
+    assert command in text
+    assert "migration repair" not in text
