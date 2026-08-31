@@ -70,11 +70,9 @@
   overflow: hidden;
 }
 
-/* The product-level composer still reserves a 30px circular icon track. Give
- * the send affordance a familiar compact-button silhouette instead of merely
- * changing that circle into a tiny square. This stays component-scoped and
- * does not alter Ask request behavior. */
-:global(.ask-composer) {
+/* Keep this selector module-pure by anchoring the global composer to its local
+ * send child. That widens only AskPanel's own composer action track. */
+:global(.ask-composer):has(> .send) {
   grid-template-columns: minmax(0, 1fr) 42px;
 }
 
