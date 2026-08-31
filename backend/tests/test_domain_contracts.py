@@ -217,7 +217,7 @@ class TestInsight:
 
 
 class TestAlignment:
-    def test_create(self, version: Version, artifact: Artifact):
+    def test_create_without_measured_confidence(self, version: Version, artifact: Artifact):
         target = _make_version(artifact)
         a = Alignment(
             version_id=version.id,
@@ -227,8 +227,18 @@ class TestAlignment:
             target_unit=TimelineUnit.beats,
         )
         assert a.kind == AlignmentKind.timeline
+        assert a.confidence is None
 
-    def test_confidence_bounds(self, version: Version):
+    def test_measured_confidence_remains_bounded(self, version: Version):
+        measured = Alignment(
+            version_id=version.id,
+            target_version_id=version.id,
+            kind=AlignmentKind.timeline,
+            source_unit=TimelineUnit.seconds,
+            target_unit=TimelineUnit.beats,
+            confidence=0.75,
+        )
+        assert measured.confidence == 0.75
         with pytest.raises(Exception):
             Alignment(
                 version_id=version.id,
@@ -237,6 +247,15 @@ class TestAlignment:
                 source_unit=TimelineUnit.seconds,
                 target_unit=TimelineUnit.beats,
                 confidence=1.5,
+            )
+        with pytest.raises(Exception):
+            Alignment(
+                version_id=version.id,
+                target_version_id=version.id,
+                kind=AlignmentKind.timeline,
+                source_unit=TimelineUnit.seconds,
+                target_unit=TimelineUnit.beats,
+                confidence=-0.1,
             )
 
     def test_immutable(self, alignment: Alignment):
