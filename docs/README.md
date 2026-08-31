@@ -14,9 +14,11 @@ There is intentionally no single document that owns every kind of fact.
 | What architecture is currently shipped? | [`ARCHITECTURE.md`](ARCHITECTURE.md), verified against code |
 | How should an evaluation be designed? | [`EVALUATION_METHODOLOGY.md`](EVALUATION_METHODOLOGY.md) |
 | What did current evaluation tracks conclude? | [`EVALUATION_DECISIONS.md`](EVALUATION_DECISIONS.md) + owning result/report |
+| What evidence is sufficient for a downstream claim? | [`evaluation/evidence-sufficiency.md`](evaluation/evidence-sufficiency.md) + executable claim-sufficiency contract |
 | What product/architecture direction are we moving toward? | [`MASTER_SPEC.md`](MASTER_SPEC.md) + newer accepted ADRs |
 | Why was an architectural choice made? | relevant ADR in [`adr/`](adr/) |
 | How is production operated or verified? | [`OPS.md`](OPS.md) + deployment workflows/config |
+| How do we recover from a production failure? | [`RECOVERY.md`](RECOVERY.md) + the relevant operational/deployment contract |
 | What work remains? | GitHub issues/roadmap issues, not a frozen PR inventory in Markdown |
 
 For production claims, the deployed release SHA and live configuration matter. A document describing intended `main` behavior cannot prove what is currently deployed.
@@ -44,15 +46,18 @@ The architecture diagrams are deliberately not exhaustive code maps. Human-autho
 
 1. [`EVALUATION_METHODOLOGY.md`](EVALUATION_METHODOLOGY.md) for the decision protocol;
 2. [`EVALUATION_DECISIONS.md`](EVALUATION_DECISIONS.md) to avoid reopening already-settled questions;
-3. the owning evaluation result/report and machine-readable artifacts;
-4. relevant production adapters/config when evaluating a production-shaped contract;
-5. [`MASTER_SPEC.md`](MASTER_SPEC.md) only for the product capability the evaluation is intended to support.
+3. [`evaluation/evidence-sufficiency.md`](evaluation/evidence-sufficiency.md) when the question is whether evidence is strong enough for a downstream claim;
+4. the owning evaluation result/report and machine-readable artifacts;
+5. relevant production adapters/config when evaluating a production-shaped contract;
+6. [`MASTER_SPEC.md`](MASTER_SPEC.md) only for the product capability the evaluation is intended to support.
 
 A runnable harness is not itself a benchmark result. Once a necessary harness exists, prefer a legitimate result-bearing run over another abstraction/refactor.
 
+Discovery references under [`research/`](research/) help find candidate techniques, datasets, and upstream work. They are not implementation or adoption authority; verify current upstream status/license and use the evaluation protocol when a concrete decision reopens.
+
 ### Production operations
 
-Read [`OPS.md`](OPS.md), deployment workflows/config, and verify the deployed release identity. Historical deployment prose is not runtime evidence.
+Read [`OPS.md`](OPS.md) for normal operation/release procedures and [`RECOVERY.md`](RECOVERY.md) for failure recovery, then verify the deployed release identity and live configuration. Historical deployment prose is not runtime evidence.
 
 ## Architecture documentation convention
 
@@ -87,8 +92,12 @@ Do not use a future-looking spec to claim a capability is implemented. Do not us
 - `ARCHITECTURE.md` — current runtime architecture and canonical architecture views.
 - `EVALUATION_METHODOLOGY.md` — reusable evaluation decision protocol.
 - `EVALUATION_DECISIONS.md` — cross-track evaluation decision ledger.
+- `evaluation/evidence-sufficiency.md` — evidence-readiness/abstention semantics paired with the executable claim contract.
 - `MASTER_SPEC.md` — product and target-architecture direction.
-- `OPS.md` — operations/release procedures.
+- `OPS.md` — normal operations/release procedures.
+- `RECOVERY.md` — production recovery procedure and failure-handling contract.
+- `analysis/` — maintained analysis/evidence domain contracts whose semantics outlive one implementation plan.
+- `design/` — maintained design specializations plus explicitly non-authoritative references; root `DESIGN.md` remains the broad visual/product UI contract.
 - `adr/` — accepted durable decisions.
 - `generated/` — mechanically derived architecture/schema views; regenerate from their source rather than hand-editing.
 - machine-readable registries/contracts in source control.
@@ -97,7 +106,7 @@ These should be updated when their owned contract changes.
 
 ### Research / evaluation evidence
 
-Research landscape, benchmark reports, and experiment results are evidence for a defined question and protocol. They do not become production architecture merely because an experiment succeeded.
+Research discovery references under `research/`, benchmark reports, and experiment results are evidence for a defined question and protocol. They do not become production architecture merely because an experiment succeeded.
 
 Keep durable measured results; retire one-shot workflow scaffolding and stale branch-specific instructions after the result is captured. The methodology document owns reusable protocol rules; the decision ledger owns current cross-track conclusions; detailed measurements stay with the owning result.
 
