@@ -100,6 +100,8 @@ class TestAnalyzeRoutesThroughEngines:
         assert hp["cadences"]["engine"] == "custom-rule"
         assert analysis["melody_provenance"]["engine"] == "lstom"
         assert analysis["key"] == {"tonic": "F", "mode": "major", "confidence": 0.813}
+        # LStoM returns None for very short MIDI (<50 notes) — provenance
+        # still records that lstom was the engine that ran.
         if analysis["melody"] is not None:
             assert analysis["melody"]["heuristic"] == "lstom_biLSTM"
 
@@ -120,6 +122,9 @@ class TestAnalyzeRoutesThroughEngines:
         melody = LStoMMelodyEngine().analyze(midi_bytes)
         assert analysis["key"] == harmony.key
         assert analysis["chords"] == harmony.chords
+        # Truthfulness invariant: the pipeline suppresses Roman numerals when
+        # there is no chord evidence, even though the engine can still derive
+        # them from the raw score.
         if harmony.chords:
             assert analysis["roman_numerals"] == harmony.roman_numerals
         else:
@@ -130,7 +135,9 @@ class TestAnalyzeRoutesThroughEngines:
 class TestIntentionalBehaviorChange:
     @pytest.mark.integration
     def test_harmony_failure_keeps_rhythm_and_melody(self, monkeypatch):
-        """Harmony failure must not abort rhythm/melody analysis."""
+        """Intentional (only) behavior change vs pre-refactor: a harmony-engine
+        failure no longer aborts the whole analysis. Rhythm/melody still run
+        and harmony stays in its conservative no-evidence state."""
 
         def boom(*_args, **_kwargs):
             raise RuntimeError("harmony engine exploded")
@@ -141,5 +148,7 @@ class TestIntentionalBehaviorChange:
         assert analysis["chords"] == []
         assert analysis["roman_numerals"] == []
         assert analysis["harmony_provenance"] == {}
+        # LStoM may return None for very short MIDI (<50 notes), so check
+        # that melody_provenance is present (engine ran) regardless of output.
         assert "melody_provenance" in analysis
         assert analysis["rhythm"] is not None
