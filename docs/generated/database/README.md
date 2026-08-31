@@ -25,7 +25,7 @@ Generated from the fresh local Supabase/Postgres schema. Migrations are authorit
 | Name | ReturnType | Arguments | Type |
 | ---- | ------- | ------- | ---- |
 | public.claim_next_job | jobs | p_worker_id text, p_lease_seconds double precision DEFAULT 30.0 | FUNCTION |
-| public.fenced_job_delete | integer | p_job_id uuid, p_execution_token uuid, p_table text, p_match jsonb | FUNCTION |
+| public.fenced_job_delete | int4 | p_job_id uuid, p_execution_token uuid, p_table text, p_match jsonb | FUNCTION |
 | public.fenced_job_insert | jsonb | p_job_id uuid, p_execution_token uuid, p_table text, p_rows jsonb | FUNCTION |
 | public.fenced_job_publish_version | jsonb | p_job_id uuid, p_execution_token uuid, p_artifact jsonb, p_version jsonb | FUNCTION |
 
