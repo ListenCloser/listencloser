@@ -17,6 +17,8 @@ jobs:
         run: |
           echo '=== describe-related references ==='
           git grep -n -E 'handle_describe|_extract_audio_descriptors|_extract_essentia|_extract_librosa|_KS_MAJOR|_KS_MINOR|_ESSENTIA_UNSUPPORTED_OS|describe:1\.0|"describe"|name=.describe.' -- ':!uv.lock' ':!package-lock.json' || true
+          echo '=== neighboring helper references ==='
+          git grep -n -E '_merge_adjacent_identical_chords|_NOTES' -- backend || true
           echo '=== loudness / LUFS references in backend ==='
           git grep -n -E 'loudness_lufs|integrated_lufs|Integrated loudness|LUFS|result\["loudness"\]' -- backend || true
           echo '=== capability registrations ==='
