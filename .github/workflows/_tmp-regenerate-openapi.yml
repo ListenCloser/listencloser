@@ -1,0 +1,35 @@
+name: Temporary OpenAPI regeneration
+
+on:
+  push:
+    branches:
+      - chore/identity-migration-final
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+      - name: Regenerate and commit OpenAPI artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv sync --project backend --locked --no-group worker
+          uv run --project backend python backend/export_openapi.py
+          git rm .github/workflows/_tmp-regenerate-openapi.yml
+          git add openapi/openapi.json
+          git diff --cached --name-only
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = ".github/workflows/_tmp-regenerate-openapi.yml openapi/openapi.json "
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(identity): regenerate OpenAPI identity"
+          git push origin HEAD:chore/identity-migration-final
