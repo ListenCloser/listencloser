@@ -25,6 +25,7 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
     work_id = str(uuid4())
     workflow_id = str(uuid4())
     job_id = str(uuid4())
+    uploaded_keys: list[str] = []
 
     sb.table("projects").insert(
         {"id": project_id, "owner_id": owner_id, "name": "stale-attempt fence"}
@@ -60,6 +61,19 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         stale_client = worker_a._handler_client(job_id)
         assert stale_token
 
+        # Production writes Storage before publishing its Artifact/Version. A may
+        # therefore leave a private orphan object if it loses its lease after the
+        # upload. Use the real Storage API here so the DB publication fence also
+        # proves the exact bucket+key exists in storage.objects.
+        stale_storage_key = f"jobs/{job_id}/stale-attempt/characterization.json"
+        stale_scoped_key = stale_client.scope_storage_key(stale_storage_key)
+        stale_client.storage.from_("artifacts").upload(
+            stale_storage_key,
+            b"{}",
+            {"content-type": "application/json"},
+        )
+        uploaded_keys.append(stale_scoped_key)
+
         # Model a genuine loss of lease ownership: A stops renewing, B recovers
         # the expired row, then claims and starts the same logical Job.
         expired_at = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
@@ -84,16 +98,9 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         assert after_stale_heartbeat["execution_token"] == current_token
         assert after_stale_heartbeat["lease_expires_at"] == current_lease
 
-        # Production uploads bytes before publishing the Artifact/Version. Model
-        # that completed, attempt-scoped upload mapping without writing a real
-        # test blob: stale A may leave private orphan bytes, but its DB publish
-        # must still fail after B has taken ownership.
-        stale_storage_key = f"jobs/{job_id}/stale-attempt/characterization.json"
-        stale_scoped_key = stale_client.scope_storage_key(stale_storage_key)
-        stale_client.remember_storage_key(stale_storage_key, stale_scoped_key)
-
-        # A stale execution may still finish inference, but its normal production
-        # output helper is now fenced at the durable persistence boundary.
+        # A stale execution may still finish inference, and its object may already
+        # exist, but its normal production output helper is fenced at the durable
+        # database boundary after B takes ownership.
         with pytest.raises(Exception, match="stale job execution cannot publish output"):
             _create_output_version(
                 stale_client,
@@ -129,14 +136,19 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         assert stale_versions == []
         assert stale_artifacts == []
 
-        # The new owner can publish through the exact same helper and complete
-        # the Job. This keeps crash recovery at-least-once rather than turning
-        # takeover into a permanent failure mode.
+        # The new owner uploads and publishes through the exact same production
+        # path, then completes the Job. This keeps crash recovery at-least-once
+        # rather than turning takeover into a permanent failure mode.
         current_job = worker_b._row_to_job(after_takeover)
         current_client = worker_b._handler_client(job_id)
         current_storage_key = f"jobs/{job_id}/current-attempt/characterization.json"
         current_scoped_key = current_client.scope_storage_key(current_storage_key)
-        current_client.remember_storage_key(current_storage_key, current_scoped_key)
+        current_client.storage.from_("artifacts").upload(
+            current_storage_key,
+            b"{}",
+            {"content-type": "application/json"},
+        )
+        uploaded_keys.append(current_scoped_key)
         current_version_id = _create_output_version(
             current_client,
             UUID(work_id),
@@ -159,13 +171,19 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
 
         current_rows = (
             sb.table("artifact_versions")
-            .select("id,produced_by_job_id,storage_key")
+            .select("id,produced_by_job_id,storage_bucket,storage_key")
             .eq("id", str(current_version_id))
             .execute()
             .data
         )
         assert len(current_rows) == 1
         assert current_rows[0]["produced_by_job_id"] == job_id
+        assert current_rows[0]["storage_bucket"] == "artifacts"
         assert current_rows[0]["storage_key"] == current_scoped_key
     finally:
+        if uploaded_keys:
+            try:
+                sb.storage.from_("artifacts").remove(uploaded_keys)
+            except Exception:
+                pass
         sb.table("projects").delete().eq("id", project_id).execute()
