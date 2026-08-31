@@ -19,6 +19,9 @@ import type {
 
 type ApiProject = components["schemas"]["Project"];
 type ApiWork = components["schemas"]["Work"];
+type ApiArtifact = components["schemas"]["Artifact"];
+type ApiVersion = components["schemas"]["Version"];
+type ApiVersionResource = components["schemas"]["VersionResourceResponse"];
 
 type UploadIntent = {
   bucket: string;
@@ -51,6 +54,50 @@ function assertWorkResponse(value: ApiWork): asserts value is Work {
 function normalizeWork(value: ApiWork): Work {
   assertWorkResponse(value);
   return value;
+}
+
+function assertArtifactResponse(value: ApiArtifact): asserts value is Artifact {
+  for (const field of ["id", "created_at"] as const) {
+    if (value[field] === undefined) {
+      throw new Error(`Invalid Artifact response: missing server field "${field}"`);
+    }
+  }
+}
+
+function normalizeArtifact(value: ApiArtifact): Artifact {
+  assertArtifactResponse(value);
+  return value;
+}
+
+function assertVersionResponse(value: ApiVersion): asserts value is Version {
+  for (const field of [
+    "id",
+    "parent_version_id",
+    "lineage",
+    "byte_size",
+    "sha256",
+    "created_at",
+    "created_by",
+    "produced_by_job_id",
+    "metadata",
+  ] as const) {
+    if (value[field] === undefined) {
+      throw new Error(`Invalid Version response: missing server field "${field}"`);
+    }
+  }
+}
+
+function normalizeVersion(value: ApiVersion): Version {
+  assertVersionResponse(value);
+  return value;
+}
+
+function normalizeVersionResource(value: ApiVersionResource): VersionResource {
+  return {
+    artifact: normalizeArtifact(value.artifact),
+    version: normalizeVersion(value.version),
+    signed_url: value.signed_url,
+  };
 }
 
 const WORK_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -379,7 +426,10 @@ export async function retryJob(jobId: string): Promise<JobStatus> {
 }
 
 export async function getVersionResource(versionId: string): Promise<VersionResource> {
-  return apiFetch<VersionResource>(`/api/v1/versions/${versionId}`);
+  const result = await openapiClient.GET("/api/v1/versions/{version_id}", {
+    params: { path: { version_id: versionId } },
+  });
+  return normalizeVersionResource(requireOpenApiData(result));
 }
 
 export async function getEntities(versionId: string): Promise<Entity[]> {
