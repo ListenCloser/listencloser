@@ -181,6 +181,8 @@ describe("fresh upload Work invalidation", () => {
     await startUnderstandWorkflow("source-1", "project-1", "auto");
     const freshOpen = getWorkBundle("work-1");
 
+    // This is the regression: without the upload-time version→Work index,
+    // workflow invalidation misses the Work and this call joins staleOpen.
     expect(workFetches).toBe(2);
     const fresh = await freshOpen;
     expect(fresh.work.title).toBe("Fresh source");
@@ -211,6 +213,9 @@ describe("fresh upload Work invalidation", () => {
       throw new Error(`Unexpected API call: ${url}`);
     });
 
+    // Workflow creation has invalidated the previous generation, but the server
+    // has not committed the workflow yet. Selecting the newly uploaded Work can
+    // therefore legitimately start a source-only read in this window.
     const workflowStart = startUnderstandWorkflow("source-1", "project-1", "auto");
     const duringMutation = getWorkBundle("work-1");
     expect(workFetches).toBe(1);
@@ -218,6 +223,8 @@ describe("fresh upload Work invalidation", () => {
     workflow.resolve({ workflow: {}, job: {} });
     await workflowStart;
 
+    // Successful commit must invalidate the read that began during the POST, so
+    // the caller observes the active workflow instead of joining stale data.
     const afterCommit = getWorkBundle("work-1");
     expect(workFetches).toBe(2);
     expect((await afterCommit).work.title).toBe("After workflow commit");
@@ -250,12 +257,17 @@ describe("fresh upload Work invalidation", () => {
 
     await expect(startUnderstandWorkflow("source-1", "project-1", "auto")).rejects.toThrow("workflow unavailable");
 
+    // A source-only refresh may begin while the user is looking at the saved
+    // recording after the failed start. It has not resolved yet, so it cannot
+    // restore version ownership by indexing the bundle itself.
     const staleOpen = getWorkBundle("work-1");
     expect(workFetches).toBe(1);
 
     await startUnderstandWorkflow("source-1", "project-1", "auto");
     const freshOpen = getWorkBundle("work-1");
 
+    // The retry must still know which Work owns source-1, invalidate staleOpen,
+    // and issue a fresh bundle request rather than joining the source-only one.
     expect(workFetches).toBe(2);
     expect((await freshOpen).work.title).toBe("Fresh after retry");
 
