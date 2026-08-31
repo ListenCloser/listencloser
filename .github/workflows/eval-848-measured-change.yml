@@ -154,6 +154,110 @@ jobs:
             --track natural_blues "$MEASURED_CHANGE_ROOT/source/how-long.ogg" \
             --output "$MEASURED_CHANGE_ROOT/results.json"
 
+      - name: Run one ruptures challenger on the same signal
+        env:
+          RUPTURES_VERSION: '1.1.10'
+        run: |
+          PYTHONPATH=backend MEASURED_CHANGE_ROOT="$MEASURED_CHANGE_ROOT" \
+            uv run --project backend --with "ruptures==$RUPTURES_VERSION" python - <<'PY'
+          import json
+          import math
+          import os
+          from pathlib import Path
+          from uuid import NAMESPACE_URL, uuid5
+
+          import numpy as np
+          import ruptures as rpt
+
+          from backend.evaluation.analysis_v3.perceptual.change_candidates import (
+              _robust_standardize,
+              _validated_matrix,
+          )
+          from perceptual_evidence import extract_perceptual_evidence_from_bytes
+
+          root = Path(os.environ["MEASURED_CHANGE_ROOT"])
+          tracks = [
+              ("splice_a", root / "splices/splice-a.wav", [12.0, 24.0]),
+              ("splice_b", root / "splices/splice-b.wav", [12.0, 24.0]),
+              ("natural_maple", root / "source/maple.ogg", []),
+              ("natural_tango", root / "source/el-choclo.ogg", []),
+              ("natural_blues", root / "source/how-long.ogg", []),
+          ]
+
+          def probe(track_id, path, expected):
+              source_id = uuid5(NAMESPACE_URL, f"listencloser-change-probe:{track_id}:source")
+              report = extract_perceptual_evidence_from_bytes(
+                  path.read_bytes(), source_version_id=source_id, fmt=path.suffix.lstrip(".")
+              )
+              times, matrix, reasons = _validated_matrix(report)
+              if reasons:
+                  return {"track_id": track_id, "status": "withheld", "reasons": reasons}
+              signal = _robust_standardize(matrix)
+              hop_seconds = float(np.median(np.diff(times)))
+              min_size = max(2, int(math.ceil(4.0 / hop_seconds)))
+              jump = 5
+              penalty = float(np.log(len(signal)) * signal.shape[1])
+              algo = rpt.Pelt(model="l2", min_size=min_size, jump=jump).fit(signal)
+              raw = algo.predict(pen=penalty)
+              indexes = [index for index in raw if 0 < index < len(signal)]
+              boundaries = [float(times[index]) for index in indexes]
+              expected_rows = []
+              for target in expected:
+                  if not boundaries:
+                      expected_rows.append({
+                          "expected_boundary_seconds": target,
+                          "nearest_boundary_seconds": None,
+                          "absolute_error_seconds": None,
+                          "hit_within_1_second": False,
+                          "hit_within_2_seconds": False,
+                      })
+                      continue
+                  nearest = min(boundaries, key=lambda item: abs(item - target))
+                  error = abs(nearest - target)
+                  expected_rows.append({
+                      "expected_boundary_seconds": target,
+                      "nearest_boundary_seconds": nearest,
+                      "absolute_error_seconds": error,
+                      "hit_within_1_second": error <= 1.0,
+                      "hit_within_2_seconds": error <= 2.0,
+                  })
+              return {
+                  "track_id": track_id,
+                  "status": "supported",
+                  "duration_seconds": report.duration_seconds,
+                  "boundaries_seconds": boundaries,
+                  "expected_boundaries": expected_rows,
+                  "parameters": {
+                      "algorithm": "Pelt",
+                      "model": "l2",
+                      "min_size_seconds": 4.0,
+                      "min_size_frames": min_size,
+                      "jump_frames": jump,
+                      "penalty": "log(n_frames) * n_dimensions",
+                      "penalty_value": penalty,
+                      "dimensions": 6,
+                      "normalization": "same robust within-Work normalization as control",
+                  },
+              }
+
+          result = {
+              "scope": "evaluation_only_optional_challenger",
+              "ruptures_version": os.environ["RUPTURES_VERSION"],
+              "license": "BSD-2-Clause",
+              "decision_question": (
+                  "Does one maintained change-point formulation fix the control's concrete "
+                  "blind-splice localization failure on the exact same promoted signal?"
+              ),
+              "truth_boundary": (
+                  "splice localization is mechanics evidence only; natural-song outputs have no ground truth"
+              ),
+              "tracks": [probe(*track) for track in tracks],
+          }
+          out = root / "ruptures-results.json"
+          out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
+
       - name: Upload decision evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -161,6 +265,7 @@ jobs:
           name: measured-change-eval-${{ github.event.pull_request.head.sha }}
           path: |
             ${{ runner.temp }}/measured-change/results.json
+            ${{ runner.temp }}/measured-change/ruptures-results.json
             ${{ runner.temp }}/measured-change/provenance.json
           if-no-files-found: warn
           retention-days: 14
