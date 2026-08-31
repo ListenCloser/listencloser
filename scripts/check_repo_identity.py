@@ -88,6 +88,7 @@ COMPATIBILITY_PATTERNS = {
     "backend/tests/test_piano_transcription_profiles.py": ("hello_ai_sha",),
     "backend/tests/test_fixture_manifest.py": ("hello-ai-autonomous-handoff",),
     "backend/tests/test_job_controls.py": ("hello-ai:retry:",),
+    "backend/tests/test_deploy_workflow_invariants.py": ("~/hello-ai",),
     "scripts/deploy.sh": ("$HOME/hello-ai",),
 }
 
