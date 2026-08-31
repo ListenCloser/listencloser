@@ -73,7 +73,7 @@ class _LifecycleClient:
 class _FencedInsert:
     def __init__(
         self,
-        client: "_HandlerClient",
+        client: _HandlerClient,
         table_name: str,
         rows: dict[str, Any] | list[dict[str, Any]],
     ) -> None:
@@ -129,17 +129,17 @@ class _FencedInsert:
 class _FencedDelete:
     """Collect the supported immutable-output cleanup filters, then fence delete."""
 
-    def __init__(self, client: "_HandlerClient", table_name: str) -> None:
+    def __init__(self, client: _HandlerClient, table_name: str) -> None:
         self._client = client
         self._table_name = table_name
         self._eq: dict[str, Any] = {}
         self._in: dict[str, list[Any]] = {}
 
-    def eq(self, column: str, value: Any) -> "_FencedDelete":
+    def eq(self, column: str, value: Any) -> _FencedDelete:
         self._eq[column] = value
         return self
 
-    def in_(self, column: str, values: list[Any]) -> "_FencedDelete":
+    def in_(self, column: str, values: list[Any]) -> _FencedDelete:
         self._in[column] = list(values)
         return self
 
@@ -176,13 +176,13 @@ class _PendingArtifactSelect:
     reach the database RPC.
     """
 
-    def __init__(self, client: "_HandlerClient", query: Any, columns: str) -> None:
+    def __init__(self, client: _HandlerClient, query: Any, columns: str) -> None:
         self._client = client
         self._query = query
         self._columns = columns
         self._artifact_id: str | None = None
 
-    def eq(self, column: str, value: Any) -> "_PendingArtifactSelect":
+    def eq(self, column: str, value: Any) -> _PendingArtifactSelect:
         self._query = self._query.eq(column, value)
         if column == "id":
             self._artifact_id = str(value)
@@ -207,7 +207,7 @@ class _PendingArtifactSelect:
 class _HandlerTable:
     """Read-through table facade with fail-closed handler mutation policy."""
 
-    def __init__(self, client: "_HandlerClient", name: str) -> None:
+    def __init__(self, client: _HandlerClient, name: str) -> None:
         self._client = client
         self._name = name
         self._table = client._raw.table(name)
@@ -252,7 +252,7 @@ class _HandlerTable:
 
 
 class _HandlerStorageBucket:
-    def __init__(self, bucket: Any, client: "_HandlerClient") -> None:
+    def __init__(self, bucket: Any, client: _HandlerClient) -> None:
         self._bucket = bucket
         self._client = client
 
@@ -279,7 +279,7 @@ class _HandlerStorageBucket:
 
 
 class _HandlerStorage:
-    def __init__(self, storage: Any, client: "_HandlerClient") -> None:
+    def __init__(self, storage: Any, client: _HandlerClient) -> None:
         self._storage = storage
         self._client = client
 
