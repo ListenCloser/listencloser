@@ -4,6 +4,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "installCommand": "npm ci",
+  "ignoreCommand": "python3 scripts/classify_production_scope.py --vercel-ignore",
   "cleanUrls": true,
   "git": {
     "deploymentEnabled": {
