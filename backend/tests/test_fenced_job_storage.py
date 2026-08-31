@@ -11,8 +11,13 @@ from domain.job_worker import JobWorker
 
 class _Bucket:
     def __init__(self) -> None:
+        self.downloaded: list[str] = []
         self.uploaded: list[str] = []
         self.removed: list[str] = []
+
+    def download(self, path: str) -> bytes:
+        self.downloaded.append(path)
+        return b"payload"
 
     def upload(self, path: str, *_args: Any, **_kwargs: Any) -> dict[str, str]:
         self.uploaded.append(path)
@@ -91,6 +96,9 @@ def test_handler_storage_is_attempt_scoped_and_cleanup_is_non_destructive() -> N
     original_key = "jobs/job-1/attempt-0/output.bin"
     scoped_key = "jobs/job-1/execution-token-a/attempt-0/output.bin"
 
+    assert client.storage.from_("artifacts").download("source/input.bin") == b"payload"
+    assert raw.storage.bucket.downloaded == ["source/input.bin"]
+
     client.storage.from_("artifacts").upload(original_key, b"payload")
     assert raw.storage.bucket.uploaded == [scoped_key]
     assert client.rewrite_output_row({"storage_key": original_key}) == {
@@ -107,8 +115,11 @@ def test_handler_storage_is_attempt_scoped_and_cleanup_is_non_destructive() -> N
     with pytest.raises(RuntimeError, match="current Job namespace"):
         client.storage.from_("artifacts").upload("shared/output.bin", b"payload")
 
-    with pytest.raises(RuntimeError, match="unfenced storage move"):
+    with pytest.raises(RuntimeError, match="unfenced storage operation move"):
         client.storage.from_("artifacts").move(scoped_key, f"{scoped_key}.moved")
+
+    with pytest.raises(RuntimeError, match="raw client operation raw"):
+        _ = client.raw
 
 
 def test_pending_artifact_is_visible_to_repository_owner_verification() -> None:
@@ -142,7 +153,9 @@ def test_stale_finisher_cannot_forget_successor_generation() -> None:
         worker._execution_token("job-1")
 
 
-def test_queue_claim_releases_duplicate_local_generation(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_queue_claim_releases_duplicate_local_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     worker = FencedJobWorker()
     raw = _Client()
     worker._client = raw
