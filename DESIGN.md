@@ -2,7 +2,7 @@
 
 ## Design intent
 
-Music Lab is an **operate-mode music analysis workspace**, not a marketing dashboard and not a toy DAW. The interface should feel like a focused instrument for listening, comparing, inspecting, and understanding a piece of music.
+Listen Closer is an **operate-mode music analysis workspace**, not a marketing dashboard and not a toy DAW. The interface should feel like a focused instrument for listening, comparing, inspecting, and understanding a piece of music.
 
 The product should read as:
 - precise rather than flashy
@@ -114,7 +114,7 @@ Desktop target:
 
 Height: ~48px.
 
-The left side should contain a small product mark and current piece. Do not display internal repo/product names such as `hello-ai`.
+The left side should contain a small product mark and current piece. Do not display internal repo/product names such as `listencloser`.
 
 The right side should contain only global actions. `Analysis` should behave as a panel toggle when results exist; analysis progress should appear as restrained inline state, not as a large button.
 

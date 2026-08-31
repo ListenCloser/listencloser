@@ -1,5 +1,5 @@
 """
-Comprehensive unit tests for the hello-ai JobWorker.
+Comprehensive unit tests for the listencloser JobWorker.
 
 All supabase calls are mocked.  No real database is required.
 """

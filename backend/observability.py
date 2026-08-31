@@ -56,7 +56,7 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "msg": record.getMessage(),
-            "service": os.environ.get("OTEL_SERVICE_NAME", "hello-ai"),
+            "service": os.environ.get("OTEL_SERVICE_NAME", "listencloser"),
             "release": os.environ.get("RELEASE", "development"),
         }
 
@@ -201,7 +201,7 @@ _job_metrics: tuple[Any, Any, Any] | None = None
 def _get_http_metrics() -> tuple[Any, Any]:
     global _http_metrics
     if _http_metrics is None:
-        meter = metrics.get_meter("hello-ai-api")
+        meter = metrics.get_meter("listencloser-api")
         _http_metrics = (
             meter.create_counter(
                 "hello_ai.http.server.requests",
@@ -234,7 +234,7 @@ def record_http_request(
 def _get_job_metrics() -> tuple[Any, Any, Any]:
     global _job_metrics
     if _job_metrics is None:
-        meter = metrics.get_meter("hello-ai-worker")
+        meter = metrics.get_meter("listencloser-worker")
         _job_metrics = (
             meter.create_counter(
                 "hello_ai.worker.job.executions",

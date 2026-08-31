@@ -2,7 +2,7 @@
 """Provider-neutral HTTP benchmark for Platform V3 compute experiments.
 
 This intentionally uses only the Python standard library. It is designed to
-compare the same hello-ai API release across Oracle, Cloud Run, Azure Container
+compare the same listencloser API release across Oracle, Cloud Run, Azure Container
 Apps, or another HTTP container host without adding a provider SDK.
 """
 
@@ -42,7 +42,7 @@ def percentile(values: Iterable[float], percentile_value: float) -> float | None
 
 def probe_once(base_url: str, path: str, timeout: float) -> ProbeResult:
     url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
-    request = Request(url, headers={"User-Agent": "hello-ai-platform-benchmark/1"})
+    request = Request(url, headers={"User-Agent": "listencloser-platform-benchmark/1"})
     started = time.perf_counter()
     try:
         with urlopen(request, timeout=timeout) as response:  # noqa: S310 - explicit benchmark URL
@@ -150,7 +150,7 @@ def build_report(args: argparse.Namespace, results: list[ProbeResult]) -> dict:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Benchmark hello-ai health endpoints on any HTTP container host."
+        description="Benchmark listencloser health endpoints on any HTTP container host."
     )
     parser.add_argument("base_url", help="Base API URL, e.g. https://api.example.com")
     parser.add_argument(

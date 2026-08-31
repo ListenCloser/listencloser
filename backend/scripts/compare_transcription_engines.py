@@ -14,8 +14,8 @@ from music_features import (
     transcribe_with_engine,
 )
 
-FIXTURE_PATH = Path("/Users/giancarloricci/hello-ai/tests/fixtures/real-piano.m4a")
-OUTPUT_DIR = Path("/Users/giancarloricci/hello-ai/backend/evaluation/reports/engine_comparison")
+FIXTURE_PATH = Path("/Users/giancarloricci/listencloser/tests/fixtures/real-piano.m4a")
+OUTPUT_DIR = Path("/Users/giancarloricci/listencloser/backend/evaluation/reports/engine_comparison")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
