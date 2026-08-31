@@ -46,7 +46,6 @@ def get_transcription_engine(
         onset_threshold: Onset threshold for engines that support it.
         frame_threshold: Frame threshold for engines that support it.
     """
-    # Profile-based routing (only applies when no explicit name given)
     if name is None:
         if profile == "solo_piano":
             name = "transkun"
@@ -99,15 +98,19 @@ def get_structure_engine(name: str | None = None) -> StructureEngine:
 
 
 def get_notation_engine(name: str | None = None) -> NotationEngine:
-    """Resolve the production score-interpretation engine.
+    """Resolve a score-interpretation engine.
 
-    MuseScore is the sole supported production notation interpreter after the
-    #700/#707/#800 rollout. Historical bespoke/music21 score interpretation has
-    been retired rather than maintained as a dormant second implementation.
+    MuseScore remains the production default while PM2S is exercised as the
+    bounded learned-score candidate under #945. Selection is explicit; engines
+    do not catch-and-substitute each other at runtime.
     """
     name = name or os.environ.get("NOTATION_ENGINE", "musescore")
     if name == "musescore":
         return MuseScoreNotationEngine()
+    if name == "pm2s":
+        from engines.notation.pm2s_engine import PM2SNotationEngine
+
+        return PM2SNotationEngine()
     raise ValueError(f"Unknown notation engine: {name}")
 
 
