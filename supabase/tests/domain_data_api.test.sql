@@ -16,7 +16,6 @@ select ok(
         ('alignments'),
         ('workflows'),
         ('jobs'),
-        ('workspace_states'),
         ('worker_heartbeats')
     ) as tables(table_name)
     cross join (values ('anon'), ('authenticated')) as roles(role_name)
@@ -53,7 +52,6 @@ select ok(
         ('alignments'),
         ('workflows'),
         ('jobs'),
-        ('workspace_states'),
         ('worker_heartbeats')
     ) as tables(table_name)
     cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) as privileges(privilege_name)
