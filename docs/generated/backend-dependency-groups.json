@@ -1,0 +1,29 @@
+{
+  "baseline_observed_pre_split": {
+    "installed_distributions": 163
+  },
+  "issue": 287,
+  "lightweight_base_plus_dev": {
+    "installed_distributions": 112,
+    "sync_seconds": 3.682,
+    "venv_bytes": 711922984,
+    "worker_modules_absent": [
+      "basic_pitch",
+      "beat_this",
+      "torch",
+      "torchaudio",
+      "transkun",
+      "moduleconf",
+      "lv_chordia"
+    ]
+  },
+  "notes": [
+    "Hosted-runner timings are observations, not performance gates."
+  ],
+  "schema_version": 1,
+  "worker_complete": {
+    "installed_distributions": 163,
+    "sync_seconds_incremental_from_base": 10.48,
+    "venv_bytes": 3104527175
+  }
+}
