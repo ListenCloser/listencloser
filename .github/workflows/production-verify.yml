@@ -2,6 +2,9 @@ name: Production Verify
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy Backend"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -12,6 +15,7 @@ concurrency:
 
 jobs:
   verify:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
