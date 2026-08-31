@@ -18,7 +18,6 @@ Generated from the fresh local Supabase/Postgres schema. Migrations are authorit
 | [public.worker_heartbeats](public.worker_heartbeats.md) | 5 | Service-role worker liveness records used by the aggregate queue health endpoint. | BASE TABLE |
 | [public.workflows](public.workflows.md) | 6 |  | BASE TABLE |
 | [public.works](public.works.md) | 6 |  | BASE TABLE |
-| [public.workspace_states](public.workspace_states.md) | 10 |  | BASE TABLE |
 
 ## Stored procedures and functions
 
@@ -66,7 +65,6 @@ erDiagram
 "public.workflows" }o--|| "public.projects" : "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE"
 "public.workflows" }o--o| "public.artifact_versions" : "FOREIGN KEY (target_version_id) REFERENCES artifact_versions(id) ON DELETE SET NULL"
 "public.works" }o--|| "public.projects" : "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE"
-"public.workspace_states" }o--|| "public.projects" : "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE"
 
 "public.alignments" {
   double_precision confidence
@@ -196,18 +194,6 @@ erDiagram
   uuid id
   uuid project_id FK
   text title
-  timestamp_with_time_zone updated_at
-}
-"public.workspace_states" {
-  uuid__ expanded_version_ids
-  uuid focus_version_id
-  uuid id
-  uuid__ open_version_ids
-  uuid owner_id
-  uuid project_id FK
-  jsonb selection
-  text tab
-  jsonb transport
   timestamp_with_time_zone updated_at
 }
 ```
