@@ -7,7 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
-import InspectorPanel from "./Inspector";
+import InspectorPanel from "./inspector/Inspector";
 import styles from "./WorkspaceShell.module.css";
 
 export type ServiceStatus = "checking" | "ready" | "unavailable";

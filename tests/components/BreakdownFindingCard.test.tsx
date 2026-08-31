@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import BreakdownFindingCard from "@/components/workspace/BreakdownFindingCard";
+import BreakdownFindingCard from "@/components/workspace/inspector/BreakdownFindingCard";
 import { rankBreakdownFindings } from "@/lib/inspector/breakdown";
 import type { TemporalFinding } from "@/lib/inspector/findings";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";

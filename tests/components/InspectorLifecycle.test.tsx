@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import InspectorPanel from "@/components/workspace/Inspector";
+import InspectorPanel from "@/components/workspace/inspector/Inspector";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
 
