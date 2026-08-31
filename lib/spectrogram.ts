@@ -158,13 +158,17 @@ export async function computeSpectrogram(
   const binMap = logarithmicBinMap(bins, sampleRate, fftSize, minFrequency);
   const real = new Float64Array(fftSize);
   const imaginary = new Float64Array(fftSize);
+  // The Hann coefficients depend only on FFT size, not on the audio column.
+  // Computing them once removes ~columns × fftSize trigonometric calls from
+  // the first Spectrogram visit while preserving identical FFT inputs/pixels.
+  const window = Float64Array.from({ length: fftSize }, (_, index) => hann(index, fftSize));
   const yieldToBrowser = options.yieldToBrowser ?? (() => new Promise<void>((resolve) => window.setTimeout(resolve, 0)));
 
   for (let column = 0; column < columns; column += 1) {
     real.fill(0);
     imaginary.fill(0);
     const start = Math.min(column * hop, Math.max(0, samples.length - fftSize));
-    for (let index = 0; index < fftSize; index += 1) real[index] = (samples[start + index] ?? 0) * hann(index, fftSize);
+    for (let index = 0; index < fftSize; index += 1) real[index] = (samples[start + index] ?? 0) * window[index];
     fft(real, imaginary);
     for (let row = 0; row < bins; row += 1) {
       const bin = binMap[row];
