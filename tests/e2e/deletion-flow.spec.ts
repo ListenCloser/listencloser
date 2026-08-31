@@ -58,15 +58,11 @@ test("deleting the active work clears it and leaves no stale transport state", a
 });
 
 test("failed active-work deletion restores the selected workspace and playback", async ({ page }) => {
-  await openWorkspace(page);
-
-  // Fail only the DELETE request at the browser fetch boundary. Successful
-  // GETs still flow through MSW, so the restored active work must genuinely
-  // reload its bundle and playback sources rather than merely reappearing in
-  // the optimistic works cache. Generated OpenAPI transport passes a Request
-  // object to fetch, while the legacy helper passed URL + RequestInit; support
-  // both shapes so this test asserts browser behavior rather than client internals.
-  await page.evaluate(() => {
+  // openapi-fetch captures its fetch implementation when the generated client
+  // is created. Install this browser fault boundary before navigation so both
+  // generated fetch(Request) calls and legacy fetch(url, init) calls see the
+  // same forced failure without coupling the product assertion to one client.
+  await page.addInitScript(() => {
     const originalFetch = window.fetch.bind(window);
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = input instanceof Request ? input.method : init?.method;
@@ -81,6 +77,11 @@ test("failed active-work deletion restores the selected workspace and playback",
     };
   });
 
+  await openWorkspace(page);
+
+  // Successful GETs still flow through MSW, so the restored active work must
+  // genuinely reload its bundle and playback sources rather than merely
+  // reappearing in the optimistic works cache.
   await page.getByRole("button", { name: "Delete Test Work" }).click();
 
   await expect(page.locator(".library-error")).toHaveText("Delete failed. The recording was restored.");
