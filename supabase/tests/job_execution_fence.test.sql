@@ -294,10 +294,7 @@ select throws_ok(
           'artifact_id', '00000000-0000-0000-0000-000000539012',
           'lineage', jsonb_build_array(),
           'storage_bucket', 'artifacts',
-          'storage_key', format(
-            'jobs/00000000-0000-0000-0000-000000539004/execution-%s/missing.json',
-            %L
-          ),
+          'storage_key', %L,
           'byte_size', 2,
           'metadata', jsonb_build_object(),
           'label', 'fabricated scoped storage'
@@ -305,7 +302,14 @@ select throws_ok(
       )
     $sql$,
     (select token::text from __execution_tokens where label = 'attempt-b'),
-    (select token::text from __execution_tokens where label = 'attempt-b')
+    (
+      select format(
+        'jobs/00000000-0000-0000-0000-000000539004/execution-%s/missing.json',
+        token::text
+      )
+      from __execution_tokens
+      where label = 'attempt-b'
+    )
   ),
   '42501',
   'job Version storage object does not exist in declared bucket',
