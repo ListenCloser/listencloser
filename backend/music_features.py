@@ -3,13 +3,13 @@ Server-side music features: audio transcription + MIDI synthesis.
 
 Modules:
     - transcribe_audio: arbitrary audio → MIDI (basic-pitch ML model)
-    - midi_to_wav: render MIDI to WAV (FluidSynth with SoundFont, numpy fallback)
+    - midi_to_wav: render MIDI to WAV with FluidSynth + the bundled SoundFont
     - enhance_audio: denoise/declip/normalize via ffmpeg
     - convert_format: MIDI ↔ MusicXML via music21
 
-Fallback strategy:
-    FluidSynth (natural timbre) → numpy additive synth (portable fallback)
-    Both produce 16-bit PCM WAV at 22050 Hz.
+Production MIDI rendering is fail-closed. A missing or broken FluidSynth runtime
+must surface as an explicit derived-playback failure rather than silently
+changing to a lower-fidelity repository-owned synthesizer.
 
 Runs on CPU (Oracle always-free ARM VM). Suitable for short clips
 (seconds to a couple minutes).
@@ -42,31 +42,25 @@ SOUNDFONT_PATH = os.environ.get(
 # Normalization
 _MAX_NORMALIZE_GAIN = 10.0
 
-# Numpy synth constants
-_SYNTH_EXTRA_DURATION = 0.5
-_SYNTH_MIN_NOTE_DURATION = 0.2
-_SYNTH_ATTACK_TIME = 0.01
-_SYNTH_RELEASE_TIME = 0.15
-_SYNTH_HARMONICS = [(1, 1.0), (2, 0.3), (3, 0.12), (4, 0.06)]
-_SYNTH_AMPLITUDE = 0.22
-
 
 # ---------------------------------------------------------------------------
-# MIDI -> WAV (FluidSynth + SoundFont, numpy fallback)
+# MIDI -> WAV (FluidSynth + SoundFont)
 # ---------------------------------------------------------------------------
-def _midi_to_wav_fluidsynth(midi_bytes: bytes, sr: int = 22050) -> bytes | None:
-    """Render MIDI to WAV via FluidSynth using a bundled SoundFont.
+def _midi_to_wav_fluidsynth(midi_bytes: bytes, sr: int = 22050) -> bytes:
+    """Render MIDI to WAV via FluidSynth using the configured SoundFont.
 
-    Returns None if FluidSynth or the SoundFont is unavailable so the caller can
-    fall back to the numpy synth.
+    Production rendering deliberately has no semantic fallback: deployment
+    guarantees the renderer and SoundFont, so their absence is an operational
+    error rather than permission to publish different-sounding audio under the
+    same product label.
     """
     if not os.path.exists(SOUNDFONT_PATH):
-        return None
+        raise RuntimeError(f"FluidSynth SoundFont is unavailable: {SOUNDFONT_PATH}")
+
     try:
         import fluidsynth  # pyfluidsynth
-    except Exception as e:
-        logger.warning(f"fluidsynth unavailable, falling back to numpy synth: {e}")
-        return None
+    except Exception as exc:
+        raise RuntimeError("FluidSynth Python runtime is unavailable") from exc
 
     with tempfile.TemporaryDirectory() as td:
         midi_path = os.path.join(td, "input.mid")
@@ -76,6 +70,8 @@ def _midi_to_wav_fluidsynth(midi_bytes: bytes, sr: int = 22050) -> bytes | None:
         fs = fluidsynth.Synth(samplerate=float(sr))
         try:
             sfid = fs.sfload(SOUNDFONT_PATH)
+            if sfid < 0:
+                raise RuntimeError(f"FluidSynth failed to load SoundFont: {SOUNDFONT_PATH}")
             fs.program_select(0, sfid, 0, 0)  # bank 0, piano (prog 0)
             # Light reverb + chorus for a less dry, more natural render.
             fs.set_reverb(0.25, 0.4, 0.6, 0.12)
@@ -84,9 +80,11 @@ def _midi_to_wav_fluidsynth(midi_bytes: bytes, sr: int = 22050) -> bytes | None:
         finally:
             fs.delete()
         if not os.path.exists(wav_path):
-            return None
+            raise RuntimeError("FluidSynth completed without producing a WAV file")
         with open(wav_path, "rb") as f:
             raw = f.read()
+        if not raw:
+            raise RuntimeError("FluidSynth produced an empty WAV file")
         # Peak-normalize the rendered audio (FluidSynth output is quiet).
         return _normalize_wav(raw)
 
@@ -103,54 +101,9 @@ def _normalize_wav(wav_bytes: bytes, peak: float = 0.95) -> bytes:
     return buf.getvalue()
 
 
-def _note_to_freq(midi_note: int) -> float:
-    return 440.0 * (2.0 ** ((midi_note - 69) / 12.0))
-
-
-def _midi_to_wav_numpy(midi_bytes: bytes, sr: int = 22050) -> bytes:
-    """Self-contained polyphonic piano synth (additive sines + ADSR)."""
-    import pretty_midi
-
-    midi = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
-    duration = max(midi.get_end_time(), 0.1)
-    n = int((duration + _SYNTH_EXTRA_DURATION) * sr)
-    out = np.zeros(n, dtype=np.float64)
-
-    for instrument in midi.instruments:
-        for note in instrument.notes:
-            f = _note_to_freq(note.pitch)
-            start = int(note.start * sr)
-            end = int(note.end * sr)
-            if end <= start:
-                end = start + int(_SYNTH_MIN_NOTE_DURATION * sr)
-            seg = np.arange(end - start) / sr
-            env = np.ones_like(seg)
-            attack = int(_SYNTH_ATTACK_TIME * sr)
-            release = int(_SYNTH_RELEASE_TIME * sr)
-            if len(env) > attack:
-                env[:attack] = np.linspace(0, 1, attack)
-            if len(env) > release:
-                env[-release:] = np.linspace(1, 0, release)
-            sig = np.zeros_like(seg)
-            for mult, amp in _SYNTH_HARMONICS:
-                sig += amp * np.sin(2 * np.pi * f * mult * seg)
-            sig *= env * _SYNTH_AMPLITUDE
-            out[start:end] += sig
-
-    out = np.clip(out, -1.0, 1.0)
-    pcm = (out * 32767.0).astype(np.int16)
-    buf = io.BytesIO()
-    sf.write(buf, pcm, sr, format="WAV", subtype="PCM_16")
-    return buf.getvalue()
-
-
 def midi_to_wav(midi_bytes: bytes, sr: int = 22050) -> bytes:
-    """Render MIDI bytes to a 16-bit PCM WAV. Prefers FluidSynth (natural
-    timbre) and falls back to the numpy synth if unavailable."""
-    wav = _midi_to_wav_fluidsynth(midi_bytes, sr)
-    if wav is not None:
-        return wav
-    return _midi_to_wav_numpy(midi_bytes, sr)
+    """Render MIDI bytes to 16-bit PCM WAV using the canonical FluidSynth path."""
+    return _midi_to_wav_fluidsynth(midi_bytes, sr)
 
 
 def measure_start_seconds(midi_bytes: bytes) -> list[float]:
