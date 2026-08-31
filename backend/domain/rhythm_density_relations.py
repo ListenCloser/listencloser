@@ -92,6 +92,7 @@ def _provenance(
         "evidence_id": str(evidence.evidence_id),
         "coverage_policy": (
             "selected spans must be covered to within one local evidence step at each boundary; "
+            "selected windows must not contain uncovered internal gaps; "
             "only fully-contained beat-relative density windows are aggregated"
         ),
         "relative_denominator_epsilon": _RELATIVE_DENOMINATOR_EPSILON,
@@ -287,11 +288,24 @@ def _validated_persistence_coverage(
     return reasons
 
 
+def _complete_windows_for_span(
+    windows: Sequence[dict[str, float]],
+    locator: SecondsSpanLocator,
+) -> list[dict[str, float]]:
+    """Return only evidence windows fully contained by the requested span."""
+    return [
+        window
+        for window in windows
+        if window["start"] >= locator.start_seconds - _NUMERIC_ATOL
+        and window["end"] <= locator.end_seconds + _NUMERIC_ATOL
+    ]
+
+
 def _coverage_boundary_tolerances_seconds(
     windows: Sequence[dict[str, float]],
     contract: dict[str, float | str],
 ) -> tuple[float, float]:
-    """Estimate one local evidence step in seconds at each series boundary."""
+    """Estimate one local evidence step in seconds at the selected span edges."""
     window_size = float(contract["window_size"])
     step_size = float(contract["step_size"])
 
@@ -307,29 +321,40 @@ def _coverage_error_for_span(
     locator: SecondsSpanLocator,
     label: str,
 ) -> str | None:
-    """Reject a span whose edges are more than one local evidence step outside coverage.
+    """Reject locally uncovered span edges or internal evidence gaps.
 
-    Beat-relative windows need not align exactly with arbitrary user-selected
-    seconds boundaries, so the relation follows the existing perceptual-series
-    policy and tolerates at most one local evidence step of boundary slack. The
-    local estimate matters when tempo changes materially across the selection.
-    This still rejects a persisted prefix that is materially shorter than the
-    requested span, including historical 50-window truncation.
+    Only complete windows are eligible for aggregation, so coverage must be
+    established from the windows that actually support this requested span,
+    not from remote global-series boundaries. Beat-relative windows need not
+    align exactly with arbitrary user-selected seconds boundaries, so up to one
+    local evidence step of edge slack remains valid. When the declared beat
+    step is no larger than the window, any uncovered gap between consecutive
+    selected windows is impossible for a complete series and therefore fails
+    closed even for legacy evidence without ``complete_series_v1`` metadata.
     """
-    if not windows:
-        return f"{label} span has no rhythm density evidence coverage"
+    selected = _complete_windows_for_span(windows, locator)
+    if not selected:
+        return f"{label} span contains no complete rhythm density windows"
 
-    coverage_start = windows[0]["start"]
-    coverage_end = max(window["end"] for window in windows)
-    start_tolerance, end_tolerance = _coverage_boundary_tolerances_seconds(windows, contract)
+    coverage_start = selected[0]["start"]
+    coverage_end = max(window["end"] for window in selected)
+    start_tolerance, end_tolerance = _coverage_boundary_tolerances_seconds(selected, contract)
     if (
         coverage_start - locator.start_seconds > start_tolerance + _NUMERIC_ATOL
         or locator.end_seconds - coverage_end > end_tolerance + _NUMERIC_ATOL
     ):
         return (
-            f"{label} span extends outside rhythm density evidence coverage "
+            f"{label} span extends outside local rhythm density evidence coverage "
             "by more than one local evidence step"
         )
+
+    window_size = float(contract["window_size"])
+    step_size = float(contract["step_size"])
+    if step_size <= window_size:
+        for previous, current in zip(selected, selected[1:], strict=False):
+            if current["start"] > previous["end"] + _NUMERIC_ATOL:
+                return f"{label} span has an internal gap in rhythm density evidence coverage"
+
     return None
 
 
@@ -338,15 +363,10 @@ def _values_for_span(
     locator: SecondsSpanLocator,
     label: str,
 ) -> tuple[np.ndarray | None, str | None]:
-    selected = [
-        window["density"]
-        for window in windows
-        if window["start"] >= locator.start_seconds - _NUMERIC_ATOL
-        and window["end"] <= locator.end_seconds + _NUMERIC_ATOL
-    ]
+    selected = _complete_windows_for_span(windows, locator)
     if not selected:
         return None, f"{label} span contains no complete rhythm density windows"
-    return np.asarray(selected, dtype=float), None
+    return np.asarray([window["density"] for window in selected], dtype=float), None
 
 
 def _relative_delta(delta: float, comparison: float) -> float | None:
@@ -370,9 +390,10 @@ def compare_rhythm_density_spans(
     """Compare promoted beat-relative event density over two explicit spans.
 
     Each requested span boundary must be covered to within one local evidence
-    step, and only complete density windows fully contained inside that span are
-    eligible. The relation does not infer sections, resample evidence, mix
-    seconds and beat units, or attach semantic meaning to numeric direction.
+    step, selected evidence must have no impossible internal gap, and only
+    complete density windows fully contained inside that span are eligible. The
+    relation does not infer sections, resample evidence, mix seconds and beat
+    units, or attach semantic meaning to numeric direction.
     """
 
     reasons = [
