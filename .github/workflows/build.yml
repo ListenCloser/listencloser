@@ -130,7 +130,7 @@ jobs:
           rsync -a --exclude-from=.vercelignore --exclude='.git/' --exclude='.next/' --exclude='node_modules/' ./ "$deploy_dir/"
           test ! -e "$deploy_dir/tests"
           test ! -e "$deploy_dir/backend"
-          test -f "$deploy_dir/mocks/fixtures/sample-wav.ts"
+          test -f "$deploy_dir/app/_test-support/msw/fixtures/sample-wav.ts"
           ln -s "$GITHUB_WORKSPACE/node_modules" "$deploy_dir/node_modules"
           (cd "$deploy_dir" && npm run build)
       - name: Build main and upload Sentry source maps

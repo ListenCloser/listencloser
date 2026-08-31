@@ -21,8 +21,8 @@ module.exports = {
     {
       name: "production-does-not-statically-import-runtime-mocks",
       severity: "error",
-      from: { path: "^(app|components|lib)/" },
-      to: { path: "^mocks/", dynamic: false },
+      from: { path: "^(app|components|lib)/", pathNot: "^app/_test-support/" },
+      to: { path: "^app/_test-support/", dynamic: false },
     },
   ],
   options: {

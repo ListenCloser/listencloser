@@ -8,6 +8,9 @@ This is an orientation view of `app/`, `components/`, and `lib/`. Deeper folders
 flowchart LR
 
 subgraph app["app"]
+  subgraph app__test_support["_test-support"]
+    app__test_support_[" "]
+  end
   subgraph app_api["api"]
     app_api_[" "]
   end
@@ -84,6 +87,7 @@ subgraph lib["lib"]
   lib_supabase_ts["supabase.ts"]
   lib_work_selection_ts["work-selection.ts"]
 end
+app__test_support_-->lib_notes_ts
 app_api_-->lib_backend_ts
 app_auth_-->lib_supabase_ts
 app_layout_tsx-->app_breakdown_css
@@ -113,6 +117,7 @@ app_page_tsx-->lib_supabase_ts
 components_AuthProvider_tsx-->lib_api_client_ts
 components_AuthProvider_tsx-->lib_musicxml_cache_ts
 components_AuthProvider_tsx-->lib_supabase_ts
+components_MSWInit_tsx-->app__test_support_
 components_QueryProvider_tsx-->lib_query_client_ts
 components_SheetMusic_tsx-->lib_analysis_annotations_ts
 components_SheetMusic_tsx-->lib_measure_ts
