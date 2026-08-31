@@ -186,7 +186,14 @@ export const handlers = [
   http.get("/api/v1/versions/:versionId/entities", async () => {
     return HttpResponse.json(fakeNotes.map((n, i) => ({
       id: `mock-entity-${i}`, version_id: "mock-midi-version", kind: "note",
-      span: { start_seconds: n.start, end_seconds: n.end },
+      span: {
+        start_seconds: n.start,
+        end_seconds: n.end,
+        start_beat: null,
+        end_beat: null,
+        start_measure: null,
+        end_measure: null,
+      },
       note: { pitch: n.pitch, start_seconds: n.start, end_seconds: n.end, velocity: n.velocity, voice: 0 },
       chord: null, cadence: null, label: pitchToName(n.pitch),
     })));
