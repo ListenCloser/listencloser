@@ -70,8 +70,7 @@ class PM2SNotationEngine:
             from pm2s.pm2s import CRNNJointPM2S
         except ImportError as exc:
             raise RuntimeError(
-                "PM2S is not installed in the worker image; the PM2S notation "
-                "engine cannot run"
+                "PM2S is not installed in the worker image; the PM2S notation " "engine cannot run"
             ) from exc
 
         model_root = os.environ.get("PM2S_MODEL_DIR")
