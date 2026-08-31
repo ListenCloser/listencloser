@@ -136,7 +136,6 @@ export default function SheetMusic({
   onSeek,
   onSelectMeasures,
   onClearSelection,
-  onAnnotationClick,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<any>(null);
@@ -331,13 +330,6 @@ export default function SheetMusic({
         const rangeEnd = event.shiftKey && anchor !== null ? Math.max(anchor, index) : index;
         onSelectMeasures(rangeStart, rangeEnd);
         anchorMeasureRef.current = index;
-      }
-      if (onAnnotationClick && annotations) {
-        const annotation = annotations.find((item) => {
-          const range = annotationToMeasureRange(item, measureStarts);
-          return range && index >= range.start && index <= range.end;
-        });
-        if (annotation) onAnnotationClick(annotation);
       }
       return;
     }
