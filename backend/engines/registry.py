@@ -166,7 +166,8 @@ def get_melody_engine(
             from engines.melody.lstom_engine import LStoMMelodyEngine
         except ImportError as exc:
             raise RuntimeError(
-                "LStoM's Torch runtime is not installed. Install the backend worker dependency group."
+                "LStoM's Torch runtime is not installed. Install the backend worker "
+                "dependency group."
             ) from exc
         return LStoMMelodyEngine()
     if name == "skyline":
