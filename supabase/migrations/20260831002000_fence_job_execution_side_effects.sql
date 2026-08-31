@@ -123,6 +123,17 @@ begin
       message = 'job cannot parent a Version outside its input/output graph';
   end if;
 
+  if v_version.storage_key is null
+    or v_version.storage_key not like format(
+      'jobs/%s/execution-%s/%%',
+      p_job_id::text,
+      p_execution_token::text
+    ) then
+    raise exception using
+      errcode = '42501',
+      message = 'job Version storage key is not scoped to the current execution';
+  end if;
+
   insert into public.artifacts (
     id,
     work_id,
