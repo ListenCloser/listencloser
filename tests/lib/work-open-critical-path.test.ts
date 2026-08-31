@@ -1,11 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkBundle } from "@/lib/domain.types";
 
+const { get } = vi.hoisted(() => ({ get: vi.fn() }));
+
 vi.mock("@/lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("@/lib/openapi-client", () => ({
+  openapiClient: { GET: get },
+  requireOpenApiData: <T,>({ data, error, response }: { data?: T; error?: unknown; response: Response }): T => {
+    if (data !== undefined) return data;
+    const message =
+      typeof error === "object" && error !== null && "error" in error
+        ? (error as { error?: unknown }).error
+        : undefined;
+    throw new Error(typeof message === "string" ? message : `Request failed: ${response.status}`);
+  },
+}));
 vi.mock("@/lib/supabase", () => ({ supabase: null }));
 
 import { apiFetch } from "@/lib/api";
 import { clearWorkDataCache, getEntities, getInsights, getWorkBundle } from "@/lib/api-client";
+import { getQueryClient } from "@/lib/query-client";
 
 const mockApiFetch = vi.mocked(apiFetch);
 
@@ -56,10 +70,17 @@ function terminalBundle(): WorkBundle {
   };
 }
 
+const ok = <T,>(data: T) => ({
+  data,
+  response: new Response(JSON.stringify(data), { status: 200 }),
+});
+
 describe("saved Work open critical path", () => {
   beforeEach(() => {
+    getQueryClient().clear();
     clearWorkDataCache();
     mockApiFetch.mockReset();
+    get.mockReset();
   });
 
   it("returns the durable bundle while entity and insight warmers are still unresolved", async () => {
@@ -67,9 +88,12 @@ describe("saved Work open critical path", () => {
     const insights = deferred<never[]>();
     mockApiFetch.mockImplementation(async (url) => {
       if (url === "/api/v1/works/work-1") return terminalBundle();
-      if (url === "/api/v1/versions/midi-1/entities") return entities.promise;
-      if (url === "/api/v1/versions/midi-1/insights") return insights.promise;
       throw new Error(`Unexpected API call: ${url}`);
+    });
+    get.mockImplementation(async (path) => {
+      if (path === "/api/v1/versions/{version_id}/entities") return ok(await entities.promise);
+      if (path === "/api/v1/versions/{version_id}/insights") return ok(await insights.promise);
+      throw new Error(`Unexpected generated GET: ${path}`);
     });
 
     let openSettled = false;
@@ -79,8 +103,12 @@ describe("saved Work open critical path", () => {
     });
 
     await vi.waitFor(() => {
-      expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/versions/midi-1/entities");
-      expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/versions/midi-1/insights");
+      expect(get).toHaveBeenCalledWith("/api/v1/versions/{version_id}/entities", {
+        params: { path: { version_id: "midi-1" } },
+      });
+      expect(get).toHaveBeenCalledWith("/api/v1/versions/{version_id}/insights", {
+        params: { path: { version_id: "midi-1" } },
+      });
     });
     // Give the outer async function a turn to settle. Before #710 this stays
     // false until both deferred child requests resolve, putting them directly
@@ -93,8 +121,8 @@ describe("saved Work open critical path", () => {
     // than creating duplicate entity/insight calls.
     const foregroundEntities = getEntities("midi-1");
     const foregroundInsights = getInsights("midi-1");
-    expect(mockApiFetch.mock.calls.filter(([url]) => url === "/api/v1/versions/midi-1/entities")).toHaveLength(1);
-    expect(mockApiFetch.mock.calls.filter(([url]) => url === "/api/v1/versions/midi-1/insights")).toHaveLength(1);
+    expect(get.mock.calls.filter(([path]) => path === "/api/v1/versions/{version_id}/entities")).toHaveLength(1);
+    expect(get.mock.calls.filter(([path]) => path === "/api/v1/versions/{version_id}/insights")).toHaveLength(1);
 
     entities.resolve([]);
     insights.resolve([]);
