@@ -48,6 +48,7 @@ jobs:
               '',
               1,
           )
+          text = text.replace('import numpy as np\n\n', '', 1)
 
           forbidden = (
               'handle_describe',
@@ -100,6 +101,7 @@ jobs:
 
           rm .github/workflows/audit-965-once.yml .github/workflows/apply-965-once.yml
           python -m pip install 'ruff==0.5.7'
+          ruff check --fix backend/domain/capabilities.py backend/tests/test_audio_structure_confidence.py backend/tests/test_capability_registration.py
           ruff format backend/domain/capabilities.py backend/tests/test_audio_structure_confidence.py backend/tests/test_capability_registration.py
           ruff check backend/domain/capabilities.py backend/tests/test_audio_structure_confidence.py backend/tests/test_capability_registration.py
           python -m compileall -q backend/domain/capabilities.py backend/tests/test_audio_structure_confidence.py backend/tests/test_capability_registration.py
