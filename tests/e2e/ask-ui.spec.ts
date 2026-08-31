@@ -110,7 +110,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await askGroundedStarter(page);
     await expect(page.getByText(/This passage stays centered on the tonic/)).toBeVisible({ timeout: 10_000 });
 
-    const toggleLoop = page.getByRole("button", { name: "Toggle loop" });
+    const toggleLoop = page.getByRole("button", { name: "Toggle selected passage loop" });
     const loopPressedBefore = (await toggleLoop.getAttribute("aria-pressed")) === "true";
     const jump = page.getByRole("button", { name: "Jump to time" });
     const loop = page.getByRole("button", { name: "Loop passage" });

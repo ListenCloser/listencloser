@@ -23,6 +23,7 @@ export default function Waveform({
   focusedAnnotationId,
   onSeek,
   onSelect,
+  onClearSelection,
   onAnnotationClick,
 }: {
   url: string;
@@ -34,6 +35,7 @@ export default function Waveform({
   focusedAnnotationId?: string | null;
   onSeek?: (time: number) => void;
   onSelect?: (start: number, end: number) => void;
+  onClearSelection?: () => void;
   onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -303,9 +305,11 @@ export default function Waveform({
           }
         }
       }
-      if (onSeek) {
-        onSeek(clickTime);
-      }
+      // A simple seek is also the natural way to leave a selected passage.
+      // Dragging still creates a new selection and annotation clicks still
+      // create their own evidence-backed selection.
+      onClearSelection?.();
+      onSeek?.(clickTime);
     }
   }
 
