@@ -186,6 +186,12 @@ RUN set -eux; \
 
 COPY . .
 
+# FluidSynth is the sole production MIDI-audio renderer. Exercise the exact
+# Python path used by Score/Synthesised playback so a missing library, broken
+# SoundFont, or renderer failure is caught while building the production image
+# instead of silently changing the user's audio at runtime.
+RUN python -c "import io, pretty_midi, soundfile as sf; from music_features import midi_to_wav; m=pretty_midi.PrettyMIDI(); i=pretty_midi.Instrument(program=0); i.notes.append(pretty_midi.Note(velocity=90,pitch=60,start=0.0,end=0.25)); m.instruments.append(i); b=io.BytesIO(); m.write(b); wav=midi_to_wav(b.getvalue()); audio,sr=sf.read(io.BytesIO(wav)); assert sr == 22050 and audio.size > 0"
+
 RUN addgroup --system --gid 1001 appuser \
     && adduser --disabled-password --gecos "" --uid 1001 --gid 1001 appuser \
     && chown -R appuser:appuser /app

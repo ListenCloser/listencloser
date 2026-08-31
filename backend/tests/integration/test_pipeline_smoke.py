@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import uuid
+import wave
 
 import pretty_midi
 import pytest
@@ -60,6 +61,17 @@ def _fixture_midi() -> bytes:
     return buffer.getvalue()
 
 
+def _fixture_wav() -> bytes:
+    """Return deterministic valid PCM without depending on a system synthesizer."""
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(22050)
+        wav.writeframes(b"\x00\x00" * 22050)
+    return buffer.getvalue()
+
+
 def _fixture_transcription() -> TranscriptionResult:
     midi = _fixture_midi()
     pm = pretty_midi.PrettyMIDI(io.BytesIO(midi))
@@ -70,7 +82,7 @@ def _fixture_transcription() -> TranscriptionResult:
     ]
     return TranscriptionResult(
         midi=midi,
-        wav=music_features.midi_to_wav(midi),
+        wav=_fixture_wav(),
         notes=notes,
         num_notes=len(notes),
         cleanup_report={"profile": "fixture"},
@@ -129,6 +141,7 @@ def test_understand_pipeline_persists_full_bundle(sb, monkeypatch):
     # Keep the durable score path real while replacing MuseScore conversion with
     # deterministic notation bytes, just as transcription inference is stubbed.
     monkeypatch.setattr(music_features, "notation_with_engine", _fixture_notation)
+    monkeypatch.setattr(music_features, "midi_to_wav", lambda *_args, **_kwargs: _fixture_wav())
     # The fixture already supplies valid WAV bytes; skip the ffmpeg decode so the
     # smoke test exercises persistence without an external audio toolchain.
     monkeypatch.setattr(
@@ -138,7 +151,7 @@ def test_understand_pipeline_persists_full_bundle(sb, monkeypatch):
     def _fake_download(version_obj, client):
         kind = capabilities._artifact_kind_for_version(client, version_obj.id)
         if kind == ArtifactKind.audio_original:
-            return music_features.midi_to_wav(_fixture_midi())
+            return _fixture_wav()
         return _fixture_midi()
 
     monkeypatch.setattr(capabilities, "download_version_bytes", _fake_download)
