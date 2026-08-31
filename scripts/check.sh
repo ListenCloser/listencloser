@@ -4,6 +4,7 @@ set -euo pipefail
 MODE="${1:-full}"
 PASS=0
 FAIL=0
+TOTAL_START=$SECONDS
 
 pass() { PASS=$((PASS + 1)); echo "  ✅ $1"; }
 fail() { FAIL=$((FAIL + 1)); echo "  ❌ $1"; }
@@ -48,53 +49,86 @@ fi
 run_frontend_build() {
   echo ""
   echo "── Frontend build ──"
-  if npm run build; then pass "build"; else fail "build"; fi
+  local started=$SECONDS
+  if npm run build; then
+    pass "build ($((SECONDS - started))s)"
+  else
+    fail "build ($((SECONDS - started))s)"
+  fi
 }
 
 run_frontend_static() {
   echo ""
   echo "── Frontend lint ──"
-  if npm run lint; then pass "lint"; else fail "lint"; fi
+  local started=$SECONDS
+  if npm run lint; then
+    pass "lint ($((SECONDS - started))s)"
+  else
+    fail "lint ($((SECONDS - started))s)"
+  fi
 
   echo ""
   echo "── Frontend typecheck ──"
-  if npm run typecheck; then pass "typecheck"; else fail "typecheck"; fi
+  started=$SECONDS
+  if npm run typecheck; then
+    pass "typecheck ($((SECONDS - started))s)"
+  else
+    fail "typecheck ($((SECONDS - started))s)"
+  fi
 }
 
 run_frontend_tests() {
   echo ""
   echo "── Frontend tests ──"
-  if npm test; then pass "vitest"; else fail "vitest"; fi
+  local started=$SECONDS
+  if npm test; then
+    pass "vitest ($((SECONDS - started))s)"
+  else
+    fail "vitest ($((SECONDS - started))s)"
+  fi
 }
 
 run_backend_sync() {
   echo ""
   echo "── Locked backend environment ──"
-  if uv sync --project backend --locked; then pass "uv sync --locked"; else fail "uv sync --locked"; fi
+  local started=$SECONDS
+  if uv sync --project backend --locked; then
+    pass "uv sync --locked ($((SECONDS - started))s)"
+  else
+    fail "uv sync --locked ($((SECONDS - started))s)"
+  fi
 }
 
 run_backend_static() {
   echo ""
   echo "── Backend static checks ──"
+  local started=$SECONDS
   if uv run --project backend --locked ruff check backend/ && \
      uv run --project backend --locked ruff format backend/ --check; then
-    pass "ruff"
+    pass "ruff ($((SECONDS - started))s)"
   else
-    fail "ruff"
+    fail "ruff ($((SECONDS - started))s)"
   fi
 
   echo ""
   echo "── Generated API contract ──"
-  if npm run api:check; then pass "api contract"; else fail "api contract"; fi
+  started=$SECONDS
+  if npm run api:check; then
+    pass "api contract ($((SECONDS - started))s)"
+  else
+    fail "api contract ($((SECONDS - started))s)"
+  fi
 }
 
 run_backend_tests() {
   echo ""
   echo "── Backend tests ──"
-  if uv run --project backend --locked python -m pytest backend/tests/ -v; then
-    pass "pytest"
+  local started=$SECONDS
+  if uv run --project backend --locked python -m pytest backend/tests/ -v \
+      --durations=20 --durations-min=1.0; then
+    pass "pytest ($((SECONDS - started))s)"
   else
-    fail "pytest"
+    fail "pytest ($((SECONDS - started))s)"
   fi
 }
 
@@ -104,15 +138,17 @@ run_backend_health() {
   local be_url="${MUSIC_BACKEND_URL:-}"
   if [ -n "$be_url" ]; then
     local health
+    local started=$SECONDS
     if health=$(curl -sf "$be_url/health/live"); then
-      pass "health/live ($health)"
+      pass "health/live ($health, $((SECONDS - started))s)"
     else
-      fail "health/live (unreachable)"
+      fail "health/live (unreachable, $((SECONDS - started))s)"
     fi
+    started=$SECONDS
     if health=$(curl -sf "$be_url/health/ready"); then
-      pass "health/ready ($health)"
+      pass "health/ready ($health, $((SECONDS - started))s)"
     else
-      fail "health/ready (unreachable)"
+      fail "health/ready (unreachable, $((SECONDS - started))s)"
     fi
   else
     echo "  ℹ️  MUSIC_BACKEND_URL not set — live health checks not requested"
@@ -122,7 +158,12 @@ run_backend_health() {
 run_e2e() {
   echo ""
   echo "── Playwright E2E ──"
-  if npx playwright test --reporter=line; then pass "e2e"; else fail "e2e"; fi
+  local started=$SECONDS
+  if npx playwright test --reporter=line; then
+    pass "e2e ($((SECONDS - started))s)"
+  else
+    fail "e2e ($((SECONDS - started))s)"
+  fi
 }
 
 echo "══════════════════════════════════════════"
@@ -163,6 +204,6 @@ esac
 
 echo ""
 echo "══════════════════════════════════════════"
-echo "  $PASS passed, $FAIL failed"
+echo "  $PASS passed, $FAIL failed in $((SECONDS - TOTAL_START))s"
 echo "══════════════════════════════════════════"
 exit "$FAIL"
