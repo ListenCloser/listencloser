@@ -21,6 +21,7 @@ from engines.structure.allin1_engine import AllInOneEngine
 
 class TestRegistryDefaults:
     @pytest.mark.integration
+    @pytest.mark.worker
     def test_default_transcription_is_basic_pitch(self):
         from engines.transcription.basic_pitch import BasicPitchEngine
 
@@ -28,6 +29,7 @@ class TestRegistryDefaults:
         assert isinstance(engine, BasicPitchEngine)
 
     @pytest.mark.integration
+    @pytest.mark.worker
     def test_default_beat_is_beat_this(self, monkeypatch):
         from engines.beats.beat_this_engine import BeatThisEngine
 
@@ -52,6 +54,7 @@ class TestRegistryDefaults:
         assert isinstance(engine, Music21HarmonyEngine)
 
     @pytest.mark.integration
+    @pytest.mark.worker
     def test_default_melody_is_lstom(self):
         from engines.melody.lstom_engine import LStoMMelodyEngine
 
@@ -61,6 +64,7 @@ class TestRegistryDefaults:
 
 class TestRegistryExplicitSelection:
     @pytest.mark.integration
+    @pytest.mark.worker
     def test_select_basic_pitch_explicitly(self):
         from engines.transcription.basic_pitch import BasicPitchEngine
 
@@ -72,6 +76,7 @@ class TestRegistryExplicitSelection:
         assert isinstance(engine, LibrosaBeatEngine)
 
     @pytest.mark.integration
+    @pytest.mark.worker
     def test_select_beat_this_explicitly(self):
         from engines.beats.beat_this_engine import BeatThisEngine
 
@@ -97,6 +102,7 @@ class TestRegistryExplicitSelection:
         assert isinstance(engine, SkylineMelodyEngine)
 
     @pytest.mark.integration
+    @pytest.mark.worker
     def test_env_var_selection(self, monkeypatch):
         from engines.transcription.basic_pitch import BasicPitchEngine
 
@@ -107,6 +113,7 @@ class TestRegistryExplicitSelection:
 
 class TestProvenance:
     @pytest.mark.integration
+    @pytest.mark.worker
     def test_basic_pitch_provenance(self):
         from engines.transcription.basic_pitch import BasicPitchEngine
 
@@ -128,6 +135,7 @@ class TestProvenance:
         assert p.engine == "music21"
 
     @pytest.mark.integration
+    @pytest.mark.worker
     def test_provenance_to_dict(self):
         from engines.transcription.basic_pitch import BasicPitchEngine
 
