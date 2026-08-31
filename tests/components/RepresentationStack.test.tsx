@@ -13,7 +13,7 @@ vi.mock("@/lib/score-renderer", () => ({
   preloadScoreRenderer: scoreRendererMocks.preloadScoreRenderer,
 }));
 
-vi.mock("@/lib/representations", () => {
+vi.mock("@/components/workspace/representations/registry", () => {
   const definitions = [
     {
       id: "listen",

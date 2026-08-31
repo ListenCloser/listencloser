@@ -1,11 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
-import type { ComponentType } from "react";
+import { useMemo, type ComponentType } from "react";
+import PianoRoll from "./PianoRoll";
+import Spectrogram from "./Spectrogram";
+import Waveform from "./Waveform";
+import SheetMusic from "@/components/SheetMusic";
+import { extractAnnotations } from "@/lib/analysis-annotations";
+import {
+  REPRESENTATION_CATALOG,
+  type RepresentationId,
+  type RepresentationMetadata,
+} from "@/lib/representations";
 import type { RepresentationAvailability } from "@/lib/representation-availability";
-import { useTimeline } from "@/lib/stores/timeline";
-import { useTransport } from "@/lib/stores/transport";
-import { useWorkspace } from "@/lib/stores/workspace";
+import { extractObservedPulseGrid } from "@/lib/pulse-grid";
 import {
   composeMeasureSelection,
   composeNoteSelection,
@@ -13,26 +20,11 @@ import {
   measureRangeFromTime,
   noteIdsInRange,
 } from "@/lib/selection";
-import { extractAnnotations } from "@/lib/analysis-annotations";
-import { extractObservedPulseGrid } from "@/lib/pulse-grid";
-import Waveform from "@/components/Waveform";
-import PianoRoll from "@/components/PianoRoll";
-import SheetMusic from "@/components/SheetMusic";
-import Spectrogram from "@/components/Spectrogram";
+import { useTimeline } from "@/lib/stores/timeline";
+import { useTransport } from "@/lib/stores/transport";
+import { useWorkspace } from "@/lib/stores/workspace";
 
-
-/**
- * The representation registry.
- *
- * The workspace session shows exactly ONE representation at a time, selected
- * by `activeRepresentation` on the workspace store. New views (spectrogram,
- * chromagram, pitch contour, structure, …) are registered here and become
- * reachable through the same navigation without touching RepresentationStack.
- *
- * The id field is a stable key (may differ from the user-facing title).
- * The title is the user-facing label shown in the tab bar.
- */
-export type RepresentationId = "listen" | "piano_roll" | "score" | "spectrogram";
+export type { RepresentationId } from "@/lib/representations";
 
 export type RepresentationViewProps = {
   /** Whether this representation is the currently visible workspace tab. */
@@ -41,13 +33,7 @@ export type RepresentationViewProps = {
   orientationCue?: boolean;
 };
 
-export type RepresentationDefinition = {
-  id: RepresentationId;
-  title: string;
-  description: string;
-  /** Whether this view follows the moving playhead. */
-  temporal: boolean;
-  available: (availability: RepresentationAvailability) => boolean;
+export type RepresentationDefinition = RepresentationMetadata & {
   component: ComponentType<RepresentationViewProps>;
 };
 
@@ -65,7 +51,7 @@ function WaveformView({ active, orientationCue = false }: RepresentationViewProp
     if (!selection?.timeRange || !annotations.length) return null;
     const { start, end } = selection.timeRange;
     const match = annotations.find(
-      (a) => a.startSeconds < end && a.endSeconds > start,
+      (annotation) => annotation.startSeconds < end && annotation.endSeconds > start,
     );
     return match?.id ?? null;
   }, [selection, annotations]);
@@ -89,9 +75,13 @@ function WaveformView({ active, orientationCue = false }: RepresentationViewProp
         onSelect={(start, end) =>
           setSelection(composeTimeSelection(start, end, [], "waveform"))
         }
-        onAnnotationClick={(ann) => {
+        onAnnotationClick={(annotation) => {
           setSelection({
-            timeRange: { start: ann.startSeconds, end: ann.endSeconds, domain: "performance" },
+            timeRange: {
+              start: annotation.startSeconds,
+              end: annotation.endSeconds,
+              domain: "performance",
+            },
             provenance: { origin: "waveform", timeExact: true, measureApproximate: false },
           });
         }}
@@ -120,14 +110,13 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
     if (!selection?.timeRange || !annotations.length) return null;
     const { start, end } = selection.timeRange;
     const match = annotations.find(
-      (a) => a.startSeconds < end && a.endSeconds > start,
+      (annotation) => annotation.startSeconds < end && annotation.endSeconds > start,
     );
     return match?.id ?? null;
   }, [selection, annotations]);
-  const selectedNoteIds =
-    selection?.timeRange
-      ? noteIdsInRange(notes, selection.timeRange.start, selection.timeRange.end)
-      : [];
+  const selectedNoteIds = selection?.timeRange
+    ? noteIdsInRange(notes, selection.timeRange.start, selection.timeRange.end)
+    : [];
   return (
     <div className="representation-body">
       <PianoRoll
@@ -149,9 +138,13 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
           const composed = composeNoteSelection(notes, ids);
           if (composed) setSelection(composed);
         }}
-        onAnnotationClick={(ann) => {
+        onAnnotationClick={(annotation) => {
           setSelection({
-            timeRange: { start: ann.startSeconds, end: ann.endSeconds, domain: "performance" },
+            timeRange: {
+              start: annotation.startSeconds,
+              end: annotation.endSeconds,
+              domain: "performance",
+            },
             provenance: { origin: "piano_roll", timeExact: true, measureApproximate: false },
           });
         }}
@@ -172,13 +165,18 @@ function SpectrogramView({ active }: RepresentationViewProps) {
   const selection = workspace.selection;
   const focusedAnnotationId = useMemo(() => {
     if (!selection?.timeRange || !annotations.length) return null;
-    return annotations.find((annotation) =>
-      annotation.startSeconds < selection.timeRange!.end
-      && annotation.endSeconds > selection.timeRange!.start,
+    return annotations.find(
+      (annotation) =>
+        annotation.startSeconds < selection.timeRange!.end
+        && annotation.endSeconds > selection.timeRange!.start,
     )?.id ?? null;
   }, [annotations, selection]);
   if (!waveform?.audioUrl) {
-    return <div className="representation-body"><p className="muted">No audio URL provided for spectrogram.</p></div>;
+    return (
+      <div className="representation-body">
+        <p className="muted">No audio URL provided for spectrogram.</p>
+      </div>
+    );
   }
   return (
     <div className="representation-body">
@@ -190,7 +188,9 @@ function SpectrogramView({ active }: RepresentationViewProps) {
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
-        onSelect={(start, end) => setSelection(composeTimeSelection(start, end, [], "spectrogram"))}
+        onSelect={(start, end) =>
+          setSelection(composeTimeSelection(start, end, [], "spectrogram"))
+        }
       />
     </div>
   );
@@ -205,7 +205,10 @@ function ScoreView({ active, orientationCue = false }: RepresentationViewProps) 
     ? measureStarts[measureStarts.length - 1] - measureStarts[measureStarts.length - 2]
     : 2;
   const scoreDuration = measureStarts.length > 0
-    ? Math.max(transport.duration || 0, measureStarts[measureStarts.length - 1] + Math.max(finalMeasureSpan, 0.25))
+    ? Math.max(
+        transport.duration || 0,
+        measureStarts[measureStarts.length - 1] + Math.max(finalMeasureSpan, 0.25),
+      )
     : (transport.duration || null);
   const selection = workspace.selection;
   const inspectorOpen = !workspace.inspectorCollapsed;
@@ -213,19 +216,22 @@ function ScoreView({ active, orientationCue = false }: RepresentationViewProps) 
     () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
     [workspace.insights, inspectorOpen],
   );
-  // Derive focused annotation from selection overlap
   const focusedAnnotationId = useMemo(() => {
     if (!selection?.timeRange || !annotations.length) return null;
     const { start, end } = selection.timeRange;
     const match = annotations.find(
-      (a) => a.startSeconds < end && a.endSeconds > start,
+      (annotation) => annotation.startSeconds < end && annotation.endSeconds > start,
     );
     return match?.id ?? null;
   }, [selection, annotations]);
   const selectedMeasures = selection?.measureRange
     ? selection.measureRange
     : selection?.timeRange
-      ? measureRangeFromTime(selection.timeRange.start, selection.timeRange.end, measureStarts)
+      ? measureRangeFromTime(
+          selection.timeRange.start,
+          selection.timeRange.end,
+          measureStarts,
+        )
       : null;
   return (
     <div className="representation-body">
@@ -237,21 +243,21 @@ function ScoreView({ active, orientationCue = false }: RepresentationViewProps) 
         measureStarts={measureStarts}
         scoreDuration={scoreDuration}
         selectedMeasures={selectedMeasures}
-        measureApproximate={Boolean(
-          selection?.timeRange && !selection?.measureRange,
-        )}
+        measureApproximate={Boolean(selection?.timeRange && !selection?.measureRange)}
         emphasizeSelection={active && orientationCue}
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
         onSelectMeasures={(start, end) =>
-          setSelection(
-            composeMeasureSelection(start, end, measureStarts, scoreDuration),
-          )
+          setSelection(composeMeasureSelection(start, end, measureStarts, scoreDuration))
         }
-        onAnnotationClick={(ann) => {
+        onAnnotationClick={(annotation) => {
           setSelection({
-            timeRange: { start: ann.startSeconds, end: ann.endSeconds, domain: "notation" },
+            timeRange: {
+              start: annotation.startSeconds,
+              end: annotation.endSeconds,
+              domain: "notation",
+            },
             provenance: { origin: "score", timeExact: false, measureApproximate: true },
           });
         }}
@@ -260,45 +266,20 @@ function ScoreView({ active, orientationCue = false }: RepresentationViewProps) 
   );
 }
 
-export const REPRESENTATIONS: readonly RepresentationDefinition[] = [
-  {
-    id: "listen",
-    title: "Waveform",
-    description: "Audio waveform visualization with time ruler and selection.",
-    temporal: true,
-    available: (availability) => availability.originalAudio,
-    component: WaveformView,
-  },
-  {
-    id: "piano_roll",
-    title: "Piano Roll",
-    description: "Every detected note with its timing and pitch.",
-    temporal: true,
-    available: (availability) => availability.performanceMidi,
-    component: PianoRollView,
-  },
-  {
-    id: "score",
-    title: "Score",
-    description: "Score playback follows the written timing.",
-    temporal: true,
-    available: (availability) => availability.score,
-    component: ScoreView,
-  },
-  {
-    id: "spectrogram",
-    title: "Spectrogram",
-    description: "Frequency over performance time with shared playback and selection.",
-    temporal: true,
-    available: (availability) => availability.originalAudio,
-    component: SpectrogramView,
-  },
-];
+const VIEW_COMPONENTS: Record<RepresentationId, ComponentType<RepresentationViewProps>> = {
+  listen: WaveformView,
+  piano_roll: PianoRollView,
+  score: ScoreView,
+  spectrogram: SpectrogramView,
+};
 
-export function availableRepresentations(availability: RepresentationAvailability): RepresentationDefinition[] {
+/** Workspace-owned renderer registry built from the shared pure catalog. */
+export const REPRESENTATIONS: readonly RepresentationDefinition[] = REPRESENTATION_CATALOG.map(
+  (metadata) => ({ ...metadata, component: VIEW_COMPONENTS[metadata.id] }),
+);
+
+export function availableRepresentations(
+  availability: RepresentationAvailability,
+): RepresentationDefinition[] {
   return REPRESENTATIONS.filter((definition) => definition.available(availability));
-}
-
-export function representationById(id: RepresentationId): RepresentationDefinition | undefined {
-  return REPRESENTATIONS.find((definition) => definition.id === id);
 }

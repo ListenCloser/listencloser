@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import PianoRoll from '@/components/PianoRoll'
+import PianoRoll from '@/components/workspace/representations/PianoRoll'
 
 const mockNotes = [
   { id: 'c4', pitch: 60, start: 0, end: 0.5, velocity: 80 },

@@ -8,7 +8,7 @@ import {
   type RepresentationEntry,
 } from "@/lib/stores/workspace";
 
-vi.mock("@/lib/representations", () => {
+vi.mock("@/components/workspace/representations/registry", () => {
   const definitions = [
     {
       id: "listen",

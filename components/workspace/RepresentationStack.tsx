@@ -8,7 +8,7 @@ import {
   REPRESENTATIONS,
   availableRepresentations,
   type RepresentationId,
-} from "@/lib/representations";
+} from "./representations/registry";
 import { preloadScoreRenderer } from "@/lib/score-renderer";
 import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";

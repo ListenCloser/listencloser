@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
-import Waveform from "@/components/Waveform";
+import Waveform from "@/components/workspace/representations/Waveform";
 import { getDecodedAudio } from "@/lib/audio-buffer-cache";
 
 vi.mock("@/lib/audio-buffer-cache", () => ({
