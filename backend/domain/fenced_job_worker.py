@@ -261,8 +261,9 @@ class _HandlerStorageBucket:
 
     def upload(self, path: str, *args: Any, **kwargs: Any) -> Any:
         fenced_path = self._client.scope_storage_key(path)
+        result = self._bucket.upload(fenced_path, *args, **kwargs)
         self._client.remember_storage_key(path, fenced_path)
-        return self._bucket.upload(fenced_path, *args, **kwargs)
+        return result
 
     def remove(self, _paths: list[str], *_args: Any, **_kwargs: Any) -> list[Any]:
         """Leave cleanup bytes for GC instead of racing a successor attempt.
