@@ -28,6 +28,7 @@ from domain.models import (
     Entity,
     Insight,
     Job,
+    JobStage,
     Project,
     Version,
     Work,
@@ -122,7 +123,7 @@ class JobStateResponse(BaseModel):
     id: str
     workflow_id: str
     capability: str
-    stage: str
+    stage: JobStage
     progress: float
     message: str
     error: str | None = None
@@ -192,7 +193,7 @@ def _job_state(job: Job) -> JobStateResponse:
         id=str(job.id),
         workflow_id=str(job.workflow_id),
         capability=job.capability.name,
-        stage=job.lifecycle.current.value,
+        stage=job.lifecycle.current,
         progress=job.lifecycle.progress,
         message=job.lifecycle.message,
         error=job.error,

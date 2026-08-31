@@ -1859,8 +1859,7 @@
             "type": "number"
           },
           "stage": {
-            "title": "Stage",
-            "type": "string"
+            "$ref": "#/components/schemas/JobStage"
           },
           "workflow_id": {
             "title": "Workflow Id",

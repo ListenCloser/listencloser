@@ -236,11 +236,12 @@ export async function getWorkBundle(workId: string): Promise<WorkBundle> {
 }
 
 export async function deleteWork(workId: string): Promise<{ deleted: string }> {
-  const result = await apiFetch<{ deleted: string }>(`/api/v1/works/${workId}`, {
-    method: "DELETE",
+  const result = await openapiClient.DELETE("/api/v1/works/{work_id}", {
+    params: { path: { work_id: workId } },
   });
+  const data = requireOpenApiData(result);
   invalidateWorkCache(cacheEpoch(), workId);
-  return result;
+  return data;
 }
 
 function rememberUploadedVersion(result: { artifact: Artifact; version: Version }): { artifact: Artifact; version: Version } {
@@ -354,22 +355,27 @@ export async function startCompareWorkflow(
 }
 
 export async function getJob(jobId: string): Promise<JobStatus> {
-  return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}`);
+  const result = await openapiClient.GET("/api/v1/jobs/{job_id}", {
+    params: { path: { job_id: jobId } },
+  });
+  return requireOpenApiData(result);
 }
 
 export async function cancelJob(jobId: string): Promise<JobStatus> {
-  const result = await apiFetch<JobStatus>(`/api/v1/jobs/${jobId}/cancel`, {
-    method: "POST",
+  const result = await openapiClient.POST("/api/v1/jobs/{job_id}/cancel", {
+    params: { path: { job_id: jobId } },
   });
+  const data = requireOpenApiData(result);
   clearWorkDataCache();
-  return result;
+  return data;
 }
 
 export async function retryJob(jobId: string): Promise<JobStatus> {
   clearWorkDataCache();
-  return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}/retry`, {
-    method: "POST",
+  const result = await openapiClient.POST("/api/v1/jobs/{job_id}/retry", {
+    params: { path: { job_id: jobId } },
   });
+  return requireOpenApiData(result);
 }
 
 export async function getVersionResource(versionId: string): Promise<VersionResource> {
