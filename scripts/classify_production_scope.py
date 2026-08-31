@@ -27,10 +27,16 @@ FRONTEND_DEPLOY_FILES = {
     "vercel.json",
 }
 FRONTEND_DEPLOY_PREFIXES = ("app/", "components/", "lib/", "public/")
+BACKEND_DATABASE_DEPLOY_FILES = {
+    ".github/workflows/deploy-backend.yml",
+    "scripts/classify_production_scope.py",
+}
+DATABASE_DEPLOY_FILES = {"supabase/config.toml"}
+DATABASE_DEPLOY_PREFIXES = ("supabase/migrations/",)
 
 # Vercel skipping is deliberately stricter than generic production classification.
 # Only paths already excluded from the Vercel source context, obvious docs, or paths
-# owned exclusively by the backend deploy contract may skip a frontend build.
+# owned exclusively by the backend/database deploy contract may skip a frontend build.
 VERCEL_SAFE_NONFRONTEND_PREFIXES = ("backend/", "docs/", "soundfonts/", "tests/")
 
 
@@ -45,8 +51,16 @@ def _is_backend_runtime(path: str) -> bool:
 def _needs_backend_deploy(path: str) -> bool:
     return (
         _is_backend_runtime(path)
-        or path.startswith("supabase/migrations/")
-        or path in {".github/workflows/deploy-backend.yml", "scripts/deploy.sh"}
+        or path in BACKEND_DATABASE_DEPLOY_FILES
+        or path in {"scripts/deploy.sh", "scripts/deploy-preflight.sh"}
+    )
+
+
+def _needs_database_deploy(path: str) -> bool:
+    return (
+        path.startswith(DATABASE_DEPLOY_PREFIXES)
+        or path in DATABASE_DEPLOY_FILES
+        or path in BACKEND_DATABASE_DEPLOY_FILES
     )
 
 
@@ -61,6 +75,8 @@ def production_components(paths: Iterable[str]) -> set[str]:
         result.add("frontend")
     if any(_needs_backend_deploy(path) for path in files):
         result.add("backend")
+    if any(_needs_database_deploy(path) for path in files):
+        result.add("database")
     return result
 
 
@@ -69,7 +85,7 @@ def _is_known_vercel_nonfrontend(path: str) -> bool:
         return True
     if "/" not in path and path.endswith(".md"):
         return True
-    return _needs_backend_deploy(path)
+    return _needs_backend_deploy(path) or _needs_database_deploy(path)
 
 
 def should_ignore_vercel_build(paths: Iterable[str]) -> bool:
@@ -103,11 +119,24 @@ def _self_test() -> None:
     assert production_components(["app/api/health/live/route.ts"]) == {"frontend"}
     assert production_components(["vercel.json"]) == {"frontend"}
     assert production_components(["backend/domain/job_worker.py"]) == {"backend"}
-    assert production_components(["supabase/migrations/20260828.sql"]) == {"backend"}
+    assert production_components(["supabase/migrations/20260828.sql"]) == {"database"}
+    assert production_components(["supabase/config.toml"]) == {"database"}
     assert production_components(["scripts/deploy.sh"]) == {"backend"}
+    assert production_components(["scripts/deploy-preflight.sh"]) == {"backend"}
+    assert production_components([".github/workflows/deploy-backend.yml"]) == {
+        "backend",
+        "database",
+    }
+    assert production_components(["scripts/classify_production_scope.py"]) == {
+        "backend",
+        "database",
+    }
     assert production_components(
         ["components/workspace/Inspector.tsx", "backend/domain/job_worker.py"]
     ) == {"frontend", "backend"}
+    assert production_components(
+        ["backend/domain/job_worker.py", "supabase/migrations/20260828.sql"]
+    ) == {"backend", "database"}
 
     assert should_ignore_vercel_build(["README.md"])
     assert should_ignore_vercel_build(["docs/PLATFORM.md"])
@@ -115,6 +144,7 @@ def _self_test() -> None:
     assert should_ignore_vercel_build(["backend/domain/job_worker.py"])
     assert should_ignore_vercel_build(["tests/e2e/example.spec.ts"])
     assert should_ignore_vercel_build(["supabase/migrations/20260828.sql"])
+    assert should_ignore_vercel_build(["supabase/config.toml"])
     assert should_ignore_vercel_build(["scripts/deploy.sh"])
     assert not should_ignore_vercel_build([])
     assert not should_ignore_vercel_build(["components/workspace/Inspector.tsx"])

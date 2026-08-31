@@ -43,16 +43,21 @@ jobs:
           scope="$(python3 scripts/classify_production_scope.py --production-scope <"$changed")"
           frontend=false
           backend=false
+          database=false
           if grep -qx 'frontend' <<<"$scope"; then
             frontend=true
           fi
           if grep -qx 'backend' <<<"$scope"; then
             backend=true
           fi
+          if grep -qx 'database' <<<"$scope"; then
+            database=true
+          fi
 
           echo "frontend=$frontend" >>"$GITHUB_OUTPUT"
           echo "backend=$backend" >>"$GITHUB_OUTPUT"
-          echo "Production scope: frontend=$frontend backend=$backend"
+          echo "database=$database" >>"$GITHUB_OUTPUT"
+          echo "Production scope: frontend=$frontend backend=$backend database=$database"
 
       - name: Wait for Vercel to deploy this exact main SHA
         if: steps.scope.outputs.frontend == 'true'
@@ -92,8 +97,8 @@ jobs:
             sleep 10
           done
 
-      - name: Wait for exact backend deploy workflow to finish
-        if: steps.scope.outputs.backend == 'true'
+      - name: Wait for exact backend/database deploy workflow to finish
+        if: steps.scope.outputs.backend == 'true' || steps.scope.outputs.database == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
