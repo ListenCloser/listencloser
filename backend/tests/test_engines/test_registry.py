@@ -112,9 +112,11 @@ class TestProvenance:
         # library_version may be "unknown" if librosa not installed locally
 
     def test_musescore_provenance(self):
-        engine = MuseScoreNotationEngine()
+        engine = MuseScoreNotationEngine(executable="/test/musescore")
+        engine._version = "MuseScore Studio 4 test"
         p = engine.provenance
         assert p.engine == "musescore"
+        assert p.library_version == "MuseScore Studio 4 test"
 
     def test_provenance_to_dict(self):
         engine = BasicPitchEngine()
