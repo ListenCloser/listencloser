@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          uv sync --project backend --locked --no-group worker
+          uv sync --project backend --locked
           uv run --project backend python backend/export_openapi.py
           git rm .github/workflows/_tmp-regenerate-openapi.yml
           git add openapi/openapi.json
