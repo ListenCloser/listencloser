@@ -2,7 +2,7 @@
 
 **Status: DECISION MADE — PRODUCTION PIANO ENGINE = TRANSKUN**
 
-Supersedes the "blocked" status in `transcription_bakeoff_followup.md` (Section 3).
+Supersedes the earlier diagnostic-only blocked state before scored solo-piano ground truth was available.
 Scored solo-piano ground truth (MAESTRO v3.0.0 test split, 15 clips) is now
 available and the three candidate engines were evaluated on those exact clips.
 
@@ -75,13 +75,16 @@ Transkun wins every single clip on note F1.
   dragged down by offset/segmentation mismatches (e.g. maestro_test_14 note
   F1 = 0.000, maestro_test_01 = 0.160). It trails transkun on 15/15 clips.
 
-## 4. Recommendation
+## 4. Current product consequence
 
-**Select transkun as the production piano transcription engine**, replacing
-Basic Pitch for the `solo_piano` path:
+The later production-faithful held-out validation in #609/#512 confirmed the
+same bounded conclusion through the exact product profiles.
 
-1. Integrate `TranskunAdapter` into the production `music_features`
-   `transcribe_with_engine` path (currently Basic Pitch).
-2. Keep Basic Pitch as the general-purpose fallback for non-piano material.
-3. Re-run the full-mix BabySlakh benchmark (n=5) is superseded — those were
-   not piano material; do not use them for the piano decision.
+1. Keep the explicit `solo_piano → Transkun 2.0.1` route.
+2. Keep Basic Pitch for generic `auto` / non-piano material; this result does
+   not justify applying piano assumptions to mixed audio.
+3. Do not rerun the BabySlakh full-mix comparison to choose a piano engine —
+   those clips are not piano material.
+4. Reopen engine comparison only for a materially different model/domain
+   hypothesis; current #512 work is product routing/UX and evidence-backed
+   cleanup ablation, not another generic piano bakeoff.
