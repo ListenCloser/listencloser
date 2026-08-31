@@ -6,4 +6,5 @@ exclude_loopback = true
 exclude = [
   '^https://www\.upf\.edu/web/mtg/about$', # upstream returns 403 to automated clients
   '^https://helpx\.adobe\.com/lightroom/mobile/get-started/workspace-overview\.html$', # live page, repeated HTTP/2 runner failure
+  '^https://music-ir\.org/mirex/wiki/2025(?:%3A|:).*$', # live MIREX 2025 wiki; repeated GitHub Actions timeouts on independent scans
 ]

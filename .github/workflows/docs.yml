@@ -24,14 +24,37 @@ jobs:
           jobSummary: false
           checkbox: false
           output: lychee/out.json
+      # External documentation hosts occasionally time out from GitHub runners.
+      # Retry a failed scan once from a fresh process so transient network errors
+      # do not block the merge queue; persistent broken links still fail twice.
+      - name: Retry Markdown links after transient failure
+        id: lychee_retry
+        if: steps.lychee.outputs.exit_code != '0'
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          lycheeVersion: v0.24.2
+          args: --config .lychee.toml --no-progress './**/*.md'
+          fail: false
+          failIfEmpty: true
+          format: json
+          jobSummary: false
+          checkbox: false
+          output: lychee/retry.json
       - name: Upload link report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lychee-report-${{ github.run_attempt }}
-          path: lychee/out.json
+          path: lychee/*.json
           if-no-files-found: error
           retention-days: 7
       - name: Require clean link baseline
         if: always()
-        run: test '${{ steps.lychee.outputs.exit_code }}' = '0'
+        env:
+          FIRST_EXIT: ${{ steps.lychee.outputs.exit_code }}
+          RETRY_EXIT: ${{ steps.lychee_retry.outputs.exit_code }}
+        run: |
+          if [ "$FIRST_EXIT" = '0' ]; then
+            exit 0
+          fi
+          test "$RETRY_EXIT" = '0'
