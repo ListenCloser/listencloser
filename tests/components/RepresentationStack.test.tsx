@@ -13,7 +13,7 @@ vi.mock("@/lib/score-renderer", () => ({
   preloadScoreRenderer: scoreRendererMocks.preloadScoreRenderer,
 }));
 
-vi.mock("@/lib/representations", () => {
+vi.mock("@/components/workspace/representations/registry", () => {
   const definitions = [
     {
       id: "listen",
@@ -53,7 +53,6 @@ vi.mock("@/lib/representations", () => {
   return {
     REPRESENTATIONS: definitions,
     availableRepresentations: () => availableDefinitions,
-    representationById: (id: string) => definitions.find((definition) => definition.id === id),
   };
 });
 
