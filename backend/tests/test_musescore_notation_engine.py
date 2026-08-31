@@ -5,6 +5,7 @@ import subprocess
 import pytest
 
 from engines.notation.musescore_engine import MuseScoreNotationEngine
+from engines.registry import get_notation_engine
 
 MIDI_BYTES = b"MThd" + b"\x00" * 32
 MUSICXML_BYTES = b'<?xml version="1.0"?><score-partwise version="4.0"></score-partwise>'
@@ -92,3 +93,11 @@ def test_musescore_adapter_rejects_non_midi_input():
 
     with pytest.raises(ValueError, match="must be a MIDI file"):
         engine.convert(b"not midi", [])
+
+
+def test_musescore_is_the_only_supported_notation_engine(monkeypatch):
+    monkeypatch.delenv("NOTATION_ENGINE", raising=False)
+
+    assert isinstance(get_notation_engine(), MuseScoreNotationEngine)
+    with pytest.raises(ValueError, match="Unknown notation engine: music21"):
+        get_notation_engine("music21")

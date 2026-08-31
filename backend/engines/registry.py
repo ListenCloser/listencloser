@@ -26,7 +26,6 @@ from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.lstom_engine import LStoMMelodyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.musescore_engine import MuseScoreNotationEngine
-from engines.notation.music21_engine import Music21NotationEngine
 from engines.structure.allin1_engine import AllInOneEngine
 from engines.transcription.basic_pitch import BasicPitchEngine
 from engines.transcription.transkun import TranskunEngine
@@ -47,7 +46,6 @@ def get_transcription_engine(
         onset_threshold: Onset threshold for engines that support it.
         frame_threshold: Frame threshold for engines that support it.
     """
-    # Profile-based routing (only applies when no explicit name given)
     if name is None:
         if profile == "solo_piano":
             name = "transkun"
@@ -102,14 +100,11 @@ def get_structure_engine(name: str | None = None) -> StructureEngine:
 def get_notation_engine(name: str | None = None) -> NotationEngine:
     """Resolve the production score-interpretation engine.
 
-    MuseScore owns the default derived Score interpretation after the bounded
-    real-piano product gate in #700/#707. ``NOTATION_ENGINE=music21`` remains
-    the explicit rollback while the old custom quantization/staffing path is
-    retained for the bounded rollout window.
+    MuseScore is the sole supported production notation interpreter after the
+    #700/#707/#800 rollout. Historical bespoke/music21 score interpretation has
+    been retired rather than maintained as a dormant second implementation.
     """
     name = name or os.environ.get("NOTATION_ENGINE", "musescore")
-    if name == "music21":
-        return Music21NotationEngine()
     if name == "musescore":
         return MuseScoreNotationEngine()
     raise ValueError(f"Unknown notation engine: {name}")
@@ -146,8 +141,6 @@ def get_melody_engine(
         if profile == "pop":
             name = "lstom"
         elif profile == "classical":
-            # Classical not formally validated; use LStoM with experimental status.
-            # Do NOT fall back to skyline — it performs substantially worse.
             name = "lstom"
         elif profile in ("auto", None):
             name = os.environ.get("MELODY_ENGINE", "lstom")
