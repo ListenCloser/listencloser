@@ -70,6 +70,7 @@ subgraph lib["lib"]
   lib_openapi_client_ts["openapi-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
   lib_public_recordings_ts["public-recordings.ts"]
+  lib_pulse_grid_ts["pulse-grid.ts"]
   lib_query_client_ts["query-client.ts"]
   lib_relation_api_client_ts["relation-api-client.ts"]
   lib_representation_availability_ts["representation-availability.ts"]
@@ -165,6 +166,7 @@ lib_representations_tsx-->components_SheetMusic_tsx
 lib_representations_tsx-->components_Spectrogram_tsx
 lib_representations_tsx-->components_Waveform_tsx
 lib_representations_tsx-->lib_analysis_annotations_ts
+lib_representations_tsx-->lib_pulse_grid_ts
 lib_representations_tsx-->lib_selection_ts
 lib_representations_tsx-->lib_stores_
 lib_server_state_ts-->lib_api_client_ts

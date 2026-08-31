@@ -3,7 +3,7 @@
  *
  * Visual language:
  * - Quiet chromatic lanes with stronger octave/C anchors for pitch orientation
- * - Existing uniform tempo scaffold only; no fabricated subdivisions or measure grid
+ * - Observed beat/downbeat coordinates when available; conservative tempo scaffold otherwise
  * - Real note events dominate the grid, with velocity preserved through opacity
  * - Shared playback/selection tokens for active time and user-selected evidence
  * - Sparse wall-clock labels for orientation without implying musical structure
@@ -22,9 +22,22 @@ const PPQ = 16;
 const LABEL_W = 36;
 const TOP_PAD = 18;
 
+function validSecondsGrid(values: number[] | undefined, minimumPoints = 1): number[] {
+  if (!values || values.length < minimumPoints) return [];
+  const result: number[] = [];
+  for (const value of values) {
+    if (!Number.isFinite(value) || value < 0) return [];
+    if (result.length > 0 && value <= result[result.length - 1]) return [];
+    result.push(value);
+  }
+  return result;
+}
+
 export default function PianoRoll({
   notes,
   bpm = 120,
+  beatTimes,
+  downbeatTimes,
   playheadTime = 0,
   annotations,
   focusedAnnotationId,
@@ -33,11 +46,12 @@ export default function PianoRoll({
   selectedNoteIds,
   emphasizeSelection = false,
   onSelectRange,
-  onClearSelection,
   onAnnotationClick,
 }: {
   notes: Note[];
   bpm?: number;
+  beatTimes?: number[];
+  downbeatTimes?: number[];
   playheadTime?: number;
   annotations?: AnalysisAnnotation[];
   focusedAnnotationId?: string | null;
@@ -47,7 +61,6 @@ export default function PianoRoll({
   emphasizeSelection?: boolean;
   onSelectRange?: (start: number, end: number) => void;
   onSelectNotes?: (ids: string[]) => void;
-  onClearSelection?: () => void;
   onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,9 +75,17 @@ export default function PianoRoll({
 
   if (!notes.length) return <p className="muted">No notes to display.</p>;
 
+  const observedBeats = validSecondsGrid(beatTimes, 2);
+  const observedDownbeats = observedBeats.length > 0
+    ? validSecondsGrid(downbeatTimes)
+    : [];
   const sorted = [...notes].sort((a, b) => a.start - b.start);
   const endTime = sorted.reduce((t, n) => Math.max(t, n.end), 0);
-  const totalBeats = (endTime / 60) * bpm;
+  const displayEndTime = Math.max(
+    endTime,
+    observedBeats.length > 0 ? observedBeats[observedBeats.length - 1] : 0,
+  );
+  const totalBeats = (displayEndTime / 60) * bpm;
   const totalPx = Math.max(totalBeats * PPQ, 300);
 
   const minPitch = Math.min(...notes.map((n) => n.pitch));
@@ -85,9 +106,9 @@ export default function PianoRoll({
   const h = rows.length * rowH + TOP_PAD;
   const W = LABEL_W + totalPx;
   const playheadX = LABEL_W + (playheadTime / 60) * bpm * PPQ;
-  const timeLabelStep = endTime <= 40 ? 5 : endTime <= 120 ? 10 : 30;
+  const timeLabelStep = displayEndTime <= 40 ? 5 : displayEndTime <= 120 ? 10 : 30;
   const timeLabels = Array.from(
-    { length: Math.floor(endTime / timeLabelStep) + 1 },
+    { length: Math.floor(displayEndTime / timeLabelStep) + 1 },
     (_, index) => index * timeLabelStep,
   );
 
@@ -151,10 +172,9 @@ export default function PianoRoll({
         }
       }
     }
-    // A plain click is a seek, not a second selection gesture. Clear any
-    // sticky passage scope before moving the playhead.
-    onClearSelection?.();
-    onSeek?.(clickTime);
+    if (onSeek) {
+      onSeek(clickTime);
+    }
   }
 
   const rangeSelectedIds = visibleTimeRange
@@ -223,23 +243,64 @@ export default function PianoRoll({
             );
           })}
 
-          {/* Uniform tempo scaffold retained from the existing view. It is not a detected beat/downbeat grid. */}
-          {Array.from({ length: Math.floor(totalBeats) + 1 }, (_, i) => {
-            const x = LABEL_W + i * PPQ;
-            return (
-              <line
-                key={`beat-${i}`}
-                data-grid-kind="tempo-beat"
-                x1={x}
-                y1={TOP_PAD}
-                x2={x}
-                y2={h}
-                stroke="var(--border)"
-                strokeWidth={0.5}
-                strokeOpacity={0.38}
-              />
-            );
-          })}
+          {observedBeats.length > 0 ? (
+            <>
+              {/* Exact source-time beat coordinates from persisted beat-engine evidence. */}
+              {observedBeats.map((seconds, index) => {
+                const x = timeToX(seconds);
+                return (
+                  <line
+                    key={`observed-beat-${index}`}
+                    data-grid-kind="observed-beat"
+                    data-beat-seconds={seconds}
+                    x1={x}
+                    y1={TOP_PAD}
+                    x2={x}
+                    y2={h}
+                    stroke="var(--border)"
+                    strokeWidth={0.5}
+                    strokeOpacity={0.38}
+                  />
+                );
+              })}
+              {/* Detected bar-start evidence is stronger, but never labeled as notated meter. */}
+              {observedDownbeats.map((seconds, index) => {
+                const x = timeToX(seconds);
+                return (
+                  <line
+                    key={`observed-downbeat-${index}`}
+                    data-grid-kind="observed-downbeat"
+                    data-downbeat-seconds={seconds}
+                    x1={x}
+                    y1={TOP_PAD}
+                    x2={x}
+                    y2={h}
+                    stroke="var(--text)"
+                    strokeWidth={0.75}
+                    strokeOpacity={0.34}
+                  />
+                );
+              })}
+            </>
+          ) : (
+            /* Conservative fallback: scalar BPM spacing, explicitly not detected beat evidence. */
+            Array.from({ length: Math.floor(totalBeats) + 1 }, (_, i) => {
+              const x = LABEL_W + i * PPQ;
+              return (
+                <line
+                  key={`beat-${i}`}
+                  data-grid-kind="tempo-beat"
+                  x1={x}
+                  y1={TOP_PAD}
+                  x2={x}
+                  y2={h}
+                  stroke="var(--border)"
+                  strokeWidth={0.5}
+                  strokeOpacity={0.38}
+                />
+              );
+            })
+          )}
 
           {/* Sparse elapsed-time labels orient long passages without inventing measures. */}
           {timeLabels.map((seconds) => {
