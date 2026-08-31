@@ -177,5 +177,9 @@ test("C: import real audio, wait for durable understand, verify representations 
   ).toBe(200);
 
   await expect(page.locator(".ask-turn-assistant")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  // Next.js mounts an empty route-announcer with role=alert outside the app.
+  // Assert the product Ask failure state is absent rather than banning all ARIA alerts.
+  await expect(
+    page.getByText("Ask is temporarily unavailable. Please try again in a moment."),
+  ).toHaveCount(0);
 });
