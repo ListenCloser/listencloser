@@ -1,6 +1,6 @@
 begin;
 
-select plan(13);
+select plan(14);
 
 create temp table __execution_tokens (
   label text primary key,
@@ -228,6 +228,24 @@ insert into public.artifact_versions (
     2,
     null
   );
+
+select throws_ok(
+  format(
+    $sql$
+      select *
+      from public.fenced_job_publish_version(
+        '00000000-0000-0000-0000-000000539004'::uuid,
+        %L::uuid,
+        '{"id":"00000000-0000-0000-0000-00000053900e","work_id":"00000000-0000-0000-0000-000000539002","kind":"analysis_report","mime_type":"application/json"}'::jsonb,
+        '{"id":"00000000-0000-0000-0000-00000053900f","artifact_id":"00000000-0000-0000-0000-00000053900e","parent_version_id":"00000000-0000-0000-0000-00000053900d","lineage":["00000000-0000-0000-0000-00000053900d"],"storage_bucket":"artifacts","storage_key":"jobs/539/unrelated-parent.json","byte_size":2,"metadata":{},"label":"invalid parent"}'::jsonb
+      )
+    $sql$,
+    (select token::text from __execution_tokens where label = 'attempt-b')
+  ),
+  '42501',
+  'job cannot parent a Version outside its input/output graph',
+  'output parentage is constrained to the Job input/output graph'
+);
 
 select is(
   public.fenced_job_delete(
