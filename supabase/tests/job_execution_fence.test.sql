@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(13);
 
 create temp table __execution_tokens (
   label text primary key,
@@ -194,6 +194,52 @@ select throws_ok(
   'P0001',
   'stale job execution cannot publish output',
   'the same fence protects Entity/Insight/Alignment persistence'
+);
+
+insert into public.artifacts (id, work_id, kind, mime_type)
+values (
+  '00000000-0000-0000-0000-00000053900b',
+  '00000000-0000-0000-0000-000000539002',
+  'analysis_report',
+  'application/json'
+);
+
+insert into public.artifact_versions (
+  id,
+  artifact_id,
+  storage_bucket,
+  storage_key,
+  byte_size,
+  produced_by_job_id
+) values
+  (
+    '00000000-0000-0000-0000-00000053900c',
+    '00000000-0000-0000-0000-00000053900b',
+    'artifacts',
+    'jobs/539/mixed-current.json',
+    2,
+    '00000000-0000-0000-0000-000000539004'
+  ),
+  (
+    '00000000-0000-0000-0000-00000053900d',
+    '00000000-0000-0000-0000-00000053900b',
+    'artifacts',
+    'jobs/539/mixed-unrelated.json',
+    2,
+    null
+  );
+
+select is(
+  public.fenced_job_delete(
+    '00000000-0000-0000-0000-000000539004',
+    (select token from __execution_tokens where label = 'attempt-b'),
+    'artifacts',
+    jsonb_build_object(
+      'id_in', jsonb_build_array('00000000-0000-0000-0000-00000053900b')
+    )
+  ),
+  0,
+  'Artifact cleanup refuses to cascade across an unrelated Version'
 );
 
 select is(
