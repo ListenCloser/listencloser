@@ -7,6 +7,9 @@ Production defaults:
   NOTATION_ENGINE=music21
   HARMONY_ENGINE=music21
   MELODY_ENGINE=lstom
+
+Keep optional/heavy model engines lazy: importing the registry is part of the API,
+analysis, notation, and test paths and must not itself require Torch/TensorFlow.
 """
 
 from __future__ import annotations
@@ -23,13 +26,10 @@ from engines.base import (
 )
 from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
-from engines.melody.lstom_engine import LStoMMelodyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.musescore_engine import MuseScoreNotationEngine
 from engines.notation.music21_engine import Music21NotationEngine
 from engines.structure.allin1_engine import AllInOneEngine
-from engines.transcription.basic_pitch import BasicPitchEngine
-from engines.transcription.transkun import TranskunEngine
 
 
 def get_transcription_engine(
@@ -47,7 +47,6 @@ def get_transcription_engine(
         onset_threshold: Onset threshold for engines that support it.
         frame_threshold: Frame threshold for engines that support it.
     """
-    # Profile-based routing (only applies when no explicit name given)
     if name is None:
         if profile == "solo_piano":
             name = "transkun"
@@ -57,11 +56,23 @@ def get_transcription_engine(
             raise ValueError(f"Unknown transcription profile: {profile}")
 
     if name == "basic_pitch":
+        try:
+            from engines.transcription.basic_pitch import BasicPitchEngine
+        except ImportError as exc:
+            raise RuntimeError(
+                "basic-pitch is not installed. Install the backend worker dependency group."
+            ) from exc
         return BasicPitchEngine(
             onset_threshold=onset_threshold,
             frame_threshold=frame_threshold,
         )
     if name == "transkun":
+        try:
+            from engines.transcription.transkun import TranskunEngine
+        except ImportError as exc:
+            raise RuntimeError(
+                "transkun is not installed. Install the backend worker dependency group."
+            ) from exc
         return TranskunEngine(
             onset_threshold=onset_threshold,
             frame_threshold=frame_threshold,
@@ -83,12 +94,11 @@ def get_beat_engine(name: str | None = None) -> BeatTrackingEngine:
     if name == "beat_this":
         try:
             from engines.beats.beat_this_engine import BeatThisEngine
-
-            return BeatThisEngine()
-        except ImportError:
+        except ImportError as exc:
             raise RuntimeError(
-                "beat_this is not installed. Install with: pip install beat-this"
-            ) from None
+                "beat-this is not installed. Install the backend worker dependency group."
+            ) from exc
+        return BeatThisEngine()
     raise ValueError(f"Unknown beat engine: {name}")
 
 
@@ -115,12 +125,11 @@ def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
     if name == "lv_chordia":
         try:
             from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
-
-            return LvChordiaHarmonyEngine()
-        except ImportError:
+        except ImportError as exc:
             raise RuntimeError(
-                "lv-chordia is not installed. Install with: pip install lv-chordia"
-            ) from None
+                "lv-chordia is not installed. Install the backend worker dependency group."
+            ) from exc
+        return LvChordiaHarmonyEngine()
     raise ValueError(f"Unknown harmony engine: {name}")
 
 
@@ -148,6 +157,12 @@ def get_melody_engine(
             raise ValueError(f"Unknown melody profile: {profile}")
 
     if name == "lstom":
+        try:
+            from engines.melody.lstom_engine import LStoMMelodyEngine
+        except ImportError as exc:
+            raise RuntimeError(
+                "LStoM's Torch runtime is not installed. Install the backend worker dependency group."
+            ) from exc
         return LStoMMelodyEngine()
     if name == "skyline":
         return SkylineMelodyEngine()
