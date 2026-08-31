@@ -13,6 +13,7 @@ export interface BreakdownFinding {
   startSeconds: number;
   endSeconds: number;
   headline: string;
+  /** Optional second-order context. Empty when it would only restate headline. */
   evidenceSummary: string;
   trustClass: "deterministic_derived";
   maturity: "production" | "experimental";
@@ -112,10 +113,12 @@ function headlineFor(finding: TemporalFinding): string {
 
 function evidenceSummaryFor(finding: TemporalFinding): string {
   switch (finding.kind) {
+    // The ranking itself already establishes peak/valley status. Repeating
+    // "highest/lowest density" under a headline that says the same thing adds
+    // no new information, so keep these cards claim-first and compact.
     case "density_peak":
-      return "Highest measured note-onset density among the analyzed windows.";
     case "density_valley":
-      return "Lowest active note-onset density among the analyzed windows.";
+      return "";
     case "rest": {
       const duration = finding.evidence.duration;
       return typeof duration === "number"

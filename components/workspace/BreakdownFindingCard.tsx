@@ -74,7 +74,9 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
       >
         <span className="inspector-breakdown-time">{formatTime(finding.startSeconds)}–{formatTime(finding.endSeconds)}</span>
         <span className="inspector-breakdown-headline">{finding.headline}</span>
-        <span className="inspector-breakdown-support">{finding.evidenceSummary}</span>
+        {finding.evidenceSummary && (
+          <span className="inspector-breakdown-support">{finding.evidenceSummary}</span>
+        )}
         {finding.maturity === "experimental" && (
           <span className="inspector-breakdown-maturity">Experimental melody evidence</span>
         )}

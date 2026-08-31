@@ -1,0 +1,60 @@
+.moreFindings {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line-soft, rgba(242, 238, 229, 0.06));
+}
+
+.moreFindings > summary {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 9.5px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.moreFindings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.moreFindings > summary::after {
+  content: " +";
+  opacity: 0.65;
+}
+
+.moreFindings[open] > summary::after {
+  content: " −";
+}
+
+.moreFindingsList {
+  display: grid;
+  gap: 7px;
+  padding-top: 8px;
+}
+
+.evidenceSummary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 450;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.evidenceRootSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@media (max-width: 420px) {
+  .evidenceSummary {
+    max-width: 180px;
+  }
+}

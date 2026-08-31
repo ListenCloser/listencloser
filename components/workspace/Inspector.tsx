@@ -12,10 +12,11 @@ import { formatTime } from "@/lib/format";
 import TabStrip from "@/components/ui/TabStrip";
 import AskPanel from "./AskPanel";
 import BreakdownFindingCard from "./BreakdownFindingCard";
-import HarmonyEvidence, { harmonyEvidenceRowCount } from "./HarmonyEvidence";
+import HarmonyEvidence, { harmonyEvidenceRowCount, harmonyEvidenceSummary } from "./HarmonyEvidence";
 import PassageCompare from "./PassageCompare";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
+import styles from "./Inspector.module.css";
 
 function describeSelection(selection: MusicalSelection): string {
   if (selection.measureRange) {
@@ -185,13 +186,28 @@ function MelodyEvidence({ insights, onSeek, setSelection }: {
   );
 }
 
-function EvidenceDisclosure({ title, count, children }: { title: string; count: number; children: ReactNode }) {
-  if (count === 0 || !children) return null;
+function rhythmEvidenceSummary(insights: Insight[]): string | null {
+  const labels: string[] = [];
+  if (insights.some((item) => item.kind === "rhythm")) labels.push("beat placement");
+  if (insights.some((item) => item.kind === "rhythm_density")) labels.push("note density");
+  if (insights.some((item) => item.kind === "rhythm_rests")) labels.push("rests and gaps");
+  return labels.length > 0 ? labels.join(" · ") : null;
+}
+
+function melodyEvidenceSummary(insights: Insight[]): string | null {
+  const labels: string[] = [];
+  if (insights.some((item) => item.kind === "melody")) labels.push("melodic summary");
+  if (insights.some((item) => item.kind === "melody_interval_summary")) labels.push("interval profile");
+  return labels.length > 0 ? labels.join(" · ") : null;
+}
+
+function EvidenceDisclosure({ title, summary, children }: { title: string; summary: string | null; children: ReactNode }) {
+  if (!summary || !children) return null;
   return (
     <details className="inspector-evidence-group">
       <summary>
         <span>{title}</span>
-        <span className="inspector-evidence-count">{count}</span>
+        <span className={styles.evidenceSummary}>{summary}</span>
       </summary>
       {children}
     </details>
@@ -231,12 +247,13 @@ function BreakdownSection({
             ? "The current evidence does not support a reliable localized claim for this selection. Try a wider passage or Ask about what is available."
             : "The current evidence does not support a reliable time-linked summary yet. Available context and source evidence remain below.",
         };
+  const primaryFindings = findings.slice(0, 3);
+  const moreFindings = findings.slice(3);
 
   return (
     <section className="inspector-section inspector-breakdown-section">
       <div className="inspector-section-heading">
         <h3>{selection ? "About this selection" : "What stands out"}</h3>
-        {findings.length > 0 && <span>{findings.length}</span>}
       </div>
 
       {findings.length === 0 ? (
@@ -245,11 +262,23 @@ function BreakdownSection({
           <p>{emptyCopy.body}</p>
         </div>
       ) : (
-        <div className="inspector-breakdown-findings">
-          {findings.map((finding) => (
-            <BreakdownFindingCard key={finding.id} finding={finding} />
-          ))}
-        </div>
+        <>
+          <div className="inspector-breakdown-findings">
+            {primaryFindings.map((finding) => (
+              <BreakdownFindingCard key={finding.id} finding={finding} />
+            ))}
+          </div>
+          {moreFindings.length > 0 && (
+            <details className={styles.moreFindings}>
+              <summary>More findings <span>{moreFindings.length}</span></summary>
+              <div className={styles.moreFindingsList}>
+                {moreFindings.map((finding) => (
+                  <BreakdownFindingCard key={finding.id} finding={finding} />
+                ))}
+              </div>
+            </details>
+          )}
+        </>
       )}
     </section>
   );
@@ -316,7 +345,7 @@ function BreakdownContent({
   const timeRange = workspace.selection?.timeRange
     ? { start: workspace.selection.timeRange.start, end: workspace.selection.timeRange.end }
     : null;
-  const rankedFindings = rankBreakdownFindings(rawFindings, timeRange, 5)
+  const rankedFindings = rankBreakdownFindings(rawFindings, timeRange, 8)
     .filter((finding) => overlapsSelection(finding, workspace.selection));
 
   const scopedInsights = workspace.selection
@@ -336,6 +365,9 @@ function BreakdownContent({
   const rhythmCount = evidenceInsights.filter((item) => ["rhythm", "rhythm_density", "rhythm_rests"].includes(item.kind)).length;
   const melodyCount = evidenceInsights.filter((item) => item.kind === "melody" || item.kind === "melody_interval_summary").length;
   const totalEvidenceCount = harmonyCount + rhythmCount + melodyCount;
+  const harmonySummary = harmonyEvidenceSummary(evidenceInsights, bpm);
+  const rhythmSummary = rhythmEvidenceSummary(evidenceInsights);
+  const melodySummary = melodyEvidenceSummary(evidenceInsights);
   const contextCount = overviewItems(contextInsights).length;
 
   if (exposedAll.length === 0 && rankedFindings.length === 0) {
@@ -386,18 +418,17 @@ function BreakdownContent({
       {totalEvidenceCount > 0 && (
         <section className="inspector-section inspector-evidence-section inspector-breakdown-evidence-section">
           <details className="inspector-breakdown-evidence-root">
-            <summary>
+            <summary className={styles.evidenceRootSummary}>
               <span>Evidence details</span>
-              <span className="inspector-evidence-count">{totalEvidenceCount}</span>
             </summary>
             <div className="inspector-evidence-groups">
-              <EvidenceDisclosure title="Harmony" count={harmonyCount}>
+              <EvidenceDisclosure title="Harmony" summary={harmonySummary}>
                 <HarmonyEvidence insights={evidenceInsights} bpm={bpm} onSeek={seek} setSelection={setSelection} />
               </EvidenceDisclosure>
-              <EvidenceDisclosure title="Rhythm" count={rhythmCount}>
+              <EvidenceDisclosure title="Rhythm" summary={rhythmSummary}>
                 <RhythmEvidence insights={evidenceInsights} onSeek={seek} />
               </EvidenceDisclosure>
-              <EvidenceDisclosure title="Melody" count={melodyCount}>
+              <EvidenceDisclosure title="Melody" summary={melodySummary}>
                 <MelodyEvidence insights={evidenceInsights} onSeek={seek} setSelection={setSelection} />
               </EvidenceDisclosure>
             </div>

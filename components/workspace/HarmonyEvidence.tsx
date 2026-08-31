@@ -4,6 +4,7 @@ import type { Insight } from "@/lib/domain.types";
 import { formatTime } from "@/lib/format";
 import { insightStartSeconds } from "@/lib/inspector/insights";
 import type { MusicalSelection } from "@/lib/stores/workspace";
+import styles from "./HarmonyEvidence.module.css";
 
 type HarmonyEvidenceRow = {
   startSeconds: number;
@@ -69,6 +70,17 @@ export function harmonyEvidenceRowCount(insights: Insight[], bpm: number): numbe
   return buildHarmonyEvidenceRows(insights, bpm).length;
 }
 
+export function harmonyEvidenceSummary(insights: Insight[], bpm: number): string | null {
+  const rows = buildHarmonyEvidenceRows(insights, bpm);
+  if (rows.length === 0) return null;
+  const hasDegrees = rows.some((row) => Boolean(row.romanNumeral));
+  const hasFunctions = rows.some((row) => Boolean(row.harmonicFunction));
+  if (hasDegrees && hasFunctions) return "Chord timeline · degree and function context where supported";
+  if (hasDegrees) return "Chord timeline · scale-degree context where supported";
+  if (hasFunctions) return "Chord timeline · harmonic-function context where supported";
+  return "Chord timeline";
+}
+
 function romanNumeralLabel(insight: Insight): string {
   const numeral = evidenceString(insight, "numeral");
   if (numeral) return normalizeMusicText(numeral);
@@ -87,29 +99,21 @@ function chordLabel(insight: Insight): string {
   return normalizeMusicText(insight.claim);
 }
 
-function EvidenceCell({
-  item,
-  label,
-  className,
-  onClick,
-}: {
-  item?: Insight;
-  label?: string;
-  className: string;
-  onClick: (item: Insight) => void;
-}) {
-  if (!item || !label) return <span className={`${className} inspector-harmony-empty`} aria-hidden="true">—</span>;
-  const fullClaim = normalizeMusicText(item.claim);
+function confidenceLabel(item: Insight): string | null {
+  return typeof item.confidence === "number" ? `${Math.round(item.confidence * 100)}% confidence` : null;
+}
+
+function methodLabel(item: Insight): string | null {
+  return evidenceString(item, "method");
+}
+
+function DetailItem({ item }: { item: Insight }) {
+  const meta = [item.kind.replaceAll("_", " "), methodLabel(item), confidenceLabel(item)].filter(Boolean).join(" · ");
   return (
-    <button
-      type="button"
-      className={className}
-      onClick={() => onClick(item)}
-      title={fullClaim}
-      aria-label={fullClaim}
-    >
-      {label}
-    </button>
+    <li className={styles.detailItem}>
+      <span>{normalizeMusicText(item.claim)}</span>
+      {meta && <span className={styles.detailMeta}>{meta}</span>}
+    </li>
   );
 }
 
@@ -139,25 +143,63 @@ export default function HarmonyEvidence({
   };
 
   return (
-    <div className="inspector-evidence-body inspector-harmony-table" role="table" aria-label="Harmonic evidence timeline">
-      <div className="inspector-harmony-row inspector-harmony-header" role="row">
+    <div className={`inspector-evidence-body ${styles.timeline}`} role="table" aria-label="Harmonic evidence timeline">
+      <div className={`${styles.row} ${styles.header}`} role="row">
         <span role="columnheader">Time</span>
-        <span role="columnheader">Chord</span>
-        <span role="columnheader">Degree</span>
-        <span role="columnheader">Function</span>
+        <span role="columnheader">Harmony</span>
       </div>
-      {rows.map((row) => (
-        <div
-          className="inspector-harmony-row"
-          role="row"
-          key={`${row.startSeconds}-${row.chord?.id ?? ""}-${row.romanNumeral?.id ?? ""}-${row.harmonicFunction?.id ?? ""}`}
-        >
-          <span className="inspector-harmony-time" role="cell">{formatTime(row.startSeconds)}</span>
-          <EvidenceCell item={row.chord} label={row.chord ? chordLabel(row.chord) : undefined} className="inspector-harmony-value inspector-harmony-chord" onClick={handleClick} />
-          <EvidenceCell item={row.romanNumeral} label={row.romanNumeral ? romanNumeralLabel(row.romanNumeral) : undefined} className="inspector-harmony-value inspector-harmony-degree" onClick={handleClick} />
-          <EvidenceCell item={row.harmonicFunction} label={row.harmonicFunction ? harmonicFunctionLabel(row.harmonicFunction) : undefined} className="inspector-harmony-value inspector-harmony-function" onClick={handleClick} />
-        </div>
-      ))}
+      {rows.map((row) => {
+        const primary = row.chord ?? row.romanNumeral ?? row.harmonicFunction;
+        if (!primary) return null;
+        const detailItems = [row.chord, row.romanNumeral, row.harmonicFunction].filter((item): item is Insight => Boolean(item));
+        return (
+          <div
+            className={styles.row}
+            role="row"
+            key={`${row.startSeconds}-${row.chord?.id ?? ""}-${row.romanNumeral?.id ?? ""}-${row.harmonicFunction?.id ?? ""}`}
+          >
+            <span className={styles.time} role="cell">{formatTime(row.startSeconds)}</span>
+            <div className={styles.harmony} role="cell">
+              <button
+                type="button"
+                className={styles.primary}
+                onClick={() => handleClick(primary)}
+                title={normalizeMusicText(primary.claim)}
+              >
+                {row.chord ? chordLabel(row.chord) : row.romanNumeral ? romanNumeralLabel(row.romanNumeral) : harmonicFunctionLabel(row.harmonicFunction!)}
+              </button>
+
+              {(row.romanNumeral || row.harmonicFunction) && (
+                <div className={styles.secondary}>
+                  {row.romanNumeral && row.romanNumeral !== primary && (
+                    <span className={styles.secondaryItem}>
+                      <span className={styles.secondaryLabel}>Degree</span>
+                      <button type="button" className={styles.secondaryButton} onClick={() => handleClick(row.romanNumeral!)}>
+                        {romanNumeralLabel(row.romanNumeral)}
+                      </button>
+                    </span>
+                  )}
+                  {row.harmonicFunction && row.harmonicFunction !== primary && (
+                    <span className={styles.secondaryItem}>
+                      <span className={styles.secondaryLabel}>Function</span>
+                      <button type="button" className={styles.secondaryButton} onClick={() => handleClick(row.harmonicFunction!)}>
+                        {harmonicFunctionLabel(row.harmonicFunction)}
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <details className={styles.details}>
+                <summary>Evidence details</summary>
+                <ul className={styles.detailList}>
+                  {detailItems.map((item) => <DetailItem item={item} key={item.id} />)}
+                </ul>
+              </details>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
