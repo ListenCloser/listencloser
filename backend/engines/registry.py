@@ -99,15 +99,20 @@ def get_structure_engine(name: str | None = None) -> StructureEngine:
 
 
 def get_notation_engine(name: str | None = None) -> NotationEngine:
-    """Resolve the production score-interpretation engine.
+    """Resolve an explicitly selected score-interpretation path.
 
-    MuseScore is the sole supported production notation interpreter after the
-    #700/#707/#800 rollout. Historical bespoke/music21 score interpretation has
-    been retired rather than maintained as a dormant second implementation.
+    MuseScore remains the default. PM2S is an experimental learned challenger
+    under #953: it first derives score MIDI from canonical performance MIDI,
+    then the existing MuseScore MIDI-import stage produces MusicXML. Selection
+    is explicit; engines never silently catch-and-substitute each other.
     """
     name = name or os.environ.get("NOTATION_ENGINE", "musescore")
     if name == "musescore":
         return MuseScoreNotationEngine()
+    if name == "pm2s":
+        from engines.notation.pm2s_engine import PM2SNotationEngine
+
+        return PM2SNotationEngine()
     raise ValueError(f"Unknown notation engine: {name}")
 
 
