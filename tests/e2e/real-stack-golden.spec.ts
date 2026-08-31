@@ -177,19 +177,106 @@ test("real audio golden path", async ({ page }) => {
     const measures = page.locator(".sheet-music-container g.vf-measure");
     const measureCount = await measures.count();
     expect(measureCount).toBeGreaterThan(2);
-    const logicalThirdMeasure = page.locator('.sheet-music-container g.vf-measure[id="3"]').first();
-    await expect(logicalThirdMeasure).toBeAttached();
-    const targetBox = await logicalThirdMeasure.boundingBox();
-    expect(targetBox).not.toBeNull();
+
+    // Find real grand-staff measures from the rendered score instead of
+    // pinning the assertion to a fixture-specific measure number. The
+    // same vf-stave geometry is the production overlay authority.
+    const grandStaffGeometry = await page.locator(".sheet-music-container").evaluate((container) => {
+      type Rect = { left: number; right: number; top: number; bottom: number; width: number; height: number };
+      type LogicalMeasure = { id: number; groups: SVGGElement[]; rect: Rect; click: { x: number; y: number } };
+
+      const union = (rects: Rect[]): Rect | null => {
+        if (rects.length === 0) return null;
+        const left = Math.min(...rects.map((rect) => rect.left));
+        const right = Math.max(...rects.map((rect) => rect.right));
+        const top = Math.min(...rects.map((rect) => rect.top));
+        const bottom = Math.max(...rects.map((rect) => rect.bottom));
+        return { left, right, top, bottom, width: right - left, height: bottom - top };
+      };
+      const structuralRect = (group: SVGGElement): Rect | null => {
+        const staves = Array.from(group.querySelectorAll<SVGGElement>("g.vf-stave"));
+        const nodes: SVGGraphicsElement[] = staves.length > 0 ? staves : [group];
+        return union(nodes.map((node) => {
+          const rect = node.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+        }).filter((rect) => rect.width > 0));
+      };
+
+      const grouped = new Map<number, SVGGElement[]>();
+      for (const group of Array.from(container.querySelectorAll<SVGGElement>("g.vf-measure[id]"))) {
+        const id = Number(group.getAttribute("id"));
+        if (!Number.isFinite(id)) continue;
+        const existing = grouped.get(id) ?? [];
+        existing.push(group);
+        grouped.set(id, existing);
+      }
+
+      const logical: LogicalMeasure[] = Array.from(grouped.entries())
+        .map(([id, groups]) => {
+          const groupRects = groups.map(structuralRect).filter((rect): rect is Rect => rect !== null);
+          const rect = union(groupRects);
+          const clickRect = structuralRect(groups[0]);
+          if (!rect || !clickRect) return null;
+          return {
+            id,
+            groups,
+            rect,
+            click: { x: clickRect.left + clickRect.width / 2, y: clickRect.top + clickRect.height / 2 },
+          };
+        })
+        .filter((item): item is LogicalMeasure => item !== null)
+        .sort((a, b) => a.id - b.id);
+
+      const atBreakIndex = logical.findIndex((item, index) => {
+        if (index === 0 || item.groups.length < 2) return false;
+        const previous = logical[index - 1];
+        const threshold = Math.max(12, Math.min(item.rect.height, previous.rect.height) * 0.35);
+        return Math.abs(item.rect.top - previous.rect.top) > threshold;
+      });
+      if (atBreakIndex < 0) return null;
+      const atBreak = logical[atBreakIndex];
+      const adjacent = logical.find((item) => {
+        if (item.groups.length < 2 || Math.abs(item.id - atBreak.id) !== 1) return false;
+        const threshold = Math.max(8, Math.min(item.rect.height, atBreak.rect.height) * 0.25);
+        return Math.abs(item.rect.top - atBreak.rect.top) <= threshold;
+      });
+      if (!adjacent) return null;
+
+      return {
+        atBreak: { id: atBreak.id, rect: atBreak.rect, click: atBreak.click },
+        adjacent: { id: adjacent.id, rect: adjacent.rect, click: adjacent.click },
+      };
+    });
+    expect(grandStaffGeometry, "generated score must expose a grand-staff measure at a real system break plus an adjacent measure").not.toBeNull();
+
+    const highlights = page.locator('.sheet-music-container [data-selection-highlight]');
+    const assertLogicalHighlight = async (
+      target: NonNullable<typeof grandStaffGeometry>["atBreak"],
+      neighbor: NonNullable<typeof grandStaffGeometry>["adjacent"],
+    ) => {
+      await page.mouse.click(target.click.x, target.click.y);
+      await expect(highlights).toHaveCount(1);
+      const highlightBox = await highlights.first().boundingBox();
+      expect(highlightBox).not.toBeNull();
+      const tolerance = 6;
+      expect(highlightBox!.x).toBeLessThanOrEqual(target.rect.left + tolerance);
+      expect(highlightBox!.x + highlightBox!.width).toBeGreaterThanOrEqual(target.rect.right - tolerance);
+      expect(highlightBox!.y).toBeLessThanOrEqual(target.rect.top + tolerance);
+      expect(highlightBox!.y + highlightBox!.height).toBeGreaterThanOrEqual(target.rect.bottom - tolerance);
+      const overlapX = Math.min(highlightBox!.x + highlightBox!.width, neighbor.rect.right)
+        - Math.max(highlightBox!.x, neighbor.rect.left);
+      expect(overlapX).toBeLessThanOrEqual(tolerance);
+    };
+
     const beforeSeek = await transportPosition(page);
-    await page.mouse.click(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2);
+    await assertLogicalHighlight(grandStaffGeometry!.atBreak, grandStaffGeometry!.adjacent);
     await expect
       .poll(
         async () => Math.abs((await transportPosition(page)) - beforeSeek) > 0.1,
         { timeout: 10_000, message: "score measure click should seek the active score timeline" },
       )
       .toBe(true);
-    await expect(page.locator("[data-selection-highlight]").first()).toBeVisible({ timeout: 10_000 });
+    await assertLogicalHighlight(grandStaffGeometry!.adjacent, grandStaffGeometry!.atBreak);
 
     // Representation changes preserve playback
     await selectSource(page, "Original");
