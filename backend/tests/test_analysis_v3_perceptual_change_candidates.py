@@ -5,6 +5,7 @@ from uuid import UUID
 from backend.evaluation.analysis_v3.perceptual.change_candidates import (
     discover_measured_change_candidates,
 )
+
 from domain.perceptual_report import (
     PerceptualEvidenceReport,
     PerceptualProvenance,
