@@ -7,13 +7,9 @@ the harmonic rhythm computation in analyze_midi.
 from __future__ import annotations
 
 import os
-import sys
 import tempfile
 
 import pretty_midi
-
-# Add backend to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from analyze import (
     _compute_beat_relative_density,
