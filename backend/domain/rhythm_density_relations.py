@@ -344,7 +344,7 @@ def _coverage_error_for_span(
         or locator.end_seconds - coverage_end > end_tolerance + _NUMERIC_ATOL
     ):
         return (
-            f"{label} span extends outside local rhythm density evidence coverage "
+            f"{label} span extends outside rhythm density evidence coverage "
             "by more than one local evidence step"
         )
 
