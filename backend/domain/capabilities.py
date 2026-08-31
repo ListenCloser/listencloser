@@ -42,7 +42,7 @@ from domain.repositories import (
 from observability import get_tracer
 
 logger = logging.getLogger("capabilities")
-_tracer = get_tracer("hello-ai-engine")
+_tracer = get_tracer("listencloser-engine")
 
 _STORAGE_BUCKET = "artifacts"
 

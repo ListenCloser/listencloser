@@ -118,7 +118,7 @@ def health_queue() -> HealthQueueResponse:
         source = "runtime_file"
 
     if not workers:
-        health_path = Path(os.environ.get("WORKER_HEALTH_FILE", "/tmp/hello-ai-worker.json"))
+        health_path = Path(os.environ.get("WORKER_HEALTH_FILE", "/tmp/listencloser-worker.json"))
         try:
             heartbeat = json.loads(health_path.read_text(encoding="utf-8"))
             heartbeat_at = datetime.fromisoformat(
