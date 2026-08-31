@@ -24,7 +24,14 @@ function understandJob(progress: number, current: "queued" | "running" = "runnin
   return {
     id: "mock-job-1",
     workflow_id: "mock-workflow-1",
-    capability: { name: "understand", version: "1.0" },
+    capability: {
+      name: "understand",
+      version: "1.0",
+      accepted_input_kinds: [],
+      produces_output_kinds: [],
+      parameters: {},
+      failure_modes: [],
+    },
     lifecycle: {
       current,
       progress,

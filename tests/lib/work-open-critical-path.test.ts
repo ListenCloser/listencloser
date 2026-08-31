@@ -3,7 +3,6 @@ import type { WorkBundle } from "@/lib/domain.types";
 
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
 
-vi.mock("@/lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("@/lib/openapi-client", () => ({
   openapiClient: { GET: get },
   requireOpenApiData: <T,>({ data, error, response }: { data?: T; error?: unknown; response: Response }): T => {
@@ -17,11 +16,8 @@ vi.mock("@/lib/openapi-client", () => ({
 }));
 vi.mock("@/lib/supabase", () => ({ supabase: null }));
 
-import { apiFetch } from "@/lib/api";
 import { clearWorkDataCache, getEntities, getInsights, getWorkBundle } from "@/lib/api-client";
 import { getQueryClient } from "@/lib/query-client";
-
-const mockApiFetch = vi.mocked(apiFetch);
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -79,18 +75,16 @@ describe("saved Work open critical path", () => {
   beforeEach(() => {
     getQueryClient().clear();
     clearWorkDataCache();
-    mockApiFetch.mockReset();
     get.mockReset();
   });
 
   it("returns the durable bundle while entity and insight warmers are still unresolved", async () => {
     const entities = deferred<never[]>();
     const insights = deferred<never[]>();
-    mockApiFetch.mockImplementation(async (url) => {
-      if (url === "/api/v1/works/work-1") return terminalBundle();
-      throw new Error(`Unexpected API call: ${url}`);
-    });
-    get.mockImplementation(async (path) => {
+    get.mockImplementation(async (path, options) => {
+      if (path === "/api/v1/works/{work_id}" && options?.params?.path?.work_id === "work-1") {
+        return ok(terminalBundle());
+      }
       if (path === "/api/v1/versions/{version_id}/entities") return ok(await entities.promise);
       if (path === "/api/v1/versions/{version_id}/insights") return ok(await insights.promise);
       throw new Error(`Unexpected generated GET: ${path}`);
@@ -103,6 +97,9 @@ describe("saved Work open critical path", () => {
     });
 
     await vi.waitFor(() => {
+      expect(get).toHaveBeenCalledWith("/api/v1/works/{work_id}", {
+        params: { path: { work_id: "work-1" } },
+      });
       expect(get).toHaveBeenCalledWith("/api/v1/versions/{version_id}/entities", {
         params: { path: { version_id: "midi-1" } },
       });

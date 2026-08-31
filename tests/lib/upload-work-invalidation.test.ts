@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkBundle } from "@/lib/domain.types";
 
-const { post, mockUploadToSignedUrl } = vi.hoisted(() => ({
+const { get, post, mockUploadToSignedUrl } = vi.hoisted(() => ({
+  get: vi.fn(),
   post: vi.fn(),
   mockUploadToSignedUrl: vi.fn(),
 }));
 
-vi.mock("@/lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("@/lib/openapi-client", () => ({
-  openapiClient: { POST: post },
+  openapiClient: { GET: get, POST: post },
   requireOpenApiData: <T,>({ data, error, response }: { data?: T; error?: unknown; response: Response }): T => {
     if (data !== undefined) return data;
     const message =
@@ -26,15 +26,12 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-import { apiFetch } from "@/lib/api";
 import {
   clearWorkDataCache,
   getWorkBundle,
   startUnderstandWorkflow,
   uploadArtifact,
 } from "@/lib/api-client";
-
-const mockApiFetch = vi.mocked(apiFetch);
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -83,6 +80,51 @@ function sourceBundle(title: string): WorkBundle {
   };
 }
 
+function workflowJob() {
+  return {
+    workflow: {
+      id: "workflow-1",
+      project_id: "project-1",
+      kind: "understand" as const,
+      target_version_id: "source-1",
+      parameters: {},
+      created_at: "2026-08-28T00:00:00Z",
+    },
+    job: {
+      id: "job-1",
+      workflow_id: "workflow-1",
+      capability: {
+        name: "understand",
+        version: "1",
+        accepted_input_kinds: [],
+        produces_output_kinds: [],
+        parameters: {},
+        failure_modes: [],
+      },
+      lifecycle: {
+        current: "queued" as const,
+        progress: 0,
+        message: "",
+        stages: [],
+        retry_count: 0,
+        max_retries: 3,
+        lease_expires_at: null,
+        started_at: null,
+        completed_at: null,
+      },
+      input_version_ids: ["source-1"],
+      output_version_ids: [],
+      parameters: {},
+      cache_key: null,
+      error: null,
+      error_details: {},
+      provenance: {},
+      created_at: "2026-08-28T00:00:00Z",
+      created_by: null,
+    },
+  };
+}
+
 const ok = <T,>(data: T) => ({
   data,
   response: new Response(JSON.stringify(data), { status: 200 }),
@@ -120,7 +162,7 @@ function installUploadResult() {
 describe("fresh upload Work invalidation", () => {
   beforeEach(() => {
     clearWorkDataCache();
-    mockApiFetch.mockReset();
+    get.mockReset();
     post.mockReset();
     mockUploadToSignedUrl.mockReset();
   });
@@ -155,7 +197,7 @@ describe("fresh upload Work invalidation", () => {
         storage_key: "work-1/source.wav",
       },
     });
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
   });
 
   it("workflow start does not join or cache a source-only Work request that began after upload", async () => {
@@ -164,15 +206,16 @@ describe("fresh upload Work invalidation", () => {
 
     const stale = deferred<WorkBundle>();
     let workFetches = 0;
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === "/api/v1/works/work-1") {
+    get.mockImplementation(async (path) => {
+      if (path === "/api/v1/works/{work_id}") {
         workFetches += 1;
-        return workFetches === 1 ? stale.promise : sourceBundle("Fresh source");
+        return ok(workFetches === 1 ? await stale.promise : sourceBundle("Fresh source"));
       }
-      if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
-        return { workflow: {}, job: {} };
-      }
-      throw new Error(`Unexpected API call: ${url}`);
+      throw new Error(`Unexpected generated GET: ${path}`);
+    });
+    post.mockImplementation(async (path) => {
+      if (path === "/api/v1/workflows/understand") return ok(workflowJob());
+      throw new Error(`Unexpected generated POST: ${path}`);
     });
 
     const staleOpen = getWorkBundle("work-1");
@@ -199,18 +242,19 @@ describe("fresh upload Work invalidation", () => {
     installUploadResult();
     await uploadArtifact("project-1", new File(["audio"], "source.wav", { type: "audio/wav" }));
 
-    const workflow = deferred<{ workflow: object; job: object }>();
+    const workflow = deferred<ReturnType<typeof workflowJob>>();
     const stale = deferred<WorkBundle>();
     let workFetches = 0;
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
-        return workflow.promise;
-      }
-      if (url === "/api/v1/works/work-1") {
+    post.mockImplementation(async (path) => {
+      if (path === "/api/v1/workflows/understand") return ok(await workflow.promise);
+      throw new Error(`Unexpected generated POST: ${path}`);
+    });
+    get.mockImplementation(async (path) => {
+      if (path === "/api/v1/works/{work_id}") {
         workFetches += 1;
-        return workFetches === 1 ? stale.promise : sourceBundle("After workflow commit");
+        return ok(workFetches === 1 ? await stale.promise : sourceBundle("After workflow commit"));
       }
-      throw new Error(`Unexpected API call: ${url}`);
+      throw new Error(`Unexpected generated GET: ${path}`);
     });
 
     // Workflow creation has invalidated the previous generation, but the server
@@ -220,7 +264,7 @@ describe("fresh upload Work invalidation", () => {
     const duringMutation = getWorkBundle("work-1");
     expect(workFetches).toBe(1);
 
-    workflow.resolve({ workflow: {}, job: {} });
+    workflow.resolve(workflowJob());
     await workflowStart;
 
     // Successful commit must invalidate the read that began during the POST, so
@@ -242,17 +286,20 @@ describe("fresh upload Work invalidation", () => {
     const stale = deferred<WorkBundle>();
     let workFetches = 0;
     let workflowStarts = 0;
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === "/api/v1/works/work-1") {
+    get.mockImplementation(async (path) => {
+      if (path === "/api/v1/works/{work_id}") {
         workFetches += 1;
-        return workFetches === 1 ? stale.promise : sourceBundle("Fresh after retry");
+        return ok(workFetches === 1 ? await stale.promise : sourceBundle("Fresh after retry"));
       }
-      if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
+      throw new Error(`Unexpected generated GET: ${path}`);
+    });
+    post.mockImplementation(async (path) => {
+      if (path === "/api/v1/workflows/understand") {
         workflowStarts += 1;
         if (workflowStarts === 1) throw new Error("workflow unavailable");
-        return { workflow: {}, job: {} };
+        return ok(workflowJob());
       }
-      throw new Error(`Unexpected API call: ${url}`);
+      throw new Error(`Unexpected generated POST: ${path}`);
     });
 
     await expect(startUnderstandWorkflow("source-1", "project-1", "auto")).rejects.toThrow("workflow unavailable");
