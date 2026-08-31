@@ -59,7 +59,7 @@
   flex: none;
   margin-left: auto;
   padding-left: 12px;
-  padding-right: 4px;
+  padding-right: 10px;
 }
 
 .compactError {
@@ -70,8 +70,16 @@
   overflow: hidden;
 }
 
+/* The product-level composer still reserves a 30px circular icon track. Give
+ * the send affordance a familiar compact-button silhouette instead of merely
+ * changing that circle into a tiny square. This stays component-scoped and
+ * does not alter Ask request behavior. */
+:global(.ask-composer) {
+  grid-template-columns: minmax(0, 1fr) 42px;
+}
+
 .send {
-  width: 32px !important;
+  width: 42px !important;
   height: 32px !important;
-  border-radius: 6px !important;
+  border-radius: 7px !important;
 }
