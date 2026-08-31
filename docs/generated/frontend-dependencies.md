@@ -72,6 +72,7 @@ subgraph lib["lib"]
   lib_representation_availability_ts["representation-availability.ts"]
   lib_representations_tsx["representations.tsx"]
   lib_score_measure_geometry_ts["score-measure-geometry.ts"]
+  lib_score_renderer_ts["score-renderer.ts"]
   lib_selection_ts["selection.ts"]
   lib_server_state_ts["server-state.ts"]
   lib_spectrogram_data_ts["spectrogram-data.ts"]
@@ -135,6 +136,7 @@ components_workspace_-->lib_supabase_ts
 components_workspace_-->lib_work_selection_ts
 components_workspace_-->lib_representation_availability_ts
 components_workspace_-->lib_representations_tsx
+components_workspace_-->lib_score_renderer_ts
 lib_analysis_annotations_ts-->lib_inspector_
 lib_api_client_ts-->lib_api_ts
 lib_api_client_ts-->lib_openapi_client_ts
