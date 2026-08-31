@@ -134,6 +134,23 @@ begin
       message = 'job Version storage key is not scoped to the current execution';
   end if;
 
+  -- A scoped-looking key is not proof that Storage accepted an upload. Supabase
+  -- records successful objects in storage.objects, which is in the same Postgres
+  -- project. Require the exact declared bucket+key to exist before making the
+  -- Artifact/Version graph durable so a buggy handler cannot publish a fabricated
+  -- object reference after merely guessing the execution namespace.
+  if v_version.storage_bucket is null
+    or not exists (
+      select 1
+      from storage.objects object
+      where object.bucket_id = v_version.storage_bucket
+        and object.name = v_version.storage_key
+    ) then
+    raise exception using
+      errcode = '42501',
+      message = 'job Version storage object does not exist in declared bucket';
+  end if;
+
   insert into public.artifacts (
     id,
     work_id,
