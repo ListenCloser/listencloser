@@ -3,15 +3,19 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AskPanel from "@/components/workspace/AskPanel";
-import { askMusic } from "@/lib/ask/client";
+import { AskRequestError, askMusic } from "@/lib/ask/client";
 import type { AskResponse } from "@/lib/ask/types";
 import { TimelineProvider } from "@/lib/stores/timeline";
 import { TransportProvider, useTransport } from "@/lib/stores/transport";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 
-vi.mock("@/lib/ask/client", () => ({
-  askMusic: vi.fn(),
-}));
+vi.mock("@/lib/ask/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ask/client")>();
+  return {
+    ...actual,
+    askMusic: vi.fn(),
+  };
+});
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -98,7 +102,7 @@ describe("AskPanel work-switch lifecycle", () => {
 
     expect(store!.workspace.askConversation).toEqual([]);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.queryByText("Try again")).not.toBeInTheDocument();
+    expect(screen.queryByText("Retry")).not.toBeInTheDocument();
   });
 
   it("appends the assistant response for the current work", async () => {
@@ -116,6 +120,23 @@ describe("AskPanel work-switch lifecycle", () => {
 
     expect(store!.workspace.askConversation).toHaveLength(2);
     expect(screen.getByText(response.answer)).toBeInTheDocument();
+  });
+
+  it("keeps retryable request correlation beside the compact error", async () => {
+    const user = userEvent.setup();
+    vi.mocked(askMusic).mockRejectedValue(
+      new AskRequestError("Ask is temporarily unavailable.", 503, "req-ask-123"),
+    );
+    render(<Probe />, { wrapper });
+
+    await askOnWorkA(user);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Ask is temporarily unavailable.");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
+    expect(screen.getByLabelText("Ask request reference req-ask-123")).toHaveTextContent(
+      "Reference: req-ask-123",
+    );
   });
 });
 

@@ -6,7 +6,7 @@ import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
 import { deriveAskContext } from "@/lib/ask/context";
-import { askMusic } from "@/lib/ask/client";
+import { askMusic, describeAskFailure, type AskFailure } from "@/lib/ask/client";
 import { deriveAskStarterPrompts } from "@/lib/ask/prompts";
 import {
   actionLabel,
@@ -33,14 +33,7 @@ function referenceLabel(ref: AskReference, insights: { id: string; claim: string
 }
 
 export function askErrorMessage(cause: unknown): string {
-  const message = cause instanceof Error ? cause.message : "";
-  const normalized = message.toLowerCase();
-  if (normalized.includes("not configured")) return "Ask is not configured for this workspace.";
-  if (normalized.includes("timed out") || normalized.includes("timeout")) return "Ask took too long.";
-  if (normalized.includes("provider unavailable") || normalized.includes("processing service unavailable")) {
-    return "Ask is temporarily unavailable.";
-  }
-  return "Ask is unavailable right now.";
+  return describeAskFailure(cause).message;
 }
 
 function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; blocked: boolean; reason?: string; onClick: (action: AskAction) => void }) {
@@ -66,7 +59,7 @@ export default function AskPanel() {
   const { timeline } = useTimeline();
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AskFailure | null>(null);
   const [lastAsked, setLastAsked] = useState<{ question: string; context: NonNullable<ReturnType<typeof deriveAskContext>>; workId: string } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const askTokenRef = useRef(0);
@@ -98,7 +91,7 @@ export default function AskPanel() {
       setLastAsked(null);
     } catch (cause) {
       if (token !== askTokenRef.current || workId !== activeWorkIdRef.current) return;
-      setError(askErrorMessage(cause));
+      setError(describeAskFailure(cause));
     } finally {
       if (token === askTokenRef.current) {
         setPending(false);
@@ -127,7 +120,7 @@ export default function AskPanel() {
       timeline.bpm,
     );
     if (!context) {
-      setError("Open a piece before asking about it.");
+      setError({ message: "Open a piece before asking about it.", requestId: null });
       return;
     }
     appendAskMessage({ id: makeId(), role: "user", text: trimmed });
@@ -262,8 +255,13 @@ export default function AskPanel() {
 
       {error && (
         <div className={`ask-error ${styles.compactError}`} role="alert">
-          <span>{error}</span>
+          <span>{error.message}</span>
           {lastAsked && <button type="button" onClick={retry}>Retry</button>}
+          {error.requestId && (
+            <span className={styles.errorReference} aria-label={`Ask request reference ${error.requestId}`}>
+              Reference: {error.requestId}
+            </span>
+          )}
         </div>
       )}
 

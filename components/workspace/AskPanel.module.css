@@ -70,6 +70,17 @@
   overflow: hidden;
 }
 
+.errorReference {
+  min-width: 0;
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
 /* Keep this selector module-pure by anchoring the global composer to its local
  * send child. That widens only AskPanel's own composer action track. */
 :global(.ask-composer):has(> .send) {
