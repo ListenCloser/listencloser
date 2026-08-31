@@ -13,7 +13,7 @@ Generated from the fresh local Supabase/Postgres schema. Migrations are authorit
 | [public.artifacts](public.artifacts.md) | 5 |  | BASE TABLE |
 | [public.entities](public.entities.md) | 24 |  | BASE TABLE |
 | [public.insights](public.insights.md) | 12 |  | BASE TABLE |
-| [public.jobs](public.jobs.md) | 22 |  | BASE TABLE |
+| [public.jobs](public.jobs.md) | 23 |  | BASE TABLE |
 | [public.projects](public.projects.md) | 7 |  | BASE TABLE |
 | [public.worker_heartbeats](public.worker_heartbeats.md) | 5 | Service-role worker liveness records used by the aggregate queue health endpoint. | BASE TABLE |
 | [public.workflows](public.workflows.md) | 6 |  | BASE TABLE |
@@ -25,6 +25,9 @@ Generated from the fresh local Supabase/Postgres schema. Migrations are authorit
 | Name | ReturnType | Arguments | Type |
 | ---- | ------- | ------- | ---- |
 | public.claim_next_job | jobs | p_worker_id text, p_lease_seconds double precision DEFAULT 30.0 | FUNCTION |
+| public.fenced_job_delete | int4 | p_job_id uuid, p_execution_token uuid, p_table text, p_match jsonb | FUNCTION |
+| public.fenced_job_insert | jsonb | p_job_id uuid, p_execution_token uuid, p_table text, p_rows jsonb | FUNCTION |
+| public.fenced_job_publish_version | jsonb | p_job_id uuid, p_execution_token uuid, p_artifact jsonb, p_version jsonb | FUNCTION |
 
 ## Enums
 
@@ -151,6 +154,7 @@ erDiagram
   uuid created_by
   jsonb error_details
   text error_message
+  uuid execution_token
   uuid id
   uuid__ input_version_ids
   timestamp_with_time_zone lease_expires_at

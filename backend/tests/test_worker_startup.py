@@ -23,7 +23,7 @@ def _stub_worker_runtime(monkeypatch, events: list[str]) -> None:
     monkeypatch.setattr(worker_entry, "init_sentry", lambda *_args: None)
     monkeypatch.setattr(
         worker_entry,
-        "JobWorker",
+        "FencedJobWorker",
         lambda **kwargs: _FakeWorker(events, **kwargs),
     )
     monkeypatch.setattr(

@@ -12,6 +12,7 @@
 | created_by | uuid |  | true |  |  |  |
 | error_details | jsonb | '{}'::jsonb | false |  |  |  |
 | error_message | text |  | true |  |  |  |
+| execution_token | uuid |  | true |  |  | Fresh per-claim generation token used to fence worker lifecycle and product-visible persistence. |
 | id | uuid | gen_random_uuid() | false |  |  |  |
 | input_version_ids | uuid[] | '{}'::uuid[] | false |  |  |  |
 | lease_expires_at | timestamp with time zone |  | true |  |  |  |
@@ -61,6 +62,7 @@ erDiagram
   uuid created_by
   jsonb error_details
   text error_message
+  uuid execution_token
   uuid id
   uuid__ input_version_ids
   timestamp_with_time_zone lease_expires_at
