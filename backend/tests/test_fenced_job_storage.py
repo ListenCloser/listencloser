@@ -121,6 +121,9 @@ def test_handler_storage_is_attempt_scoped_and_cleanup_is_non_destructive() -> N
     with pytest.raises(RuntimeError, match="unfenced storage operation move"):
         client.storage.from_("artifacts").move(scoped_key, f"{scoped_key}.moved")
 
+    with pytest.raises(RuntimeError, match="unfenced table operation schema"):
+        _ = client.table("artifacts").schema
+
     with pytest.raises(RuntimeError, match="raw client operation raw"):
         _ = client.raw
 
