@@ -10,7 +10,7 @@
   "issue": 287,
   "runner": "ubuntu-24.04-arm",
   "schema_version": 1,
-  "sync_seconds": 2.575,
+  "sync_seconds": 3.043,
   "venv_bytes": 691582956,
   "worker_group_excluded": true
 }
