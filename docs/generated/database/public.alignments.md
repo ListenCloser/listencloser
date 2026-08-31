@@ -4,7 +4,7 @@
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| confidence | double precision | 1.0 | false |  |  |  |
+| confidence | double precision |  | true |  |  |  |
 | created_at | timestamp with time zone | now() | false |  |  |  |
 | id | uuid | gen_random_uuid() | false |  |  |  |
 | kind | alignment_kind_enum |  | false |  |  |  |

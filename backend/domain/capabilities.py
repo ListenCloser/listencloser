@@ -1705,7 +1705,7 @@ def handle_compare(job: Job, client) -> list[str]:
                 "version_a_note_count": len(notes_a),
                 "version_b_note_count": len(notes_b),
             },
-            confidence=0.95,
+            confidence=None,
             produced_by_job_id=job.id,
         ),
         owner_id,
@@ -1733,7 +1733,7 @@ def handle_compare(job: Job, client) -> list[str]:
                     "modified": modified,
                 },
             },
-            confidence=0.95,
+            confidence=None,
             produced_by_job_id=job.id,
             provenance={
                 "capability": job.capability.name,
