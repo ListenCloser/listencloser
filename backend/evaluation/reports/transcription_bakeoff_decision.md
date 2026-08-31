@@ -2,7 +2,7 @@
 
 **Status: DECISION MADE — PRODUCTION PIANO ENGINE = TRANSKUN**
 
-Supersedes the "blocked" status in `transcription_bakeoff_followup.md` (Section 3).
+Supersedes the earlier diagnostic-only blocked state before scored solo-piano ground truth was available.
 Scored solo-piano ground truth (MAESTRO v3.0.0 test split, 15 clips) is now
 available and the three candidate engines were evaluated on those exact clips.
 
