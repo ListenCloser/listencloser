@@ -93,7 +93,7 @@ test("app studio — desktop", async ({ page }) => {
   if (await evidenceRoot.count()) {
     await evidenceRoot.locator(":scope > summary").click();
     const harmony = evidenceRoot.locator("details.inspector-evidence-group").filter({ hasText: /^Harmony/ }).first();
-    if (await harmony.count()) await harmony.locator("summary").click();
+    if (await harmony.count()) await harmony.locator(":scope > summary").click();
     await argosScreenshot(page, "app-studio-desktop-evidence", { fullPage: true });
   }
 });
