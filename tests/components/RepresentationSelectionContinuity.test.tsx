@@ -31,6 +31,7 @@ vi.mock("@/components/workspace/representations/registry", () => {
     availableRepresentations: (availability: { originalAudio: boolean; performanceMidi: boolean }) => definitions.filter(
       (definition) => definition.id === "listen" ? availability.originalAudio : availability.performanceMidi,
     ),
+    representationById: (id: string) => definitions.find((definition) => definition.id === id),
   };
 });
 
@@ -126,6 +127,10 @@ describe("representation selection continuity", () => {
     expect(screen.getByTestId("waveform-view")).toBeVisible();
     expect(screen.getByTestId("shared-selection")).toHaveTextContent("piano_roll");
 
+    // user-event already runs interactions inside React's act boundary. A
+    // second explicit async act() around this click caused React to report the
+    // test environment itself as unsupported even though the user interaction
+    // was correctly awaited.
     await user.click(screen.getByRole("button", { name: "Both ready" }));
     expect(screen.getByRole("tab", { name: "Piano Roll" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("piano-roll-view")).toBeVisible();

@@ -53,6 +53,7 @@ vi.mock("@/components/workspace/representations/registry", () => {
   return {
     REPRESENTATIONS: definitions,
     availableRepresentations: () => availableDefinitions,
+    representationById: (id: string) => definitions.find((definition) => definition.id === id),
   };
 });
 
