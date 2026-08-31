@@ -99,10 +99,10 @@ test("B: backend health endpoints return ready", async ({ request }) => {
   expect(queueBody.workers).toBeGreaterThanOrEqual(0);
 });
 
-test("C: import real audio, wait for durable understand, verify representations", async ({
+test("C: import real audio, wait for durable understand, verify representations and Ask", async ({
   page,
 }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(220_000);
   const s = await createSession();
 
   await page.addInitScript(injectSession(), {
@@ -155,4 +155,27 @@ test("C: import real audio, wait for durable understand, verify representations"
     timeout: 120_000,
   });
   await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
+
+  // Cross the same browser → Vercel proxy → FastAPI → configured provider
+  // boundary as a real user. Mocked E2E cannot detect a missing provider,
+  // deployment drift, proxy timeout, or production-only reachability failure.
+  await page.getByRole("tab", { name: "Ask" }).click();
+  const askInput = page.getByRole("textbox", { name: "Ask about the music" });
+  await expect(askInput).toBeVisible();
+  await askInput.fill("What tonal center is supported by the available evidence?");
+
+  const askResponsePromise = page.waitForResponse(
+    (resp) => new URL(resp.url()).pathname === "/api/v1/ask" && resp.request().method() === "POST",
+    { timeout: 60_000 },
+  );
+  await page.getByRole("button", { name: "Send question" }).click();
+  const askResponse = await askResponsePromise;
+  const requestId = askResponse.headers()["x-request-id"] ?? "missing";
+  expect(
+    askResponse.status(),
+    `production Ask failed with status ${askResponse.status()} (request ${requestId})`,
+  ).toBe(200);
+
+  await expect(page.locator(".ask-turn-assistant")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });
