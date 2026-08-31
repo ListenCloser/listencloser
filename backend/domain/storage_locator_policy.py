@@ -17,6 +17,7 @@ from domain.models import Version
 
 _STORAGE_BUCKET = "artifacts"
 _ATTEMPT_SEGMENT = re.compile(r"^attempt-[0-9]+$")
+_EXECUTION_PREFIX = "execution-"
 
 
 class StorageLocatorKind(str, Enum):
@@ -32,6 +33,35 @@ class StorageLocatorDecision:
     reason: str
 
 
+def _is_execution_segment(segment: str) -> bool:
+    """Return whether ``segment`` is the canonical uuid4 execution namespace."""
+    if not segment.startswith(_EXECUTION_PREFIX):
+        return False
+    token = segment[len(_EXECUTION_PREFIX) :]
+    try:
+        parsed = UUID(token)
+    except ValueError:
+        return False
+    return parsed.version == 4 and str(parsed) == token
+
+
+def _matches_worker_output_path(parts: list[str], job_id: UUID) -> bool:
+    if len(parts) < 4 or parts[0] != "jobs" or parts[1] != str(job_id):
+        return False
+
+    # Existing persisted worker Versions use jobs/<job>/attempt-N/...
+    if _ATTEMPT_SEGMENT.fullmatch(parts[2]):
+        return True
+
+    # Execution-fenced workers additionally isolate bytes by the exact claim
+    # generation before the ordinary retry attempt namespace.
+    return (
+        len(parts) >= 5
+        and _is_execution_segment(parts[2])
+        and _ATTEMPT_SEGMENT.fullmatch(parts[3]) is not None
+    )
+
+
 def classify_version_storage_locator(
     version: Version,
     *,
@@ -42,15 +72,17 @@ def classify_version_storage_locator(
 ) -> StorageLocatorDecision:
     """Return whether ``version`` may authorize service-role Storage access.
 
-    Trusted modern locators have one of two repository-owned shapes:
+    Trusted modern locators have one of three repository-owned shapes:
 
     - direct/user upload: ``owner/project/(pending|artifact)/filename``;
-    - worker output: ``jobs/job-id/attempt-N/...`` where the persisted
-      ``produced_by_job_id`` belongs to the already-authorized Work snapshot.
+    - existing worker output: ``jobs/job-id/attempt-N/...``;
+    - execution-fenced worker output:
+      ``jobs/job-id/execution-<uuid4>/attempt-N/...``.
 
-    ``created_by`` must match the Work owner in both cases.  Historical rows
-    that cannot prove either relationship stay visible as metadata but must not
-    become signing/deletion authority.
+    Worker output must also have a persisted ``produced_by_job_id`` belonging to
+    the already-authorized Work snapshot. ``created_by`` must match the Work
+    owner in every case. Historical rows that cannot prove either relationship
+    stay visible as metadata but must not become signing/deletion authority.
     """
     if version.storage_bucket != _STORAGE_BUCKET:
         return StorageLocatorDecision(False, StorageLocatorKind.untrusted, "unexpected_bucket")
@@ -66,12 +98,7 @@ def classify_version_storage_locator(
         job_id = version.produced_by_job_id
         if job_id not in allowed_job_ids:
             return StorageLocatorDecision(False, StorageLocatorKind.untrusted, "job_not_in_work")
-        if (
-            len(parts) < 4
-            or parts[0] != "jobs"
-            or parts[1] != str(job_id)
-            or not _ATTEMPT_SEGMENT.fullmatch(parts[2])
-        ):
+        if not _matches_worker_output_path(parts, job_id):
             return StorageLocatorDecision(
                 False,
                 StorageLocatorKind.untrusted,

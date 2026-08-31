@@ -75,6 +75,20 @@ def test_worker_output_requires_same_work_job_and_attempt_path(ids):
     assert decision.kind is StorageLocatorKind.worker_output
 
 
+def test_execution_fenced_worker_output_is_trusted(ids):
+    execution_token = uuid4()
+    version = _version(
+        ids,
+        f"jobs/{ids['job']}/execution-{execution_token}/attempt-2/score.musicxml",
+        job_id=ids["job"],
+    )
+
+    decision = _classify(version, ids, jobs={ids["job"]})
+
+    assert decision.trusted is True
+    assert decision.kind is StorageLocatorKind.worker_output
+
+
 @pytest.mark.parametrize(
     ("storage_key", "reason"),
     [
@@ -137,6 +151,24 @@ def test_worker_output_rejects_forged_job_path(ids):
     )
 
     assert _classify(version, ids, jobs={ids["job"]}).reason == "job_path_mismatch"
+
+
+def test_execution_fenced_worker_output_rejects_noncanonical_path_shapes(ids):
+    valid_token = uuid4()
+    malformed_keys = [
+        f"jobs/{ids['job']}/execution-not-a-uuid/attempt-0/output.mid",
+        f"jobs/{ids['job']}/execution-{valid_token.hex}/attempt-0/output.mid",
+        f"jobs/{ids['job']}/execution-{valid_token}/output.mid",
+        f"jobs/{ids['job']}/arbitrary/execution-{valid_token}/attempt-0/output.mid",
+    ]
+
+    for storage_key in malformed_keys:
+        version = _version(ids, storage_key, job_id=ids["job"])
+        decision = _classify(version, ids, jobs={ids["job"]})
+
+        assert decision.trusted is False
+        assert decision.kind is StorageLocatorKind.untrusted
+        assert decision.reason == "job_path_mismatch"
 
 
 def test_unexpected_bucket_is_never_trusted(ids):
