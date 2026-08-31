@@ -97,3 +97,15 @@ def test_unmatched_external_imports_remain_visible(tmp_path: Path) -> None:
     assert payload["unmatched_external_imports"]["worker"]["mystery_plugin"] == [
         "backend/worker.py"
     ]
+
+
+def test_current_repository_inventory_is_parseable() -> None:
+    repo = Path(__file__).resolve().parents[2]
+    payload = inventory_module.inventory(repo)
+    dependencies = {item["name"]: item for item in payload["dependencies"]}
+
+    assert payload["entrypoints"]["api"] == ["backend/main.py"]
+    assert payload["entrypoints"]["worker"] == ["backend/worker.py"]
+    assert {"fastapi", "basic-pitch", "lv-chordia", "pytest"} <= dependencies.keys()
+    assert payload["reachable_python_files"]["api"] > 0
+    assert payload["reachable_python_files"]["worker"] > 0
