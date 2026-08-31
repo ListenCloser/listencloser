@@ -142,7 +142,6 @@ components_workspace_-->lib_representations_tsx
 components_workspace_-->lib_score_renderer_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
 lib_analysis_annotations_ts-->lib_inspector_
-lib_api_client_ts-->lib_api_ts
 lib_api_client_ts-->lib_openapi_client_ts
 lib_api_client_ts-->lib_query_client_ts
 lib_api_client_ts-->lib_supabase_ts
