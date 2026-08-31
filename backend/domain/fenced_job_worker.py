@@ -11,7 +11,8 @@ client. Reads remain ordinary PostgREST reads; Job progress is token-scoped;
 Artifact + Version publication is one atomic RPC; other admitted output inserts
 and the two existing cleanup delete shapes use fenced RPCs. Unknown mutations
 fail closed. Storage bytes are attempt-scoped so a stale attempt can leave, at
-worst, private unreferenced blob garbage rather than overwrite a current blob.
+worst, private unreferenced blob garbage rather than overwrite or delete a
+current attempt's object.
 """
 
 from __future__ import annotations
@@ -217,7 +218,19 @@ class _HandlerStorageBucket:
         self._client.remember_storage_key(path, fenced_path)
         return self._bucket.upload(fenced_path, *args, **kwargs)
 
+    def remove(self, _paths: list[str], *_args: Any, **_kwargs: Any) -> list[Any]:
+        """Leave cleanup bytes for GC instead of racing a successor attempt.
+
+        Supabase Storage deletion is an external API operation, so it cannot be
+        made atomic with the Job-row execution-token check. The database graph
+        cleanup remains fenced; retaining private unreferenced bytes is safer
+        than allowing a stale attempt to delete a successor's live object.
+        """
+        return []
+
     def __getattr__(self, name: str) -> Any:
+        if name in {"copy", "move", "update"}:
+            raise RuntimeError(f"job handlers cannot perform unfenced storage {name}")
         return getattr(self._bucket, name)
 
 
@@ -230,7 +243,7 @@ class _HandlerStorage:
         return _HandlerStorageBucket(self._storage.from_(bucket), self._client)
 
     def __getattr__(self, name: str) -> Any:
-        return getattr(self._storage, name)
+        raise RuntimeError(f"job handlers cannot access unfenced storage operation {name}")
 
 
 class _HandlerClient:
@@ -253,7 +266,9 @@ class _HandlerClient:
     def scope_storage_key(self, path: str) -> str:
         prefix = f"jobs/{self.job_id}/"
         if not path.startswith(prefix):
-            return path
+            raise RuntimeError(
+                "job handler storage writes must stay within the current Job namespace"
+            )
         suffix = path[len(prefix) :]
         scoped_prefix = f"execution-{self.execution_token}/"
         if suffix.startswith(scoped_prefix):
