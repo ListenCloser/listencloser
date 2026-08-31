@@ -135,3 +135,9 @@ jobs:
           BACKEND_IMAGE_REPOSITORY: ${{ env.IMAGE_NAME }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  verify-production:
+    needs: deploy
+    permissions:
+      contents: read
+    uses: ./.github/workflows/production-verify.yml
