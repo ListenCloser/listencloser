@@ -123,6 +123,23 @@ file_size_limit = "50MiB"
 public = false
 file_size_limit = "25MiB"
 
+# Retained pre-domain buckets are historical-only. Preserve every object byte,
+# but keep anonymous access disabled; current product data uses `artifacts`.
+[storage.buckets.analysis]
+public = false
+
+[storage.buckets.enhanced]
+public = false
+
+[storage.buckets.library]
+public = false
+
+[storage.buckets.midi]
+public = false
+
+[storage.buckets.transcriptions]
+public = false
+
 # Uncomment to configure local storage buckets
 # [storage.buckets.images]
 # public = false
