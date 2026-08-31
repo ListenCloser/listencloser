@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Protocol, TypeVar, runtime_checkable
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -72,6 +73,47 @@ def _parse_json_object(content: str) -> dict:
     if not isinstance(parsed, dict):
         raise AskModelOutputError("provider returned a non-object value")
     return parsed
+
+
+def _strict_response_schema(response_model: type[BaseModel]) -> dict:
+    """Convert Pydantic JSON Schema to the strict structured-output subset.
+
+    Pydantic intentionally models omitted/defaulted fields and discriminated
+    unions more broadly than OpenAI-compatible constrained decoders do. Strict
+    structured output requires every object field to be present (nullable when
+    semantically optional), closed object shapes, and `anyOf` rather than
+    Pydantic's discriminator/`oneOf` representation.
+
+    Pydantic remains the final validation authority after generation, so bounds
+    and semantic validation are still enforced even if an upstream provider's
+    schema implementation supports a smaller subset of JSON Schema.
+    """
+
+    schema = response_model.model_json_schema()
+
+    def normalize(node) -> None:
+        if isinstance(node, dict):
+            node.pop("default", None)
+            node.pop("discriminator", None)
+            if "oneOf" in node:
+                node["anyOf"] = node.pop("oneOf")
+            if "const" in node:
+                node["enum"] = [node.pop("const")]
+
+            if node.get("type") == "object":
+                node["additionalProperties"] = False
+                properties = node.get("properties")
+                if isinstance(properties, dict):
+                    node["required"] = list(properties)
+
+            for value in list(node.values()):
+                normalize(value)
+        elif isinstance(node, list):
+            for value in node:
+                normalize(value)
+
+    normalize(schema)
+    return schema
 
 
 class FakeLLMProvider:
@@ -168,8 +210,23 @@ class OpenAICompatibleLLMProvider:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.0,
-            "response_format": {"type": "json_object"},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": response_model.__name__,
+                    "strict": True,
+                    "schema": _strict_response_schema(response_model),
+                },
+            },
         }
+        # OpenRouter may route one model through multiple upstream providers.
+        # Keep the request on endpoints that explicitly support the structured
+        # output parameter instead of silently degrading strict JSON Schema to
+        # ordinary JSON mode. Do not send this OpenRouter-specific routing knob
+        # to other OpenAI-compatible servers.
+        if urlparse(self._base_url).hostname == "openrouter.ai":
+            payload["provider"] = {"require_parameters": True}
+
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
