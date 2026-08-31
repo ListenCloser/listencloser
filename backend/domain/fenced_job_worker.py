@@ -258,7 +258,9 @@ class _HandlerTable:
         )
 
     def __getattr__(self, name: str) -> Any:
-        return getattr(self._table, name)
+        raise RuntimeError(
+            f"job handlers cannot access unfenced table operation {name}"
+        )
 
 
 class _HandlerStorageBucket:
