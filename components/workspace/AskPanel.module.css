@@ -59,7 +59,7 @@
   flex: none;
   margin-left: auto;
   padding-left: 12px;
-  padding-right: 4px;
+  padding-right: 10px;
 }
 
 .compactError {
@@ -70,8 +70,14 @@
   overflow: hidden;
 }
 
+/* Keep this selector module-pure by anchoring the global composer to its local
+ * send child. That widens only AskPanel's own composer action track. */
+:global(.ask-composer):has(> .send) {
+  grid-template-columns: minmax(0, 1fr) 42px;
+}
+
 .send {
-  width: 32px !important;
+  width: 42px !important;
   height: 32px !important;
-  border-radius: 6px !important;
+  border-radius: 7px !important;
 }
