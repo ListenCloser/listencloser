@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(15);
 
 create temp table __execution_tokens (
   label text primary key,
@@ -99,7 +99,10 @@ select is(
         'artifact_id', '00000000-0000-0000-0000-000000539005',
         'lineage', jsonb_build_array(),
         'storage_bucket', 'artifacts',
-        'storage_key', 'jobs/539/current.json',
+        'storage_key', format(
+          'jobs/00000000-0000-0000-0000-000000539004/execution-%s/current.json',
+          (select token::text from __execution_tokens where label = 'attempt-b')
+        ),
         'byte_size', 2,
         'metadata', jsonb_build_object(),
         'label', 'current attempt'
@@ -245,6 +248,24 @@ select throws_ok(
   '42501',
   'job cannot parent a Version outside its input/output graph',
   'output parentage is constrained to the Job input/output graph'
+);
+
+select throws_ok(
+  format(
+    $sql$
+      select *
+      from public.fenced_job_publish_version(
+        '00000000-0000-0000-0000-000000539004'::uuid,
+        %L::uuid,
+        '{"id":"00000000-0000-0000-0000-000000539010","work_id":"00000000-0000-0000-0000-000000539002","kind":"analysis_report","mime_type":"application/json"}'::jsonb,
+        '{"id":"00000000-0000-0000-0000-000000539011","artifact_id":"00000000-0000-0000-0000-000000539010","lineage":[],"storage_bucket":"artifacts","storage_key":"jobs/539/unscoped.json","byte_size":2,"metadata":{},"label":"invalid storage"}'::jsonb
+      )
+    $sql$,
+    (select token::text from __execution_tokens where label = 'attempt-b')
+  ),
+  '42501',
+  'job Version storage key is not scoped to the current execution',
+  'Version storage references are bound to the exact execution namespace'
 );
 
 select is(
