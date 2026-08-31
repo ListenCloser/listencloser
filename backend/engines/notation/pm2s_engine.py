@@ -88,9 +88,7 @@ class PM2SNotationEngine:
         if missing:
             raise RuntimeError(f"PM2S model assets are missing: {', '.join(missing)}")
 
-        self._converter = CRNNJointPM2S(
-            **{name: str(path) for name, path in model_paths.items()}
-        )
+        self._converter = CRNNJointPM2S(**{name: str(path) for name, path in model_paths.items()})
         return self._converter
 
     def _get_musicxml_importer(self) -> MuseScoreNotationEngine:
@@ -114,9 +112,7 @@ class PM2SNotationEngine:
             raise ValueError("PM2S notation input must be a MIDI file")
 
         performance = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
-        input_notes = sum(
-            len(instrument.notes) for instrument in performance.instruments
-        )
+        input_notes = sum(len(instrument.notes) for instrument in performance.instruments)
         end_time = float(performance.get_end_time())
         if end_time <= 0:
             raise ValueError("PM2S notation input must contain positive-duration MIDI")
