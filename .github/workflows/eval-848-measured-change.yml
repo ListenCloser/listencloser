@@ -1,0 +1,166 @@
+name: Measured Change Evaluation
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/eval-848-measured-change.yml'
+      - 'backend/evaluation/analysis_v3/perceptual/change_candidates.py'
+      - 'backend/evaluation/analysis_v3/perceptual/run_change_probe.py'
+      - 'backend/tests/test_analysis_v3_perceptual_change_candidates.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: measured-change-eval-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  real-audio-probe:
+    name: real-audio-splice-probe
+    if: github.event.pull_request.head.ref == 'eval/848-measured-change-probe'
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+
+      - name: Install codec tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Run deterministic discovery tests
+        run: |
+          uv run --project backend pytest -q \
+            backend/tests/test_analysis_v3_perceptual_change_candidates.py
+
+      - name: Prepare public-domain real-audio probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/measured-change"
+          mkdir -p "$root/source" "$root/segments" "$root/splices"
+
+          curl --fail --location --retry 4 --retry-all-errors \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Maple_Leaf_Rag.ogg' \
+            --output "$root/source/maple.ogg"
+          curl --fail --location --retry 4 --retry-all-errors \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/El_Choclo-Villoldo.ogg' \
+            --output "$root/source/el-choclo.ogg"
+          curl --fail --location --retry 4 --retry-all-errors \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/How_Long%2C_How_Long_Blues.ogg' \
+            --output "$root/source/how-long.ogg"
+
+          segment() {
+            local source="$1"
+            local start="$2"
+            local output="$3"
+            ffmpeg -y -loglevel error \
+              -ss "$start" -t 12 -i "$source" \
+              -ac 1 -ar 22050 -c:a pcm_s16le "$output"
+          }
+
+          segment "$root/source/maple.ogg" 5 "$root/segments/maple-a.wav"
+          segment "$root/source/el-choclo.ogg" 20 "$root/segments/tango-a.wav"
+          segment "$root/source/how-long.ogg" 40 "$root/segments/blues-a.wav"
+          segment "$root/source/maple.ogg" 25 "$root/segments/maple-b.wav"
+          segment "$root/source/el-choclo.ogg" 60 "$root/segments/tango-b.wav"
+          segment "$root/source/how-long.ogg" 80 "$root/segments/blues-b.wav"
+
+          cat > "$root/splice-a.txt" <<EOF
+          file '$root/segments/maple-a.wav'
+          file '$root/segments/tango-a.wav'
+          file '$root/segments/blues-a.wav'
+          EOF
+          cat > "$root/splice-b.txt" <<EOF
+          file '$root/segments/blues-b.wav'
+          file '$root/segments/maple-b.wav'
+          file '$root/segments/tango-b.wav'
+          EOF
+
+          ffmpeg -y -loglevel error -f concat -safe 0 -i "$root/splice-a.txt" \
+            -c copy "$root/splices/splice-a.wav"
+          ffmpeg -y -loglevel error -f concat -safe 0 -i "$root/splice-b.txt" \
+            -c copy "$root/splices/splice-b.wav"
+
+          cat > "$root/provenance.json" <<'JSON'
+          {
+            "scope": "evaluation_only_real_audio_splice_control",
+            "truth_boundary": "known splice boundaries prove real-signal localization mechanics only; they do not establish natural-song product usefulness",
+            "sources": [
+              {
+                "id": "maple_leaf_rag",
+                "file": "Maple Leaf Rag.ogg",
+                "commons_page": "https://commons.wikimedia.org/wiki/File:Maple_Leaf_Rag.ogg",
+                "rights": "Public Domain Mark; source also curated by product import PR #823"
+              },
+              {
+                "id": "el_choclo",
+                "file": "El Choclo-Villoldo.ogg",
+                "commons_page": "https://commons.wikimedia.org/wiki/File:El_Choclo-Villoldo.ogg",
+                "rights": "Public domain recording; source also curated by product import PR #823"
+              },
+              {
+                "id": "how_long_blues",
+                "file": "How Long, How Long Blues.ogg",
+                "commons_page": "https://commons.wikimedia.org/wiki/File:How_Long,_How_Long_Blues.ogg",
+                "rights": "Public domain; source also curated by product import PR #823"
+              }
+            ],
+            "splice_a": [
+              {"source": "maple_leaf_rag", "start_seconds": 5, "duration_seconds": 12},
+              {"source": "el_choclo", "start_seconds": 20, "duration_seconds": 12},
+              {"source": "how_long_blues", "start_seconds": 40, "duration_seconds": 12}
+            ],
+            "splice_b": [
+              {"source": "how_long_blues", "start_seconds": 80, "duration_seconds": 12},
+              {"source": "maple_leaf_rag", "start_seconds": 25, "duration_seconds": 12},
+              {"source": "el_choclo", "start_seconds": 60, "duration_seconds": 12}
+            ],
+            "known_boundaries_seconds": [12, 24]
+          }
+          JSON
+
+          echo "MEASURED_CHANGE_ROOT=$root" >> "$GITHUB_ENV"
+
+      - name: Run measured-change discovery probe
+        run: |
+          uv run --project backend python -m \
+            backend.evaluation.analysis_v3.perceptual.run_change_probe \
+            --track splice_a "$MEASURED_CHANGE_ROOT/splices/splice-a.wav" \
+            --expected-boundary splice_a 12 \
+            --expected-boundary splice_a 24 \
+            --track splice_b "$MEASURED_CHANGE_ROOT/splices/splice-b.wav" \
+            --expected-boundary splice_b 12 \
+            --expected-boundary splice_b 24 \
+            --track natural_maple "$MEASURED_CHANGE_ROOT/source/maple.ogg" \
+            --track natural_tango "$MEASURED_CHANGE_ROOT/source/el-choclo.ogg" \
+            --track natural_blues "$MEASURED_CHANGE_ROOT/source/how-long.ogg" \
+            --output "$MEASURED_CHANGE_ROOT/results.json"
+
+      - name: Upload decision evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: measured-change-eval-${{ github.event.pull_request.head.sha }}
+          path: |
+            ${{ runner.temp }}/measured-change/results.json
+            ${{ runner.temp }}/measured-change/provenance.json
+          if-no-files-found: warn
+          retention-days: 14
