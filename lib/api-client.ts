@@ -23,13 +23,6 @@ type ApiArtifact = components["schemas"]["Artifact"];
 type ApiVersion = components["schemas"]["Version"];
 type ApiVersionResource = components["schemas"]["VersionResourceResponse"];
 
-type UploadIntent = {
-  bucket: string;
-  storage_key: string;
-  token: string;
-  max_bytes: number;
-};
-
 function assertProjectResponse(value: ApiProject): asserts value is Project {
   for (const field of ["id", "description", "created_at", "updated_at", "archived_at"] as const) {
     if (value[field] === undefined) {
@@ -283,12 +276,11 @@ export async function getWorkBundle(workId: string): Promise<WorkBundle> {
 }
 
 export async function deleteWork(workId: string): Promise<{ deleted: string }> {
-  const result = await openapiClient.DELETE("/api/v1/works/{work_id}", {
-    params: { path: { work_id: workId } },
+  const result = await apiFetch<{ deleted: string }>(`/api/v1/works/${workId}`, {
+    method: "DELETE",
   });
-  const data = requireOpenApiData(result);
   invalidateWorkCache(cacheEpoch(), workId);
-  return data;
+  return result;
 }
 
 function rememberUploadedVersion(result: { artifact: Artifact; version: Version }): { artifact: Artifact; version: Version } {
@@ -318,13 +310,14 @@ export async function uploadArtifact(
     content_type: file.type || null,
     work_id: workId ?? null,
   };
-  const intent = await apiFetch<UploadIntent>(
-    `/api/v1/projects/${projectId}/artifacts/upload-intent`,
+  const intentResult = await openapiClient.POST(
+    "/api/v1/projects/{project_id}/artifacts/upload-intent",
     {
-      method: "POST",
-      body: JSON.stringify(descriptor),
+      params: { path: { project_id: projectId } },
+      body: descriptor,
     },
   );
+  const intent = requireOpenApiData(intentResult);
 
   if (file.size > intent.max_bytes) {
     throw new Error("File exceeds upload size limit");
@@ -337,17 +330,21 @@ export async function uploadArtifact(
     throw new Error(`Storage upload failed: ${uploadError.message}`);
   }
 
-  const result = await apiFetch<{ artifact: Artifact; version: Version }>(
-    `/api/v1/projects/${projectId}/artifacts/finalize-upload`,
+  const finalizeResult = await openapiClient.POST(
+    "/api/v1/projects/{project_id}/artifacts/finalize-upload",
     {
-      method: "POST",
-      body: JSON.stringify({
+      params: { path: { project_id: projectId } },
+      body: {
         ...descriptor,
         storage_key: intent.storage_key,
-      }),
+      },
     },
   );
-  return rememberUploadedVersion(result);
+  const result = requireOpenApiData(finalizeResult);
+  return rememberUploadedVersion({
+    artifact: normalizeArtifact(result.artifact),
+    version: normalizeVersion(result.version),
+  });
 }
 
 export async function startUnderstandWorkflow(
@@ -402,27 +399,22 @@ export async function startCompareWorkflow(
 }
 
 export async function getJob(jobId: string): Promise<JobStatus> {
-  const result = await openapiClient.GET("/api/v1/jobs/{job_id}", {
-    params: { path: { job_id: jobId } },
-  });
-  return requireOpenApiData(result);
+  return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}`);
 }
 
 export async function cancelJob(jobId: string): Promise<JobStatus> {
-  const result = await openapiClient.POST("/api/v1/jobs/{job_id}/cancel", {
-    params: { path: { job_id: jobId } },
+  const result = await apiFetch<JobStatus>(`/api/v1/jobs/${jobId}/cancel`, {
+    method: "POST",
   });
-  const data = requireOpenApiData(result);
   clearWorkDataCache();
-  return data;
+  return result;
 }
 
 export async function retryJob(jobId: string): Promise<JobStatus> {
   clearWorkDataCache();
-  const result = await openapiClient.POST("/api/v1/jobs/{job_id}/retry", {
-    params: { path: { job_id: jobId } },
+  return apiFetch<JobStatus>(`/api/v1/jobs/${jobId}/retry`, {
+    method: "POST",
   });
-  return requireOpenApiData(result);
 }
 
 export async function getVersionResource(versionId: string): Promise<VersionResource> {
