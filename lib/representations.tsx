@@ -14,6 +14,7 @@ import {
   noteIdsInRange,
 } from "@/lib/selection";
 import { extractAnnotations } from "@/lib/analysis-annotations";
+import { extractObservedPulseGrid } from "@/lib/pulse-grid";
 import Waveform from "@/components/Waveform";
 import PianoRoll from "@/components/PianoRoll";
 import SheetMusic from "@/components/SheetMusic";
@@ -51,7 +52,7 @@ export type RepresentationDefinition = {
 };
 
 function WaveformView({ active, orientationCue = false }: RepresentationViewProps) {
-  const { workspace, setSelection, clearSelection } = useWorkspace();
+  const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
   const inspectorOpen = !workspace.inspectorCollapsed;
@@ -88,7 +89,6 @@ function WaveformView({ active, orientationCue = false }: RepresentationViewProp
         onSelect={(start, end) =>
           setSelection(composeTimeSelection(start, end, [], "waveform"))
         }
-        onClearSelection={clearSelection}
         onAnnotationClick={(ann) => {
           setSelection({
             timeRange: { start: ann.startSeconds, end: ann.endSeconds, domain: "performance" },
@@ -101,11 +101,15 @@ function WaveformView({ active, orientationCue = false }: RepresentationViewProp
 }
 
 function PianoRollView({ active, orientationCue = false }: RepresentationViewProps) {
-  const { workspace, setSelection, clearSelection } = useWorkspace();
+  const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const { timeline } = useTimeline();
   const entry = workspace.representations.find((item) => item.kind === "piano_roll");
   const notes = entry?.notes ?? [];
+  const pulseGrid = useMemo(
+    () => extractObservedPulseGrid(workspace.insights, entry?.versionId),
+    [workspace.insights, entry?.versionId],
+  );
   const selection = workspace.selection;
   const inspectorOpen = !workspace.inspectorCollapsed;
   const annotations = useMemo(
@@ -129,6 +133,8 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
       <PianoRoll
         notes={notes}
         bpm={timeline.bpm}
+        beatTimes={pulseGrid?.beatsSeconds}
+        downbeatTimes={pulseGrid?.downbeatsSeconds}
         playheadTime={active ? transport.position : 0}
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
@@ -143,7 +149,6 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
           const composed = composeNoteSelection(notes, ids);
           if (composed) setSelection(composed);
         }}
-        onClearSelection={clearSelection}
         onAnnotationClick={(ann) => {
           setSelection({
             timeRange: { start: ann.startSeconds, end: ann.endSeconds, domain: "performance" },
@@ -156,7 +161,7 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
 }
 
 function SpectrogramView({ active }: RepresentationViewProps) {
-  const { workspace, setSelection, clearSelection } = useWorkspace();
+  const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
   const inspectorOpen = !workspace.inspectorCollapsed;
@@ -186,14 +191,13 @@ function SpectrogramView({ active }: RepresentationViewProps) {
         focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
         onSelect={(start, end) => setSelection(composeTimeSelection(start, end, [], "spectrogram"))}
-        onClearSelection={clearSelection}
       />
     </div>
   );
 }
 
 function ScoreView({ active, orientationCue = false }: RepresentationViewProps) {
-  const { workspace, setSelection, clearSelection } = useWorkspace();
+  const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const entry = workspace.representations.find((item) => item.kind === "score");
   const measureStarts = entry?.measureStarts ?? [];
@@ -245,7 +249,6 @@ function ScoreView({ active, orientationCue = false }: RepresentationViewProps) 
             composeMeasureSelection(start, end, measureStarts, scoreDuration),
           )
         }
-        onClearSelection={clearSelection}
         onAnnotationClick={(ann) => {
           setSelection({
             timeRange: { start: ann.startSeconds, end: ann.endSeconds, domain: "notation" },
