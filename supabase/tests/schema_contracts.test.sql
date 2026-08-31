@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(18);
 
 select ok(
   to_regclass('public.jobs') is not null,
@@ -88,6 +88,11 @@ select ok(
 select ok(
   to_regclass('public.models') is null,
   'vestigial models table is absent'
+);
+
+select ok(
+  to_regclass('public.workspace_states') is null,
+  'legacy workspace_states table is absent'
 );
 
 select ok(
