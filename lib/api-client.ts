@@ -23,13 +23,6 @@ type ApiArtifact = components["schemas"]["Artifact"];
 type ApiVersion = components["schemas"]["Version"];
 type ApiVersionResource = components["schemas"]["VersionResourceResponse"];
 
-type UploadIntent = {
-  bucket: string;
-  storage_key: string;
-  token: string;
-  max_bytes: number;
-};
-
 function assertProjectResponse(value: ApiProject): asserts value is Project {
   for (const field of ["id", "description", "created_at", "updated_at", "archived_at"] as const) {
     if (value[field] === undefined) {
@@ -318,13 +311,14 @@ export async function uploadArtifact(
     content_type: file.type || null,
     work_id: workId ?? null,
   };
-  const intent = await apiFetch<UploadIntent>(
-    `/api/v1/projects/${projectId}/artifacts/upload-intent`,
+  const intentResult = await openapiClient.POST(
+    "/api/v1/projects/{project_id}/artifacts/upload-intent",
     {
-      method: "POST",
-      body: JSON.stringify(descriptor),
+      params: { path: { project_id: projectId } },
+      body: descriptor,
     },
   );
+  const intent = requireOpenApiData(intentResult);
 
   if (file.size > intent.max_bytes) {
     throw new Error("File exceeds upload size limit");
@@ -337,17 +331,21 @@ export async function uploadArtifact(
     throw new Error(`Storage upload failed: ${uploadError.message}`);
   }
 
-  const result = await apiFetch<{ artifact: Artifact; version: Version }>(
-    `/api/v1/projects/${projectId}/artifacts/finalize-upload`,
+  const finalizeResult = await openapiClient.POST(
+    "/api/v1/projects/{project_id}/artifacts/finalize-upload",
     {
-      method: "POST",
-      body: JSON.stringify({
+      params: { path: { project_id: projectId } },
+      body: {
         ...descriptor,
         storage_key: intent.storage_key,
-      }),
+      },
     },
   );
-  return rememberUploadedVersion(result);
+  const result = requireOpenApiData(finalizeResult);
+  return rememberUploadedVersion({
+    artifact: normalizeArtifact(result.artifact),
+    version: normalizeVersion(result.version),
+  });
 }
 
 export async function startUnderstandWorkflow(
