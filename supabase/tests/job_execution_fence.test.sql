@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(16);
 
 create temp table __execution_tokens (
   label text primary key,
@@ -81,6 +81,19 @@ select isnt(
 update public.jobs
 set stage = 'running'
 where id = '00000000-0000-0000-0000-000000539004';
+
+-- Model the Storage API's committed metadata for a successful current-attempt
+-- upload. fenced_job_publish_version must require this exact bucket+key row,
+-- not merely a key string that happens to contain the execution token.
+insert into storage.objects (bucket_id, name)
+select
+  'artifacts',
+  format(
+    'jobs/00000000-0000-0000-0000-000000539004/execution-%s/current.json',
+    token::text
+  )
+from __execution_tokens
+where label = 'attempt-b';
 
 select is(
   (
@@ -266,6 +279,37 @@ select throws_ok(
   '42501',
   'job Version storage key is not scoped to the current execution',
   'Version storage references are bound to the exact execution namespace'
+);
+
+select throws_ok(
+  format(
+    $sql$
+      select *
+      from public.fenced_job_publish_version(
+        '00000000-0000-0000-0000-000000539004'::uuid,
+        %L::uuid,
+        '{"id":"00000000-0000-0000-0000-000000539012","work_id":"00000000-0000-0000-0000-000000539002","kind":"analysis_report","mime_type":"application/json"}'::jsonb,
+        jsonb_build_object(
+          'id', '00000000-0000-0000-0000-000000539013',
+          'artifact_id', '00000000-0000-0000-0000-000000539012',
+          'lineage', jsonb_build_array(),
+          'storage_bucket', 'artifacts',
+          'storage_key', format(
+            'jobs/00000000-0000-0000-0000-000000539004/execution-%s/missing.json',
+            %L
+          ),
+          'byte_size', 2,
+          'metadata', jsonb_build_object(),
+          'label', 'fabricated scoped storage'
+        )
+      )
+    $sql$,
+    (select token::text from __execution_tokens where label = 'attempt-b'),
+    (select token::text from __execution_tokens where label = 'attempt-b')
+  ),
+  '42501',
+  'job Version storage object does not exist in declared bucket',
+  'a fabricated execution-scoped key cannot be published without a successful upload'
 );
 
 select is(
