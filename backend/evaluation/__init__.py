@@ -1,7 +1,6 @@
-"""Music quality evaluation framework.
+"""Decision-specific music evaluation primitives and harnesses.
 
-Run:  python -m evaluation.runner --manifest path/to/manifest.json
-
-Produces machine-readable JSON and human-readable Markdown results
-without changing any production pipeline code.
+See ``docs/EVALUATION_METHODOLOGY.md`` for the repository evaluation contract.
+There is intentionally no universal evaluation runner: each active decision owns
+the smallest reproducible harness and result artifact needed to answer it.
 """
