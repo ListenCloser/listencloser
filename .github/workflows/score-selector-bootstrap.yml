@@ -1,0 +1,86 @@
+name: Score selector bootstrap
+
+on:
+  push:
+    branches: [feat/score-engine-selection]
+    paths:
+      - .github/workflows/score-selector-bootstrap.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: score-selector-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feat/score-engine-selection
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: npm ci
+      - run: uv sync --project backend --locked
+      - name: Apply selector changes
+        run: python scripts/_apply_score_selector.py
+      - name: Format backend changes
+        run: |
+          uv run --project backend ruff format \
+            backend/domain/api.py \
+            backend/domain/capabilities.py \
+            backend/music_features.py \
+            backend/tests/test_transcription_profile_routing.py \
+            backend/tests/test_score_engine_routing.py
+          uv run --project backend ruff check \
+            backend/domain/api.py \
+            backend/domain/capabilities.py \
+            backend/music_features.py \
+            backend/tests/test_transcription_profile_routing.py \
+            backend/tests/test_score_engine_routing.py
+      - name: Regenerate OpenAPI contract
+        run: npm run api:generate
+      - name: Validate edited surfaces
+        run: |
+          npm run lint
+          npm run typecheck
+          uv run --project backend python -m pytest \
+            backend/tests/test_transcription_profile_routing.py \
+            backend/tests/test_score_engine_routing.py \
+            -m 'not integration' -q
+      - name: Commit generated selector slice
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/score-selector-bootstrap.yml scripts/_apply_score_selector.py .github/workflows/pm2s-smoke.yml
+          git add \
+            .github/workflows/backend-image.yml \
+            app/page.tsx \
+            backend/domain/api.py \
+            backend/domain/capabilities.py \
+            backend/music_features.py \
+            backend/scripts/smoke_pm2s.py \
+            backend/tests/test_transcription_profile_routing.py \
+            backend/tests/test_score_engine_routing.py \
+            components/workspace/RepresentationStack.tsx \
+            lib/api-client.ts \
+            lib/api-types.ts \
+            lib/stores/workspace.tsx \
+            openapi/openapi.json
+          git config user.name 'listencloser-ci'
+          git config user.email 'actions@users.noreply.github.com'
+          git commit -m 'feat(score): expose per-request score engine selection'
+          git push origin HEAD:feat/score-engine-selection
