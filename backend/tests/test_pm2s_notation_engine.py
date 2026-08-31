@@ -45,7 +45,9 @@ class _Importer:
         self.inputs: list[bytes] = []
         self.kwargs: list[dict[str, Any]] = []
 
-    def convert(self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any) -> NotationResult:
+    def convert(
+        self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any
+    ) -> NotationResult:
         self.inputs.append(midi_bytes)
         self.kwargs.append(kwargs)
         return NotationResult(
@@ -75,7 +77,9 @@ def test_pm2s_preserves_score_midi_and_feeds_only_it_to_musescore() -> None:
     assert result.notation_midi != source
     assert importer.inputs == [result.notation_midi]
     learned = pretty_midi.PrettyMIDI(io.BytesIO(result.notation_midi))
-    assert [note.pitch for instrument in learned.instruments for note in instrument.notes] == [67]
+    assert [
+        note.pitch for instrument in learned.instruments for note in instrument.notes
+    ] == [67]
     assert importer.kwargs == [{"notation_ready": True, "piano_grand_staff": True}]
     assert converter.kwargs is not None
     assert converter.kwargs["end_time"] == pytest.approx(2.0)
