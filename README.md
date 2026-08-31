@@ -1,72 +1,83 @@
-# Listen Closer · Music Understanding Workspace
+# Listen Closer
 
-Listen Closer turns an imported recording into a persistent musical **Work** with synchronized representations, playback, and evidence-backed analysis. Long-running processing runs on a durable worker; the browser renders persisted results rather than fabricating demo data.
+Listen Closer is a music-understanding workspace for moving from **a recording** to **inspectable musical evidence** without losing your place in the music.
 
-## Start here
+Import audio once. Listen Closer keeps it as a persistent **Work**, processes it asynchronously, and brings the resulting views and evidence back into one synchronized workspace. You can move between the recording, detected notes, notation, spectral detail, Breakdown findings, and Ask while keeping playback and musical context aligned.
 
-Repository documentation has explicit ownership. Read [`docs/README.md`](docs/README.md) before treating prose as authoritative.
+## From recording to understanding
 
-The short version:
+The core product pipeline is intentionally durable rather than request/response-only:
 
-- [`AGENTS.md`](AGENTS.md) — engineering and autonomous-agent execution rules.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current shipped runtime architecture.
-- [`docs/MASTER_SPEC.md`](docs/MASTER_SPEC.md) — target product/architecture direction, not a claim that every described capability ships today.
-- `backend/config/capabilities.json` — machine-readable authority for analysis capability maturity and product exposure.
-- [`docs/OPS.md`](docs/OPS.md) — deployment and operational procedures.
-- ADRs under `docs/adr/` — durable architectural decisions.
+```text
+audio import
+    ↓
+persistent Work + immutable source Version
+    ↓
+durable queued processing
+    ↓
+derived artifact Versions + musical evidence
+    ↓
+synchronized workspace
+    ├─ Waveform
+    ├─ Piano Roll
+    ├─ Score
+    └─ Spectrogram
+    ↓
+evidence-backed Breakdown + Ask
+```
 
-Runtime code, migrations, deployment configuration, and the deployed release SHA win over stale prose for statements about what is actually running.
+A Work is the stable product object. Processing can continue after the browser request that started it, and derived outputs keep lineage back to their source instead of replacing it in place. The workspace renders persisted results as they become available.
 
-## Product model
+Evidence is treated similarly: measured or derived observations can support product explanations, while unknown or insufficient evidence remains an explicit state. Listen Closer does not need to invent a chord, confidence, section, or explanation simply to fill UI.
 
-The product is organized around one persistent Work:
+## What you can do today
 
-- **Import** private audio through a backend-authorized signed upload flow.
-- **Process** with durable queued jobs and replaceable music-engine adapters.
-- **Represent** the same Work as Waveform, Piano Roll, Score, Spectrogram, and other supported views.
-- **Listen** to available sources independently from the visible representation.
-- **Understand** through localized evidence, derived observations, and grounded explanations.
-- **Persist** immutable artifact/version lineage, provenance, jobs, entities, insights, and alignments.
+- **Import a recording** through a backend-authorized private upload flow and reopen it later as the same Work.
+- **Listen independently from the visible view**, switching among available playback sources without making the representation itself the transport authority.
+- **Inspect synchronized representations** including Waveform, Piano Roll, Score, and Spectrogram as their source artifacts become available.
+- **Select and revisit musical passages** across the shared workspace instead of treating every representation as an isolated viewer.
+- **Inspect supported findings in Breakdown** with provenance/evidence rather than a free-form generated summary.
+- **Ask questions about the recording or a selected passage** using the evidence available for that Work, with typed references/actions that the user explicitly triggers.
 
-Unknown or insufficient evidence is a valid product state. Analysis exposure is gated by the capability registry rather than by whether an engine happens to return output.
+Analysis capabilities are not all equally mature or universally exposed. `backend/config/capabilities.json` is the machine-readable authority for which analysis capabilities may appear in the product; [`docs/MASTER_SPEC.md`](docs/MASTER_SPEC.md) describes target direction and should not be read as a claim that every future capability already ships.
 
-## Runtime topology
+## System shape
 
 ```mermaid
 flowchart LR
-    Browser[Browser / Next.js] --> Proxy[Authenticated /api/v1 proxy]
-    Proxy --> API[FastAPI]
-    API --> DB[Supabase Postgres + private Storage]
-    Worker[Durable worker] --> DB
-    Worker --> Engines[Music engine adapters]
+    Browser[Browser / Next.js workspace] --> API[FastAPI]
+    API --> Data[Supabase Postgres + private Storage]
+    Worker[Durable worker] --> Data
+    Worker --> Engines[MIR / notation engine adapters]
     Engines --> Worker
+    Data --> Browser
 ```
 
-The browser does not receive Oracle service credentials or call the VM directly. See `docs/ARCHITECTURE.md` for the current runtime contract.
+The browser talks to authenticated application/API boundaries; it does not receive worker-service credentials or call the processing VM directly. The API owns durable workflow intent and persistence, while the worker claims queued work, runs replaceable music-analysis/notation engines, and publishes versioned artifacts and evidence.
+
+For the maintained runtime/deployment contract, read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Local development
 
-The repository expects Node 22.x, npm 10.x, and uv 0.12.6. npm enforces the Node/npm contract before install/run commands, while the backend project pins uv and Python 3.11.
-
-From a fresh clone, first inspect the local prerequisites:
+From a fresh clone, first check prerequisites:
 
 ```bash
 npm run doctor
 ```
 
-Then install the locked frontend and backend environments with the canonical bootstrap:
+Install the locked frontend and backend environments:
 
 ```bash
 npm run bootstrap
 ```
 
-`bootstrap` uses `npm ci` and `uv sync --project backend --locked`; it does not create a second dependency authority. After setup:
+Start the normal local development path:
 
 ```bash
 npm run dev
 ```
 
-Common checks:
+Useful verification commands:
 
 ```bash
 npm run check:fast
@@ -75,35 +86,41 @@ npm run check:backend
 npm run check:e2e
 ```
 
-Browser E2E additionally needs Playwright Chromium (`npx playwright install chromium`). Database/real-stack tiers additionally need Docker and the Supabase CLI. The checked-in devcontainer already supplies the common system dependencies for the containerized development path.
+Browser E2E also needs Playwright Chromium. Database and real-stack verification additionally need Docker and the Supabase CLI. Use the verification ladder in [`AGENTS.md`](AGENTS.md) rather than running heavyweight model/real-stack checks for every small change.
 
-Use the verification ladder in root `AGENTS.md`; do not run heavyweight real-stack or model evaluation merely because a text-only change exists.
+Dependency versions and environment ownership live in `package.json`, `backend/pyproject.toml`, and their lockfiles rather than in this README.
 
-## Repository structure
+## Repository map
+
+The top-level tree follows **ownership and lifecycle**, not a requirement to put every artifact type in its own package:
 
 ```text
-app/                    Next.js App Router, workspace, authenticated proxy routes
-components/             React UI components
-lib/                    client/state/generated API contracts and shared utilities
-backend/                FastAPI API, durable worker, domain logic, engine adapters
-backend/evaluation/     evaluation harnesses and benchmark adapters
-supabase/               database/storage migrations and local stack configuration
-tests/                  browser E2E and product verification
-docs/                   architecture, operations, ADRs, research and historical docs
-scripts/                repository-owned development/verification helpers
+app/                Next.js routes, application shell and route-owned frontend code
+components/         workspace UI plus genuinely shared React primitives/providers
+lib/                shared frontend contracts, state and cross-feature libraries
+backend/            API, durable worker, domain code and engine adapters
+supabase/           database/storage migrations and local Supabase configuration
+tests/              cross-product/browser/system verification
+evaluation/         durable evaluation evidence and result artifacts
+docs/               maintained architecture, operations, decisions and methodology
+scripts/            repository-owned development and verification automation
+openapi/            generated API contract artifacts
+observability/      repository-owned observability configuration
 ```
 
-## Current stack
+Feature-private code should stay with its owner; global `components/` and `lib/` are for responsibilities that are actually shared. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the generated architecture views for current boundaries.
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 16, React 19, TypeScript |
-| Styling | Tailwind CSS v4 + CSS custom properties |
-| Backend | FastAPI, Python 3.11 |
-| Database/Auth/Storage | Supabase |
-| Processing | durable Postgres-backed worker + replaceable music-engine adapters |
-| API contracts | FastAPI OpenAPI → generated TypeScript types |
-| Observability | OpenTelemetry/Grafana + Sentry exception reporting |
-| Verification | Vitest, pytest, Playwright, real-stack E2E, GitHub Actions |
+## Where to go next
 
-Exact dependency versions belong to `package.json`, `backend/pyproject.toml`, and lockfiles rather than this README.
+Repository documentation has explicit authority rather than one giant source-of-truth document:
+
+- [`AGENTS.md`](AGENTS.md) — engineering rules, verification expectations, and autonomous-agent workflow.
+- [`docs/README.md`](docs/README.md) — documentation map and precedence rules.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current shipped runtime architecture.
+- [`docs/MASTER_SPEC.md`](docs/MASTER_SPEC.md) — target product and architecture direction.
+- [`docs/EVALUATION_METHODOLOGY.md`](docs/EVALUATION_METHODOLOGY.md) — how production/evaluation decisions should be tested.
+- [`docs/EVALUATION_DECISIONS.md`](docs/EVALUATION_DECISIONS.md) — current cross-track evaluation conclusions.
+- [`docs/OPS.md`](docs/OPS.md) and [`docs/RECOVERY.md`](docs/RECOVERY.md) — production operation and recovery.
+- [`docs/adr/`](docs/adr/) — durable architectural decisions and revisit conditions.
+
+For statements about what is actually running, executable code/configuration, migrations, and the deployed release identity take precedence over stale prose.
