@@ -1,15 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/api", () => ({ apiFetch: vi.fn() }));
+const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 
-import { apiFetch } from "@/lib/api";
+vi.mock("@/lib/openapi-client", () => ({
+  openapiClient: { POST: post },
+  requireOpenApiData: <T,>({ data, error, response }: { data?: T; error?: unknown; response: Response }): T => {
+    if (data !== undefined) return data;
+    const message =
+      typeof error === "object" && error !== null && "error" in error
+        ? (error as { error?: unknown }).error
+        : undefined;
+    throw new Error(typeof message === "string" ? message : `Request failed: ${response.status}`);
+  },
+}));
+
 import {
   comparePerceptualSpans,
   type PerceptualSpanComparisonBody,
   type PerceptualSpanComparisonResponse,
 } from "@/lib/relation-api-client";
-
-const mockApiFetch = vi.mocked(apiFetch);
 
 const body: PerceptualSpanComparisonBody = {
   source_version_id: "00000000-0000-0000-0000-000000000002",
@@ -19,29 +28,34 @@ const body: PerceptualSpanComparisonBody = {
   comparison_end_seconds: 10,
 };
 
+const ok = <T,>(data: T) => ({
+  data,
+  response: new Response(JSON.stringify(data), { status: 200 }),
+});
+
 describe("perceptual span comparison client", () => {
   beforeEach(() => {
-    mockApiFetch.mockReset();
+    post.mockReset();
   });
 
-  it("forwards the generated wire contract to the Work-scoped relation route", async () => {
+  it("uses the generated Work-scoped relation operation", async () => {
     const expected: PerceptualSpanComparisonResponse = {
       status: "supported",
       evidence_report_version_id: "00000000-0000-0000-0000-000000000003",
       finding: null,
       reasons: [],
     };
-    mockApiFetch.mockResolvedValue(expected);
+    post.mockResolvedValue(ok(expected));
 
     const result = await comparePerceptualSpans("work-1", body);
 
     expect(result).toBe(expected);
-    expect(mockApiFetch).toHaveBeenCalledTimes(1);
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      "/api/v1/works/work-1/relations/perceptual-span-comparison",
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith(
+      "/api/v1/works/{work_id}/relations/perceptual-span-comparison",
       {
-        method: "POST",
-        body: JSON.stringify(body),
+        params: { path: { work_id: "work-1" } },
+        body,
       },
     );
   });
@@ -55,7 +69,7 @@ describe("perceptual span comparison client", () => {
         finding: null,
         reasons: ["evidence boundary"],
       };
-      mockApiFetch.mockResolvedValue(expected);
+      post.mockResolvedValue(ok(expected));
 
       await expect(comparePerceptualSpans("work-1", body)).resolves.toEqual(expected);
     },
