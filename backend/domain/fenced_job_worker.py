@@ -101,7 +101,7 @@ class _FencedInsert:
                 raise RuntimeError("job handlers may publish one Version at a time")
             version = rows[0]
             artifact = self._client.pending_artifact(str(version.get("artifact_id")))
-            result = self._client.raw.rpc(
+            result = self._client._raw.rpc(
                 "fenced_job_publish_version",
                 {
                     "p_job_id": self._client.job_id,
@@ -115,7 +115,7 @@ class _FencedInsert:
 
         if self._table_name not in _DIRECT_OUTPUT_TABLES:
             raise RuntimeError(f"job handler insert is not allowed for {self._table_name!r}")
-        return self._client.raw.rpc(
+        return self._client._raw.rpc(
             "fenced_job_insert",
             {
                 "p_job_id": self._client.job_id,
@@ -156,7 +156,7 @@ class _FencedDelete:
             raise RuntimeError(
                 "job handler output delete is not an admitted fenced mutation shape"
             )
-        return self._client.raw.rpc(
+        return self._client._raw.rpc(
             "fenced_job_delete",
             {
                 "p_job_id": self._client.job_id,
@@ -210,7 +210,7 @@ class _HandlerTable:
     def __init__(self, client: "_HandlerClient", name: str) -> None:
         self._client = client
         self._name = name
-        self._table = client.raw.table(name)
+        self._table = client._raw.table(name)
 
     def select(self, columns: str = "*", *args: Any, **kwargs: Any) -> Any:
         query = self._table.select(columns, *args, **kwargs)
@@ -256,6 +256,9 @@ class _HandlerStorageBucket:
         self._bucket = bucket
         self._client = client
 
+    def download(self, path: str, *args: Any, **kwargs: Any) -> Any:
+        return self._bucket.download(path, *args, **kwargs)
+
     def upload(self, path: str, *args: Any, **kwargs: Any) -> Any:
         fenced_path = self._client.scope_storage_key(path)
         self._client.remember_storage_key(path, fenced_path)
@@ -272,9 +275,7 @@ class _HandlerStorageBucket:
         return []
 
     def __getattr__(self, name: str) -> Any:
-        if name in {"copy", "move", "update"}:
-            raise RuntimeError(f"job handlers cannot perform unfenced storage {name}")
-        return getattr(self._bucket, name)
+        raise RuntimeError(f"job handlers cannot access unfenced storage operation {name}")
 
 
 class _HandlerStorage:
@@ -293,7 +294,7 @@ class _HandlerClient:
     """Capability-facing persistence boundary for one exact Job execution."""
 
     def __init__(self, raw: Any, job_id: str, execution_token: str) -> None:
-        self.raw = raw
+        self._raw = raw
         self.job_id = job_id
         self.execution_token = execution_token
         self._storage_keys: dict[str, str] = {}
@@ -352,9 +353,7 @@ class _HandlerClient:
         self._pending_artifacts.pop(artifact_id, None)
 
     def __getattr__(self, name: str) -> Any:
-        if name in {"postgrest", "rest"}:
-            raise RuntimeError("job handlers cannot bypass the fenced table boundary")
-        return getattr(self.raw, name)
+        raise RuntimeError(f"job handlers cannot access raw client operation {name}")
 
 
 class FencedJobWorker(JobWorker):
