@@ -33,9 +33,7 @@ class _ScoreConverter:
         # rather than accidentally receiving the original performance MIDI.
         score = pretty_midi.PrettyMIDI(initial_tempo=120.0)
         right_hand = pretty_midi.Instrument(program=0, name="right_hand")
-        right_hand.notes.append(
-            pretty_midi.Note(velocity=80, pitch=67, start=0.0, end=1.0)
-        )
+        right_hand.notes.append(pretty_midi.Note(velocity=80, pitch=67, start=0.0, end=1.0))
         score.instruments.append(right_hand)
         score.write(destination)
 
@@ -45,9 +43,7 @@ class _Importer:
         self.inputs: list[bytes] = []
         self.kwargs: list[dict[str, Any]] = []
 
-    def convert(
-        self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any
-    ) -> NotationResult:
+    def convert(self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any) -> NotationResult:
         self.inputs.append(midi_bytes)
         self.kwargs.append(kwargs)
         return NotationResult(
@@ -77,9 +73,7 @@ def test_pm2s_preserves_score_midi_and_feeds_only_it_to_musescore() -> None:
     assert result.notation_midi != source
     assert importer.inputs == [result.notation_midi]
     learned = pretty_midi.PrettyMIDI(io.BytesIO(result.notation_midi))
-    assert [
-        note.pitch for instrument in learned.instruments for note in instrument.notes
-    ] == [67]
+    assert [note.pitch for instrument in learned.instruments for note in instrument.notes] == [67]
     assert importer.kwargs == [{"notation_ready": True, "piano_grand_staff": True}]
     assert converter.kwargs is not None
     assert converter.kwargs["end_time"] == pytest.approx(2.0)
