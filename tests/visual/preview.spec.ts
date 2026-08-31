@@ -29,27 +29,6 @@ async function openCompactWorkspace(page: Page) {
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
 }
 
-// Existing design source-of-truth mockup retained as a broad workspace reference.
-test("design mockup (SOT)", async ({ page }) => {
-  await page.goto(
-    "file://" + process.cwd() + "/design/mockups/audio-to-sheet-music.html",
-  );
-  await page.waitForTimeout(300);
-  await argosScreenshot(page, "design-mockup");
-});
-
-// Breakdown V3 is the current Inspector interaction contract. Keeping the
-// prototype in Argos makes reference drift visible instead of leaving the
-// design document disconnected from implementation.
-test("Breakdown V3 design reference", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(
-    "file://" + process.cwd() + "/design/mockups/breakdown-v3.html",
-  );
-  await page.waitForTimeout(300);
-  await argosScreenshot(page, "design-breakdown-v3", { fullPage: true });
-});
-
 // Actual built app — signed-out landing at the design review baseline.
 test("app landing — desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
