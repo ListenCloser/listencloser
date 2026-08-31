@@ -31,7 +31,7 @@ from .models import Job
 
 _DIRECT_OUTPUT_TABLES = frozenset({"entities", "insights", "alignments"})
 _MUTABLE_OUTPUT_TABLES = frozenset(
-    {"artifacts", "artifact_versions", *_DIRECT_OUTPUT_TABLES}
+    {"artifacts", "artifact_versions", *_DIRECT_OUTPUT_TABLES},
 )
 
 _tracer = get_tracer("listencloser-worker-execution-fence")
@@ -114,7 +114,9 @@ class _FencedInsert:
             return result
 
         if self._table_name not in _DIRECT_OUTPUT_TABLES:
-            raise RuntimeError(f"job handler insert is not allowed for {self._table_name!r}")
+            raise RuntimeError(
+                f"job handler insert is not allowed for {self._table_name!r}"
+            )
         return self._client._raw.rpc(
             "fenced_job_insert",
             {
@@ -227,12 +229,16 @@ class _HandlerTable:
         if args or kwargs:
             raise RuntimeError("fenced handler inserts do not accept transport overrides")
         if self._name not in _MUTABLE_OUTPUT_TABLES:
-            raise RuntimeError(f"job handler insert is not allowed for table {self._name!r}")
+            raise RuntimeError(
+                f"job handler insert is not allowed for table {self._name!r}"
+            )
         return _FencedInsert(self._client, self._name, rows)
 
     def update(self, values: dict[str, Any], *args: Any, **kwargs: Any) -> Any:
         if self._name != "jobs":
-            raise RuntimeError(f"job handler update is not allowed for table {self._name!r}")
+            raise RuntimeError(
+                f"job handler update is not allowed for table {self._name!r}"
+            )
         return self._table.update(values, *args, **kwargs).eq(
             "execution_token", self._client.execution_token
         )
@@ -241,11 +247,15 @@ class _HandlerTable:
         if args or kwargs:
             raise RuntimeError("fenced handler deletes do not accept transport overrides")
         if self._name not in _MUTABLE_OUTPUT_TABLES:
-            raise RuntimeError(f"job handler delete is not allowed for table {self._name!r}")
+            raise RuntimeError(
+                f"job handler delete is not allowed for table {self._name!r}"
+            )
         return _FencedDelete(self._client, self._name)
 
     def upsert(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise RuntimeError(f"job handler upsert is not allowed for table {self._name!r}")
+        raise RuntimeError(
+            f"job handler upsert is not allowed for table {self._name!r}"
+        )
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._table, name)
@@ -276,7 +286,9 @@ class _HandlerStorageBucket:
         return []
 
     def __getattr__(self, name: str) -> Any:
-        raise RuntimeError(f"job handlers cannot access unfenced storage operation {name}")
+        raise RuntimeError(
+            f"job handlers cannot access unfenced storage operation {name}"
+        )
 
 
 class _HandlerStorage:
@@ -288,7 +300,9 @@ class _HandlerStorage:
         return _HandlerStorageBucket(self._storage.from_(bucket), self._client)
 
     def __getattr__(self, name: str) -> Any:
-        raise RuntimeError(f"job handlers cannot access unfenced storage operation {name}")
+        raise RuntimeError(
+            f"job handlers cannot access unfenced storage operation {name}"
+        )
 
 
 class _HandlerClient:
@@ -406,7 +420,9 @@ class FencedJobWorker(JobWorker):
                 return False
 
         token = str(uuid4())
-        expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
+        expires = (
+            datetime.now(UTC) + timedelta(seconds=self._lease_duration)
+        ).isoformat()
         result = (
             self._raw_client()
             .table("jobs")
@@ -473,14 +489,21 @@ class FencedJobWorker(JobWorker):
     def _renew_lease(self, job_id: str) -> None:
         """Extend only the exact execution generation that started this heartbeat."""
         token = self._execution_token(job_id)
-        expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
+        expires = (
+            datetime.now(UTC) + timedelta(seconds=self._lease_duration)
+        ).isoformat()
         self._raw_client().table("jobs").update({"lease_expires_at": expires}).eq(
             "id", job_id
         ).eq("worker_id", self._worker_id).eq("execution_token", token).eq(
             "stage", "running"
         ).execute()
 
-    def register(self, name: str, version: str, handler: Callable[..., list[str]]) -> None:
+    def register(
+        self,
+        name: str,
+        version: str,
+        handler: Callable[..., list[str]],
+    ) -> None:
         def fenced_handler(job: Job, _raw_client: Any) -> list[str]:
             job_id = str(job.id)
             token = self._execution_token(job_id)
