@@ -108,9 +108,10 @@ class TestBeatWrapper:
 class TestNotationWrapper:
     def test_wrapper_resolves_engine_via_registry(self):
         from engines.base import NotationResult
-        from engines.notation.music21_engine import Music21NotationEngine
+        from engines.notation.musescore_engine import MuseScoreNotationEngine
 
-        engine = Music21NotationEngine()
+        engine = MuseScoreNotationEngine(executable="/test/musescore")
+        engine._version = "MuseScore Studio 4 test"
         engine.convert = MagicMock(
             return_value=NotationResult(
                 notation_midi=b"midi",
@@ -124,7 +125,7 @@ class TestNotationWrapper:
             import music_features as mf
 
             result = mf.notation_with_engine(b"midi", [0.0, 0.5])
-            assert result["provenance"]["engine"] == "music21"
+            assert result["provenance"]["engine"] == "musescore"
             assert result["musicxml"] == b"xml"
 
 
