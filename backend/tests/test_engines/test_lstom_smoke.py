@@ -17,7 +17,7 @@ from pathlib import Path
 import pretty_midi
 import pytest
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.worker]
 pytest.importorskip("torch", reason="worker/model dependency group is not installed")
 
 from engines.melody.lstom_engine import _THRESHOLD, LStoMMelodyEngine  # noqa: E402
