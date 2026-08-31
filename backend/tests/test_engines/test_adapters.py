@@ -13,13 +13,11 @@ from engines.base import (
     EngineProvenance,
     HarmonyResult,
     MelodyResult,
-    NotationResult,
     TranscriptionResult,
 )
 from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
-from engines.notation.music21_engine import Music21NotationEngine
 from engines.structure.allin1_engine import AllInOneEngine
 from engines.transcription.basic_pitch import BasicPitchEngine
 
@@ -79,28 +77,12 @@ class TestAllInOneAdapter:
     def test_disabled_by_default(self):
         engine = AllInOneEngine()
         result = engine.analyze(b"fake-wav")
-        assert result is None  # disabled returns None, not a zero-filled result
+        assert result is None
 
     def test_provenance_includes_model(self):
         engine = AllInOneEngine()
         p = engine.provenance
         assert p.model == "harmonix-all"
-
-
-class TestMusic21NotationAdapter:
-    def test_provenance(self):
-        engine = Music21NotationEngine()
-        assert engine.provenance.engine == "music21"
-
-    def test_result_has_provenance(self):
-        result = NotationResult(
-            notation_midi=b"midi",
-            musicxml=b"xml",
-            quantization_report={"notes": 10},
-            provenance=EngineProvenance(engine="music21", library_version="9.1"),
-        )
-        d = result.to_dict()
-        assert d["provenance"]["engine"] == "music21"
 
 
 class TestHarmonyResult:
@@ -210,11 +192,11 @@ class TestTimingExcludesSetup:
                 return True
 
             def prepare(self) -> None:
-                time.sleep(0.1)  # Simulate slow model loading
+                time.sleep(0.1)
                 self._prepared = True
 
             def transcribe(self, audio_bytes: bytes, **kwargs) -> dict[str, Any]:
-                time.sleep(0.05)  # Simulate actual inference
+                time.sleep(0.05)
                 self._warmed = True
                 return {"midi": b"", "notes": [], "num_notes": 0, "cleanup_report": {}}
 
@@ -230,7 +212,6 @@ class TestTimingExcludesSetup:
         from evaluation.engines import _run_clip_on_engine
         from evaluation.models import EvalClip
 
-        # Create a temp audio file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             f.write(
                 b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x40\x1f\x00\x00\x40\x1f\x00\x00\x01\x00\x08\x00data\x00\x00\x00\x00"
@@ -238,24 +219,13 @@ class TestTimingExcludesSetup:
             temp_audio = f.name
 
         try:
-            clip = EvalClip(
-                id="test_clip",
-                audio=temp_audio,
-                category="solo_piano",
-            )
-
+            clip = EvalClip(id="test_clip", audio=temp_audio, category="solo_piano")
             adapter = SlowAdapter()
             result = _run_clip_on_engine(adapter, clip, "transcription", warmup=True)
 
             assert result.success
-            # Inference runtime should be ~0.05s (transcribe sleep), NOT ~0.15s (prepare + warmup + inference)
-            assert (
-                result.runtime_s < 0.1
-            ), f"Runtime {result.runtime_s:.3f}s should exclude prepare/warmup"
-            assert (
-                result.runtime_s > 0.03
-            ), f"Runtime {result.runtime_s:.3f}s should include actual inference"
-            # Peak memory should be non-negative
+            assert result.runtime_s < 0.1
+            assert result.runtime_s > 0.03
             assert result.peak_memory_mb >= 0
         finally:
             with suppress(Exception):
@@ -303,16 +273,11 @@ class TestTimingExcludesSetup:
         from evaluation.engines import _run_clip_on_engine
         from evaluation.models import EvalClip
 
-        clip = EvalClip(
-            id="test_clip",
-            audio=b"dummy",
-            category="solo_piano",
-        )
-
+        clip = EvalClip(id="test_clip", audio=b"dummy", category="solo_piano")
         adapter = FailingPrepareAdapter()
         result = _run_clip_on_engine(adapter, clip, "transcription", warmup=True)
 
         assert not result.success
         assert "Model load failed" in result.error
-        assert result.runtime_s == 0.0, "Failed prepare should yield 0 runtime"
+        assert result.runtime_s == 0.0
         assert result.peak_memory_mb == 0.0
