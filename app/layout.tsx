@@ -20,7 +20,7 @@ import QueryProvider from "@/components/QueryProvider";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Music Workspace",
+  title: "Listen Closer",
   description: "Move through a recording, musical representations, and evidence-backed analysis without losing your place.",
   icons: {
     icon: "/icon.svg",
