@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 
-torch = pytest.importorskip("torch", reason="torch not installed")
+pytestmark = [pytest.mark.integration, pytest.mark.worker]
+torch = pytest.importorskip("torch", reason="worker/model dependency group is not installed")
 pytest.importorskip("pretty_midi", reason="pretty_midi not installed")
 
 from engines.melody.lstom_engine import LStoMMelodyEngine  # noqa: E402

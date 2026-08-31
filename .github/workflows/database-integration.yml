@@ -57,10 +57,10 @@ jobs:
         env:
           TBLS_DSN: pg://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable
         run: tbls diff "$TBLS_DSN" docs/generated/database --config supabase/tbls.yml
-      - name: Sync locked backend environment
+      - name: Sync locked backend + worker environment
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
-          uv sync --project backend --locked
+          uv sync --project backend --locked --group worker
       - name: Run backend integration tests against the fresh database
         run: |
           set -euo pipefail

@@ -4,7 +4,7 @@ This test MUST pass in any environment where the model is deployed.
 Unlike the regression tests, this test will FAIL (not skip) if the
 model cannot load, has wrong metadata, or produces invalid output.
 
-Run: pytest tests/test_engines/test_lstom_smoke.py -v
+Run with worker dependencies: pytest tests/test_engines/test_lstom_smoke.py -v
 """
 
 from __future__ import annotations
@@ -15,8 +15,12 @@ import json
 from pathlib import Path
 
 import pretty_midi
+import pytest
 
-from engines.melody.lstom_engine import _THRESHOLD, LStoMMelodyEngine
+pytestmark = [pytest.mark.integration, pytest.mark.worker]
+pytest.importorskip("torch", reason="worker/model dependency group is not installed")
+
+from engines.melody.lstom_engine import _THRESHOLD, LStoMMelodyEngine  # noqa: E402
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 # pop_ensemble.mid is a synthetic pop-like MIDI (melody + accompaniment, 150 notes)

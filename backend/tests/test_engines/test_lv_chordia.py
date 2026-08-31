@@ -53,6 +53,8 @@ class TestLvChordiaEngine:
         engine = LvChordiaHarmonyEngine()
         assert engine is not None
 
+    @pytest.mark.integration
+    @pytest.mark.worker
     def test_provenance(self):
         """Engine reports correct provenance."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
@@ -80,6 +82,8 @@ class TestLvChordiaEngine:
         with pytest.raises(RuntimeError, match="requires audio"):
             engine.analyze(midi_bytes=b"")
 
+    @pytest.mark.integration
+    @pytest.mark.worker
     def test_analyze_silence(self):
         """Engine produces chord output from silence."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
@@ -90,6 +94,8 @@ class TestLvChordiaEngine:
         assert result.chords is not None
         assert isinstance(result.chords, list)
 
+    @pytest.mark.integration
+    @pytest.mark.worker
     def test_analyze_sine(self):
         """Engine produces chord output from a sine wave."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
@@ -100,6 +106,8 @@ class TestLvChordiaEngine:
         assert result.chords is not None
         assert isinstance(result.chords, list)
 
+    @pytest.mark.integration
+    @pytest.mark.worker
     def test_chord_format(self):
         """Chord output has the expected format."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
@@ -133,6 +141,8 @@ class TestLvChordiaEngine:
         assert _parse_chord_label("G:7") == ("G", "7")
         assert _parse_chord_label("N") == ("N", "N")
 
+    @pytest.mark.integration
+    @pytest.mark.worker
     def test_empty_result_fields(self):
         """Non-chord fields are empty (not fabricated)."""
         from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
