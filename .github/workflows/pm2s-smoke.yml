@@ -1,0 +1,24 @@
+name: PM2S production smoke
+
+on:
+  push:
+    branches: [feat/score-engine-selection]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pm2s-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build production backend image
+        run: docker build --tag listencloser-pm2s-smoke backend
+      - name: Run real PM2S conversion
+        run: docker run --rm listencloser-pm2s-smoke python scripts/smoke_pm2s.py
