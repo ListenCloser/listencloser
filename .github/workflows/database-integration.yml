@@ -59,8 +59,19 @@ jobs:
         run: tbls diff "$TBLS_DSN" docs/generated/database --config supabase/tbls.yml
       - name: Sync locked backend environment
         run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates curl ffmpeg fluid-soundfont-gm fluidsynth libegl1 \
+            libgpg-error0 libnss3 libopengl0 libsndfile1 libxcb-cursor0
           uv sync --project backend --locked
+      - name: Install pinned MuseScore runtime
+        run: |
+          set -euo pipefail
+          bash backend/scripts/install_musescore.sh "$RUNNER_TEMP/musescore"
+          musescore_bin="$RUNNER_TEMP/musescore/AppRun"
+          echo "MUSESCORE_BIN=$musescore_bin" >> "$GITHUB_ENV"
+          QT_QPA_PLATFORM=offscreen SKIP_LIBJACK=1 \
+            "$musescore_bin" -platform offscreen --version
       - name: Run backend integration tests against the fresh database
         run: |
           set -euo pipefail
