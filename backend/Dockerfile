@@ -39,6 +39,48 @@ RUN /app/.venv/bin/python -c "from beat_this.inference import load_checkpoint; l
     && echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
 
 
+# PM2S is an MIT-licensed learned performance-MIDI -> score-MIDI system. It is
+# not packaged on PyPI, so bake the exact source commit plus the public model
+# assets from the immutable Zenodo record into the image. Do not install its
+# historical 2022 dependency pins: the adapter exercises it against the
+# maintained worker Torch/NumPy/pretty-midi/mido stack. The upstream pm2s.py has
+# an unused pandas import; remove only that import rather than adding an
+# unrelated runtime dependency.
+FROM python:3.11-slim AS pm2s
+
+ARG PM2S_COMMIT=9586f91cd16aaa50dbb82f720f6a34a3e0186f47
+ARG PM2S_MODEL_RECORD=10520196
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    mkdir -p /opt/pm2s /opt/pm2s-models; \
+    curl --fail --location --retry 3 \
+      "https://github.com/cheriell/PM2S/archive/${PM2S_COMMIT}.tar.gz" \
+      -o /tmp/pm2s.tar.gz; \
+    tar -xzf /tmp/pm2s.tar.gz --strip-components=1 -C /opt/pm2s; \
+    rm /tmp/pm2s.tar.gz; \
+    sed -i '/^import pandas as pd$/d' /opt/pm2s/pm2s/pm2s.py; \
+    for model in \
+      RNNJointBeatModel.pth \
+      RNNHandPartModel.pth \
+      RNNKeySignatureModel.pth \
+      CNNTimeSignatureModel.pth; do \
+        curl --fail --location --retry 3 \
+          "https://zenodo.org/records/${PM2S_MODEL_RECORD}/files/${model}?download=1" \
+          -o "/opt/pm2s-models/${model}"; \
+        test -s "/opt/pm2s-models/${model}"; \
+    done; \
+    printf '%s\n' \
+      "PM2S commit ${PM2S_COMMIT}" \
+      "License: MIT" \
+      "Source: https://github.com/cheriell/PM2S/tree/${PM2S_COMMIT}" \
+      "Models: https://zenodo.org/records/${PM2S_MODEL_RECORD}" \
+      > /opt/pm2s/LISTENCLOSER_PROVENANCE.txt
+
+
 # MuseScore Studio is a GPL-3.0 external notation application. Use the last
 # clearly published stable release, pin the official GitHub-release digest for
 # each supported worker architecture, and extract the AppImage at build time so
@@ -96,10 +138,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/.cache /app/.cache
+COPY --from=pm2s /opt/pm2s /opt/pm2s
+COPY --from=pm2s /opt/pm2s-models /opt/pm2s-models
 COPY --from=musescore /opt/musescore /opt/musescore
 ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/opt/pm2s" \
+    PM2S_MODEL_DIR=/opt/pm2s-models \
     TORCH_HOME=/app/.cache/torch \
     MUSESCORE_BIN=/opt/musescore/AppRun
+
+# Fail image construction if the pinned PM2S source cannot import against the
+# maintained production Python stack or if any required baked model disappeared.
+# Model loading/inference is exercised by the production-shaped score test rather
+# than silently allowing first-request network downloads.
+RUN set -eux; \
+    python -c "from pm2s.pm2s import CRNNJointPM2S; assert CRNNJointPM2S"; \
+    for model in \
+      RNNJointBeatModel.pth \
+      RNNHandPartModel.pth \
+      RNNKeySignatureModel.pth \
+      CNNTimeSignatureModel.pth; do \
+        test -s "/opt/pm2s-models/${model}"; \
+    done
 
 # Fail the image build if the pinned external notation runtime cannot execute in
 # the final production-shaped layer. Exercise the same JSON batch interface the
