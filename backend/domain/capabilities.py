@@ -540,10 +540,6 @@ def handle_transcribe(job: Job, client) -> list[str]:
         )
         result = engine.transcribe(audio_bytes, fmt="wav")
 
-    # Some transcription engines (e.g. Transkun) return note/MIDI data only and
-    # no synthesized audio. A zero-byte WAV would surface as a broken
-    # "Transcription" playback source in the transport, so synthesize a WAV
-    # from the produced MIDI as a guaranteed-playable fallback.
     if not result.wav:
         result = dataclasses.replace(result, wav=music_features.midi_to_wav(result.midi))
 
@@ -639,11 +635,8 @@ def handle_audio_structure(job: Job, client) -> list[str]:
     with _tracer.start_as_current_span("audio_structure"):
         result = music_features.structure_with_engine(wav_bytes)
     if result is not None:
-        pass  # provenance captured via insight persistence below
+        pass
 
-    # The model remains optional until its heavyweight PyTorch/NATTEN runtime
-    # is installed on the free ARM worker. Never fail an otherwise useful import
-    # or invent structure when it is unavailable.
     if result is None:
         _update_progress(client, job.id, 1.0, "audio structure analysis unavailable")
         return []
@@ -737,12 +730,6 @@ def handle_audio_structure(job: Job, client) -> list[str]:
 
 
 def _transcription_defaults_pulse(input_version: Version) -> bool:
-    """True when a MIDI's tempo/meter are transcription defaults, not evidence.
-
-    Engines declare whether their transcription output carries placeholder
-    tempo/meter (e.g. basic_pitch's 120 BPM and 4/4) through explicit metadata
-    flags on the output version, never via engine-name matching.
-    """
     metadata = input_version.metadata or {}
     if not isinstance(metadata, dict):
         return False
@@ -751,13 +738,7 @@ def _transcription_defaults_pulse(input_version: Version) -> bool:
 
 def handle_analyze(job: Job, client) -> list[str]:
     """Analyze MIDI → insights for key, tempo, time signature, chords,
-    Roman numerals, and cadences.
-
-    When the job carries a second input version (the original audio, as wired
-    by ``handle_understand``), real pulse evidence (BPM, beats, downbeats) is
-    measured from that audio and threaded into the analysis so tempo/meter/rhythm
-    reflect the recording rather than transcription placeholders.
-    """
+    Roman numerals, and cadences."""
     if not job.input_version_ids:
         raise ValueError("analyze requires at least one input version")
 
@@ -812,12 +793,8 @@ def handle_analyze(job: Job, client) -> list[str]:
     melody_provenance = analysis.get("melody_provenance")
 
     def _hp(component: str) -> dict | None:
-        """Per-component harmony provenance (None when unavailable)."""
         return harmony_provenance.get(component)
 
-    # Key — only written when there is a real detection with a correlation
-    # coefficient. A weak correlation is still stored (the frontend withholds
-    # it from the primary summary), but a failed detection is not fabricated.
     _update_progress(client, job.id, 0.45, "storing key insight")
     key_data = analysis.get("key") or {}
     key_conf = float(key_data.get("confidence", 0.0))
@@ -845,11 +822,6 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(kid))
 
-    # Tempo — the transcribed MIDI carries basic_pitch's 120 BPM default, not
-    # audio/beat evidence, so without real pulse evidence it is not surfaced as
-    # a detected fact. When the audio beat tracker supplies measured BPM, that
-    # evidence overrides the placeholder. A degenerate beat estimate produces no
-    # tempo fact at all (never a fabricated 120).
     _update_progress(client, job.id, 0.50, "storing tempo insight")
     tempo_data = analysis.get("tempo") or {}
     pulse_provenance = analysis.get("pulse_provenance") or {}
@@ -872,11 +844,6 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(tid))
 
-    # Time signature — never inferred from beat/downbeat timestamps. A beat
-    # model gives temporal pulse and bar starts, not the notated beat unit, so
-    # the audio path leaves meter unknown (never a fabricated 4/4). Only a real
-    # MIDI file's explicit metadata meter (no audio pulse) is surfaced, and
-    # handle_analyze still suppresses the basic_pitch 4/4 placeholder.
     _update_progress(client, job.id, 0.55, "storing time signature insight")
     ts_data = analysis.get("time_signature") or {}
     ts_is_measured = ts_data.get("source") == "audio_beat_tracking"
@@ -903,24 +870,15 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(tsid))
 
-    # Chords — engine-gated persistence.
-    # music21 symbolic chord detection (root=0.02) is unreliable and withheld.
-    # lv-chordia audio-native detection (root=0.787 on GuitarSet comp) is
-    # the trusted chord source. Only persist chords when provenance confirms
-    # they came from a validated engine.
     chords = analysis.get("chords", []) or []
     chord_provenance = _hp("chords")
     chord_engine = chord_provenance.get("engine") if chord_provenance else None
     chord_engine_trusted = chord_engine == "lv-chordia"
 
     if chord_engine_trusted and chords:
-        # Filter out N (no-chord) markers — these represent gaps, not chords
         harmonic_chords = [c for c in chords if c.get("root") != "N"]
-
-        # Collapse consecutive identical chords into merged spans
         merged_chords = _merge_adjacent_identical_chords(harmonic_chords)
 
-        # Persist as chord insights (max 20 to avoid overwhelming the UI)
         for ch in merged_chords[:20]:
             root = ch.get("root", "?")
             quality = ch.get("quality", "")
@@ -961,7 +919,6 @@ def handle_analyze(job: Job, client) -> list[str]:
             },
         )
     else:
-        # Chords not from a trusted engine — withhold
         logger.info(
             "chords_withheld",
             extra={
@@ -971,7 +928,6 @@ def handle_analyze(job: Job, client) -> list[str]:
             },
         )
 
-    # Roman numerals — WITHHELD until independently verified against lv-chordia stream
     rns = analysis.get("roman_numerals", []) or []
     if rns:
         logger.info(
@@ -979,12 +935,9 @@ def handle_analyze(job: Job, client) -> list[str]:
             extra={"count": len(rns), "reason": "pending_independent_verification"},
         )
 
-    # Theory-derived Roman numerals (from TheoryInterpreter, not music21)
-    # These are persisted when chord engine is lv-chordia AND trusted key exists
     rns_theory = analysis.get("roman_numerals_theory", []) or []
     theory_provenance = analysis.get("theory_provenance")
     if chord_engine_trusted and rns_theory:
-        # Persist as RN insights (max 30 to avoid overwhelming the UI)
         for rn in rns_theory[:30]:
             numeral = rn.get("numeral", "")
             if not numeral:
@@ -1039,10 +992,8 @@ def handle_analyze(job: Job, client) -> list[str]:
             extra={"count": len(rns_theory), "reason": "no_trusted_chords"},
         )
 
-    # Harmonic functions (from TheoryInterpreter)
     functions = analysis.get("harmonic_functions", []) or []
     if chord_engine_trusted and functions:
-        # Persist as function insights (max 30)
         for func in functions[:30]:
             function_name = func.get("function", "")
             numeral = func.get("numeral", "")
@@ -1093,7 +1044,6 @@ def handle_analyze(job: Job, client) -> list[str]:
             extra={"count": len(functions), "reason": "no_trusted_chords"},
         )
 
-    # Cadences — policy-gated: withheld until cadence detection is validated.
     cadences_theory = analysis.get("cadences_theory", []) or []
     if cadences_theory and not is_product_evidence("cadence"):
         logger.info(
@@ -1104,7 +1054,6 @@ def handle_analyze(job: Job, client) -> list[str]:
             },
         )
 
-    # Key regions — policy-gated: withheld until a real modulation detector is validated.
     key_regions = analysis.get("key_regions_theory", []) or []
     if key_regions and not is_product_evidence("key_region"):
         logger.info(
@@ -1115,7 +1064,6 @@ def handle_analyze(job: Job, client) -> list[str]:
             },
         )
 
-    # Rhythm: compact, evidence-backed observations instead of a wall of cards.
     rhythm = analysis.get("rhythm") or {}
     if rhythm:
         offbeat_ratio = rhythm.get("offbeat_onset_ratio")
@@ -1143,7 +1091,6 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(rid))
 
-        # Temporal rhythm features (Analysis V2): note density over time
         note_density = rhythm.get("note_density_over_time") or []
         if note_density:
             ndid = _create_insight(
@@ -1170,7 +1117,6 @@ def handle_analyze(job: Job, client) -> list[str]:
             )
             insight_ids.append(str(ndid))
 
-        # Rest segments
         rests = rhythm.get("rest_segments") or []
         if rests:
             rsid = _create_insight(
@@ -1187,7 +1133,6 @@ def handle_analyze(job: Job, client) -> list[str]:
             )
             insight_ids.append(str(rsid))
 
-    # Harmonic rhythm — policy-gated: withheld (depends on unreliable chord stream)
     harmonic_rhythm = analysis.get("harmonic_rhythm") or []
     if harmonic_rhythm and not is_product_evidence("harmonic_rhythm"):
         logger.info(
@@ -1197,8 +1142,6 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     melody = analysis.get("melody") or {}
     if melody:
-        # quality_score is a note-fraction confidence proxy from LStoM,
-        # not a calibrated probability; preserved in evidence only.
         mid = _create_insight(
             client,
             input_version.id,
@@ -1215,16 +1158,14 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(mid))
 
-        # Melody interpretation findings (temporal events)
         melody_findings = analysis.get("melody_findings") or []
-        for finding in melody_findings[:15]:  # Cap at 15 findings
+        for finding in melody_findings[:15]:
             kind = finding.get("kind", "")
             claim = finding.get("claim", "")
             start = finding.get("start_seconds")
             end = finding.get("end_seconds")
             evidence = finding.get("evidence", {})
 
-            # Add note_ids to evidence for frontend annotation linking
             if finding.get("note_ids"):
                 evidence["note_ids"] = finding["note_ids"]
 
@@ -1249,16 +1190,14 @@ def handle_analyze(job: Job, client) -> list[str]:
                 extra={"count": len(melody_findings), "persisted": min(len(melody_findings), 15)},
             )
 
-        # Motif findings (repeated melodic fragments)
         melody_motifs = analysis.get("melody_motifs") or []
-        for motif in melody_motifs[:5]:  # Cap at 5 motifs
+        for motif in melody_motifs[:5]:
             claim = motif.get("claim", "")
             occurrences = motif.get("occurrences", [])
 
             if len(occurrences) < 2:
                 continue
 
-            # Use the first occurrence's span for the insight
             first = occurrences[0]
             last = occurrences[-1]
 
@@ -1291,7 +1230,6 @@ def handle_analyze(job: Job, client) -> list[str]:
                 extra={"count": len(melody_motifs), "persisted": min(len(melody_motifs), 5)},
             )
 
-    # Voice leading — policy-gated: withheld (depends on unreliable chord stream)
     voice_leading = analysis.get("voice_leading") or {}
     if voice_leading and not is_product_evidence("voice_leading"):
         logger.info(
@@ -1300,13 +1238,10 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
 
     _update_progress(client, job.id, 1.0, f"analysis complete ({len(insight_ids)} insights)")
-    # Insights are queried by input version. Job outputs only contain artifact
-    # version IDs, so do not mix insight IDs into that contract.
     return []
 
 
 def handle_score(job: Job, client) -> list[str]:
-    """Create beat-aligned notation MIDI and MusicXML from a performance MIDI."""
     if not job.input_version_ids:
         raise ValueError("score requires a MIDI input version")
 
@@ -1391,9 +1326,6 @@ def handle_score(job: Job, client) -> list[str]:
         },
     )
 
-    # Score playback is derived from the notation representation (quantized
-    # notation MIDI), never the raw performance MIDI. A separate synthesized
-    # artifact keeps the three playback sources semantically distinct.
     score_audio_version_id: UUID | None = None
     _update_progress(client, job.id, 0.95, "rendering score playback")
     try:
@@ -1434,7 +1366,6 @@ def handle_score(job: Job, client) -> list[str]:
 
 
 def handle_enhance(job: Job, client) -> list[str]:
-    """Enhance audio (denoise, declip, EBU R128 normalize)."""
     if not job.input_version_ids:
         raise ValueError("enhance requires at least one input version")
 
@@ -1473,7 +1404,6 @@ def handle_enhance(job: Job, client) -> list[str]:
 
 
 def handle_synthesize(job: Job, client) -> list[str]:
-    """Synthesize MIDI → WAV audio via FluidSynth (or numpy fallback)."""
     if not job.input_version_ids:
         raise ValueError("synthesize requires at least one input version")
 
@@ -1513,7 +1443,6 @@ def handle_synthesize(job: Job, client) -> list[str]:
 
 
 def handle_correct(job: Job, client) -> list[str]:
-    """Replace notes in a selected region of a MIDI file with corrected notes."""
     import io
 
     import pretty_midi
@@ -1703,7 +1632,7 @@ def handle_compare(job: Job, client) -> list[str]:
                 "version_a_note_count": len(notes_a),
                 "version_b_note_count": len(notes_b),
             },
-            confidence=0.95,
+            confidence=None,
             produced_by_job_id=job.id,
         ),
         owner_id,
@@ -1731,7 +1660,7 @@ def handle_compare(job: Job, client) -> list[str]:
                     "modified": modified,
                 },
             },
-            confidence=0.95,
+            confidence=None,
             produced_by_job_id=job.id,
             provenance={
                 "capability": job.capability.name,
@@ -1751,7 +1680,6 @@ def handle_compare(job: Job, client) -> list[str]:
 
 
 def handle_transform(job: Job, client) -> list[str]:
-    """Transform MIDI: transpose notes up/down by semitones."""
     import io
 
     import pretty_midi
@@ -1806,9 +1734,6 @@ def handle_transform(job: Job, client) -> list[str]:
         metadata={"operation": "transpose", "semitones": transpose_semitones},
     )
 
-    # Comparison and the piano roll operate on persisted entities, rather than
-    # parsing a browser-only MIDI file.  A transformed take must therefore have
-    # the same durable note representation as an understood transcription.
     entity_repo = EntityRepo(client)
     for instrument in pm.instruments:
         for note in instrument.notes:
@@ -1832,13 +1757,6 @@ def handle_transform(job: Job, client) -> list[str]:
 
 
 def handle_variation(job: Job, client) -> list[str]:
-    """Create a complete, immutable transposed take from a saved MIDI version.
-
-    This is deliberately a transparent composition operation, not a claim of
-    generative composition: it preserves timing and changes pitch by the chosen
-    number of semitones.  The result is nevertheless a first-class take with
-    playback, notation, note entities, and fresh analysis.
-    """
     if not job.input_version_ids:
         raise ValueError("variation requires a MIDI input version")
 
@@ -1850,9 +1768,6 @@ def handle_variation(job: Job, client) -> list[str]:
     midi_ids = handle_transform(job, client)
     midi_version_id = UUID(midi_ids[0])
 
-    # Each follow-on capability receives the newly persisted MIDI take as its
-    # input.  Keeping the same durable job gives the user one cancellable,
-    # retryable operation while preserving immutable artifact lineage.
     variation_job = job.model_copy(
         update={
             "input_version_ids": [midi_version_id],
@@ -1873,8 +1788,6 @@ def handle_variation(job: Job, client) -> list[str]:
 
 
 def handle_generate_continuation(job: Job, client) -> list[str]:
-    """Generate a simple continuation: repeat the ending bars shifted up
-    an octave as a placeholder for full generation."""
     import copy
     import io
 
@@ -1939,11 +1852,6 @@ def handle_generate_continuation(job: Job, client) -> list[str]:
 
 
 def handle_describe(job: Job, client) -> list[str]:
-    """Extract audio descriptors using Essentia (or librosa fallback).
-
-    Computes BPM, key, loudness, and spectral centroid from an audio
-    version.  Produces one Insight per descriptor.
-    """
     import io
 
     import numpy as np
