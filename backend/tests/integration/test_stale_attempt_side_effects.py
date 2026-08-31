@@ -78,12 +78,7 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         # Model a genuine loss of lease ownership: A stops renewing, B recovers
         # the expired row, then claims and starts the same logical Job.
         expired_at = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
-        (
-            sb.table("jobs")
-            .update({"lease_expires_at": expired_at})
-            .eq("id", job_id)
-            .execute()
-        )
+        (sb.table("jobs").update({"lease_expires_at": expired_at}).eq("id", job_id).execute())
         assert worker_b._recover_orphans() == 1
         assert worker_b._claim_job(job_id) is True
         assert worker_b._mark_running(job_id) is True
@@ -99,9 +94,7 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         # A heartbeat thread can outlive its lease. It must not extend B's fresh
         # lease merely because both executions share the same logical Job id.
         worker_a._renew_lease(job_id)
-        after_stale_heartbeat = (
-            sb.table("jobs").select("*").eq("id", job_id).execute().data[0]
-        )
+        after_stale_heartbeat = sb.table("jobs").select("*").eq("id", job_id).execute().data[0]
         assert after_stale_heartbeat["worker_id"] == worker_b._worker_id
         assert after_stale_heartbeat["execution_token"] == current_token
         assert after_stale_heartbeat["lease_expires_at"] == current_lease
@@ -109,9 +102,7 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         # A stale execution may still finish inference, and its object may already
         # exist, but its normal production output helper is fenced at the durable
         # database boundary after B takes ownership.
-        with pytest.raises(
-            Exception, match="stale job execution cannot publish output"
-        ):
+        with pytest.raises(Exception, match="stale job execution cannot publish output"):
             _create_output_version(
                 stale_client,
                 UUID(work_id),
@@ -142,13 +133,7 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
             .execute()
             .data
         )
-        stale_artifacts = (
-            sb.table("artifacts")
-            .select("id")
-            .eq("work_id", work_id)
-            .execute()
-            .data
-        )
+        stale_artifacts = sb.table("artifacts").select("id").eq("work_id", work_id).execute().data
         assert stale_versions == []
         assert stale_artifacts == []
 
