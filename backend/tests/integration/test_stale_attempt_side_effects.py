@@ -78,7 +78,7 @@ def test_stale_attempt_can_currently_persist_output_after_genuine_takeover(sb) -
             UUID(work_id),
             ArtifactKind.analysis_report,
             f"jobs/{job_id}/stale-attempt/characterization.json",
-            2,
+            b"{}",
             None,
             stale_job,
             owner_id,
