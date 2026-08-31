@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import shutil
 from typing import Any
 
 import pretty_midi
@@ -23,13 +22,22 @@ def _performance_midi() -> bytes:
     return out.getvalue()
 
 
-class _CopyConverter:
+class _ScoreConverter:
     def __init__(self) -> None:
         self.kwargs: dict[str, Any] | None = None
 
     def convert(self, source: str, destination: str, **kwargs: Any) -> None:
         self.kwargs = kwargs
-        shutil.copyfile(source, destination)
+        # Deliberately emit MIDI that differs from the performance input. This
+        # proves the downstream notation stage consumes the derived score MIDI,
+        # rather than accidentally receiving the original performance MIDI.
+        score = pretty_midi.PrettyMIDI(initial_tempo=120.0)
+        right_hand = pretty_midi.Instrument(program=0, name="right_hand")
+        right_hand.notes.append(
+            pretty_midi.Note(velocity=80, pitch=67, start=0.0, end=1.0)
+        )
+        score.instruments.append(right_hand)
+        score.write(destination)
 
 
 class _Importer:
@@ -55,7 +63,7 @@ def test_registry_resolves_pm2s_without_loading_model_assets() -> None:
 
 def test_pm2s_preserves_score_midi_and_feeds_only_it_to_musescore() -> None:
     source = _performance_midi()
-    converter = _CopyConverter()
+    converter = _ScoreConverter()
     importer = _Importer()
     engine = PM2SNotationEngine(
         converter_factory=lambda: converter,
@@ -64,8 +72,10 @@ def test_pm2s_preserves_score_midi_and_feeds_only_it_to_musescore() -> None:
 
     result = engine.convert(source, [0.0, 0.5, 1.0], piano_grand_staff=True)
 
-    assert result.notation_midi == source
-    assert importer.inputs == [source]
+    assert result.notation_midi != source
+    assert importer.inputs == [result.notation_midi]
+    learned = pretty_midi.PrettyMIDI(io.BytesIO(result.notation_midi))
+    assert [note.pitch for instrument in learned.instruments for note in instrument.notes] == [67]
     assert importer.kwargs == [{"notation_ready": True, "piano_grand_staff": True}]
     assert converter.kwargs is not None
     assert converter.kwargs["end_time"] == pytest.approx(2.0)
