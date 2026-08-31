@@ -18,6 +18,7 @@ from backend.evaluation.analysis_v3.perceptual.change_candidates import (
     ChangeDiscoveryResult,
     discover_measured_change_candidates,
 )
+
 from perceptual_evidence import extract_perceptual_evidence_from_bytes
 
 
