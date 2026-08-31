@@ -61,6 +61,23 @@ insert into public.jobs (
   'queued'
 );
 
+-- Production browser table ACLs are intentionally revoked. Grant only the
+-- privileges needed by this rollback-only test so it can exercise the retained
+-- RLS policies independently of the outer Data API authorization boundary.
+grant select on table
+  public.projects,
+  public.works,
+  public.artifacts,
+  public.artifact_versions,
+  public.workflows,
+  public.jobs,
+  public.workspace_states
+to authenticated;
+
+grant update on table public.projects, public.works to authenticated;
+grant delete on table public.works to authenticated;
+grant insert on table public.works, public.jobs, public.workspace_states to authenticated;
+
 -- Exercise RLS as the same Postgres role used by authenticated Supabase
 -- requests. auth.uid() reads request.jwt.claim.sub, so deterministic UUID claims
 -- are sufficient for policy tests; real Auth/JWT/PostgREST wiring stays in the
