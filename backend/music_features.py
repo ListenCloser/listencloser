@@ -71,7 +71,9 @@ def _midi_to_wav_fluidsynth(midi_bytes: bytes, sr: int = 22050) -> bytes:
         try:
             sfid = fs.sfload(SOUNDFONT_PATH)
             if sfid < 0:
-                raise RuntimeError(f"FluidSynth failed to load SoundFont: {SOUNDFONT_PATH}")
+                raise RuntimeError(
+                    f"FluidSynth failed to load SoundFont: {SOUNDFONT_PATH}"
+                )
             fs.program_select(0, sfid, 0, 0)  # bank 0, piano (prog 0)
             # Light reverb + chorus for a less dry, more natural render.
             fs.set_reverb(0.25, 0.4, 0.6, 0.12)
