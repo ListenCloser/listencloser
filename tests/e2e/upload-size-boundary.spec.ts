@@ -14,15 +14,13 @@ test("local import forwards files above the former 4 MiB browser ceiling", async
   );
   await page.reload();
 
-  // The client advertises formats only. Size enforcement belongs to the signed
-  // upload-intent/backend contract so this surface cannot drift from Storage.
-  await expect(
-    page.getByText("WAV, MP3, M4A, FLAC, OGG, AAC", { exact: true }),
-  ).toBeVisible({ timeout: 20_000 });
+  // This fixture opens an existing Work, so the empty-import helper is not
+  // visible here. The product contract we care about is still global: no
+  // loaded workspace may advertise or enforce the removed 4 MiB ceiling.
   await expect(page.getByText(/up to 4 MB|4 MiB/i)).toHaveCount(0);
 
   const fileInput = page.locator("#audio-import-input");
-  await expect(fileInput).toHaveCount(1);
+  await expect(fileInput).toHaveCount(1, { timeout: 20_000 });
   await fileInput.setInputFiles({
     name: "former-browser-limit.m4a",
     mimeType: "audio/mp4",
