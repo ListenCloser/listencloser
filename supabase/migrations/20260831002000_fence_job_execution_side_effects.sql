@@ -380,6 +380,13 @@ begin
           av.produced_by_job_id = p_job_id
           or (v_retry_of is not null and av.produced_by_job_id = v_retry_of)
         )
+    )
+    and not exists (
+      select 1
+      from public.artifact_versions av
+      where av.artifact_id = artifact.id
+        and av.produced_by_job_id is distinct from p_job_id
+        and (v_retry_of is null or av.produced_by_job_id is distinct from v_retry_of)
     );
   elsif p_table = 'entities'
     and p_match ? 'version_id'
