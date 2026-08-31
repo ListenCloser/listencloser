@@ -41,4 +41,4 @@ Prefer structured results under `results/<track>/...` as the repository grows. N
 
 Historical reports/results may remain as provenance when clearly scoped. Consolidate or archive them when they no longer answer a live question; do not silently rewrite old measured evidence to match a newer conclusion.
 
-See GitHub issue #288 for the canonical evaluation/golden-fixture platform work and #557 for retirement/generalization of historical one-shot evaluation workflows.
+See GitHub issue #636 for the canonical evaluation evidence/decision authority. Historical platform/workflow cleanup issues #288 and #557 are closed and should not be treated as active owners.
