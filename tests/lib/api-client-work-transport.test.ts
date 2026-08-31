@@ -144,7 +144,7 @@ describe("final generated Work/workflow transport", () => {
   it("fails closed when a Work artifact bundle omits a materialized default", async () => {
     const bundle = workBundle();
     const { signed_url: _signedUrl, ...invalidArtifactBundle } = bundle.artifacts[0];
-    get.mockResolvedValueOnce(ok({ ...bundle, artifacts: [invalidArtifactBundle] }));
+    get.mockResolvedValue(ok({ ...bundle, artifacts: [invalidArtifactBundle] }));
 
     await expect(getWorkBundle("work-1")).rejects.toThrow(
       'Invalid WorkArtifactBundle response: missing server field "signed_url"',
@@ -154,7 +154,7 @@ describe("final generated Work/workflow transport", () => {
   it("fails closed when a nested Job lifecycle omits a materialized default", async () => {
     const bundle = workBundle();
     const { stages: _stages, ...invalidLifecycle } = bundle.jobs[0].lifecycle;
-    get.mockResolvedValueOnce(ok({
+    get.mockResolvedValue(ok({
       ...bundle,
       jobs: [{ ...bundle.jobs[0], lifecycle: invalidLifecycle }],
     }));
