@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(17);
 
 -- Seed the durable graph as the database owner. Derived domain state is
 -- server-owned, while Projects/Works remain user-owned through RLS.
@@ -70,13 +70,12 @@ grant select on table
   public.artifacts,
   public.artifact_versions,
   public.workflows,
-  public.jobs,
-  public.workspace_states
+  public.jobs
 to authenticated;
 
 grant update on table public.projects, public.works to authenticated;
 grant delete on table public.works to authenticated;
-grant insert on table public.works, public.jobs, public.workspace_states to authenticated;
+grant insert on table public.works, public.jobs to authenticated;
 
 -- Exercise RLS as the same Postgres role used by authenticated Supabase
 -- requests. auth.uid() reads request.jwt.claim.sub, so deterministic UUID claims
@@ -210,26 +209,6 @@ select throws_ok(
   '42501',
   null,
   'authenticated owners cannot write backend-managed jobs'
-);
-
-insert into public.workspace_states (
-  id,
-  project_id,
-  owner_id,
-  tab
-) values (
-  '99999999-9999-9999-9999-999999999999',
-  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-  '11111111-1111-1111-1111-111111111111',
-  'analyze'
-);
-
-select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
-
-select is(
-  (select count(*) from public.workspace_states where id = '99999999-9999-9999-9999-999999999999'),
-  0::bigint,
-  'workspace state is isolated by owner'
 );
 
 select * from finish();

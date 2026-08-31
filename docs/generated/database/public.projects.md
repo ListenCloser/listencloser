@@ -7,7 +7,7 @@
 | archived_at | timestamp with time zone |  | true |  |  |  |
 | created_at | timestamp with time zone | now() | false |  |  |  |
 | description | text | ''::text | false |  |  |  |
-| id | uuid | gen_random_uuid() | false | [public.workflows](public.workflows.md) [public.works](public.works.md) [public.workspace_states](public.workspace_states.md) |  |  |
+| id | uuid | gen_random_uuid() | false | [public.workflows](public.workflows.md) [public.works](public.works.md) |  |  |
 | name | text |  | false |  |  |  |
 | owner_id | uuid |  | false |  |  |  |
 | updated_at | timestamp with time zone | now() | false |  |  |  |
@@ -32,7 +32,6 @@ erDiagram
 
 "public.workflows" }o--|| "public.projects" : "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE"
 "public.works" }o--|| "public.projects" : "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE"
-"public.workspace_states" }o--|| "public.projects" : "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE"
 
 "public.projects" {
   timestamp_with_time_zone archived_at
@@ -57,18 +56,6 @@ erDiagram
   uuid id
   uuid project_id FK
   text title
-  timestamp_with_time_zone updated_at
-}
-"public.workspace_states" {
-  uuid__ expanded_version_ids
-  uuid focus_version_id
-  uuid id
-  uuid__ open_version_ids
-  uuid owner_id
-  uuid project_id FK
-  jsonb selection
-  text tab
-  jsonb transport
   timestamp_with_time_zone updated_at
 }
 ```
