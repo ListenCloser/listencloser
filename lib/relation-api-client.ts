@@ -1,5 +1,5 @@
 import type { components } from "./api-types";
-import { apiFetch } from "./api";
+import { openapiClient, requireOpenApiData } from "./openapi-client";
 
 export type PerceptualSpanComparisonBody =
   components["schemas"]["PerceptualSpanComparisonBody"];
@@ -17,11 +17,12 @@ export async function comparePerceptualSpans(
   workId: string,
   body: PerceptualSpanComparisonBody,
 ): Promise<PerceptualSpanComparisonResponse> {
-  return apiFetch<PerceptualSpanComparisonResponse>(
-    `/api/v1/works/${workId}/relations/perceptual-span-comparison`,
+  const result = await openapiClient.POST(
+    "/api/v1/works/{work_id}/relations/perceptual-span-comparison",
     {
-      method: "POST",
-      body: JSON.stringify(body),
+      params: { path: { work_id: workId } },
+      body,
     },
   );
+  return requireOpenApiData(result);
 }
