@@ -1,7 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Entity, WorkBundle } from "@/lib/domain.types";
 
+const { get } = vi.hoisted(() => ({ get: vi.fn() }));
+
 vi.mock("@/lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("@/lib/openapi-client", () => ({
+  openapiClient: { GET: get },
+  requireOpenApiData: <T,>({ data, error, response }: { data?: T; error?: unknown; response: Response }): T => {
+    if (data !== undefined) return data;
+    const message =
+      typeof error === "object" && error !== null && "error" in error
+        ? (error as { error?: unknown }).error
+        : undefined;
+    throw new Error(typeof message === "string" ? message : `Request failed: ${response.status}`);
+  },
+}));
 vi.mock("@/lib/supabase", () => ({ supabase: null }));
 
 import { apiFetch } from "@/lib/api";
@@ -99,15 +112,23 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+const ok = <T,>(data: T) => ({
+  data,
+  response: new Response(JSON.stringify(data), { status: 200 }),
+});
+
 function installResponses() {
   mockApiFetch.mockImplementation(async (url, options) => {
     if (url === "/api/v1/works/work-1") return savedBundle();
-    if (url === "/api/v1/versions/midi-1/entities") return [];
-    if (url === "/api/v1/versions/midi-1/insights") return [];
     if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
       return { workflow: {}, job: {} };
     }
     throw new Error(`Unexpected API call: ${url}`);
+  });
+  get.mockImplementation(async (path) => {
+    if (path === "/api/v1/versions/{version_id}/entities") return ok([]);
+    if (path === "/api/v1/versions/{version_id}/insights") return ok([]);
+    throw new Error(`Unexpected generated GET: ${path}`);
   });
 }
 
@@ -115,6 +136,7 @@ describe("saved work hydration cache", () => {
   beforeEach(() => {
     clearWorkDataCache();
     mockApiFetch.mockReset();
+    get.mockReset();
     installResponses();
   });
 
@@ -127,10 +149,14 @@ describe("saved work hydration cache", () => {
     const second = await getWorkBundle("work-1");
 
     expect(second).toBe(first);
-    expect(mockApiFetch).toHaveBeenCalledTimes(3);
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
     expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/works/work-1");
-    expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/versions/midi-1/entities");
-    expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/versions/midi-1/insights");
+    expect(get).toHaveBeenCalledWith("/api/v1/versions/{version_id}/entities", {
+      params: { path: { version_id: "midi-1" } },
+    });
+    expect(get).toHaveBeenCalledWith("/api/v1/versions/{version_id}/insights", {
+      params: { path: { version_id: "midi-1" } },
+    });
   });
 
   it("deduplicates simultaneous opens of the same work", async () => {
@@ -152,8 +178,6 @@ describe("saved work hydration cache", () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(initialNow);
     await getWorkBundle("work-1");
 
-    // Expire only the bundle TTL. The version→work index intentionally remains
-    // available so the workflow mutation can invalidate the in-flight reopen.
     now.mockReturnValue(initialNow + 5 * 60 * 1000 + 1);
 
     const staleBundle = deferred<WorkBundle>();
@@ -165,8 +189,6 @@ describe("saved work hydration cache", () => {
         if (workFetches === 1) return staleBundle.promise;
         return freshBundle;
       }
-      if (url === "/api/v1/versions/midi-1/entities") return [];
-      if (url === "/api/v1/versions/midi-1/insights") return [];
       if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
         return { workflow: {}, job: {} };
       }
@@ -206,7 +228,6 @@ describe("saved work hydration cache", () => {
           ? savedBundle("Pre-commit variation")
           : savedBundle("Fresh after variation");
       }
-      if (url.endsWith("/entities") || url.endsWith("/insights")) return [];
       throw new Error(`Unexpected API call: ${url}`);
     });
 
@@ -227,7 +248,6 @@ describe("saved work hydration cache", () => {
     mockApiFetch.mockImplementation(async (url) => {
       if (url === "/api/v1/works/work-a") return bundleFor("work-a", ["midi-a"], "A");
       if (url === "/api/v1/works/work-b") return bundleFor("work-b", ["midi-b"], "B");
-      if (url.endsWith("/entities") || url.endsWith("/insights")) return [];
       throw new Error(`Unexpected API call: ${url}`);
     });
     await Promise.all([getWorkBundle("work-a"), getWorkBundle("work-b")]);
@@ -248,7 +268,6 @@ describe("saved work hydration cache", () => {
           nextCount === 1 ? `Pre-commit ${workId}` : `Fresh ${workId}`,
         );
       }
-      if (url.endsWith("/entities") || url.endsWith("/insights")) return [];
       throw new Error(`Unexpected API call: ${url}`);
     });
 
@@ -282,7 +301,6 @@ describe("saved work hydration cache", () => {
       if (url === "/api/v1/workflows/compare" && options?.method === "POST") {
         return { workflow: {}, job: {} };
       }
-      if (url.endsWith("/entities") || url.endsWith("/insights")) return [];
       throw new Error(`Unexpected API call: ${url}`);
     });
 
@@ -299,11 +317,16 @@ describe("saved work hydration cache", () => {
     const freshEntities = deferred<Entity[]>();
     let entityFetches = 0;
 
-    mockApiFetch.mockImplementation(async (url, options) => {
-      if (url === "/api/v1/versions/midi-1/entities") {
+    get.mockImplementation(async (path) => {
+      if (path === "/api/v1/versions/{version_id}/entities") {
         entityFetches += 1;
-        return entityFetches === 1 ? staleEntities.promise : freshEntities.promise;
+        const data = await (entityFetches === 1 ? staleEntities.promise : freshEntities.promise);
+        return ok(data);
       }
+      if (path === "/api/v1/versions/{version_id}/insights") return ok([]);
+      throw new Error(`Unexpected generated GET: ${path}`);
+    });
+    mockApiFetch.mockImplementation(async (url, options) => {
       if (url === "/api/v1/workflows/understand" && options?.method === "POST") {
         return { workflow: {}, job: {} };
       }
