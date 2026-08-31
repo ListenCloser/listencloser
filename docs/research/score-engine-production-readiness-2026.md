@@ -1,6 +1,6 @@
 # Learned score reconstruction: 2026 production-readiness decision
 
-Parent product owner: #498. Execution owner: #945.
+Parent product owner: #498. Strategy owner: #945. First implementation owner: #953.
 
 ## Decision
 
@@ -9,85 +9,134 @@ ListenCloser keeps **performance MIDI** and **readable Score** as separate symbo
 ```text
 audio
 ├─> performance-note model -> canonical performance MIDI -> Piano Roll/evidence
-└─> score reconstruction -> notation-native representation -> MusicXML -> Score/evidence
+└─> score reconstruction -> score-oriented representation -> MusicXML -> Score/evidence
 ```
 
-For explicit solo piano, TransKun remains the performance-MIDI owner. Score reconstruction may consume that MIDI or branch directly from audio, but it must not overwrite the performance representation.
+For explicit solo piano, TransKun remains the performance-MIDI owner. Score reconstruction may consume that MIDI or branch directly from audio, but it must never overwrite the performance representation.
 
-### Production-selection policy
+### Experimental-selection policy
 
-We do **not** want a permanent runtime fallback tree between notation engines. One engine should own Score for a validated route. A challenger may run experimentally while proving operational viability, but promotion means replacing the previous route rather than layering another silent fallback.
+The current phase is **ship candidates first, canonize later**.
 
-MuseScore therefore remains the single current production score engine until a learned challenger clears the ship gate. Once a learned engine clears the gate for solo piano, it should become the sole normal `solo_piano` score path; MuseScore can remain only as an explicit rollback during rollout and should leave the normal hot path afterward.
+A credible learned model may enter the runtime as an explicit experimental Score choice when pretrained artifacts are available, its terms permit the intended use, its inference can be bounded behind a clean adapter, and it produces a useful score representation on normal product inputs. We do not require a new generic benchmark program before onboarding it.
+
+This is not a permanent fallback architecture. Engines are explicitly selected and provenance is preserved. If an experimental engine fails, that selected path fails rather than silently substituting another score interpreter. Once product/evaluation evidence establishes a winner for a route, canonize it and delete superseded runtime alternatives.
+
+MuseScore remains the default baseline during this comparison phase.
+
+## Representation model
+
+For MIDI-conditioned score reconstruction, use the literature-grounded distinction:
+
+```text
+performance MIDI
+    # physical/performed onset, offset, pitch, velocity
+    ↓ score reconstruction
+score MIDI
+    # metrical/notation-oriented timing and score metadata
+    ↓ notation import / completion
+MusicXML
+    # rich score representation rendered by OSMD
+```
+
+The current `NotationResult.notation_midi` field can carry score MIDI without forcing an immediate schema rename. It must not become canonical Piano-Roll evidence.
 
 ## Current candidate decisions
 
-### Rubato (2026) — TARGET / BLOCKED ON DISTRIBUTION
+### Rubato (2026) — QUALITY TARGET / WATCH RELEASE
 
-Current reported evidence makes Rubato the quality target for piano notation. It directly predicts a timestamped score from audio and recent external evaluation reports it as the strongest notation system among the compared end-to-end pipelines. Its own paper also reports a notation advantage over performance-MIDI cascades even when those cascades receive oracle performance MIDI.
+Rubato is the strongest current direct audio -> readable piano-score target. It predicts a timestamped score representation directly from audio and recent evaluation reports it ahead of the tested performance-MIDI cascades for notation quality.
 
-Operational blocker: no reproducibly deployable public checkpoint/package with clearly acceptable production-use terms has been verified. Do not reimplement the paper in-product merely to remove this blocker.
+Current public distribution is restricted. Do not copy/repackage the current demo/model release into the product. Onboard promptly when an adequately open/deployable checkpoint, package, or service becomes available.
 
-### MIDI2ScoreTransformer (2024) — TARGET / BLOCKED ON LICENSE
+### MIDI2ScoreTransformer (2024) — MODULAR QUALITY TARGET / WATCH LICENSE
 
-This remains the strongest modular performance-MIDI -> detailed-score candidate found in the current literature and is especially attractive because it can consume the existing TransKun performance MIDI.
+MIDI2ScoreTransformer remains the strongest modular performance-MIDI -> detailed-score target found in the current literature and fits the TransKun-first piano architecture well.
 
-Operational positives:
-- Python 3.11 code;
-- released checkpoint;
-- direct performance-MIDI -> detailed score modeling;
-- reported improvement over older neural and HMM approaches.
+Operational positives include Python 3.11 code, a released checkpoint, and prediction of richer notation attributes than a simple rhythm quantizer. Current blockers are licensing: the repository has no explicit code license and the released checkpoint cannot be bundled/mirrored because of its training-data restrictions.
 
-Blocker: the public repository currently declares no license. Public source/checkpoint availability is not sufficient permission for a production dependency. Do not vendor or deploy it until explicit usable terms are available.
+Do not train a replacement checkpoint by default. Revisit immediately if upstream licensing/distribution becomes usable.
 
-### joint-apt-epr (ICLR 2026) — REJECT FOR CURRENT PRODUCTION
+### joint-apt-epr (ICLR 2026) — INVESTIGATE IF CHECKPOINT TERMS ARE CLEAN
 
-The repository is Apache-2.0 and publishes a checkpoint link, but the current upstream release is explicitly a skeleton release rather than a production inference package. Current inference code contains corpus/path/device assumptions and the README says detailed instructions are still forthcoming.
+The repository is Apache-2.0 and publishes a checkpoint link. The current release is research-shaped: inference contains corpus/path/device assumptions and the README describes the code as a skeleton release.
 
-Decision: do not spend a product branch reconstructing the research environment. Revisit only after upstream publishes a clean inference path/checkpoint contract or another implementation proves substantially simpler.
+Packaging friction alone is not a rejection. If checkpoint terms are acceptable and a bounded arbitrary-MIDI inference adapter can be extracted without reconstructing the research algorithm, it is a valid future challenger.
 
-### piano-a2s (IJCAI 2024) — REJECT FOR CURRENT PRODUCTION
+### piano-a2s (IJCAI 2024) — LOW PRIORITY FOR PRODUCT RUNTIME
 
-Apache-2.0 with pretrained models, but upstream explicitly says the model is not applicable to real-world scenarios yet:
-- input constrained to 5 bars;
-- maximum audio length about 12 seconds due to memory;
-- occasional illegal Kern output requiring post-processing.
+Apache-2.0 with pretrained models, but upstream documents constraints that conflict with normal full-recording use: five-bar inputs, roughly 12-second maximum audio due to memory, and occasional invalid Kern requiring post-processing.
 
-Those limitations conflict directly with ListenCloser's normal full-recording workflow.
+Keep as research reference unless a successor removes those constraints.
 
-### PM2S (ISMIR 2022) — KEEP AS REFERENCE, DO NOT PROMOTE
+### PM2S (ISMIR 2022) — FIRST SHIPPABLE LEARNED CHALLENGER
 
-PM2S is MIT and runnable, but the original environment pins Python 3.8-era Torch/Numpy. More importantly, a current MIT application (`mqtik/muse`) that uses TransKun + PM2S reports dropping PM2S's learned quantization because it measured roughly 164 ms mean onset drift (p95 about 385 ms). That application uses PM2S only for hand/key/time classification rather than as its score-quantization owner.
+PM2S is MIT-licensed code with public pretrained-model inference and directly models performance-MIDI -> score-MIDI conversion. It predicts learned beat/meter/quantization plus score-related metadata such as hand, key, and time signature.
 
-This makes PM2S useful prior art but not a justified replacement for the current MuseScore production path.
+It is not assumed to be the final winner. More recent evaluation favors MIDI2ScoreTransformer for detailed written notation, and newer applications provide mixed evidence about PM2S quantization quality. That is precisely why PM2S enters as an **explicit challenger**, not a canonical replacement.
 
-### HookKern / SheetSage-A2S (ACMMM 2026) — ROUTE-SPECIFIC RESEARCH
+Initial path:
 
-MIT code, public checkpoints, and contemporary real-audio training make this operationally attractive, but its popular-music target is melody + chords / lead-sheet transcription rather than a full piano score. Treat it as a possible future `lead_sheet` representation, not the replacement for the piano Score path.
+```text
+TransKun -> performance MIDI -> PM2S -> score MIDI -> MuseScore MIDI import -> MusicXML
+```
 
-## Ship gate for the next learned score engine
+The MuseScore stage is not a passive serializer: MIDI import may make additional notation decisions. Preserve the PM2S score MIDI as the learned intermediate and record the MuseScore import stage in provenance so later comparison can distinguish PM2S reconstruction from downstream notation changes.
 
-Candidate selection may rely on reported literature. We do not require a new benchmark program before trying a model.
+Implementation: #953.
 
-Before production promotion, however, the candidate must satisfy all of:
+### HookKern / SheetSage-A2S (ACMMM 2026) — FUTURE LEAD-SHEET ROUTE
 
-1. **Legal** — code and weights/service terms permit intended production use.
-2. **Reproducible** — model identity/checkpoint and dependencies are pinned without manual research-environment reconstruction.
-3. **Operational** — handles normal product-length inputs on supported worker hardware.
-4. **Artifact-complete** — produces a deterministic path to valid non-empty MusicXML and notation playback data.
-5. **Structurally sane** — no obvious catastrophic note deletion/hallucination, invalid measures, broken chunk boundaries, or illegal symbolic output on fixed product probes.
-6. **Visibly better** — on the target piano failure, rendered notation is materially more readable/credible than the current MuseScore result.
-7. **Truthful** — provenance names the exact source Version, engine/model/checkpoint, and score-domain role; Piano Roll performance evidence remains untouched.
+MIT code, public checkpoints, contemporary pretrained audio features, and documented Docker/inference make this a strong deployable 2026 system. Its popular-music target is melody + chords / lead-sheet transcription rather than a full piano score.
 
-After promotion, deeper OMR-NED/score-structure and human-readability evaluation can post-validate the decision and drive later routing changes.
+Treat it as a future `lead_sheet` representation rather than a piano Score replacement.
 
-## Next action
+### 2026 beat-conditioned Transformer quantization — WATCH CODE/CHECKPOINT RELEASE
 
-Do not add another local score heuristic or generic evaluation framework.
+Recent beat-conditioned Transformer work is architecturally attractive for `TransKun performance MIDI + Beat This beats/downbeats -> score rhythm`, but no production-ready public implementation/checkpoint has yet been established. Onboard if a usable release appears; do not reimplement the paper prematurely.
 
-The highest-leverage unblock is obtaining production-usable distribution/terms for the two quality leaders:
+## Admission gate for experimental engines
 
-1. Rubato deployable checkpoint/package/API;
-2. MIDI2ScoreTransformer explicit license.
+A model may join the explicit runtime selector when:
 
-If either becomes available, implement it behind the existing notation boundary as a short production-shaped challenger, validate on the fixed product probes, and **replace** the solo-piano Score route if it clears the ship gate.
+1. **Artifacts exist** — pretrained weights or a usable service are available.
+2. **Terms are usable** — code and model/service terms permit the intended deployment/evaluation mode.
+3. **Inference is bounded** — normal product inputs can run behind a clean adapter without reimplementing the algorithm.
+4. **Output is meaningful** — valid score/score-intermediate artifacts can reach the existing Score UI.
+5. **Identity is pinned** — source revision, checkpoint/model identity, dependencies, and provenance are reproducible.
+6. **No authority leak** — derived score artifacts never replace canonical performance MIDI.
+7. **No silent fallback** — the selected engine either produces its result or reports failure.
+
+This gate is intentionally lighter than canonical promotion.
+
+## Canonical-promotion gate
+
+Once multiple paths are runnable, select the canonical route using the smallest useful evidence:
+
+- fixed real piano failures from the product;
+- obvious structural sanity/event retention;
+- valid MusicXML, OSMD render, playback, and seek behavior;
+- score-structure/OMR metrics where aligned references legitimately exist;
+- small human A/B for readability/edit effort when useful.
+
+Do not turn evaluation infrastructure into a prerequisite to seeing the models in the product.
+
+## Short-term execution
+
+1. Ship PM2S as an explicit score-MIDI challenger (#953).
+2. Keep MuseScore-direct as the baseline choice during comparison.
+3. Preserve `performance MIDI -> score MIDI -> MusicXML` provenance and artifacts.
+4. Add a small Score-engine selector analogous to transcription-engine selection.
+5. Compare real outputs after the path is functional.
+
+## Long-term execution
+
+Onboard stronger pretrained systems opportunistically rather than training our own by default:
+
+1. Rubato when deployable/open distribution exists.
+2. MIDI2ScoreTransformer when code/checkpoint licensing permits deployment.
+3. joint-apt-epr if its checkpoint terms are acceptable and inference extraction is bounded.
+4. new MIREX/ISMIR/ICASSP/ICLR 2026+ score systems meeting the admission gate.
+5. HookKern as a separate lead-sheet representation.
+
+The durable architecture is semantic rather than tied to one cascade: performance evidence and score evidence remain separate, while future score engines may consume performance MIDI or branch directly from audio.
