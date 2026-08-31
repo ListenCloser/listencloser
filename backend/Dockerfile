@@ -14,7 +14,10 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     TORCH_HOME=/app/.cache/torch
 
-RUN uv sync --locked --no-dev
+# The production image hosts both the API and durable music worker today, so it
+# explicitly requests the heavy ML/model runtime while ordinary dev/CI can stay
+# on the lightweight base dependency set.
+RUN uv sync --locked --no-dev --group worker
 
 # TensorFlow 2.15 publishes a tiny Linux ARM64 metapackage whose wheel-specific
 # dependency points at the real AWS-maintained runtime. The current uv lock does

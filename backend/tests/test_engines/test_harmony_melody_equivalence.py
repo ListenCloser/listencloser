@@ -14,7 +14,6 @@ pytest.importorskip("music21", reason="music21 not installed")
 
 from analyze import analyze_midi  # noqa: E402
 from engines.harmony.music21_engine import Music21HarmonyEngine  # noqa: E402
-from engines.melody.lstom_engine import LStoMMelodyEngine  # noqa: E402
 from engines.melody.skyline_engine import SkylineMelodyEngine  # noqa: E402
 from tests.fixtures.rhythmic import straight_eighths  # noqa: E402
 
@@ -91,6 +90,8 @@ class TestMelodyEngineEquivalence:
 
 
 class TestAnalyzeRoutesThroughEngines:
+    @pytest.mark.integration
+    @pytest.mark.worker
     def test_analyze_midi_includes_engine_provenance(self):
         analysis = analyze_midi(str(PIANO_SYNTHETIC))
         hp = analysis["harmony_provenance"]
@@ -112,7 +113,11 @@ class TestAnalyzeRoutesThroughEngines:
         assert hp["cadences"].parameters["method"] == "roman_numeral_pattern"
         assert hp["phrases"].parameters["returns_empty"] is True
 
+    @pytest.mark.integration
+    @pytest.mark.worker
     def test_analyze_midi_matches_engine_outputs(self):
+        from engines.melody.lstom_engine import LStoMMelodyEngine
+
         midi_bytes = _read_bytes(PIANO_SYNTHETIC)
         analysis = analyze_midi(str(PIANO_SYNTHETIC))
         harmony = Music21HarmonyEngine().analyze(midi_bytes, tempo_bpm=120.0)
@@ -130,6 +135,8 @@ class TestAnalyzeRoutesThroughEngines:
 
 
 class TestIntentionalBehaviorChange:
+    @pytest.mark.integration
+    @pytest.mark.worker
     def test_harmony_failure_keeps_rhythm_and_melody(self, monkeypatch):
         """Intentional (only) behavior change vs pre-refactor: a harmony-engine
         failure no longer aborts the whole analysis. Rhythm/melody still run
