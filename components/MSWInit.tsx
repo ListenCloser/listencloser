@@ -13,8 +13,8 @@ export default function MSWInit({ children }: { children: ReactNode }) {
     }
     async function init() {
       const [{ handlers }, { directUploadHandlers }] = await Promise.all([
-        import("@/mocks/handlers"),
-        import("@/mocks/direct-upload-handlers"),
+        import("@/app/_test-support/msw/handlers"),
+        import("@/app/_test-support/msw/direct-upload-handlers"),
       ]);
       const { setupWorker } = await import("msw/browser");
       const worker = setupWorker(...directUploadHandlers, ...handlers);
