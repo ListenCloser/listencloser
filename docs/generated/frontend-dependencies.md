@@ -54,6 +54,7 @@ subgraph lib["lib"]
   end
   lib_audio_buffer_cache_ts["audio-buffer-cache.ts"]
   lib_backend_ts["backend.ts"]
+  lib_canvas_typography_ts["canvas-typography.ts"]
   lib_color_ts["color.ts"]
   lib_domain_types_ts["domain.types.ts"]
   lib_evidence_projections_ts["evidence-projections.ts"]
@@ -119,10 +120,12 @@ components_QueryProvider_tsx-->lib_query_client_ts
 components_SheetMusic_tsx-->lib_analysis_annotations_ts
 components_SheetMusic_tsx-->lib_measure_ts
 components_SheetMusic_tsx-->lib_score_measure_geometry_ts
+components_Spectrogram_tsx-->lib_canvas_typography_ts
 components_Spectrogram_tsx-->lib_color_ts
 components_Spectrogram_tsx-->lib_spectrogram_ts
 components_Spectrogram_tsx-->lib_spectrogram_data_ts
 components_Waveform_tsx-->lib_audio_buffer_cache_ts
+components_Waveform_tsx-->lib_canvas_typography_ts
 components_Waveform_tsx-->lib_color_ts
 components_workspace_-->lib_stores_
 components_workspace_-->components_ui_

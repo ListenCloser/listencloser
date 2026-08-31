@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { canvasMeasurementFont } from "@/lib/canvas-typography";
 import { withAlpha } from "@/lib/color";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 import type { MusicalSelection } from "@/lib/stores/workspace";
@@ -88,7 +89,6 @@ export default function Spectrogram({
     const styles = getComputedStyle(document.documentElement);
     const panel = styles.getPropertyValue("--panel").trim() || "#f4f1eb";
     const muted = styles.getPropertyValue("--muted").trim() || "#575a5e";
-    const fontMono = styles.getPropertyValue("--font-mono").trim() || "monospace";
     const accent = styles.getPropertyValue("--accent").trim() || "#bd513a";
     const playhead = styles.getPropertyValue("--score-playback").trim() || "#5a89a8";
     const rhythm = styles.getPropertyValue("--color-rhythm").trim() || "#b8963e";
@@ -157,7 +157,7 @@ export default function Spectrogram({
 
     // Scientific/logarithmic ruler: conventional 1-2-5 ticks give the eye a
     // stable scale without changing or obscuring the measured raster itself.
-    context.font = `10px ${fontMono}`;
+    context.font = canvasMeasurementFont(styles);
     context.textAlign = "left";
     context.textBaseline = "middle";
     for (const frequency of logarithmicFrequencyTicks(data.minFrequency, data.maxFrequency)) {
@@ -171,7 +171,7 @@ export default function Spectrogram({
       context.lineWidth = 3;
       context.lineJoin = "round";
       context.strokeText(formatFrequency(frequency), 10, labelY);
-      context.fillStyle = withAlpha(muted, 0.72);
+      context.fillStyle = withAlpha(muted, 0.64);
       context.fillText(formatFrequency(frequency), 10, labelY);
     }
   }, [annotations, duration, focusedAnnotationId, position, preview, selection]);

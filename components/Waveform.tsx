@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDecodedAudio } from "@/lib/audio-buffer-cache";
+import { canvasMeasurementFont } from "@/lib/canvas-typography";
 import { withAlpha } from "@/lib/color";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
@@ -107,10 +108,9 @@ export default function Waveform({
 
     const styles = getComputedStyle(document.documentElement);
     const muted = styles.getPropertyValue("--muted").trim() || "#575a5e";
-    const fontMono = styles.getPropertyValue("--font-mono").trim() || "monospace";
 
     ctx.fillStyle = muted;
-    ctx.font = `10px ${fontMono}`;
+    ctx.font = canvasMeasurementFont(styles);
     ctx.textAlign = "center";
 
     // Aim for roughly 3–5 labels across ordinary recordings.
@@ -125,7 +125,7 @@ export default function Waveform({
       const x = (t / duration) * w;
       ctx.globalAlpha = 0.3;
       ctx.fillRect(x, h - 2, 1, 2);
-      ctx.globalAlpha = 0.5;
+      ctx.globalAlpha = 0.64;
       const m = Math.floor(t / 60);
       const s = Math.floor(t % 60);
       ctx.fillText(`${m}:${s.toString().padStart(2, "0")}`, x, h - 4);
