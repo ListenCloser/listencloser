@@ -145,8 +145,9 @@ def get_melody_engine(
 
     Args:
         name: Explicit engine name (overrides profile/env).
-        profile: Melody profile: "pop" -> lstom (validated), "classical" -> lstom (experimental),
-                 "auto" -> lstom (default). None uses env var or lstom.
+        profile: Melody profile:
+            "pop" -> lstom (validated), "classical" -> lstom (experimental),
+            "auto" -> lstom (default). None uses env var or lstom.
     """
     if name is None:
         if profile == "pop":
