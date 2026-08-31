@@ -381,7 +381,12 @@ export async function getEntities(versionId: string): Promise<Entity[]> {
   const revision = versionRevision(epoch, versionId);
   return getQueryClient().fetchQuery({
     queryKey: workDataKeys.entities(epoch, versionId, revision),
-    queryFn: () => apiFetch<Entity[]>(`/api/v1/versions/${versionId}/entities`),
+    queryFn: async () => {
+      const result = await openapiClient.GET("/api/v1/versions/{version_id}/entities", {
+        params: { path: { version_id: versionId } },
+      });
+      return requireOpenApiData(result).map(normalizeEntity);
+    },
     staleTime: WORK_CACHE_TTL_MS,
   });
 }
@@ -391,7 +396,81 @@ export async function getInsights(versionId: string): Promise<Insight[]> {
   const revision = versionRevision(epoch, versionId);
   return getQueryClient().fetchQuery({
     queryKey: workDataKeys.insights(epoch, versionId, revision),
-    queryFn: () => apiFetch<Insight[]>(`/api/v1/versions/${versionId}/insights`),
+    queryFn: async () => {
+      const result = await openapiClient.GET("/api/v1/versions/{version_id}/insights", {
+        params: { path: { version_id: versionId } },
+      });
+      return requireOpenApiData(result).map(normalizeInsight);
+    },
     staleTime: WORK_CACHE_TTL_MS,
   });
+}
+
+type ApiSpan = components["schemas"]["Span"];
+type ApiCadence = components["schemas"]["Cadence"];
+type ApiEntity = components["schemas"]["Entity"];
+type ApiInsight = components["schemas"]["Insight"];
+type DomainCadence = NonNullable<Entity["cadence"]>;
+
+function assertSpanResponse(value: ApiSpan): asserts value is Entity["span"] {
+  for (const field of [
+    "start_seconds",
+    "end_seconds",
+    "start_beat",
+    "end_beat",
+    "start_measure",
+    "end_measure",
+  ] as const) {
+    if (value[field] === undefined) {
+      throw new Error(`Invalid Span response: missing server field "${field}"`);
+    }
+  }
+}
+
+function assertCadenceResponse(value: ApiCadence): asserts value is DomainCadence {
+  if (value.chords === undefined) {
+    throw new Error('Invalid Cadence response: missing server field "chords"');
+  }
+}
+
+function assertEntityResponse(value: ApiEntity): asserts value is Entity {
+  if (value.id === undefined) {
+    throw new Error('Invalid Entity response: missing server field "id"');
+  }
+  if (value.span === undefined) {
+    throw new Error('Invalid Entity response: missing server field "span"');
+  }
+  assertSpanResponse(value.span);
+  if (value.cadence) assertCadenceResponse(value.cadence);
+}
+
+function normalizeEntity(value: ApiEntity): Entity {
+  assertEntityResponse(value);
+  return value;
+}
+
+function assertInsightResponse(value: ApiInsight): asserts value is Insight {
+  for (const field of [
+    "id",
+    "entity_ids",
+    "evidence",
+    "confidence",
+    "provenance",
+    "created_at",
+    "created_by",
+    "produced_by_job_id",
+  ] as const) {
+    if (value[field] === undefined) {
+      throw new Error(`Invalid Insight response: missing server field "${field}"`);
+    }
+  }
+  if (value.span === undefined) {
+    throw new Error('Invalid Insight response: missing server field "span"');
+  }
+  assertSpanResponse(value.span);
+}
+
+function normalizeInsight(value: ApiInsight): Insight {
+  assertInsightResponse(value);
+  return value;
 }
