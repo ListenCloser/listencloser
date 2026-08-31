@@ -1,51 +1,86 @@
 /* Signed-out production story.
  * Expressive at the front door, but built from the same restrained grammar as
  * the editor: one recording, related representations, and shared musical time.
- * The SVG is decorative/structural only and deliberately contains no demo data.
+ * The SVG remains structural only and deliberately contains no demo data.
  */
 
 .welcome-page-v4 {
+  position: relative;
+  isolation: isolate;
   height: 100dvh;
   min-height: 100dvh;
   overflow-x: hidden;
   overflow-y: auto;
+  /* The legacy visual-language layer still flattens the signed-out page with
+   * !important. This stylesheet is the signed-out owner and loads last, so
+   * keep the exception local until #523 removes that cross-owner override. */
   background:
-    radial-gradient(circle at 70% 20%, rgba(214, 181, 109, 0.055), transparent 30%),
-    radial-gradient(circle at 14% 90%, rgba(134, 166, 161, 0.025), transparent 26%),
-    #1b1a17;
+    radial-gradient(ellipse at 76% 32%, rgba(218, 198, 157, 0.105), transparent 31%),
+    radial-gradient(ellipse at 48% 108%, rgba(244, 238, 226, 0.03), transparent 46%),
+    linear-gradient(118deg, #171612 0%, #1a1916 44%, #151411 100%) !important;
+}
+
+.welcome-page-v4::before {
+  content: "";
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.34;
+  background:
+    linear-gradient(90deg, rgba(244, 238, 226, 0.035) 1px, transparent 1px) 0 0 / 96px 100%,
+    linear-gradient(rgba(244, 238, 226, 0.024) 1px, transparent 1px) 0 0 / 100% 72px;
+  -webkit-mask-image: radial-gradient(ellipse at 77% 43%, #000 0%, rgba(0, 0, 0, 0.72) 34%, transparent 73%);
+  mask-image: radial-gradient(ellipse at 77% 43%, #000 0%, rgba(0, 0, 0, 0.72) 34%, transparent 73%);
+  animation: landing-field-enter 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.welcome-header-v4,
+.welcome-hero-v4 {
+  position: relative;
+  z-index: 1;
 }
 
 .welcome-header-v4 {
-  width: min(1240px, calc(100% - 48px));
-  height: 66px;
+  width: min(1320px, calc(100% - 56px));
+  height: 72px;
   margin: 0 auto;
   padding: 0;
   display: flex;
   align-items: center;
 }
 
+.welcome-header-v4::after {
+  content: "";
+  width: 72px;
+  height: 1px;
+  margin-left: 15px;
+  background: linear-gradient(90deg, rgba(224, 205, 168, 0.5), transparent);
+}
+
 .welcome-header-v4 .welcome-mark {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(242, 238, 229, 0.075);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.018);
-  color: #eee6d8;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #e9dfcc;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.18));
 }
 
 .welcome-hero-v4 {
-  width: min(1240px, calc(100% - 48px));
+  width: min(1320px, calc(100% - 56px));
   max-width: none;
-  min-height: calc(100dvh - 66px);
+  min-height: calc(100dvh - 72px);
   margin: 0 auto;
-  padding: clamp(38px, 7vh, 76px) 0 clamp(58px, 8vh, 90px);
+  padding: clamp(34px, 6.5vh, 72px) 0 clamp(64px, 9vh, 108px);
   display: grid;
-  grid-template-columns: minmax(300px, 0.78fr) minmax(520px, 1.22fr);
+  grid-template-columns: minmax(330px, 0.72fr) minmax(560px, 1.28fr);
   grid-template-rows: auto auto auto auto;
-  column-gap: clamp(48px, 7vw, 104px);
+  column-gap: clamp(28px, 5.5vw, 84px);
   align-content: center;
   align-items: start;
 }
@@ -60,41 +95,44 @@
 
 .welcome-hero-v4 h1 {
   grid-row: 1;
-  max-width: 8ch;
+  max-width: 7.2ch;
   margin: 0;
   color: #f3eee4;
   font-family: var(--font-display);
-  font-size: clamp(58px, 6.5vw, 92px);
+  font-size: clamp(70px, 7.7vw, 112px);
   font-weight: 400;
-  line-height: 0.96;
-  letter-spacing: -0.058em;
+  line-height: 0.9;
+  letter-spacing: -0.064em;
   text-wrap: balance;
+  text-shadow: 0 20px 54px rgba(0, 0, 0, 0.22);
 }
 
 .welcome-hero-v4 > p {
   grid-row: 2;
-  max-width: 42ch;
-  margin: 26px 0 30px;
+  max-width: 43ch;
+  margin: 30px 0 32px;
   color: #aaa398;
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.68;
 }
 
 .welcome-hero-v4 > button {
   grid-row: 3;
   justify-self: start;
-  min-height: 42px;
-  padding-inline: 17px;
+  min-height: 45px;
+  padding-inline: 19px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 7px;
-  background: #d1ae66;
-  color: #1b1914;
+  background: #d8c197;
+  color: #171511;
   font-size: 12px;
-  font-weight: 670;
-  box-shadow: none;
+  font-weight: 680;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
 }
 
 .welcome-hero-v4 > button:hover:not(:disabled) {
-  background: #dfbf78;
+  background: #e3d0aa;
+  border-color: rgba(255, 255, 255, 0.14);
   filter: none;
   transform: translateY(-1px);
 }
@@ -106,9 +144,23 @@
 .welcome-hero-v4 > small {
   grid-row: 4;
   margin-top: 13px;
-  color: #716c63;
+  color: #746e64;
   font-size: 10px;
   line-height: 1.4;
+}
+
+.welcome-hero-v4::before {
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / 5;
+  align-self: center;
+  justify-self: center;
+  width: 92%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(222, 202, 164, 0.075) 0%, rgba(222, 202, 164, 0.018) 42%, transparent 70%);
+  filter: blur(10px);
+  animation: landing-halo-enter 1000ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .welcome-hero-v4::after {
@@ -116,34 +168,81 @@
   grid-column: 2;
   grid-row: 1 / 5;
   align-self: center;
-  width: 100%;
+  justify-self: end;
+  width: 112%;
+  max-width: 860px;
   aspect-ratio: 760 / 620;
-  border-radius: 18px;
+  margin-right: -7%;
   background: url("/landing-shared-time-structure.svg") center / contain no-repeat;
-  filter: drop-shadow(0 28px 54px rgba(0, 0, 0, 0.2));
-  animation: landing-story-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  filter: drop-shadow(0 34px 68px rgba(0, 0, 0, 0.22));
+  transform-origin: 58% 50%;
+  animation: landing-story-enter 700ms cubic-bezier(0.22, 1, 0.36, 1) 70ms both;
+}
+
+@keyframes landing-field-enter {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 0.34;
+    transform: translateX(0);
+  }
+}
+
+@keyframes landing-halo-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes landing-story-enter {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.992);
+    transform: translate3d(18px, 14px, 0) scale(0.985);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (max-width: 1100px) {
+  .welcome-hero-v4 {
+    grid-template-columns: minmax(300px, 0.78fr) minmax(500px, 1.22fr);
+    column-gap: clamp(24px, 4vw, 52px);
+  }
+
+  .welcome-hero-v4 h1 {
+    font-size: clamp(64px, 8vw, 92px);
+  }
+
+  .welcome-hero-v4::after {
+    width: 108%;
+    margin-right: -4%;
   }
 }
 
 @media (max-width: 980px) {
+  .welcome-page-v4::before {
+    opacity: 0.22;
+    -webkit-mask-image: radial-gradient(ellipse at 50% 68%, #000 0%, rgba(0, 0, 0, 0.6) 36%, transparent 76%);
+    mask-image: radial-gradient(ellipse at 50% 68%, #000 0%, rgba(0, 0, 0, 0.6) 36%, transparent 76%);
+  }
+
   .welcome-header-v4,
   .welcome-hero-v4 {
-    width: min(760px, calc(100% - 40px));
+    width: min(780px, calc(100% - 40px));
   }
 
   .welcome-hero-v4 {
     min-height: auto;
-    padding-top: 64px;
+    padding-top: 62px;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto auto auto;
     align-content: start;
@@ -153,24 +252,32 @@
   .welcome-hero-v4 > p,
   .welcome-hero-v4 > button,
   .welcome-hero-v4 > small,
+  .welcome-hero-v4::before,
   .welcome-hero-v4::after {
     grid-column: 1;
   }
 
   .welcome-hero-v4 h1 {
     grid-row: 1;
-    max-width: 9ch;
-    font-size: clamp(54px, 11vw, 78px);
+    max-width: 8ch;
+    font-size: clamp(62px, 11vw, 86px);
   }
 
   .welcome-hero-v4 > p { grid-row: 2; }
   .welcome-hero-v4 > button { grid-row: 3; }
   .welcome-hero-v4 > small { grid-row: 4; }
 
+  .welcome-hero-v4::before {
+    grid-row: 5;
+    width: min(78vw, 620px);
+    margin-top: 28px;
+  }
+
   .welcome-hero-v4::after {
     grid-row: 5;
-    width: min(100%, 720px);
-    margin-top: 42px;
+    width: min(108%, 760px);
+    margin-top: 28px;
+    margin-right: -4%;
     justify-self: center;
   }
 }
@@ -182,40 +289,58 @@
   }
 
   .welcome-header-v4 {
-    height: 58px;
+    height: 60px;
+  }
+
+  .welcome-header-v4::after {
+    width: 52px;
+    margin-left: 11px;
+  }
+
+  .welcome-header-v4 .welcome-mark {
+    width: 34px;
+    height: 34px;
   }
 
   .welcome-hero-v4 {
-    padding: 44px 0 54px;
+    padding: 42px 0 58px;
   }
 
   .welcome-hero-v4 h1 {
-    font-size: clamp(48px, 15vw, 64px);
-    line-height: 0.98;
+    font-size: clamp(54px, 16vw, 70px);
+    line-height: 0.92;
   }
 
   .welcome-hero-v4 > p {
-    margin: 21px 0 25px;
+    max-width: 36ch;
+    margin: 23px 0 27px;
     font-size: 13px;
   }
 
   .welcome-hero-v4 > button {
     width: 100%;
     justify-content: center;
-    min-height: 44px;
+    min-height: 46px;
+  }
+
+  .welcome-hero-v4::before {
+    width: min(108vw, 430px);
+    margin-top: 22px;
   }
 
   .welcome-hero-v4::after {
-    width: min(100%, 360px);
+    width: min(118%, 410px);
     aspect-ratio: 360 / 430;
-    margin-top: 34px;
-    margin-left: 0;
+    margin-top: 28px;
+    margin-right: -8%;
     background-image: url("/landing-shared-time-mobile.svg");
-    filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.18));
+    filter: drop-shadow(0 24px 46px rgba(0, 0, 0, 0.2));
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .welcome-page-v4::before,
+  .welcome-hero-v4::before,
   .welcome-hero-v4::after,
   .welcome-hero-v4 > button,
   .welcome-hero-v4 > button:hover:not(:disabled),

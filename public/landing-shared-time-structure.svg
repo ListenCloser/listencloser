@@ -1,55 +1,87 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 620">
-  <rect x="1" y="1" width="758" height="618" rx="18" fill="#211f1b" stroke="#f2eee5" stroke-opacity=".08"/>
-  <text x="28" y="42" fill="#888278" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" letter-spacing="1.9">SHARED MUSICAL TIME</text>
-  <text x="732" y="42" text-anchor="end" fill="#676159" font-family="system-ui, sans-serif" font-size="10.5">one recording · related views</text>
-  <line x1="28" y1="64" x2="732" y2="64" stroke="#f2eee5" stroke-opacity=".07"/>
+  <defs>
+    <radialGradient id="halo" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(451 286) rotate(90) scale(258 306)">
+      <stop stop-color="#dcc69a" stop-opacity=".075"/>
+      <stop offset=".58" stop-color="#dcc69a" stop-opacity=".018"/>
+      <stop offset="1" stop-color="#dcc69a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="alignment" x1="442" y1="80" x2="442" y2="486" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#eadfc9" stop-opacity=".16"/>
+      <stop offset=".18" stop-color="#ddc69a" stop-opacity=".64"/>
+      <stop offset=".82" stop-color="#ddc69a" stop-opacity=".64"/>
+      <stop offset="1" stop-color="#eadfc9" stop-opacity=".12"/>
+    </linearGradient>
+    <linearGradient id="hairline" x1="70" y1="0" x2="692" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f3eee4" stop-opacity="0"/>
+      <stop offset=".18" stop-color="#f3eee4" stop-opacity=".09"/>
+      <stop offset=".82" stop-color="#f3eee4" stop-opacity=".09"/>
+      <stop offset="1" stop-color="#f3eee4" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
 
-  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10" fill="#7d776e" letter-spacing="1.25">
-    <text x="28" y="128">AUDIO</text>
-    <text x="28" y="211">NOTES</text>
-    <text x="28" y="294">NOTATION</text>
-    <text x="28" y="377">EVIDENCE</text>
+  <ellipse cx="451" cy="286" rx="306" ry="258" fill="url(#halo)"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+    <text x="72" y="54" fill="#9a9388" font-size="10" letter-spacing="1.9">ONE SOURCE · SHARED MUSICAL TIME</text>
+    <text x="688" y="54" text-anchor="end" fill="#6f6960" font-size="9.5" letter-spacing=".55">related views</text>
+  </g>
+  <path d="M72 72H688" stroke="url(#hairline)"/>
+
+  <!-- Open structural planes only: no fabricated waveform, notes, score content, evidence, or playback state. -->
+  <g>
+    <rect x="106" y="108" width="550" height="72" rx="10" fill="#f3eee4" fill-opacity=".012" stroke="#f3eee4" stroke-opacity=".075"/>
+    <rect x="82" y="201" width="598" height="72" rx="10" fill="#f3eee4" fill-opacity=".012" stroke="#f3eee4" stroke-opacity=".075"/>
+    <rect x="118" y="294" width="530" height="72" rx="10" fill="#f3eee4" fill-opacity=".014" stroke="#f3eee4" stroke-opacity=".085"/>
+    <rect x="94" y="387" width="574" height="72" rx="10" fill="#f3eee4" fill-opacity=".012" stroke="#f3eee4" stroke-opacity=".075"/>
   </g>
 
-  <g stroke="#f2eee5" stroke-opacity=".075" fill="#f2eee5" fill-opacity=".01">
-    <rect x="130" y="96" width="574" height="48" rx="7"/>
-    <rect x="130" y="179" width="574" height="48" rx="7"/>
-    <rect x="130" y="262" width="574" height="48" rx="7"/>
-    <rect x="130" y="345" width="574" height="48" rx="7"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="9" letter-spacing="1.45">
+    <text x="124" y="132" fill="#8c857b">01 · AUDIO</text>
+    <text x="100" y="225" fill="#8c857b">02 · NOTES</text>
+    <text x="136" y="318" fill="#9c9489">03 · NOTATION</text>
+    <text x="112" y="411" fill="#8c857b">04 · EVIDENCE</text>
   </g>
 
-  <g stroke="#f2eee5" stroke-opacity=".05">
-    <path d="M184 88v313M296 88v313M408 88v313M520 88v313M632 88v313"/>
+  <!-- Each plane shows only its coordinate grammar, never invented musical events. -->
+  <g stroke="#b5ada1" stroke-opacity=".2">
+    <path d="M224 148H628"/>
+    <path d="M201 226H652M201 238H652M201 250H652"/>
+    <path d="M236 326H620M236 333H620M236 340H620M236 347H620M236 354H620"/>
+    <path d="M212 427H640"/>
   </g>
 
-  <!-- Structural rails only: no fabricated waveform, note, score, evidence, or playback state. -->
-  <line x1="154" y1="120" x2="680" y2="120" stroke="#aaa398" stroke-opacity=".25"/>
-  <g stroke="#9d968b" stroke-opacity=".17">
-    <path d="M154 196h526M154 210h526"/>
-    <path d="M154 276h526M154 284h526M154 292h526M154 300h526"/>
+  <g stroke="#f3eee4" stroke-opacity=".055">
+    <path d="M286 108V180M358 108V180M526 108V180M598 108V180"/>
+    <path d="M262 201V273M346 201V273M538 201V273M622 201V273"/>
+    <path d="M278 294V366M350 294V366M518 294V366M590 294V366"/>
+    <path d="M254 387V459M338 387V459M530 387V459M614 387V459"/>
   </g>
-  <line x1="154" y1="369" x2="680" y2="369" stroke="#9d968b" stroke-opacity=".18" stroke-width="6" stroke-linecap="round"/>
 
-  <!-- Neutral alignment guide: deliberately not blue playback or brass evidence state. -->
-  <line x1="432" y1="82" x2="432" y2="412" stroke="#cac3b7" stroke-opacity=".38" stroke-width="1.5" stroke-dasharray="3 6"/>
-  <rect x="385" y="414" width="94" height="22" rx="11" fill="#2b2924" stroke="#f2eee5" stroke-opacity=".08"/>
-  <text x="432" y="429" text-anchor="middle" fill="#8b857c" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="9.5">SAME MOMENT</text>
-
-  <line x1="28" y1="472" x2="732" y2="472" stroke="#f2eee5" stroke-opacity=".07"/>
-
-  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="9.5" fill="#777168" letter-spacing="1.5">
-    <text x="28" y="510">01 · LISTEN</text>
-    <text x="270" y="510">02 · SEE</text>
-    <text x="512" y="510">03 · EXPLAIN</text>
+  <!-- One neutral/warm alignment axis connects every representation. -->
+  <line x1="442" y1="86" x2="442" y2="481" stroke="url(#alignment)" stroke-width="1.5"/>
+  <g fill="#1a1916" stroke="#dcc69a" stroke-opacity=".78" stroke-width="1.25">
+    <circle cx="442" cy="148" r="4.2"/>
+    <circle cx="442" cy="237" r="4.2"/>
+    <circle cx="442" cy="340" r="4.2"/>
+    <circle cx="442" cy="427" r="4.2"/>
   </g>
-  <g font-family="Georgia, Iowan Old Style, serif" font-size="17" fill="#d8d2c8">
-    <text x="28" y="540">Recording first.</text>
-    <text x="270" y="540">Change the view.</text>
-    <text x="512" y="540">Return to evidence.</text>
+  <circle cx="442" cy="148" r="1.4" fill="#e6d6b6" fill-opacity=".9"/>
+  <circle cx="442" cy="237" r="1.4" fill="#e6d6b6" fill-opacity=".9"/>
+  <circle cx="442" cy="340" r="1.4" fill="#e6d6b6" fill-opacity=".9"/>
+  <circle cx="442" cy="427" r="1.4" fill="#e6d6b6" fill-opacity=".9"/>
+
+  <text x="716" y="304" transform="rotate(90 716 304)" text-anchor="middle" fill="#c5bcae" fill-opacity=".16" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="5.4">SAME MOMENT</text>
+
+  <path d="M72 506H688" stroke="url(#hairline)"/>
+
+  <g font-family="Georgia, Iowan Old Style, serif" font-size="21" fill="#ddd5c8">
+    <text x="72" y="548">Listen</text>
+    <text x="223" y="548">See</text>
+    <text x="342" y="548">Explain</text>
   </g>
-  <g font-family="system-ui, sans-serif" font-size="10.5" fill="#7f796f">
-    <text x="28" y="563">Keep the source usable.</text>
-    <text x="270" y="563">Keep musical position.</text>
-    <text x="512" y="563">Keep claims grounded.</text>
+  <g fill="#8d857a" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="9" letter-spacing="1.35">
+    <text x="177" y="548">/</text>
+    <text x="298" y="548">/</text>
+    <text x="72" y="578">ONE RECORDING STAYS IN PLACE AS THE VIEW CHANGES</text>
   </g>
 </svg>
