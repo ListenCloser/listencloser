@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from domain.fenced_job_worker import FencedJobWorker
+from domain.job_worker import JobWorker
 
 
 class _Bucket:
@@ -45,12 +46,34 @@ class _Query:
         return SimpleNamespace(data=list(self.rows))
 
 
+class _JobMutation:
+    def __init__(self, client: _Client) -> None:
+        self.client = client
+        self.values: dict[str, Any] = {}
+        self.filters: list[tuple[str, Any]] = []
+
+    def update(self, values: dict[str, Any]) -> _JobMutation:
+        self.values = dict(values)
+        return self
+
+    def eq(self, column: str, value: Any) -> _JobMutation:
+        self.filters.append((column, value))
+        return self
+
+    def execute(self) -> SimpleNamespace:
+        self.client.job_updates.append((dict(self.values), list(self.filters)))
+        return SimpleNamespace(data=[dict(self.values)])
+
+
 class _Client:
     def __init__(self) -> None:
         self.storage = _Storage()
         self.tables: dict[str, list[dict[str, Any]]] = {"artifacts": []}
+        self.job_updates: list[tuple[dict[str, Any], list[tuple[str, Any]]]] = []
 
-    def table(self, name: str) -> _Query:
+    def table(self, name: str) -> _Query | _JobMutation:
+        if name == "jobs":
+            return _JobMutation(self)
         return _Query(self.tables.get(name, []))
 
 
@@ -104,3 +127,50 @@ def test_pending_artifact_is_visible_to_repository_owner_verification() -> None:
 
     missing = client.table("artifacts").select("work_id").eq("id", "other").execute()
     assert missing.data == []
+
+
+def test_stale_finisher_cannot_forget_successor_generation() -> None:
+    worker = FencedJobWorker()
+    worker._remember_execution_token("job-1", "token-a")
+    worker._remember_execution_token("job-1", "token-b")
+
+    worker._forget_execution_token("job-1", "token-a")
+    assert worker._execution_token("job-1") == "token-b"
+
+    worker._forget_execution_token("job-1", "token-b")
+    with pytest.raises(RuntimeError, match="no active execution token"):
+        worker._execution_token("job-1")
+
+
+def test_queue_claim_releases_duplicate_local_generation(monkeypatch: pytest.MonkeyPatch) -> None:
+    worker = FencedJobWorker()
+    raw = _Client()
+    worker._client = raw
+    worker._remember_execution_token("job-1", "token-a")
+    with worker._in_flight_lock:
+        worker._in_flight.add("job-1")
+
+    monkeypatch.setattr(
+        JobWorker,
+        "_claim_next_job",
+        lambda _self: {"id": "job-1", "execution_token": "token-b"},
+    )
+
+    assert worker._claim_next_job() is None
+    assert worker._execution_token("job-1") == "token-a"
+    assert raw.job_updates == [
+        (
+            {
+                "stage": "queued",
+                "worker_id": None,
+                "lease_expires_at": None,
+                "execution_token": None,
+            },
+            [
+                ("id", "job-1"),
+                ("worker_id", worker._worker_id),
+                ("execution_token", "token-b"),
+                ("stage", "claimed"),
+            ],
+        )
+    ]
