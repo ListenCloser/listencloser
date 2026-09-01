@@ -1747,72 +1747,6 @@ def handle_variation(job: Job, client) -> list[str]:
     return [*midi_ids, *audio_ids, *insight_ids, *score_ids]
 
 
-def handle_generate_continuation(job: Job, client) -> list[str]:
-    """Generate a simple continuation: repeat the ending bars shifted up
-    an octave as a placeholder for full generation."""
-    import copy
-    import io
-
-    import pretty_midi
-
-    if not job.input_version_ids:
-        raise ValueError("continuation requires at least one input version")
-
-    owner_id = _resolve_owner_id(client, job.workflow_id)
-    _update_progress(client, job.id, 0.1, "looking up input MIDI")
-
-    input_version = _lookup_version(client, job.input_version_ids[0])
-    work_id = _resolve_work_id(client, input_version.id)
-
-    _update_progress(client, job.id, 0.2, "downloading MIDI")
-    midi_bytes = download_version_bytes(input_version, client)
-
-    _update_progress(client, job.id, 0.3, "loading MIDI")
-    pm = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
-
-    total_duration = pm.get_end_time()
-    bars_duration = 8.0
-    if total_duration < bars_duration:
-        bars_duration = total_duration
-    start_time = total_duration - bars_duration
-
-    _update_progress(client, job.id, 0.5, "generating continuation")
-    for instrument in pm.instruments:
-        new_notes = []
-        for note in instrument.notes:
-            if note.start >= start_time:
-                cont_note = copy.copy(note)
-                cont_note.start = note.start + bars_duration
-                cont_note.end = note.end + bars_duration
-                cont_note.pitch += 12
-                new_notes.append(cont_note)
-        instrument.notes.extend(new_notes)
-
-    _update_progress(client, job.id, 0.7, "writing continued MIDI")
-    buf = io.BytesIO()
-    pm.write(buf)
-    continued_bytes = buf.getvalue()
-
-    _update_progress(client, job.id, 0.8, "storing continued MIDI")
-    storage_key = _job_storage_key(job, "continued.mid")
-    _upload_bytes(client, _STORAGE_BUCKET, storage_key, continued_bytes, "audio/midi")
-
-    output_version_id = _create_output_version(
-        client,
-        work_id,
-        ArtifactKind.midi_corrected,
-        storage_key,
-        len(continued_bytes),
-        input_version.id,
-        job,
-        owner_id,
-        mime_type="audio/midi",
-    )
-
-    _update_progress(client, job.id, 1.0, "continuation complete")
-    return [str(output_version_id)]
-
-
 def register_all_capabilities(worker) -> None:
     """Register every capability handler with *worker*."""
     worker.register("transcribe", "1.0", handle_transcribe)
@@ -1826,4 +1760,3 @@ def register_all_capabilities(worker) -> None:
     worker.register("compare", "1.0", handle_compare)
     worker.register("transform", "1.0", handle_transform)
     worker.register("variation", "1.0", handle_variation)
-    worker.register("generate_continuation", "1.0", handle_generate_continuation)
