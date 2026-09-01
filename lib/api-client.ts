@@ -546,6 +546,23 @@ export async function startUnderstandWorkflow(
   });
 }
 
+export async function startScoreWorkflow(
+  performanceMidiVersionId: string,
+  projectId: string,
+  scoreEngine?: ScoreEngine,
+): Promise<{ workflow: Workflow; job: Job }> {
+  return mutateVersionWorks([performanceMidiVersionId], async () => {
+    const result = await openapiClient.POST("/api/v1/workflows/score", {
+      body: {
+        performance_midi_version_id: performanceMidiVersionId,
+        project_id: projectId,
+        ...(scoreEngine ? { score_engine: scoreEngine } : {}),
+      },
+    });
+    return normalizeWorkflowJob(requireOpenApiData(result));
+  });
+}
+
 export async function startVariationWorkflow(
   versionId: string,
   projectId: string,

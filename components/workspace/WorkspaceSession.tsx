@@ -11,6 +11,7 @@ import {
   getWorkBundle,
   retryJob,
   startCompareWorkflow,
+  startScoreWorkflow,
   startUnderstandWorkflow,
   startVariationWorkflow,
   uploadArtifact,
@@ -22,6 +23,7 @@ import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
 import { understandStageLabel, presentableTitle } from "@/lib/format";
 import { buildPlaybackSources } from "@/lib/playback-sources";
+import { performanceMidiVersionId, selectScoreArtifacts } from "@/lib/score-artifacts";
 import {
   useWorkspace,
   type RepresentationEntry,
@@ -68,6 +70,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   const abortRef = useRef<AbortController | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedWorkRef = useRef<string | null>(null);
+  const loadedBundleRef = useRef<Awaited<ReturnType<typeof getWorkBundle>> | null>(null);
   const initializedProjectSelectionRef = useRef<string | null>(null);
 
   const clearProcessingRefresh = useCallback(() => {
@@ -103,6 +106,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     try {
       const bundle = await getWorkBundle(workId);
       if (sequence !== loadSequenceRef.current) return;
+      loadedBundleRef.current = bundle;
 
       const latestJob = bundle.jobs[0];
       const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
@@ -131,8 +135,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       const original = latestByKind.get("audio_original");
       const baseMidi = latestByKind.get("midi_performance");
       const midi = baseMidi ?? latestByKind.get("midi_corrected");
-      const score = latestByKind.get("musicxml_score");
-      const renderedScore = latestByKind.get("rendered_score");
+      const { score, renderedScore } = selectScoreArtifacts(bundle.artifacts, scoreEngine);
 
       const takeArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && ["midi_performance", "midi_corrected"].includes(item.artifact.kind),
@@ -363,7 +366,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     } finally {
       if (sequence === loadSequenceRef.current) setLoadingWork(false);
     }
-  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
+  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, scoreEngine, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
 
   useEffect(() => () => {
     abortRef.current?.abort();
@@ -376,6 +379,49 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       clearProcessingRefresh();
     }
   }, [clearProcessingRefresh, workspace.activeWorkId]);
+
+  const handledScoreEngineAction = useRef(0);
+  useEffect(() => {
+    const action = workspace.scoreEngineAction;
+    const workId = workspace.activeWorkId;
+    if (!action || action.id === handledScoreEngineAction.current || !projectId || !workId) return;
+    handledScoreEngineAction.current = action.id;
+
+    const bundle = loadedBundleRef.current?.work.id === workId ? loadedBundleRef.current : null;
+    if (bundle && selectScoreArtifacts(bundle.artifacts, action.engine).score) {
+      // `scoreEngine` is already updated by the request action. The loadWork
+      // dependency refreshes the selected representation from the cached bundle.
+      return;
+    }
+
+    const performanceVersionId = bundle ? performanceMidiVersionId(bundle.artifacts) : null;
+    if (!performanceVersionId) {
+      setError("Score reinterpretation requires the canonical performance transcription.");
+      setStage("error");
+      return;
+    }
+
+    void (async () => {
+      setProcessingWorkId(workId);
+      setStage("processing");
+      setProgress(0);
+      setError(null);
+      setMessage(`Rebuilding Score with ${action.engine === "pm2s" ? "PM2S" : "MuseScore"}…`);
+      try {
+        const { job } = await startScoreWorkflow(performanceVersionId, projectId, action.engine);
+        setActiveJobId(job.id);
+        await waitForJob(job.id, (current) => {
+          setMessage(current.message || "Rebuilding Score…");
+          setProgress(Math.round(current.progress * 100));
+        });
+        await loadWork(workId);
+      } catch (cause) {
+        const disconnected = cause instanceof JobObservationError;
+        setError(cause instanceof Error ? cause.message : "Could not rebuild Score");
+        setStage(disconnected ? "disconnected" : "error");
+      }
+    })();
+  }, [loadWork, projectId, workspace.activeWorkId, workspace.scoreEngineAction]);
 
   const handledStudioAction = useRef(0);
   useEffect(() => {
