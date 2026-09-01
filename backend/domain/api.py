@@ -667,7 +667,7 @@ async def create_score_workflow(
         score_engine = _canonical_score_engine(body.score_engine)
         job_id = uuid5(
             NAMESPACE_URL,
-            f"hello-ai:score:1.0:{owner_id}:{version_id}:{score_engine}",
+            f"listencloser:score:1.0:{owner_id}:{version_id}:{score_engine}",
         )
         job_repo = JobRepo(sb)
         existing_job = job_repo.get(job_id, owner_id)
@@ -681,7 +681,7 @@ async def create_score_workflow(
         workflow = Workflow(
             id=uuid5(
                 NAMESPACE_URL,
-                f"hello-ai:score-workflow:1.0:{owner_id}:{version_id}:{score_engine}",
+                f"listencloser:score-workflow:1.0:{owner_id}:{version_id}:{score_engine}",
             ),
             project_id=project_id,
             kind=WorkflowKind.understand,
