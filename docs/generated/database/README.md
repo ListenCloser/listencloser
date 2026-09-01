@@ -27,6 +27,7 @@ Generated from the fresh local Supabase/Postgres schema. Migrations are authorit
 | public.fenced_job_delete | int4 | p_job_id uuid, p_execution_token uuid, p_table text, p_match jsonb | FUNCTION |
 | public.fenced_job_insert | jsonb | p_job_id uuid, p_execution_token uuid, p_table text, p_rows jsonb | FUNCTION |
 | public.fenced_job_publish_version | jsonb | p_job_id uuid, p_execution_token uuid, p_artifact jsonb, p_version jsonb | FUNCTION |
+| public.fenced_job_verify_input_sha256 | bool | p_job_id uuid, p_execution_token uuid, p_storage_bucket text, p_storage_key text, p_sha256 text | FUNCTION |
 
 ## Enums
 
