@@ -78,7 +78,7 @@ type WorkspaceState = {
   selection: MusicalSelection | null;
   transcriptionProfile: TranscriptionProfile;
   scoreEngine: ScoreEngine;
-  scoreRebuildRequestId: number;
+  scoreEngineAction: { id: number; engine: ScoreEngine } | null;
   analysisState: AnalysisState;
 };
 
@@ -104,7 +104,7 @@ type WorkspaceContextValue = {
   clearSelection: () => void;
   setTranscriptionProfile: (profile: TranscriptionProfile) => void;
   setScoreEngine: (engine: ScoreEngine) => void;
-  requestScoreRebuild: () => void;
+  requestScoreEngine: (engine: ScoreEngine) => void;
   setAnalysisState: (state: AnalysisState) => void;
 };
 
@@ -169,7 +169,7 @@ export function WorkspaceProvider({
     selection: null,
     transcriptionProfile: "auto",
     scoreEngine: "musescore",
-    scoreRebuildRequestId: 0,
+    scoreEngineAction: null,
     analysisState: "idle",
   });
 
@@ -231,7 +231,14 @@ export function WorkspaceProvider({
   const clearSelection = useCallback(() => setWorkspace((prev) => ({ ...prev, selection: null })), []);
   const setTranscriptionProfile = useCallback((transcriptionProfile: TranscriptionProfile) => setWorkspace((prev) => prev.transcriptionProfile === transcriptionProfile ? prev : { ...prev, transcriptionProfile }), []);
   const setScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => prev.scoreEngine === scoreEngine ? prev : { ...prev, scoreEngine }), []);
-  const requestScoreRebuild = useCallback(() => setWorkspace((prev) => ({ ...prev, scoreRebuildRequestId: prev.scoreRebuildRequestId + 1 })), []);
+  const requestScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => ({
+    ...prev,
+    scoreEngine,
+    scoreEngineAction: {
+      id: (prev.scoreEngineAction?.id ?? 0) + 1,
+      engine: scoreEngine,
+    },
+  })), []);
   const setAnalysisState = useCallback((analysisState: AnalysisState) => setWorkspace((prev) => ({ ...prev, analysisState })), []);
 
   return (
@@ -257,7 +264,7 @@ export function WorkspaceProvider({
       clearSelection,
       setTranscriptionProfile,
       setScoreEngine,
-      requestScoreRebuild,
+      requestScoreEngine,
       setAnalysisState,
     }}>
       {children}

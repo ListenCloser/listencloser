@@ -70,6 +70,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   const abortRef = useRef<AbortController | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedWorkRef = useRef<string | null>(null);
+  const loadedBundleRef = useRef<Awaited<ReturnType<typeof getWorkBundle>> | null>(null);
   const initializedProjectSelectionRef = useRef<string | null>(null);
   const performanceMidiVersionRef = useRef<string | null>(null);
 
@@ -106,6 +107,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     try {
       const bundle = await getWorkBundle(workId);
       if (sequence !== loadSequenceRef.current) return;
+      loadedBundleRef.current = bundle;
 
       const latestJob = bundle.jobs[0];
       const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
@@ -384,7 +386,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     }
   }, [clearProcessingRefresh, workspace.activeWorkId]);
 
-  const handledScoreRebuildRequest = useRef(workspace.scoreRebuildRequestId);
+  const handledScoreEngineAction = useRef(0);
   const handledStudioAction = useRef(0);
   useEffect(() => {
     const action = workspace.studioAction;
@@ -419,14 +421,22 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   }, [loadWork, projectId, setStudioOperation, workspace.activeWorkId, workspace.studioAction]);
 
   useEffect(() => {
-    const requestId = workspace.scoreRebuildRequestId;
-    if (!requestId || requestId === handledScoreRebuildRequest.current || !projectId || !workspace.activeWorkId) return;
-    handledScoreRebuildRequest.current = requestId;
-
+    const action = workspace.scoreEngineAction;
     const workId = workspace.activeWorkId;
+    if (!action || action.id === handledScoreEngineAction.current || !projectId || !workId) return;
+    handledScoreEngineAction.current = action.id;
+
+    const bundle = loadedBundleRef.current?.work.id === workId ? loadedBundleRef.current : null;
     const performanceMidiVersionId = performanceMidiVersionRef.current;
+    if (bundle && selectScoreArtifacts(bundle, performanceMidiVersionId, action.engine).score) {
+      // The selected engine already exists for this exact canonical performance
+      // MIDI. Updating scoreEngine changes loadWork identity, so the normal Work
+      // refresh switches Score + score playback without a compute/storage write.
+      return;
+    }
+
     if (!performanceMidiVersionId) {
-      setError("A canonical performance MIDI is required before rebuilding Score.");
+      setError("Score reinterpretation requires the canonical performance transcription.");
       setStage("error");
       return;
     }
@@ -436,18 +446,23 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       setProgress(0);
       setProcessingWorkId(workId);
       setStage("processing");
-      setMessage(`Rebuilding Score with ${scoreEngine === "pm2s" ? "PM2S" : "MuseScore"}…`);
+      setMessage(`Rebuilding Score with ${action.engine === "pm2s" ? "PM2S" : "MuseScore"}…`);
       try {
-        const { job } = await startScoreWorkflow(performanceMidiVersionId, projectId, scoreEngine);
+        const { job } = await startScoreWorkflow(performanceMidiVersionId, projectId, action.engine);
         setActiveJobId(job.id);
+        await waitForJob(job.id, (current) => {
+          setMessage(current.message || "Rebuilding Score…");
+          setProgress(Math.round(current.progress * 100));
+        });
         await loadWork(workId);
       } catch (cause) {
         setActiveJobId(null);
+        const disconnected = cause instanceof JobObservationError;
         setError(cause instanceof Error ? cause.message : "Could not rebuild Score");
-        setStage("error");
+        setStage(disconnected ? "disconnected" : "error");
       }
     })();
-  }, [loadWork, projectId, scoreEngine, workspace.activeWorkId, workspace.scoreRebuildRequestId]);
+  }, [loadWork, projectId, workspace.activeWorkId, workspace.scoreEngineAction]);
 
   useEffect(() => {
     if (projectQuery.isError || worksQuery.isError) {
