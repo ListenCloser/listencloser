@@ -70,6 +70,9 @@ jobs:
           export SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
           export SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
           export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
+          # Security tests mint a local authenticated PostgREST identity directly
+          # so fixture setup does not depend on any product-facing Auth provider.
+          export SUPABASE_JWT_SECRET="${SUPABASE_JWT_SECRET:-${JWT_SECRET}}"
           uv run --project backend python -m pytest backend/tests/ -m real_stack -v
       - name: Stop local Supabase
         if: always()
