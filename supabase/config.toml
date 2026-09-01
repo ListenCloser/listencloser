@@ -66,7 +66,7 @@ schema_paths = []
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
 enabled = true
-# Specifies an ordered list of seed files to load during db reset.
+# Specifies an ordered list of seed files to load during a db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]
 
@@ -97,7 +97,7 @@ enabled = true
 port = 54323
 # External URL of the API server that frontend connects to.
 api_url = "http://127.0.0.1"
-# OpenAI API Key to use for Supabase AI in the Supabase Studio.
+# OpenAI API Key for the SQL editor in local Studio.
 openai_api_key = "env(OPENAI_API_KEY)"
 
 # Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
@@ -195,7 +195,8 @@ enable_refresh_token_rotation = true
 # Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
-# Allow/disallow new user signups to your project.
+# Allow/disallow new user signups to your project. Keep this enabled so first-time Google OAuth
+# users can still be created; provider-specific signup methods are controlled below.
 enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
@@ -240,8 +241,9 @@ web3 = 30
 # secret = ""
 
 [auth.email]
-# Allow/disallow new user signups via email to your project.
-enable_signup = true
+# The product supports Google OAuth only. Supabase CLI maps this key directly to the hosted
+# `external_email_enabled` provider flag, disabling email/password, magic-link, and email OTP auth.
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
@@ -389,18 +391,19 @@ enabled = false
 [auth.oauth_server]
 # Enable OAuth server functionality
 enabled = false
-# Path for OAuth consent flow UI
+# Path for OAuth consent flow UI.
 authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
+authorization_url_path = "/oauth/consent"
 allow_dynamic_registration = false
 
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
-# `per_worker` (default) — enables hot reload during local development.
+# `per_worker` (default) — enables hot reload.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
 policy = "per_worker"
-# Port to attach the Chrome inspector for debugging edge functions.
+# Port to attach the Chrome inspector for Edge Functions.
 inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
@@ -414,7 +417,7 @@ port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 
-# Experimental features may be deprecated any time
+# Experimental features may be deprecated at any time.
 [experimental]
 # Configures Postgres storage engine to use OrioleDB (S3)
 orioledb_version = ""
