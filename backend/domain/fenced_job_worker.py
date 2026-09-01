@@ -12,11 +12,13 @@ Artifact + Version publication is one atomic RPC; other admitted output inserts
 and the two existing cleanup delete shapes use fenced RPCs. Unknown mutations
 fail closed. Storage bytes are attempt-scoped so a stale attempt can leave, at
 worst, private unreferenced blob garbage rather than overwrite or delete a
-current attempt's object.
+current attempt's object. Exact declared-input Storage reads also establish a
+missing Version SHA-256 through a dedicated monotonic fenced RPC.
 """
 
 from __future__ import annotations
 
+import hashlib
 import threading
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -250,12 +252,15 @@ class _HandlerTable:
 
 
 class _HandlerStorageBucket:
-    def __init__(self, bucket: Any, client: _HandlerClient) -> None:
+    def __init__(self, bucket_name: str, bucket: Any, client: _HandlerClient) -> None:
+        self._bucket_name = bucket_name
         self._bucket = bucket
         self._client = client
 
     def download(self, path: str, *args: Any, **kwargs: Any) -> Any:
-        return self._bucket.download(path, *args, **kwargs)
+        content = self._bucket.download(path, *args, **kwargs)
+        self._client.verify_downloaded_input(self._bucket_name, path, content)
+        return content
 
     def upload(self, path: str, *args: Any, **kwargs: Any) -> Any:
         fenced_path = self._client.scope_storage_key(path)
@@ -283,7 +288,7 @@ class _HandlerStorage:
         self._client = client
 
     def from_(self, bucket: str) -> _HandlerStorageBucket:
-        return _HandlerStorageBucket(self._storage.from_(bucket), self._client)
+        return _HandlerStorageBucket(bucket, self._storage.from_(bucket), self._client)
 
     def __getattr__(self, name: str) -> Any:
         raise RuntimeError(f"job handlers cannot access unfenced storage operation {name}")
@@ -292,10 +297,18 @@ class _HandlerStorage:
 class _HandlerClient:
     """Capability-facing persistence boundary for one exact Job execution."""
 
-    def __init__(self, raw: Any, job_id: str, execution_token: str) -> None:
+    def __init__(
+        self,
+        raw: Any,
+        job_id: str,
+        execution_token: str,
+        input_version_ids: list[Any] | None = None,
+    ) -> None:
         self._raw = raw
         self.job_id = job_id
         self.execution_token = execution_token
+        self._declared_input_version_ids = tuple(str(value) for value in (input_version_ids or []))
+        self._declared_input_locators: dict[tuple[str, str], tuple[str, ...]] | None = None
         self._storage_keys: dict[str, str] = {}
         self._pending_artifacts: dict[str, dict[str, Any]] = {}
         self.storage = _HandlerStorage(raw.storage, self)
@@ -305,6 +318,53 @@ class _HandlerClient:
 
     def rpc(self, *_args: Any, **_kwargs: Any) -> Any:
         raise RuntimeError("job handlers cannot call unfenced database RPCs")
+
+    def _input_storage_locators(self) -> dict[tuple[str, str], tuple[str, ...]]:
+        if self._declared_input_locators is not None:
+            return self._declared_input_locators
+        if not self._declared_input_version_ids:
+            self._declared_input_locators = {}
+            return self._declared_input_locators
+
+        result = (
+            self._raw.table("artifact_versions")
+            .select("id,storage_bucket,storage_key")
+            .in_("id", list(self._declared_input_version_ids))
+            .execute()
+        )
+        rows_by_id = {str(row.get("id")): row for row in (result.data or [])}
+        locators: dict[tuple[str, str], list[str]] = {}
+        for version_id in self._declared_input_version_ids:
+            row = rows_by_id.get(version_id)
+            if row is None:
+                raise RuntimeError(f"declared input Version {version_id} has no storage locator")
+            bucket = row.get("storage_bucket")
+            path = row.get("storage_key")
+            if not isinstance(bucket, str) or not isinstance(path, str):
+                raise RuntimeError(f"declared input Version {version_id} has no storage locator")
+            locators.setdefault((bucket, path), []).append(version_id)
+
+        self._declared_input_locators = {
+            locator: tuple(version_ids) for locator, version_ids in locators.items()
+        }
+        return self._declared_input_locators
+
+    def verify_downloaded_input(self, bucket: str, path: str, content: Any) -> None:
+        """Enrich SHA-256 only when this exact Storage locator is a root Job input."""
+        version_ids = self._input_storage_locators().get((bucket, path), ())
+        if not version_ids:
+            return
+        digest = hashlib.sha256(content).hexdigest()
+        for version_id in version_ids:
+            self._raw.rpc(
+                "fenced_job_verify_input_sha256",
+                {
+                    "p_job_id": self.job_id,
+                    "p_execution_token": self.execution_token,
+                    "p_version_id": version_id,
+                    "p_sha256": digest,
+                },
+            ).execute()
 
     def scope_storage_key(self, path: str) -> str:
         prefix = f"jobs/{self.job_id}/"
@@ -392,9 +452,18 @@ class FencedJobWorker(JobWorker):
             if self._execution_tokens.get(job_id) == expected_token:
                 self._execution_tokens.pop(job_id, None)
 
-    def _handler_client(self, job_id: str) -> _HandlerClient:
+    def _handler_client(
+        self,
+        job_id: str,
+        input_version_ids: list[Any] | None = None,
+    ) -> _HandlerClient:
         """Return the exact-attempt persistence client for internal tests/adapters."""
-        return _HandlerClient(self._raw_client(), job_id, self._execution_token(job_id))
+        return _HandlerClient(
+            self._raw_client(),
+            job_id,
+            self._execution_token(job_id),
+            input_version_ids,
+        )
 
     def _claim_job(self, job_id: str) -> bool:
         # A direct/specific-id path must not create a second local generation
@@ -494,7 +563,7 @@ class FencedJobWorker(JobWorker):
                     "capability": f"{name}:{version}",
                 },
             ):
-                return handler(job, self._handler_client(job_id))
+                return handler(job, self._handler_client(job_id, job.input_version_ids))
 
         super().register(name, version, fenced_handler)
 
