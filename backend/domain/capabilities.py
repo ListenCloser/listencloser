@@ -1191,7 +1191,10 @@ def handle_score(job: Job, client) -> list[str]:
     _update_progress(client, job.id, 0.2, "downloading MIDI")
     midi_bytes = download_version_bytes(input_version, client)
     beat_times: list[float] = []
+    beat_result = None
+    downbeats = None
     tempo = 0.0
+    score_engine = str(job.parameters.get("score_engine") or "musescore")
     if len(job.input_version_ids) > 1:
         try:
             _update_progress(client, job.id, 0.35, "aligning notation to the recording")
@@ -1212,6 +1215,7 @@ def handle_score(job: Job, client) -> list[str]:
         notation_result = music_features.notation_with_engine(
             midi_bytes,
             beat_times,
+            engine_name=score_engine,
             downbeats=downbeats,
             adaptive=True,
             notation_ready=True,
@@ -1219,6 +1223,7 @@ def handle_score(job: Job, client) -> list[str]:
         )
     notation_midi = notation_result["notation_midi"]
     notation_report = notation_result["quantization_report"]
+    notation_provenance = notation_result["provenance"]
     notation_key = _job_storage_key(job, "notation.mid")
     _upload_bytes(client, _STORAGE_BUCKET, notation_key, notation_midi, "audio/midi")
     notation_version_id = _create_output_version(
@@ -1234,8 +1239,10 @@ def handle_score(job: Job, client) -> list[str]:
         label="Beat-aligned notation MIDI",
         metadata={
             "notation": notation_report,
+            "provenance": notation_provenance,
+            "score_engine_requested": score_engine,
             "estimated_tempo_bpm": tempo,
-            "beat_provenance": beat_result.get("provenance"),
+            "beat_provenance": beat_result.get("provenance") if beat_result else None,
         },
     )
     musicxml = notation_result["musicxml"]
@@ -1262,6 +1269,8 @@ def handle_score(job: Job, client) -> list[str]:
             "representation": "notation_draft",
             "notation_midi_version_id": str(notation_version_id),
             "notation": notation_report,
+            "provenance": notation_provenance,
+            "score_engine_requested": score_engine,
             "quality_notice": "Derived from automatic transcription; review by ear before sharing.",
         },
     )

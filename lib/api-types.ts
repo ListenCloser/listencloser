@@ -1307,6 +1307,8 @@ export interface components {
         UnderstandWorkflowBody: {
             /** Project Id */
             project_id: string;
+            /** Score Engine */
+            score_engine?: ("musescore" | "pm2s") | null;
             /** Transcription Profile */
             transcription_profile?: ("auto" | "solo_piano") | null;
             /** Version Id */

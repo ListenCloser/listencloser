@@ -428,6 +428,7 @@ class TestUnderstandProfileWiring:
             assert job_repo.created, "a job should have been created"
             params = job_repo.created[0].parameters
             assert params["transcription_profile"] == "solo_piano"
+            assert params["score_engine"] == "musescore"
             assert params["fmt"] == "m4a"
         finally:
             from auth_utils import verify_token
@@ -444,6 +445,7 @@ class TestUnderstandProfileWiring:
             assert job_repo.created, "a job should have been created"
             params = job_repo.created[0].parameters
             assert params["transcription_profile"] == "auto"
+            assert params["score_engine"] == "musescore"
             assert params["fmt"] == "m4a"
         finally:
             from auth_utils import verify_token
@@ -478,6 +480,59 @@ class TestUnderstandProfileWiring:
             assert auto_job.parameters["transcription_profile"] == "auto"
             assert solo_job.parameters["transcription_profile"] == "solo_piano"
             assert auto_job.cache_key != solo_job.cache_key
+        finally:
+            from auth_utils import verify_token
+            from main import app
+
+            app.dependency_overrides.pop(verify_token, None)
+
+    def test_understand_score_engine_is_part_of_idempotency_identity(self, monkeypatch):
+        client, job_repo, version, owner = self._client(monkeypatch)
+        try:
+            base = {
+                "version_id": version.id,
+                "project_id": "00000000-0000-0000-0000-000000000020",
+                "transcription_profile": "solo_piano",
+            }
+            baseline = client.post(
+                "/api/v1/workflows/understand",
+                json={**base, "score_engine": "musescore"},
+            )
+            challenger = client.post(
+                "/api/v1/workflows/understand",
+                json={**base, "score_engine": "pm2s"},
+            )
+
+            assert baseline.status_code == 200
+            assert challenger.status_code == 200
+            assert len(job_repo.created) == 2
+            assert job_repo.created[0].id != job_repo.created[1].id
+            assert job_repo.created[0].cache_key != job_repo.created[1].cache_key
+            assert job_repo.created[0].parameters["score_engine"] == "musescore"
+            assert job_repo.created[1].parameters["score_engine"] == "pm2s"
+        finally:
+            from auth_utils import verify_token
+            from main import app
+
+            app.dependency_overrides.pop(verify_token, None)
+
+    def test_understand_omitted_score_engine_matches_explicit_musescore(self, monkeypatch):
+        client, job_repo, version, owner = self._client(monkeypatch)
+        try:
+            base = {
+                "version_id": version.id,
+                "project_id": "00000000-0000-0000-0000-000000000020",
+            }
+            omitted = client.post("/api/v1/workflows/understand", json=base)
+            explicit = client.post(
+                "/api/v1/workflows/understand",
+                json={**base, "score_engine": "musescore"},
+            )
+
+            assert omitted.status_code == 200
+            assert explicit.status_code == 200
+            assert omitted.json()["job"]["id"] == explicit.json()["job"]["id"]
+            assert len(job_repo.created) == 1
         finally:
             from auth_utils import verify_token
             from main import app

@@ -59,6 +59,7 @@ export type MusicalSelection = {
 };
 
 export type TranscriptionProfile = "auto" | "solo_piano";
+export type ScoreEngine = "musescore" | "pm2s";
 
 type WorkspaceState = {
   activeWorkId: string | null;
@@ -76,6 +77,7 @@ type WorkspaceState = {
   activeRepresentation: RepresentationId | null;
   selection: MusicalSelection | null;
   transcriptionProfile: TranscriptionProfile;
+  scoreEngine: ScoreEngine;
   analysisState: AnalysisState;
 };
 
@@ -100,6 +102,7 @@ type WorkspaceContextValue = {
   setSelection: (selection: MusicalSelection | null) => void;
   clearSelection: () => void;
   setTranscriptionProfile: (profile: TranscriptionProfile) => void;
+  setScoreEngine: (engine: ScoreEngine) => void;
   setAnalysisState: (state: AnalysisState) => void;
 };
 
@@ -163,6 +166,7 @@ export function WorkspaceProvider({
     activeRepresentation: null,
     selection: null,
     transcriptionProfile: "auto",
+    scoreEngine: "musescore",
     analysisState: "idle",
   });
 
@@ -223,6 +227,7 @@ export function WorkspaceProvider({
   const setSelection = useCallback((selection: MusicalSelection | null) => setWorkspace((prev) => ({ ...prev, selection })), []);
   const clearSelection = useCallback(() => setWorkspace((prev) => ({ ...prev, selection: null })), []);
   const setTranscriptionProfile = useCallback((transcriptionProfile: TranscriptionProfile) => setWorkspace((prev) => prev.transcriptionProfile === transcriptionProfile ? prev : { ...prev, transcriptionProfile }), []);
+  const setScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => prev.scoreEngine === scoreEngine ? prev : { ...prev, scoreEngine }), []);
   const setAnalysisState = useCallback((analysisState: AnalysisState) => setWorkspace((prev) => ({ ...prev, analysisState })), []);
 
   return (
@@ -247,6 +252,7 @@ export function WorkspaceProvider({
       setSelection,
       clearSelection,
       setTranscriptionProfile,
+      setScoreEngine,
       setAnalysisState,
     }}>
       {children}

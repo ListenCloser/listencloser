@@ -46,6 +46,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     workspace,
   } = useWorkspace();
   const transcriptionProfile = workspace.transcriptionProfile;
+  const scoreEngine = workspace.scoreEngine;
   const { replaceSources } = useTransport();
   const { setBpm, setTimeSignature, resetTimeline } = useTimeline();
   const queryClient = useQueryClient();
@@ -227,13 +228,19 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       const scoreRepresentation = (musicxml: string | null): RepresentationEntry | null => {
         if (!score?.signed_url || !musicxml) return null;
         const measureStarts = (renderedScore?.latest_version?.metadata?.measure_starts_seconds as number[] | undefined) ?? [];
+        const scoreEngineMetadata = score.latest_version?.metadata?.score_engine_requested;
+        const scoreProvenance = scoreEngineMetadata === "pm2s"
+          ? "PM2S · MuseScore import"
+          : scoreEngineMetadata === "musescore"
+            ? "MuseScore"
+            : "score interpretation";
         return {
           kind: "score",
           label: "Score",
           sourceUrl: score.signed_url,
           sourceLabel: "Notation draft",
           confidence: null,
-          provenance: "music21 notation",
+          provenance: scoreProvenance,
           musicxml,
           measureStarts,
           versionId: score.latest_version?.id,
@@ -503,7 +510,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       setMessage("Understanding audio…");
 
       try {
-        const { job } = await startUnderstandWorkflow(version.id, projectId, transcriptionProfile);
+        const { job } = await startUnderstandWorkflow(version.id, projectId, transcriptionProfile, scoreEngine);
         setActiveJobId(job.id);
         setPendingSourceVersionId(null);
         await loadWork(artifact.work_id);
@@ -519,7 +526,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       setError(cause instanceof Error ? cause.message : "Import failed");
       setStage("error");
     }
-  }, [loadWork, projectId, queryClient, serviceStatus, setActiveWorkId, transcriptionProfile]);
+  }, [loadWork, projectId, queryClient, scoreEngine, serviceStatus, setActiveWorkId, transcriptionProfile]);
 
   const cancelActiveJob = useCallback(async () => {
     if (!activeJobId) return;
@@ -570,7 +577,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     setError(null);
     setProgress(0);
     try {
-      const { job } = await startUnderstandWorkflow(pendingSourceVersionId, projectId, transcriptionProfile);
+      const { job } = await startUnderstandWorkflow(pendingSourceVersionId, projectId, transcriptionProfile, scoreEngine);
       setActiveJobId(job.id);
       setPendingSourceVersionId(null);
       await loadWork(workId);
@@ -578,7 +585,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       setError(cause instanceof Error ? cause.message : "Could not start processing");
       setStage("error");
     }
-  }, [loadWork, pendingSourceVersionId, processingWorkId, projectId, transcriptionProfile, workspace.activeWorkId]);
+  }, [loadWork, pendingSourceVersionId, processingWorkId, projectId, scoreEngine, transcriptionProfile, workspace.activeWorkId]);
 
   const durableWorkVisible = Boolean(
     processingWorkId && workspace.activeWorkId === processingWorkId && workspace.representations.length > 0,

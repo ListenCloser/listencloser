@@ -2248,6 +2248,21 @@
             "title": "Project Id",
             "type": "string"
           },
+          "score_engine": {
+            "anyOf": [
+              {
+                "enum": [
+                  "musescore",
+                  "pm2s"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Engine"
+          },
           "transcription_profile": {
             "anyOf": [
               {
