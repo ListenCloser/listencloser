@@ -24,7 +24,7 @@ from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
-from observability import get_tracer
+from observability import get_tracer, job_trace_links
 
 from .job_worker import JobWorker
 from .models import Job
@@ -487,6 +487,7 @@ class FencedJobWorker(JobWorker):
             token = self._execution_token(job_id)
             with _tracer.start_as_current_span(
                 "job.execution_attempt",
+                links=job_trace_links(job.provenance),
                 attributes={
                     "job_id": job_id,
                     "worker_id": self._worker_id,
