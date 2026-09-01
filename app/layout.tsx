@@ -8,7 +8,7 @@ import "./visual-language.css";
 // Musical representations own a small semantic visual-state contract independent of renderer implementation.
 import "./representation-visuals.css";
 import "./mobile-workspace.css";
-import "./readiness-polish-v6.css";
+import "./readiness.css";
 import "./breakdown.css";
 // Signed-out only: product-native landing story without changing workspace chrome.
 import "./landing-product-story.css";

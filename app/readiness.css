@@ -1,4 +1,4 @@
-/* V6 readiness/control polish.
+/* Readiness/control ownership.
  * Keep unavailable actions legible, keep operation feedback inside the viewport,
  * and expose state without adding another application chrome layer.
  */
