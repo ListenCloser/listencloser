@@ -31,8 +31,7 @@
 .studio-canvas-area-v3,
 .piece-desk-v3,
 .piece-loading-shell,
-.piece-empty-v3,
-.welcome-page-v4 {
+.piece-empty-v3 {
   background: var(--v5-canvas) !important;
   background-image: none !important;
 }
