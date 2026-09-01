@@ -50,9 +50,13 @@ export type AskResponse = {
 
 /**
  * A single message in the Ask conversation, local to the current work/session.
- * User turns carry plain text; assistant turns carry the full typed response
- * so references and suggested actions stay structured (never string-joined).
+ * User turns retain the compact scope label that was visible at send time so
+ * later selection changes cannot make an older question appear to refer to a
+ * different passage. This is presentation provenance only; AskContext remains
+ * the request contract and workspace selection remains the live source of truth.
+ * Assistant turns carry the full typed response so references and suggested
+ * actions stay structured (never string-joined).
  */
 export type AskMessage =
-  | { id: string; role: "user"; text: string }
+  | { id: string; role: "user"; text: string; contextLabel?: string }
   | { id: string; role: "assistant"; response: AskResponse };
