@@ -76,7 +76,9 @@ def test_pm2s_preserves_score_midi_and_feeds_only_it_to_musescore() -> None:
     assert [note.pitch for instrument in learned.instruments for note in instrument.notes] == [67]
     assert importer.kwargs == [{"notation_ready": True, "piano_grand_staff": True}]
     assert converter.kwargs is not None
-    assert converter.kwargs["end_time"] == pytest.approx(2.0)
+    # PM2S uses a strict note.end < end_time filter, so the adapter must pass a
+    # bound beyond the performance extent or the last-ending note is omitted.
+    assert converter.kwargs["end_time"] > 2.0
     assert converter.kwargs["include_time_signature"] is True
     assert converter.kwargs["include_key_signature"] is True
     assert result.provenance.engine == "pm2s"

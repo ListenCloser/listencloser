@@ -13,6 +13,7 @@ Failures never fall back to importing the original performance MIDI.
 from __future__ import annotations
 
 import io
+import math
 import os
 import tempfile
 from collections.abc import Callable
@@ -113,9 +114,15 @@ class PM2SNotationEngine:
 
         performance = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
         input_notes = sum(len(instrument.notes) for instrument in performance.instruments)
-        end_time = float(performance.get_end_time())
-        if end_time <= 0:
+        performance_end_time = float(performance.get_end_time())
+        if performance_end_time <= 0:
             raise ValueError("PM2S notation input must contain positive-duration MIDI")
+
+        # PM2S filters notes with ``note.end < end_time``. Passing the exact
+        # performance extent therefore drops every note ending at the maximum
+        # timestamp. Advance by one representable float so the final note is in
+        # range without materially extending the inference window.
+        pm2s_end_time = math.nextafter(performance_end_time, math.inf)
 
         with tempfile.TemporaryDirectory(prefix="listencloser-pm2s-") as td:
             root = Path(td)
@@ -129,10 +136,10 @@ class PM2SNotationEngine:
                 str(output_path),
                 start_time=0.0,
                 # PM2S 1.1 documents None as supported, but its time-to-tick
-                # implementation consumes end_time arithmetically. Pass the
-                # exact performance extent explicitly instead of relying on the
-                # fragile default.
-                end_time=end_time,
+                # implementation consumes end_time arithmetically. Pass an
+                # explicit inclusive-equivalent upper bound instead of relying
+                # on the fragile default.
+                end_time=pm2s_end_time,
                 include_time_signature=True,
                 include_key_signature=True,
             )
