@@ -7,8 +7,8 @@ import "./workspace-interactions.css";
 import "./visual-language.css";
 // Musical representations own a small semantic visual-state contract independent of renderer implementation.
 import "./representation-visuals.css";
-import "./mobile-workspace.css";
-import "./readiness-polish-v6.css";
+// Responsive workspace behavior and late readiness constraints share one ordered adaptation layer.
+import "./workspace-adaptations.css";
 import "./breakdown.css";
 // Signed-out only: product-native landing story without changing workspace chrome.
 import "./landing-product-story.css";
