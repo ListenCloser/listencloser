@@ -1,0 +1,40 @@
+name: Score identity fix
+
+on:
+  push:
+    branches: [feat/991-score-rebuild]
+    paths:
+      - .github/workflows/score-identity-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feat/991-score-rebuild
+      - name: Apply identity fix
+        run: python scripts/_fix_score_identity.py
+      - name: Verify repository identity
+        run: python scripts/check_repo_identity.py
+      - name: Verify focused score tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('backend/domain/api.py').read_text()
+          assert 'listencloser:score:1.0:' in text
+          assert 'listencloser:score-workflow:1.0:' in text
+          assert 'hello-ai:score:1.0:' not in text
+          assert 'hello-ai:score-workflow:1.0:' not in text
+          PY
+      - name: Commit identity fix
+        run: |
+          git add backend/domain/api.py
+          git config user.name 'listencloser-ci'
+          git config user.email 'actions@users.noreply.github.com'
+          git commit -m 'fix(score): use ListenCloser workflow identity'
+          git push origin HEAD:feat/991-score-rebuild
