@@ -1,5 +1,8 @@
 import hashlib
 import logging
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -18,6 +21,21 @@ from supabase_auth.errors import (
 from domain.repositories import get_supabase
 
 logger = logging.getLogger("auth")
+
+
+@dataclass(frozen=True, slots=True)
+class AuthUser:
+    """Minimal authenticated user identity exposed to API handlers."""
+
+    id: str
+
+
+@dataclass(frozen=True, slots=True)
+class AuthPrincipal:
+    """Provider-neutral authenticated identity for authorization checks."""
+
+    user: AuthUser
+    claims: Mapping[str, Any]
 
 
 def _rate_limit_identity(request: Request) -> str:
@@ -49,9 +67,30 @@ def _invalid_auth_error(exc: Exception) -> bool:
     return isinstance(exc, AuthApiError) and not _provider_unavailable(exc)
 
 
-def _verify_supabase_token(sb, token: str, *, optional: bool):
+def _invalid_credentials(*, optional: bool) -> None:
+    if optional:
+        return None
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication credentials",
+    ) from None
+
+
+def _principal_from_claims(response, *, optional: bool) -> AuthPrincipal | None:
+    claims = response.get("claims") if isinstance(response, dict) else None
+    subject = claims.get("sub") if isinstance(claims, dict) else None
+    if not isinstance(subject, str) or not subject:
+        return _invalid_credentials(optional=optional)
+    return AuthPrincipal(user=AuthUser(id=subject), claims=claims)
+
+
+def _verify_supabase_token(sb, token: str, *, optional: bool) -> AuthPrincipal | None:
     try:
-        return sb.auth.get_user(token)
+        # get_claims verifies the JWT against Supabase signing keys. With
+        # asymmetric keys the SDK can use cached JWKS instead of making an Auth
+        # API request for every application request. Symmetric/legacy signing
+        # is handled by the SDK's server-validation fallback.
+        response = sb.auth.get_claims(token)
     except Exception as exc:
         if _provider_unavailable(exc):
             logger.warning(
@@ -63,12 +102,7 @@ def _verify_supabase_token(sb, token: str, *, optional: bool):
                 detail="Authentication service unavailable",
             ) from None
         if _invalid_auth_error(exc):
-            if optional:
-                return None
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-            ) from None
+            return _invalid_credentials(optional=optional)
 
         logger.error(
             "Unexpected authentication verification failure: %s",
@@ -79,8 +113,12 @@ def _verify_supabase_token(sb, token: str, *, optional: bool):
             detail="Authentication verification failed",
         ) from None
 
+    return _principal_from_claims(response, optional=optional)
 
-def verify_token(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
+
+def verify_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> AuthPrincipal:
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -89,12 +127,18 @@ def verify_token(credentials: HTTPAuthorizationCredentials | None = Depends(secu
     sb = get_supabase()
     if not sb:
         raise HTTPException(status_code=500, detail="Auth not configured")
-    return _verify_supabase_token(sb, credentials.credentials, optional=False)
+    principal = _verify_supabase_token(sb, credentials.credentials, optional=False)
+    if principal is None:  # pragma: no cover - required auth never returns None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+    return principal
 
 
 def verify_token_optional(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-):
+) -> AuthPrincipal | None:
     if not credentials:
         return None
     sb = get_supabase()
