@@ -54,9 +54,11 @@ jobs:
             database=true
           fi
 
-          echo "frontend=$frontend" >>"$GITHUB_OUTPUT"
-          echo "backend=$backend" >>"$GITHUB_OUTPUT"
-          echo "database=$database" >>"$GITHUB_OUTPUT"
+          {
+            echo "frontend=$frontend"
+            echo "backend=$backend"
+            echo "database=$database"
+          } >>"$GITHUB_OUTPUT"
           echo "Production scope: frontend=$frontend backend=$backend database=$database"
 
       - name: Wait for Vercel to deploy this exact main SHA
