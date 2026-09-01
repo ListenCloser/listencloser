@@ -140,6 +140,40 @@ describe("AskPanel work-switch lifecycle", () => {
   });
 });
 
+describe("AskPanel scope visibility", () => {
+  it("keeps the sent passage scope on the user turn after live selection changes", async () => {
+    const user = userEvent.setup();
+    vi.mocked(askMusic).mockResolvedValue(response);
+    render(<Probe />, { wrapper });
+
+    act(() => {
+      store!.setActiveWorkId("work-a");
+      store!.setSelection({
+        timeRange: { start: 4, end: 8, domain: "performance" },
+        provenance: { origin: null, timeExact: true, measureApproximate: false },
+      });
+    });
+
+    const liveScope = screen.getByLabelText("Question context: 0:04–0:08");
+    expect(liveScope.closest("form")).toHaveClass("ask-composer");
+
+    await user.type(screen.getByRole("textbox", { name: "Ask about the music" }), "What changes here?");
+    await user.click(screen.getByRole("button", { name: "Send question" }));
+    await waitFor(() => expect(store!.workspace.askConversation).toHaveLength(2));
+
+    expect(store!.workspace.askConversation[0]).toMatchObject({
+      role: "user",
+      text: "What changes here?",
+      contextLabel: "0:04–0:08",
+    });
+
+    act(() => store!.clearSelection());
+
+    expect(screen.queryByLabelText("Question context: 0:04–0:08")).not.toBeInTheDocument();
+    expect(screen.getByText("0:04–0:08")).toBeInTheDocument();
+  });
+});
+
 describe("AskPanel blocked action help", () => {
   it("keeps cross-domain actions and references focusable, explained, and inert", async () => {
     const user = userEvent.setup();
