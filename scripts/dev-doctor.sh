@@ -3,6 +3,7 @@ set -euo pipefail
 
 FAIL=0
 WARN=0
+REQUIRED_NODE_MAJOR="22"
 
 ok() { printf '  [ok] %s\n' "$1"; }
 warn() { WARN=$((WARN + 1)); printf '  [warn] %s\n' "$1"; }
@@ -22,19 +23,32 @@ require_command() {
   fi
 }
 
+node_remediation() {
+  printf '         Fix with nvm: nvm install && nvm use\n'
+  printf '         Otherwise install Node %s.x, select it, and rerun npm run doctor.\n' "$REQUIRED_NODE_MAJOR"
+}
+
 printf 'ListenCloser development environment\n'
 printf '====================================\n'
 
 require_command git "source control"
-require_command node "frontend runtime; repository requires Node 22.x"
+if command -v node >/dev/null 2>&1; then
+  ok "node available (frontend runtime; repository requires Node ${REQUIRED_NODE_MAJOR}.x)"
+else
+  fail "node missing (frontend runtime; repository requires Node ${REQUIRED_NODE_MAJOR}.x)"
+  node_remediation
+fi
 require_command npm "frontend package manager; repository requires npm 10.x"
 require_command uv "locked Python environment; backend requires uv 0.12.6"
 
 if command -v node >/dev/null 2>&1; then
   NODE_VERSION="$(node --version | sed 's/^v//')"
   case "$NODE_VERSION" in
-    22.*) ok "Node $NODE_VERSION matches 22.x" ;;
-    *) fail "Node $NODE_VERSION does not match required 22.x" ;;
+    "${REQUIRED_NODE_MAJOR}."*) ok "Node $NODE_VERSION matches ${REQUIRED_NODE_MAJOR}.x" ;;
+    *)
+      fail "Node $NODE_VERSION does not match required ${REQUIRED_NODE_MAJOR}.x"
+      node_remediation
+      ;;
   esac
 fi
 
@@ -104,6 +118,19 @@ if [ -f .python-version ] && [ "$(tr -d '[:space:]' < .python-version)" = "3.11"
   ok ".python-version pins Python 3.11"
 else
   fail ".python-version is missing or does not pin Python 3.11"
+fi
+
+if [ -f .nvmrc ]; then
+  NVMRC_VERSION="$(tr -d '[:space:]' < .nvmrc)"
+  if [ "$NVMRC_VERSION" = "$REQUIRED_NODE_MAJOR" ]; then
+    ok ".nvmrc pins Node ${REQUIRED_NODE_MAJOR}.x acquisition"
+  else
+    fail ".nvmrc pins '$NVMRC_VERSION'; expected Node ${REQUIRED_NODE_MAJOR}.x acquisition"
+    printf '         Fix the repository pin to: %s\n' "$REQUIRED_NODE_MAJOR"
+  fi
+else
+  fail ".nvmrc is missing; expected Node ${REQUIRED_NODE_MAJOR}.x acquisition pin"
+  printf '         Restore .nvmrc with: %s\n' "$REQUIRED_NODE_MAJOR"
 fi
 
 printf '\nSummary\n'
