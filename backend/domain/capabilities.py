@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import inspect
 import logging
 import os
 import tempfile
@@ -154,6 +155,18 @@ def _upload_bytes(
 def _job_storage_key(job: Job, filename: str) -> str:
     """Keep automatic retry attempts immutable and collision-free."""
     return f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/{filename}"
+
+
+def _midi_renderer_metadata(sample_rate_hz: int | None = None) -> dict:
+    """Describe the one production MIDI→audio renderer without duplicating its defaults."""
+    if sample_rate_hz is None:
+        sample_rate_hz = int(inspect.signature(music_features.midi_to_wav).parameters["sr"].default)
+    return {
+        "engine": "fluidsynth",
+        "soundfont": os.path.basename(music_features.SOUNDFONT_PATH),
+        "soundfont_path": music_features.SOUNDFONT_PATH,
+        "sample_rate_hz": int(sample_rate_hz),
+    }
 
 
 def _create_output_version(
@@ -415,12 +428,22 @@ def handle_transcribe(job: Job, client) -> list[str]:
         )
         result = engine.transcribe(audio_bytes, fmt="wav")
 
+    # Basic Pitch currently returns a FluidSynth-rendered WAV from the shared
+    # midi_to_wav seam. Other engines may return their own audio in the future,
+    # so never stamp FluidSynth provenance on an arbitrary non-empty WAV.
+    render_metadata = (
+        _midi_renderer_metadata()
+        if result.wav and result.provenance.engine == "basic_pitch"
+        else None
+    )
+
     # Some transcription engines (e.g. Transkun) return note/MIDI data only and
     # no synthesized audio. A zero-byte WAV would surface as a broken
     # "Transcription" playback source in the transport, so synthesize a WAV
     # from the produced MIDI as a guaranteed-playable fallback.
     if not result.wav:
         result = dataclasses.replace(result, wav=music_features.midi_to_wav(result.midi))
+        render_metadata = _midi_renderer_metadata()
 
     output_ids: list[str] = []
 
@@ -491,6 +514,7 @@ def handle_transcribe(job: Job, client) -> list[str]:
         owner_id,
         mime_type="audio/wav",
         label="Transcription playback",
+        metadata={"renderer": render_metadata} if render_metadata else {},
     )
     output_ids.append(str(audio_version_id))
 
@@ -1296,6 +1320,7 @@ def handle_score(job: Job, client) -> list[str]:
                 "representation": "score_playback",
                 "measure_starts_seconds": measure_starts,
                 "notation_midi_version_id": str(notation_version_id),
+                "renderer": _midi_renderer_metadata(),
                 "quality_notice": (
                     "Synthesized from the quantized notation, not the raw performance."
                 ),
@@ -1348,7 +1373,7 @@ def handle_enhance(job: Job, client) -> list[str]:
 
 
 def handle_synthesize(job: Job, client) -> list[str]:
-    """Synthesize MIDI → WAV audio via FluidSynth (or numpy fallback)."""
+    """Synthesize MIDI → WAV audio through the canonical FluidSynth renderer."""
     if not job.input_version_ids:
         raise ValueError("synthesize requires at least one input version")
 
@@ -1381,6 +1406,7 @@ def handle_synthesize(job: Job, client) -> list[str]:
         owner_id,
         mime_type="audio/wav",
         label=str(job.parameters.get("label", "Synthesised playback")),
+        metadata={"renderer": _midi_renderer_metadata(sr)},
     )
 
     _update_progress(client, job.id, 1.0, "synthesis complete")
