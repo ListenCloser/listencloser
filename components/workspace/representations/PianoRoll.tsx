@@ -11,12 +11,24 @@
 
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pitchToName } from "@/lib/notes";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 
 type Note = { id?: string; pitch: number; start: number; end: number; velocity: number };
 type TimeRange = { start: number; end: number };
+type PianoRollRow = { pitch: number; label: string; notes: Note[] };
+type NoteGeometry = {
+  key: string;
+  note: Note;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rx: number;
+  velocityOpacity: number;
+};
 
 const PPQ = 16;
 const LABEL_W = 36;
@@ -31,6 +43,99 @@ function validSecondsGrid(values: number[] | undefined, minimumPoints = 1): numb
     result.push(value);
   }
   return result;
+}
+
+const StaticNoteLayer = memo(function StaticNoteLayer({
+  rows,
+  noteGeometry,
+  rowH,
+}: {
+  rows: PianoRollRow[];
+  noteGeometry: NoteGeometry[];
+  rowH: number;
+}) {
+  return (
+    <g data-piano-roll-layer="static-notes">
+      {rows.map((row, ri) => {
+        const y = ri * rowH + TOP_PAD;
+        const isOctaveAnchor = row.pitch % 12 === 0;
+        return (
+          <text
+            key={`label-${row.pitch}`}
+            x={4}
+            y={y + Math.min(rowH - 3, 12)}
+            fill="var(--muted)"
+            fontSize={Math.min(10, Math.max(8, rowH - 4))}
+            fontFamily="var(--font-mono)"
+            fontWeight={isOctaveAnchor ? 650 : 400}
+            opacity={isOctaveAnchor ? 0.82 : row.notes.length ? 0.58 : 0.34}
+          >
+            {row.label}
+          </text>
+        );
+      })}
+      {noteGeometry.map(({ key, note, label, x, y, width, height, rx, velocityOpacity }) => (
+        <rect
+          key={key}
+          data-note-state="default"
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          rx={rx}
+          fill="var(--text)"
+          fillOpacity={velocityOpacity}
+          stroke="var(--border)"
+          strokeWidth={0.45}
+          strokeOpacity={0.42}
+        >
+          <title>{label} @ {note.start.toFixed(2)}s · velocity {note.velocity}</title>
+        </rect>
+      ))}
+    </g>
+  );
+});
+
+function DynamicNoteOverlay({
+  noteGeometry,
+  playheadTime,
+  highlightIds,
+}: {
+  noteGeometry: NoteGeometry[];
+  playheadTime: number;
+  highlightIds: Set<string>;
+}) {
+  const overlays = noteGeometry.filter(({ note }) => {
+    const active = playheadTime >= note.start && playheadTime <= note.end;
+    const selected = note.id ? highlightIds.has(note.id) : false;
+    return active || selected;
+  });
+
+  if (!overlays.length) return null;
+
+  return (
+    <g data-piano-roll-layer="dynamic-notes" pointerEvents="none">
+      {overlays.map(({ key, note, x, y, width, height, rx }) => {
+        const active = playheadTime >= note.start && playheadTime <= note.end;
+        return (
+          <rect
+            key={`overlay-${key}`}
+            data-note-state={active ? "active" : "selected"}
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            rx={rx}
+            fill={active ? "var(--score-playback)" : "var(--accent)"}
+            fillOpacity={active ? 0.94 : 0.82}
+            stroke={active ? "var(--score-playback)" : "var(--accent)"}
+            strokeWidth={active ? 1.3 : 1.05}
+            strokeOpacity={active ? 0.96 : 0.78}
+          />
+        );
+      })}
+    </g>
+  );
 }
 
 export default function PianoRoll({
@@ -73,8 +178,6 @@ export default function PianoRoll({
     [bpm],
   );
 
-  if (!notes.length) return <p className="muted">No notes to display.</p>;
-
   const observedBeats = validSecondsGrid(beatTimes, 2);
   const observedDownbeats = observedBeats.length > 0
     ? validSecondsGrid(downbeatTimes)
@@ -88,19 +191,28 @@ export default function PianoRoll({
   const totalBeats = (displayEndTime / 60) * bpm;
   const totalPx = Math.max(totalBeats * PPQ, 300);
 
-  const minPitch = Math.min(...notes.map((n) => n.pitch));
-  const maxPitch = Math.max(...notes.map((n) => n.pitch));
-
-  // Add margin above/below detected range for visual breathing room.
-  const pitchLow = Math.max(0, minPitch - 4);
-  const pitchHigh = Math.min(127, maxPitch + 4);
-
-  const rows: { pitch: number; label: string; notes: Note[] }[] = [];
-  for (let p = pitchHigh; p >= pitchLow; p--) {
-    const label = pitchToName(p);
-    const n = notes.filter((x) => x.pitch === p);
-    rows.push({ pitch: p, label, notes: n });
-  }
+  const rows = useMemo<PianoRollRow[]>(() => {
+    if (!notes.length) return [];
+    const minPitch = Math.min(...notes.map((note) => note.pitch));
+    const maxPitch = Math.max(...notes.map((note) => note.pitch));
+    const pitchLow = Math.max(0, minPitch - 4);
+    const pitchHigh = Math.min(127, maxPitch + 4);
+    const notesByPitch = new Map<number, Note[]>();
+    for (const note of notes) {
+      const pitchNotes = notesByPitch.get(note.pitch);
+      if (pitchNotes) pitchNotes.push(note);
+      else notesByPitch.set(note.pitch, [note]);
+    }
+    const nextRows: PianoRollRow[] = [];
+    for (let pitch = pitchHigh; pitch >= pitchLow; pitch--) {
+      nextRows.push({
+        pitch,
+        label: pitchToName(pitch),
+        notes: notesByPitch.get(pitch) ?? [],
+      });
+    }
+    return nextRows;
+  }, [notes]);
 
   const rowH = Math.max(12, Math.min(22, 520 / Math.max(rows.length, 1)));
   const h = rows.length * rowH + TOP_PAD;
@@ -112,13 +224,50 @@ export default function PianoRoll({
     (_, index) => index * timeLabelStep,
   );
 
+  const noteGeometry = useMemo<NoteGeometry[]>(() => {
+    const geometry: NoteGeometry[] = [];
+    rows.forEach((row, rowIndex) => {
+      const y = rowIndex * rowH + TOP_PAD + 2;
+      row.notes.forEach((note, noteIndex) => {
+        const x = LABEL_W + (note.start / 60) * bpm * PPQ;
+        const duration = note.end - note.start;
+        geometry.push({
+          key: note.id ?? `${row.pitch}-${note.start}-${note.end}-${noteIndex}`,
+          note,
+          label: row.label,
+          x,
+          y,
+          width: Math.max((duration / 60) * bpm * PPQ, 3),
+          height: Math.max(rowH - 4, 5),
+          rx: Math.min(2, rowH / 4),
+          velocityOpacity: 0.28 + (note.velocity / 127) * 0.5,
+        });
+      });
+    });
+    return geometry;
+  }, [bpm, rowH, rows]);
+
   const visibleTimeRange =
     previewRange ??
     (selectionTimeRange && selectionTimeRange.end > selectionTimeRange.start
       ? selectionTimeRange
       : null);
 
-  const selectedIds = new Set(selectedNoteIds ?? []);
+  const highlightIds = useMemo(() => {
+    const ids = new Set(selectedNoteIds ?? []);
+    if (visibleTimeRange) {
+      for (const note of notes) {
+        if (
+          note.id &&
+          note.start < visibleTimeRange.end &&
+          note.end > visibleTimeRange.start
+        ) {
+          ids.add(note.id);
+        }
+      }
+    }
+    return ids;
+  }, [notes, selectedNoteIds, visibleTimeRange]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -126,7 +275,7 @@ export default function PianoRoll({
     const viewW = el.clientWidth;
     const target = Math.max(0, playheadX - viewW / 2);
     el.scrollLeft = target;
-  }, [playheadX]);
+  }, [playheadTime, playheadX]);
 
   function handlePointerDown(event: React.PointerEvent<SVGSVGElement>) {
     dragRef.current = { startX: event.clientX, moved: false };
@@ -139,9 +288,13 @@ export default function PianoRoll({
     if (Math.abs(event.clientX - drag.startX) > 4) drag.moved = true;
     if (drag.moved && onSelectRange) {
       const rect = event.currentTarget.getBoundingClientRect();
-      const x = event.clientX - rect.left + scrollRef.current!.scrollLeft;
+      const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
+      const x = event.clientX - rect.left + scrollLeft;
       const time = Math.max(0, ((x - LABEL_W) / (PPQ * bpm)) * 60);
-      const startT = Math.max(0, ((drag.startX - rect.left + scrollRef.current!.scrollLeft - LABEL_W) / (PPQ * bpm)) * 60);
+      const startT = Math.max(
+        0,
+        ((drag.startX - rect.left + scrollLeft - LABEL_W) / (PPQ * bpm)) * 60,
+      );
       setPreviewRange({
         start: Math.max(0, Math.min(startT, time)),
         end: Math.max(0, Math.max(startT, time)),
@@ -161,29 +314,20 @@ export default function PianoRoll({
       return;
     }
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - rect.left) + scrollRef.current!.scrollLeft;
-    const clickTime = Math.max(0, (x - LABEL_W) / (PPQ * bpm) * 60);
-    // Check if click is on an annotation.
+    const x = event.clientX - rect.left + (scrollRef.current?.scrollLeft ?? 0);
+    const clickTime = Math.max(0, ((x - LABEL_W) / (PPQ * bpm)) * 60);
     if (onAnnotationClick && annotations) {
-      for (const ann of annotations) {
-        if (clickTime >= ann.startSeconds && clickTime <= ann.endSeconds) {
-          onAnnotationClick(ann);
+      for (const annotation of annotations) {
+        if (clickTime >= annotation.startSeconds && clickTime <= annotation.endSeconds) {
+          onAnnotationClick(annotation);
           return;
         }
       }
     }
-    if (onSeek) {
-      onSeek(clickTime);
-    }
+    onSeek?.(clickTime);
   }
 
-  const rangeSelectedIds = visibleTimeRange
-    ? notes
-        .filter((n) => n.start < visibleTimeRange.end && n.end > visibleTimeRange.start)
-        .map((n) => n.id)
-        .filter((id): id is string => Boolean(id))
-    : [];
-  const highlightIds = new Set([...selectedIds, ...rangeSelectedIds]);
+  if (!notes.length) return <p className="muted">No notes to display.</p>;
 
   return (
     <div className="piano-roll-container" data-testid="piano-roll">
@@ -205,11 +349,9 @@ export default function PianoRoll({
               : "Seek playback from piano roll"
           }
         >
-          {/* Left label gutter */}
           <rect x={0} y={0} width={LABEL_W} height={h} fill="var(--panel)" />
 
-          {/* Pitch lanes: black-key context stays quiet; C anchors orient octaves. */}
-          {rows.map((row, ri) => {
+          {rows.map((row, rowIndex) => {
             const isBlack = [1, 3, 6, 8, 10].includes(row.pitch % 12);
             const isOctaveAnchor = row.pitch % 12 === 0;
             return (
@@ -217,7 +359,7 @@ export default function PianoRoll({
                 key={`stripe-${row.pitch}`}
                 data-pitch-lane={isOctaveAnchor ? "octave-anchor" : isBlack ? "black-key" : "natural"}
                 x={LABEL_W}
-                y={ri * rowH + TOP_PAD}
+                y={rowIndex * rowH + TOP_PAD}
                 width={totalPx}
                 height={rowH}
                 fill={isOctaveAnchor ? "var(--text)" : isBlack ? "var(--panel-2)" : "transparent"}
@@ -226,16 +368,15 @@ export default function PianoRoll({
             );
           })}
 
-          {/* Pitch guides: octave anchors are visible without turning into a piano keyboard. */}
-          {rows.map((row, ri) => {
+          {rows.map((row, rowIndex) => {
             const isOctaveAnchor = row.pitch % 12 === 0;
             return (
               <line
                 key={`guide-${row.pitch}`}
                 x1={LABEL_W}
-                y1={ri * rowH + TOP_PAD + rowH}
+                y1={rowIndex * rowH + TOP_PAD + rowH}
                 x2={W}
-                y2={ri * rowH + TOP_PAD + rowH}
+                y2={rowIndex * rowH + TOP_PAD + rowH}
                 stroke="var(--border)"
                 strokeWidth={isOctaveAnchor ? 0.65 : 0.3}
                 strokeOpacity={isOctaveAnchor ? 0.36 : 0.17}
@@ -245,7 +386,6 @@ export default function PianoRoll({
 
           {observedBeats.length > 0 ? (
             <>
-              {/* Exact source-time beat coordinates from persisted beat-engine evidence. */}
               {observedBeats.map((seconds, index) => {
                 const x = timeToX(seconds);
                 return (
@@ -263,7 +403,6 @@ export default function PianoRoll({
                   />
                 );
               })}
-              {/* Detected bar-start evidence is stronger, but never labeled as notated meter. */}
               {observedDownbeats.map((seconds, index) => {
                 const x = timeToX(seconds);
                 return (
@@ -283,12 +422,11 @@ export default function PianoRoll({
               })}
             </>
           ) : (
-            /* Conservative fallback: scalar BPM spacing, explicitly not detected beat evidence. */
-            Array.from({ length: Math.floor(totalBeats) + 1 }, (_, i) => {
-              const x = LABEL_W + i * PPQ;
+            Array.from({ length: Math.floor(totalBeats) + 1 }, (_, index) => {
+              const x = LABEL_W + index * PPQ;
               return (
                 <line
-                  key={`beat-${i}`}
+                  key={`beat-${index}`}
                   data-grid-kind="tempo-beat"
                   x1={x}
                   y1={TOP_PAD}
@@ -302,7 +440,6 @@ export default function PianoRoll({
             })
           )}
 
-          {/* Sparse elapsed-time labels orient long passages without inventing measures. */}
           {timeLabels.map((seconds) => {
             const x = timeToX(seconds);
             return (
@@ -330,50 +467,41 @@ export default function PianoRoll({
             );
           })}
 
-          {/* Analysis annotation bands (behind notes, above grid) */}
-          {annotations &&
-            annotations.map((ann) => {
-              const x1 = timeToX(ann.startSeconds);
-              const x2 = timeToX(ann.endSeconds);
-              const isFocused = ann.id === focusedAnnotationId;
-              let colorVar: string;
-              switch (ann.category) {
-                case "rhythm":
-                  colorVar = "var(--color-rhythm)";
-                  break;
-                case "theory":
-                  colorVar = "var(--color-theory, #8b5cf6)";
-                  break;
-                default:
-                  colorVar = "var(--color-harmony)";
-              }
-              return (
-                <g key={ann.id}>
+          {annotations?.map((annotation) => {
+            const x1 = timeToX(annotation.startSeconds);
+            const x2 = timeToX(annotation.endSeconds);
+            const isFocused = annotation.id === focusedAnnotationId;
+            const colorVar = annotation.category === "rhythm"
+              ? "var(--color-rhythm)"
+              : annotation.category === "theory"
+                ? "var(--color-theory, #8b5cf6)"
+                : "var(--color-harmony)";
+            return (
+              <g key={annotation.id}>
+                <rect
+                  x={x1}
+                  y={TOP_PAD}
+                  width={Math.max(x2 - x1, 1)}
+                  height={h - TOP_PAD}
+                  fill={colorVar}
+                  fillOpacity={isFocused ? 0.15 : 0.045}
+                />
+                {isFocused && (
                   <rect
                     x={x1}
                     y={TOP_PAD}
                     width={Math.max(x2 - x1, 1)}
                     height={h - TOP_PAD}
-                    fill={colorVar}
-                    fillOpacity={isFocused ? 0.15 : 0.045}
+                    fill="none"
+                    stroke={colorVar}
+                    strokeWidth={1.25}
+                    strokeOpacity={0.42}
                   />
-                  {isFocused && (
-                    <rect
-                      x={x1}
-                      y={TOP_PAD}
-                      width={Math.max(x2 - x1, 1)}
-                      height={h - TOP_PAD}
-                      fill="none"
-                      stroke={colorVar}
-                      strokeWidth={1.25}
-                      strokeOpacity={0.42}
-                    />
-                  )}
-                </g>
-              );
-            })}
+                )}
+              </g>
+            );
+          })}
 
-          {/* Selected time range stays subordinate to notes and active time. */}
           {visibleTimeRange && (
             <rect
               data-selection-range="true"
@@ -390,55 +518,13 @@ export default function PianoRoll({
             />
           )}
 
-          {/* Note rows */}
-          {rows.map((row, ri) => {
-            const y = ri * rowH + TOP_PAD;
-            const isOctaveAnchor = row.pitch % 12 === 0;
-            return (
-              <g key={row.pitch}>
-                <text
-                  x={4}
-                  y={y + Math.min(rowH - 3, 12)}
-                  fill="var(--muted)"
-                  fontSize={Math.min(10, Math.max(8, rowH - 4))}
-                  fontFamily="var(--font-mono)"
-                  fontWeight={isOctaveAnchor ? 650 : 400}
-                  opacity={isOctaveAnchor ? 0.82 : row.notes.length ? 0.58 : 0.34}
-                >
-                  {row.label}
-                </text>
-                {row.notes.map((n, ni) => {
-                  const x = LABEL_W + (n.start / 60) * bpm * PPQ;
-                  const dur = n.end - n.start;
-                  const w = Math.max((dur / 60) * bpm * PPQ, 3);
-                  const active = playheadTime >= n.start && playheadTime <= n.end;
-                  const selected = n.id ? highlightIds.has(n.id) : false;
-                  const noteState = active ? "active" : selected ? "selected" : "default";
-                  const velocityOpacity = 0.28 + (n.velocity / 127) * 0.5;
-                  return (
-                    <rect
-                      key={ni}
-                      data-note-state={noteState}
-                      x={x}
-                      y={y + 2}
-                      width={w}
-                      height={Math.max(rowH - 4, 5)}
-                      rx={Math.min(2, rowH / 4)}
-                      fill={active ? "var(--score-playback)" : selected ? "var(--accent)" : "var(--text)"}
-                      fillOpacity={active ? 0.94 : selected ? 0.82 : velocityOpacity}
-                      stroke={active ? "var(--score-playback)" : selected ? "var(--accent)" : "var(--border)"}
-                      strokeWidth={active ? 1.3 : selected ? 1.05 : 0.45}
-                      strokeOpacity={active ? 0.96 : selected ? 0.78 : 0.42}
-                    >
-                      <title>{row.label} @ {n.start.toFixed(2)}s · velocity {n.velocity}</title>
-                    </rect>
-                  );
-                })}
-              </g>
-            );
-          })}
+          <StaticNoteLayer rows={rows} noteGeometry={noteGeometry} rowH={rowH} />
+          <DynamicNoteOverlay
+            noteGeometry={noteGeometry}
+            playheadTime={playheadTime}
+            highlightIds={highlightIds}
+          />
 
-          {/* Precise shared-time playhead with a quiet cap instead of a large marker. */}
           {playheadTime > 0 && playheadX <= W && (
             <g data-playhead="true">
               <line
