@@ -1,10 +1,10 @@
 """Opt-in Tsumugi instrument-agnostic transcription engine.
 
 Tsumugi is intentionally executed in a separately provisioned Python runtime
-instead of being added to the backend worker dependency graph.  The adapter
-requires an explicit local checkpoint and therefore never relies on Tsumugi's
-upstream first-run model download.  Failures are surfaced to the caller; this
-engine never falls back to another transcription system.
+instead of being added to the backend worker dependency graph. The adapter
+requires an explicit source checkout and local checkpoint and therefore never
+relies on Tsumugi's upstream first-run model download. Failures are surfaced to
+the caller; this engine never falls back to another transcription system.
 """
 
 from __future__ import annotations
@@ -30,10 +30,12 @@ class TsumugiEngine(TranscriptionEngine):
     SOURCE_REPOSITORY = "anime-song/tsumugi"
     SOURCE_COMMIT = "9b48501ed05618fee0646c9e267bcb529e957898"
     MODULE = "instrument_agnostic_amt.cli.infer"
+    MODULE_PATH = Path("instrument_agnostic_amt/cli/infer.py")
 
     def __init__(
         self,
         *,
+        source_root: str | os.PathLike[str] | None = None,
         python_executable: str | os.PathLike[str] | None = None,
         checkpoint: str | os.PathLike[str] | None = None,
         checkpoint_sha256: str | None = None,
@@ -41,15 +43,21 @@ class TsumugiEngine(TranscriptionEngine):
         timeout_seconds: int | None = None,
         runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
     ) -> None:
+        root_value = source_root or os.environ.get("TSUMUGI_ROOT")
         python_value = python_executable or os.environ.get("TSUMUGI_PYTHON")
         checkpoint_value = checkpoint or os.environ.get("TSUMUGI_CHECKPOINT")
+        self._source_root = Path(root_value).expanduser() if root_value else None
         self._python = Path(python_value).expanduser() if python_value else None
         self._checkpoint = Path(checkpoint_value).expanduser() if checkpoint_value else None
         self._checkpoint_sha256 = (
             checkpoint_sha256 or os.environ.get("TSUMUGI_CHECKPOINT_SHA256") or None
         )
         self._device = device or os.environ.get("TSUMUGI_DEVICE", "cpu")
-        self._timeout_seconds = timeout_seconds or _timeout_from_env()
+        self._timeout_seconds = (
+            timeout_seconds if timeout_seconds is not None else _timeout_from_env()
+        )
+        if self._timeout_seconds <= 0:
+            raise RuntimeError("Tsumugi timeout must be positive")
         self._runner = runner or subprocess.run
         self._checkpoint_verified = False
 
@@ -71,13 +79,20 @@ class TsumugiEngine(TranscriptionEngine):
             parameters=parameters,
         )
 
-    def _validate_runtime(self) -> tuple[Path, Path]:
+    def _validate_runtime(self) -> tuple[Path, Path, Path]:
         if self._python is None:
             raise RuntimeError(
                 "TSUMUGI_PYTHON must point to the Python executable in a pinned Tsumugi runtime"
             )
         if not self._python.is_file():
             raise RuntimeError(f"Tsumugi Python executable is missing: {self._python}")
+        if self._source_root is None:
+            raise RuntimeError("TSUMUGI_ROOT must point to the pinned Tsumugi source checkout")
+        if not self._source_root.is_dir():
+            raise RuntimeError(f"Tsumugi source checkout is missing: {self._source_root}")
+        module_path = self._source_root / self.MODULE_PATH
+        if not module_path.is_file():
+            raise RuntimeError(f"Tsumugi inference module is missing: {module_path}")
         if self._checkpoint is None:
             raise RuntimeError(
                 "TSUMUGI_CHECKPOINT must point to an explicitly provisioned Tsumugi checkpoint"
@@ -85,7 +100,7 @@ class TsumugiEngine(TranscriptionEngine):
         if not self._checkpoint.is_file():
             raise RuntimeError(f"Tsumugi checkpoint is missing: {self._checkpoint}")
         self._verify_checkpoint()
-        return self._python, self._checkpoint
+        return self._source_root, self._python, self._checkpoint
 
     def _verify_checkpoint(self) -> None:
         if self._checkpoint_verified or not self._checkpoint_sha256 or self._checkpoint is None:
@@ -107,7 +122,7 @@ class TsumugiEngine(TranscriptionEngine):
     ) -> TranscriptionResult:
         if not audio_bytes:
             raise ValueError("Tsumugi transcription input must not be empty")
-        python_executable, checkpoint = self._validate_runtime()
+        source_root, python_executable, checkpoint = self._validate_runtime()
 
         suffix = _audio_suffix(audio_bytes, fmt)
         with tempfile.TemporaryDirectory(prefix="listencloser-tsumugi-") as td:
@@ -137,6 +152,7 @@ class TsumugiEngine(TranscriptionEngine):
                     capture_output=True,
                     text=True,
                     timeout=self._timeout_seconds,
+                    cwd=str(source_root),
                 )
             except subprocess.TimeoutExpired as exc:
                 raise RuntimeError(
