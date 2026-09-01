@@ -1,6 +1,5 @@
 import pathlib
 
-
 BACKEND_ROOT = pathlib.Path(__file__).resolve().parents[1]
 FORBIDDEN_IMPORT_PREFIXES = (
     "from backend ",
