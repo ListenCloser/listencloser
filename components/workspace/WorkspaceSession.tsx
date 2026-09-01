@@ -22,6 +22,7 @@ import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
 import { understandStageLabel, presentableTitle } from "@/lib/format";
 import { buildPlaybackSources } from "@/lib/playback-sources";
+import { canPublishWorkLoad } from "@/lib/work-load-authority";
 import {
   useWorkspace,
   type RepresentationEntry,
@@ -68,6 +69,11 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedWorkRef = useRef<string | null>(null);
   const initializedProjectSelectionRef = useRef<string | null>(null);
+  // A completed request is not automatically allowed to publish into the
+  // workspace. The selected Work is the user-facing authority, and it can
+  // change while an import/open request is still in flight.
+  const activeWorkIdRef = useRef<string | null>(workspace.activeWorkId);
+  activeWorkIdRef.current = workspace.activeWorkId;
 
   const clearProcessingRefresh = useCallback(() => {
     if (refreshTimerRef.current !== null) {
@@ -77,12 +83,25 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   }, []);
 
   const loadWork = useCallback(async (workId: string) => {
+    // Background completion/polling for another Work must not clear or
+    // repopulate the shared workspace after the user has selected elsewhere.
+    // This guard must run before cancelling the current request, because that
+    // current request may be the selected Work's open.
+    if (activeWorkIdRef.current !== workId) return;
+
     const preserveWorkspace = loadedWorkRef.current === workId;
     loadedWorkRef.current = workId;
     const sequence = ++loadSequenceRef.current;
     clearProcessingRefresh();
     abortRef.current?.abort();
     abortRef.current = new AbortController();
+
+    const isCurrentLoad = () => canPublishWorkLoad({
+      workId,
+      activeWorkId: activeWorkIdRef.current,
+      sequence,
+      latestSequence: loadSequenceRef.current,
+    });
 
     setLoadingWork(!preserveWorkspace);
     setError(null);
@@ -101,7 +120,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
 
     try {
       const bundle = await getWorkBundle(workId);
-      if (sequence !== loadSequenceRef.current) return;
+      if (!isCurrentLoad()) return;
 
       const latestJob = bundle.jobs[0];
       const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
@@ -200,7 +219,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         else representations.push(representation);
       };
       const publishRepresentation = (representation: RepresentationEntry) => {
-        if (sequence !== loadSequenceRef.current) return;
+        if (!isCurrentLoad()) return;
         upsertLocalRepresentation(representation);
         replaceRepresentations([...representations]);
       };
@@ -240,7 +259,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         };
       };
       const publishInsightContext = (pendingInsights: Awaited<ReturnType<typeof getInsights>>) => {
-        if (sequence !== loadSequenceRef.current) return;
+        if (!isCurrentLoad()) return;
         setInsights(pendingInsights);
         const tempo = pendingInsights.find((item) => item.kind === "tempo")?.evidence.bpm;
         if (typeof tempo === "number" && tempo > 0) setBpm(tempo);
@@ -272,7 +291,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         insightsPromise,
         scorePromise,
       ]);
-      if (sequence !== loadSequenceRef.current) return;
+      if (!isCurrentLoad()) return;
 
       const warnings: string[] = [];
       const entities = entitiesResult.status === "fulfilled" ? entitiesResult.value : [];
@@ -312,7 +331,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         // thresholds. If MIDI/score/insights become durable mid-job they will
         // appear on the next poll without changing the active view or source.
         refreshTimerRef.current = setTimeout(() => {
-          if (sequence === loadSequenceRef.current && loadedWorkRef.current === workId) {
+          if (isCurrentLoad() && loadedWorkRef.current === workId) {
             void loadWork(workId);
           }
         }, PROCESSING_REFRESH_MS);
@@ -344,7 +363,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         setStage("success");
       }
     } catch (cause) {
-      if (sequence !== loadSequenceRef.current) return;
+      if (!isCurrentLoad()) return;
       if (preserveWorkspace) {
         setProcessingWorkId(workId);
         setError(cause instanceof Error ? cause.message : "Could not refresh processing status");
@@ -354,7 +373,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         setStage("error");
       }
     } finally {
-      if (sequence === loadSequenceRef.current) setLoadingWork(false);
+      if (isCurrentLoad()) setLoadingWork(false);
     }
   }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
 
