@@ -5,8 +5,6 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from supabase import Client, create_client
 
-from observability import capture_job_trace_provenance
-
 from domain.models import (
     Alignment,
     Artifact,
@@ -26,6 +24,7 @@ from domain.models import (
     Work,
     Workflow,
 )
+from observability import capture_job_trace_provenance
 
 __all__ = [
     "get_supabase",
