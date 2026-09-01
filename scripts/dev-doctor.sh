@@ -22,6 +22,10 @@ require_command() {
   fi
 }
 
+node_remediation() {
+  printf '       Fix: switch to Node 22 and rerun this check. With nvm: nvm install && nvm use (.nvmrc pins the repository-tested major).\n'
+}
+
 printf 'ListenCloser development environment\n'
 printf '====================================\n'
 
@@ -34,8 +38,13 @@ if command -v node >/dev/null 2>&1; then
   NODE_VERSION="$(node --version | sed 's/^v//')"
   case "$NODE_VERSION" in
     22.*) ok "Node $NODE_VERSION matches 22.x" ;;
-    *) fail "Node $NODE_VERSION does not match required 22.x" ;;
+    *)
+      fail "Node $NODE_VERSION does not match required 22.x"
+      node_remediation
+      ;;
   esac
+else
+  node_remediation
 fi
 
 if command -v npm >/dev/null 2>&1; then
@@ -98,6 +107,12 @@ if [ -f backend/uv.lock ] && [ -f backend/pyproject.toml ]; then
   ok "backend pyproject.toml + uv.lock present"
 else
   fail "backend locked dependency authority is incomplete"
+fi
+
+if [ -f .nvmrc ] && [ "$(tr -d '[:space:]' < .nvmrc)" = "22" ]; then
+  ok ".nvmrc pins local Node acquisition to major 22"
+else
+  fail ".nvmrc is missing or does not pin Node 22"
 fi
 
 if [ -f .python-version ] && [ "$(tr -d '[:space:]' < .python-version)" = "3.11" ]; then
