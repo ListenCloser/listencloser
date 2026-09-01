@@ -107,6 +107,36 @@ export function insertLogicalHighlightRect(
 ): boolean {
   if (groups.length === 0) return false;
   if (groups.some((group) => group.querySelector(`[${dataAttr}]`))) return true;
+  // getBBox() is local to each staff's transformed SVG group. A treble/bass
+  // union must therefore be expressed in the shared root SVG coordinate space
+  // before one group can own it; otherwise the bass box can be interpreted in
+  // treble coordinates and spill across an adjacent measure.
+  const svg = groups[0].ownerSVGElement;
+  const bounds = unionMeasureClientRects(groups);
+  if (svg && bounds) {
+    const topLeft = svgPoint(svg, bounds.left, bounds.top);
+    const bottomRight = svgPoint(svg, bounds.right, bounds.bottom);
+    if (topLeft && bottomRight) {
+      return insertRect(
+        svg,
+        {
+          x: Math.min(topLeft.x, bottomRight.x),
+          y: Math.min(topLeft.y, bottomRight.y),
+          width: Math.abs(bottomRight.x - topLeft.x),
+          height: Math.abs(bottomRight.y - topLeft.y),
+        },
+        dataAttr,
+        fill,
+        fillOpacity,
+        stroke,
+        strokeWidth,
+        strokeDasharray,
+      );
+    }
+  }
+
+  // Keep the local-box fallback for unit-test DOMs and unusual renderers that
+  // do not expose an owner SVG or screen transform.
   const structuralBox = unionMeasureStructuralBoxes(groups);
   if (!structuralBox) return false;
   return insertRect(groups[0], structuralBox, dataAttr, fill, fillOpacity, stroke, strokeWidth, strokeDasharray);
