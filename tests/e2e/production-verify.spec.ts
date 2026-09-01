@@ -177,8 +177,9 @@ test("C: import real audio, wait for durable understand, verify representations 
   ).toBe(200);
 
   await expect(page.locator(".ask-turn-assistant")).toBeVisible({ timeout: 10_000 });
-  // Next.js owns an empty route-announcer live region with role=alert. Assert
-  // against ListenCloser's actual Ask error surface so framework a11y plumbing
-  // cannot make a successful product response look contradictory.
-  await expect(page.locator(".ask-error")).toHaveCount(0);
+  // Next.js mounts an empty route-announcer with role=alert outside the app.
+  // Assert the product Ask failure state is absent rather than banning all ARIA alerts.
+  await expect(
+    page.getByText("Ask is temporarily unavailable. Please try again in a moment."),
+  ).toHaveCount(0);
 });
