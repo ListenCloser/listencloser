@@ -1,8 +1,10 @@
 name: Deploy Backend
 
 # Zero-cost deployment path:
-# - build the production image once on free GitHub-hosted runners
+# - classify backend runtime separately from database/Storage releases
+# - build the production image once on free GitHub-hosted runners when runtime changes
 # - publish arch-specific images to GHCR
+# - apply Supabase migrations/bucket config without rebuilding an unchanged runtime
 # - deploy the exact git SHA to Oracle without rebuilding on the VM
 # - keep the existing VM build path as a migration/rollback fallback
 
@@ -17,6 +19,7 @@ on:
       - 'backend/Dockerfile'
       - 'backend/docker-compose.yml'
       - '.github/workflows/deploy-backend.yml'
+      - 'scripts/classify_production_scope.py'
       - 'scripts/deploy.sh'
       - 'scripts/deploy-preflight.sh'
       - 'supabase/config.toml'
@@ -30,8 +33,59 @@ env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}-backend
 
 jobs:
+  scope:
+    name: Classify release scope
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.scope.outputs.backend }}
+      database: ${{ steps.scope.outputs.database }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Classify backend and database release requirements
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            backend=true
+            database=true
+          else
+            before="${{ github.event.before }}"
+            changed="$(mktemp)"
+            trap 'rm -f "$changed"' EXIT
+
+            if [[ -z "$before" || "$before" =~ ^0+$ ]]; then
+              git show --pretty='' --name-only "$GITHUB_SHA" >"$changed"
+            else
+              git diff --name-only --no-renames "$before" "$GITHUB_SHA" >"$changed"
+            fi
+
+            echo "Changed paths:"
+            sed 's/^/  - /' "$changed"
+            release_scope="$(python3 scripts/classify_production_scope.py --production-scope <"$changed")"
+            backend=false
+            database=false
+            if grep -qx 'backend' <<<"$release_scope"; then
+              backend=true
+            fi
+            if grep -qx 'database' <<<"$release_scope"; then
+              database=true
+            fi
+          fi
+
+          echo "backend=$backend" >>"$GITHUB_OUTPUT"
+          echo "database=$database" >>"$GITHUB_OUTPUT"
+          echo "Release scope: backend=$backend database=$database"
+
   publish-image:
     name: Publish backend image (${{ matrix.arch }})
+    needs: scope
+    if: needs.scope.outputs.backend == 'true'
     permissions:
       contents: read
       packages: write
@@ -67,7 +121,11 @@ jobs:
           echo "Published $image_ref"
 
   migrate:
-    needs: publish-image
+    needs: [scope, publish-image]
+    if: >-
+      ${{ always()
+          && needs.scope.outputs.database == 'true'
+          && (needs.publish-image.result == 'success' || needs.publish-image.result == 'skipped') }}
     permissions:
       contents: read
     timeout-minutes: 10
@@ -90,7 +148,12 @@ jobs:
           supabase seed buckets --linked
 
   deploy:
-    needs: migrate
+    needs: [scope, publish-image, migrate]
+    if: >-
+      ${{ always()
+          && needs.scope.outputs.backend == 'true'
+          && needs.publish-image.result == 'success'
+          && (needs.scope.outputs.database != 'true' || needs.migrate.result == 'success') }}
     permissions:
       contents: read
       packages: read
@@ -141,7 +204,8 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   verify-production:
-    needs: deploy
+    needs: [scope, deploy]
+    if: needs.scope.outputs.backend == 'true' && needs.deploy.result == 'success'
     permissions:
       contents: read
     uses: ./.github/workflows/production-verify.yml
