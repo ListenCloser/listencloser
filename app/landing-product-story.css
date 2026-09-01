@@ -11,13 +11,10 @@
   min-height: 100dvh;
   overflow-x: hidden;
   overflow-y: auto;
-  /* The legacy visual-language layer still flattens the signed-out page with
-   * !important. This stylesheet is the signed-out owner and loads last, so
-   * keep the exception local until #523 removes that cross-owner override. */
   background:
     radial-gradient(ellipse at 76% 32%, rgba(218, 198, 157, 0.105), transparent 31%),
     radial-gradient(ellipse at 48% 108%, rgba(244, 238, 226, 0.03), transparent 46%),
-    linear-gradient(118deg, #171612 0%, #1a1916 44%, #151411 100%) !important;
+    linear-gradient(118deg, #171612 0%, #1a1916 44%, #151411 100%);
 }
 
 .welcome-page-v4::before {
