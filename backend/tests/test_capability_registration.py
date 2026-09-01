@@ -11,9 +11,10 @@ class _RecordingWorker:
         self.names.append(name)
 
 
-def test_legacy_describe_capability_is_not_registered() -> None:
+def test_removed_legacy_capabilities_are_not_registered() -> None:
     worker = _RecordingWorker()
     register_all_capabilities(worker)
 
     assert "describe" not in worker.names
+    assert "generate_continuation" not in worker.names
     assert "audio_structure" in worker.names
