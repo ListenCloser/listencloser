@@ -1,0 +1,170 @@
+name: Score A/B real piano
+
+on:
+  push:
+    branches: [eval/pm2s-musescore-real-piano-ab]
+    paths:
+      - .github/workflows/score-ab-real-piano.yml
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build production backend image
+        run: docker build --tag listencloser-score-ab backend
+      - name: Transcribe once and score twice
+        run: |
+          set -euo pipefail
+          mkdir -p score-ab-results
+          docker run --rm -i \
+            -v "$PWD/tests/fixtures:/fixtures:ro" \
+            -v "$PWD/score-ab-results:/out" \
+            --entrypoint python \
+            listencloser-score-ab - <<'PY'
+          import io
+          import json
+          import time
+          import xml.etree.ElementTree as ET
+          from collections import Counter
+          from pathlib import Path
+
+          import pretty_midi
+
+          import music_features
+
+          AUDIO = Path('/fixtures/real-piano.m4a')
+          OUT = Path('/out')
+
+          raw_audio = AUDIO.read_bytes()
+          wav = music_features.decode_audio_to_wav(raw_audio, fmt='m4a')
+
+          transcriber = music_features.get_transcription_engine_for_job(
+              name=None,
+              profile='solo_piano',
+              onset_threshold=0.5,
+              frame_threshold=0.3,
+          )
+          started = time.perf_counter()
+          transcription = transcriber.transcribe(wav, fmt='wav')
+          transcription_seconds = time.perf_counter() - started
+          performance_midi = transcription.midi
+          OUT.joinpath('performance.mid').write_bytes(performance_midi)
+
+          beat_result = music_features.estimate_beats_with_engine(wav)
+          beat_times = beat_result['beats']
+          downbeats = beat_result.get('downbeats')
+
+          performance = pretty_midi.PrettyMIDI(io.BytesIO(performance_midi))
+          performance_pitches = Counter(
+              note.pitch
+              for instrument in performance.instruments
+              for note in instrument.notes
+          )
+          performance_notes = sum(performance_pitches.values())
+
+          def midi_summary(data: bytes) -> dict:
+              parsed = pretty_midi.PrettyMIDI(io.BytesIO(data))
+              pitches = Counter(
+                  note.pitch
+                  for instrument in parsed.instruments
+                  for note in instrument.notes
+              )
+              overlap = sum((performance_pitches & pitches).values())
+              output_notes = sum(pitches.values())
+              return {
+                  'notes': output_notes,
+                  'pitch_multiset_overlap': overlap,
+                  'pitch_recall_vs_performance': round(overlap / performance_notes, 6)
+                  if performance_notes else None,
+                  'pitch_precision_vs_performance': round(overlap / output_notes, 6)
+                  if output_notes else None,
+                  'duration_seconds': round(float(parsed.get_end_time()), 6),
+                  'instruments': len(parsed.instruments),
+              }
+
+          def musicxml_summary(data: bytes) -> dict:
+              root = ET.fromstring(data)
+              notes = root.findall('.//note')
+              pitched = [note for note in notes if note.find('rest') is None]
+              rests = [note for note in notes if note.find('rest') is not None]
+              voices = {node.text for node in root.findall('.//voice') if node.text}
+              staves = {node.text for node in root.findall('.//staff') if node.text}
+              durations = {node.text for node in root.findall('.//note/duration') if node.text}
+              time_sigs = [
+                  f"{time.findtext('beats')}/{time.findtext('beat-type')}"
+                  for time in root.findall('.//time')
+                  if time.findtext('beats') and time.findtext('beat-type')
+              ]
+              fifths = [node.text for node in root.findall('.//key/fifths') if node.text]
+              return {
+                  'bytes': len(data),
+                  'measures': len(root.findall('.//measure')),
+                  'pitched_notes': len(pitched),
+                  'rests': len(rests),
+                  'ties': len(root.findall('.//tie')),
+                  'tuplets': len(root.findall('.//time-modification')),
+                  'beams': len(root.findall('.//beam')),
+                  'voices': sorted(voices),
+                  'staves': sorted(staves),
+                  'unique_duration_values': len(durations),
+                  'time_signatures': time_sigs,
+                  'key_fifths': fifths,
+              }
+
+          outputs = {}
+          for engine_name in ('musescore', 'pm2s'):
+              started = time.perf_counter()
+              result = music_features.notation_with_engine(
+                  performance_midi,
+                  beat_times,
+                  engine_name=engine_name,
+                  downbeats=downbeats,
+                  adaptive=True,
+                  notation_ready=True,
+                  piano_grand_staff=True,
+              )
+              score_seconds = time.perf_counter() - started
+              notation_midi = result['notation_midi']
+              musicxml = result['musicxml']
+              OUT.joinpath(f'{engine_name}.mid').write_bytes(notation_midi)
+              OUT.joinpath(f'{engine_name}.musicxml').write_bytes(musicxml)
+              outputs[engine_name] = {
+                  'score_seconds': round(score_seconds, 6),
+                  'midi': midi_summary(notation_midi),
+                  'musicxml': musicxml_summary(musicxml),
+                  'provenance': result['provenance'],
+                  'report': result['quantization_report'],
+              }
+
+          summary = {
+              'fixture': str(AUDIO),
+              'fixture_bytes': len(raw_audio),
+              'transcription': {
+                  'seconds': round(transcription_seconds, 6),
+                  'engine': transcription.provenance.to_dict(),
+                  'performance_notes': performance_notes,
+              },
+              'beat_tracking': {
+                  'bpm': beat_result.get('bpm'),
+                  'beats': len(beat_times),
+                  'downbeats': len(downbeats or []),
+                  'provenance': beat_result.get('provenance'),
+              },
+              'scores': outputs,
+          }
+          OUT.joinpath('summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
+          print('SCORE_AB_RESULT=' + json.dumps(summary, sort_keys=True))
+          PY
+          cat score-ab-results/summary.json
+      - name: Upload A/B outputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: score-ab-real-piano-${{ github.run_attempt }}
+          path: score-ab-results/
+          if-no-files-found: error
+          retention-days: 30
