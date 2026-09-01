@@ -13,7 +13,7 @@ port = 54321
 schemas = ["public", "graphql_public"]
 # Extra schemas to add to the search_path of every request.
 extra_search_path = ["public", "extensions"]
-# The maximum number of rows returns from a view, table or stored procedure. Limits payload size
+# The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
 # for accidental or malicious requests.
 max_rows = 1000
 # Controls whether new tables, views, sequences and functions created in the `public` schema by
@@ -66,7 +66,7 @@ schema_paths = []
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
 enabled = true
-# Specifies an ordered list of seed files to load during a db reset.
+# Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]
 
@@ -97,7 +97,7 @@ enabled = true
 port = 54323
 # External URL of the API server that frontend connects to.
 api_url = "http://127.0.0.1"
-# OpenAI API Key for the SQL editor in local Studio.
+# OpenAI API Key to use for Supabase AI in the Supabase Studio.
 openai_api_key = "env(OPENAI_API_KEY)"
 
 # Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
@@ -237,7 +237,7 @@ web3 = 30
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
 # [auth.captcha]
 # enabled = true
-# provider = `hcaptcha`, `turnstile`.
+# provider = "hcaptcha"
 # secret = ""
 
 [auth.email]
@@ -391,7 +391,7 @@ enabled = false
 [auth.oauth_server]
 # Enable OAuth server functionality
 enabled = false
-# Path for OAuth consent flow UI.
+# Path for OAuth consent flow UI
 authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
@@ -416,7 +416,7 @@ port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 
-# Experimental features may be deprecated at any time.
+# Experimental features may be deprecated any time
 [experimental]
 # Configures Postgres storage engine to use OrioleDB (S3)
 orioledb_version = ""
