@@ -148,4 +148,10 @@ test("solo-piano PM2S path reaches a rendered, playable Score with durable prove
     persisted_pm2s_versions: pm2sVersions.length,
     score_measures: await score.locator("g.vf-measure").count(),
   }));
+
+  // Leave the ephemeral stack in the same empty-workspace state as the default golden test.
+  const deleteRecording = page.getByRole("button", { name: /^Delete / }).first();
+  await expect(deleteRecording).toBeVisible();
+  await deleteRecording.click();
+  await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible({ timeout: 15_000 });
 });
