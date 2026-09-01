@@ -29,6 +29,9 @@
 }
 
 .context {
+  grid-column: 1 / -1;
+  justify-self: start;
+  max-width: 100%;
   gap: 4px;
   padding-right: 3px !important;
 }
@@ -53,6 +56,14 @@
 .contextClear:hover {
   background: rgba(255, 255, 255, 0.055);
   color: var(--text);
+}
+
+.turnScope {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.2;
 }
 
 .prompt::after {
