@@ -59,8 +59,6 @@ For the maintained runtime/deployment contract, read [`docs/ARCHITECTURE.md`](do
 
 ## Local development
 
-The repository requires Node 22.x. With nvm, run `nvm install` and `nvm use` from the repository root; `.nvmrc` supplies the pinned major version.
-
 From a fresh clone, first check prerequisites:
 
 ```bash
