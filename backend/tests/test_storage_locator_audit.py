@@ -5,11 +5,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from domain.models import Version
-from domain.storage_locator_audit import (
-    _read_all_pages,
-    AuditRows,
-    audit_storage_locator_rows,
-)
+from domain.storage_locator_audit import AuditRows, _read_all_pages, audit_storage_locator_rows
 
 
 def _version_row(
