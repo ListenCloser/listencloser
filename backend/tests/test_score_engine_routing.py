@@ -76,7 +76,9 @@ def test_handle_score_reads_explicit_engine_without_audio_beat_input(monkeypatch
         }
 
     monkeypatch.setattr(capabilities.music_features, "notation_with_engine", fake_notation)
-    monkeypatch.setattr(capabilities.music_features, "midi_to_wav", lambda midi_bytes: b"wav")
+    monkeypatch.setattr(
+        capabilities.music_features, "midi_to_wav", lambda midi_bytes, sr=22050: b"wav"
+    )
     monkeypatch.setattr(capabilities.music_features, "measure_start_seconds", lambda midi_bytes: [])
 
     output_ids = capabilities.handle_score(job, SimpleNamespace())
