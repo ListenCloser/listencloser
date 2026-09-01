@@ -141,7 +141,9 @@ def test_understand_pipeline_persists_full_bundle(sb, monkeypatch):
     # Keep the durable score path real while replacing MuseScore conversion with
     # deterministic notation bytes, just as transcription inference is stubbed.
     monkeypatch.setattr(music_features, "notation_with_engine", _fixture_notation)
-    monkeypatch.setattr(\n        music_features, "midi_to_wav", lambda *_args, sr=44100, **_kwargs: _fixture_wav()\n    )
+    monkeypatch.setattr(
+        music_features, "midi_to_wav", lambda *_args, sr=44100, **_kwargs: _fixture_wav()
+    )
     # The fixture already supplies valid WAV bytes; skip the ffmpeg decode so the
     # smoke test exercises persistence without an external audio toolchain.
     monkeypatch.setattr(
