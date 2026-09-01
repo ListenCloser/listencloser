@@ -36,6 +36,15 @@ jobs:
           cache-dependency-glob: backend/uv.lock
       - run: npm ci
       - run: uv sync --project backend --locked
+      - name: Retarget extracted workspace component
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/_apply_score_selector.py')
+          text = path.read_text()
+          text = text.replace('"app/page.tsx"', '"components/workspace/WorkspaceSession.tsx"')
+          path.write_text(text)
+          PY
       - name: Apply selector changes
         run: python scripts/_apply_score_selector.py
       - name: Format backend changes
@@ -66,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           git add \
-            app/page.tsx \
+            components/workspace/WorkspaceSession.tsx \
             backend/domain/api.py \
             backend/domain/capabilities.py \
             backend/music_features.py \
