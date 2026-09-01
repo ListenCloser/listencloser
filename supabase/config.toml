@@ -13,7 +13,7 @@ port = 54321
 schemas = ["public", "graphql_public"]
 # Extra schemas to add to the search_path of every request.
 extra_search_path = ["public", "extensions"]
-# The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
+# The maximum number of rows returns from a view, table or stored procedure. Limits payload size
 # for accidental or malicious requests.
 max_rows = 1000
 # Controls whether new tables, views, sequences and functions created in the `public` schema by
@@ -66,7 +66,7 @@ schema_paths = []
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
 enabled = true
-# Specifies an ordered list of seed files to load during db reset.
+# Specifies an ordered list of seed files to load during a db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]
 
@@ -166,7 +166,7 @@ max_catalogs = 2
 # Analytics Buckets is available to Supabase Pro plan.
 # [storage.analytics.buckets.my-warehouse]
 
-# Store vector embeddings in S3 for large and durable datasets
+# Store vector embeddings in S3 for large and durable vector workloads
 [storage.vector]
 enabled = true
 max_buckets = 10
@@ -241,7 +241,7 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = true
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
@@ -295,7 +295,7 @@ max_frequency = "5s"
 # [auth.sessions]
 # Force log out after the specified duration.
 # timebox = "24h"
-# Force log out if the user has been inactive longer than the specified duration.
+# Force log out if the user has been inactive longer than specified duration.
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
@@ -389,7 +389,7 @@ enabled = false
 [auth.oauth_server]
 # Enable OAuth server functionality
 enabled = false
-# Path for OAuth consent flow UI
+# Path for OAuth consent flow UI.
 authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
