@@ -1,0 +1,209 @@
+name: Apply typed Supabase settings once
+
+on:
+  push:
+    branches:
+      - refactor/645-typed-supabase-settings
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: refactor/645-typed-supabase-settings
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: '0.12.6'
+      - name: Apply bounded settings migration
+        run: |
+          set -euo pipefail
+          uv add --project backend 'pydantic-settings==2.15.0'
+          cat > backend/runtime_settings.py <<'PY'
+          """Typed ownership for shared backend runtime environment settings.
+
+          Keep this module small and process-oriented. Deployment still owns the
+          effective production values; these models own parsing, validation, and
+          secret-safe representation inside Python runtime code.
+          """
+
+          from __future__ import annotations
+
+          from pydantic import Field, SecretStr
+          from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+          class SupabaseSettings(BaseSettings):
+              """Server-side Supabase credentials shared by API and worker code.
+
+              Fields remain optional here because API/repository startup already
+              supports an unconfigured state. Callers that require a live server
+              client must opt into :meth:`require_credentials` and fail explicitly.
+              """
+
+              model_config = SettingsConfigDict(case_sensitive=True, extra="ignore")
+
+              supabase_url: str | None = Field(default=None, validation_alias="SUPABASE_URL")
+              service_role_key: SecretStr | None = Field(
+                  default=None,
+                  validation_alias="SUPABASE_SERVICE_ROLE_KEY",
+              )
+
+              def credentials(self) -> tuple[str, str] | None:
+                  """Return raw client credentials only when the pair is complete."""
+                  if not self.supabase_url or self.service_role_key is None:
+                      return None
+                  return self.supabase_url, self.service_role_key.get_secret_value()
+
+              def require_credentials(self) -> tuple[str, str]:
+                  """Return credentials or preserve the worker's explicit startup error."""
+                  credentials = self.credentials()
+                  if credentials is None:
+                      raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
+                  return credentials
+          PY
+          python - <<'PY'
+          from pathlib import Path
+
+          repositories = Path('backend/domain/repositories.py')
+          text = repositories.read_text()
+          text = text.replace('import os\n', '', 1)
+          anchor = 'from supabase import Client, create_client\n\n'
+          assert text.count(anchor) == 1
+          text = text.replace(anchor, anchor + 'from runtime_settings import SupabaseSettings\n\n')
+          old = '''        url = os.environ.get("SUPABASE_URL")
+                  key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+                  if not url or not key:
+                      return None
+                  _sb_client = create_client(url, key)
+          '''
+          new = '''        credentials = SupabaseSettings().credentials()
+                  if credentials is None:
+                      return None
+                  _sb_client = create_client(*credentials)
+          '''
+          assert text.count(old) == 1, 'repository Supabase loader shape changed'
+          repositories.write_text(text.replace(old, new))
+
+          worker = Path('backend/domain/job_worker.py')
+          text = worker.read_text()
+          model_anchor = 'from .models import Capability, Job, JobLifecycle\n'
+          assert text.count(model_anchor) == 1
+          text = text.replace(
+              model_anchor,
+              'from runtime_settings import SupabaseSettings\n\n' + model_anchor,
+          )
+          old = '''            url = os.environ.get("SUPABASE_URL")
+                      key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+                      if not url or not key:
+                          raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
+                      from supabase import create_client  # type: ignore[import-untyped]
+
+                      self._client = create_client(url, key)
+          '''
+          new = '''            url, key = SupabaseSettings().require_credentials()
+                      from supabase import create_client  # type: ignore[import-untyped]
+
+                      self._client = create_client(url, key)
+          '''
+          assert text.count(old) == 1, 'worker Supabase loader shape changed'
+          worker.write_text(text.replace(old, new))
+          PY
+          cat > backend/tests/test_runtime_settings.py <<'PY'
+          from __future__ import annotations
+
+          from pathlib import Path
+
+          import pytest
+          from pydantic import SecretStr
+
+          import domain.repositories as repositories
+          from domain.job_worker import JobWorker
+          from runtime_settings import SupabaseSettings
+
+
+          def _clear_supabase_env(monkeypatch: pytest.MonkeyPatch) -> None:
+              monkeypatch.delenv("SUPABASE_URL", raising=False)
+              monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
+
+
+          def test_supabase_settings_read_exact_server_environment_and_hide_secret(
+              monkeypatch: pytest.MonkeyPatch,
+          ) -> None:
+              monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+              monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-role-secret")
+
+              settings = SupabaseSettings()
+
+              assert settings.supabase_url == "https://example.supabase.co"
+              assert settings.service_role_key == SecretStr("service-role-secret")
+              assert settings.credentials() == (
+                  "https://example.supabase.co",
+                  "service-role-secret",
+              )
+              assert "service-role-secret" not in repr(settings)
+
+
+          def test_partial_supabase_configuration_remains_unconfigured(
+              monkeypatch: pytest.MonkeyPatch,
+          ) -> None:
+              _clear_supabase_env(monkeypatch)
+              monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+
+              assert SupabaseSettings().credentials() is None
+
+
+          def test_worker_required_credentials_fail_with_existing_contract(
+              monkeypatch: pytest.MonkeyPatch,
+          ) -> None:
+              _clear_supabase_env(monkeypatch)
+
+              with pytest.raises(
+                  RuntimeError,
+                  match="SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set",
+              ):
+                  SupabaseSettings().require_credentials()
+
+              with pytest.raises(
+                  RuntimeError,
+                  match="SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set",
+              ):
+                  _ = JobWorker().client
+
+
+          def test_repository_loader_preserves_optional_unconfigured_state(
+              monkeypatch: pytest.MonkeyPatch,
+          ) -> None:
+              _clear_supabase_env(monkeypatch)
+              monkeypatch.setattr(repositories, "_sb_client", None)
+
+              assert repositories.get_supabase() is None
+
+
+          def test_migrated_client_loaders_no_longer_parse_supabase_env_directly() -> None:
+              backend = Path(__file__).resolve().parents[1]
+              for relative in ("domain/repositories.py", "domain/job_worker.py"):
+                  source = (backend / relative).read_text()
+                  assert 'os.environ.get("SUPABASE_URL")' not in source
+                  assert 'os.environ.get("SUPABASE_SERVICE_ROLE_KEY")' not in source
+          PY
+          cd backend
+          uv run ruff format runtime_settings.py domain/repositories.py domain/job_worker.py tests/test_runtime_settings.py
+          uv run ruff check runtime_settings.py domain/repositories.py domain/job_worker.py tests/test_runtime_settings.py
+          uv run pytest -q tests/test_runtime_settings.py
+          cd ..
+          git rm .github/workflows/apply-645-settings-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/pyproject.toml backend/uv.lock backend/runtime_settings.py backend/domain/repositories.py backend/domain/job_worker.py backend/tests/test_runtime_settings.py
+          git diff --cached --check
+          git diff --cached --quiet && exit 1
+          git commit -m 'refactor(config): type shared Supabase settings'
+          git push origin HEAD:refactor/645-typed-supabase-settings
