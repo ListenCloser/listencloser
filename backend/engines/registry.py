@@ -77,6 +77,10 @@ def get_transcription_engine(
             onset_threshold=onset_threshold,
             frame_threshold=frame_threshold,
         )
+    if name == "tsumugi":
+        from engines.transcription.tsumugi import TsumugiEngine
+
+        return TsumugiEngine()
     raise ValueError(f"Unknown transcription engine: {name}")
 
 
