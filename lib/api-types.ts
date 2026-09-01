@@ -278,6 +278,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Score Workflow
+         * @description Rebuild Score from an existing canonical performance-MIDI version.
+         *
+         *     This route intentionally queues only the score capability. It never
+         *     retranscribes audio, so changing Score interpretation does not mutate or
+         *     replace the canonical performance representation used by Piano Roll.
+         */
+        post: operations["create_score_workflow_api_v1_workflows_score_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflows/understand": {
         parameters: {
             query?: never;
@@ -1267,6 +1291,15 @@ export interface components {
              */
             status: "supported" | "experimental" | "withhold";
         };
+        /** ScoreWorkflowBody */
+        ScoreWorkflowBody: {
+            /** Performance Midi Version Id */
+            performance_midi_version_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Score Engine */
+            score_engine?: ("musescore" | "pm2s") | null;
+        };
         /**
          * SecondsSpanLocator
          * @description Seconds-authoritative span whose validity is decided by sufficiency logic.
@@ -2038,6 +2071,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateWorkflowBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_score_workflow_api_v1_workflows_score_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoreWorkflowBody"];
             };
         };
         responses: {

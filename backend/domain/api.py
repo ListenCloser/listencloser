@@ -76,6 +76,12 @@ class UnderstandWorkflowBody(BaseModel):
     score_engine: Literal["musescore", "pm2s"] | None = None
 
 
+class ScoreWorkflowBody(BaseModel):
+    performance_midi_version_id: str
+    project_id: str
+    score_engine: Literal["musescore", "pm2s"] | None = None
+
+
 def _canonical_transcription_profile(profile: str | None) -> str:
     """Normalize the transcription profile for workflow identity.
 
@@ -607,6 +613,103 @@ async def create_understand_workflow(
                 "score_engine": score_engine,
             },
             cache_key=f"understand:1.0:{owner_id}:{version_id}:{profile}:{score_engine}",
+            created_by=owner_id,
+        )
+        try:
+            job = job_repo.create(job, owner_id)
+        except Exception:
+            job = job_repo.get(job_id, owner_id)
+            if not job:
+                raise
+
+        return {"workflow": workflow, "job": job}
+
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# POST /workflows/score
+# ---------------------------------------------------------------------------
+
+
+@router.post("/workflows/score", response_model=WorkflowJobResponse)
+@limiter.limit("10/minute")
+async def create_score_workflow(
+    body: ScoreWorkflowBody,
+    request: Request,
+    auth=Depends(verify_token),
+):
+    """Rebuild Score from an existing canonical performance-MIDI version.
+
+    This route intentionally queues only the score capability. It never
+    retranscribes audio, so changing Score interpretation does not mutate or
+    replace the canonical performance representation used by Piano Roll.
+    """
+    sb = _sb()
+    owner_id = _owner_id(auth)
+    version_id = UUID(body.performance_midi_version_id)
+    project_id = UUID(body.project_id)
+
+    try:
+        version = _require_version_in_project(sb, version_id, project_id, owner_id)
+        artifact = ArtifactRepo(sb).get(version.artifact_id, owner_id)
+        if not artifact:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        if artifact.kind != ArtifactKind.midi_performance:
+            raise HTTPException(
+                status_code=400,
+                detail="Score rebuild requires a performance MIDI version",
+            )
+
+        score_engine = _canonical_score_engine(body.score_engine)
+        job_id = uuid5(
+            NAMESPACE_URL,
+            f"hello-ai:score:1.0:{owner_id}:{version_id}:{score_engine}",
+        )
+        job_repo = JobRepo(sb)
+        existing_job = job_repo.get(job_id, owner_id)
+        if existing_job:
+            existing_workflow = WorkflowRepo(sb).get(existing_job.workflow_id, owner_id)
+            if not existing_workflow:
+                raise RuntimeError("idempotent score job references a missing workflow")
+            return {"workflow": existing_workflow, "job": existing_job}
+
+        wf_repo = WorkflowRepo(sb)
+        workflow = Workflow(
+            id=uuid5(
+                NAMESPACE_URL,
+                f"hello-ai:score-workflow:1.0:{owner_id}:{version_id}:{score_engine}",
+            ),
+            project_id=project_id,
+            kind=WorkflowKind.understand,
+            target_version_id=version_id,
+            parameters={"score_engine": score_engine, "workflow_scope": "score_rebuild"},
+        )
+        try:
+            workflow = wf_repo.create(workflow, owner_id)
+        except Exception:
+            concurrent_job = job_repo.get(job_id, owner_id)
+            if concurrent_job:
+                concurrent_workflow = wf_repo.get(concurrent_job.workflow_id, owner_id)
+                if concurrent_workflow:
+                    return {"workflow": concurrent_workflow, "job": concurrent_job}
+            workflow = wf_repo.get(workflow.id, owner_id)
+            if not workflow:
+                raise
+
+        job = Job(
+            id=job_id,
+            workflow_id=workflow.id,
+            capability=Capability(name="score", version="1.0"),
+            input_version_ids=[version_id],
+            parameters={
+                "score_engine": score_engine,
+                "input_representation": "performance_midi",
+            },
+            cache_key=f"score:1.0:{owner_id}:{version_id}:{score_engine}",
             created_by=owner_id,
         )
         try:

@@ -2135,6 +2135,39 @@
         "title": "RelationSufficiency",
         "type": "object"
       },
+      "ScoreWorkflowBody": {
+        "properties": {
+          "performance_midi_version_id": {
+            "title": "Performance Midi Version Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "score_engine": {
+            "anyOf": [
+              {
+                "enum": [
+                  "musescore",
+                  "pm2s"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Engine"
+          }
+        },
+        "required": [
+          "performance_midi_version_id",
+          "project_id"
+        ],
+        "title": "ScoreWorkflowBody",
+        "type": "object"
+      },
       "SecondsSpanLocator": {
         "description": "Seconds-authoritative span whose validity is decided by sufficiency logic.",
         "properties": {
@@ -3549,6 +3582,50 @@
           }
         ],
         "summary": "Create Create Workflow"
+      }
+    },
+    "/api/v1/workflows/score": {
+      "post": {
+        "description": "Rebuild Score from an existing canonical performance-MIDI version.\n\nThis route intentionally queues only the score capability. It never\nretranscribes audio, so changing Score interpretation does not mutate or\nreplace the canonical performance representation used by Piano Roll.",
+        "operationId": "create_score_workflow_api_v1_workflows_score_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoreWorkflowBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Score Workflow"
       }
     },
     "/api/v1/workflows/understand": {
