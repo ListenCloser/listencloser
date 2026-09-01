@@ -82,6 +82,23 @@ def _authenticated_test_token(user_id: str, email: str) -> str:
     return f"{signing_input}.{encoded_signature}"
 
 
+def _assert_authenticated_token_accepted(access_token: str) -> None:
+    import httpx
+
+    response = httpx.get(
+        f"{SUPABASE_URL}/rest/v1/",
+        headers={
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {access_token}",
+        },
+        timeout=5.0,
+    )
+    assert response.status_code == 200, (
+        f"local PostgREST rejected the authenticated test token: "
+        f"{response.status_code} {response.text}"
+    )
+
+
 def _create_user():
     service = _service_client()
     email = f"server-owned-{uuid.uuid4().hex[:10]}@example.com"
@@ -112,6 +129,7 @@ def test_browser_cannot_access_server_authoritative_domain_rows():
 
     service = _service_client()
     user_id, token = _create_user()
+    _assert_authenticated_token_accepted(token)
     browser = _user_client(token)
 
     project_id = str(uuid.uuid4())
