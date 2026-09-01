@@ -66,6 +66,75 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production backend image natively
         run: docker build --tag listencloser-backend:${{ matrix.arch }} backend
+      - name: Verify pinned PM2S checkpoints before model loading
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker run --rm \
+            --entrypoint sh \
+            "listencloser-backend:${ARCH}" \
+            -c 'printf "%s\n" \
+              "939e0181f119a473200aece6307906e3dee69d4e2c44abcc878755bf6a18beb6  /opt/pm2s-models/RNNJointBeatModel.pth" \
+              "35d0b768fc68f9ec23f77b512ce3cada9b4e9dd816e3ab1c2a1714fa05bc5805  /opt/pm2s-models/RNNHandPartModel.pth" \
+              "62ce9004f9a8b3bf24864a5bf15211e1a27c7d2c1eb7071e6672d6d8e265e5de  /opt/pm2s-models/RNNKeySignatureModel.pth" \
+              "35cd59c456542c1546f870ee639e0c3f87f7b81a48d7f2bfe10dedc89c4d3180  /opt/pm2s-models/CNNTimeSignatureModel.pth" \
+              | sha256sum --check -'
+      - name: Verify PM2S score conversion in production image
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker run --rm -i \
+            --entrypoint python \
+            "listencloser-backend:${ARCH}" - <<'PY'
+          import io
+
+          import pretty_midi
+
+          from engines.notation.pm2s_engine import PM2SNotationEngine
+
+          midi = pretty_midi.PrettyMIDI(initial_tempo=120.0)
+          piano = pretty_midi.Instrument(program=0, name="production-smoke-piano")
+          right_hand = (60, 64, 67, 72, 67, 64, 62, 65)
+          left_hand = (36, 43, 41, 48)
+          for beat in range(32):
+              beat_start = beat * 0.5
+              piano.notes.append(
+                  pretty_midi.Note(
+                      velocity=72 + beat % 12,
+                      pitch=left_hand[(beat // 4) % len(left_hand)],
+                      start=beat_start + 0.004 * (beat % 3),
+                      end=beat_start + 0.46,
+                  )
+              )
+              for subdivision in range(2):
+                  onset = beat_start + subdivision * 0.25 + 0.003 * ((beat + subdivision) % 4)
+                  pitch = right_hand[(beat * 2 + subdivision) % len(right_hand)]
+                  piano.notes.append(
+                      pretty_midi.Note(
+                          velocity=82 + (beat + subdivision) % 10,
+                          pitch=pitch,
+                          start=onset,
+                          end=onset + 0.20,
+                      )
+                  )
+          midi.instruments.append(piano)
+          buffer = io.BytesIO()
+          midi.write(buffer)
+
+          result = PM2SNotationEngine().convert(buffer.getvalue(), [])
+          assert result.notation_midi.startswith(b"MThd")
+          assert b"<score-partwise" in result.musicxml
+          assert result.quantization_report["score_midi_engine"] == "pm2s"
+          assert result.quantization_report["output_notes"] > 0
+          print(
+              "PM2S_PRODUCTION_SMOKE=",
+              {
+                  "input_notes": result.quantization_report["input_notes"],
+                  "output_notes": result.quantization_report["output_notes"],
+                  "musicxml_bytes": len(result.musicxml),
+              },
+          )
+          PY
       - name: Verify promoted Beat This checkpoint loads in production image
         env:
           ARCH: ${{ matrix.arch }}
