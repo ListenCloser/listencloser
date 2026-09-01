@@ -34,7 +34,7 @@ if command -v node >/dev/null 2>&1; then
   NODE_VERSION="$(node --version | sed 's/^v//')"
   case "$NODE_VERSION" in
     22.*) ok "Node $NODE_VERSION matches 22.x" ;;
-    *) fail "Node $NODE_VERSION does not match required 22.x" ;;
+    *) fail "Node $NODE_VERSION does not match required 22.x; with nvm, run 'nvm install' then 'nvm use' from the repository root" ;;
   esac
 fi
 
@@ -98,6 +98,12 @@ if [ -f backend/uv.lock ] && [ -f backend/pyproject.toml ]; then
   ok "backend pyproject.toml + uv.lock present"
 else
   fail "backend locked dependency authority is incomplete"
+fi
+
+if [ -f .nvmrc ] && [ "$(tr -d '[:space:]' < .nvmrc)" = "22" ]; then
+  ok ".nvmrc pins Node 22"
+else
+  fail ".nvmrc is missing or does not pin Node 22"
 fi
 
 if [ -f .python-version ] && [ "$(tr -d '[:space:]' < .python-version)" = "3.11" ]; then
