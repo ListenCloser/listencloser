@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from types import SimpleNamespace
 from typing import Any
 
@@ -37,6 +38,11 @@ class _Storage:
 
     def from_(self, _bucket: str) -> _Bucket:
         return self.bucket
+
+
+class _RpcCall:
+    def execute(self) -> SimpleNamespace:
+        return SimpleNamespace(data=[False])
 
 
 class _Query:
@@ -78,11 +84,16 @@ class _Client:
         self.storage = _Storage()
         self.tables: dict[str, list[dict[str, Any]]] = {"artifacts": []}
         self.job_updates: list[tuple[dict[str, Any], list[tuple[str, Any]]]] = []
+        self.rpc_calls: list[tuple[str, dict[str, Any]]] = []
 
     def table(self, name: str) -> _Query | _JobMutation:
         if name == "jobs":
             return _JobMutation(self)
         return _Query(self.tables.get(name, []))
+
+    def rpc(self, name: str, params: dict[str, Any]) -> _RpcCall:
+        self.rpc_calls.append((name, dict(params)))
+        return _RpcCall()
 
 
 def _handler_client() -> tuple[FencedJobWorker, _Client, Any]:
@@ -101,6 +112,18 @@ def test_handler_storage_is_attempt_scoped_and_cleanup_is_non_destructive() -> N
 
     assert client.storage.from_("artifacts").download("source/input.bin") == b"payload"
     assert raw.storage.bucket.downloaded == ["source/input.bin"]
+    assert raw.rpc_calls == [
+        (
+            "fenced_job_verify_input_sha256",
+            {
+                "p_job_id": "job-1",
+                "p_execution_token": "token-a",
+                "p_storage_bucket": "artifacts",
+                "p_storage_key": "source/input.bin",
+                "p_sha256": hashlib.sha256(b"payload").hexdigest(),
+            },
+        )
+    ]
 
     client.storage.from_("artifacts").upload(original_key, b"payload")
     assert raw.storage.bucket.uploaded == [scoped_key]
