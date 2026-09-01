@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from backend.evaluation.analysis_v3.sufficiency.perturbations import (
+from evaluation.analysis_v3.sufficiency.perturbations import (
     event_localization_summary,
     event_offsets_to_nearest_grid,
     metric_grid_shift_sensitivity,
