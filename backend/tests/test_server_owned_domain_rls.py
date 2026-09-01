@@ -8,7 +8,12 @@ PostgREST Data API directly.
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
 import os
+import time
 import uuid
 from contextlib import suppress
 
@@ -17,6 +22,7 @@ import pytest
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
 
 pytestmark = [
     pytest.mark.real_stack,
@@ -38,18 +44,50 @@ def _user_client(access_token: str):
     return client
 
 
-def _create_user():
-    from supabase import create_client
+def _jwt_segment(value: dict) -> str:
+    payload = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
+    return base64.urlsafe_b64encode(payload).rstrip(b"=").decode()
 
+
+def _authenticated_test_token(user_id: str, email: str) -> str:
+    """Mint a local PostgREST identity without depending on a product auth provider."""
+    if not SUPABASE_JWT_SECRET:
+        raise RuntimeError("SUPABASE_JWT_SECRET required")
+
+    now = int(time.time())
+    header = _jwt_segment({"alg": "HS256", "typ": "JWT"})
+    payload = _jwt_segment(
+        {
+            "aal": "aal1",
+            "amr": [{"method": "oauth", "timestamp": now}],
+            "app_metadata": {"provider": "test", "providers": ["test"]},
+            "aud": "authenticated",
+            "email": email,
+            "exp": now + 3600,
+            "iat": now,
+            "is_anonymous": False,
+            "iss": f"{SUPABASE_URL}/auth/v1",
+            "phone": "",
+            "role": "authenticated",
+            "session_id": str(uuid.uuid4()),
+            "sub": user_id,
+            "user_metadata": {},
+        }
+    )
+    signing_input = f"{header}.{payload}"
+    signature = hmac.new(
+        SUPABASE_JWT_SECRET.encode(), signing_input.encode(), hashlib.sha256
+    ).digest()
+    encoded_signature = base64.urlsafe_b64encode(signature).rstrip(b"=").decode()
+    return f"{signing_input}.{encoded_signature}"
+
+
+def _create_user():
     service = _service_client()
     email = f"server-owned-{uuid.uuid4().hex[:10]}@example.com"
-    password = "test-password-123"
-    user_response = service.auth.admin.create_user(
-        {"email": email, "password": password, "email_confirm": True}
-    )
-    anon = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-    session = anon.auth.sign_in_with_password({"email": email, "password": password})
-    return user_response.user.id, session.session.access_token
+    user_response = service.auth.admin.create_user({"email": email, "email_confirm": True})
+    user_id = user_response.user.id
+    return user_id, _authenticated_test_token(user_id, email)
 
 
 def _browser_select(client, table: str, row_id: str):
@@ -67,8 +105,10 @@ def _browser_insert(client, table: str, payload: dict):
 
 
 def test_browser_cannot_access_server_authoritative_domain_rows():
-    if not (SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY):
-        pytest.skip("SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY required")
+    if not (SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY and SUPABASE_JWT_SECRET):
+        pytest.skip(
+            "SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_JWT_SECRET required"
+        )
 
     service = _service_client()
     user_id, token = _create_user()
