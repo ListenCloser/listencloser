@@ -17,6 +17,7 @@ current attempt's object.
 
 from __future__ import annotations
 
+import hashlib
 import threading
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -250,12 +251,24 @@ class _HandlerTable:
 
 
 class _HandlerStorageBucket:
-    def __init__(self, bucket: Any, client: _HandlerClient) -> None:
+    def __init__(self, bucket: Any, client: _HandlerClient, bucket_name: str) -> None:
         self._bucket = bucket
         self._client = client
+        self._bucket_name = bucket_name
 
     def download(self, path: str, *args: Any, **kwargs: Any) -> Any:
-        return self._bucket.download(path, *args, **kwargs)
+        content = self._bucket.download(path, *args, **kwargs)
+        self._client._raw.rpc(
+            "fenced_job_verify_input_sha256",
+            {
+                "p_job_id": self._client.job_id,
+                "p_execution_token": self._client.execution_token,
+                "p_storage_bucket": self._bucket_name,
+                "p_storage_key": path,
+                "p_sha256": hashlib.sha256(content).hexdigest(),
+            },
+        ).execute()
+        return content
 
     def upload(self, path: str, *args: Any, **kwargs: Any) -> Any:
         fenced_path = self._client.scope_storage_key(path)
@@ -283,7 +296,7 @@ class _HandlerStorage:
         self._client = client
 
     def from_(self, bucket: str) -> _HandlerStorageBucket:
-        return _HandlerStorageBucket(self._storage.from_(bucket), self._client)
+        return _HandlerStorageBucket(self._storage.from_(bucket), self._client, bucket)
 
     def __getattr__(self, name: str) -> Any:
         raise RuntimeError(f"job handlers cannot access unfenced storage operation {name}")
