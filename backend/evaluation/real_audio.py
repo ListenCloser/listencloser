@@ -1,10 +1,12 @@
-"""Real-audio transcription benchmark: GuitarSet + BabySlakh.
+"""Production-Auto transcription evaluation: GuitarSet + BabySlakh.
 
 Run with data already in MUSIC_EVAL_CACHE_DIR:
 
   MUSIC_EVAL_CACHE_DIR=... python -m evaluation.real_audio --corpus real_audio_v1
 
-Reports note/onset F1 by category (guitar vs full_mix).
+Runs the exact production ``auto`` profile through the engine registry and
+reports note/onset F1 by category (guitar vs full_mix). This is deliberately
+not an engine-adapter bakeoff: a result is evidence about the product default.
 """
 
 from __future__ import annotations
@@ -13,12 +15,15 @@ import argparse
 import io
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import soundfile as sf
 
+from engines.base import TranscriptionEngine
+from engines.registry import get_transcription_engine
 from evaluation.datasets import cache
 from evaluation.datasets.babyslakh import load_babyslakh_notes
 from evaluation.datasets.guitarset import load_guitarset_notes
@@ -61,16 +66,14 @@ def _reference_notes(clip: dict[str, Any], prepared: Path) -> list[Note]:
     return clipped
 
 
-def _transcribe_bytes(wav_bytes: bytes, onset: float, frame: float) -> list[Note]:
-    import sys
-
-    backend_dir = str(Path(__file__).resolve().parent.parent)
-    if backend_dir not in sys.path:
-        sys.path.insert(0, backend_dir)
-    from music_features import transcribe_with_engine
-
-    tr = transcribe_with_engine(wav_bytes, fmt="wav", onset_threshold=onset, frame_threshold=frame)
-    return [Note.from_dict(n) for n in tr.get("notes", [])]
+def _transcribe_auto(
+    wav_bytes: bytes,
+    *,
+    engine_factory: Callable[..., TranscriptionEngine] = get_transcription_engine,
+) -> tuple[list[Note], dict[str, Any]]:
+    """Run the exact product-default transcription route for one excerpt."""
+    result = engine_factory(profile="auto").transcribe(wav_bytes, fmt="wav")
+    return [Note.from_dict(note) for note in result.notes], result.provenance.to_dict()
 
 
 def _slice_audio(audio_path: Path, start: float, end: float) -> bytes:
@@ -83,7 +86,11 @@ def _slice_audio(audio_path: Path, start: float, end: float) -> bytes:
     return buf.getvalue()
 
 
-def run_baseline(corpus: str, onset: float, frame: float) -> list[dict[str, Any]]:
+def run_production_auto(
+    corpus: str,
+    *,
+    engine_factory: Callable[..., TranscriptionEngine] = get_transcription_engine,
+) -> list[dict[str, Any]]:
     prepared = cache.cache_dir()
     clips = _load_clips(corpus)
     results: list[dict[str, Any]] = []
@@ -98,7 +105,7 @@ def run_baseline(corpus: str, onset: float, frame: float) -> list[dict[str, Any]
             ref = _reference_notes(clip, prepared)
 
             t0 = time.monotonic()
-            pred = _transcribe_bytes(wav_bytes, onset, frame)
+            pred, provenance = _transcribe_auto(wav_bytes, engine_factory=engine_factory)
             elapsed = time.monotonic() - t0
 
             m = compute_note_metrics(pred, ref) if ref else None
@@ -107,6 +114,9 @@ def run_baseline(corpus: str, onset: float, frame: float) -> list[dict[str, Any]
                     "id": clip_id,
                     "status": "ok",
                     "category": clip["category"],
+                    "requested_profile": "auto",
+                    "effective_engine": provenance["engine"],
+                    "provenance": provenance,
                     "predicted_notes": len(pred),
                     "reference_notes": len(ref),
                     "time_s": round(elapsed, 2),
@@ -159,20 +169,43 @@ def _category_summary(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]
     return summary
 
 
+def _result_payload(corpus: str, results: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "evaluation_id": "production_auto_real_audio_v1",
+        "requested_profile": "auto",
+        "corpus": corpus,
+        "summary": _category_summary(results),
+        "rows": results,
+        "notes": [
+            "Rows run the production transcription engine registry with profile=auto.",
+            "Per-clip metrics require aligned reference notes; errors remain explicit.",
+        ],
+    }
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run real-audio benchmark")
+    parser = argparse.ArgumentParser(description="Evaluate the production Auto transcription path")
     parser.add_argument("--corpus", default="real_audio_v1")
-    parser.add_argument("--onset", type=float, default=0.5)
-    parser.add_argument("--frame", type=float, default=0.3)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Write the complete per-clip evidence payload as JSON.",
+    )
     args = parser.parse_args()
 
-    results = run_baseline(args.corpus, args.onset, args.frame)
-    print(json.dumps(_category_summary(results), indent=2))
+    results = run_production_auto(args.corpus)
+    payload = _result_payload(args.corpus, results)
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(payload, indent=2) + "\n")
+        print(args.output)
+
+    print(json.dumps(payload["summary"], indent=2))
     for r in results:
         m = r.get("metrics")
         if m:
             print(
-                f"{r['id']} [{r['category']}]: noteF1={m['note_f1']} "
+                f"{r['id']} [{r['category']}, {r['effective_engine']}]: noteF1={m['note_f1']} "
                 f"pred={m['predicted_count']} ref={m['reference_count']} "
                 f"t={r['time_s']}s"
             )
