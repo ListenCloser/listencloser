@@ -556,8 +556,14 @@ def estimate_beats_with_engine(wav_bytes: bytes, engine_name: str | None = None)
     }
 
 
-def notation_with_engine(midi_bytes: bytes, beat_times: list[float], **kwargs: Any) -> dict:
-    """Create notation using the configured notation engine.
+def notation_with_engine(
+    midi_bytes: bytes,
+    beat_times: list[float],
+    *,
+    engine_name: str | None = None,
+    **kwargs: Any,
+) -> dict:
+    """Create notation using an explicit or configured notation engine.
 
     Returns a dict with notation_midi, musicxml, quantization_report, and provenance.
     Keyword arguments are forwarded to the engine's convert method (e.g. adaptive,
@@ -565,7 +571,7 @@ def notation_with_engine(midi_bytes: bytes, beat_times: list[float], **kwargs: A
     """
     from engines.registry import get_notation_engine
 
-    engine = get_notation_engine()
+    engine = get_notation_engine(engine_name)
     result = engine.convert(midi_bytes, beat_times, **kwargs)
     return {
         "notation_midi": result.notation_midi,

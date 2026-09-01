@@ -73,6 +73,7 @@ class UnderstandWorkflowBody(BaseModel):
     version_id: str
     project_id: str
     transcription_profile: Literal["auto", "solo_piano"] | None = None
+    score_engine: Literal["musescore", "pm2s"] | None = None
 
 
 def _canonical_transcription_profile(profile: str | None) -> str:
@@ -85,6 +86,11 @@ def _canonical_transcription_profile(profile: str | None) -> str:
     returning a stale cached one.
     """
     return profile or "auto"
+
+
+def _canonical_score_engine(engine: str | None) -> str:
+    """Normalize omitted Score selection to the current MuseScore baseline."""
+    return engine or "musescore"
 
 
 class AnalyzeWorkflowBody(BaseModel):
@@ -554,10 +560,11 @@ async def create_understand_workflow(
     try:
         version = _require_version_in_project(sb, version_id, project_id, owner_id)
         profile = _canonical_transcription_profile(body.transcription_profile)
+        score_engine = _canonical_score_engine(body.score_engine)
 
         job_id = uuid5(
             NAMESPACE_URL,
-            f"hello-ai:understand:1.0:{owner_id}:{version_id}:{profile}",
+            f"hello-ai:understand:1.0:{owner_id}:{version_id}:{profile}:{score_engine}",
         )
         job_repo = JobRepo(sb)
         existing_job = job_repo.get(job_id, owner_id)
@@ -571,7 +578,7 @@ async def create_understand_workflow(
         workflow = Workflow(
             id=uuid5(
                 NAMESPACE_URL,
-                f"hello-ai:understand-workflow:1.0:{owner_id}:{version_id}:{profile}",
+                f"hello-ai:understand-workflow:1.0:{owner_id}:{version_id}:{profile}:{score_engine}",
             ),
             project_id=project_id,
             kind=WorkflowKind.understand,
@@ -597,8 +604,9 @@ async def create_understand_workflow(
             parameters={
                 "fmt": Path(version.label).suffix.lstrip(".").lower() or "wav",
                 "transcription_profile": profile,
+                "score_engine": score_engine,
             },
-            cache_key=f"understand:1.0:{owner_id}:{version_id}:{profile}",
+            cache_key=f"understand:1.0:{owner_id}:{version_id}:{profile}:{score_engine}",
             created_by=owner_id,
         )
         try:

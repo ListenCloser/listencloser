@@ -35,6 +35,7 @@ type ApiWorkflowJob = components["schemas"]["WorkflowJobResponse"];
 type TranscriptionProfile = NonNullable<
   components["schemas"]["UnderstandWorkflowBody"]["transcription_profile"]
 >;
+type ScoreEngine = NonNullable<components["schemas"]["UnderstandWorkflowBody"]["score_engine"]>;
 type DomainCadence = NonNullable<Entity["cadence"]>;
 
 function assertProjectResponse(value: ApiProject): asserts value is Project {
@@ -530,6 +531,7 @@ export async function startUnderstandWorkflow(
   versionId: string,
   projectId: string,
   transcriptionProfile?: TranscriptionProfile,
+  scoreEngine?: ScoreEngine,
 ): Promise<{ workflow: Workflow; job: Job }> {
   return mutateVersionWorks([versionId], async () => {
     const result = await openapiClient.POST("/api/v1/workflows/understand", {
@@ -537,6 +539,7 @@ export async function startUnderstandWorkflow(
         version_id: versionId,
         project_id: projectId,
         ...(transcriptionProfile ? { transcription_profile: transcriptionProfile } : {}),
+        ...(scoreEngine ? { score_engine: scoreEngine } : {}),
       },
     });
     return normalizeWorkflowJob(requireOpenApiData(result));
