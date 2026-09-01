@@ -2,15 +2,20 @@ import pathlib
 
 
 BACKEND_ROOT = pathlib.Path(__file__).resolve().parents[1]
+FORBIDDEN_IMPORT_PREFIXES = (
+    "from backend ",
+    "from backend.",
+    "import backend ",
+    "import backend.",
+    "import backend,",
+)
 
 
 def _backend_qualified_imports(path: pathlib.Path) -> list[tuple[int, str]]:
     imports: list[tuple[int, str]] = []
     for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         statement = line.strip()
-        if statement.startswith("from backend ") or statement.startswith("from backend."):
-            imports.append((lineno, statement))
-        elif statement.startswith("import backend ") or statement.startswith("import backend."):
+        if statement == "import backend" or statement.startswith(FORBIDDEN_IMPORT_PREFIXES):
             imports.append((lineno, statement))
     return imports
 
