@@ -51,5 +51,8 @@ def test_deploy_workflow_can_migrate_without_publishing_runtime() -> None:
 def test_production_smoke_waits_for_database_delivery_without_requiring_release_sha() -> None:
     workflow = SMOKE_WORKFLOW.read_text()
 
-    assert "steps.scope.outputs.backend == 'true' || steps.scope.outputs.database == 'true'" in workflow
+    assert (
+        "steps.scope.outputs.backend == 'true' || steps.scope.outputs.database == 'true'"
+        in workflow
+    )
     assert "REQUIRE_EXACT_BACKEND_RELEASE: ${{ steps.scope.outputs.backend }}" in workflow
