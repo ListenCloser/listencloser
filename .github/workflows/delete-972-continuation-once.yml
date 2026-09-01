@@ -1,0 +1,67 @@
+name: Delete continuation placeholder once
+
+on:
+  push:
+    branches:
+      - fix/972-delete-continuation-placeholder
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/972-delete-continuation-placeholder
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Delete unsupported continuation capability
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          capabilities = Path('backend/domain/capabilities.py')
+          text = capabilities.read_text()
+          start_marker = '\ndef handle_generate_continuation(job: Job, client) -> list[str]:\n'
+          end_marker = '\ndef register_all_capabilities(worker) -> None:\n'
+          assert text.count(start_marker) == 1, 'expected exactly one continuation handler'
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          text = text[:start] + '\n' + text[end:]
+          registration = '    worker.register("generate_continuation", "1.0", handle_generate_continuation)\n'
+          assert text.count(registration) == 1, 'expected exactly one continuation registration'
+          text = text.replace(registration, '')
+          capabilities.write_text(text)
+
+          test = Path('backend/tests/test_capability_registration.py')
+          test_text = test.read_text()
+          test_text = test_text.replace(
+              'def test_legacy_describe_capability_is_not_registered() -> None:\n',
+              'def test_removed_legacy_capabilities_are_not_registered() -> None:\n',
+          )
+          anchor = '    assert "describe" not in worker.names\n'
+          assert test_text.count(anchor) == 1
+          test_text = test_text.replace(
+              anchor,
+              anchor + '    assert "generate_continuation" not in worker.names\n',
+          )
+          test.write_text(test_text)
+          PY
+          python -m pip install 'ruff==0.5.7'
+          cd backend
+          ruff format domain/capabilities.py tests/test_capability_registration.py
+          ruff check domain/capabilities.py tests/test_capability_registration.py
+          python -m compileall -q domain/capabilities.py tests/test_capability_registration.py
+          cd ..
+          git rm .github/workflows/delete-972-continuation-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/domain/capabilities.py backend/tests/test_capability_registration.py
+          git diff --cached --check
+          git diff --cached --quiet && exit 1
+          git commit -m 'fix(worker): delete broken continuation placeholder'
+          git push origin HEAD:fix/972-delete-continuation-placeholder
