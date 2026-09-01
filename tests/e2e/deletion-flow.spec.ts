@@ -42,14 +42,21 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await expect(page.getByText("Move through waveform, notes, notation, and evidence without losing your place.", { exact: true })).toBeVisible();
   await expect(page.locator(".empty-note, .empty-staff-line")).toHaveCount(0);
 
-  // Terse transcription modes explain the model choice deliberately. Visible
-  // control copy stays unchanged and the help is linked via aria-describedby.
-  await page.getByText("Transcription", { exact: true }).last().click();
+  // Processing groups the explicit transcription and Score-model choices.
+  // Terse labels keep the surface quiet while linked tooltips explain each
+  // model choice without relying on browser-native title bubbles.
+  await page.getByText("Processing", { exact: true }).click();
   const autoMode = page.getByRole("button", { name: "Auto", exact: true }).last();
   await expect(autoMode).not.toHaveAttribute("title");
   await autoMode.hover();
   await expect(page.getByRole("tooltip", { name: "Best default for most recordings" })).toBeVisible();
   await expect(autoMode).toHaveAttribute("aria-describedby");
+
+  const pm2sMode = page.getByRole("button", { name: "PM2S", exact: true }).last();
+  await expect(pm2sMode).not.toHaveAttribute("title");
+  await pm2sMode.hover();
+  await expect(page.getByRole("tooltip", { name: "Experimental learned piano score reconstruction" })).toBeVisible();
+  await expect(pm2sMode).toHaveAttribute("aria-describedby");
 
   // No stale transport state: deleting the active work removes the source
   // controls entirely rather than leaving a disabled playhead behind.
