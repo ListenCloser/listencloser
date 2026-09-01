@@ -13,12 +13,20 @@ def _credentials() -> HTTPAuthorizationCredentials:
     return HTTPAuthorizationCredentials(scheme="Bearer", credentials="test-token")
 
 
+def _claims_result(subject: str = "user-123") -> dict:
+    return {
+        "claims": {"sub": subject, "role": "authenticated"},
+        "headers": {"alg": "ES256"},
+        "signature": b"verified",
+    }
+
+
 def _client_with_result(result=None, error: Exception | None = None):
     client = MagicMock()
     if error is not None:
-        client.auth.get_user.side_effect = error
+        client.auth.get_claims.side_effect = error
     else:
-        client.auth.get_user.return_value = result
+        client.auth.get_claims.return_value = result
     return client
 
 
@@ -34,13 +42,33 @@ def test_verify_token_requires_credentials():
     assert exc_info.value.detail == "Not authenticated"
 
 
-def test_verify_token_passes_through_success(monkeypatch):
-    expected = object()
-    client = _client_with_result(expected)
+def test_verify_token_returns_minimal_principal_from_verified_claims(monkeypatch):
+    client = _client_with_result(_claims_result())
     _install_client(monkeypatch, client)
 
-    assert auth_utils.verify_token(_credentials()) is expected
-    client.auth.get_user.assert_called_once_with("test-token")
+    principal = auth_utils.verify_token(_credentials())
+
+    assert principal.user.id == "user-123"
+    assert principal.claims["role"] == "authenticated"
+    client.auth.get_claims.assert_called_once_with("test-token")
+    client.auth.get_user.assert_not_called()
+
+
+def test_verify_token_rejects_verified_claims_without_subject(monkeypatch):
+    client = _client_with_result(
+        {
+            "claims": {"role": "authenticated"},
+            "headers": {"alg": "ES256"},
+            "signature": b"verified",
+        }
+    )
+    _install_client(monkeypatch, client)
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth_utils.verify_token(_credentials())
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Invalid authentication credentials"
 
 
 def test_verify_token_maps_invalid_auth_api_error_to_401(monkeypatch):
@@ -98,6 +126,19 @@ def test_optional_auth_without_credentials_is_anonymous():
 
 def test_optional_auth_keeps_invalid_token_compatible_with_anonymous(monkeypatch):
     client = _client_with_result(error=AuthApiError("invalid token", 401, "bad_jwt"))
+    _install_client(monkeypatch, client)
+
+    assert auth_utils.verify_token_optional(_credentials()) is None
+
+
+def test_optional_auth_without_subject_is_anonymous(monkeypatch):
+    client = _client_with_result(
+        {
+            "claims": {"role": "authenticated"},
+            "headers": {"alg": "ES256"},
+            "signature": b"verified",
+        }
+    )
     _install_client(monkeypatch, client)
 
     assert auth_utils.verify_token_optional(_credentials()) is None
