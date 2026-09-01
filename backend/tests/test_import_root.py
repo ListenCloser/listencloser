@@ -1,13 +1,11 @@
-from __future__ import annotations
-
 import ast
-from pathlib import Path
+import pathlib
 
 
-BACKEND_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
-def _backend_qualified_imports(path: Path) -> list[tuple[int, str]]:
+def _backend_qualified_imports(path: pathlib.Path) -> list[tuple[int, str]]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     imports: list[tuple[int, str]] = []
 
