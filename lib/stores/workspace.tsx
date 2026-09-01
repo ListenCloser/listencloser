@@ -78,6 +78,7 @@ type WorkspaceState = {
   selection: MusicalSelection | null;
   transcriptionProfile: TranscriptionProfile;
   scoreEngine: ScoreEngine;
+  scoreRebuildRequestId: number;
   analysisState: AnalysisState;
 };
 
@@ -103,6 +104,7 @@ type WorkspaceContextValue = {
   clearSelection: () => void;
   setTranscriptionProfile: (profile: TranscriptionProfile) => void;
   setScoreEngine: (engine: ScoreEngine) => void;
+  requestScoreRebuild: () => void;
   setAnalysisState: (state: AnalysisState) => void;
 };
 
@@ -167,6 +169,7 @@ export function WorkspaceProvider({
     selection: null,
     transcriptionProfile: "auto",
     scoreEngine: "musescore",
+    scoreRebuildRequestId: 0,
     analysisState: "idle",
   });
 
@@ -228,6 +231,7 @@ export function WorkspaceProvider({
   const clearSelection = useCallback(() => setWorkspace((prev) => ({ ...prev, selection: null })), []);
   const setTranscriptionProfile = useCallback((transcriptionProfile: TranscriptionProfile) => setWorkspace((prev) => prev.transcriptionProfile === transcriptionProfile ? prev : { ...prev, transcriptionProfile }), []);
   const setScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => prev.scoreEngine === scoreEngine ? prev : { ...prev, scoreEngine }), []);
+  const requestScoreRebuild = useCallback(() => setWorkspace((prev) => ({ ...prev, scoreRebuildRequestId: prev.scoreRebuildRequestId + 1 })), []);
   const setAnalysisState = useCallback((analysisState: AnalysisState) => setWorkspace((prev) => ({ ...prev, analysisState })), []);
 
   return (
@@ -253,6 +257,7 @@ export function WorkspaceProvider({
       clearSelection,
       setTranscriptionProfile,
       setScoreEngine,
+      requestScoreRebuild,
       setAnalysisState,
     }}>
       {children}

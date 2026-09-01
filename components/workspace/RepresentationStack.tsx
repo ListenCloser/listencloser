@@ -101,7 +101,7 @@ function WorkspaceLoadingSkeleton() {
 }
 
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
-  const { workspace, requestImport, setActiveRepresentation, clearSelection } = useWorkspace();
+  const { workspace, requestImport, requestScoreRebuild, setActiveRepresentation, clearSelection } = useWorkspace();
   const [mountedViews, setMountedViews] = useState<Set<RepresentationId>>(() => new Set());
   const [orientationCue, setOrientationCue] = useState(false);
   const orientationFrame = useRef<number | null>(null);
@@ -265,6 +265,14 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
             Preparing representations…
           </span>
         )}
+        <div
+          aria-label="Score controls"
+          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-2)" }}
+        >
+          <span className="muted" style={{ fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}>Score</span>
+          <ScoreEngineToggle />
+          <button type="button" className="btn" onClick={requestScoreRebuild}>Rebuild Score</button>
+        </div>
       </div>
 
       {renderedViews.map((definition) => {
