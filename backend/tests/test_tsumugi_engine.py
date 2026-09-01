@@ -11,13 +11,20 @@ from engines.registry import get_transcription_engine
 from engines.transcription.tsumugi import TsumugiEngine
 
 
-def _runtime_paths(tmp_path: Path) -> tuple[Path, Path]:
-    python = tmp_path / "python"
+def _runtime_paths(tmp_path: Path) -> tuple[Path, Path, Path]:
+    source_root = tmp_path / "tsumugi"
+    module_path = source_root / TsumugiEngine.MODULE_PATH
+    module_path.parent.mkdir(parents=True)
+    module_path.write_text("# test module\n")
+
+    python = source_root / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
     python.write_text("#!/bin/sh\n")
     python.chmod(0o755)
+
     checkpoint = tmp_path / "tsumugi.ckpt"
     checkpoint.write_bytes(b"checkpoint")
-    return python, checkpoint
+    return source_root, python, checkpoint
 
 
 def _write_test_midi(path: Path) -> None:
@@ -29,6 +36,7 @@ def _write_test_midi(path: Path) -> None:
 
 
 def test_tsumugi_requires_explicit_external_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TSUMUGI_ROOT", raising=False)
     monkeypatch.delenv("TSUMUGI_PYTHON", raising=False)
     monkeypatch.delenv("TSUMUGI_CHECKPOINT", raising=False)
 
@@ -39,7 +47,7 @@ def test_tsumugi_requires_explicit_external_runtime(monkeypatch: pytest.MonkeyPa
 
 
 def test_tsumugi_invokes_pinned_cli_and_normalizes_midi(tmp_path: Path) -> None:
-    python, checkpoint = _runtime_paths(tmp_path)
+    source_root, python, checkpoint = _runtime_paths(tmp_path)
     calls: list[tuple[list[str], dict[str, object]]] = []
 
     def runner(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -49,6 +57,7 @@ def test_tsumugi_invokes_pinned_cli_and_normalizes_midi(tmp_path: Path) -> None:
         return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
 
     engine = TsumugiEngine(
+        source_root=source_root,
         python_executable=python,
         checkpoint=checkpoint,
         device="cpu",
@@ -68,6 +77,7 @@ def test_tsumugi_invokes_pinned_cli_and_normalizes_midi(tmp_path: Path) -> None:
         "capture_output": True,
         "text": True,
         "timeout": 42,
+        "cwd": str(source_root),
     }
     assert result.midi.startswith(b"MThd")
     assert result.wav == b""
@@ -79,9 +89,10 @@ def test_tsumugi_invokes_pinned_cli_and_normalizes_midi(tmp_path: Path) -> None:
 
 
 def test_tsumugi_verifies_configured_checkpoint_hash(tmp_path: Path) -> None:
-    python, checkpoint = _runtime_paths(tmp_path)
+    source_root, python, checkpoint = _runtime_paths(tmp_path)
     wrong_digest = hashlib.sha256(b"different").hexdigest()
     engine = TsumugiEngine(
+        source_root=source_root,
         python_executable=python,
         checkpoint=checkpoint,
         checkpoint_sha256=wrong_digest,
@@ -92,12 +103,13 @@ def test_tsumugi_verifies_configured_checkpoint_hash(tmp_path: Path) -> None:
 
 
 def test_tsumugi_subprocess_failure_never_falls_back(tmp_path: Path) -> None:
-    python, checkpoint = _runtime_paths(tmp_path)
+    source_root, python, checkpoint = _runtime_paths(tmp_path)
 
     def runner(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(command, 7, stdout="", stderr="model failed")
 
     engine = TsumugiEngine(
+        source_root=source_root,
         python_executable=python,
         checkpoint=checkpoint,
         runner=runner,
