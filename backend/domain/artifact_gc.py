@@ -330,18 +330,21 @@ def collect_artifact_garbage(
         # re-queued while the bucket inventory is being walked.
         latest_referenced = load_referenced_versions(client, bucket=bucket)
         latest_active_jobs = load_active_job_ids(client)
-        candidates = [
-            obj
-            for obj in candidates
-            if classify_object(
+        revalidated: list[StorageObject] = []
+        for obj in candidates:
+            latest_reason = classify_object(
                 obj,
                 referenced=latest_referenced,
                 active_job_ids=latest_active_jobs,
                 bucket=bucket,
                 cutoff=cutoff,
             )
-            is RetentionReason.ELIGIBLE
-        ]
+            if latest_reason is RetentionReason.ELIGIBLE:
+                revalidated.append(obj)
+                continue
+            reasons[RetentionReason.ELIGIBLE] -= 1
+            reasons[latest_reason] += 1
+        candidates = revalidated
         deleted_count, deleted_bytes, delete_error_count = _remove_batches(
             client.storage.from_(bucket),
             candidates,
