@@ -135,6 +135,27 @@ function preserveImmutableRepresentationUrls(
   });
 }
 
+function preserveSameSourceDerivedRepresentations(
+  previous: RepresentationEntry[],
+  incoming: RepresentationEntry[],
+): RepresentationEntry[] {
+  const stableIncoming = preserveImmutableRepresentationUrls(previous, incoming);
+  const previousSourceVersionId = previous.find((item) => item.kind === "waveform")?.versionId;
+  const incomingSourceVersionId = stableIncoming.find((item) => item.kind === "waveform")?.versionId;
+
+  if (!previousSourceVersionId || previousSourceVersionId !== incomingSourceVersionId) {
+    return stableIncoming;
+  }
+
+  const incomingKinds = new Set(stableIncoming.map((item) => item.kind));
+  const retained = previous.filter((item) =>
+    Boolean(item.versionId)
+    && (item.kind === "piano_roll" || item.kind === "score")
+    && !incomingKinds.has(item.kind),
+  );
+  return [...stableIncoming, ...retained];
+}
+
 export function useWorkspace(): WorkspaceContextValue {
   const ctx = useContext(WorkspaceContext);
   if (!ctx) throw new Error("useWorkspace must be used within WorkspaceProvider");
@@ -220,7 +241,7 @@ export function WorkspaceProvider({
   const setStudioOperation = useCallback((studioOperation: StudioOperation) => setWorkspace((prev) => ({ ...prev, studioOperation })), []);
   const replaceRepresentations = useCallback((representations: RepresentationEntry[]) => setWorkspace((prev) => ({
     ...prev,
-    representations: preserveImmutableRepresentationUrls(prev.representations, representations),
+    representations: preserveSameSourceDerivedRepresentations(prev.representations, representations),
     activeRepresentation: prev.activeRepresentation ?? null,
   })), []);
   const setActiveRepresentation = useCallback((activeRepresentation: RepresentationId | null) => setWorkspace((prev) => prev.activeRepresentation === activeRepresentation ? prev : { ...prev, activeRepresentation }), []);
