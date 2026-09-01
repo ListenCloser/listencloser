@@ -16,6 +16,13 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import Link
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
+_JOB_TRACE_CONTEXT_KEY = "trace_context"
+_JOB_TRACE_CONTEXT_HEADERS = ("traceparent", "tracestate")
+_MAX_JOB_TRACE_CONTEXT_VALUE_LENGTH = 512
+_trace_context_propagator = TraceContextTextMapPropagator()
 
 
 class JsonFormatter(logging.Formatter):
@@ -168,6 +175,67 @@ def get_tracer(name: str):
     """Return a tracer without exposing the SDK to callers."""
 
     return trace.get_tracer(name)
+
+
+def capture_job_trace_provenance(provenance: dict[str, Any]) -> dict[str, Any]:
+    """Persist the current W3C trace carrier in immutable Job provenance.
+
+    Only Trace Context headers are admitted. OpenTelemetry baggage is excluded
+    because it can contain arbitrary application/user values and must not become
+    durable Job metadata. Existing context wins so explicit retries preserve the
+    original producer trace instead of being rebound to the retrying HTTP call.
+    """
+
+    result = dict(provenance)
+    if _JOB_TRACE_CONTEXT_KEY in result:
+        return result
+
+    carrier: dict[str, str] = {}
+    _trace_context_propagator.inject(carrier)
+    traceparent = carrier.get("traceparent")
+    if (
+        not isinstance(traceparent, str)
+        or not traceparent
+        or len(traceparent) > _MAX_JOB_TRACE_CONTEXT_VALUE_LENGTH
+    ):
+        return result
+
+    context = {"traceparent": traceparent}
+    tracestate = carrier.get("tracestate")
+    if (
+        isinstance(tracestate, str)
+        and tracestate
+        and len(tracestate) <= _MAX_JOB_TRACE_CONTEXT_VALUE_LENGTH
+    ):
+        context["tracestate"] = tracestate
+    result[_JOB_TRACE_CONTEXT_KEY] = context
+    return result
+
+
+def job_trace_links(provenance: dict[str, Any]) -> list[Link]:
+    """Return one valid producer link extracted from durable Job provenance."""
+
+    raw = provenance.get(_JOB_TRACE_CONTEXT_KEY)
+    if not isinstance(raw, dict):
+        return []
+
+    carrier: dict[str, str] = {}
+    for header in _JOB_TRACE_CONTEXT_HEADERS:
+        value = raw.get(header)
+        if (
+            isinstance(value, str)
+            and value
+            and len(value) <= _MAX_JOB_TRACE_CONTEXT_VALUE_LENGTH
+        ):
+            carrier[header] = value
+    if "traceparent" not in carrier:
+        return []
+
+    context = _trace_context_propagator.extract(carrier)
+    span_context = trace.get_current_span(context).get_span_context()
+    if not span_context.is_valid:
+        return []
+    return [Link(span_context)]
 
 
 def http_metric_attributes(method: str, route_template: str, status_code: int) -> dict[str, str]:
