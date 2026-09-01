@@ -23,14 +23,14 @@ from typing import Any
 
 from engines.base import TranscriptionEngine
 from engines.registry import get_transcription_engine
+from evaluation.datasets import cache
+from evaluation.datasets.registry import resolve_clip
 from evaluation.real_audio import (
     _category_summary,
     _load_clips,
     _reference_notes,
     _slice_audio,
 )
-from evaluation.datasets import cache
-from evaluation.datasets.registry import resolve_clip
 from evaluation.transcription_metrics import Note, compute_note_metrics
 
 
