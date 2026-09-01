@@ -124,6 +124,7 @@ components_workspace_-->lib_musicxml_cache_ts
 components_workspace_-->lib_playback_sources_ts
 components_workspace_-->lib_server_state_ts
 components_workspace_-->lib_stores_
+components_workspace_-->lib_work_load_authority_ts
 components_workspace_-->components_ui_
 components_workspace_-->lib_inspector_
 components_workspace_-->lib_ask_
