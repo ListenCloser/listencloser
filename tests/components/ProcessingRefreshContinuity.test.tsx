@@ -46,6 +46,41 @@ describe("same-Work processing refresh continuity", () => {
     expect(result.current.transport.activeSource?.url).toBe(first.url);
   });
 
+  it("preserves an explicit derived playback choice when the same Work refreshes", () => {
+    const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+    const { result } = renderHook(() => useTransport(), { wrapper: transportWrapper });
+
+    const original = {
+      id: "original-version",
+      label: "Original",
+      url: "https://storage.example/original-first",
+      kind: "audio" as const,
+      role: "original" as const,
+    };
+    const score = {
+      id: "score-version",
+      label: "Score",
+      url: "https://storage.example/score-first",
+      kind: "audio" as const,
+      role: "score" as const,
+    };
+
+    act(() => result.current.replaceSources([original, score], original.id));
+    act(() => result.current.setActiveSource(score));
+    expect(result.current.transport.activeSource?.id).toBe(score.id);
+    expect(load).toHaveBeenCalledTimes(2);
+
+    act(() => result.current.replaceSources([
+      { ...original, url: "https://storage.example/original-refreshed" },
+      { ...score, url: "https://storage.example/score-refreshed" },
+    ], original.id, true));
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(result.current.transport.activeSource?.id).toBe(score.id);
+    expect(result.current.transport.activeSource?.url).toBe(score.url);
+  });
+
   it("keeps representation URLs stable when a poll returns a new signed URL for the same version", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper: workspaceWrapper });
     const first = {
@@ -80,6 +115,7 @@ describe("same-Work processing refresh continuity", () => {
       sourceLabel: "Playback source",
       confidence: null,
       provenance: "uploaded source",
+      audioUrl: "https://storage.example/version-a",
       versionId: "version-a",
     };
     const second = { ...first, sourceUrl: "https://storage.example/version-b", versionId: "version-b" };
