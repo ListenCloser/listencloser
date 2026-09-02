@@ -91,3 +91,17 @@ def test_aggregate_keeps_abstentions_and_errors_in_failure_denominator() -> None
 def test_success_result_cannot_omit_metrics() -> None:
     with pytest.raises(ValueError, match="missing metrics"):
         aggregate_song_results([MelodySongResult(song_id="001", status="ok")])
+
+
+def test_melody_registry_qualifies_cross_seed_historical_metric() -> None:
+    registry_path = Path(__file__).resolve().parent.parent / "config" / "capabilities.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    melody = registry["capabilities"]["melody"]
+
+    assert melody["status"] == "experimental"
+    assert melody["engine"] == "lstom"
+    assert melody["evaluation"]["value"] == pytest.approx(0.768)
+    assert "cross-training-seed mean" in melody["evaluation"]["details"]
+    assert "not a newly reproduced metric for the current checkpoint" in melody["evaluation"][
+        "details"
+    ]
