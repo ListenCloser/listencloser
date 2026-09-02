@@ -1,4 +1,3 @@
-import hashlib
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -39,12 +38,10 @@ class AuthPrincipal:
 
 
 def _rate_limit_identity(request: Request) -> str:
-    """Isolate authenticated quotas even when requests share a proxy address."""
-    authorization = request.headers.get("authorization", "")
-    if authorization.lower().startswith("bearer "):
-        token = authorization[7:].strip().encode("utf-8")
-        if token:
-            return f"auth:{hashlib.sha256(token).hexdigest()}"
+    """Key authenticated quotas by verified user, never raw credentials."""
+    principal = getattr(request.state, "auth_principal", None)
+    if isinstance(principal, AuthPrincipal):
+        return f"user:{principal.user.id}"
     return f"ip:{get_remote_address(request)}"
 
 
@@ -116,7 +113,16 @@ def _verify_supabase_token(sb, token: str, *, optional: bool) -> AuthPrincipal |
     return _principal_from_claims(response, optional=optional)
 
 
+def _remember_principal(request: Request, principal: AuthPrincipal) -> AuthPrincipal:
+    # FastAPI resolves dependencies before SlowAPI invokes its decorated endpoint
+    # wrapper. Request state carries only the already-verified identity across
+    # that boundary; the raw access token never becomes rate-limit identity.
+    request.state.auth_principal = principal
+    return principal
+
+
 def verify_token(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> AuthPrincipal:
     if not credentials:
@@ -133,10 +139,11 @@ def verify_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
         )
-    return principal
+    return _remember_principal(request, principal)
 
 
 def verify_token_optional(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> AuthPrincipal | None:
     if not credentials:
@@ -144,4 +151,7 @@ def verify_token_optional(
     sb = get_supabase()
     if not sb:
         return None
-    return _verify_supabase_token(sb, credentials.credentials, optional=True)
+    principal = _verify_supabase_token(sb, credentials.credentials, optional=True)
+    if principal is None:
+        return None
+    return _remember_principal(request, principal)
