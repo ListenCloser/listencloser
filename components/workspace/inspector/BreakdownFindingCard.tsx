@@ -19,7 +19,7 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
     setActiveRepresentation,
     setInspectorMode,
   } = useWorkspace();
-  const { transport, seek, setLoop, toggleLoop } = useTransport();
+  const { transport, play, seek, setLoop, toggleLoop } = useTransport();
   const supportInsightKinds = finding.supportInsightIds.map(
     (supportId) => workspace.insights.find((insight) => insight.id === supportId)?.kind ?? null,
   );
@@ -52,6 +52,7 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
         selectFinding();
         setLoop(finding.startSeconds, finding.endSeconds);
         if (!transport.loopEnabled) toggleLoop();
+        play();
         break;
       case "show":
         focusFinding();

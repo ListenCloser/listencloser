@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   setSelection: vi.fn(),
   setActiveRepresentation: vi.fn(),
   setInspectorMode: vi.fn(),
+  play: vi.fn(),
   seek: vi.fn(),
   setLoop: vi.fn(),
   toggleLoop: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock("@/lib/stores/workspace", () => ({
 vi.mock("@/lib/stores/transport", () => ({
   useTransport: () => ({
     transport: mocks.transport,
+    play: mocks.play,
     seek: mocks.seek,
     setLoop: mocks.setLoop,
     toggleLoop: mocks.toggleLoop,
@@ -92,7 +94,7 @@ describe("BreakdownFindingCard live actions", () => {
     window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
   });
 
-  it("keeps Loop transport-only while preserving the shared selection", async () => {
+  it("auditions Loop immediately while preserving the shared selection", async () => {
     const user = userEvent.setup();
     const orientationListener = vi.fn();
     window.addEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
@@ -103,6 +105,7 @@ describe("BreakdownFindingCard live actions", () => {
     expect(mocks.seek).toHaveBeenCalledWith(0.2);
     expect(mocks.setLoop).toHaveBeenCalledWith(0.2, 0.5);
     expect(mocks.toggleLoop).toHaveBeenCalledTimes(1);
+    expect(mocks.play).toHaveBeenCalledTimes(1);
     expect(mocks.setSelection).toHaveBeenCalledWith({
       timeRange: { start: 0.2, end: 0.5, domain: "performance" },
       provenance: { origin: null, timeExact: false, measureApproximate: true },
