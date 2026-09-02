@@ -29,7 +29,7 @@ test("a durable recording stays usable while understand artifacts arrive", async
 
   // Upload durability ends the blocking phase. The real source is already a
   // usable Work while the understand job is still running.
-  await expect(page.getByText("Recording saved.", { exact: true })).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText("Ready to listen.", { exact: true })).toBeVisible({ timeout: 5_000 });
   await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Playback source:/ })).toBeVisible();
   await expect(page.locator(".operation-layer")).not.toBeVisible();
@@ -54,5 +54,5 @@ test("a durable recording stays usable while understand artifacts arrive", async
   await expect(representationTabs.getByRole("tab")).toHaveCount(4);
   await expect(page.getByRole("tab", { name: "Waveform" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible();
-  await expect(page.getByText("Recording saved.", { exact: true })).not.toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText("Ready to listen.", { exact: true })).not.toBeVisible({ timeout: 5_000 });
 });
