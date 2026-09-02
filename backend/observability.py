@@ -104,7 +104,7 @@ def init_sentry(
     the SDK avoids coupling process entrypoints to integration class names.
     """
 
-    dsn = os.environ.get("SENTRY_DSN_BACKEND") or os.environ.get("SENTRY_DSN")
+    dsn = os.environ.get("SENTRY_DSN_BACKEND")
     if not dsn:
         return False
 

@@ -25,9 +25,9 @@ def test_init_sentry_is_disabled_without_dsn(monkeypatch):
     assert calls == []
 
 
-def test_init_sentry_uses_shared_worker_environment_contract(monkeypatch):
+def test_init_sentry_uses_backend_environment_contract(monkeypatch):
     _clear_sentry_env(monkeypatch)
-    monkeypatch.setenv("SENTRY_DSN", "https://public@example.invalid/1")
+    monkeypatch.setenv("SENTRY_DSN_BACKEND", "https://public@example.invalid/1")
     monkeypatch.setenv("SENTRY_ENV", "staging")
     monkeypatch.setenv("SENTRY_TRACES_SAMPLE_RATE", "0.25")
     monkeypatch.setenv("RELEASE", "worker@abc123")
@@ -44,6 +44,16 @@ def test_init_sentry_uses_shared_worker_environment_contract(monkeypatch):
             "release": "worker@abc123",
         }
     ]
+
+
+def test_init_sentry_ignores_legacy_generic_dsn(monkeypatch):
+    _clear_sentry_env(monkeypatch)
+    monkeypatch.setenv("SENTRY_DSN", "https://legacy@example.invalid/1")
+    calls = []
+    monkeypatch.setattr(sentry_sdk, "init", lambda **kwargs: calls.append(kwargs))
+
+    assert init_sentry(logging.getLogger("test")) is False
+    assert calls == []
 
 
 def test_init_sentry_preserves_api_default_release(monkeypatch):
