@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "status": "BASELINE_REQUIRED_BEFORE_THRESHOLDS",
+  "purpose": "Vendor-neutral production observability and initial SLO measurement contract for Listen Closer.",
+  "resource_attributes": [
+    "service.name",
+    "service.version",
+    "deployment.environment.name"
+  ],
+  "privacy": {
+    "allowed_metric_dimensions": [
+      "http.request.method",
+      "http.route",
+      "http.response.status_class",
+      "job.capability",
+      "job.outcome"
+    ],
+    "forbidden_metric_dimensions": [
+      "user_id",
+      "project_id",
+      "work_id",
+      "version_id",
+      "job_id",
+      "request_id",
+      "raw_request_path",
+      "file_name",
+      "musical_content"
+    ],
+    "trace_log_rule": "Operational identifiers may be used in traces/logs when necessary and privacy-safe; they must not become metric dimensions."
+  },
+  "instruments": {
+    "http_requests": {
+      "otel_name": "hello_ai.http.server.requests",
+      "type": "counter",
+      "unit": "{request}",
+      "dimensions": [
+        "http.request.method",
+        "http.route",
+        "http.response.status_class"
+      ],
+      "note": "The hello_ai prefix is the current shipped instrument identity; do not rename it in documentation independently of runtime code."
+    },
+    "http_duration": {
+      "otel_name": "hello_ai.http.server.duration",
+      "type": "histogram",
+      "unit": "ms",
+      "dimensions": [
+        "http.request.method",
+        "http.route",
+        "http.response.status_class"
+      ]
+    },
+    "worker_executions": {
+      "otel_name": "hello_ai.worker.job.executions",
+      "type": "counter",
+      "unit": "{job}",
+      "dimensions": [
+        "job.capability",
+        "job.outcome"
+      ],
+      "outcomes": [
+        "succeeded",
+        "failed",
+        "cancelled",
+        "retry"
+      ]
+    },
+    "worker_duration": {
+      "otel_name": "hello_ai.worker.job.duration",
+      "type": "histogram",
+      "unit": "s",
+      "dimensions": [
+        "job.capability",
+        "job.outcome"
+      ],
+      "outcomes": [
+        "succeeded",
+        "failed",
+        "cancelled",
+        "retry"
+      ]
+    },
+    "orphans_recovered": {
+      "otel_name": "hello_ai.worker.orphans_recovered",
+      "type": "counter",
+      "unit": "{job}",
+      "dimensions": [],
+      "lifecycle": "legacy_queue_transport_diagnostic_pending_651"
+    }
+  },
+  "derived_series": {
+    "api_non_5xx_rate": {
+      "numerator": "rate(http_requests where status_class != 5xx)",
+      "denominator": "rate(all http_requests)",
+      "group_by": [
+        "http.request.method",
+        "http.route"
+      ],
+      "notes": "Operational availability proxy only. 4xx remains separately visible and is not product-task success."
+    },
+    "api_server_error_rate": {
+      "numerator": "rate(http_requests where status_class == 5xx)",
+      "denominator": "rate(all http_requests)",
+      "group_by": [
+        "http.request.method",
+        "http.route"
+      ]
+    },
+    "api_client_error_rate": {
+      "numerator": "rate(http_requests where status_class == 4xx)",
+      "denominator": "rate(all http_requests)",
+      "group_by": [
+        "http.request.method",
+        "http.route"
+      ],
+      "notes": "Diagnostic only; expected authentication, authorization, validation, and not-found outcomes may be 4xx."
+    },
+    "api_latency_percentiles": {
+      "source": "http_duration",
+      "percentiles": [
+        0.5,
+        0.95,
+        0.99
+      ],
+      "group_by": [
+        "http.request.method",
+        "http.route"
+      ],
+      "require_sample_count": true
+    },
+    "worker_terminal_success_rate": {
+      "numerator": "rate(worker_executions where outcome == succeeded)",
+      "denominator": "rate(worker_executions where outcome in [succeeded, failed, cancelled])",
+      "group_by": [
+        "job.capability"
+      ],
+      "notes": "retry is an execution-attempt outcome and is excluded from the terminal denominator."
+    },
+    "worker_terminal_failure_rate": {
+      "numerator": "rate(worker_executions where outcome == failed)",
+      "denominator": "rate(worker_executions where outcome in [succeeded, failed, cancelled])",
+      "group_by": [
+        "job.capability"
+      ]
+    },
+    "worker_cancelled_rate": {
+      "numerator": "rate(worker_executions where outcome == cancelled)",
+      "denominator": "rate(worker_executions where outcome in [succeeded, failed, cancelled])",
+      "group_by": [
+        "job.capability"
+      ],
+      "notes": "User cancellation is reported separately from failure."
+    },
+    "worker_retry_attempt_rate": {
+      "numerator": "rate(worker_executions where outcome == retry)",
+      "denominator": "rate(all worker_executions)",
+      "group_by": [
+        "job.capability"
+      ],
+      "notes": "Operational retry pressure; not a terminal-job failure rate."
+    },
+    "worker_duration_percentiles": {
+      "source": "worker_duration",
+      "percentiles": [
+        0.5,
+        0.95,
+        0.99
+      ],
+      "group_by": [
+        "job.capability",
+        "job.outcome"
+      ],
+      "require_sample_count": true
+    }
+  },
+  "non_metric_signals": {
+    "worker_capability_availability": {
+      "source": "GET /health/queue",
+      "measurement": "worker heartbeat freshness and capability availability"
+    },
+    "release_identity": {
+      "source": "GET /health/ready plus telemetry resource/log release fields",
+      "measurement": "deployed SHA matches the intended release"
+    },
+    "async_trace_continuity": {
+      "source": "Job provenance trace_context plus worker job.execution_attempt span links",
+      "measurement": "producer request trace is linkable to every durable execution attempt without pretending retries form one synchronous stack"
+    }
+  },
+  "pending_initial_slo_inputs": [
+    {
+      "signal": "queue wait and oldest queued age",
+      "owner": "#651",
+      "reason": "Queue transport and its production telemetry are changing under the active PGMQ cutover; do not create a competing metric contract."
+    },
+    {
+      "signal": "canonical understand completion latency",
+      "owner": "#637",
+      "reason": "Production-shaped verification can provide point evidence, but there is not yet a continuous bounded OTLP workflow-latency instrument in this contract."
+    }
+  ],
+  "baseline_requirements": {
+    "windows": [
+      "one release-scoped production window",
+      "one rolling multi-day production window after release-specific anomalies settle"
+    ],
+    "record": [
+      "absolute UTC start and end",
+      "release SHA or SHAs",
+      "service.name and service.version",
+      "request and worker sample counts",
+      "p50, p95, and p99 only where sample count is adequate",
+      "HTTP status-class distribution",
+      "worker outcome distribution including retry and cancellation",
+      "known deploys or incidents that materially distort the sample",
+      "the backend query or dashboard expression used to translate the vendor-neutral formulas"
+    ]
+  },
+  "threshold_policy": {
+    "latency": "Unset until production baselines and an explicit product target exist.",
+    "reliability": "Unset until expected 4xx, cancellation, retry, and genuine failure semantics are separated in measured data.",
+    "ci": "Hosted CI wall-clock timing is not production SLO evidence."
+  }
+}

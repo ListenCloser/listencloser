@@ -30,7 +30,7 @@ GitHub Actions writes `backend/.env` on the VM from repository secrets:
 | Var | Purpose |
 |---|---|
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | DB + Storage access |
-| `SENTRY_DSN_BACKEND` | Backend errors/traces (falls back to `SENTRY_DSN`) |
+| `SENTRY_DSN_BACKEND` | Backend errors/traces |
 | `SENTRY_ENV` | `production` on the VM, `development` locally |
 | `RELEASE` | Exact deployed Git SHA; written by `scripts/deploy.sh` |
 
@@ -65,12 +65,14 @@ git checkout <prev_commit> && ./scripts/deploy.sh   # manual rollback
 # Monitoring & Status — where do I look?
 All reachable by a human without touching code. Commands run from your machine unless marked 'on the VM'.
 
+The semantic contract for trace continuity, metric cardinality, initial SLO formulas, and production baselines lives in [`OBSERVABILITY.md`](OBSERVABILITY.md) with the machine-readable companion [`observability_contract.json`](observability_contract.json). This runbook owns how to reach and operate the deployed systems.
+
 ## Sentry (errors + traces)
 Two Sentry setups, both env-gated (silent if DSN empty):
 - Frontend: `NEXT_PUBLIC_SENTRY_DSN` (Vercel project vars + `.env.local`).
-- Backend: `SENTRY_DSN_BACKEND` (falls back to `SENTRY_DSN`); set in `.env.local` on the VM (`docker-compose.yml:83`).
+- Backend: `SENTRY_DSN_BACKEND`; set in `.env.local` on the VM (`docker-compose.yml:83`).
 Verify on VM: `docker compose exec backend printenv SENTRY_DSN_BACKEND` and `docker compose logs backend | grep sentry_initialized`.
-A DSN looks like `https://<key>@<org>.<region>.ingest.sentry.io/<project_id>`. To reach the dashboard: open https://sentry.io/ → org switcher → your org → **Issues** (exceptions) and **Performance/Traces** (latency). The org slug + project names are NOT in the repo — derive from `.env.local` DSN or your Sentry account. Backend releases tagged via `RELEASE` (default `backend@2.0.0`).
+A DSN looks like `https://<key>@<org>.<region>.ingest.sentry.io/<project_id>`. To reach the dashboard: open https://sentry.io/ → org switcher → your org → **Issues** (exceptions) and **Performance/Traces** (latency). The org slug + project names are NOT in the repo — derive from `.env.local` DSN or your Sentry account. Backend release identity comes from `RELEASE`, which deployment sets to the exact Git SHA.
 
 ## Logs (Loki / Promtail / Grafana)
 Backend emits structured JSON to stdout (`{ts,level,logger,msg,req_id}` + `exc` on errors; per-request `{req_id,method,path,status,duration_ms}`). Every request gets `x-request-id` echoed in the response header — copy it to find the exact log line.

@@ -18,6 +18,7 @@ There is intentionally no single document that owns every kind of fact.
 | What product/architecture direction are we moving toward? | [`MASTER_SPEC.md`](MASTER_SPEC.md) + newer accepted ADRs |
 | Why was an architectural choice made? | relevant ADR in [`adr/`](adr/) |
 | How is production operated or verified? | [`OPS.md`](OPS.md) + deployment workflows/config |
+| How are production traces, metrics, and initial SLO formulas defined? | [`OBSERVABILITY.md`](OBSERVABILITY.md) + [`observability_contract.json`](observability_contract.json) |
 | How do we recover from a production failure? | [`RECOVERY.md`](RECOVERY.md) + the relevant operational/deployment contract |
 | What work remains? | GitHub issues/roadmap issues, not a frozen PR inventory in Markdown |
 
@@ -57,7 +58,7 @@ Discovery references under [`research/`](research/) help find candidate techniqu
 
 ### Production operations
 
-Read [`OPS.md`](OPS.md) for normal operation/release procedures and [`RECOVERY.md`](RECOVERY.md) for failure recovery, then verify the deployed release identity and live configuration. Historical deployment prose is not runtime evidence.
+Read [`OPS.md`](OPS.md) for normal operation/release procedures, [`OBSERVABILITY.md`](OBSERVABILITY.md) for trace/metric/SLO semantics, and [`RECOVERY.md`](RECOVERY.md) for failure recovery, then verify the deployed release identity and live configuration. Historical deployment prose is not runtime evidence.
 
 ## Architecture documentation convention
 
@@ -95,6 +96,7 @@ Do not use a future-looking spec to claim a capability is implemented. Do not us
 - `evaluation/evidence-sufficiency.md` — evidence-readiness/abstention semantics paired with the executable claim contract.
 - `MASTER_SPEC.md` — product and target-architecture direction.
 - `OPS.md` — normal operations/release procedures.
+- `OBSERVABILITY.md` + `observability_contract.json` — production trace/metric semantics, bounded initial SLO formulas, and baseline requirements.
 - `RECOVERY.md` — production recovery procedure and failure-handling contract.
 - `analysis/` — maintained analysis/evidence domain contracts whose semantics outlive one implementation plan.
 - `design/` — maintained design specializations plus explicitly non-authoritative references; root `DESIGN.md` remains the broad visual/product UI contract.
