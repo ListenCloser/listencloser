@@ -1,7 +1,8 @@
 """Music21 symbolic harmony engine.
 
 Wraps music21-based harmonic analysis (key, chords, Roman numerals,
-cadences, voice leading, phrases) behind the HarmonyEngine seam.
+voice leading, phrases) behind the HarmonyEngine seam. Cadence detection is
+explicitly withheld until a validated detector earns production eligibility.
 """
 
 from __future__ import annotations
@@ -137,74 +138,16 @@ def _m21_roman_numerals(score, detected_key) -> list[dict[str, Any]]:
     return results
 
 
-def _m21_cadences(score, detected_key) -> list[dict[str, Any]]:
-    """Detect cadence candidates from adjacent Roman numerals.
+def _m21_cadences(_score, _detected_key) -> list[dict[str, Any]]:
+    """Return no cadence claims until a validated detector is production-ready.
 
-    This is deliberately conservative: a V-I progression is only a candidate,
-    not a confirmed cadence. Evidence includes metric position, chord duration,
-    and whether the arrival lands near a measure boundary.
+    The previous implementation matched adjacent Roman-numeral pairs such as
+    V-I and IV-I. Those progressions are not sufficient evidence of phrase
+    closure, so emitting them as cadence candidates overstated what the input
+    established. Keep the capability explicitly abstaining while #1043 owns a
+    legitimate cadence-evaluation path.
     """
-    try:
-        from music21 import roman
-    except ImportError:
-        return []
-    candidates: list[dict[str, Any]] = []
-    patterns = [
-        ("authentic", ["V", "I"]),
-        ("plagal", ["IV", "I"]),
-        ("half", ["I", "V"]),
-        ("deceptive", ["V", "vi"]),
-        ("authentic", ["V7", "I"]),
-        ("authentic", ["V", "i"]),
-        ("half", ["i", "V"]),
-        ("deceptive", ["V", "VI"]),
-    ]
-    # Collect (offset, figure, duration_qn, measure_start_offset)
-    chord_seq: list[tuple[float, str, float, float]] = []
-    for part in score.parts:
-        for measure in part.getElementsByClass("Measure"):
-            m_start = float(measure.offset) if measure.offset is not None else 0.0
-            for ch in measure.getElementsByClass("Chord"):
-                try:
-                    rn = roman.romanNumeralFromChord(ch, detected_key)
-                    offset = float(ch.getOffsetInHierarchy(score))
-                    dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
-                    chord_seq.append((offset, rn.figure, dur, m_start))
-                except Exception:
-                    continue
-
-    for i in range(len(chord_seq) - 1):
-        prev_off, prev_fig, prev_dur, prev_m = chord_seq[i]
-        off, fig, dur, m_start = chord_seq[i + 1]
-        pair = [prev_fig, fig]
-        for cad_type, pattern in patterns:
-            if pair == pattern:
-                # Metric evidence: arrival near a measure boundary boosts confidence.
-                near_boundary = (off - m_start) <= 0.5
-                # Duration evidence: longer arrival is more phrase-ending-like.
-                long_arrival = dur >= 1.0
-                evidence_score = 0.5
-                if near_boundary:
-                    evidence_score += 0.2
-                if long_arrival:
-                    evidence_score += 0.1
-                candidates.append(
-                    {
-                        "type": cad_type,
-                        "chords": pair,
-                        "position": round(off, 3),
-                        "evidence_score": round(min(evidence_score, 0.8), 3),
-                        "evidence": {
-                            "metric_position": (
-                                "near_measure_boundary" if near_boundary else "mid_measure"
-                            ),
-                            "arrival_duration_qn": round(dur, 3),
-                            "method": "roman_numeral_pattern",
-                        },
-                    }
-                )
-                break
-    return candidates
+    return []
 
 
 def _m21_voice_leading(score):
@@ -300,32 +243,24 @@ class Music21HarmonyEngine(HarmonyEngine):
     def component_provenance(self) -> dict[str, EngineProvenance]:
         """Per-sub-capability provenance.
 
-        Music21 delivers key, chords, roman numerals, and voice leading via
-        its own modules. Cadence candidates are CUSTOM logic that only *uses*
-        music21's chord stream; labeling them as music21 outputs would mislead.
-        ``phrases`` is deliberately unimplemented.
+        Music21 delivers key, chords, Roman numerals, and voice leading via its
+        own modules. Cadence and phrase outputs are deliberately unavailable;
+        their entries record abstention rather than attributing a custom detector
+        that does not meet the evidence bar.
         """
         music21 = EngineProvenance(engine="music21", library_version=_music21_version())
-        cadences = EngineProvenance(
-            engine="custom-rule",
-            library_version="custom",
-            parameters={
-                "method": "roman_numeral_pattern",
-                "note": "custom adjacent-RN pattern heuristic over music21 output",
-            },
-        )
-        phrases = EngineProvenance(
-            engine="custom-rule",
-            library_version="custom",
-            parameters={"method": "unimplemented", "returns_empty": True},
+        unavailable = EngineProvenance(
+            engine="unavailable",
+            library_version="n/a",
+            parameters={"status": "withheld", "returns_empty": True},
         )
         return {
             "key": music21,
             "chords": music21,
             "roman_numerals": music21,
-            "cadences": cadences,
+            "cadences": unavailable,
             "voice_leading": music21,
-            "phrases": phrases,
+            "phrases": unavailable,
         }
 
     def analyze(
