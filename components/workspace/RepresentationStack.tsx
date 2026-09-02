@@ -157,7 +157,17 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.matches("input, textarea, select") ||
+          target.closest('[contenteditable]:not([contenteditable="false"])'))
+      ) {
+        return;
+      }
+
       clearSelection();
     };
     window.addEventListener("keydown", handleKeyDown);
