@@ -24,6 +24,7 @@ from domain.models import (
     Work,
     Workflow,
 )
+from observability import capture_job_trace_provenance
 
 __all__ = [
     "get_supabase",
@@ -858,7 +859,7 @@ class JobRepo(_Repo):
             "cache_key": job.cache_key,
             "error_message": job.error,
             "error_details": job.error_details,
-            "provenance": job.provenance,
+            "provenance": capture_job_trace_provenance(job.provenance),
             "created_at": job.created_at.isoformat(),
             "created_by": job.created_by,
         }
