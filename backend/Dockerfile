@@ -68,15 +68,17 @@ RUN set -eux; \
     tar -xzf /tmp/pm2s.tar.gz --strip-components=1 -C /opt/pm2s; \
     rm /tmp/pm2s.tar.gz; \
     sed -i '/^import pandas as pd$/d' /opt/pm2s/pm2s/pm2s.py; \
-    for model in \
-      RNNJointBeatModel.pth \
-      RNNHandPartModel.pth \
-      RNNKeySignatureModel.pth \
-      CNNTimeSignatureModel.pth; do \
+    for model_spec in \
+      "RNNJointBeatModel.pth:939e0181f119a473200aece6307906e3dee69d4e2c44abcc878755bf6a18beb6" \
+      "RNNHandPartModel.pth:35d0b768fc68f9ec23f77b512ce3cada9b4e9dd816e3ab1c2a1714fa05bc5805" \
+      "RNNKeySignatureModel.pth:62ce9004f9a8b3bf24864a5bf15211e1a27c7d2c1eb7071e6672d6d8e265e5de" \
+      "CNNTimeSignatureModel.pth:35cd59c456542c1546f870ee639e0c3f87f7b81a48d7f2bfe10dedc89c4d3180"; do \
+        model="${model_spec%%:*}"; \
+        expected_sha256="${model_spec#*:}"; \
         curl --fail --location --retry 3 \
           "https://zenodo.org/records/${PM2S_MODEL_RECORD}/files/${model}?download=1" \
           -o "/opt/pm2s-models/${model}"; \
-        test -s "/opt/pm2s-models/${model}"; \
+        echo "${expected_sha256}  /opt/pm2s-models/${model}" | sha256sum --check -; \
     done; \
     printf '%s\n' \
       "PM2S source commit ${PM2S_COMMIT}" \
