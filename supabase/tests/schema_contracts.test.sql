@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(22);
 
 select ok(
   to_regclass('public.jobs') is not null,
@@ -83,6 +83,71 @@ select ok(
       and indexname = 'jobs_created_at_idx'
   ),
   'legacy jobs_created_at_idx is absent'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_indexes
+    where schemaname = 'public'
+      and tablename = 'workflows'
+      and indexname = 'idx_workflows_target_version'
+      and indexdef ilike '%using btree (target_version_id)%'
+  ),
+  'workflows target Version foreign key has a covering B-tree index'
+);
+
+select ok(
+  not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = any(array[
+        'projects', 'works', 'artifacts', 'artifact_versions', 'entities',
+        'insights', 'alignments', 'workflows', 'jobs'
+      ])
+      and roles <> array['authenticated']::name[]
+  ),
+  'retained domain RLS policies are scoped only to authenticated'
+);
+
+select ok(
+  not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = any(array[
+        'projects', 'works', 'artifacts', 'artifact_versions', 'entities',
+        'insights', 'alignments', 'workflows', 'jobs'
+      ])
+      and (
+        (
+          qual ilike '%auth.uid()%'
+          and qual not ilike '%select auth.uid()%'
+        )
+        or (
+          with_check ilike '%auth.uid()%'
+          and with_check not ilike '%select auth.uid()%'
+        )
+      )
+  ),
+  'retained domain RLS initializes auth.uid once per statement'
+);
+
+select is(
+  (
+    select count(*)
+    from pg_policies
+    where schemaname = 'public'
+      and cmd = 'UPDATE'
+      and (
+        (tablename = 'projects' and policyname = 'projects owner update')
+        or (tablename = 'works' and policyname = 'works owner update')
+      )
+      and with_check ilike '%select auth.uid()%'
+  ),
+  2::bigint,
+  'Projects and Works updates explicitly protect ownership on the new row'
 );
 
 select ok(
