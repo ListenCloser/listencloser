@@ -88,16 +88,16 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(page.getByRole("tooltip", { name: "Select a passage to loop" })).toBeVisible();
     await expect(loopBtn.getByText("Loop", { exact: true })).toBeVisible();
 
-    const playBtn = page.getByRole("button", { name: "Play", exact: true });
+    const playBtn = page.getByRole("button", { name: "Play Original", exact: true });
     await expect(playBtn).toBeVisible();
-    await expect(playBtn).toHaveAccessibleName("Play");
+    await expect(playBtn).toHaveAccessibleName("Play Original");
     await expect(playBtn).not.toHaveAttribute("title");
-    // The button's accessible name is the durable keyboard contract. Tooltip
-    // portal timing is Radix-owned and is exercised through its deterministic
-    // hover interaction instead of a programmatic focus/modality round trip.
+    // The source-specific accessible name is the durable keyboard contract.
+    // Tooltip portal timing is Radix-owned and is exercised through its
+    // deterministic hover interaction instead of a programmatic focus round trip.
     await page.mouse.move(0, 0);
     await playBtn.hover();
-    await expect(page.getByRole("tooltip", { name: "Play recording" })).toBeVisible();
+    await expect(page.getByRole("tooltip", { name: "Play Original" })).toBeVisible();
 
     // A visible passage selection enables the same Loop control; there is no
     // second loop-region affordance.
