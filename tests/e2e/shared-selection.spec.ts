@@ -75,8 +75,8 @@ test.describe("shared musical selection (MSW)", () => {
     const playbackPosition = page.getByRole("slider", { name: "Playback position" });
     await expect(playbackPosition).toBeEnabled();
     const maxPosition = Number(await playbackPosition.getAttribute("max"));
-    const checkpoint = Math.max(0.001, maxPosition * 0.4);
-    await playbackPosition.fill(String(checkpoint));
+    const checkpoint = Math.max(0.01, Number((maxPosition * 0.4).toFixed(2)));
+    await playbackPosition.fill(checkpoint.toFixed(2));
     const preservedPosition = await playbackPosition.inputValue();
 
     const expectTransportContinuity = async () => {
