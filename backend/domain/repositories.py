@@ -1,4 +1,3 @@
-import os
 import threading
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -25,6 +24,7 @@ from domain.models import (
     Workflow,
 )
 from observability import capture_job_trace_provenance
+from settings import SupabaseSettings
 
 __all__ = [
     "get_supabase",
@@ -50,10 +50,10 @@ def get_supabase() -> Client | None:
     with _sb_lock:
         if _sb_client is not None:
             return _sb_client
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not url or not key:
+        credentials = SupabaseSettings.from_environment().credentials
+        if credentials is None:
             return None
+        url, key = credentials
         _sb_client = create_client(url, key)
         return _sb_client
 
