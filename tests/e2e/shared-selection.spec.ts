@@ -66,12 +66,12 @@ test.describe("shared musical selection (MSW)", () => {
     // changing visual representations. View tabs must not become transport
     // authority or silently reset the user's listening context.
     const originalSource = page.getByRole("button", { name: "Playback source: Original" });
-    await expect(originalSource).toHaveTextContent("Listening · Original");
+    await expect(originalSource).toContainText("Listening · Original");
     await originalSource.click();
     await page.getByRole("option", { name: "Transcription", exact: true }).click();
 
     const transcriptionSource = page.getByRole("button", { name: "Playback source: Transcription" });
-    await expect(transcriptionSource).toHaveTextContent("Listening · Transcription");
+    await expect(transcriptionSource).toContainText("Listening · Transcription");
     const playbackPosition = page.getByRole("slider", { name: "Playback position" });
     await expect(playbackPosition).toBeEnabled();
     const maxPosition = Number(await playbackPosition.getAttribute("max"));
@@ -80,7 +80,7 @@ test.describe("shared musical selection (MSW)", () => {
     const preservedPosition = await playbackPosition.inputValue();
 
     const expectTransportContinuity = async () => {
-      await expect(transcriptionSource).toHaveTextContent("Listening · Transcription");
+      await expect(transcriptionSource).toContainText("Listening · Transcription");
       await expect(playbackPosition).toHaveValue(preservedPosition);
     };
 
