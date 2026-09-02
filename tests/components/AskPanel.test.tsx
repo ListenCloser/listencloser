@@ -141,6 +141,20 @@ describe("AskPanel work-switch lifecycle", () => {
 });
 
 describe("AskPanel scope visibility", () => {
+  it("shows Work-level scope explicitly when no passage is selected", () => {
+    render(<Probe />, { wrapper });
+
+    act(() => store!.setActiveWorkId("work-a"));
+
+    const liveScope = screen.getByLabelText("Question context: Whole piece");
+    expect(liveScope.closest("form")).toHaveClass("ask-composer");
+    expect(screen.queryByRole("button", { name: "Clear question context" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ask about the music" })).toHaveAttribute(
+      "placeholder",
+      "Ask a question about this recording…",
+    );
+  });
+
   it("keeps the sent passage scope on the user turn after live selection changes", async () => {
     const user = userEvent.setup();
     vi.mocked(askMusic).mockResolvedValue(response);
@@ -170,6 +184,7 @@ describe("AskPanel scope visibility", () => {
     act(() => store!.clearSelection());
 
     expect(screen.queryByLabelText("Question context: 0:04–0:08")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Question context: Whole piece")).toBeInTheDocument();
     expect(screen.getByText("0:04–0:08")).toBeInTheDocument();
   });
 });
