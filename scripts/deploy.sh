@@ -127,7 +127,12 @@ resolve_prebuilt_image() {
 write_runtime_env() {
   if [ -n "${SUPABASE_URL:-}" ] || [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
     echo "[deploy] writing .env from environment"
-    cat > "$REPO_DIR/backend/.env" <<ENVEOF
+    local env_file="$REPO_DIR/backend/.env"
+    # Truncate any stale secret material, then restrict the file before writing
+    # fresh credentials. Do not rely on the deployment host's ambient umask.
+    : > "$env_file"
+    chmod 600 "$env_file"
+    cat > "$env_file" <<ENVEOF
 SUPABASE_URL=${SUPABASE_URL:-}
 SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
 SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
