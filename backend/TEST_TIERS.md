@@ -19,6 +19,7 @@ The default `addopts` in `backend/pyproject.toml` excludes `integration`, `real_
 ## Contracts
 
 - Required unit tests must not silently download models or depend on external services.
+- Required unit tests must not require production-only host runtimes or assets; cover deterministic contracts and fail-closed behavior there, and exercise the exact host runtime in its production-shaped owner.
 - A real-model test belongs in `integration`, even if it is deterministic once the model exists.
 - Database/RLS/migration behavior belongs in `real_stack` and must be exercised against a real local/test database shape rather than repository mocks.
 - External-provider tests are opt-in and must name the required configuration; missing credentials are not a product-success signal.
@@ -31,6 +32,7 @@ The default `addopts` in `backend/pyproject.toml` excludes `integration`, `real_
 The exact mapping of paths/risks to workflows is owned by `.github/workflows/` and the protected `Build` contract. In broad terms:
 
 - routine backend static/unit coverage runs in CI;
+- the production backend image owns exact execution of production-only host runtimes such as FluidSynth plus the configured SoundFont;
 - database integration starts/applies the real local Supabase schema before `real_stack` tests;
 - critical cross-boundary product behavior is covered by the separate real-stack E2E workflow;
 - heavyweight model/evaluation protocols run only where their owning workflow/manual process explicitly requires them.
