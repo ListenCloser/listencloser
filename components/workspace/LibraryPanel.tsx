@@ -199,12 +199,12 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     if (deletingActiveWork) {
       clearActiveSource();
       resetTimeline();
+      clearSelection();
       // A non-empty durable library should transition directly to another
       // recording. Never create a transient first-run/empty-library state just
       // because the selected row is being deleted.
       setActiveWorkId(successor?.id ?? null);
     }
-    clearSelection();
     try {
       await deleteWorkMutation.mutateAsync(workId);
     } catch {
