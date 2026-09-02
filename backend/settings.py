@@ -12,12 +12,10 @@ from collections.abc import Mapping
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class _RuntimeSettings(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-
-class WorkerSettings(_RuntimeSettings):
+class WorkerSettings(BaseModel):
     """Process-level worker settings with application-owned validation."""
+
+    model_config = ConfigDict(frozen=True)
 
     concurrency: int = Field(default=1, ge=1)
 
