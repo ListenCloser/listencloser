@@ -15,6 +15,8 @@ on:
       - 'package-lock.json'
       - 'next.config.mjs'
       - 'tsconfig.json'
+      - 'supabase/config.toml'
+      - 'tests/e2e/real-stack-auth.ts'
       - 'tests/e2e/real-stack-golden.spec.ts'
       - 'playwright.realstack.config.ts'
 
@@ -50,11 +52,51 @@ jobs:
           SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
           SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
           SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
+          SUPABASE_JWT_SECRET="${SUPABASE_JWT_SECRET:-${JWT_SECRET}}"
           {
             echo "SUPABASE_URL=$SUPABASE_URL"
             echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
             echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY"
+            echo "SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET"
           } >> "$GITHUB_ENV"
+
+      - name: Verify unsupported email Auth methods are disabled
+        run: |
+          set -euo pipefail
+
+          assert_email_disabled() {
+            local path="$1"
+            local payload="$2"
+            local body
+            local status
+            local code
+            body="$(mktemp)"
+            status="$(
+              curl --silent --show-error \
+                --output "$body" \
+                --write-out '%{http_code}' \
+                --request POST \
+                --header "apikey: ${SUPABASE_ANON_KEY}" \
+                --header 'Content-Type: application/json' \
+                --data "$payload" \
+                "${SUPABASE_URL}${path}"
+            )"
+            code="$(jq -r '.error_code // .code // empty' "$body")"
+            if [[ "$status" -lt 400 || "$code" != "email_provider_disabled" ]]; then
+              echo "Expected ${path} to reject email auth with email_provider_disabled; status=${status} code=${code}" >&2
+              cat "$body" >&2
+              rm -f "$body"
+              return 1
+            fi
+            rm -f "$body"
+          }
+
+          assert_email_disabled \
+            '/auth/v1/signup' \
+            '{"email":"disabled-signup@real-stack.test","password":"disabled-password-1234"}'
+          assert_email_disabled \
+            '/auth/v1/otp' \
+            '{"email":"disabled-otp@real-stack.test","create_user":true}'
 
       - name: Resolve production harmony routing
         run: |
@@ -182,6 +224,7 @@ jobs:
           SUPABASE_URL: ${{ env.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_JWT_SECRET: ${{ env.SUPABASE_JWT_SECRET }}
           BACKEND_URL: "http://127.0.0.1:8000"
         run: |
           set -euo pipefail
