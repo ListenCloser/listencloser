@@ -1,0 +1,197 @@
+{
+  "evaluation_id": "general_auto_baseline_v1",
+  "issue": 931,
+  "generated_at": "2026-09-01",
+  "purpose": "Recover and consolidate decision-relevant evidence for the production auto transcription path without restoring deleted benchmark dumps or changing runtime behavior.",
+  "revalidation": {
+    "main_sha": "c527e69932b4e2de3e240de59e7f3cce8321f627",
+    "production_profile": "auto",
+    "effective_engine": "basic_pitch",
+    "basic_pitch_version": "0.4.0",
+    "onset_threshold": 0.5,
+    "frame_threshold": 0.3,
+    "current_engine_blob_sha": "bdf0fcd0fa2732fe61b9da3c255081a796e6b2b5",
+    "measurement_engine_blob_sha": "bdf0fcd0fa2732fe61b9da3c255081a796e6b2b5",
+    "inference_cleanup_equivalence": {
+      "status": "relevant_logic_unchanged",
+      "measurement_sha": "7057c1c247fb2770fee5f5e418479cbf69bd4619",
+      "note": "The BasicPitchEngine blob is identical. The current transcribe_audio call still passes the same thresholds to basic_pitch.inference.predict, and the conservative cleanup constants/rules remain the same. Unrelated music_features.py refactors changed the file blob."
+    }
+  },
+  "evidence": {
+    "real_audio_v1_legacy_strict": {
+      "measurement_date": "2026-08-12",
+      "measurement_sha": "7057c1c247fb2770fee5f5e418479cbf69bd4619",
+      "source_artifact": "backend/evaluation/reports/real_audio_v1.md",
+      "source_artifact_blob_sha": "a81b4aa0953ec5e58ade0bd3359241a13e1057da",
+      "corpus": {
+        "name": "real_audio_v1",
+        "guitarset": {
+          "clips": 5,
+          "excerpt_seconds": 20,
+          "license": "CC BY 4.0"
+        },
+        "babyslakh": {
+          "clips": 5,
+          "excerpt_seconds": 20,
+          "license": "CC BY 4.0"
+        }
+      },
+      "metric_semantics": {
+        "onset_f1": "pitch plus onset within 50 ms",
+        "note_f1": "legacy strict pitch plus onset plus offset within fixed 50 ms",
+        "comparability_note": "The current canonical evaluator uses mir_eval with a 50 ms minimum offset tolerance plus the standard 20% reference-duration tolerance. Therefore the legacy note_f1 values below are intentionally retained under their original stricter semantics and are not silently relabeled as current canonical note_f1."
+      },
+      "baseline": {
+        "guitar": {
+          "onset_f1": 0.7294,
+          "legacy_strict_note_f1": 0.4281,
+          "excessive_rate": 0.2491,
+          "missed_rate": 0.2688
+        },
+        "full_mix": {
+          "onset_f1": 0.3157,
+          "legacy_strict_note_f1": 0.0681,
+          "excessive_rate": 0.6534,
+          "missed_rate": 0.6963
+        }
+      },
+      "cleanup_ablation": {
+        "clips": 10,
+        "removed_short": 0,
+        "removed_low_velocity": 0,
+        "removed_out_of_range": 0,
+        "merged_overlaps": 0,
+        "decision": "Production cleanup is a no-op on these guitar/full-mix clips; do not add cleanup heuristics to address the measured domain failure."
+      },
+      "threshold_sweep": {
+        "guitar": {
+          "production_onset_f1": 0.7294,
+          "best_onset_threshold": 0.6,
+          "best_frame_threshold": 0.3,
+          "best_onset_f1": 0.7373,
+          "absolute_gain": 0.0079
+        },
+        "full_mix": {
+          "production_onset_f1": 0.3157,
+          "best_onset_threshold": 0.6,
+          "best_frame_threshold": 0.2,
+          "best_onset_f1": 0.37,
+          "absolute_gain": 0.0543
+        },
+        "decision": "Do not change production thresholds from this evidence: gains are marginal, the preferred frame threshold differs by domain, and full-mix quality remains poor."
+      }
+    },
+    "slakh_task_standard": {
+      "measurement_date": "2026-08-28",
+      "source_pr": 404,
+      "measurement_sha": "7057c1c247fb2770fee5f5e418479cbf69bd4619",
+      "corpus": "Five fixed 30-second Slakh2100-redux test excerpts with per-source MIDI truth.",
+      "metric_semantics": "mir_eval 0.8.2 maximum bipartite matching; 50 ms onset, 50 cents, offset max(50 ms, 20% reference duration).",
+      "basic_pitch": {
+        "flat_onset_f1": 0.3871,
+        "flat_note_f1": 0.1397,
+        "per_track_onset_f1": {
+          "Track01876": 0.2988,
+          "Track01877": 0.6883,
+          "Track01878": 0.2701,
+          "Track01880": 0.2363,
+          "Track01881": 0.4419
+        }
+      },
+      "mr_mt3_reference": {
+        "flat_onset_f1": 0.7898,
+        "flat_note_f1": 0.2415,
+        "decision": "RESEARCH_REFERENCE"
+      }
+    },
+    "source_separation_legacy_strict": {
+      "measurement_date": "2026-08-12",
+      "measurement_sha": "7057c1c247fb2770fee5f5e418479cbf69bd4619",
+      "source_artifact": "backend/evaluation/reports/source_separation_v1.md",
+      "source_artifact_blob_sha": "c4aa7a7fd64f8f171b5d3e7ca4c0cdc984dab0e1",
+      "pipeline": "Demucs htdemucs 4.0.1 plus Basic Pitch 0.5/0.3 on five 20-second BabySlakh mixtures.",
+      "baseline": {
+        "onset_f1": 0.3157,
+        "legacy_strict_note_f1": 0.0681
+      },
+      "best_real_separation": {
+        "configuration": "all-pitched dedup",
+        "onset_f1": 0.3372,
+        "legacy_strict_note_f1": 0.0853,
+        "onset_absolute_gain": 0.0215
+      },
+      "oracle_stems": {
+        "onset_f1": 0.4233,
+        "legacy_strict_note_f1": 0.1155
+      },
+      "cpu_separation_latency": "about 7 seconds per 20-second clip",
+      "decision": "Do not make source separation mandatory for general transcription. Even oracle stems leave Basic Pitch as the dominant bottleneck."
+    },
+    "mr_mt3_operational": {
+      "source_issue": 337,
+      "source_pr": 541,
+      "persistent_model_mean_seconds_per_30s_excerpt": 79.81,
+      "persistent_peak_rss_mb_approx": 858,
+      "decision": "Keep MR-MT3 as RESEARCH/reference; persistent model reuse does not make CPU inference production-feasible."
+    }
+  },
+  "challenger_survey": [
+    {
+      "name": "omnizart",
+      "scope": "general polyphonic/pitched music transcription",
+      "code_license": "MIT",
+      "status": "NEXT_BOUNDED_CHALLENGER",
+      "evidence": "Maintained project with release v0.6.3 on 2026-05-31; project exposes a music transcription path and supports modern Python. Quality/runtime are not yet measured in this repository.",
+      "source": "https://github.com/Music-and-Culture-Technology-Lab/omnizart",
+      "next_gate": "Only if #931 continues past baseline characterization: run on the failed full-mix domain using the same task-standard note metrics and record CPU latency/RSS."
+    },
+    {
+      "name": "piano_transcription_inference",
+      "scope": "solo piano",
+      "code_license": "MIT",
+      "status": "OUT_OF_SCOPE_FOR_GENERAL_AUTO",
+      "evidence": "The package is explicitly a piano transcription inference toolbox. Solo-piano routing is already resolved to TransKun under the current product decision.",
+      "source": "https://github.com/qiuqiangkong/piano_transcription_inference"
+    },
+    {
+      "name": "hFT-Transformer",
+      "scope": "solo piano",
+      "code_license": "MIT",
+      "status": "OUT_OF_SCOPE_FOR_GENERAL_AUTO",
+      "evidence": "Official ISMIR 2023 implementation is an automatic piano transcription model evaluated on MAPS/MAESTRO and documents a Python 3.6-era environment; it does not fill #931's mixed/general domain gap.",
+      "source": "https://github.com/sony/hFT-Transformer"
+    },
+    {
+      "name": "amt-tools",
+      "scope": "AMT research framework",
+      "code_license": "MIT",
+      "status": "FRAMEWORK_NOT_CHALLENGER_ENGINE",
+      "evidence": "Provides a customizable PyTorch AMT pipeline and paper implementations; the project describes itself as work-in-progress and has no packaged release/model that can replace the production engine by itself.",
+      "source": "https://github.com/cwitkowitz/amt-tools"
+    },
+    {
+      "name": "MR-MT3",
+      "scope": "multi-instrument transcription",
+      "code_license": "MIT for measured mt3-infer code/weight repository metadata",
+      "status": "RESEARCH_REFERENCE",
+      "evidence": "Already measured in-repo: materially better flat onset/note F1 than Basic Pitch on five Slakh excerpts, but persistent CPU inference remains about 79.8 seconds per 30-second excerpt at about 858 MB RSS.",
+      "source": "https://github.com/ListenCloser/listencloser/pull/404"
+    }
+  ],
+  "decisions": {
+    "general_auto_engine": "KEEP_BASIC_PITCH_BASELINE_PENDING_BETTER_FEASIBLE_CHALLENGER",
+    "guitar": "KEEP. Recorded isolated guitar onset F1 is about 0.73 and threshold tuning adds less than 0.01. Duration/offset quality remains a limitation for notation-like uses.",
+    "full_mix": "FAIL_DOMAIN. Basic Pitch has low note detection and duration quality on two independent synthetic-mixture evaluations. Do not describe this as solved general-music transcription.",
+    "threshold_tuning": "REJECT_PRODUCTION_CHANGE. The sweep does not rescue full mixes and does not justify one global parameter change.",
+    "cleanup_heuristics": "REJECT_AS_FIX. Existing cleanup removed zero notes on all ten real_audio_v1 clips; adding bespoke cleanup before a model challenger is not evidence-backed.",
+    "source_separation": "REJECT_AS_MANDATORY_PREPROCESSOR. Real separation adds little and oracle stems still leave large transcription error.",
+    "next_experiment": "If a further challenger run is justified, evaluate Omnizart first on the failed full-mix rows with the current canonical mir_eval note metrics and CPU/runtime accounting. Do not rerun piano-only challengers."
+  },
+  "limitations": [
+    "The recovered GuitarSet/BabySlakh note-with-offset metric used the repository's former fixed-50-ms offset rule; this artifact preserves that original semantic instead of converting it.",
+    "The task-standard Slakh result is a different five-track Slakh2100-redux subset, so its absolute scores are supporting domain evidence rather than a direct replacement for the BabySlakh numbers.",
+    "No new model inference was executed to create this consolidation artifact; it recovers measured repository evidence whose relevant Basic Pitch engine/inference/cleanup behavior remains unchanged at revalidation.",
+    "This slice does not establish performance on licensed commercial pop/electronic recordings or justify automatic genre/instrument routing."
+  ]
+}
