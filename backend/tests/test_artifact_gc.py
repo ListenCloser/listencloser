@@ -1,14 +1,14 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
 
 from domain.artifact_gc import (
-    RetentionReason,
-    StorageObject,
     classify_object,
     collect_artifact_garbage,
+    RetentionReason,
+    StorageObject,
 )
 
 
