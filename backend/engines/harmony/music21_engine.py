@@ -144,8 +144,8 @@ def _m21_cadences(_score, _detected_key) -> list[dict[str, Any]]:
     The previous implementation matched adjacent Roman-numeral pairs such as
     V-I and IV-I. Those progressions are not sufficient evidence of phrase
     closure, so emitting them as cadence candidates overstated what the input
-    established. Keep the capability explicitly abstaining while #1043 owns a
-    legitimate cadence-evaluation path.
+    established. Keep the capability explicitly abstaining until a legitimate
+    cadence evaluation clears the repository's promotion gates.
     """
     return []
 
