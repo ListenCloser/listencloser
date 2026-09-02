@@ -67,9 +67,9 @@ test.describe("score playback following (MSW)", () => {
 
     await expect(page.getByRole("button", { name: "Playback source: Score", exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await page.getByRole("button", { name: "Play Score", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Pause", exact: true }),
+      page.getByRole("button", { name: "Pause Score", exact: true }),
     ).toBeVisible({ timeout: 10_000 });
 
     await expect(
@@ -88,12 +88,12 @@ test.describe("score playback following (MSW)", () => {
     const highlight2 = page.locator("[data-playback-highlight]").first();
     await expect(highlight2).toBeVisible({ timeout: 5_000 });
 
-    const pauseBtn = page.getByRole("button", { name: "Pause", exact: true });
+    const pauseBtn = page.getByRole("button", { name: "Pause Score", exact: true });
     if (await pauseBtn.isVisible().catch(() => false)) {
       await pauseBtn.click();
     }
     await expect(
-      page.getByRole("button", { name: "Play", exact: true }),
+      page.getByRole("button", { name: "Play Score", exact: true }),
     ).toBeVisible();
 
     await expect(
@@ -120,12 +120,12 @@ test.describe("score playback following (MSW)", () => {
       .getByRole("option", { name: "Score", exact: true })
       .click();
 
-    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await page.getByRole("button", { name: "Play Score", exact: true }).click();
     await expect(
       page.locator("[data-playback-highlight]"),
     ).toBeVisible({ timeout: 10_000 });
 
-    const pause = page.getByRole("button", { name: "Pause", exact: true });
+    const pause = page.getByRole("button", { name: "Pause Score", exact: true });
     if (await pause.isVisible().catch(() => false)) await pause.click();
 
     await page
@@ -138,8 +138,8 @@ test.describe("score playback following (MSW)", () => {
     await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible();
     await expect(page.locator("[data-playback-highlight]")).toBeVisible();
 
-    await page.getByRole("button", { name: "Play", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Play Original", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible({ timeout: 10_000 });
     await expect(page.locator("[data-playback-highlight]")).toBeVisible();
   });
 
@@ -172,7 +172,7 @@ test.describe("score playback following (MSW)", () => {
     await page
       .getByRole("option", { name: "Score", exact: true })
       .click();
-    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await page.getByRole("button", { name: "Play Score", exact: true }).click();
 
     await expect(
       page.locator("[data-playback-highlight]"),

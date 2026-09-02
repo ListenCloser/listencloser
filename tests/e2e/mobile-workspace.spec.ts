@@ -37,7 +37,7 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
   await expectTouchHeight(breakdownTrigger);
   await expectTouchHeight(page.getByRole("tab", { name: "Waveform", exact: true }));
   await expectTouchHeight(page.getByRole("button", { name: /Playback source:/ }));
-  await expectTouchHeight(page.getByRole("button", { name: "Play", exact: true }));
+  await expectTouchHeight(page.getByRole("button", { name: "Play Original", exact: true }));
   await expectTouchHeight(page.getByRole("button", { name: "Toggle selected passage loop", exact: true }));
 
   // Library is an explicit touch destination and its only destructive command

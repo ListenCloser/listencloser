@@ -123,6 +123,8 @@ export default function TransportBar() {
   } = transport;
   const { workspace } = useWorkspace();
   const hasSource = Boolean(activeSource);
+  const activeSourceLabel = activeSource?.label ?? "source";
+  const playbackActionLabel = isPlaying ? `Pause ${activeSourceLabel}` : `Play ${activeSourceLabel}`;
 
   const selection = workspace.selection;
   const selectionTimeRange = selection?.timeRange ?? null;
@@ -167,7 +169,7 @@ export default function TransportBar() {
     <footer className="transport-bar transport-bar-v3" aria-label="Playback">
       <div className="transport-source-zone">
         <ListboxMenu
-          triggerLabel={activeSource ? activeSource.label : "Choose source"}
+          triggerLabel={activeSource ? `Listening · ${activeSource.label}` : "Choose source"}
           triggerAria={`Playback source: ${activeSource ? activeSource.label : "none"}`}
           options={sources.map((item) => ({ id: item.id, label: item.label }))}
           selectedId={activeSource?.id ?? null}
@@ -179,12 +181,12 @@ export default function TransportBar() {
       </div>
 
       <div className="transport-playback-zone">
-        <Tooltip content={isPlaying ? "Pause playback" : "Play recording"}>
+        <Tooltip content={playbackActionLabel}>
           <button
             type="button"
             className="transport-play-btn"
             onClick={toggle}
-            aria-label={isPlaying ? "Pause" : "Play"}
+            aria-label={playbackActionLabel}
             disabled={!hasSource}
           >
             {isPlaying ? (
