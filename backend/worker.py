@@ -1,7 +1,6 @@
 """Production entrypoint for the durable music-processing worker."""
 
 import logging
-import os
 import signal
 
 import domain.capabilities as capability_module
@@ -15,6 +14,7 @@ from domain.worker_warmup import (
     prewarm_librosa_beat_tracking,
 )
 from observability import configure_logging, init_sentry, init_telemetry
+from settings import WorkerSettings
 
 
 def main() -> None:
@@ -22,6 +22,7 @@ def main() -> None:
     logger = logging.getLogger("worker")
     init_telemetry("listencloser-worker")
     init_sentry(logger)
+    settings = WorkerSettings.from_environment()
 
     # Pay expensive process-local cold paths before FencedJobWorker.run() publishes
     # its first heartbeat or claims a user's job. Warmups are optimization-only:
@@ -43,7 +44,7 @@ def main() -> None:
     except Exception:
         logger.exception("librosa_beat_prewarm_failed")
 
-    worker = FencedJobWorker(max_workers=int(os.environ.get("WORKER_CONCURRENCY", "1")))
+    worker = FencedJobWorker(max_workers=settings.concurrency)
     install_understand_instrumentation(capability_module)
     capability_module.register_all_capabilities(worker)
     register_corrected_midi_entity_sync(worker)
