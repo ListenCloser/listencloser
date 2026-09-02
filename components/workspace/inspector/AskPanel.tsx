@@ -185,7 +185,8 @@ export default function AskPanel() {
   }, [activeSource, seek, setActiveRepresentation, setLoop, setSelection, toggleLoop, transport.loopEnabled]);
 
   const scope = describeAskContext(workspace.selection);
-  const showScope = Boolean(workspace.selection && scope);
+  const hasSelectedScope = Boolean(workspace.selection);
+  const showScope = Boolean(activeWorkId || hasSelectedScope);
   const starterContext = deriveAskContext(
     activeWorkId,
     workspace.activeRepresentation,
@@ -260,20 +261,22 @@ export default function AskPanel() {
         {showScope && (
           <div className={`ask-context ${styles.context}`} aria-label={`Question context: ${scope}`}>
             <span>{scope}</span>
-            <button
-              type="button"
-              className={styles.contextClear}
-              onClick={clearSelection}
-              aria-label="Clear question context"
-            >
-              ×
-            </button>
+            {hasSelectedScope && (
+              <button
+                type="button"
+                className={styles.contextClear}
+                onClick={clearSelection}
+                aria-label="Clear question context"
+              >
+                ×
+              </button>
+            )}
           </div>
         )}
         <textarea
           ref={inputRef}
           className="ask-input"
-          placeholder={showScope ? "Ask a question about this selection…" : "Ask a question about this recording…"}
+          placeholder={hasSelectedScope ? "Ask a question about this selection…" : "Ask a question about this recording…"}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
