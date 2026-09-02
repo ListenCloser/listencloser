@@ -29,7 +29,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
   async function openAsk(page: import("@playwright/test").Page) {
     await page.getByRole("tab", { name: "Ask" }).click();
     await expect(page.getByRole("tab", { name: "Ask", selected: true })).toBeVisible();
-    await expect(page.getByPlaceholder("Ask a question about this recording…")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Ask about the music" })).toBeVisible();
   }
 
   async function askGroundedStarter(page: import("@playwright/test").Page): Promise<string> {
@@ -39,6 +39,22 @@ test.describe("contextual Ask inspector (MSW)", () => {
     expect(prompt).not.toBe("");
     await starter.click();
     return prompt;
+  }
+
+  async function currentQuestionScope(page: import("@playwright/test").Page): Promise<string> {
+    const scope = page.locator('.ask-composer [aria-label^="Question context: "]');
+    await expect(scope).toBeVisible();
+    const label = await scope.getAttribute("aria-label");
+    if (!label) throw new Error("Ask question context label is missing");
+    return label.replace(/^Question context: /, "");
+  }
+
+  async function clickScoreMeasure(page: import("@playwright/test").Page, index: number) {
+    const measure = page.locator("g.vf-measure").nth(index);
+    await expect(measure).toBeVisible();
+    const box = await measure.boundingBox();
+    if (!box) throw new Error(`Score measure ${index + 1} has no clickable bounds`);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   }
 
   test("Ask answers a grounded starter and renders evidence chips and suggested actions", async ({ page }) => {
@@ -94,6 +110,55 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await page.getByRole("button", { name: "Open Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("tab", { name: "Score" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("sent Ask turns keep their own scope as selection changes through a follow-up and clear", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("tab", { name: "Score" }).click();
+    await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
+
+    // First question: establish an explicit musical passage before opening Ask.
+    await clickScoreMeasure(page, 0);
+    await openAsk(page);
+    const firstScope = await currentQuestionScope(page);
+    expect(firstScope).not.toBe("Whole piece");
+
+    const composer = page.getByRole("textbox", { name: "Ask about the music" });
+    await expect(composer).toHaveAttribute("placeholder", "Ask a question about this selection…");
+    await composer.fill("What changes in this passage?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(page.locator(".ask-turn-assistant")).toHaveCount(1, { timeout: 10_000 });
+
+    const firstTurn = page.locator(".ask-turn-user").nth(0);
+    await expect(firstTurn).toContainText("What changes in this passage?");
+    await expect(firstTurn).toContainText(firstScope);
+
+    // Explicitly choose a different passage. The live composer must move to
+    // that new scope, while the already-sent turn remains frozen to its scope.
+    await clickScoreMeasure(page, 2);
+    const secondScope = await currentQuestionScope(page);
+    expect(secondScope).not.toBe("Whole piece");
+    expect(secondScope).not.toBe(firstScope);
+    await expect(firstTurn).toContainText(firstScope);
+    await expect(firstTurn).not.toContainText(secondScope);
+
+    await composer.fill("And what about this passage?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(page.locator(".ask-turn-assistant")).toHaveCount(2, { timeout: 10_000 });
+
+    const secondTurn = page.locator(".ask-turn-user").nth(1);
+    await expect(secondTurn).toContainText("And what about this passage?");
+    await expect(secondTurn).toContainText(secondScope);
+    await expect(firstTurn).toContainText(firstScope);
+
+    // Clear is an explicit scope change back to Work-level Ask. It must remove
+    // the live selected-passage state without rewriting either prior turn.
+    await page.getByRole("button", { name: "Clear question context" }).click();
+    await expect(page.getByLabel("Question context: Whole piece")).toBeVisible();
+    await expect(composer).toHaveAttribute("placeholder", "Ask a question about this recording…");
+    await expect(page.getByRole("button", { name: "Clear question context" })).toHaveCount(0);
+    await expect(firstTurn).toContainText(firstScope);
+    await expect(secondTurn).toContainText(secondScope);
   });
 
   test("domain-mismatched actions remain focusable, explained, and inert", async ({ page }) => {
