@@ -34,6 +34,10 @@ export function selectScoreArtifacts(
 
     const notationVersionId = notationMidiVersionId(item);
     if (!notationVersionId) return false;
+    // Historical score rows can point directly at canonical performance MIDI;
+    // newer rows point at a notation-MIDI child. Both are exact lineage, so
+    // retain compatibility without ever borrowing a score from another source.
+    if (notationVersionId === performanceMidiVersionId) return true;
     return versionsById.get(notationVersionId)?.parent_version_id === performanceMidiVersionId;
   });
 
