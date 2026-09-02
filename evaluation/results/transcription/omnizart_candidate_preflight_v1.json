@@ -119,7 +119,7 @@
     "why": [
       "The implicit default is a piano checkpoint and would make the proposed comparison invalid.",
       "The explicit Stream checkpoint is MusicNet/classical-domain shaped rather than target-domain shaped.",
-      "The more target-shaped Pop checkpoint points at YouTube-derived training audio with unresolved production provenance.",
+      "The more target-shaped Pop checkpoint's declared training paths are rooted under `01_ytd_audio`, with unresolved production provenance.",
       "The separately distributed learned variables do not have explicit weight/commercial-redistribution terms in the inspected release/docs, so the production license gate fails closed."
     ]
   },
@@ -129,6 +129,7 @@
   ],
   "sources": [
     "https://github.com/Music-and-Culture-Technology-Lab/omnizart/tree/v0.6.3",
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/pyproject.toml",
     "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/omnizart/defaults/music.yaml",
     "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/omnizart/base.py",
     "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/omnizart/checkpoints/music/music_note_stream/configurations.yaml",
