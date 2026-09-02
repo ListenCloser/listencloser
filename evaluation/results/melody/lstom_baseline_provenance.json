@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "issue": 1026,
+  "scope": "lstom_baseline_reproducibility",
+  "source_main_sha": "8dc2f69591ecc36e348f97e86fb32b435dacc5d9",
+  "status": "blocked",
+  "decision": "RESEARCH_REVISIT",
+  "historical_claim": {
+    "dataset": "POP909",
+    "split": "722/90/91",
+    "split_seed": 42,
+    "reported_cross_seed_macro": {
+      "training_seeds": [42, 123, 456],
+      "precision": 0.72,
+      "recall": 0.839,
+      "f1": 0.768,
+      "f1_cv": 0.003
+    },
+    "reported_seed_42": {
+      "precision": 0.702,
+      "recall": 0.86,
+      "f1": 0.766
+    }
+  },
+  "committed_baseline": {
+    "engine": "lstom",
+    "model": "lstom_biLSTM_pop909",
+    "model_version": "1.0.0",
+    "model_sha256": "c0b78427cfc40907ae9c454ef2c598290a8885bcf31cb4f7600e6c19bcfb17a7",
+    "checkpoint_training_seed": null,
+    "checkpoint_best_epoch": null
+  },
+  "provenance_audit": {
+    "training_commit": "2101bae107713fdfe07614bf11e7fe0fe29a82cf",
+    "validation_report_commit": "b1d9dafac45afc8aa359b71336392ad68b68e5dd",
+    "historical_split_manifest_path": "model_results_full/training_metadata.json",
+    "historical_split_manifest_in_git": false,
+    "exact_test_song_ids_available": false,
+    "report_processed_song_count": 903,
+    "pop909_song_count": 909,
+    "report_claimed_skipped_count": 7,
+    "count_consistency": false
+  },
+  "blocking_reasons": [
+    "The exact 91 POP909 test song IDs are absent from current history and the referenced training metadata artifact was never committed.",
+    "The historical report says 903 of 909 songs were processed while also saying seven were skipped, so a seed-only shuffle cannot safely reconstruct membership.",
+    "The registry values 0.768/0.720/0.839 are cross-training-seed means, while the committed checkpoint training seed and best epoch are not recorded.",
+    "A newly chosen POP909 test subset could overlap songs used to train the committed LStoM checkpoint and would not be a legitimate held-out comparison."
+  ],
+  "required_to_resume": [
+    "Recover the exact historical 91-song test membership and the processed-song universe from an authoritative artifact.",
+    "Tie the committed checkpoint checksum to its training seed and best epoch, or re-evaluate the exact committed checkpoint once the legitimate holdout is known.",
+    "Run LStoM and MidiBERT-Piano under identical binary note-label semantics with per-song abstention/error accounting."
+  ],
+  "out_of_scope": [
+    "production engine changes",
+    "retraining or fine-tuning",
+    "MIR-1K audio evaluation",
+    "classical or general-performance domain claims"
+  ]
+}
