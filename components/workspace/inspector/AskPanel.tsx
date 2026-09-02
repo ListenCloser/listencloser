@@ -186,7 +186,7 @@ export default function AskPanel() {
 
   const scope = describeAskContext(workspace.selection);
   const hasSelectedScope = Boolean(workspace.selection);
-  const showScope = Boolean(activeWorkId && scope);
+  const showScope = Boolean(activeWorkId || hasSelectedScope);
   const starterContext = deriveAskContext(
     activeWorkId,
     workspace.activeRepresentation,
