@@ -624,6 +624,39 @@ def _transcription_defaults_pulse(input_version: Version) -> bool:
     return bool(metadata.get("tempo_is_placeholder") or metadata.get("meter_is_placeholder"))
 
 
+def _is_product_melody_evidence(kind: str) -> bool:
+    """Fail closed before derived melody claims become durable product evidence."""
+    if not kind:
+        logger.warning(
+            "melody_evidence_withheld",
+            extra={"kind": kind, "reason": "missing_capability_kind"},
+        )
+        return False
+    try:
+        admitted = is_product_evidence(kind)
+    except KeyError:
+        logger.warning(
+            "melody_evidence_withheld",
+            extra={"kind": kind, "reason": "unregistered_capability"},
+        )
+        return False
+    if not admitted:
+        logger.info(
+            "melody_evidence_withheld",
+            extra={"kind": kind, "reason": "capability_policy_withheld"},
+        )
+    return admitted
+
+
+def _product_melody_findings(findings: list[dict], *, limit: int = 15) -> list[dict]:
+    """Return only registered production/experimental melody findings."""
+    return [
+        finding
+        for finding in findings[:limit]
+        if _is_product_melody_evidence(str(finding.get("kind") or ""))
+    ]
+
+
 def handle_analyze(job: Job, client) -> list[str]:
     """Analyze MIDI → insights for key, tempo, time signature, chords,
     Roman numerals, and cadences.
@@ -1090,9 +1123,12 @@ def handle_analyze(job: Job, client) -> list[str]:
         )
         insight_ids.append(str(mid))
 
-        # Melody interpretation findings (temporal events)
+        # Melody interpretation findings (temporal events) are persisted only
+        # when the capability registry admits their exact kind as normal product
+        # evidence. Evaluation-only and unregistered kinds remain analysis-local.
         melody_findings = analysis.get("melody_findings") or []
-        for finding in melody_findings[:15]:  # Cap at 15 findings
+        product_melody_findings = _product_melody_findings(melody_findings)
+        for finding in product_melody_findings:
             kind = finding.get("kind", "")
             claim = finding.get("claim", "")
             start = finding.get("start_seconds")
@@ -1121,46 +1157,51 @@ def handle_analyze(job: Job, client) -> list[str]:
         if melody_findings:
             logger.info(
                 "melody_findings_persisted",
-                extra={"count": len(melody_findings), "persisted": min(len(melody_findings), 15)},
-            )
-
-        # Motif findings (repeated melodic fragments)
-        melody_motifs = analysis.get("melody_motifs") or []
-        for motif in melody_motifs[:5]:  # Cap at 5 motifs
-            claim = motif.get("claim", "")
-            occurrences = motif.get("occurrences", [])
-
-            if len(occurrences) < 2:
-                continue
-
-            # Use the first occurrence's span for the insight
-            first = occurrences[0]
-            last = occurrences[-1]
-
-            mid2 = _create_insight(
-                client,
-                input_version.id,
-                "melody_motif",
-                claim,
-                evidence={
-                    "interval_pattern": motif.get("interval_pattern", []),
-                    "length": motif.get("length"),
-                    "count": motif.get("count"),
-                    "occurrences": occurrences,
+                extra={
+                    "count": len(melody_findings),
+                    "persisted": len(product_melody_findings),
                 },
-                span=Span(
-                    start_seconds=first.get("start_seconds"),
-                    end_seconds=last.get("end_seconds"),
-                ),
-                confidence=None,
-                job=job,
-                owner_id=owner_id,
-                method="interval_sequence_matching",
-                engine_provenance=melody_provenance,
             )
-            insight_ids.append(str(mid2))
 
-        if melody_motifs:
+        # Motif discovery remains evaluation-only. The analysis result may carry
+        # candidates for evaluator/debug consumers, but the normal product
+        # workflow must not persist them until the capability is promoted.
+        melody_motifs = analysis.get("melody_motifs") or []
+        if melody_motifs and _is_product_melody_evidence("melody_motif"):
+            for motif in melody_motifs[:5]:  # Cap at 5 motifs
+                claim = motif.get("claim", "")
+                occurrences = motif.get("occurrences", [])
+
+                if len(occurrences) < 2:
+                    continue
+
+                # Use the first occurrence's span for the insight
+                first = occurrences[0]
+                last = occurrences[-1]
+
+                mid2 = _create_insight(
+                    client,
+                    input_version.id,
+                    "melody_motif",
+                    claim,
+                    evidence={
+                        "interval_pattern": motif.get("interval_pattern", []),
+                        "length": motif.get("length"),
+                        "count": motif.get("count"),
+                        "occurrences": occurrences,
+                    },
+                    span=Span(
+                        start_seconds=first.get("start_seconds"),
+                        end_seconds=last.get("end_seconds"),
+                    ),
+                    confidence=None,
+                    job=job,
+                    owner_id=owner_id,
+                    method="interval_sequence_matching",
+                    engine_provenance=melody_provenance,
+                )
+                insight_ids.append(str(mid2))
+
             logger.info(
                 "melody_motifs_persisted",
                 extra={"count": len(melody_motifs), "persisted": min(len(melody_motifs), 5)},
