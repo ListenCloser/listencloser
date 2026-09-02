@@ -24,6 +24,7 @@ function WorkspaceContent({
   children?: ReactNode;
 }) {
   const { workspace, toggleLibrary, toggleInspector } = useWorkspace();
+  const initializedResponsiveLayout = useRef(false);
   const responsivePanelState = useRef({
     libraryCollapsed: workspace.libraryCollapsed,
     inspectorCollapsed: workspace.inspectorCollapsed,
@@ -49,10 +50,14 @@ function WorkspaceContent({
 
     // Compact layouts are staged rather than simultaneous: the musical canvas
     // is the default surface and Library / Breakdown open only when requested.
-    // Desktop restores both support panels. Reconcile only at mount and when
-    // the breakpoint changes so deliberate panel actions within one layout are
-    // not immediately undone by responsive synchronization.
-    synchronizePanels(compactLayout.matches);
+    // Desktop restores both support panels. The initialization guard preserves
+    // toggle correctness under React Strict Mode's repeated effect setup, while
+    // the listener still reconciles every later breakpoint crossing.
+    if (!initializedResponsiveLayout.current) {
+      initializedResponsiveLayout.current = true;
+      synchronizePanels(compactLayout.matches);
+    }
+
     const handleLayoutChange = (event: MediaQueryListEvent) => synchronizePanels(event.matches);
     compactLayout.addEventListener("change", handleLayoutChange);
     return () => compactLayout.removeEventListener("change", handleLayoutChange);
