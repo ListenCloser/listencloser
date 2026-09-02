@@ -24,6 +24,7 @@
 | Name | Definition |
 | ---- | ---------- |
 | idx_workflows_project | CREATE INDEX idx_workflows_project ON public.workflows USING btree (project_id) |
+| idx_workflows_target_version | CREATE INDEX idx_workflows_target_version ON public.workflows USING btree (target_version_id) |
 | workflows_pkey | CREATE UNIQUE INDEX workflows_pkey ON public.workflows USING btree (id) |
 
 ## Relations
