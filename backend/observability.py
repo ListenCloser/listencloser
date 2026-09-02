@@ -222,11 +222,7 @@ def job_trace_links(provenance: dict[str, Any]) -> list[Link]:
     carrier: dict[str, str] = {}
     for header in _JOB_TRACE_CONTEXT_HEADERS:
         value = raw.get(header)
-        if (
-            isinstance(value, str)
-            and value
-            and len(value) <= _MAX_JOB_TRACE_CONTEXT_VALUE_LENGTH
-        ):
+        if isinstance(value, str) and value and len(value) <= _MAX_JOB_TRACE_CONTEXT_VALUE_LENGTH:
             carrier[header] = value
     if "traceparent" not in carrier:
         return []
