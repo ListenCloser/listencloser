@@ -37,8 +37,8 @@ def test_textbook_v_i_is_not_sufficient_cadence_evidence() -> None:
     assert roman.romanNumeralFromChord(chords[0], detected_key).figure == "V"
     assert roman.romanNumeralFromChord(chords[1], detected_key).figure == "I"
 
-    # A progression alone does not establish phrase closure. Until #1043 has a
-    # validated cadence detector, the symbolic harmony route must abstain.
+    # A progression alone does not establish phrase closure. Until a validated
+    # cadence detector exists, the symbolic harmony route must abstain.
     assert _m21_cadences(score, detected_key) == []
 
 
