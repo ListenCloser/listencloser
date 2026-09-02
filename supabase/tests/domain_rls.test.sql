@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(19);
 
 -- Seed the durable graph as the database owner. Derived domain state is
 -- server-owned, while Projects/Works remain user-owned through RLS.
@@ -9,6 +9,14 @@ values (
   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   '11111111-1111-1111-1111-111111111111',
   'User A project',
+  ''
+);
+
+insert into public.projects (id, owner_id, name, description)
+values (
+  '99999999-9999-9999-9999-999999999999',
+  '22222222-2222-2222-2222-222222222222',
+  'User B project',
   ''
 );
 
@@ -113,6 +121,28 @@ select is(
   (select count(*) from public.jobs where id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'),
   1::bigint,
   'owner can select server-owned job through workflow ownership'
+);
+
+select throws_ok(
+  $$
+    update public.projects
+    set owner_id = '22222222-2222-2222-2222-222222222222'
+    where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+  $$,
+  '42501',
+  null,
+  'owner cannot reassign own project to another user'
+);
+
+select throws_ok(
+  $$
+    update public.works
+    set project_id = '99999999-9999-9999-9999-999999999999'
+    where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+  $$,
+  '42501',
+  null,
+  'owner cannot move own work into another user project'
 );
 
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
