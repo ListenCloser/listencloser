@@ -62,6 +62,28 @@ test.describe("shared musical selection (MSW)", () => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
 
+    // Choose a non-default audible source and a non-zero playhead before
+    // changing visual representations. View tabs must not become transport
+    // authority or silently reset the user's listening context.
+    const originalSource = page.getByRole("button", { name: "Playback source: Original" });
+    await expect(originalSource).toContainText("Listening · Original");
+    await originalSource.click();
+    await page.getByRole("option", { name: "Transcription", exact: true }).click();
+
+    const transcriptionSource = page.getByRole("button", { name: "Playback source: Transcription" });
+    await expect(transcriptionSource).toContainText("Listening · Transcription");
+    const playbackPosition = page.getByRole("slider", { name: "Playback position" });
+    await expect(playbackPosition).toBeEnabled();
+    const maxPosition = Number(await playbackPosition.getAttribute("max"));
+    const checkpoint = Math.max(0.01, Number((maxPosition * 0.4).toFixed(2)));
+    await playbackPosition.fill(checkpoint.toFixed(2));
+    const preservedPosition = await playbackPosition.inputValue();
+
+    const expectTransportContinuity = async () => {
+      await expect(transcriptionSource).toContainText("Listening · Transcription");
+      await expect(playbackPosition).toHaveValue(preservedPosition);
+    };
+
     // 1. Select a region in Waveform. The shared visible passage enables the
     // one canonical Loop control; there is no separate loop-region affordance.
     await dragWaveform(page, 0.2, 0.6);
@@ -76,20 +98,24 @@ test.describe("shared musical selection (MSW)", () => {
     await expect(page.getByRole("region", { name: "Compare passages" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Use selection as reference" })).toHaveCount(0);
 
-    // 2. Piano Roll region stays highlighted. Assert the semantic selection
-    // marker rather than coupling behavior coverage to an exact paint opacity.
+    // 2. Piano Roll region stays highlighted, while the explicit audible
+    // source and playhead remain independent from the visible representation.
+    // Assert the semantic selection marker rather than coupling behavior
+    // coverage to an exact paint opacity.
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await expect(
       page.locator('[data-testid="piano-roll"] [data-selection-range="true"]'),
     ).toBeVisible({ timeout: 10_000 });
+    await expectTransportContinuity();
 
     // 3. Score measures/region stay highlighted. Representation switches do
-    // not change the active playback source, so the performance-time loop is
-    // still compatible.
+    // not change the active playback source or playhead, so the performance-
+    // time loop is still compatible.
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('[data-selection-highlight]')).toBeVisible({ timeout: 10_000 });
+    await expectTransportContinuity();
 
     // 4. Enable looping for the visible passage.
     await loop.click();
