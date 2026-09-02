@@ -71,10 +71,10 @@ explicit = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# The current codebase still contains both flat imports (`domain.*`) and
-# package-qualified imports (`backend.evaluation.*`). Preserve both roots in
-# this dependency migration; the module-boundary cleanup will standardize them.
-pythonpath = [".", ".."]
+# backend/ itself is the canonical Python import root, matching the production
+# image (`uvicorn main:app`). Repository code must not depend on the repo root as
+# a second package root for `backend.*` aliases.
+pythonpath = ["."]
 asyncio_mode = "strict"
 markers = [
   "integration: real-model inference tests (Basic Pitch / Transkun / piano-transcription) run against real ML models; excluded from the default unit suite",

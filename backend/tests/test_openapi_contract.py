@@ -1,6 +1,6 @@
 """Contract-level guards for the generated OpenAPI document."""
 
-from backend.main import app
+from main import app
 
 _HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 
