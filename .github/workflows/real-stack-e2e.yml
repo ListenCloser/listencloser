@@ -81,7 +81,7 @@ jobs:
                 --data "$payload" \
                 "${SUPABASE_URL}${path}"
             )"
-            code="$(jq -r '.code // .error_code // empty' "$body")"
+            code="$(jq -r '.error_code // .code // empty' "$body")"
             if [[ "$status" -lt 400 || "$code" != "email_provider_disabled" ]]; then
               echo "Expected ${path} to reject email auth with email_provider_disabled; status=${status} code=${code}" >&2
               cat "$body" >&2
