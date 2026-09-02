@@ -123,7 +123,12 @@ export default function AskPanel() {
       setError({ message: "Open a piece before asking about it.", requestId: null });
       return;
     }
-    appendAskMessage({ id: makeId(), role: "user", text: trimmed });
+    appendAskMessage({
+      id: makeId(),
+      role: "user",
+      text: trimmed,
+      contextLabel: describeAskContext(context.selection),
+    });
     setDraft("");
     setLastAsked({ question: trimmed, context, workId: activeWorkId });
     void runAsk(trimmed, context, activeWorkId);
@@ -202,20 +207,6 @@ export default function AskPanel() {
 
   return (
     <div className="ask-panel ask-panel-v4">
-      {showScope && (
-        <div className={`ask-context ${styles.context}`} aria-label={`Question context: ${scope}`}>
-          <span>{scope}</span>
-          <button
-            type="button"
-            className={styles.contextClear}
-            onClick={clearSelection}
-            aria-label="Clear question context"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       <div className="ask-conversation" aria-live="polite">
         {conversation.length === 0 && (
           <div className="ask-empty">
@@ -266,6 +257,19 @@ export default function AskPanel() {
       )}
 
       <form className="ask-composer" onSubmit={(event) => { event.preventDefault(); void handleAsk(draft); }}>
+        {showScope && (
+          <div className={`ask-context ${styles.context}`} aria-label={`Question context: ${scope}`}>
+            <span>{scope}</span>
+            <button
+              type="button"
+              className={styles.contextClear}
+              onClick={clearSelection}
+              aria-label="Clear question context"
+            >
+              ×
+            </button>
+          </div>
+        )}
         <textarea
           ref={inputRef}
           className="ask-input"
@@ -308,7 +312,12 @@ function AskMessageView({
   onAction: (action: AskAction) => void;
 }) {
   if (message.role === "user") {
-    return <div className="ask-turn ask-turn-user"><p>{message.text}</p></div>;
+    return (
+      <div className="ask-turn ask-turn-user">
+        <p>{message.text}</p>
+        {message.contextLabel && <span className={styles.turnScope}>{message.contextLabel}</span>}
+      </div>
+    );
   }
 
   const response: AskResponse = message.response;
