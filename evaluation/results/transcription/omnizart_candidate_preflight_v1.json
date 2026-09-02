@@ -1,0 +1,142 @@
+{
+  "evaluation_id": "omnizart_candidate_preflight_v1",
+  "issue": 1056,
+  "parent_issue": 931,
+  "generated_at": "2026-09-01",
+  "decision_question": "Is Omnizart a sufficiently well-defined, production-eligible OSS challenger to justify running it against the failed dense/full-mixture domain of production auto -> Basic Pitch?",
+  "baseline": {
+    "source_artifact": "evaluation/results/transcription/general_auto_baseline_v1.json",
+    "production_profile": "auto",
+    "effective_engine": "basic_pitch",
+    "full_mix": {
+      "babyslakh_legacy_onset_f1": 0.3157,
+      "babyslakh_legacy_strict_note_f1": 0.0681,
+      "slakh_task_standard_onset_f1": 0.3871,
+      "slakh_task_standard_note_f1": 0.1397
+    },
+    "current_consequence": "Keep Basic Pitch as the operational auto baseline, but do not describe dense/full-mixture performance-note transcription as solved."
+  },
+  "candidate": {
+    "name": "Omnizart",
+    "package_version": "0.6.3",
+    "tag": "v0.6.3",
+    "source_commit": "bcd8cb44d4da66ce87df10b6abee5c35a8cc2886",
+    "code_license": "MIT",
+    "source": "https://github.com/Music-and-Culture-Technology-Lab/omnizart"
+  },
+  "protocol_findings": {
+    "implicit_default_is_not_general_music": {
+      "status": "INVALID_FOR_THIS_DECISION",
+      "evidence": "omnizart/defaults/music.yaml sets General.TranscriptionMode to Piano. BaseTranscription._load_model(None) resolves that default checkpoint.",
+      "consequence": "Do not evaluate plain `omnizart music transcribe` as the general-music challenger; it answers a piano question already owned by the solo-piano route."
+    },
+    "stream_mode": {
+      "checkpoint_mode": "Stream",
+      "checkpoint_path": "omnizart/checkpoints/music/music_note_stream",
+      "checkpoint_configuration_blob_sha": "21d6be83514b31aecdb53c0e82be6831774a0509",
+      "saved_model_blob_sha": "0d17481e7f546b712968b7fe8fd47cefdad09686",
+      "external_variables_asset": {
+        "release": "checkpoints-20211001",
+        "name": "music_note_stream@variables.data-00000-of-00001",
+        "reported_size_bytes": 33495027,
+        "release_api_digest": null,
+        "source": "https://github.com/Music-and-Culture-Technology-Lab/omnizart/releases/tag/checkpoints-20211001"
+      },
+      "configuration": {
+        "transcription_mode": "Stream",
+        "label_type": "note-stream",
+        "sampling_rate_hz": 44100,
+        "hop_seconds": 0.02,
+        "onset_threshold": 6.0,
+        "duration_threshold": 0.5,
+        "frame_threshold": 0.5,
+        "instrument_threshold": 1.1
+      },
+      "declared_training_evaluation_domain": "MusicNet multi-instrument classical music",
+      "declared_instrument_programs": [0, 6, 40, 41, 42, 43, 60, 68, 70, 71, 73],
+      "published_reference_result": "66.59% note-streaming score on the MusicNet test set, per Omnizart paper.md",
+      "domain_fit": "WEAK_FOR_TARGET. The target failure is dense/general full mixtures; Stream is explicitly MusicNet/classical-instrument shaped. It remains a possible research probe, not a well-matched production candidate by provenance alone."
+    },
+    "pop_mode": {
+      "checkpoint_mode": "Pop",
+      "checkpoint_path": "omnizart/checkpoints/music/music_pop",
+      "checkpoint_configuration_blob_sha": "7f504c5ca64634c89926d54b1e35ed308f95dbdb",
+      "configuration": {
+        "transcription_mode": "Pop",
+        "label_type": "pop-note-stream",
+        "sampling_rate_hz": 44100,
+        "hop_seconds": 0.02,
+        "onset_threshold": 6.0
+      },
+      "domain_fit": "STRONGER_THAN_STREAM. Upstream describes the Pop dataset as pop music with various instruments, drums and vocal.",
+      "training_data_provenance": {
+        "repository_paths": [
+          "01_ytd_audio/dist0p00",
+          "01_ytd_audio/dist0p10",
+          "01_ytd_audio/dist0p20",
+          "01_ytd_audio/dist0p40",
+          "01_ytd_audio/dist0p50",
+          "01_ytd_audio/dist0p60"
+        ],
+        "finding": "The v0.6.3 PopStructure explicitly names its training-audio root `01_ytd_audio`; no production-safe dataset/license grant for those training recordings was found in the inspected Omnizart repository/docs.",
+        "status": "PROVENANCE_BLOCKED_FOR_PRODUCTION_EVALUATION"
+      },
+      "consequence": "Do not substitute the Pop checkpoint merely because it matches the target domain better. Its training-data provenance is a harder production gate than Stream's domain mismatch."
+    }
+  },
+  "license_provenance_gate": {
+    "repository_license": "Top-level MIT license grants rights in the Software as distributed by the repository.",
+    "checkpoint_distribution": "Learned TensorFlow variables for music_note_stream are fetched from a separate GitHub release asset by `omnizart download-checkpoints`.",
+    "separate_weight_terms_found": false,
+    "maintainer_clarification_found": false,
+    "related_upstream_signal": "Upstream issue #115, opened 2026-08-01 for the bundled drum checkpoint, asks the maintainers to clarify whether MIT expressly covers checkpoint files and commercial inference/redistribution; it remains open with no maintainer response at this evaluation date.",
+    "finding": "Under ListenCloser's dependency/evaluation policy, do not infer a production weight grant from the code license when the separately distributed model asset has no explicit terms. Model-weight commercial-use/redistribution status is unresolved.",
+    "status": "FAIL_CLOSED"
+  },
+  "runtime_gate": {
+    "measured": false,
+    "reason_not_measured": "The production-candidate validity gate failed before inference. Adding/installing the TensorFlow-heavy candidate solely to obtain a score would not change the current production decision.",
+    "known_dependency_shape": [
+      "tensorflow (or tf-nightly on newer Python)",
+      "tf-keras",
+      "madmom",
+      "librosa",
+      "pretty_midi",
+      "soundfile"
+    ]
+  },
+  "quality_run": {
+    "status": "NOT_RUN",
+    "reason": "Candidate validity failed before the same-input benchmark stage. The evaluation methodology requires license/provenance validity before spending work on a promotion-bearing run.",
+    "metrics": null
+  },
+  "decision": {
+    "status": "RESEARCH_NOT_PRODUCTION_ELIGIBLE",
+    "production_action": "NO_CHANGE",
+    "general_auto": "KEEP_BASIC_PITCH_OPERATIONAL_BASELINE",
+    "dense_full_mix": "KEEP_ABSTAIN_QUALIFY. Preserve the known failure domain; do not present performance-note transcription for dense/full mixtures as reliable general-music understanding.",
+    "omnizart": "Do not add an Omnizart production adapter, dependency, route or worker integration from current evidence.",
+    "why": [
+      "The implicit default is a piano checkpoint and would make the proposed comparison invalid.",
+      "The explicit Stream checkpoint is MusicNet/classical-domain shaped rather than target-domain shaped.",
+      "The more target-shaped Pop checkpoint points at YouTube-derived training audio with unresolved production provenance.",
+      "The separately distributed learned variables do not have explicit weight/commercial-redistribution terms in the inspected release/docs, so the production license gate fails closed."
+    ]
+  },
+  "revisit_only_if": [
+    "Omnizart maintainers or another authoritative source explicitly establish commercial inference and redistribution rights for the exact candidate checkpoint variables, with sufficient model/training-data provenance for ListenCloser's deployment.",
+    "A materially different production-eligible general-music AMT candidate appears with a clearer dense-mixture domain fit, explicit weight rights and CPU-feasible deployment path."
+  ],
+  "sources": [
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/tree/v0.6.3",
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/omnizart/defaults/music.yaml",
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/omnizart/base.py",
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/omnizart/checkpoints/music/music_note_stream/configurations.yaml",
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/omnizart/checkpoints/music/music_pop/configurations.yaml",
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/omnizart/constants/datasets.py",
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/blob/v0.6.3/paper.md",
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/releases/tag/checkpoints-20211001",
+    "https://github.com/Music-and-Culture-Technology-Lab/omnizart/issues/115",
+    "https://zenodo.org/records/5120004"
+  ]
+}
