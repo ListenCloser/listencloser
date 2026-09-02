@@ -639,7 +639,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       {showProcessingNotice && (
         <div className="workspace-notice workspace-processing-notice" role={stage === "processing" ? "status" : "alert"}>
           <span>
-            {stage === "processing" && <><strong>Recording saved.</strong> {message || "Understanding audio…"}{progress > 0 ? ` · ${Math.round(progress)}%` : ""}</>}
+            {stage === "processing" && <><strong>Ready to listen.</strong> {message || "Understanding audio…"} More views will appear as they become ready.</>}
             {stage === "disconnected" && <><strong>Processing status interrupted.</strong> Your recording is saved. Available views still work.</>}
             {stage === "error" && <><strong>Couldn’t finish understanding this recording.</strong> Your recording is saved. Available views still work.</>}
           </span>

@@ -24,7 +24,9 @@ async function startProcessing(page: Page, filename: string) {
   });
 
   const notice = page.locator(".workspace-processing-notice");
-  await expect(page.getByText("Recording saved.", { exact: true })).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText("Ready to listen.", { exact: true })).toBeVisible({ timeout: 5_000 });
+  await expect(notice).toContainText("More views will appear as they become ready.");
+  await expect(notice).not.toContainText("%");
   await expect(notice).toBeVisible();
   return notice;
 }

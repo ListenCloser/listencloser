@@ -29,7 +29,7 @@ test("local import forwards files above the former 4 MiB browser ceiling", async
     buffer: Buffer.alloc(4 * 1024 * 1024 + 1),
   });
 
-  await expect(page.getByText("Recording saved.", { exact: true })).toBeVisible({
+  await expect(page.getByText("Ready to listen.", { exact: true })).toBeVisible({
     timeout: 15_000,
   });
   await expect(page.getByText(/Audio files must be 4 MB/i)).toHaveCount(0);
