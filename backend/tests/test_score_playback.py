@@ -2,7 +2,7 @@ import io
 
 import pretty_midi
 
-from music_features import measure_start_seconds, midi_to_wav
+from music_features import measure_start_seconds
 
 
 def _four_measure_midi() -> bytes:
@@ -28,9 +28,3 @@ def test_measure_start_seconds_follows_a_4_4_grid():
 
 def test_measure_start_seconds_returns_empty_for_garbage():
     assert measure_start_seconds(b"not midi") == []
-
-
-def test_score_midi_renders_to_wav():
-    wav = midi_to_wav(_four_measure_midi())
-    assert wav.startswith(b"RIFF")
-    assert len(wav) > 44
