@@ -3,7 +3,9 @@
 The transcribe tests run the real Basic Pitch ML model and are therefore
 reclassified as ``integration`` so the default unit suite stays offline-safe.
 Run them intentionally with: ``pytest -m integration backend/tests/test_benchmarks.py``
-The analyze/synthesize tests are pure unit tests over synthetic MIDI.
+The analyze tests are pure unit tests over synthetic MIDI. Canonical MIDI-audio
+rendering is exercised by the production-image FluidSynth smoke instead of the
+lightweight unit tier.
 """
 
 import io
@@ -17,7 +19,7 @@ import pytest
 import soundfile as sf
 
 from analyze import analyze_midi
-from music_features import midi_to_wav, transcribe_audio
+from music_features import transcribe_audio
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 FIXTURE_WAV = FIXTURE_DIR / "sine_a4_c5.wav"
@@ -94,13 +96,6 @@ def test_analyze_detects_key():
     assert result.get("key", {}).get("tonic") is not None
 
 
-def test_synthesize_produces_audio():
-    midi = _sine_midi_bytes()
-    result = midi_to_wav(midi)
-    assert result is not None
-    assert len(result) > 1000
-
-
 @pytest.mark.integration
 def test_transcribe_produces_midi_bytes():
     try:
@@ -153,11 +148,3 @@ def test_analyze_produces_tempo():
         os.unlink(midi_path)
     tempo = result.get("tempo", {}) or {}
     assert isinstance(tempo, dict)
-
-
-def test_synthesize_produces_valid_wav():
-    midi = _sine_midi_bytes()
-    result = midi_to_wav(midi)
-    data, sr = sf.read(io.BytesIO(result))
-    assert sr > 0
-    assert len(data) > 0
