@@ -14,3 +14,9 @@ export function getSymbolicTranscriptionQualification(metadata: unknown): string
   const profile = (metadata as Record<string, unknown>).transcription_profile;
   return profile === "auto" ? GENERAL_TRANSCRIPTION_LIMITATION : null;
 }
+
+/** Apply the same upstream transcription qualification to every symbolic view. */
+export function qualifySymbolicSourceLabel(baseLabel: string, metadata: unknown): string {
+  const qualification = getSymbolicTranscriptionQualification(metadata);
+  return qualification ? `${baseLabel} · ${qualification}` : baseLabel;
+}
