@@ -128,16 +128,16 @@ test("real audio golden path", async ({ page }) => {
     // Original audio plays
     await selectSource(page, "Original");
     await expect(await listeningTo(page, "Original")).toBeVisible();
-    await page.getByRole("button", { name: "Play", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
-    await page.getByRole("button", { name: "Pause", exact: true }).click();
+    await page.getByRole("button", { name: "Play Original", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Pause Original", exact: true }).click();
 
     // Transcription plays
     await selectSource(page, "Transcription");
     await expect(await listeningTo(page, "Transcription")).toBeVisible();
-    await page.getByRole("button", { name: "Play", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
-    await page.getByRole("button", { name: "Pause", exact: true }).click();
+    await page.getByRole("button", { name: "Play Transcription", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pause Transcription", exact: true })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Pause Transcription", exact: true }).click();
 
     // Piano roll renders notes
     await page.getByRole("tab", { name: "Piano Roll" }).click();
@@ -154,9 +154,9 @@ test("real audio golden path", async ({ page }) => {
     await expect(scoreRendition).toBeVisible({ timeout: 10_000 });
     await scoreRendition.click();
     await expect(await listeningTo(page, "Score")).toBeVisible();
-    await page.getByRole("button", { name: "Play", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
-    await page.getByRole("button", { name: "Pause", exact: true }).click();
+    await page.getByRole("button", { name: "Play Score", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pause Score", exact: true })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Pause Score", exact: true }).click();
   });
 
   // ── Breakdown ────────────────────────────────────────────────────────
@@ -193,21 +193,21 @@ test("real audio golden path", async ({ page }) => {
 
     // Representation changes preserve playback
     await selectSource(page, "Original");
-    await page.getByRole("button", { name: "Play", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Play Original", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible();
     const positionOnPianoRoll = await transportPosition(page);
     expect(positionOnPianoRoll).toBeGreaterThan(0);
 
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible();
     await expect.poll(() => transportPosition(page), { timeout: 10_000 }).toBeGreaterThanOrEqual(positionOnPianoRoll);
     await expect(await listeningTo(page, "Original")).toBeVisible();
-    await page.getByRole("button", { name: "Pause", exact: true }).click();
+    await page.getByRole("button", { name: "Pause Original", exact: true }).click();
 
     // Source swap preserves playhead
     const positionBeforeSourceSwap = await transportPosition(page);
