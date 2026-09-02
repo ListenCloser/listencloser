@@ -11,10 +11,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import fmean
-from typing import Sequence
 
 _POP909_DATASET = "POP909"
 _POP909_TEST_SPLIT = "test"
