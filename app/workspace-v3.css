@@ -7,27 +7,13 @@
 
 :root {
   color-scheme: dark;
-  --bg: #11110f;
-  --bg-subtle: #151512;
-  --panel: #191916;
-  --panel-2: #1e1e1a;
-  --panel-3: #26251f;
-  --panel-4: #302f28;
-  --text: #f1efe8;
-  --muted: #918d82;
-  --accent: #d6b56d;
-  --accent-strong: #e4c77f;
   --accent-2: #86a6a1;
   --accent-soft: rgba(214, 181, 109, 0.12);
   --accent-soft-2: rgba(134, 166, 161, 0.12);
-  --score-playback: #8db2c7;
-  --score-playback-soft: rgba(141, 178, 199, 0.14);
   --danger: #d57b72;
   --danger-soft: rgba(213, 123, 114, 0.11);
   --success: #8fb58a;
   --success-soft: rgba(143, 181, 138, 0.11);
-  --border: rgba(241, 239, 232, 0.075);
-  --border-strong: rgba(241, 239, 232, 0.14);
   --color-harmony: #8fb58a;
   --color-harmony-soft: rgba(143, 181, 138, 0.11);
   --color-melody: #c88d78;
