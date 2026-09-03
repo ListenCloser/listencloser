@@ -5,6 +5,11 @@ The backend container must receive the LLM provider configuration
 reach the configured LLM provider. The worker container does NOT
 need these credentials because no worker-invoked code path touches
 the ask/ package.
+
+Both long-lived services run the production image as a non-root user and must
+also drop Docker's default Linux capability set. Deployment-only helper
+containers may add back the minimum capabilities required to initialize the
+shared runtime volume.
 """
 
 from __future__ import annotations
@@ -13,7 +18,9 @@ from pathlib import Path
 
 import yaml
 
-COMPOSE_PATH = Path(__file__).resolve().parents[1] / "docker-compose.yml"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+COMPOSE_PATH = REPO_ROOT / "backend" / "docker-compose.yml"
+DEPLOY_PATH = REPO_ROOT / "scripts" / "deploy.sh"
 
 
 def _load_compose() -> dict:
@@ -39,3 +46,20 @@ def test_worker_service_does_not_have_llm_credentials() -> None:
         "Worker service must not receive LLM_API_KEY. "
         "No worker-invoked code path touches the ask/ package."
     )
+
+
+def test_long_lived_services_drop_linux_capabilities_and_block_privilege_gain() -> None:
+    compose = _load_compose()
+
+    for service_name in ("backend", "worker"):
+        service = compose["services"][service_name]
+        assert service.get("cap_drop") == ["ALL"]
+        assert service.get("security_opt") == ["no-new-privileges:true"]
+        assert "cap_add" not in service
+
+
+def test_runtime_volume_root_helpers_add_back_only_required_capabilities() -> None:
+    deploy = DEPLOY_PATH.read_text()
+    hardened_root_helper = "--cap-add CHOWN --cap-add DAC_OVERRIDE --user root"
+
+    assert deploy.count(hardened_root_helper) == 2
