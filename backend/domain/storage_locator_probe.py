@@ -20,7 +20,11 @@ from typing import Any
 from supabase import Client
 
 from domain.repositories import get_supabase
-from domain.storage_locator_audit import AuditRows, audit_storage_locator_rows, load_audit_rows
+from domain.storage_locator_audit import (
+    AuditRows,
+    audit_storage_locator_rows,
+    load_audit_rows,
+)
 
 
 def _version_rows_by_id(rows: AuditRows) -> dict[str, dict[str, Any]]:
@@ -96,7 +100,9 @@ def probe_selected_storage(
                 "stored_byte_size": stored_byte_size,
                 "stored_sha256": stored_sha256,
                 "byte_size_matches": (
-                    None if stored_byte_size is None else actual_byte_size == stored_byte_size
+                    None
+                    if stored_byte_size is None
+                    else actual_byte_size == stored_byte_size
                 ),
                 "sha256_matches": (
                     None if stored_sha256 is None else actual_sha256 == stored_sha256
@@ -109,7 +115,9 @@ def probe_selected_storage(
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Read-only byte/hash probe for selected legacy Version Storage objects.",
+        description=(
+            "Read-only byte/hash probe for selected legacy Version Storage objects."
+        ),
     )
     parser.add_argument(
         "--version",
