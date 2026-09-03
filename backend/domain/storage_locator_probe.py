@@ -17,6 +17,7 @@ import hashlib
 import json
 from typing import Any
 
+from storage3.exceptions import StorageApiError
 from supabase import Client
 
 from domain.repositories import get_supabase
@@ -39,6 +40,25 @@ def _metadata_matches(actual: int | str, stored: int | str | None) -> bool | Non
     if stored is None:
         return None
     return actual == stored
+
+
+def _is_missing_object_error(error: StorageApiError) -> bool:
+    return error.code in {"NoSuchKey", "not_found"}
+
+
+def _download_selected_object(client: Client, bucket: str, key: str) -> bytes | None:
+    try:
+        return client.storage.from_(bucket).download(key)
+    except StorageApiError as exc:
+        if _is_missing_object_error(exc):
+            return None
+        raise RuntimeError(
+            "Storage probe failed without proving the source object is missing"
+        ) from None
+    except Exception:
+        raise RuntimeError(
+            "Storage probe failed without proving the source object is missing"
+        ) from None
 
 
 def probe_selected_storage(
@@ -73,10 +93,9 @@ def probe_selected_storage(
         storage_key = str(row.get("storage_key") or "")
         stored_byte_size = detail["byte_size"]
         stored_sha256 = detail["stored_sha256"]
+        content = _download_selected_object(client, storage_bucket, storage_key)
 
-        try:
-            content = client.storage.from_(storage_bucket).download(storage_key)
-        except Exception:
+        if content is None:
             probes.append(
                 {
                     "version_id": version_id,
