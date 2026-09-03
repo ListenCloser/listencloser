@@ -62,6 +62,33 @@ test("processing uses a bottom status shelf and cancellation preserves the saved
   await expect(page.locator(".operation-layer")).not.toBeVisible();
 });
 
+test("processing status stays readable without transport collision at laptop width", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  const notice = await startProcessing(page, "laptop-progress.m4a");
+  const cancel = notice.getByRole("button", { name: "Cancel" });
+  await expect(cancel).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
+
+  const noticeBox = await notice.boundingBox();
+  const cancelBox = await cancel.boundingBox();
+  const workspaceBox = await page.locator(".studio-workspace-v3").boundingBox();
+  const transportBox = await page.locator(".transport-bar-v3").boundingBox();
+  expect(noticeBox).not.toBeNull();
+  expect(cancelBox).not.toBeNull();
+  expect(workspaceBox).not.toBeNull();
+  expect(transportBox).not.toBeNull();
+
+  // A constrained laptop should preserve the same reserved-row contract as a
+  // wider desktop: the readiness sentence and action stay on-screen while the
+  // transport begins immediately below the notice instead of colliding with it.
+  expect(noticeBox!.x).toBeGreaterThanOrEqual(0);
+  expect(noticeBox!.x + noticeBox!.width).toBeLessThanOrEqual(1024);
+  expect(cancelBox!.x).toBeGreaterThanOrEqual(noticeBox!.x);
+  expect(cancelBox!.x + cancelBox!.width).toBeLessThanOrEqual(noticeBox!.x + noticeBox!.width);
+  expect(Math.abs(noticeBox!.y - (workspaceBox!.y + workspaceBox!.height))).toBeLessThanOrEqual(1);
+  expect(Math.abs(transportBox!.y - (noticeBox!.y + noticeBox!.height))).toBeLessThanOrEqual(1);
+});
+
 test("processing status remains bounded and preserves mobile workspace controls", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const notice = await startProcessing(page, "mobile-progress.m4a");
