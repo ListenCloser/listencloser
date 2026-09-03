@@ -1,0 +1,39 @@
+name: Temporary fix 1021 Work bundle type
+
+on:
+  push:
+    branches:
+      - tmp/1021-canonical-bundle-type
+    paths:
+      - .github/workflows/tmp-fix-1021-type.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/1021-canonical-bundle-type
+      - name: Apply exact type-only correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("components/workspace/WorkspaceSession.tsx")
+          text = path.read_text()
+          old = "Awaited<ReturnType<typeof fetchWorkBundle>>"
+          new = "Awaited<ReturnType<typeof getWorkBundle>>"
+          if text.count(old) != 1:
+              raise SystemExit(f"expected exactly one stale reference, found {text.count(old)}")
+          path.write_text(text.replace(old, new, 1))
+          PY
+          rm .github/workflows/tmp-fix-1021-type.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "tmp: materialize canonical Work bundle type fix"
+          git push origin HEAD:tmp/1021-canonical-bundle-type
