@@ -62,6 +62,26 @@ test("processing uses a bottom status shelf and cancellation preserves the saved
   await expect(page.locator(".operation-layer")).not.toBeVisible();
 });
 
+test("terminal processing failure preserves the playable recording and exposes retry", async ({ page }) => {
+  const notice = await startProcessing(page, "failure-status.m4a");
+
+  await expect(notice).toContainText(/Couldn.t finish understanding this recording\./, {
+    timeout: 15_000,
+  });
+  await expect(notice).toContainText("Your recording is saved. Available views still work.");
+  await expect(notice.getByRole("button", { name: "Retry" })).toBeVisible();
+  await expect(page.locator(".operation-layer")).not.toBeVisible();
+
+  await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Playback source: Original", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Play Original", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible({
+    timeout: 5_000,
+  });
+});
+
 test("processing status stays readable without transport collision at laptop width", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   const notice = await startProcessing(page, "laptop-progress.m4a");

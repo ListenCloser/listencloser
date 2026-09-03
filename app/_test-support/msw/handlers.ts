@@ -17,10 +17,14 @@ const musicxml = `<?xml version="1.0" encoding="UTF-8"?><score-partwise version=
 ).join("")}</part></score-partwise>`;
 
 const measureStartsSeconds = [0, 2, 4, 6, 8, 10];
+const FAILURE_VERSION_ID = "mock-version-failure";
 let understandInFlight = false;
 let understandBundlePolls = 0;
+let understandShouldFail = false;
+let understandTerminalFailure = false;
 
-function understandJob(progress: number, current: "queued" | "running" = "running") {
+function understandJob(progress: number, current: "queued" | "running" | "failed" = "running") {
+  const failed = current === "failed";
   return {
     id: "mock-job-1",
     workflow_id: "mock-workflow-1",
@@ -35,19 +39,19 @@ function understandJob(progress: number, current: "queued" | "running" = "runnin
     lifecycle: {
       current,
       progress,
-      message: "Understanding audio...",
+      message: failed ? "Understanding audio failed in the processing fixture." : "Understanding audio...",
       stages: [],
       retry_count: 0,
       max_retries: 3,
       lease_expires_at: null,
-      started_at: current === "running" ? new Date().toISOString() : null,
-      completed_at: null,
+      started_at: current === "queued" ? null : new Date().toISOString(),
+      completed_at: failed ? new Date().toISOString() : null,
     },
-    input_version_ids: ["mock-version-1"],
+    input_version_ids: [understandShouldFail ? FAILURE_VERSION_ID : "mock-version-1"],
     output_version_ids: [],
     parameters: {},
     cache_key: null,
-    error: null,
+    error: failed ? "Mock processing failure" : null,
     error_details: {},
     provenance: {},
     created_at: new Date().toISOString(),
@@ -89,14 +93,19 @@ export const handlers = [
     await delay(200);
     understandInFlight = false;
     understandBundlePolls = 0;
+    understandShouldFail = false;
+    understandTerminalFailure = false;
     return HttpResponse.json({
       artifact: { id: "mock-artifact-1", work_id: "mock-work-1", kind: "audio_original", mime_type: "audio/wav", created_at: new Date().toISOString() },
       version: { id: "mock-version-1", artifact_id: "mock-artifact-1", storage_bucket: "artifacts", storage_key: "test/mock-version-1.wav", parent_version_id: null, lineage: [], byte_size: 44000, sha256: null, label: "", metadata: {}, created_at: new Date().toISOString(), created_by: null, produced_by_job_id: null },
     });
   }),
 
-  http.post("/api/v1/workflows/understand", async () => {
+  http.post("/api/v1/workflows/understand", async ({ request }) => {
     await delay(100);
+    const body = await request.json() as { version_id?: string };
+    understandShouldFail = body.version_id === FAILURE_VERSION_ID;
+    understandTerminalFailure = false;
     understandInFlight = true;
     understandBundlePolls = 0;
     return HttpResponse.json({
@@ -119,6 +128,7 @@ export const handlers = [
 
   http.post("/api/v1/jobs/:jobId/cancel", async ({ params }) => {
     understandInFlight = false;
+    understandTerminalFailure = false;
     return HttpResponse.json({
       id: String(params.jobId), workflow_id: "mock-workflow-1", capability: "understand",
       stage: "cancelled", progress: 0.5, message: "cancelled by user", error: null,
@@ -128,11 +138,12 @@ export const handlers = [
 
   http.post("/api/v1/jobs/:jobId/retry", async ({ params }) => {
     understandInFlight = true;
+    understandTerminalFailure = false;
     understandBundlePolls = 0;
     return HttpResponse.json({
       id: String(params.jobId), workflow_id: "mock-workflow-1", capability: "understand",
       stage: "queued", progress: 0, message: "queued for manual retry", error: null,
-      input_version_ids: ["mock-version-1"], output_version_ids: [],
+      input_version_ids: [understandShouldFail ? FAILURE_VERSION_ID : "mock-version-1"], output_version_ids: [],
     });
   }),
 
@@ -157,16 +168,19 @@ export const handlers = [
       latest_version: { id, artifact_id: `artifact-${id}`, storage_bucket: "artifacts", storage_key: `mock/${id}`, parent_version_id: null, lineage: [], byte_size: 100, sha256: null, label: id, metadata, created_at: now, created_by: "mock-user-1", produced_by_job_id: "mock-job-1" },
       signed_url: signedUrl,
     });
+    const sourceVersionId = understandShouldFail ? FAILURE_VERSION_ID : "mock-version-1";
     const allArtifacts = [
-      item("mock-version-1", "audio_original", `data:audio/wav;base64,${sampleWavBase64}`),
+      item(sourceVersionId, "audio_original", `data:audio/wav;base64,${sampleWavBase64}`),
       item("mock-midi-version", "midi_performance", "https://example.com/mock.mid"),
       item("mock-audio-version", "audio_rendered", `data:audio/wav;base64,${sampleWavOutputBase64}`),
       item("mock-score-version", "musicxml_score", `data:application/xml,${encodeURIComponent(musicxml)}`),
       item("mock-rendered-score-version", "rendered_score", `data:audio/wav;base64,${sampleWavOutputBase64}`, { measure_starts_seconds: measureStartsSeconds }),
     ];
 
-    let jobs: ReturnType<typeof understandJob>[] = [];
-    let artifacts = allArtifacts;
+    let jobs: ReturnType<typeof understandJob>[] = understandTerminalFailure
+      ? [understandJob(1, "failed")]
+      : [];
+    let artifacts = understandTerminalFailure ? [allArtifacts[0]] : allArtifacts;
     if (understandInFlight) {
       understandBundlePolls += 1;
       if (understandBundlePolls < 4) {
@@ -175,6 +189,11 @@ export const handlers = [
         artifacts = [allArtifacts[0]];
       } else {
         understandInFlight = false;
+        if (understandShouldFail) {
+          understandTerminalFailure = true;
+          jobs = [understandJob(1, "failed")];
+          artifacts = [allArtifacts[0]];
+        }
       }
     }
 
