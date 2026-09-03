@@ -36,6 +36,21 @@ jobs:
           end = workflow.index("\n          PY\n", start)
           exec(compile(textwrap.dedent(workflow[start:end]), 'tmp-1132-finalize.py', 'exec'))
 
+          eval_adapter = Path('backend/evaluation/engines/structure.py')
+          eval_text = eval_adapter.read_text()
+          long_note = (
+              '        notes="Joint beat/downbeat/segmentation model. Evaluation-only candidate; '
+              'not installed or routed in production.",\n'
+          )
+          wrapped_note = (
+              '        notes=(\n'
+              '            "Joint beat/downbeat/segmentation model. Evaluation-only candidate; "\n'
+              '            "not installed or routed in production."\n'
+              '        ),\n'
+          )
+          assert eval_text.count(long_note) == 1
+          eval_adapter.write_text(eval_text.replace(long_note, wrapped_note, 1))
+
           normalized = (
               'backend/domain/capabilities.py',
               'backend/music_features.py',
