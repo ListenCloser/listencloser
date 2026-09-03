@@ -40,13 +40,11 @@ def test_release_contract_changes_fail_closed_to_both_components() -> None:
 
 def test_backend_release_reconciles_database_before_runtime_deploy() -> None:
     workflow = DEPLOY_WORKFLOW.read_text()
-    backend_reconciliation = (
-        'if [[ "$backend" == "true" ]]; then\n'
-        "            database=true\n"
-        "          fi"
-    )
+    lines = workflow.splitlines()
+    start = lines.index('          if [[ "$backend" == "true" ]]; then')
 
-    assert backend_reconciliation in workflow
+    assert lines[start + 1] == "            database=true"
+    assert lines[start + 2] == "          fi"
     assert "needs: [scope, publish-image]" in workflow
     assert "needs: [scope, publish-image, migrate]" in workflow
     assert "needs.migrate.result == 'success'" in workflow
