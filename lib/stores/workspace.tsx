@@ -83,7 +83,6 @@ type WorkspaceContextValue = {
   setInspectorMode: (mode: "analysis" | "ask") => void;
   appendAskMessage: (message: AskMessage) => void;
   clearAskConversation: () => void;
-  addRepresentation: (rep: RepresentationEntry) => void;
   replaceRepresentations: (reps: RepresentationEntry[]) => void;
   setInsights: (insights: Insight[]) => void;
   requestVariation: (versionId: string, semitones: number) => void;
@@ -98,15 +97,6 @@ type WorkspaceContextValue = {
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
-
-function representationKindToKnown(kind: RepresentationKind): RepresentationId | null {
-  switch (kind) {
-    case "waveform": return "listen";
-    case "piano_roll": return "piano_roll";
-    case "score": return "score";
-    default: return null;
-  }
-}
 
 function preserveImmutableRepresentationUrls(
   previous: RepresentationEntry[],
@@ -187,21 +177,6 @@ export function WorkspaceProvider({
   const appendAskMessage = useCallback((message: AskMessage) => setWorkspace((prev) => ({ ...prev, askConversation: [...prev.askConversation, message] })), []);
   const clearAskConversation = useCallback(() => setWorkspace((prev) => ({ ...prev, askConversation: [] })), []);
 
-  const addRepresentation = useCallback((rep: RepresentationEntry) => {
-    setWorkspace((prev) => {
-      const existing = prev.representations.find((item) => item.kind === rep.kind);
-      if (existing) {
-        const [stable] = preserveImmutableRepresentationUrls([existing], [rep]);
-        return { ...prev, representations: prev.representations.map((item) => item.kind === rep.kind ? stable : item) };
-      }
-      return {
-        ...prev,
-        representations: [...prev.representations, rep],
-        activeRepresentation: prev.activeRepresentation ?? representationKindToKnown(rep.kind),
-      };
-    });
-  }, []);
-
   const setInsights = useCallback((insights: Insight[]) => setWorkspace((prev) => ({ ...prev, insights })), []);
   const requestVariation = useCallback((versionId: string, semitones: number) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "variation", versionIds: [versionId], semitones } })), []);
   const requestComparison = useCallback((versionIdA: string, versionIdB: string) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "compare", versionIds: [versionIdA, versionIdB] } })), []);
@@ -229,7 +204,6 @@ export function WorkspaceProvider({
       setInspectorMode,
       appendAskMessage,
       clearAskConversation,
-      addRepresentation,
       replaceRepresentations,
       setInsights,
       requestVariation,
