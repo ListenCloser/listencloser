@@ -113,6 +113,14 @@ class AlignmentCoverage(BaseModel):
     score_events_mapped: int = Field(ge=0)
     performance_events_mapped: int = Field(ge=0)
 
+    @model_validator(mode="after")
+    def validate_counts(self) -> AlignmentCoverage:
+        if self.score_events_mapped > self.score_events_total:
+            raise ValueError("mapped score events cannot exceed total score events")
+        if self.performance_events_mapped > self.performance_events_total:
+            raise ValueError("mapped performance events cannot exceed total performance events")
+        return self
+
     @property
     def score_fraction(self) -> float | None:
         if self.score_events_total == 0:
@@ -131,8 +139,8 @@ class AlignmentSufficiencyPolicy(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    minimum_score_fraction: float = Field(ge=0.0, le=1.0)
-    minimum_performance_fraction: float = Field(ge=0.0, le=1.0)
+    minimum_score_fraction: float = Field(gt=0.0, le=1.0)
+    minimum_performance_fraction: float = Field(gt=0.0, le=1.0)
 
 
 class ScorePerformanceAlignment(BaseModel):
@@ -152,14 +160,28 @@ class ScorePerformanceAlignment(BaseModel):
     def validate_truthfulness(self) -> ScorePerformanceAlignment:
         if self.score_version_id == self.performance_version_id:
             raise ValueError("score and performance must be distinct immutable Versions")
+
+        score_fraction = self.coverage.score_fraction
+        performance_fraction = self.coverage.performance_fraction
+        meets_policy = (
+            score_fraction is not None
+            and performance_fraction is not None
+            and score_fraction >= self.sufficiency_policy.minimum_score_fraction
+            and performance_fraction >= self.sufficiency_policy.minimum_performance_fraction
+        )
+
         if self.sufficiency is AlignmentSufficiency.sufficient:
             if self.failure is not None:
                 raise ValueError("sufficient alignment cannot carry a failure")
+            if not meets_policy:
+                raise ValueError("sufficient alignment coverage does not meet its policy")
             if self.projection_precision is not AlignmentProjectionPrecision.adequate:
                 raise ValueError("sufficient alignment must project as adequate")
         else:
             if self.projection_precision is not AlignmentProjectionPrecision.unsupported:
                 raise ValueError("failed/insufficient alignment must project as unsupported")
+        if self.sufficiency is AlignmentSufficiency.insufficient and meets_policy:
+            raise ValueError("insufficient alignment coverage already meets its policy")
         if self.sufficiency is AlignmentSufficiency.failed and self.failure is None:
             raise ValueError("failed alignment must record its failure")
         return self
