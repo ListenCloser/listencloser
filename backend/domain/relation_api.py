@@ -91,7 +91,7 @@ def _authorized_report_loader(
     "/works/{work_id}/relations/perceptual-span-comparison",
     response_model=PerceptualSpanComparisonResponse,
 )
-async def compare_perceptual_spans(
+def compare_perceptual_spans(
     work_id: UUID,
     body: PerceptualSpanComparisonBody,
     auth=Depends(verify_token),

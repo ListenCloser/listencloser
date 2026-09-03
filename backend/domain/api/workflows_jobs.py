@@ -128,7 +128,7 @@ def _job_state(job: Job) -> JobStateResponse:
 
 @router.post("/workflows/understand", response_model=WorkflowJobResponse)
 @limiter.limit("10/minute")
-async def create_understand_workflow(
+def create_understand_workflow(
     body: UnderstandWorkflowBody,
     request: Request,
     auth=Depends(verify_token),
@@ -207,7 +207,7 @@ async def create_understand_workflow(
 
 @router.post("/workflows/score", response_model=WorkflowJobResponse)
 @limiter.limit("10/minute")
-async def create_score_workflow(
+def create_score_workflow(
     body: ScoreWorkflowBody,
     request: Request,
     auth=Depends(verify_token),
@@ -298,7 +298,7 @@ async def create_score_workflow(
 
 
 @router.get("/jobs/{job_id}", response_model=JobStateResponse)
-async def get_job(
+def get_job(
     job_id: UUID,
     auth=Depends(verify_token),
 ):
@@ -318,7 +318,7 @@ async def get_job(
 
 @router.post("/jobs/{job_id}/cancel", response_model=JobStateResponse)
 @limiter.limit("20/minute")
-async def cancel_job(
+def cancel_job(
     job_id: UUID,
     request: Request,
     auth=Depends(verify_token),
@@ -335,7 +335,7 @@ async def cancel_job(
 
 @router.post("/jobs/{job_id}/retry", response_model=JobStateResponse)
 @limiter.limit("10/minute")
-async def retry_job(
+def retry_job(
     job_id: UUID,
     request: Request,
     auth=Depends(verify_token),
@@ -352,7 +352,7 @@ async def retry_job(
 
 @router.post("/workflows/analyze", response_model=WorkflowJobResponse)
 @limiter.limit("10/minute")
-async def create_analyze_workflow(
+def create_analyze_workflow(
     body: AnalyzeWorkflowBody,
     request: Request,
     auth=Depends(verify_token),
@@ -391,7 +391,7 @@ async def create_analyze_workflow(
 
 @router.post("/workflows/correct", response_model=WorkflowJobResponse)
 @limiter.limit("10/minute")
-async def create_correct_workflow(
+def create_correct_workflow(
     body: CorrectWorkflowBody,
     request: Request,
     auth=Depends(verify_token),
@@ -436,7 +436,7 @@ async def create_correct_workflow(
 
 @router.post("/workflows/compare", response_model=WorkflowJobResponse)
 @limiter.limit("10/minute")
-async def create_compare_workflow(
+def create_compare_workflow(
     body: CompareWorkflowBody,
     request: Request,
     auth=Depends(verify_token),
@@ -477,7 +477,7 @@ async def create_compare_workflow(
 
 @router.post("/workflows/variation", response_model=WorkflowJobResponse)
 @limiter.limit("5/minute")
-async def create_variation_workflow(
+def create_variation_workflow(
     body: VariationWorkflowBody,
     request: Request,
     auth=Depends(verify_token),
@@ -547,7 +547,7 @@ async def create_variation_workflow(
 
 @router.post("/workflows/create", response_model=WorkflowJobResponse)
 @limiter.limit("5/minute")
-async def create_create_workflow(
+def create_create_workflow(
     body: CreateWorkflowBody,
     request: Request,
     auth=Depends(verify_token),

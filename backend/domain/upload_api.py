@@ -192,7 +192,7 @@ def _existing_upload(sb, storage_key: str, owner_id: str) -> tuple[Artifact, Ver
     response_model=UploadIntentResponse,
 )
 @limiter.limit("10/minute")
-async def create_upload_intent(
+def create_upload_intent(
     project_id: UUID,
     body: CreateUploadIntentBody,
     request: Request,
@@ -225,7 +225,7 @@ async def create_upload_intent(
     response_model=UploadArtifactResponse,
 )
 @limiter.limit("10/minute")
-async def finalize_upload(
+def finalize_upload(
     project_id: UUID,
     body: FinalizeUploadBody,
     request: Request,

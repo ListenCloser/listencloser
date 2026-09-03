@@ -25,7 +25,7 @@ _ALLOWED_AUDIO_EXTENSIONS = {"wav", "mp3", "m4a", "flac", "ogg", "aac"}
 
 @router.post("/projects/{project_id}/artifacts/upload", response_model=UploadArtifactResponse)
 @limiter.limit("10/minute")
-async def upload_artifact(
+def upload_artifact(
     project_id: UUID,
     request: Request,
     file: UploadFile = File(...),
@@ -46,7 +46,7 @@ async def upload_artifact(
             raise HTTPException(status_code=415, detail="Unsupported audio format")
 
         max_upload_bytes = int(os.environ.get("MAX_UPLOAD_BYTES", str(4 * 1024 * 1024)))
-        raw = await file.read(max_upload_bytes + 1)
+        raw = file.file.read(max_upload_bytes + 1)
         if len(raw) > max_upload_bytes:
             raise HTTPException(status_code=413, detail="File exceeds upload size limit")
         if not raw:
@@ -121,7 +121,7 @@ async def upload_artifact(
 
 
 @router.get("/versions/{version_id}", response_model=VersionResourceResponse)
-async def get_version_resource(
+def get_version_resource(
     version_id: UUID,
     auth=Depends(verify_token),
 ):
