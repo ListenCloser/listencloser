@@ -35,6 +35,13 @@ async function transportPosition(page: import("@playwright/test").Page): Promise
   return Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
 }
 
+async function activeMediaSrc(page: import("@playwright/test").Page): Promise<string> {
+  return page.locator("audio").evaluate((audio) => {
+    const media = audio as HTMLAudioElement;
+    return media.currentSrc || media.src;
+  });
+}
+
 async function expectPositionPreserved(
   page: import("@playwright/test").Page,
   expected: number,
@@ -249,16 +256,23 @@ test("real audio golden path", async ({ page }, testInfo) => {
 
   // ── Transcription representations ────────────────────────────────────
   await test.step("transcription representations", async () => {
-    // Original audio plays
+    // Original audio plays and owns a concrete media URL.
     await selectSource(page, "Original");
     await expect(await listeningTo(page, "Original")).toBeVisible();
+    const originalMediaSrc = await activeMediaSrc(page);
+    expect(originalMediaSrc).not.toBe("");
     await page.getByRole("button", { name: "Play Original", exact: true }).click();
     await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Pause Original", exact: true }).click();
 
-    // Transcription plays
+    // Transcription plays from a distinct generated media asset. This prevents
+    // a labels-only regression from passing while the audio element still
+    // points at the uploaded Original.
     await selectSource(page, "Transcription");
     await expect(await listeningTo(page, "Transcription")).toBeVisible();
+    const transcriptionMediaSrc = await activeMediaSrc(page);
+    expect(transcriptionMediaSrc).not.toBe("");
+    expect(transcriptionMediaSrc).not.toBe(originalMediaSrc);
     await page.getByRole("button", { name: "Play Transcription", exact: true }).click();
     await expect(page.getByRole("button", { name: "Pause Transcription", exact: true })).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Pause Transcription", exact: true }).click();
@@ -284,6 +298,10 @@ test("real audio golden path", async ({ page }, testInfo) => {
     await expect(scoreRendition).toBeVisible({ timeout: 10_000 });
     await scoreRendition.click();
     await expect(await listeningTo(page, "Score")).toBeVisible();
+    const scoreMediaSrc = await activeMediaSrc(page);
+    expect(scoreMediaSrc).not.toBe("");
+    expect(scoreMediaSrc).not.toBe(originalMediaSrc);
+    expect(scoreMediaSrc).not.toBe(transcriptionMediaSrc);
     await page.getByRole("button", { name: "Play Score", exact: true }).click();
     await expect(page.getByRole("button", { name: "Pause Score", exact: true })).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Pause Score", exact: true }).click();
@@ -321,28 +339,35 @@ test("real audio golden path", async ({ page }, testInfo) => {
       .toBe(true);
     await expect(page.locator("[data-selection-highlight]").first()).toBeVisible({ timeout: 10_000 });
 
-    // Representation changes preserve playback
+    // Representation changes preserve playback and must not replace the
+    // concrete media asset merely because the visual representation changes.
     await selectSource(page, "Original");
+    const originalMediaSrc = await activeMediaSrc(page);
+    expect(originalMediaSrc).not.toBe("");
     await page.getByRole("button", { name: "Play Original", exact: true }).click();
     await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible();
     await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible();
+    expect(await activeMediaSrc(page)).toBe(originalMediaSrc);
     const positionOnPianoRoll = await transportPosition(page);
     expect(positionOnPianoRoll).toBeGreaterThan(0);
 
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible();
     await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible();
+    expect(await activeMediaSrc(page)).toBe(originalMediaSrc);
     await expect.poll(() => transportPosition(page), { timeout: 10_000 }).toBeGreaterThanOrEqual(positionOnPianoRoll);
     await expect(await listeningTo(page, "Original")).toBeVisible();
     await page.getByRole("button", { name: "Pause Original", exact: true }).click();
 
-    // Source swap preserves playhead
+    // Source swap preserves playhead and changes the concrete media asset.
     const positionBeforeSourceSwap = await transportPosition(page);
     await selectSource(page, "Transcription");
     await expect(await listeningTo(page, "Transcription")).toBeVisible();
+    const transcriptionMediaSrc = await activeMediaSrc(page);
+    expect(transcriptionMediaSrc).not.toBe(originalMediaSrc);
     await expectPositionPreserved(page, positionBeforeSourceSwap);
 
     // Score source swap is part of the production Score contract, not optional.
@@ -351,6 +376,9 @@ test("real audio golden path", async ({ page }, testInfo) => {
     await expect(scoreRenditionOption).toBeVisible({ timeout: 10_000 });
     await scoreRenditionOption.click();
     await expect(await listeningTo(page, "Score")).toBeVisible();
+    const scoreMediaSrc = await activeMediaSrc(page);
+    expect(scoreMediaSrc).not.toBe(originalMediaSrc);
+    expect(scoreMediaSrc).not.toBe(transcriptionMediaSrc);
     await expectPositionPreserved(page, positionBeforeSourceSwap);
 
     // A/B comparison
