@@ -1,0 +1,37 @@
+name: Format 1122 once
+
+on:
+  push:
+    branches:
+      - devex/canonical-realstack-check
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: devex/canonical-realstack-check
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: 0.12.6
+      - name: Apply repository formatter and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv sync --project backend --locked
+          uv run --project backend ruff format backend/tests/test_real_stack_check_contract.py
+          rm .github/workflows/format-1122-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/tests/test_real_stack_check_contract.py .github/workflows/format-1122-once.yml
+          git commit -m "style(devex): apply locked Ruff formatter"
+          git push origin HEAD:devex/canonical-realstack-check
