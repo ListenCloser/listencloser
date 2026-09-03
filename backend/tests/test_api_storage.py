@@ -20,7 +20,7 @@ def test_signed_url_uses_browser_visible_supabase_origin(monkeypatch):
             "signedURL": (
                 "http://supabase_kong_realstack:8000/"
                 "storage/v1/object/sign/artifacts/file.musicxml?token=abc"
-            )
+            ),
         }
     ) == (
         "http://127.0.0.1:54321/"
