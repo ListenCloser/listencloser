@@ -70,6 +70,10 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedWorkRef = useRef<string | null>(null);
   const initializedProjectSelectionRef = useRef<string | null>(null);
+  // Request order is not the only authority boundary: the user can select a
+  // different Work before that Work's effect has started its own request.
+  const activeWorkIdRef = useRef<string | null>(workspace.activeWorkId);
+  activeWorkIdRef.current = workspace.activeWorkId;
 
   const clearProcessingRefresh = useCallback(() => {
     if (refreshTimerRef.current !== null) {
@@ -79,9 +83,16 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   }, []);
 
   const loadWork = useCallback(async (workId: string) => {
+    // A background completion for a Work the user already left must not cancel
+    // or clear the newly selected Work before its own load starts.
+    if (activeWorkIdRef.current !== workId) return;
+
     const preserveWorkspace = loadedWorkRef.current === workId;
     loadedWorkRef.current = workId;
     const sequence = ++loadSequenceRef.current;
+    const isCurrentLoad = () => (
+      sequence === loadSequenceRef.current && activeWorkIdRef.current === workId
+    );
     clearProcessingRefresh();
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -103,7 +114,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
 
     try {
       const bundle = await getWorkBundle(workId);
-      if (sequence !== loadSequenceRef.current) return;
+      if (!isCurrentLoad()) return;
 
       const latestJob = bundle.jobs[0];
       const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
@@ -203,7 +214,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         else representations.push(representation);
       };
       const publishRepresentation = (representation: RepresentationEntry) => {
-        if (sequence !== loadSequenceRef.current) return;
+        if (!isCurrentLoad()) return;
         upsertLocalRepresentation(representation);
         replaceRepresentations([...representations]);
       };
@@ -249,7 +260,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         };
       };
       const publishInsightContext = (pendingInsights: Awaited<ReturnType<typeof getInsights>>) => {
-        if (sequence !== loadSequenceRef.current) return;
+        if (!isCurrentLoad()) return;
         setInsights(pendingInsights);
         const tempo = pendingInsights.find((item) => item.kind === "tempo")?.evidence.bpm;
         if (typeof tempo === "number" && tempo > 0) setBpm(tempo);
@@ -281,7 +292,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         insightsPromise,
         scorePromise,
       ]);
-      if (sequence !== loadSequenceRef.current) return;
+      if (!isCurrentLoad()) return;
 
       const warnings: string[] = [];
       const entities = entitiesResult.status === "fulfilled" ? entitiesResult.value : [];
@@ -321,7 +332,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         // thresholds. If MIDI/score/insights become durable mid-job they will
         // appear on the next poll without changing the active view or source.
         refreshTimerRef.current = setTimeout(() => {
-          if (sequence === loadSequenceRef.current && loadedWorkRef.current === workId) {
+          if (isCurrentLoad() && loadedWorkRef.current === workId) {
             void loadWork(workId);
           }
         }, PROCESSING_REFRESH_MS);
@@ -353,7 +364,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         setStage("success");
       }
     } catch (cause) {
-      if (sequence !== loadSequenceRef.current) return;
+      if (!isCurrentLoad()) return;
       if (preserveWorkspace) {
         setProcessingWorkId(workId);
         setError(cause instanceof Error ? cause.message : "Could not refresh processing status");
@@ -363,7 +374,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         setStage("error");
       }
     } finally {
-      if (sequence === loadSequenceRef.current) setLoadingWork(false);
+      if (isCurrentLoad()) setLoadingWork(false);
     }
   }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
 
@@ -385,6 +396,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     if (!action || action.id === handledStudioAction.current || !projectId || !workspace.activeWorkId) return;
     handledStudioAction.current = action.id;
     const workId = workspace.activeWorkId;
+    const isCurrentStudioWork = () => activeWorkIdRef.current === workId;
     void (async () => {
       const label = action.kind === "variation" ? "Creating a playable take" : "Comparing saved takes";
       setStudioOperation({ state: "running", label, message: "Queued" });
@@ -392,16 +404,21 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         const result = action.kind === "variation"
           ? await startVariationWorkflow(action.versionIds[0], projectId, action.semitones ?? 0)
           : await startCompareWorkflow(action.versionIds[0], action.versionIds[1], projectId);
+        if (!isCurrentStudioWork()) return;
         await waitForJob(result.job.id, (current) => {
+          if (!isCurrentStudioWork()) return;
           setStudioOperation({ state: "running", label, message: current.message || "Working" });
         });
+        if (!isCurrentStudioWork()) return;
         await loadWork(workId);
+        if (!isCurrentStudioWork()) return;
         setStudioOperation({
           state: "success",
           label: action.kind === "variation" ? "New take is ready" : "Comparison is ready",
           message: action.kind === "variation" ? "The new take is ready to audition." : "Comparison is ready.",
         });
       } catch (cause) {
+        if (!isCurrentStudioWork()) return;
         const disconnected = cause instanceof JobObservationError;
         setStudioOperation({
           state: disconnected ? "disconnected" : "error",
