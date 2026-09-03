@@ -85,9 +85,12 @@ npm run check:frontend
 npm run check:backend
 npm run check:database
 npm run check:e2e
+npm run check:realstack
 ```
 
-Browser E2E also needs Playwright Chromium. Database verification additionally needs a running Docker daemon, Supabase CLI 2.113.0, tbls 1.95.0, and ffmpeg. `check:database` builds its disposable stack from tracked Supabase files under a temporary project ID, so stopped local database data is not reused or deleted; it also refuses to start while the normal local stack is active. Real-stack verification additionally needs Docker and the Supabase CLI. Use the verification ladder in [`AGENTS.md`](AGENTS.md) rather than running heavyweight model/real-stack checks for every small change.
+Browser E2E needs Playwright Chromium. Database verification additionally needs a running Docker daemon, Supabase CLI 2.113.0, tbls 1.95.0, and ffmpeg. `check:database` builds its disposable stack from tracked Supabase files under a temporary project ID, so stopped local database data is not reused or deleted; it also refuses to start while the normal local stack is active.
+
+Real-stack verification needs Docker, Supabase CLI 2.113.0, and enough resources to build the production backend image. `check:realstack` installs the locked frontend dependencies and Playwright Chromium, builds the production API/worker image, runs the real-audio browser golden path against a fresh isolated Supabase project, emits the same timing artifacts as CI, and cleans up only the containers/project identity it created. It refuses to run while the normal local Supabase stack is active, so existing stopped local database data is neither reused nor deleted. Use the verification ladder in [`AGENTS.md`](AGENTS.md) rather than running this heavyweight tier for every small change.
 
 Dependency versions and environment ownership live in `package.json`, `backend/pyproject.toml`, and their lockfiles rather than in this README.
 

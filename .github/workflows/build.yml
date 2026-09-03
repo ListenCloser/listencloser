@@ -72,6 +72,7 @@ jobs:
               - 'tests/e2e/import-performance.ts'
               - 'tests/e2e/real-stack-golden.spec.ts'
               - 'playwright.realstack.config.ts'
+              - 'scripts/check-real-stack.sh'
               - '.github/workflows/real-stack-e2e.yml'
               - '.github/workflows/build.yml'
             database:
