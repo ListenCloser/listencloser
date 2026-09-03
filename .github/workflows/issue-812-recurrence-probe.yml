@@ -6,6 +6,7 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'backend/evaluation/issue_812_recurrence_probe.py'
+      - 'backend/evaluation/issue_812_hungarian_probe.py'
       - '.github/workflows/issue-812-recurrence-probe.yml'
 
 permissions:
@@ -44,8 +45,17 @@ jobs:
           uv run --project backend python
           backend/evaluation/issue_812_recurrence_probe.py
           --output issue-812-probe-output
-      - name: Show machine-readable result
-        run: cat issue-812-probe-output/results.json
+      - name: Run predeclared Brahms positive probe
+        env:
+          PYTHONPATH: backend/evaluation:backend
+        run: >-
+          uv run --project backend python
+          backend/evaluation/issue_812_hungarian_probe.py
+          --output issue-812-probe-output
+      - name: Show machine-readable results
+        run: |
+          cat issue-812-probe-output/results.json
+          cat issue-812-probe-output/results_hungarian.json
       - name: Upload result and audition clips
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
