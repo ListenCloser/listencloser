@@ -1,4 +1,4 @@
-> **Authority note:** This file describes the currently shipped runtime architecture. `MASTER_SPEC.md` is authoritative for product direction, target analysis architecture, representation strategy, future evidence graph, research program, and migration triggers. Where this file describes current deployment/runtime behavior, code and this file should remain consistent; where it conflicts with future direction in the master spec, the master spec wins.
+> **Authority note:** This file describes the currently shipped runtime architecture. Product strategy and portfolio direction remain temporarily owned by [#458](https://github.com/ListenCloser/listencloser/issues/458) during the #1139 authority migration. Durable target architecture changes belong in accepted ADRs; unresolved future architecture belongs in the focused issue that is evaluating or shaping it. Where this file describes current deployment/runtime behavior, code and this file should remain consistent.
 
 # Architecture
 
@@ -153,7 +153,7 @@ Users may cancel active jobs and retry failed or cancelled jobs. Worker heartbea
 | Analyze | audio and/or MIDI version | localized evidence/insights with spans and provenance |
 | Score | MIDI/performance evidence | MusicXML / score-derived version |
 
-The exact ordering and routing are implementation contracts and may evolve. A future stage should not be documented as shipped merely because it appears in `MASTER_SPEC.md` or an evaluation harness.
+The exact ordering and routing are implementation contracts and may evolve. A future stage should not be documented as shipped merely because it appears in a roadmap, research issue, or evaluation harness.
 
 ## Persisted domain model
 
@@ -218,7 +218,7 @@ This diagram is conceptual, not a replacement for migrations. The mechanically g
 - `Alignment` maps compatible timing/version domains.
 - `Workflow` records intent. `Job` records durable execution and retry state.
 
-The master spec describes a future Evidence Graph direction in which additional typed observations/relations may be added if current Entity/Insight structures become insufficient; do not add schema merely for conceptual cleanliness.
+Additional future Observation/Relation/Evidence-Graph types should be introduced only by an accepted architecture decision or focused implementation decision that proves the current Entity/Insight structures are insufficient. Do not add schema merely for conceptual cleanliness.
 
 ## Dependency architecture
 
@@ -264,6 +264,6 @@ When code and a diagram disagree about an actual import or database relationship
 
 - Transcription quality varies strongly by instrumentation/domain; routing and evaluation matter more than pretending one AMT model is universal.
 - MIDI-to-notation remains a domain-specific transformation, not a universal representation for all music.
-- Current analysis is strongest in tonal/harmonic and symbolic evidence. Timbre, arrangement, source-specific groove, semantic retrieval, and general structure need the Analysis V3 research program in `MASTER_SPEC.md`.
+- Current analysis is strongest in tonal/harmonic and symbolic evidence. Timbre, arrangement, source-specific groove, semantic retrieval, and general structure remain active product/evaluation questions; consult the current product portfolio and owning evaluation decisions rather than treating a future design as shipped architecture.
 - Style/context-aware analysis must be built from evidence and evaluated modules; the system should not force Western tonal analysis onto every work.
 - A grounded conversational layer may explain and combine evidence but must not become the sole detector for precise musical facts.

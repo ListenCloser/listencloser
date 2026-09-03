@@ -1,10 +1,10 @@
 # Documentation map and authority
 
-Listen Closer has accumulated product, architecture, research, evaluation, operational, and historical documents through many parallel development threads. This page defines which source answers which question so contributors do not accidentally treat the longest or newest-looking Markdown file as universal truth.
+Listen Closer has product, architecture, research, evaluation, operational, and historical documentation produced by many parallel development threads. This page is the routing map for those sources; it does not own the facts behind them.
+
+There is intentionally no universal specification. Each durable fact has one authority, and volatile execution state stays in the system that owns it.
 
 ## Authority by question
-
-There is intentionally no single document that owns every kind of fact.
 
 | Question | Authority |
 | --- | --- |
@@ -12,45 +12,57 @@ There is intentionally no single document that owns every kind of fact.
 | What code/config is shipped on `main`? | runtime code, migrations, dependency manifests, deployment config |
 | What analysis capability may the product expose? | `backend/config/capabilities.json` + its policy/tests |
 | What architecture is currently shipped? | [`ARCHITECTURE.md`](ARCHITECTURE.md), verified against code |
+| What accepted architecture decision constrains future changes? | relevant accepted ADR in [`adr/`](adr/) |
+| What product strategy / portfolio direction is current? | [GitHub #458](https://github.com/ListenCloser/listencloser/issues/458) until #1139 lands and explicitly adopts its repo-native replacement |
+| What repository execution responsibility is currently routed where? | [GitHub #634](https://github.com/ListenCloser/listencloser/issues/634) until #1139 lands and explicitly adopts its replacement |
 | How should an evaluation be designed? | [`EVALUATION_METHODOLOGY.md`](EVALUATION_METHODOLOGY.md) |
 | What did current evaluation tracks conclude? | [`EVALUATION_DECISIONS.md`](EVALUATION_DECISIONS.md) + owning result/report |
 | What evidence is sufficient for a downstream claim? | [`evaluation/evidence-sufficiency.md`](evaluation/evidence-sufficiency.md) + executable claim-sufficiency contract |
-| What product/architecture direction are we moving toward? | [`MASTER_SPEC.md`](MASTER_SPEC.md) + newer accepted ADRs |
 | Why was an architectural choice made? | relevant ADR in [`adr/`](adr/) |
 | How is production operated or verified? | [`OPS.md`](OPS.md) + deployment workflows/config |
 | How are production traces, metrics, and initial SLO formulas defined? | [`OBSERVABILITY.md`](OBSERVABILITY.md) + [`observability_contract.json`](observability_contract.json) |
 | How do we recover from a production failure? | [`RECOVERY.md`](RECOVERY.md) + the relevant operational/deployment contract |
-| What work remains? | GitHub issues/roadmap issues, not a frozen PR inventory in Markdown |
+| What implementation is active right now? | live GitHub issues, pull requests, checks, and merge state — not a copied Markdown inventory |
 
 For production claims, the deployed release SHA and live configuration matter. A document describing intended `main` behavior cannot prove what is currently deployed.
+
+[#1139](https://github.com/ListenCloser/listencloser/issues/1139) owns the bounded migration from the temporary issue-thread product/routing authorities above to repo-native product authority and deterministic work governance. Until a replacement lands and is explicitly adopted, #458 and #634 remain the current owners of their respective responsibilities; do not create parallel product roadmaps or routing systems during the migration.
 
 ## Minimal read paths
 
 ### Normal implementation
 
-1. root `AGENTS.md`;
+1. root [`AGENTS.md`](../AGENTS.md);
 2. this documentation map;
 3. [`ARCHITECTURE.md`](ARCHITECTURE.md) for current boundaries;
-4. the relevant issue/ADR/code;
-5. capability registry for analysis/product-exposure changes.
+4. the focused issue plus relevant ADR/code;
+5. `backend/config/capabilities.json` when analysis/product exposure changes.
+
+Do not read a broad roadmap or historical program merely because it mentions the subsystem. Start with the focused responsibility and follow only its canonical dependency/context references.
 
 ### Architecture or cross-cutting refactor
 
-1. [`ARCHITECTURE.md`](ARCHITECTURE.md) for current C4-style views;
+1. [`ARCHITECTURE.md`](ARCHITECTURE.md) for the shipped C4-style views;
 2. relevant accepted ADRs;
-3. actual dependency/schema contracts in code;
-4. [`MASTER_SPEC.md`](MASTER_SPEC.md) only when target/future architecture is relevant.
+3. actual dependency/schema/runtime contracts in code;
+4. the focused issue for an unresolved target change.
+
+A future-looking issue or research note is a hypothesis until an accepted decision owns it. Do not maintain a second target-architecture mega-document alongside ADRs and focused decisions.
 
 The architecture diagrams are deliberately not exhaustive code maps. Human-authored Mermaid views describe stable intended boundaries; import graphs and database relationships that can be derived from code/schema are generated mechanically rather than redrawn by hand. See [`adr/0013-architecture-docs-as-code.md`](adr/0013-architecture-docs-as-code.md), [`generated/frontend-dependencies.md`](generated/frontend-dependencies.md), and [`generated/database/README.md`](generated/database/README.md).
+
+### Product / UX
+
+For current product strategy and portfolio posture during the #1139 migration, read only the relevant section of [#458](https://github.com/ListenCloser/listencloser/issues/458) plus the focused product issue. Root [`DESIGN.md`](../DESIGN.md) remains the broad visual/product-UI contract; focused UX issues own bounded interaction decisions until durable rules are incorporated into their canonical product/design authority.
 
 ### Evaluation / research
 
 1. [`EVALUATION_METHODOLOGY.md`](EVALUATION_METHODOLOGY.md) for the decision protocol;
-2. [`EVALUATION_DECISIONS.md`](EVALUATION_DECISIONS.md) to avoid reopening already-settled questions;
+2. [`EVALUATION_DECISIONS.md`](EVALUATION_DECISIONS.md) to avoid reopening settled evaluation questions;
 3. [`evaluation/evidence-sufficiency.md`](evaluation/evidence-sufficiency.md) when the question is whether evidence is strong enough for a downstream claim;
 4. the owning evaluation result/report and machine-readable artifacts;
 5. relevant production adapters/config when evaluating a production-shaped contract;
-6. [`MASTER_SPEC.md`](MASTER_SPEC.md) only for the product capability the evaluation is intended to support.
+6. only the focused product context needed to explain which customer claim the evaluation is meant to support.
 
 A runnable harness is not itself a benchmark result. Once a necessary harness exists, prefer a legitimate result-bearing run over another abstraction/refactor.
 
@@ -66,24 +78,26 @@ Architecture docs use a small OSS-first docs-as-code convention:
 
 - **C4 vocabulary** for system context, logical containers, deployment, and dynamic flows;
 - **Mermaid** as the default human-authored diagram source because it is text-native and rendered by GitHub;
-- **ADRs** for the rationale and revisit conditions behind durable decisions;
-- **generated views** for facts that can be derived from imports or the PostgreSQL schema rather than hand-maintained copies.
+- **ADRs** for rationale and revisit conditions behind durable architecture decisions;
+- **generated views** for facts derived from imports or the PostgreSQL schema rather than hand-maintained copies.
 
-The live generated-truth contracts are dependency-cruiser for TypeScript/JavaScript imports, Import Linter/Grimp for Python import boundaries, and tbls for the PostgreSQL/Supabase application schema. Their generated views and checks are part of required CI. deptry has been characterized for shipped Python dependency declarations, but its permanent manifest cleanup/gate remains a follow-up after the repository-identity migration so the canonical lockfile is edited once.
+The live generated-truth contracts are dependency-cruiser for TypeScript/JavaScript imports, Import Linter/Grimp for Python import boundaries, and tbls for the PostgreSQL/Supabase application schema. Their generated views and checks are part of required CI. deptry has been characterized for shipped Python dependency declarations, but its permanent manifest cleanup/gate remains a follow-up after repository dependency ownership is stable.
 
 Do not add a binary architecture image or a second diagram DSL when Mermaid expresses the same maintained view adequately. If repeated Mermaid diagrams eventually duplicate one architecture model enough to cause drift, evaluate Structurizr DSL as the single model rather than layering on another independent diagram source.
 
-## Precedence rules
+## Precedence by fact type
 
-When sources disagree, resolve the disagreement according to the type of claim:
+When sources disagree, resolve the disagreement according to the kind of fact instead of treating one long document as globally authoritative:
 
-1. **Shipped behavior:** executable code/config/migrations and current deployed-release evidence win.
-2. **Analysis exposure/truthfulness:** the capability registry and policy tests win.
-3. **Accepted architecture decisions:** a newer accepted ADR may supersede older design prose.
-4. **Engineering process:** root `AGENTS.md` wins over duplicated or historical guidance.
-5. **Future direction:** `MASTER_SPEC.md` wins over older product-roadmap prose unless a newer accepted decision supersedes it.
+1. **Shipped/deployed behavior:** executable code/config/migrations and current deployed-release evidence.
+2. **Analysis exposure/truthfulness:** the capability registry and policy tests.
+3. **Accepted architecture decisions:** the newest applicable accepted ADR.
+4. **Engineering/agent process:** root `AGENTS.md`.
+5. **Current product strategy/portfolio during migration:** #458 until #1139 explicitly adopts its replacement.
+6. **Current execution routing during migration:** #634 until #1139 explicitly adopts its replacement.
+7. **Focused execution scope/acceptance:** the focused issue body; comments are evidence/history unless incorporated into current authority.
 
-Do not use a future-looking spec to claim a capability is implemented. Do not use a stale runtime snapshot to veto a newer accepted product direction.
+Do not use a future-looking plan to claim a capability is implemented. Do not use stale runtime prose to veto a newer accepted decision.
 
 ## Document classes
 
@@ -94,17 +108,16 @@ Do not use a future-looking spec to claim a capability is implemented. Do not us
 - `EVALUATION_METHODOLOGY.md` — reusable evaluation decision protocol.
 - `EVALUATION_DECISIONS.md` — cross-track evaluation decision ledger.
 - `evaluation/evidence-sufficiency.md` — evidence-readiness/abstention semantics paired with the executable claim contract.
-- `MASTER_SPEC.md` — product and target-architecture direction.
 - `OPS.md` — normal operations/release procedures.
 - `OBSERVABILITY.md` + `observability_contract.json` — production trace/metric semantics, bounded initial SLO formulas, and baseline requirements.
 - `RECOVERY.md` — production recovery procedure and failure-handling contract.
 - `analysis/` — maintained analysis/evidence domain contracts whose semantics outlive one implementation plan.
 - `design/` — maintained design specializations plus explicitly non-authoritative references; root `DESIGN.md` remains the broad visual/product UI contract.
-- `adr/` — accepted durable decisions.
+- `adr/` — accepted durable architecture decisions.
 - `generated/` — mechanically derived architecture/schema views; regenerate from their source rather than hand-editing.
 - machine-readable registries/contracts in source control.
 
-These should be updated when their owned contract changes.
+Current product strategy/roadmap and repository execution routing are still temporarily issue-owned by #458 and #634 while #1139 migrates those responsibilities. They are deliberately not duplicated into another maintained Markdown file before the replacement authority lands.
 
 ### Research / evaluation evidence
 
@@ -116,14 +129,14 @@ Keep durable measured results; retire one-shot workflow scaffolding and stale br
 
 Historical prose may remain in the maintained tree only when it carries durable provenance or rationale that is still useful to a contributor. If retained, it must carry an explicit historical/superseded banner and point to the current replacement authority. Otherwise delete it and rely on git/PR history for archaeology.
 
-Historical prose never overrides current code, canonical docs, registry policy, or ADRs.
+Historical prose never overrides current code, canonical docs, registry policy, ADRs, or current issue-owned authorities.
 
 ## Documentation hygiene rules
 
 When changing docs:
 
 - Prefer linking to an authoritative source over copying volatile values into several files.
-- Do not maintain a hand-written list of “recent PRs” as current-state architecture.
+- Do not maintain a hand-written list of recent PRs as current-state architecture.
 - Put exact dependency versions in manifests/lockfiles, not prose unless the version is itself part of a compatibility decision.
 - Put benchmark metrics in the owning evaluation result, not every product overview.
 - Put reusable evaluation rules in `EVALUATION_METHODOLOGY.md`; put current decisions in `EVALUATION_DECISIONS.md`.
