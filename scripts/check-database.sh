@@ -103,6 +103,9 @@ uv sync --project backend --locked --group worker
 echo "── Backend integration tests ──"
 eval "$(supabase_in_check status -o env)"
 # Normalize version-dependent Supabase CLI names to the application contract.
+# Export the isolated DB locator so tests do not rediscover the stack from the
+# repository working directory, which intentionally has no matching project id.
+export DB_URL
 export SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
 export SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
 export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
