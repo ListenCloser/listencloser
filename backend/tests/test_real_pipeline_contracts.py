@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 import domain.capabilities as capabilities
-from domain.api import _signed_url
+from domain.api.storage import signed_url
 from domain.capabilities import _ProgressClient, register_all_capabilities
 from domain.models import ArtifactKind, Capability, Job
 
@@ -16,9 +16,9 @@ def test_audio_rendered_is_distinct_from_enhanced_audio():
 
 
 def test_signed_url_normalizes_supabase_response_shapes():
-    assert _signed_url({"signedURL": "https://example.test/a"}) == ("https://example.test/a")
+    assert signed_url({"signedURL": "https://example.test/a"}) == ("https://example.test/a")
     assert (
-        _signed_url(SimpleNamespace(data={"signed_url": "https://example.test/b"}))
+        signed_url(SimpleNamespace(data={"signed_url": "https://example.test/b"}))
         == "https://example.test/b"
     )
 
