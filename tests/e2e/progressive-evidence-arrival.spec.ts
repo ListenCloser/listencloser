@@ -173,10 +173,10 @@ test("a durable recording stays usable while understand artifacts and the first 
   await expect(page.getByRole("button", { name: /Playback source:/ })).toBeVisible();
   await expect(page.locator(".operation-layer")).not.toBeVisible();
 
-  // Breakdown is itself a progressive surface. While no supported localized
-  // evidence exists yet, keep it present and explicit rather than hiding the
-  // whole Inspector until the workflow reaches a terminal state.
-  await expect(page.getByText("Still looking for a strong time-linked finding", { exact: true })).toBeVisible({ timeout: 3_000 });
+  // Breakdown is itself a progressive surface. While no supported evidence has
+  // arrived, its canonical zero-evidence state must be visible rather than
+  // hiding the entire Inspector until the workflow reaches a terminal state.
+  await expect(page.getByText("Analysis is still in progress", { exact: true })).toBeVisible({ timeout: 3_000 });
   const firstFinding = page.getByText("Note-onset activity is densest in this passage.", { exact: true });
   await expect(firstFinding).not.toBeVisible();
 
