@@ -258,11 +258,16 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         <TabStrip
           className="piece-view-tabs piece-view-tabs-v3"
           label="Music representation"
-          items={REPRESENTATIONS.map((definition) => ({
-            id: definition.id,
-            label: definition.title,
-            disabled: !availableIds.has(definition.id),
-          }))}
+          items={REPRESENTATIONS.map((definition) => {
+            const isAvailable = availableIds.has(definition.id);
+            return {
+              id: definition.id,
+              label: isAvailable
+                ? definition.title
+                : `${definition.title} · ${workspace.analysisState === "analyzing" ? "Preparing" : "Unavailable"}`,
+              disabled: !isAvailable,
+            };
+          })}
           value={activeView}
           onChange={(nextView) => {
             cancelScoreIntentWarmup();
@@ -271,15 +276,6 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
           onIntentStart={handleRepresentationIntentStart}
           onIntentEnd={handleRepresentationIntentEnd}
         />
-        {preparingRepresentations && (
-          <span
-            className="muted"
-            role="status"
-            style={{ alignSelf: "center", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
-          >
-            Preparing representations…
-          </span>
-        )}
       </div>
 
       {activeSymbolicSourceLabel && (
