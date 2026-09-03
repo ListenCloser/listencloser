@@ -16,6 +16,7 @@ on:
       - 'next.config.mjs'
       - 'tsconfig.json'
       - 'supabase/config.toml'
+      - 'tests/e2e/import-performance.ts'
       - 'tests/e2e/real-stack-auth.ts'
       - 'tests/e2e/real-stack-golden.spec.ts'
       - 'playwright.realstack.config.ts'
@@ -282,6 +283,15 @@ jobs:
           npx playwright test --config=playwright.realstack.config.ts
           wait "$observer_pid"
           cat /tmp/musescore-observer.log
+
+      - name: Upload real-stack browser performance report
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: import-performance-${{ github.run_attempt }}
+          path: test-results/**/import-performance.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Extract understand performance timings
         run: |

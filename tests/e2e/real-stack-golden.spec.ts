@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { injectAuth, dismissWorkspaceNotice } from "./real-stack-auth";
+import {
+  beginImportPerformanceAttempt,
+  type ImportPerformanceTracker,
+} from "./import-performance";
 
 /**
  * Real-stack golden-path test.
@@ -16,6 +20,16 @@ const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+type ImportUiMilestones = {
+  original_source_ready_ms: number;
+  waveform_ready_ms: number;
+  transcription_playback_ready_ms: number;
+  piano_roll_ready_ms: number;
+  breakdown_ready_ms: number;
+  score_xml_ready_ms: number;
+  score_render_ready_ms: number;
+};
 
 async function transportPosition(page: import("@playwright/test").Page): Promise<number> {
   return Number(await page.getByRole("slider", { name: "Playback position" }).inputValue());
@@ -70,7 +84,9 @@ async function waitForProjectReady(page: import("@playwright/test").Page) {
   ).toBeEnabled({ timeout: 30_000 });
 }
 
-async function importWithRetry(page: import("@playwright/test").Page) {
+async function importWithRetry(
+  page: import("@playwright/test").Page,
+): Promise<ImportPerformanceTracker> {
   await waitForProjectReady(page);
   for (let attempt = 0; attempt < 5; attempt++) {
     const importButton = page
@@ -79,6 +95,11 @@ async function importWithRetry(page: import("@playwright/test").Page) {
     await expect(importButton).toBeEnabled({ timeout: 30_000 });
     await importButton.click();
     await page.getByRole("menuitem", { name: /Upload recording/ }).click();
+
+    // The product-level clock starts at the user's file selection, not at the
+    // first backend request. Keep this observer alive through enrichment so it
+    // also captures upload/finalize/workflow responses and Work polling.
+    const tracker = beginImportPerformanceAttempt(page);
     await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
 
     const processing = page.getByRole("progressbar");
@@ -87,11 +108,86 @@ async function importWithRetry(page: import("@playwright/test").Page) {
       processing.waitFor({ state: "visible", timeout: 15_000 }).then(() => "started"),
       failed.waitFor({ state: "visible", timeout: 15_000 }).then(() => "failed"),
     ]);
-    if (outcome === "started") return;
+    if (outcome === "started") return tracker;
+    tracker.stop();
+    await tracker.settle();
     await failed.getByRole("button", { name: "Try another file" }).click();
     await expect(failed).toBeHidden({ timeout: 10_000 });
   }
   throw new Error("import did not start after retries");
+}
+
+async function measureImportToUsable(
+  page: import("@playwright/test").Page,
+  tracker: ImportPerformanceTracker,
+): Promise<ImportUiMilestones> {
+  const elapsed = () => tracker.elapsedMs();
+
+  // The original recording is the first useful product boundary and should be
+  // independent of downstream model completion.
+  await expect(
+    page.getByRole("button", { name: "Playback source: Original", exact: true }),
+  ).toBeVisible({ timeout: 30_000 });
+  const originalSourceReady = elapsed();
+
+  await expect(page.getByTestId("waveform-canvas")).toBeVisible({ timeout: 30_000 });
+  const waveformReady = elapsed();
+
+  // Transcription playback and Piano Roll are distinct readiness boundaries.
+  await openSourceSelector(page);
+  await expect(page.getByRole("option", { name: "Transcription", exact: true })).toBeVisible({
+    timeout: 300_000,
+  });
+  const transcriptionPlaybackReady = elapsed();
+  await page.keyboard.press("Escape");
+
+  const pianoRollTab = page.getByRole("tab", { name: "Piano Roll" });
+  await expect(pianoRollTab).toBeVisible({ timeout: 300_000 });
+  await pianoRollTab.click();
+  await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("piano-roll").getByText(/\d+ notes/)).toBeVisible();
+  const pianoRollReady = elapsed();
+
+  // Do not bake a specific detector (historically Key) into the performance
+  // contract. Wait for any non-empty authorized Insight response, then measure
+  // when the existing Breakdown surface can present its supported-results state.
+  await expect
+    .poll(() => tracker.firstInsightResponseMs(), {
+      timeout: 300_000,
+      message: "a non-empty Insight response should become available during processing",
+    })
+    .not.toBeNull();
+  await page.getByRole("tab", { name: "Breakdown" }).click();
+  await expect(page.getByRole("heading", { name: "What stands out" })).toBeVisible({
+    timeout: 30_000,
+  });
+  const breakdownReady = elapsed();
+
+  const scoreTab = page.getByRole("tab", { name: "Score" });
+  await expect(scoreTab).toBeVisible({ timeout: 300_000 });
+  const scoreXmlReady = elapsed();
+  await scoreTab.click();
+  await expect(page.locator(".sheet-music-container g.vf-measure").first()).toBeVisible({
+    timeout: 30_000,
+  });
+  const scoreRenderReady = elapsed();
+
+  await expect
+    .poll(() => tracker.workflowTerminalResponseMs(), {
+      timeout: 300_000,
+      message: "a terminal Work bundle should be observed after processing completes",
+    })
+    .not.toBeNull();
+
+  return {
+    original_source_ready_ms: originalSourceReady,
+    waveform_ready_ms: waveformReady,
+    transcription_playback_ready_ms: transcriptionPlaybackReady,
+    piano_roll_ready_ms: pianoRollReady,
+    breakdown_ready_ms: breakdownReady,
+    score_xml_ready_ms: scoreXmlReady,
+    score_render_ready_ms: scoreRenderReady,
+  };
 }
 
 async function selectWaveformRegion(page: import("@playwright/test").Page, startFrac: number, endFrac: number) {
@@ -107,7 +203,7 @@ async function selectWaveformRegion(page: import("@playwright/test").Page, start
   await page.mouse.up();
 }
 
-test("real audio golden path", async ({ page }) => {
+test("real audio golden path", async ({ page }, testInfo) => {
   test.skip(!REAL_AUDIO, "REAL_AUDIO_FILE is required");
   test.skip(!existsSync(REAL_AUDIO!), `REAL_AUDIO_FILE does not exist: ${REAL_AUDIO}`);
   test.skip(!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY, "local Supabase env not configured");
@@ -117,9 +213,37 @@ test("real audio golden path", async ({ page }) => {
 
   // ── Import and processing ────────────────────────────────────────────
   await test.step("import and processing", async () => {
-    await importWithRetry(page);
-    await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible({ timeout: 300_000 });
-    await expect(page.getByText("Operation failed")).not.toBeVisible();
+    const tracker = await importWithRetry(page);
+    try {
+      const uiMilestones = await measureImportToUsable(page, tracker);
+      await tracker.settle();
+      await expect(page.getByText("Operation failed")).not.toBeVisible();
+
+      const report = {
+        schema_version: 2,
+        scenario: "real_import_to_usable",
+        fixture: "real-piano.m4a",
+        release_sha: process.env.GITHUB_SHA ?? null,
+        thresholds_enforced: false,
+        clock: "node_performance_now",
+        network_milestones: tracker.networkMilestones,
+        ui_milestones: uiMilestones,
+        first_insight_response_ms: tracker.firstInsightResponseMs(),
+        workflow_terminal_response_ms: tracker.workflowTerminalResponseMs(),
+        work_bundle_response_count: tracker.workBundleResponses.length,
+        work_bundle_response_ms: tracker.workBundleResponses,
+      };
+      const reportPath = testInfo.outputPath("import-performance.json");
+      writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+      console.log(`IMPORT_PERFORMANCE_JSON=${JSON.stringify(report)}`);
+      await testInfo.attach("import-performance.json", {
+        path: reportPath,
+        contentType: "application/json",
+      });
+    } finally {
+      tracker.stop();
+      await tracker.settle();
+    }
     await dismissWorkspaceNotice(page);
   });
 
