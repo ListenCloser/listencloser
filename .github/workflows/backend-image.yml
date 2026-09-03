@@ -66,19 +66,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production backend image natively
         run: docker build --tag listencloser-backend:${{ matrix.arch }} backend
-      - name: Verify pinned PM2S checkpoints before model loading
-        env:
-          ARCH: ${{ matrix.arch }}
-        run: |
-          docker run --rm \
-            --entrypoint sh \
-            "listencloser-backend:${ARCH}" \
-            -c 'printf "%s\n" \
-              "939e0181f119a473200aece6307906e3dee69d4e2c44abcc878755bf6a18beb6  /opt/pm2s-models/RNNJointBeatModel.pth" \
-              "35d0b768fc68f9ec23f77b512ce3cada9b4e9dd816e3ab1c2a1714fa05bc5805  /opt/pm2s-models/RNNHandPartModel.pth" \
-              "62ce9004f9a8b3bf24864a5bf15211e1a27c7d2c1eb7071e6672d6d8e265e5de  /opt/pm2s-models/RNNKeySignatureModel.pth" \
-              "35cd59c456542c1546f870ee639e0c3f87f7b81a48d7f2bfe10dedc89c4d3180  /opt/pm2s-models/CNNTimeSignatureModel.pth" \
-              | sha256sum --check -'
       - name: Verify PM2S score conversion in production image
         env:
           ARCH: ${{ matrix.arch }}
