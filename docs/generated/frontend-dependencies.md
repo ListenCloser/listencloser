@@ -138,6 +138,7 @@ components_workspace_-->lib_representation_availability_ts
 components_workspace_-->lib_score_renderer_ts
 components_workspace_-->components_SheetMusic_tsx
 components_workspace_-->lib_analysis_annotations_ts
+components_workspace_-->lib_evidence_projections_ts
 components_workspace_-->lib_pulse_grid_ts
 components_workspace_-->lib_representations_ts
 components_workspace_-->lib_notes_ts
