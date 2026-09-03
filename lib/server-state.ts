@@ -7,12 +7,19 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 
-import { createProject, deleteWork, listProjects, listWorks } from "@/lib/api-client";
+import {
+  createProject,
+  deleteWork,
+  getWorkBundle,
+  listProjects,
+  listWorks,
+} from "@/lib/api-client";
 import type { Project, Work } from "@/lib/domain.types";
 
 export const serverStateKeys = {
   libraryProject: (userId: string) => ["library", "project", userId] as const,
   works: (projectId: string) => ["projects", projectId, "works"] as const,
+  workBundle: (workId: string) => ["works", workId, "bundle"] as const,
   processingHealth: ["health", "processing"] as const,
 };
 
@@ -36,6 +43,16 @@ export function useProjectWorks(projectId: string) {
     queryKey: serverStateKeys.works(projectId),
     queryFn: () => listWorks(projectId),
     enabled: Boolean(projectId),
+  });
+}
+
+export async function fetchWorkBundle(queryClient: QueryClient, workId: string) {
+  if (!workId) throw new Error("workId is required");
+  return queryClient.fetchQuery({
+    queryKey: serverStateKeys.workBundle(workId),
+    queryFn: () => getWorkBundle(workId),
+    retry: false,
+    staleTime: 0,
   });
 }
 
