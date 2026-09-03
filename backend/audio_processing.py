@@ -12,16 +12,38 @@ import logging
 import os
 import subprocess
 import tempfile
+import wave
 
 logger = logging.getLogger("music_features")
 
 _FFMPEG_TIMEOUT = 120
 _ALLOWED_AUDIO_FORMATS = frozenset({".wav", ".flac", ".ogg", ".mp3", ".m4a", ".aac", ".webm"})
+_DEFAULT_MAX_DECODED_AUDIO_SECONDS = 600.0
+_DECODE_OVERFLOW_PROBE_SECONDS = 1.0
 
 
 def _sanitize_fmt(fmt: str) -> str:
     ext = fmt if fmt.startswith(".") else f".{fmt}"
     return ext if ext in _ALLOWED_AUDIO_FORMATS else ".wav"
+
+
+def _max_decoded_audio_seconds() -> float:
+    raw = os.environ.get(
+        "MAX_DECODED_AUDIO_SECONDS",
+        str(_DEFAULT_MAX_DECODED_AUDIO_SECONDS),
+    )
+    try:
+        return max(1.0, float(raw))
+    except ValueError:
+        return _DEFAULT_MAX_DECODED_AUDIO_SECONDS
+
+
+def _wav_duration_seconds(path: str) -> float:
+    with wave.open(path, "rb") as wav_file:
+        frame_rate = wav_file.getframerate()
+        if frame_rate <= 0:
+            raise ValueError("Decoded audio has an invalid sample rate")
+        return wav_file.getnframes() / frame_rate
 
 
 def enhance_audio(audio_bytes: bytes, fmt: str = "wav") -> bytes:
@@ -86,8 +108,10 @@ def enhance_audio(audio_bytes: bytes, fmt: str = "wav") -> bytes:
 
 
 def decode_audio_to_wav(audio_bytes: bytes, fmt: str = "wav") -> bytes:
-    """Decode a supported upload into a validated mono PCM WAV."""
+    """Decode a supported upload into a validated, duration-bounded mono PCM WAV."""
     suffix = _sanitize_fmt(fmt)
+    max_duration_seconds = _max_decoded_audio_seconds()
+    decode_ceiling_seconds = max_duration_seconds + _DECODE_OVERFLOW_PROBE_SECONDS
     with tempfile.TemporaryDirectory() as td:
         input_path = os.path.join(td, f"input{suffix}")
         output_path = os.path.join(td, "decoded.wav")
@@ -102,6 +126,8 @@ def decode_audio_to_wav(audio_bytes: bytes, fmt: str = "wav") -> bytes:
                     "-y",
                     "-i",
                     input_path,
+                    "-t",
+                    str(decode_ceiling_seconds),
                     "-ac",
                     "1",
                     "-ar",
@@ -118,6 +144,14 @@ def decode_audio_to_wav(audio_bytes: bytes, fmt: str = "wav") -> bytes:
         if result.returncode != 0 or not os.path.exists(output_path):
             detail = result.stderr.decode(errors="replace")[-300:]
             raise ValueError(f"Audio decoding failed: {detail or 'invalid audio file'}")
+        try:
+            decoded_duration_seconds = _wav_duration_seconds(output_path)
+        except (OSError, wave.Error) as error:
+            raise ValueError("Audio decoding produced an invalid WAV") from error
+        if decoded_duration_seconds > max_duration_seconds:
+            raise ValueError(
+                f"Audio exceeds maximum duration of {max_duration_seconds:g} seconds"
+            )
         with open(output_path, "rb") as file_handle:
             decoded = file_handle.read()
         if not decoded.startswith(b"RIFF") or len(decoded) < 44:
