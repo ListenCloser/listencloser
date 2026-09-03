@@ -117,9 +117,8 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
 
       const latestJob = bundle.jobs[0];
       const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
-      const terminalJob = latestJob && ["failed", "cancelled"].includes(latestJob.lifecycle.current)
-        ? latestJob
-        : undefined;
+      const failedJob = latestJob?.lifecycle.current === "failed" ? latestJob : undefined;
+      const cancelledJob = latestJob?.lifecycle.current === "cancelled" ? latestJob : undefined;
 
       if (activeJob) {
         setActiveJobId(activeJob.id);
@@ -326,11 +325,23 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
             void loadWork(workId);
           }
         }, PROCESSING_REFRESH_MS);
-      } else if (terminalJob) {
+      } else if (cancelledJob) {
+        // Cancellation is a successful user action, not an analysis failure.
+        // Preserve every durable artifact already published, stop all processing
+        // narration, and let the saved Work remain usable after reload.
+        setAnalysisState(midi || score ? "completed" : "idle");
+        setProcessingWorkId(null);
+        setActiveJobId(null);
+        setPendingSourceVersionId(null);
+        setError(null);
+        setMessage("");
+        setProgress(0);
+        setStage("success");
+      } else if (failedJob) {
         setAnalysisState("completed");
         setProcessingWorkId(workId);
-        setActiveJobId(terminalJob.id);
-        setError(sanitizeJobError(terminalJob.error || terminalJob.lifecycle.message || `Understanding audio ${terminalJob.lifecycle.current}`));
+        setActiveJobId(failedJob.id);
+        setError(sanitizeJobError(failedJob.error || failedJob.lifecycle.message || "Understanding audio failed"));
         setStage("error");
       } else if (original?.latest_version && !midi && !score) {
         setAnalysisState("idle");
