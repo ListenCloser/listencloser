@@ -1,0 +1,111 @@
+name: Temporary real-stack isolation fix 1122
+
+on:
+  push:
+    branches:
+      - devex/canonical-realstack-check
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: devex/canonical-realstack-check
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - name: Include untracked non-ignored Supabase files in isolated check
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          script = Path("scripts/check-real-stack.sh")
+          text = script.read_text(encoding="utf-8")
+          replacements = {
+              'require_command git "tracked Supabase isolation"': 'require_command git "Supabase isolation file discovery"',
+              'done < <(git ls-files -z supabase)': 'done < <(git ls-files -z --cached --others --exclude-standard -- supabase)',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f"expected exactly one occurrence of {old!r}")
+              text = text.replace(old, new)
+          script.write_text(text, encoding="utf-8")
+          PY
+          cat > backend/tests/test_real_stack_check_contract.py <<'PYTEST'
+          from __future__ import annotations
+
+          import subprocess
+          from pathlib import Path
+
+
+          ROOT = Path(__file__).resolve().parents[2]
+          SCRIPT = ROOT / "scripts" / "check-real-stack.sh"
+          ISOLATION_LIST_COMMAND = (
+              "git ls-files -z --cached --others --exclude-standard -- supabase"
+          )
+
+
+          def test_real_stack_isolation_includes_untracked_nonignored_supabase_files(
+              tmp_path: Path,
+          ) -> None:
+              script = SCRIPT.read_text(encoding="utf-8")
+              assert ISOLATION_LIST_COMMAND in script
+              assert "git ls-files -z supabase" not in script
+
+              repo = tmp_path / "repo"
+              migrations = repo / "supabase" / "migrations"
+              migrations.mkdir(parents=True)
+              (repo / "supabase" / "config.toml").write_text("project_id = 'test'\n")
+              (migrations / "001_tracked.sql").write_text("select 1;\n")
+              (migrations / "002_untracked.sql").write_text("select 2;\n")
+              (migrations / "003_ignored.sql").write_text("select 3;\n")
+              (repo / ".gitignore").write_text(
+                  "supabase/migrations/003_ignored.sql\n",
+                  encoding="utf-8",
+              )
+
+              subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+              subprocess.run(
+                  [
+                      "git",
+                      "add",
+                      ".gitignore",
+                      "supabase/config.toml",
+                      "supabase/migrations/001_tracked.sql",
+                  ],
+                  cwd=repo,
+                  check=True,
+              )
+              listed = subprocess.run(
+                  [
+                      "git",
+                      "ls-files",
+                      "-z",
+                      "--cached",
+                      "--others",
+                      "--exclude-standard",
+                      "--",
+                      "supabase",
+                  ],
+                  cwd=repo,
+                  check=True,
+                  stdout=subprocess.PIPE,
+              ).stdout.decode().split("\0")
+
+              assert set(filter(None, listed)) == {
+                  "supabase/config.toml",
+                  "supabase/migrations/001_tracked.sql",
+                  "supabase/migrations/002_untracked.sql",
+              }
+          PYTEST
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/check-real-stack.sh backend/tests/test_real_stack_check_contract.py
+          git commit -m "fix(devex): include untracked migrations in real-stack isolation"
+          git rm .github/workflows/tmp-fix-1122.yml
+          git commit -m "ci: remove temporary real-stack fixer"
+          git push origin HEAD:devex/canonical-realstack-check
