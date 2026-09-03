@@ -2,7 +2,6 @@ import { expect, test } from "@playwright/test";
 import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
 
 const PROGRESS_KEY = "listencloser-test-understand-progress";
-const JOB_KEY = "listencloser-test-understand-job";
 
 type JobLike = {
   lifecycle: Record<string, unknown>;
@@ -17,6 +16,8 @@ type WorkBundleLike = {
 
 function installDurableProgressHarness() {
   const originalFetch = window.fetch.bind(window);
+  const progressKey = "listencloser-test-understand-progress";
+  const jobKey = "listencloser-test-understand-job";
 
   const jsonResponse = (response: Response, body: unknown) => {
     const headers = new Headers(response.headers);
@@ -42,19 +43,19 @@ function installDurableProgressHarness() {
     if (method === "POST" && url.pathname === "/api/v1/workflows/understand" && response.ok) {
       const body = await response.clone().json() as { job?: JobLike };
       if (body.job) {
-        sessionStorage.setItem(JOB_KEY, JSON.stringify(body.job));
-        sessionStorage.setItem(PROGRESS_KEY, "0.15");
+        sessionStorage.setItem(jobKey, JSON.stringify(body.job));
+        sessionStorage.setItem(progressKey, "0.15");
       }
       return response;
     }
 
     if (method !== "GET" || url.pathname !== "/api/v1/works/mock-work-1") return response;
 
-    const storedJob = sessionStorage.getItem(JOB_KEY);
+    const storedJob = sessionStorage.getItem(jobKey);
     if (!storedJob) return response;
 
     const body = await response.clone().json() as WorkBundleLike;
-    const progress = Number(sessionStorage.getItem(PROGRESS_KEY) ?? "0.15");
+    const progress = Number(sessionStorage.getItem(progressKey) ?? "0.15");
     const template = JSON.parse(storedJob) as JobLike;
     const runningJob: JobLike = {
       ...template,
