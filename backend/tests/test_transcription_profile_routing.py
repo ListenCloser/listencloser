@@ -295,8 +295,8 @@ class TestUnderstandProfileWiring:
         from types import SimpleNamespace
         from uuid import UUID
 
-        from domain.api import workflows_jobs as api
         from auth_utils import verify_token
+        from domain.api import workflows_jobs as api
         from main import app
 
         owner = "owner-1"
