@@ -1,0 +1,260 @@
+name: PM2S MAESTRO readability probe
+
+on:
+  push:
+    branches:
+      - eval/953-pm2s-maestro-readability
+    paths:
+      - .github/eval-953-run
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download three existing MAESTRO test excerpts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p score-ab-inputs score-ab-results
+          curl --fail --location --retry 3 \
+            https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0-midi.zip \
+            --output /tmp/maestro-midi.zip
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+
+          members = {
+              "maestro_test_01.mid": "maestro-v3.0.0/2004/MIDI-Unprocessed_SMF_17_R1_2004_03-06_ORIG_MID--AUDIO_20_R2_2004_12_Track12_wav--1.midi",
+              "maestro_test_02.mid": "maestro-v3.0.0/2008/MIDI-Unprocessed_09_R3_2008_01-07_ORIG_MID--AUDIO_09_R3_2008_wav--2.midi",
+              "maestro_test_03.mid": "maestro-v3.0.0/2008/MIDI-Unprocessed_10_R2_2008_01-05_ORIG_MID--AUDIO_10_R2_2008_wav--1.midi",
+          }
+          root = Path("score-ab-inputs")
+          with zipfile.ZipFile("/tmp/maestro-midi.zip") as archive:
+              for output_name, member in members.items():
+                  root.joinpath(output_name).write_bytes(archive.read(member))
+          PY
+
+      - name: Build current production backend image
+        run: docker build --tag listencloser-pm2s-maestro backend
+
+      - name: Run same-performance Score A/B on three excerpts
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod 0777 score-ab-results
+          docker run --rm -i \
+            -v "$PWD/score-ab-inputs:/inputs:ro" \
+            -v "$PWD/score-ab-results:/out" \
+            --entrypoint python \
+            listencloser-pm2s-maestro - <<'PY'
+          import io
+          import json
+          import os
+          import subprocess
+          import time
+          import xml.etree.ElementTree as ET
+          from collections import Counter
+          from pathlib import Path
+
+          import pretty_midi
+          import music_features
+
+          OUT = Path("/out")
+          CASES = {
+              "maestro_test_01": (Path("/inputs/maestro_test_01.mid"), 30.0, 55.0),
+              "maestro_test_02": (Path("/inputs/maestro_test_02.mid"), 10.0, 35.0),
+              "maestro_test_03": (Path("/inputs/maestro_test_03.mid"), 20.0, 45.0),
+          }
+
+          def all_pitches(data: bytes) -> Counter:
+              parsed = pretty_midi.PrettyMIDI(io.BytesIO(data))
+              return Counter(
+                  note.pitch
+                  for instrument in parsed.instruments
+                  if not instrument.is_drum
+                  for note in instrument.notes
+              )
+
+          def slice_performance(data: bytes, start: float, end: float) -> bytes:
+              source = pretty_midi.PrettyMIDI(io.BytesIO(data))
+              tempo_times, tempi = source.get_tempo_changes()
+              tempo = 120.0
+              for when, value in zip(tempo_times, tempi):
+                  if float(when) <= start:
+                      tempo = float(value)
+                  else:
+                      break
+              sliced = pretty_midi.PrettyMIDI(initial_tempo=tempo, resolution=source.resolution)
+              for instrument in source.instruments:
+                  if instrument.is_drum:
+                      continue
+                  target = pretty_midi.Instrument(
+                      program=instrument.program,
+                      is_drum=False,
+                      name=instrument.name,
+                  )
+                  for note in instrument.notes:
+                      note_start = max(float(note.start), start)
+                      note_end = min(float(note.end), end)
+                      if note_end <= note_start:
+                          continue
+                      target.notes.append(
+                          pretty_midi.Note(
+                              velocity=int(note.velocity),
+                              pitch=int(note.pitch),
+                              start=note_start - start,
+                              end=note_end - start,
+                          )
+                      )
+                  if target.notes:
+                      sliced.instruments.append(target)
+              if not sliced.instruments:
+                  raise RuntimeError("excerpt contains no pitched notes")
+              buffer = io.BytesIO()
+              sliced.write(buffer)
+              return buffer.getvalue()
+
+          def source_grid(data: bytes, start: float, end: float):
+              source = pretty_midi.PrettyMIDI(io.BytesIO(data))
+              eps = 1e-6
+              beats = [
+                  float(value) - start
+                  for value in source.get_beats()
+                  if start - eps <= float(value) <= end + eps
+              ]
+              downbeats = [
+                  float(value) - start
+                  for value in source.get_downbeats()
+                  if start - eps <= float(value) <= end + eps
+              ]
+              if len(beats) < 2:
+                  raise RuntimeError("excerpt has fewer than two source MIDI beats")
+              return beats, downbeats
+
+          def midi_summary(data: bytes, reference: Counter):
+              parsed = pretty_midi.PrettyMIDI(io.BytesIO(data))
+              pitches = all_pitches(data)
+              overlap = sum((reference & pitches).values())
+              output_notes = sum(pitches.values())
+              input_notes = sum(reference.values())
+              return {
+                  "notes": output_notes,
+                  "pitch_multiset_overlap": overlap,
+                  "pitch_recall_vs_performance": round(overlap / input_notes, 6) if input_notes else None,
+                  "pitch_precision_vs_performance": round(overlap / output_notes, 6) if output_notes else None,
+                  "duration_seconds": round(float(parsed.get_end_time()), 6),
+                  "instruments": len(parsed.instruments),
+              }
+
+          def musicxml_summary(data: bytes):
+              root = ET.fromstring(data)
+              notes = root.findall(".//note")
+              pitched = [note for note in notes if note.find("rest") is None]
+              rests = [note for note in notes if note.find("rest") is not None]
+              voices = {node.text for node in root.findall(".//voice") if node.text}
+              staves = {node.text for node in root.findall(".//staff") if node.text}
+              durations = {node.text for node in root.findall(".//note/duration") if node.text}
+              time_sigs = [
+                  f"{time_node.findtext('beats')}/{time_node.findtext('beat-type')}"
+                  for time_node in root.findall(".//time")
+                  if time_node.findtext("beats") and time_node.findtext("beat-type")
+              ]
+              return {
+                  "bytes": len(data),
+                  "measures": len(root.findall(".//measure")),
+                  "pitched_notes": len(pitched),
+                  "rests": len(rests),
+                  "ties": len(root.findall(".//tie")),
+                  "tuplets": len(root.findall(".//time-modification")),
+                  "beams": len(root.findall(".//beam")),
+                  "voices": sorted(voices),
+                  "staves": sorted(staves),
+                  "unique_duration_values": len(durations),
+                  "time_signatures": time_sigs,
+              }
+
+          rows = []
+          render_jobs = []
+          for clip_id, (path, start, end) in CASES.items():
+              source = path.read_bytes()
+              performance = slice_performance(source, start, end)
+              beats, downbeats = source_grid(source, start, end)
+              reference = all_pitches(performance)
+              OUT.joinpath(f"{clip_id}.performance.mid").write_bytes(performance)
+
+              clip = {
+                  "clip_id": clip_id,
+                  "source": str(path),
+                  "excerpt_seconds": [start, end],
+                  "performance_notes": sum(reference.values()),
+                  "source_beats": len(beats),
+                  "source_downbeats": len(downbeats),
+                  "scores": {},
+              }
+              for engine_name in ("musescore", "pm2s"):
+                  started = time.perf_counter()
+                  result = music_features.notation_with_engine(
+                      performance,
+                      beats,
+                      engine_name=engine_name,
+                      downbeats=downbeats,
+                      adaptive=True,
+                      notation_ready=True,
+                      piano_grand_staff=True,
+                  )
+                  elapsed = time.perf_counter() - started
+                  notation_midi = result["notation_midi"]
+                  musicxml = result["musicxml"]
+                  midi_path = OUT / f"{clip_id}.{engine_name}.mid"
+                  xml_path = OUT / f"{clip_id}.{engine_name}.musicxml"
+                  png_path = OUT / f"{clip_id}.{engine_name}.png"
+                  midi_path.write_bytes(notation_midi)
+                  xml_path.write_bytes(musicxml)
+                  render_jobs.append({"in": str(xml_path), "out": [str(png_path)]})
+                  clip["scores"][engine_name] = {
+                      "score_seconds": round(elapsed, 6),
+                      "midi": midi_summary(notation_midi, reference),
+                      "musicxml": musicxml_summary(musicxml),
+                      "provenance": result["provenance"],
+                      "report": result["quantization_report"],
+                  }
+              rows.append(clip)
+
+          job_path = OUT / "render-jobs.json"
+          job_path.write_text(json.dumps(render_jobs))
+          render_env = dict(os.environ)
+          render_env["QT_QPA_PLATFORM"] = "offscreen"
+          render_env["SKIP_LIBJACK"] = "1"
+          subprocess.run(
+              [os.environ["MUSESCORE_BIN"], "-platform", "offscreen", "--job", str(job_path)],
+              check=True,
+              env=render_env,
+              timeout=180,
+          )
+
+          summary = {
+              "evaluation": "issue-953-pm2s-maestro-readability",
+              "scope": "research-only notation-stage A/B; MAESTRO CC BY-NC-SA 4.0",
+              "input_authority": "same sliced performance MIDI and source-MIDI beat evidence per clip",
+              "pm2s_runtime": "current production image",
+              "clips": rows,
+          }
+          OUT.joinpath("summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+          print("PM2S_MAESTRO_RESULT=" + json.dumps(summary, sort_keys=True))
+          PY
+          cat score-ab-results/summary.json
+          find score-ab-results -maxdepth 1 -type f -printf '%f\n' | sort
+
+      - name: Upload paired notation evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: issue-953-pm2s-maestro-readability-${{ github.run_attempt }}
+          path: score-ab-results/
+          if-no-files-found: error
+          retention-days: 14
