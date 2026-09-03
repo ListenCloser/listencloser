@@ -87,9 +87,7 @@ class ScorePerformanceEventRelation(BaseModel):
         if self.kind is AlignmentRelationKind.score_only and not (
             score_count >= 1 and performance_count == 0
         ):
-            raise ValueError(
-                "score_only relation requires score event(s) and no performance event"
-            )
+            raise ValueError("score_only relation requires score event(s) and no performance event")
         if self.kind is AlignmentRelationKind.performance_only and not (
             score_count == 0 and performance_count >= 1
         ):

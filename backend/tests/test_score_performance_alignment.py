@@ -58,9 +58,7 @@ def _normalize(
 
 
 def test_normalizes_simple_one_to_one_with_timing_and_exact_versions():
-    alignment_result = _normalize(
-        [{"label": "match", "score_id": "s1", "performance_id": "p1"}]
-    )
+    alignment_result = _normalize([{"label": "match", "score_id": "s1", "performance_id": "p1"}])
 
     assert alignment_result.sufficiency is AlignmentSufficiency.sufficient
     assert alignment_result.projection_precision is AlignmentProjectionPrecision.adequate
@@ -176,9 +174,7 @@ def test_matcher_failure_is_explicit_and_projection_is_unsupported():
 
 
 def test_malformed_matcher_output_outside_exact_inputs_fails_closed():
-    alignment_result = _normalize(
-        [{"label": "match", "score_id": "other", "performance_id": "p1"}]
-    )
+    alignment_result = _normalize([{"label": "match", "score_id": "other", "performance_id": "p1"}])
 
     assert alignment_result.sufficiency is AlignmentSufficiency.failed
     assert alignment_result.projection_precision is AlignmentProjectionPrecision.unsupported
