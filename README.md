@@ -83,10 +83,11 @@ Useful verification commands:
 npm run check:fast
 npm run check:frontend
 npm run check:backend
+npm run check:database
 npm run check:e2e
 ```
 
-Browser E2E also needs Playwright Chromium. Database and real-stack verification additionally need Docker and the Supabase CLI. Use the verification ladder in [`AGENTS.md`](AGENTS.md) rather than running heavyweight model/real-stack checks for every small change.
+Browser E2E also needs Playwright Chromium. Database verification additionally needs a running Docker daemon, Supabase CLI 2.113.0, tbls 1.95.0, and ffmpeg. `check:database` owns a fresh disposable local Supabase stack and refuses to reuse or stop an already-running one. Real-stack verification additionally needs Docker and the Supabase CLI. Use the verification ladder in [`AGENTS.md`](AGENTS.md) rather than running heavyweight model/real-stack checks for every small change.
 
 Dependency versions and environment ownership live in `package.json`, `backend/pyproject.toml`, and their lockfiles rather than in this README.
 
