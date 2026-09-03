@@ -153,7 +153,7 @@ run_contract_dependencies() {
   echo "── Focused contract dependencies ──"
   local started=$SECONDS
   if python3 scripts/test_contract_dependencies.py && \
-     python3 scripts/contract_dependencies.py docs/contract-dependencies.json; then
+     python3 scripts/contract_dependencies.py contract-dependencies.json; then
     pass "contract dependencies ($((SECONDS - started))s)"
   else
     fail "contract dependencies ($((SECONDS - started))s)"
