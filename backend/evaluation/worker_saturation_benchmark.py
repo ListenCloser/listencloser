@@ -132,21 +132,34 @@ def _resource_sample() -> dict[str, float] | None:
 
 
 def _runtime_identity() -> dict[str, Any]:
-    code = (
-        "import importlib.metadata as m,json,platform,sys;"
-        "from engines.registry import get_beat_engine,get_harmony_engine;"
-        "defv=lambda n: m.version(n) if any(d.metadata.get('Name')==n for d in m.distributions()) else None;"
-        "print(json.dumps({"
-        "'python':sys.version.split()[0],"
-        "'platform':platform.platform(),"
-        "'beat_engine':get_beat_engine().provenance.to_dict(),"
-        "'harmony_engine':get_harmony_engine().provenance.to_dict(),"
-        "'tensorflow':defv('tensorflow-cpu'),"
-        "'torch':defv('torch')"
-        "},sort_keys=True))"
-    )
+    code = """
+import importlib.metadata as metadata
+import json
+import platform
+import sys
+
+from engines.registry import get_beat_engine, get_harmony_engine
+
+
+def version(name):
     try:
-        return json.loads(_run("docker", "exec", _CONTAINER, "python", "-c", code).splitlines()[-1])
+        return metadata.version(name)
+    except metadata.PackageNotFoundError:
+        return None
+
+
+print(json.dumps({
+    "python": sys.version.split()[0],
+    "platform": platform.platform(),
+    "beat_engine": get_beat_engine().provenance.to_dict(),
+    "harmony_engine": get_harmony_engine().provenance.to_dict(),
+    "tensorflow": version("tensorflow-cpu"),
+    "torch": version("torch"),
+}, sort_keys=True))
+"""
+    try:
+        output = _run("docker", "exec", _CONTAINER, "python", "-c", code)
+        return json.loads(output.splitlines()[-1])
     except Exception as exc:
         return {"identity_error": repr(exc)}
 
