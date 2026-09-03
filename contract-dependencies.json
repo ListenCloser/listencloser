@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "contracts": {
+    "1083": {
+      "dependencies": [
+        {
+          "issue": 1082,
+          "modes": ["delivery"]
+        },
+        {
+          "issue": 613,
+          "modes": ["delivery"]
+        },
+        {
+          "issue": 807,
+          "modes": ["delivery"]
+        }
+      ]
+    },
+    "1086": {
+      "dependencies": [
+        {
+          "issue": 1083,
+          "modes": ["delivery"]
+        }
+      ]
+    }
+  }
+}
