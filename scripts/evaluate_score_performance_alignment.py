@@ -14,6 +14,7 @@ import importlib.metadata
 import importlib.resources
 import json
 import resource
+import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -230,7 +231,7 @@ def main() -> None:
             "eval-*-sha256 identities are evaluator-only immutable content digests, "
             "not ListenCloser Version IDs and not representation authority"
         ),
-        "python": importlib.metadata.version("pip") and __import__("sys").version,
+        "python": sys.version,
         "packages": {
             name: importlib.metadata.version(name)
             for name in [
