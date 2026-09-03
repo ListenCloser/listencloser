@@ -24,10 +24,14 @@ Generated from the fresh local Supabase/Postgres schema. Migrations are authorit
 | Name | ReturnType | Arguments | Type |
 | ---- | ------- | ------- | ---- |
 | public.claim_next_job | jobs | p_worker_id text, p_lease_seconds double precision DEFAULT 30.0 | FUNCTION |
+| public.enqueue_job_delivery | trigger |  | FUNCTION |
+| public.extend_job_delivery | bool | p_job_id uuid, p_execution_token uuid, p_msg_id bigint, p_visibility_seconds integer | FUNCTION |
 | public.fenced_job_delete | int4 | p_job_id uuid, p_execution_token uuid, p_table text, p_match jsonb | FUNCTION |
 | public.fenced_job_insert | jsonb | p_job_id uuid, p_execution_token uuid, p_table text, p_rows jsonb | FUNCTION |
 | public.fenced_job_publish_version | jsonb | p_job_id uuid, p_execution_token uuid, p_artifact jsonb, p_version jsonb | FUNCTION |
 | public.fenced_job_verify_input_sha256 | text | p_job_id uuid, p_execution_token uuid, p_version_id uuid, p_sha256 text | FUNCTION |
+| public.finish_job_delivery | text | p_job_id uuid, p_execution_token uuid, p_msg_id bigint, p_retry_delay_seconds integer DEFAULT 0 | FUNCTION |
+| public.receive_job_delivery | jsonb | p_worker_id text, p_visibility_seconds integer, p_in_flight_job_ids uuid[] DEFAULT '{}'::uuid[] | FUNCTION |
 
 ## Enums
 

@@ -26,7 +26,7 @@ def _stub_worker_runtime(monkeypatch, events: list[str]) -> None:
     monkeypatch.setattr(worker_entry, "init_sentry", lambda *_args: None)
     monkeypatch.setattr(
         worker_entry,
-        "FencedJobWorker",
+        "PgmqJobWorker",
         lambda **kwargs: _FakeWorker(events, **kwargs),
     )
     monkeypatch.setattr(
@@ -121,7 +121,7 @@ def test_worker_passes_typed_concurrency_to_job_worker(monkeypatch):
         captured.update(kwargs)
         return _FakeWorker(events, **kwargs)
 
-    monkeypatch.setattr(worker_entry, "FencedJobWorker", make_worker)
+    monkeypatch.setattr(worker_entry, "PgmqJobWorker", make_worker)
 
     worker_entry.main()
 
