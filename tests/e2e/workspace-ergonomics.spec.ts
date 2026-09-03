@@ -124,7 +124,7 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(page.getByRole("tooltip", { name: "Turn passage loop off" })).toBeVisible();
   });
 
-  test("library keeps the import action explicit on desktop", async ({ page }) => {
+  test("library keeps Import primary and progressively discloses processing choices", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
     const library = page.locator("aside.studio-library");
@@ -132,6 +132,18 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(library.getByRole("heading", { name: "Library" })).toBeVisible();
     await expect(library.getByRole("button", { name: "Import audio", exact: true })).toBeVisible();
     await expect(library.locator('button[title="Collapse library"]')).toHaveCount(0);
+
+    const processing = library.locator("details.library-import-settings");
+    await expect(processing).not.toHaveAttribute("open");
+    await expect(processing.getByText("Processing", { exact: true })).toBeVisible();
+
+    await processing.getByText("Processing", { exact: true }).click();
+    await expect(processing).toHaveAttribute("open");
+    await expect(processing.getByRole("button", { name: "Auto" })).toHaveAttribute("aria-pressed", "true");
+
+    await processing.getByRole("button", { name: "Solo piano" }).click();
+    await expect(processing.getByRole("button", { name: "Solo piano" })).toHaveAttribute("aria-pressed", "true");
+    await expect(library.getByRole("button", { name: "Import audio", exact: true })).toBeVisible();
 
     await expect(page.locator("header.studio-header").getByRole("button", { name: /library/i })).not.toBeVisible();
   });
