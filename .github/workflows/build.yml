@@ -84,6 +84,7 @@ jobs:
               - 'backend/tests/integration/**'
               - 'backend/pyproject.toml'
               - 'backend/uv.lock'
+              - 'scripts/check-database.sh'
               - '.github/workflows/database-integration.yml'
               - '.github/workflows/build.yml'
             backend_image:
