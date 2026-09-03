@@ -18,6 +18,7 @@ class SupabaseSettings(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     url: str | None = None
+    public_url: str | None = None
     service_role_key: SecretStr | None = None
 
     @classmethod
@@ -25,6 +26,7 @@ class SupabaseSettings(BaseModel):
         source = os.environ if environ is None else environ
         return cls(
             url=source.get("SUPABASE_URL"),
+            public_url=source.get("SUPABASE_PUBLIC_URL"),
             service_role_key=source.get("SUPABASE_SERVICE_ROLE_KEY"),
         )
 
