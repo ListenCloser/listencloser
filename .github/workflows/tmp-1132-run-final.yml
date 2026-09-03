@@ -1,0 +1,112 @@
+name: Temporary #1132 normalized validation
+
+on:
+  push:
+    branches:
+      - cleanup/1132-remove-allin1-runtime
+    paths:
+      - .github/workflows/tmp-1132-run-final.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+      - name: Apply and validate normalized deletion
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/tmp-1132-finalize.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY\n", start)
+          exec(compile(textwrap.dedent(workflow[start:end]), 'tmp-1132-finalize.py', 'exec'))
+
+          normalized = (
+              'backend/domain/capabilities.py',
+              'backend/music_features.py',
+              'backend/engines/registry.py',
+              'backend/engines/__init__.py',
+              'backend/engines/base.py',
+              'backend/domain/performance_instrumentation.py',
+              'backend/tests/test_capability_registration.py',
+              'backend/tests/test_engines/test_registry.py',
+              'backend/tests/test_engines/test_adapters.py',
+              'backend/tests/test_performance_instrumentation.py',
+              'backend/tests/test_real_pipeline_contracts.py',
+              'backend/tests/integration/test_pipeline_smoke.py',
+              'backend/tests/test_capability_policy.py',
+              'backend/evaluation/engines/structure.py',
+          )
+          for name in normalized:
+              path = Path(name)
+              path.write_text(path.read_text().rstrip() + '\n')
+          PY
+
+          python -m json.tool backend/config/capabilities.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          registry = json.loads(Path('backend/config/capabilities.json').read_text())['capabilities']
+          assert 'structure' not in registry
+          for kind in ('section', 'audio_structure'):
+              assert registry[kind]['status'] == 'withheld'
+              assert registry[kind]['input'] == 'historical'
+              assert 'engine' not in registry[kind]
+              assert not any(registry[kind]['exposure'].values())
+          PY
+          git diff --check
+
+          echo '=== production runtime Structure references (must be empty) ==='
+          if git grep -n -I -E 'AllInOne|allin1|ALLIN1|get_structure_engine|structure_with_engine|STRUCTURE_ENGINE|handle_audio_structure' -- \
+            backend/domain \
+            backend/music_features.py \
+            backend/engines \
+            backend/docker-compose.yml \
+            backend/.env.example; then
+            echo 'unexpected retired Structure runtime reference remains' >&2
+            exit 1
+          fi
+
+          echo '=== surviving references are historical tombstones or evaluation-only ==='
+          git grep -n -I -E 'audio_structure|allin1|AllInOne' -- backend tests evaluation || true
+
+          uv sync --project backend --locked
+          uv run --project backend --locked ruff check backend/
+          uv run --project backend --locked ruff format backend/ --check
+          uv run --project backend --locked python -m pytest -q \
+            backend/tests/test_capability_registration.py \
+            backend/tests/test_capability_policy.py \
+            backend/tests/test_performance_instrumentation.py \
+            backend/tests/test_real_pipeline_contracts.py \
+            backend/tests/test_engines/test_registry.py \
+            backend/tests/test_engines/test_adapters.py \
+            backend/tests/test_import_root.py \
+            backend/tests/test_public_workflow_dispatch.py
+
+      - name: Commit validated deletion
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add backend tests
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'cleanup(structure): remove hidden All-In-One runtime'
+          git push origin HEAD:cleanup/1132-remove-allin1-runtime
