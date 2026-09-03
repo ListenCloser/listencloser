@@ -13,7 +13,9 @@ from pathlib import Path
 
 import yaml
 
-COMPOSE_PATH = Path(__file__).resolve().parents[1] / "docker-compose.yml"
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+COMPOSE_PATH = BACKEND_ROOT / "docker-compose.yml"
+DEPLOY_SCRIPT = BACKEND_ROOT.parent / "scripts" / "deploy.sh"
 
 
 def _load_compose() -> dict:
@@ -59,3 +61,11 @@ def test_long_lived_services_cannot_gain_new_privileges() -> None:
         assert "no-new-privileges:true" in security_opt, (
             f"{service_name} must run with no-new-privileges"
         )
+
+
+def test_runtime_volume_root_helpers_restore_only_required_capabilities() -> None:
+    script = DEPLOY_SCRIPT.read_text()
+    helper_caps = "--cap-add CHOWN --cap-add DAC_OVERRIDE"
+
+    assert script.count(helper_caps) == 2
+    assert "--cap-add ALL" not in script
