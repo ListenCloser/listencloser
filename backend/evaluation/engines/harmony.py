@@ -6,6 +6,10 @@ Adapters for:
 The former lv-chordia adapter was removed: `chordia` is not on PyPI and its
 repository no longer resolves, so it could never run (see
 `evaluation/reports/harmony_feasibility.md`).
+
+Cadence analysis is intentionally absent here. The adjacent-Roman-numeral
+heuristic previously duplicated in this adapter was rejected and must not be
+reintroduced as benchmark evidence.
 """
 
 from __future__ import annotations
@@ -37,8 +41,8 @@ class Music21HarmonyAdapter(EngineAdapter):
         model_size_mb=0,
         requires_gpu=False,
         notes=(
-            "Symbolic analysis via music21. Key, chords, RN, cadences, voice "
-            "leading. Current production baseline."
+            "Evaluation-only symbolic baseline for key, chords, RN, and voice "
+            "leading. Cadence is withheld pending validated evidence."
         ),
     )
 
@@ -138,60 +142,10 @@ class Music21HarmonyAdapter(EngineAdapter):
                     except Exception:
                         continue
 
-        # Cadences
-        cadences = []
-        patterns = [
-            ("authentic", ["V", "I"]),
-            ("plagal", ["IV", "I"]),
-            ("half", ["I", "V"]),
-            ("deceptive", ["V", "vi"]),
-            ("authentic", ["V7", "I"]),
-            ("authentic", ["V", "i"]),
-            ("half", ["i", "V"]),
-            ("deceptive", ["V", "VI"]),
-        ]
-        chord_seq = []
-        for part in score.parts:
-            for measure in part.getElementsByClass("Measure"):
-                m_start = float(measure.offset) if measure.offset is not None else 0.0
-                for ch in measure.getElementsByClass("Chord"):
-                    try:
-                        rn = roman.romanNumeralFromChord(ch, detected_key)
-                        offset = float(ch.getOffsetInHierarchy(score))
-                        dur = float(ch.quarterLength) if hasattr(ch, "quarterLength") else 0.0
-                        chord_seq.append((offset, rn.figure, dur, m_start))
-                    except Exception:
-                        continue
-
-        for i in range(len(chord_seq) - 1):
-            prev_off, prev_fig, prev_dur, prev_m = chord_seq[i]
-            off, fig, dur, m_start = chord_seq[i + 1]
-            pair = [prev_fig, fig]
-            for cad_type, pattern in patterns:
-                if pair == pattern:
-                    near_boundary = (off - m_start) <= 0.5
-                    long_arrival = dur >= 1.0
-                    evidence_score = 0.5
-                    if near_boundary:
-                        evidence_score += 0.2
-                    if long_arrival:
-                        evidence_score += 0.1
-                    cadences.append(
-                        {
-                            "type": cad_type,
-                            "chords": pair,
-                            "position": round(off, 3),
-                            "evidence_score": round(min(evidence_score, 0.8), 3),
-                            "evidence": {
-                                "metric_position": "near_measure_boundary"
-                                if near_boundary
-                                else "mid_measure",
-                                "arrival_duration_qn": round(dur, 3),
-                                "method": "roman_numeral_pattern",
-                            },
-                        }
-                    )
-                    break
+        # Cadence is deliberately withheld. A chord progression such as V-I is
+        # not sufficient evidence of phrase closure, and evaluation code must
+        # not revive the rejected adjacent-RN heuristic as a benchmark result.
+        cadences: list[dict[str, Any]] = []
 
         # Voice leading
         voice_leading = None
