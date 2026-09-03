@@ -1,0 +1,31 @@
+name: Temporary Ruff formatter 1133
+
+on:
+  push:
+    branches:
+      - security/1130-hide-foreign-version-existence
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: security/1130-hide-foreign-version-existence
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+      - name: Apply repository-pinned Ruff formatting
+        run: |
+          python -m pip install ruff==0.5.7
+          ruff format backend/tests/test_version_resource_authorization.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/tests/test_version_resource_authorization.py
+          git commit -m "style(security): apply Ruff formatting" || true
+          git rm .github/workflows/tmp-format-1133.yml
+          git commit -m "ci: remove temporary Ruff formatter"
+          git push origin HEAD:security/1130-hide-foreign-version-existence
