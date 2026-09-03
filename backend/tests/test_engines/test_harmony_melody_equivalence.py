@@ -45,8 +45,7 @@ class TestHarmonyEngineEquivalence:
             {"figure": "V", "root": "C", "quality": "M", "start": 2.0, "end": 3.0},
             {"figure": "I", "root": "F", "quality": "M", "start": 3.0, "end": 4.0},
         ]
-        assert harmony.cadences
-        assert all(c["evidence_score"] <= 0.8 for c in harmony.cadences)
+        assert harmony.cadences == []
         assert harmony.voice_leading is None
         assert harmony.phrases == []
         assert harmony.provenance.engine == "music21"
@@ -98,7 +97,8 @@ class TestAnalyzeRoutesThroughEngines:
         assert hp["key"]["engine"] == "music21"
         assert hp["chords"]["engine"] == "music21"
         assert hp["roman_numerals"]["engine"] == "music21"
-        assert hp["cadences"]["engine"] == "custom-rule"
+        assert hp["cadences"]["engine"] == "unavailable"
+        assert hp["cadences"]["parameters"] == {"status": "withheld", "returns_empty": True}
         assert analysis["melody_provenance"]["engine"] == "lstom"
         assert analysis["key"] == {"tonic": "F", "mode": "major", "confidence": 0.813}
         # LStoM returns None for very short MIDI (<50 notes) — provenance
@@ -106,11 +106,11 @@ class TestAnalyzeRoutesThroughEngines:
         if analysis["melody"] is not None:
             assert analysis["melody"]["heuristic"] == "lstom_biLSTM"
 
-    def test_custom_components_do_not_claim_music21(self):
-        """Cadence is custom logic; provenance must not imply music21 produced it."""
+    def test_withheld_components_do_not_claim_music21(self):
+        """Withheld cadence provenance must not imply music21 produced it."""
         hp = Music21HarmonyEngine().component_provenance()
-        assert hp["cadences"].engine == "custom-rule"
-        assert hp["cadences"].parameters["method"] == "roman_numeral_pattern"
+        assert hp["cadences"].engine == "unavailable"
+        assert hp["cadences"].parameters == {"status": "withheld", "returns_empty": True}
         assert hp["phrases"].parameters["returns_empty"] is True
 
     @pytest.mark.integration
