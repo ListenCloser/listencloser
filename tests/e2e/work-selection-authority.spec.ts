@@ -6,6 +6,7 @@ type WorkAuthorityHarness = {
   heldWorkId: string | null;
   releaseHeld: (() => void) | null;
   staleAudioAssignments: string[];
+  processingWorkId: string | null;
 };
 
 declare global {
@@ -25,6 +26,7 @@ function installWorkAuthorityHarness({ holdKey, staleSourceKey }: { holdKey: str
     heldWorkId: null,
     releaseHeld: null,
     staleAudioAssignments: [],
+    processingWorkId: null,
   };
   window.__lcWorkAuthority = harness;
 
@@ -119,11 +121,44 @@ function installWorkAuthorityHarness({ holdKey, staleSourceKey }: { holdKey: str
     const suffix = workId.endsWith("a") ? "a" : "b";
     const artifactId = `mock-artifact-${suffix}`;
     const versionId = `mock-version-${suffix}`;
+    const now = new Date().toISOString();
     const latestVersion = {
       ...original.latest_version,
       id: versionId,
       artifact_id: artifactId,
       storage_key: `test/${versionId}.wav`,
+    };
+    const processingJob = {
+      id: `mock-job-${suffix}`,
+      workflow_id: `mock-workflow-${suffix}`,
+      capability: {
+        name: "understand",
+        version: "1.0",
+        accepted_input_kinds: [],
+        produces_output_kinds: [],
+        parameters: {},
+        failure_modes: [],
+      },
+      lifecycle: {
+        current: "running",
+        progress: 0.5,
+        message: "Understanding audio...",
+        stages: [],
+        retry_count: 0,
+        max_retries: 3,
+        lease_expires_at: null,
+        started_at: now,
+        completed_at: null,
+      },
+      input_version_ids: [versionId],
+      output_version_ids: [],
+      parameters: {},
+      cache_key: null,
+      error: null,
+      error_details: {},
+      provenance: {},
+      created_at: now,
+      created_by: null,
     };
     const rewritten = {
       work: {
@@ -132,7 +167,7 @@ function installWorkAuthorityHarness({ holdKey, staleSourceKey }: { holdKey: str
         project_id: "mock-project-1",
         title: suffix === "a" ? "Work A" : "Work B",
       },
-      jobs: [],
+      jobs: harness.processingWorkId === workId ? [processingJob] : [],
       artifacts: [{
         ...original,
         artifact: {
@@ -259,5 +294,38 @@ test("Work A stays authoritative when an older Work B response resolves after sw
 
   await expect(workButton(page, "Work A")).toHaveAttribute("aria-current", "true");
   await expectAudioFor(page, "mock-work-a");
+  await expectNoStaleSource(page);
+});
+
+test("processing status follows Work B when switching away and returning", async ({ page }) => {
+  await bootWorkspace(page, null);
+  await expect(workButton(page, "Work A")).toHaveAttribute("aria-current", "true");
+  await expectAudioFor(page, "mock-work-a");
+
+  await page.evaluate(() => {
+    const harness = window.__lcWorkAuthority;
+    if (!harness) throw new Error("Missing Work authority harness");
+    harness.processingWorkId = "mock-work-b";
+  });
+
+  const notice = page.locator(".workspace-processing-notice");
+  await clickWork(page, "Work B");
+  await expect(workButton(page, "Work B")).toHaveAttribute("aria-current", "true");
+  await expectAudioFor(page, "mock-work-b");
+  await expect(notice).toContainText("Ready to listen.");
+  await expect(notice.getByRole("button", { name: "Cancel" })).toBeVisible();
+  await expectNoStaleSource(page);
+
+  await clickWork(page, "Work A");
+  await expect(workButton(page, "Work A")).toHaveAttribute("aria-current", "true");
+  await expectAudioFor(page, "mock-work-a");
+  await expect(notice).not.toBeVisible();
+  await expectNoStaleSource(page);
+
+  await clickWork(page, "Work B");
+  await expect(workButton(page, "Work B")).toHaveAttribute("aria-current", "true");
+  await expectAudioFor(page, "mock-work-b");
+  await expect(notice).toContainText("Ready to listen.");
+  await expect(notice.getByRole("button", { name: "Cancel" })).toBeVisible();
   await expectNoStaleSource(page);
 });
