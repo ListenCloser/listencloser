@@ -42,6 +42,7 @@ function responseMilestone(response: Response): ImportNetworkMilestone | null {
   return null;
 }
 
+// Keep this vocabulary aligned with the public Job lifecycle, not worker internals.
 const TERMINAL_JOB_STAGES = new Set(["succeeded", "failed", "cancelled"]);
 
 /**
