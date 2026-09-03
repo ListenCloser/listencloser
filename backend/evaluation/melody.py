@@ -107,7 +107,9 @@ def load_pop909_test_manifest(path: str | Path) -> MelodySplitManifest:
     if len(set(song_ids)) != len(song_ids):
         raise ValueError("melody split manifest song_ids must be unique")
     invalid_ids = [
-        song_id for song_id in song_ids if not _SONG_ID_RE.fullmatch(song_id)
+        song_id
+        for song_id in song_ids
+        if not _SONG_ID_RE.fullmatch(song_id)
     ]
     if invalid_ids:
         raise ValueError(
@@ -206,7 +208,8 @@ def aggregate_song_results(results: Sequence[MelodySongResult]) -> MelodyAggrega
             )
 
     precisions = [
-        result.metrics.precision if result.metrics else 0.0 for result in results
+        result.metrics.precision if result.metrics else 0.0
+        for result in results
     ]
     recalls = [result.metrics.recall if result.metrics else 0.0 for result in results]
     f1s = [result.metrics.f1 if result.metrics else 0.0 for result in results]
