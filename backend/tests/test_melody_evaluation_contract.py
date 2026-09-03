@@ -72,12 +72,8 @@ def test_aggregate_keeps_abstentions_and_errors_in_failure_denominator() -> None
     aggregate = aggregate_song_results(
         [
             MelodySongResult(song_id="001", status="ok", metrics=strong),
-            MelodySongResult(
-                song_id="002", status="abstained", reason="no melody output"
-            ),
-            MelodySongResult(
-                song_id="003", status="error", reason="engine exception"
-            ),
+            MelodySongResult(song_id="002", status="abstained", reason="no melody output"),
+            MelodySongResult(song_id="003", status="error", reason="engine exception"),
         ]
     )
 
