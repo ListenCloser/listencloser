@@ -88,6 +88,7 @@ class WorkRepo(_Repo):
         return [Work.model_validate(r) for r in result.data]
 
     def update(self, work: Work, owner_id: str) -> Work:
+        self._verify_work_owner(work.id, owner_id)
         self._verify_project(work.project_id, owner_id)
         data = work.model_dump(mode="json")
         result = self.client.table(self.table).update(data).eq("id", str(work.id)).execute()
