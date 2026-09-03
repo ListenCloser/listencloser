@@ -269,6 +269,8 @@ def rehome_selected_storage(
     """Plan or apply safe re-home for explicitly selected legacy Versions."""
     if not version_ids:
         raise ValueError("at least one Version must be selected")
+    if apply and len(version_ids) != 1:
+        raise ValueError("--apply requires exactly one Version per invocation")
 
     report = audit_storage_locator_rows(rows)
     selected = report.selected(version_ids)
@@ -453,7 +455,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Copy verified bytes and publish replacement Versions. Default is dry-run.",
+        help="Copy verified bytes and publish one replacement Version. Default is dry-run.",
     )
     return parser.parse_args(argv)
 
