@@ -7,13 +7,6 @@ on:
         required: false
       ARGOS_TOKEN:
         required: false
-  push:
-    branches: [main]
-    paths-ignore:
-      - '*.md'
-      - 'docs/**'
-      - 'backend/**'
-      - 'supabase/**'
 
 permissions:
   contents: read

@@ -2,8 +2,6 @@ name: Secrets scan (Gitleaks)
 
 on:
   workflow_call:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
