@@ -75,7 +75,7 @@
         "dataset": "POP909",
         "metric": "f1",
         "value": 0.768,
-        "details": "LStoM BiLSTM on 91-song held-out test set (seed=42). Precision=0.720, Recall=0.839. Cross-seed CV=0.3% across 3 seeds."
+        "details": "Historical fixed-holdout evaluation: cross-training-seed mean F1=0.768, Precision=0.720, Recall=0.839 for seeds 42/123/456 (F1 CV=0.3%). The exact 91 held-out song IDs and committed-checkpoint seed/epoch were not retained, so this is not a newly reproduced metric for the current checkpoint; see #1026."
       },
       "model": {
         "name": "lstom_biLSTM_pop909",
@@ -86,7 +86,7 @@
         "feature_schema": "pitch, duration, pitch_dist_below, pitch_dist_above, pos_in_bar, in_scale"
       },
       "validated_domain": "pop/arranged symbolic MIDI",
-      "notes": "Validated on pop/arranged symbolic MIDI (POP909). Classical piano and general performance MIDI not formally validated. Model is deterministic, CPU-only (~390ms/song), 9.66MB."
+      "notes": "Historical POP909 evidence supports pop/arranged symbolic MIDI, but exact holdout membership and committed-checkpoint seed/epoch were not retained; #1026 records this reproducibility limit. Classical piano and general performance MIDI are not formally validated. Model is deterministic, CPU-only (~390ms/song), 9.66MB."
     },
     "melody_register_peak": {
       "status": "experimental",
