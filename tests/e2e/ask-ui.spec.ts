@@ -92,6 +92,19 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(page.getByText(prompt)).toBeVisible();
   });
 
+  test("performance-time evidence reference seeks the shared transport", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: "Playback source: Original audio", exact: true })).toBeVisible();
+
+    await openAsk(page);
+    await askGroundedStarter(page);
+    await expect(page.getByText(/This passage stays centered on the tonic/)).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole("button", { name: "0:04–0:08" }).click();
+
+    await expect.poll(() => transportPos(page)).toBe(4);
+  });
+
   test("measure reference opens the Score and show_representation opens the matching view", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
 
