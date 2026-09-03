@@ -6,12 +6,15 @@ import pytest
 
 from domain import score_performance_alignment as alignment
 
+AlignmentCoverage = alignment.AlignmentCoverage
 AlignmentInputRole = alignment.AlignmentInputRole
 AlignmentInputVersion = alignment.AlignmentInputVersion
+AlignmentMethod = alignment.AlignmentMethod
 AlignmentProjectionPrecision = alignment.AlignmentProjectionPrecision
 AlignmentRelationKind = alignment.AlignmentRelationKind
 AlignmentSufficiency = alignment.AlignmentSufficiency
 AlignmentSufficiencyPolicy = alignment.AlignmentSufficiencyPolicy
+ScorePerformanceAlignment = alignment.ScorePerformanceAlignment
 normalize_parangonar_alignment = alignment.normalize_parangonar_alignment
 
 POLICY = AlignmentSufficiencyPolicy(
@@ -193,6 +196,79 @@ def test_empty_or_incomplete_alignment_cannot_masquerade_as_adequate():
     assert alignment_result.coverage.performance_fraction == 0.0
     assert alignment_result.sufficiency is AlignmentSufficiency.insufficient
     assert alignment_result.projection_precision is AlignmentProjectionPrecision.unsupported
+
+
+def test_sufficiency_policy_requires_positive_coverage_thresholds():
+    with pytest.raises(ValueError):
+        AlignmentSufficiencyPolicy(
+            minimum_score_fraction=0.0,
+            minimum_performance_fraction=0.8,
+        )
+    with pytest.raises(ValueError):
+        AlignmentSufficiencyPolicy(
+            minimum_score_fraction=0.8,
+            minimum_performance_fraction=0.0,
+        )
+
+
+def test_coverage_cannot_report_more_mapped_events_than_inputs():
+    with pytest.raises(ValueError, match="mapped score events"):
+        AlignmentCoverage(
+            score_events_total=1,
+            performance_events_total=1,
+            score_events_mapped=2,
+            performance_events_mapped=1,
+        )
+    with pytest.raises(ValueError, match="mapped performance events"):
+        AlignmentCoverage(
+            score_events_total=1,
+            performance_events_total=1,
+            score_events_mapped=1,
+            performance_events_mapped=2,
+        )
+
+
+def test_direct_contract_cannot_fabricate_sufficient_or_insufficient_state():
+    score_input, performance_input = _inputs()
+    common = dict(
+        score_version_id=score_input.version_id,
+        performance_version_id=performance_input.version_id,
+        method=AlignmentMethod(
+            package="parangonar",
+            package_version="3.3.3",
+            matcher="DualDTWNoteMatcher",
+            parameters={},
+        ),
+        relations=(),
+        sufficiency_policy=POLICY,
+        failure=None,
+    )
+
+    with pytest.raises(ValueError, match="coverage does not meet"):
+        ScorePerformanceAlignment(
+            **common,
+            coverage=AlignmentCoverage(
+                score_events_total=2,
+                performance_events_total=2,
+                score_events_mapped=0,
+                performance_events_mapped=0,
+            ),
+            sufficiency=AlignmentSufficiency.sufficient,
+            projection_precision=AlignmentProjectionPrecision.adequate,
+        )
+
+    with pytest.raises(ValueError, match="already meets"):
+        ScorePerformanceAlignment(
+            **common,
+            coverage=AlignmentCoverage(
+                score_events_total=1,
+                performance_events_total=1,
+                score_events_mapped=1,
+                performance_events_mapped=1,
+            ),
+            sufficiency=AlignmentSufficiency.insufficient,
+            projection_precision=AlignmentProjectionPrecision.unsupported,
+        )
 
 
 def test_serialization_and_provenance_are_deterministic_without_generic_confidence():
