@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -74,13 +74,22 @@ class ScorePerformanceEventRelation(BaseModel):
     performance_events: tuple[AlignmentEventRef, ...] = ()
 
     @model_validator(mode="after")
-    def validate_cardinality(self) -> "ScorePerformanceEventRelation":
+    def validate_cardinality(self) -> ScorePerformanceEventRelation:
         score_count = len(self.score_events)
         performance_count = len(self.performance_events)
-        if self.kind is AlignmentRelationKind.matched and (score_count, performance_count) != (1, 1):
-            raise ValueError("matched relation requires exactly one score and one performance event")
-        if self.kind is AlignmentRelationKind.score_only and not (score_count >= 1 and performance_count == 0):
-            raise ValueError("score_only relation requires score event(s) and no performance event")
+        if self.kind is AlignmentRelationKind.matched and (
+            score_count,
+            performance_count,
+        ) != (1, 1):
+            raise ValueError(
+                "matched relation requires exactly one score and one performance event"
+            )
+        if self.kind is AlignmentRelationKind.score_only and not (
+            score_count >= 1 and performance_count == 0
+        ):
+            raise ValueError(
+                "score_only relation requires score event(s) and no performance event"
+            )
         if self.kind is AlignmentRelationKind.performance_only and not (
             score_count == 0 and performance_count >= 1
         ):
@@ -140,7 +149,7 @@ class ScorePerformanceAlignment(BaseModel):
     failure: str | None = None
 
     @model_validator(mode="after")
-    def validate_truthfulness(self) -> "ScorePerformanceAlignment":
+    def validate_truthfulness(self) -> ScorePerformanceAlignment:
         if self.score_version_id == self.performance_version_id:
             raise ValueError("score and performance must be distinct immutable Versions")
         if self.sufficiency is AlignmentSufficiency.sufficient:
@@ -309,7 +318,9 @@ def normalize_parangonar_alignment(
                     policy=sufficiency_policy,
                     score_event_ids=score_event_ids,
                     performance_event_ids=performance_event_ids,
-                    failure="matcher insertion referenced an event outside the performance Version",
+                    failure=(
+                        "matcher insertion referenced an event outside the performance Version"
+                    ),
                 )
             declared_performance_only.add(performance_id)
         else:
