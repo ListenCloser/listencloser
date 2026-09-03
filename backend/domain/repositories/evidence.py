@@ -12,7 +12,7 @@ from domain.models import (
     NoteEntity,
     Span,
 )
-from domain.repositories._base import _Repo, _first
+from domain.repositories._base import _first, _Repo
 
 
 class EntityRepo(_Repo):
@@ -48,7 +48,9 @@ class EntityRepo(_Repo):
 
     def list_by_version(self, version_id: UUID, owner_id: str) -> list[Entity]:
         self._verify_version_owner(version_id, owner_id)
-        result = self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
+        result = (
+            self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
+        )
         return [self._row_to_entity(r) for r in result.data]
 
     def delete(self, entity_id: UUID, owner_id: str) -> None:
@@ -188,7 +190,9 @@ class InsightRepo(_Repo):
 
     def list_by_version(self, version_id: UUID, owner_id: str) -> list[Insight]:
         self._verify_version_owner(version_id, owner_id)
-        result = self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
+        result = (
+            self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
+        )
         return [Insight.model_validate(r) for r in result.data]
 
     def delete(self, insight_id: UUID, owner_id: str) -> None:
@@ -248,11 +252,18 @@ class AlignmentRepo(_Repo):
 
     def list_by_version(self, version_id: UUID, owner_id: str) -> list[Alignment]:
         self._verify_version_owner(version_id, owner_id)
-        result = self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
+        result = (
+            self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
+        )
         return [Alignment.model_validate(r) for r in result.data]
 
     def delete(self, alignment_id: UUID, owner_id: str) -> None:
-        al = self.client.table(self.table).select("version_id").eq("id", str(alignment_id)).execute()
+        al = (
+            self.client.table(self.table)
+            .select("version_id")
+            .eq("id", str(alignment_id))
+            .execute()
+        )
         if not al.data:
             raise ValueError("alignment not found")
         self._verify_version_owner(UUID(al.data[0]["version_id"]), owner_id)
