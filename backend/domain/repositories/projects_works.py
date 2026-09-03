@@ -3,7 +3,7 @@ from uuid import UUID
 from supabase import Client
 
 from domain.models import Project, Work
-from domain.repositories._base import _Repo, _first
+from domain.repositories._base import _first, _Repo
 
 
 class ProjectRepo(_Repo):
