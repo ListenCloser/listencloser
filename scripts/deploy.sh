@@ -173,7 +173,11 @@ preseed_librosa_numba_cache() {
   echo "[deploy] preseeding explicit librosa rollback Numba cache while current release stays online"
 
   if ! docker compose -f "$COMPOSE" run --rm --no-deps --user root \
-    --cap-add CHOWN --cap-add DAC_OVERRIDE --entrypoint sh worker \
+    --cap-add CHOWN --cap-add DAC_OVERRIDE \
+    -e SUPABASE_SERVICE_ROLE_KEY= \
+    -e SENTRY_DSN_BACKEND= \
+    -e OTEL_EXPORTER_OTLP_HEADERS= \
+    --entrypoint sh worker \
     -c 'mkdir -p "$NUMBA_CACHE_DIR" && chown 1001:1001 /app/runtime && chown -R 1001:1001 "$NUMBA_CACHE_DIR"'; then
     echo "[deploy] warning: could not initialize Numba cache directory; replacement worker will warm it itself" >&2
     return 0
@@ -222,7 +226,11 @@ preseed_librosa_numba_cache
 
 echo "[deploy] switching API and worker to $(git rev-parse --short HEAD)"
 docker compose -f "$COMPOSE" run --rm --no-deps --user root \
-  --cap-add CHOWN --cap-add DAC_OVERRIDE --entrypoint sh worker \
+  --cap-add CHOWN --cap-add DAC_OVERRIDE \
+  -e SUPABASE_SERVICE_ROLE_KEY= \
+  -e SENTRY_DSN_BACKEND= \
+  -e OTEL_EXPORTER_OTLP_HEADERS= \
+  --entrypoint sh worker \
   -c 'rm -f /app/runtime/worker-heartbeat.json && chown 1001:1001 /app/runtime'
 if [ "$USE_PREBUILT_IMAGE" -eq 1 ]; then
   docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans --no-build backend worker
