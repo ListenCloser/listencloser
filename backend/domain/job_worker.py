@@ -381,11 +381,31 @@ class JobWorker:
     # Idempotency
     # ------------------------------------------------------------------
 
-    def _cached_output_version_ids(self, job_row: dict) -> list[str] | None:
-        """Return canonical outputs for a succeeded job with the same cache key.
+    def _check_cache_hit(self, job_row: dict) -> bool:
+        """Return whether a succeeded job already owns this cache key."""
+        cache_key = job_row.get("cache_key")
+        if not cache_key:
+            return False
+        try:
+            result = (
+                self.client.table("jobs")
+                .select("id")
+                .eq("cache_key", cache_key)
+                .eq("stage", "succeeded")
+                .execute()
+            )
+            return bool(result.data)
+        except Exception:
+            logger.exception("cache_hit_check_failed")
+            return False
 
-        ``None`` means there is no usable cache hit. An empty list is a valid
-        cache hit for a capability that intentionally produces no Versions.
+    def _cached_output_version_ids(self, job_row: dict) -> list[str] | None:
+        """Return outputs from the canonical succeeded job for this cache key.
+
+        The oldest succeeded Job is the original computation rather than a
+        later duplicate that may itself have been completed through the cache
+        path. ``None`` means the confirmed cache result disappeared before the
+        output lookup; an empty list is a valid cached result.
         """
         cache_key = job_row.get("cache_key")
         if not cache_key:
@@ -396,13 +416,15 @@ class JobWorker:
                 .select("id,output_version_ids")
                 .eq("cache_key", cache_key)
                 .eq("stage", "succeeded")
+                .order("created_at", desc=False)
+                .limit(1)
                 .execute()
             )
             if not result.data:
                 return None
             return [str(value) for value in (result.data[0].get("output_version_ids") or [])]
         except Exception:
-            logger.exception("cache_hit_check_failed")
+            logger.exception("cache_output_lookup_failed")
             return None
 
     # ------------------------------------------------------------------
@@ -514,27 +536,34 @@ class JobWorker:
             return
 
         # --- Idempotency check (only after this worker owns the lease) ---
-        cached_output_version_ids = self._cached_output_version_ids(job_row)
-        if cached_output_version_ids is not None:
-            logger.info(
-                "cache_hit_skip",
-                extra={
-                    "job_id": job_id,
-                    "cache_key": job_row.get("cache_key"),
-                },
+        if self._check_cache_hit(job_row):
+            cached_output_version_ids = self._cached_output_version_ids(job_row)
+            if cached_output_version_ids is not None:
+                logger.info(
+                    "cache_hit_skip",
+                    extra={
+                        "job_id": job_id,
+                        "cache_key": job_row.get("cache_key"),
+                    },
+                )
+                now = datetime.now(UTC).isoformat()
+                self.client.table("jobs").update(
+                    {
+                        "stage": "succeeded",
+                        "progress": 1.0,
+                        "status_message": "cache hit: duplicate job skipped",
+                        "output_version_ids": cached_output_version_ids,
+                        "completed_at": now,
+                        "lease_expires_at": None,
+                    }
+                ).eq("id", job_id).eq("worker_id", self._worker_id).eq(
+                    "stage", "claimed"
+                ).execute()
+                return
+            logger.warning(
+                "cache_hit_output_missing",
+                extra={"job_id": job_id, "cache_key": job_row.get("cache_key")},
             )
-            now = datetime.now(UTC).isoformat()
-            self.client.table("jobs").update(
-                {
-                    "stage": "succeeded",
-                    "progress": 1.0,
-                    "status_message": "cache hit: duplicate job skipped",
-                    "output_version_ids": cached_output_version_ids,
-                    "completed_at": now,
-                    "lease_expires_at": None,
-                }
-            ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "claimed").execute()
-            return
 
         # --- Transition to running ---
         if not self._mark_running(job_id):
