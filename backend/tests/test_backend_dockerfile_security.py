@@ -25,12 +25,14 @@ def test_pm2s_checkpoints_are_content_verified_when_downloaded() -> None:
     assert pinned_checkpoints == EXPECTED_PM2S_CHECKPOINTS
     checksum_command = (
         'echo "${expected_sha256}  /opt/pm2s-models/${model}" '
-        "| sha256sum --check -;"
+        + "| sha256sum --check -;"
     )
     assert checksum_command in pm2s_stage
 
-    download = pm2s_stage.index(
-        '\"https://zenodo.org/records/${PM2S_MODEL_RECORD}/files/${model}?download=1\"'
+    download_url = (
+        '\"https://zenodo.org/records/'
+        + '${PM2S_MODEL_RECORD}/files/${model}?download=1\"'
     )
+    download = pm2s_stage.index(download_url)
     verification = pm2s_stage.index("sha256sum --check -;", download)
     assert verification > download
