@@ -6,7 +6,7 @@ description = "FastAPI API and durable music-processing worker for Listen Closer
 requires-python = ">=3.11,<3.12"
 dependencies = [
   "fastapi==0.115.0",
-  "python-multipart==0.0.20",
+  "python-multipart==0.0.30",
   "slowapi==0.1.9",
   "uvicorn[standard]==0.30.6",
   "pydantic>=2.11.7",
@@ -98,5 +98,5 @@ ignore = ["B008", "B904"]
 
 [tool.ruff.format]
 quote-style = "double"
-indent-style = "space"
+indent-style = "lf"
 line-ending = "lf"
