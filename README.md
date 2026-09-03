@@ -39,7 +39,7 @@ Evidence is treated similarly: measured or derived observations can support prod
 - **Inspect supported findings in Breakdown** with provenance/evidence rather than a free-form generated summary.
 - **Ask questions about the recording or a selected passage** using the evidence available for that Work, with typed references/actions that the user explicitly triggers.
 
-Analysis capabilities are not all equally mature or universally exposed. `backend/config/capabilities.json` is the machine-readable authority for which analysis capabilities may appear in the product; [GitHub #458](https://github.com/ListenCloser/listencloser/issues/458) remains the temporary product strategy/roadmap authority during the #1139 migration and should not be read as a claim that every future capability already ships.
+Analysis capabilities are not all equally mature or universally exposed. `backend/config/capabilities.json` is the machine-readable authority for which analysis capabilities may appear in the product. [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md) owns durable product identity and principles; [GitHub #458](https://github.com/ListenCloser/listencloser/issues/458) remains the temporary roadmap/portfolio authority until the separate ROADMAP migration lands. Neither should be read as a claim that every future capability already ships.
 
 ## System shape
 
@@ -117,8 +117,9 @@ Repository documentation has explicit authority rather than one giant source-of-
 
 - [`AGENTS.md`](AGENTS.md) — engineering rules, verification expectations, and autonomous-agent workflow.
 - [`docs/README.md`](docs/README.md) — documentation map and precedence rules.
+- [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md) — durable product identity, user progress, strategic arena, mental model, and principles.
+- [GitHub #458](https://github.com/ListenCloser/listencloser/issues/458) — temporary roadmap/portfolio authority until the separate ROADMAP migration lands.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current shipped runtime architecture.
-- [GitHub #458](https://github.com/ListenCloser/listencloser/issues/458) — temporary product strategy/roadmap authority until #1139 lands its repo-native replacements.
 - [`docs/EVALUATION_METHODOLOGY.md`](docs/EVALUATION_METHODOLOGY.md) — how production/evaluation decisions should be tested.
 - [`docs/EVALUATION_DECISIONS.md`](docs/EVALUATION_DECISIONS.md) — current cross-track evaluation conclusions.
 - [`docs/OPS.md`](docs/OPS.md) and [`docs/RECOVERY.md`](docs/RECOVERY.md) — production operation and recovery.
