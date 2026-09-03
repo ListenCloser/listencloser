@@ -18,22 +18,18 @@ def test_cached_output_lookup_uses_oldest_succeeded_job():
     outputs = [str(uuid4()), str(uuid4())]
     result = MagicMock()
     result.data = [{"id": str(uuid4()), "output_version_ids": outputs}]
-    query = (
-        client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value
-    )
-    query.execute.return_value = result
+    select_query = client.table.return_value.select.return_value
+    cache_query = select_query.eq.return_value.eq.return_value
+    ordered_query = cache_query.order.return_value
+    ordered_query.limit.return_value.execute.return_value = result
 
     resolved = worker._cached_output_version_ids({"cache_key": "same-work"})
 
     assert resolved == outputs
     client.table.assert_called_once_with("jobs")
     client.table.return_value.select.assert_called_once_with("id,output_version_ids")
-    client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.assert_called_once_with(
-        "created_at", desc=False
-    )
-    client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.assert_called_once_with(
-        1
-    )
+    cache_query.order.assert_called_once_with("created_at", desc=False)
+    ordered_query.limit.assert_called_once_with(1)
 
 
 @pytest.mark.parametrize("outputs", [[str(uuid4()), str(uuid4())], []])
