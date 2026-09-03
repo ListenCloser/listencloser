@@ -18,6 +18,7 @@ import hashlib
 import json
 import mimetypes
 import re
+from contextlib import suppress
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -147,11 +148,9 @@ def _upload(client: Client, key: str, content: bytes, mime_type: str) -> None:
 
 
 def _remove_new_destination(client: Client, key: str) -> None:
-    try:
+    # The destination is deterministic and safe to leave for a later retry/GC.
+    with suppress(Exception):
         client.storage.from_(_STORAGE_BUCKET).remove([key])
-    except Exception:
-        # The destination is deterministic and safe to leave for a later retry/GC.
-        pass
 
 
 def _insert(client: Client, version: Version) -> Version:
