@@ -1,0 +1,67 @@
+name: Temporary #639 Python dependency ownership inventory
+
+on:
+  push:
+    branches:
+      - research/639-python-deps-current
+    paths:
+      - .github/workflows/tmp-639-python-deps-current.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+      - name: Inventory imports and locked ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== exact Python imports ==='
+          git grep -n -I -E '(^|[[:space:]])(from|import)[[:space:]]+(mir_eval|storage3|scipy|partitura)([[:space:].]|$)' -- backend || true
+
+          echo '=== all textual references ==='
+          git grep -n -I -E 'mir[-_]eval|storage3|scipy|partitura' -- backend || true
+
+          echo '=== manifest declarations ==='
+          grep -n -E 'mir-eval|storage3|scipy|partitura' backend/pyproject.toml || true
+
+          echo '=== locked packages ==='
+          uv tree --project backend --locked | grep -E '(^|[[:space:]├└│─])(mir-eval|storage3|scipy|partitura)([[:space:]]|$)' || true
+
+          echo '=== import ownership summary ==='
+          python - <<'PY'
+          import ast
+          from collections import defaultdict
+          from pathlib import Path
+
+          targets = {'mir_eval', 'storage3', 'scipy', 'partitura'}
+          uses = defaultdict(list)
+          for path in Path('backend').rglob('*.py'):
+              if any(part.startswith('.') for part in path.parts):
+                  continue
+              tree = ast.parse(path.read_text(), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      for alias in node.names:
+                          root = alias.name.split('.')[0]
+                          if root in targets:
+                              uses[root].append((str(path), node.lineno, alias.name))
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      root = node.module.split('.')[0]
+                      if root in targets:
+                          uses[root].append((str(path), node.lineno, node.module))
+          for target in sorted(targets):
+              print(f'{target}: {len(uses[target])} imports')
+              for path, line, module in uses[target]:
+                  print(f'  {path}:{line}: {module}')
+          PY
