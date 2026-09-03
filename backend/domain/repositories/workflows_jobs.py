@@ -208,10 +208,7 @@ class JobRepo(_Repo):
 
     def _verify_workflow_owner(self, workflow_id: UUID, owner_id: str) -> None:
         wf = (
-            self.client.table("workflows")
-            .select("project_id")
-            .eq("id", str(workflow_id))
-            .execute()
+            self.client.table("workflows").select("project_id").eq("id", str(workflow_id)).execute()
         )
         if not wf.data:
             raise ValueError("workflow not found")
