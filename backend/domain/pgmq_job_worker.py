@@ -38,9 +38,7 @@ class PgmqJobWorker(FencedJobWorker):
         if heartbeat_interval_sec <= 0:
             raise ValueError("heartbeat_interval_sec must be positive")
         if heartbeat_interval_sec >= visibility_timeout_sec:
-            raise ValueError(
-                "heartbeat interval must be shorter than PGMQ visibility timeout"
-            )
+            raise ValueError("heartbeat interval must be shorter than PGMQ visibility timeout")
 
         # JobWorker still names this inherited scheduling interval "lease". The
         # production transport no longer writes or renews Job-row leases; this
