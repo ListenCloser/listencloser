@@ -212,7 +212,12 @@ async def create_score_workflow(
     request: Request,
     auth=Depends(verify_token),
 ):
-    """Rebuild Score from an existing canonical performance-MIDI version."""
+    """Rebuild Score from an existing canonical performance-MIDI version.
+
+    This route intentionally queues only the score capability. It never
+    retranscribes audio, so changing Score interpretation does not mutate or
+    replace the canonical performance representation used by Piano Roll.
+    """
     sb = supabase_client()
     owner = owner_id(auth)
     version_id = UUID(body.performance_midi_version_id)
