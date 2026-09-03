@@ -8,7 +8,6 @@ import {
   cancelJob,
   getEntities,
   getInsights,
-  getWorkBundle,
   retryJob,
   startCompareWorkflow,
   startUnderstandWorkflow,
@@ -17,7 +16,12 @@ import {
 } from "@/lib/api-client";
 import { getMusicXml } from "@/lib/musicxml-cache";
 import { JobObservationError, waitForJob, sanitizeJobError } from "@/lib/job-tracking";
-import { refreshProjectWorks, useLibraryProject, useProjectWorks } from "@/lib/server-state";
+import {
+  fetchWorkBundle,
+  refreshProjectWorks,
+  useLibraryProject,
+  useProjectWorks,
+} from "@/lib/server-state";
 import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
 import { understandStageLabel, presentableTitle } from "@/lib/format";
@@ -66,7 +70,6 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadSequenceRef = useRef(0);
-  const abortRef = useRef<AbortController | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedWorkRef = useRef<string | null>(null);
   const initializedProjectSelectionRef = useRef<string | null>(null);
@@ -94,8 +97,6 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       sequence === loadSequenceRef.current && activeWorkIdRef.current === workId
     );
     clearProcessingRefresh();
-    abortRef.current?.abort();
-    abortRef.current = new AbortController();
 
     setLoadingWork(!preserveWorkspace);
     setError(null);
@@ -113,7 +114,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     }
 
     try {
-      const bundle = await getWorkBundle(workId);
+      const bundle = await fetchWorkBundle(queryClient, workId);
       if (!isCurrentLoad()) return;
 
       const latestJob = bundle.jobs[0];
@@ -379,13 +380,11 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
 
   useEffect(() => () => {
-    abortRef.current?.abort();
     clearProcessingRefresh();
   }, [clearProcessingRefresh]);
 
   useEffect(() => {
     if (workspace.activeWorkId === null) {
-      abortRef.current?.abort();
       clearProcessingRefresh();
     }
   }, [clearProcessingRefresh, workspace.activeWorkId]);
