@@ -11,7 +11,10 @@ import {
 } from "./representations/registry";
 import { preloadScoreRenderer } from "@/lib/score-renderer";
 import { useWorkspace, type ScoreEngine, type TranscriptionProfile } from "@/lib/stores/workspace";
-import { deriveAvailability } from "@/lib/representation-availability";
+import {
+  deriveAvailability,
+  deriveRepresentationReadiness,
+} from "@/lib/representation-availability";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
 
 const ORIENTATION_CUE_MS = 560;
@@ -100,6 +103,14 @@ function WorkspaceLoadingSkeleton() {
   );
 }
 
+function readinessLabel(readiness: "preparing" | "failed" | "unavailable"): string {
+  switch (readiness) {
+    case "preparing": return "Preparing";
+    case "failed": return "Failed";
+    case "unavailable": return "Unavailable";
+  }
+}
+
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
   const { workspace, requestImport, setActiveRepresentation, clearSelection } = useWorkspace();
   const [mountedViews, setMountedViews] = useState<Set<RepresentationId>>(() => new Set());
@@ -110,6 +121,10 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   const availability = useMemo(
     () => deriveAvailability(workspace.representations, workspace.insights.length),
     [workspace.representations, workspace.insights.length],
+  );
+  const readiness = useMemo(
+    () => deriveRepresentationReadiness(workspace.representations, workspace.jobs),
+    [workspace.jobs, workspace.representations],
   );
   const available = useMemo(() => availableRepresentations(availability), [availability]);
   const availableIds = useMemo(
@@ -124,8 +139,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     : activeView === "score"
       ? workspace.representations.find((item) => item.kind === "score")?.sourceLabel
       : null;
-  const preparingRepresentations =
-    workspace.analysisState === "analyzing" && available.length < REPRESENTATIONS.length;
+  const preparingRepresentations = Object.values(readiness).includes("preparing");
 
   function cancelScoreIntentWarmup() {
     if (scoreIntentTimeout.current === null) return;
@@ -259,12 +273,13 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
           className="piece-view-tabs piece-view-tabs-v3"
           label="Music representation"
           items={REPRESENTATIONS.map((definition) => {
-            const isAvailable = availableIds.has(definition.id);
+            const representationReadiness = readiness[definition.id];
+            const isAvailable = representationReadiness === "ready";
             return {
               id: definition.id,
               label: isAvailable
                 ? definition.title
-                : `${definition.title} · ${workspace.analysisState === "analyzing" ? "Preparing" : "Unavailable"}`,
+                : `${definition.title} · ${readinessLabel(representationReadiness)}`,
               disabled: !isAvailable,
             };
           })}
