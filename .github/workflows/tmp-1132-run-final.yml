@@ -102,8 +102,10 @@ jobs:
           git grep -n -I -E 'audio_structure|allin1|AllInOne' -- backend tests evaluation || true
 
           uv sync --project backend --locked
+          uv run --project backend --locked ruff format backend/
           uv run --project backend --locked ruff check backend/
           uv run --project backend --locked ruff format backend/ --check
+          git diff --check
           uv run --project backend --locked python -m pytest -q \
             backend/tests/test_capability_registration.py \
             backend/tests/test_capability_policy.py \
