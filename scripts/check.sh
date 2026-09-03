@@ -13,9 +13,9 @@ usage() {
   cat <<'EOF'
 Usage: scripts/check.sh [full|fast|frontend|backend|e2e]
 
-  full      Canonical local gate: build, lint, typecheck, architecture/API contracts,
+  full      Canonical local gate: build, lint, typecheck, shell/import architecture/API contracts,
             backend/frontend tests, optional backend health, and Playwright.
-  fast      Inner loop: lint, typecheck, architecture/API contracts, backend/frontend tests.
+  fast      Inner loop: lint, typecheck, shell/import architecture/API contracts, backend/frontend tests.
             Skips production build, live health checks, and Playwright.
   frontend  Frontend lint, typecheck, import architecture, and Vitest.
   backend   Locked backend sync, Ruff, import architecture, API contract, and backend unit tests.
@@ -133,6 +133,21 @@ run_frontend_tests() {
   fi
 }
 
+run_shell_static() {
+  echo ""
+  echo "── Shell static checks ──"
+  local started=$SECONDS
+  local scripts=()
+  mapfile -t scripts < <(git ls-files '*.sh')
+  if [ "${#scripts[@]}" -eq 0 ]; then
+    pass "shellcheck (no tracked shell scripts, $((SECONDS - started))s)"
+  elif uvx --from shellcheck-py==0.11.0.1 shellcheck "${scripts[@]}"; then
+    pass "shellcheck ($((SECONDS - started))s)"
+  else
+    fail "shellcheck ($((SECONDS - started))s)"
+  fi
+}
+
 run_backend_sync() {
   echo ""
   echo "── Locked backend environment ──"
@@ -227,6 +242,7 @@ echo "════════════════════════�
 case "$MODE" in
   full)
     run_backend_sync
+    run_shell_static
     run_frontend_build
     run_frontend_static
     run_frontend_architecture
@@ -237,6 +253,7 @@ case "$MODE" in
     run_e2e
     ;;
   fast)
+    run_shell_static
     run_frontend_static
     run_frontend_architecture
     run_backend_static

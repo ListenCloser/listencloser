@@ -47,7 +47,7 @@ ensure_repo() {
     git checkout main 2>/dev/null || git checkout -b main origin/main
   fi
 
-  if ! git rev-parse --abbrev-ref @{upstream} >/dev/null 2>&1; then
+  if ! git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1; then
     echo "[deploy] setting upstream to origin/main"
     git branch --set-upstream-to=origin/main main
   fi
