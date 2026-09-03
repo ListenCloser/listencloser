@@ -142,6 +142,23 @@ def test_dry_run_verifies_source_without_mutation_or_private_locator_leakage():
     assert version["label"] not in serialized
 
 
+def test_apply_requires_exactly_one_selected_version():
+    content = b"legacy-midi"
+    rows, version, _owner_id, _project_id, _artifact_id, storage_key = _legacy_rows(content)
+    client = _Client({("artifacts", storage_key): content})
+
+    with pytest.raises(ValueError, match="exactly one Version"):
+        rehome_selected_storage(
+            client,
+            rows,
+            [version["id"], str(uuid4())],
+            apply=True,
+        )
+
+    assert client.uploads == []
+    assert client.inserted_rows == []
+
+
 def test_apply_copies_exact_bytes_and_publishes_trusted_immutable_version():
     content = b"legacy-midi"
     rows, version, owner_id, project_id, artifact_id, storage_key = _legacy_rows(content)
