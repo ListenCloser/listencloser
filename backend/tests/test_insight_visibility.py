@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from domain.api import _inspector_exposed
+from domain.api.evidence import _inspector_exposed
 from domain.models import Insight
 
 
