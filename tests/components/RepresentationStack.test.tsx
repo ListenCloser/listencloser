@@ -106,8 +106,18 @@ function SelectionHarness() {
   );
 }
 
+function ReadinessHarness() {
+  const { setAnalysisState } = useWorkspace();
+  return (
+    <div>
+      <button type="button" onClick={() => setAnalysisState("analyzing")}>Start analysis</button>
+      <button type="button" onClick={() => setAnalysisState("completed")}>Complete analysis</button>
+    </div>
+  );
+}
+
 describe("RepresentationStack", () => {
-  it("keeps unavailable representations in the tab shell instead of inserting them later", () => {
+  it("keeps unavailable representations in the tab shell with local capability state", () => {
     render(
       <WorkspaceProvider>
         <RepresentationStack signedIn canImport />
@@ -116,8 +126,26 @@ describe("RepresentationStack", () => {
 
     expect(screen.getByRole("tab", { name: "Waveform" })).toBeEnabled();
     expect(screen.getByRole("tab", { name: "Score" })).toBeEnabled();
-    expect(screen.getByRole("tab", { name: "Spectrogram" })).toBeDisabled();
+    expect(screen.getByRole("tab", { name: "Spectrogram · Unavailable" })).toBeDisabled();
     expect(screen.queryByTestId("spectrogram-view")).not.toBeInTheDocument();
+  });
+
+  it("uses disabled tabs for representation readiness instead of a second processing narrative", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider>
+        <ReadinessHarness />
+        <RepresentationStack signedIn canImport />
+      </WorkspaceProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start analysis" }));
+    expect(screen.getByRole("tab", { name: "Spectrogram · Preparing" })).toBeDisabled();
+    expect(screen.queryByText("Preparing representations…")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Complete analysis" }));
+    expect(screen.getByRole("tab", { name: "Spectrogram · Unavailable" })).toBeDisabled();
+    expect(screen.queryByText("Preparing representations…")).not.toBeInTheDocument();
   });
 
   it("keeps visited representation DOM mounted across tab switches", async () => {
