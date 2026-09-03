@@ -15,7 +15,8 @@ There is intentionally no universal specification. Each durable fact has one aut
 | What accepted architecture decision constrains future changes? | relevant accepted ADR in [`adr/`](adr/) |
 | What is Listen Closer, who is it for, and what durable product principles constrain it? | [`product/PRODUCT.md`](product/PRODUCT.md) |
 | What product bets / portfolio posture are current? | [`product/ROADMAP.md`](product/ROADMAP.md) |
-| What repository execution responsibility is currently routed where? | [GitHub #634](https://github.com/ListenCloser/listencloser/issues/634) until #1139 lands and explicitly adopts its replacement |
+| What technical simplification / rearchitecture work is currently sequenced where? | [GitHub #634](https://github.com/ListenCloser/listencloser/issues/634) |
+| What agent/work-control authority migration is current? | [GitHub #1139](https://github.com/ListenCloser/listencloser/issues/1139) |
 | How should an evaluation be designed? | [`EVALUATION_METHODOLOGY.md`](EVALUATION_METHODOLOGY.md) |
 | What did current evaluation tracks conclude? | [`EVALUATION_DECISIONS.md`](EVALUATION_DECISIONS.md) + owning result/report |
 | What evidence is sufficient for a downstream claim? | [`evaluation/evidence-sufficiency.md`](evaluation/evidence-sufficiency.md) + executable claim-sufficiency contract |
@@ -27,7 +28,7 @@ There is intentionally no universal specification. Each durable fact has one aut
 
 For production claims, the deployed release SHA and live configuration matter. A document describing intended `main` behavior cannot prove what is currently deployed.
 
-[#1139](https://github.com/ListenCloser/listencloser/issues/1139) owns the bounded authority migration. `product/PRODUCT.md` owns durable product constitution; `product/ROADMAP.md` owns current product portfolio/posture; #634 remains the temporary execution-routing authority until its replacement is explicitly adopted. Historical #458 preserves product-strategy rationale but no longer authorizes current work or defines portfolio posture. Do not create parallel product roadmaps or routing systems during the migration.
+`product/PRODUCT.md` owns durable product constitution; `product/ROADMAP.md` owns current product portfolio/posture/sequencing; #634 owns technical simplification/rearchitecture sequencing; #1139 owns the bounded agent/work-control authority migration. Historical #458 preserves product-strategy rationale but no longer authorizes current work or defines portfolio posture. Live focused issues, pull requests, checks, and merge state own active execution.
 
 ## Minimal read paths
 
@@ -96,8 +97,10 @@ When sources disagree, resolve the disagreement according to the kind of fact in
 4. **Engineering/agent process:** root `AGENTS.md`.
 5. **Durable product constitution:** `product/PRODUCT.md`.
 6. **Current roadmap/portfolio:** `product/ROADMAP.md`.
-7. **Current execution routing during migration:** #634 until #1139 explicitly adopts its replacement.
-8. **Focused execution scope/acceptance:** the focused issue body; comments are evidence/history unless incorporated into current authority.
+7. **Technical simplification/rearchitecture sequencing:** #634.
+8. **Agent/work-control governance migration:** #1139.
+9. **Focused execution scope/acceptance:** the focused issue body; comments are evidence/history unless incorporated into current authority.
+10. **Active execution state:** live issues, pull requests, checks, and merge state.
 
 Do not use a future-looking plan to claim a capability is implemented. Do not use stale runtime prose to veto a newer accepted decision.
 
@@ -121,7 +124,7 @@ Do not use a future-looking plan to claim a capability is implemented. Do not us
 - `generated/` — mechanically derived architecture/schema views; regenerate from their source rather than hand-editing.
 - machine-readable registries/contracts in source control.
 
-Current product portfolio posture is repo-owned by `product/ROADMAP.md`. Repository execution routing remains temporarily issue-owned by #634 while #1139 evaluates its replacement; do not duplicate either responsibility into another maintained Markdown source.
+Current product portfolio posture is repo-owned by `product/ROADMAP.md`. #634 owns technical simplification/rearchitecture sequencing, #1139 owns agent/work-control governance migration, and active execution remains in live focused issues/PR state. Do not duplicate those responsibilities into another maintained Markdown source.
 
 ### Research / evaluation evidence
 
