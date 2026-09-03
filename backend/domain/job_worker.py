@@ -381,24 +381,29 @@ class JobWorker:
     # Idempotency
     # ------------------------------------------------------------------
 
-    def _check_cache_hit(self, job_row: dict) -> bool:
-        """Return ``True`` if a ``succeeded`` job with the same ``cache_key``
-        already exists."""
+    def _cached_output_version_ids(self, job_row: dict) -> list[str] | None:
+        """Return canonical outputs for a succeeded job with the same cache key.
+
+        ``None`` means there is no usable cache hit. An empty list is a valid
+        cache hit for a capability that intentionally produces no Versions.
+        """
         cache_key = job_row.get("cache_key")
         if not cache_key:
-            return False
+            return None
         try:
             result = (
                 self.client.table("jobs")
-                .select("id")
+                .select("id,output_version_ids")
                 .eq("cache_key", cache_key)
                 .eq("stage", "succeeded")
                 .execute()
             )
-            return bool(result.data)
+            if not result.data:
+                return None
+            return [str(value) for value in (result.data[0].get("output_version_ids") or [])]
         except Exception:
             logger.exception("cache_hit_check_failed")
-            return False
+            return None
 
     # ------------------------------------------------------------------
     # Progress updates (public — called by handlers)
@@ -509,7 +514,8 @@ class JobWorker:
             return
 
         # --- Idempotency check (only after this worker owns the lease) ---
-        if self._check_cache_hit(job_row):
+        cached_output_version_ids = self._cached_output_version_ids(job_row)
+        if cached_output_version_ids is not None:
             logger.info(
                 "cache_hit_skip",
                 extra={
@@ -523,6 +529,7 @@ class JobWorker:
                     "stage": "succeeded",
                     "progress": 1.0,
                     "status_message": "cache hit: duplicate job skipped",
+                    "output_version_ids": cached_output_version_ids,
                     "completed_at": now,
                     "lease_expires_at": None,
                 }
