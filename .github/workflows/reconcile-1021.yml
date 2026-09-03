@@ -1,0 +1,143 @@
+name: Reconcile PR 1021
+
+on:
+  push:
+    branches:
+      - fix/991-score-legacy-selection
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/991-score-legacy-selection
+          fetch-depth: 0
+      - name: Merge current main and preserve both ownership changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+
+          set +e
+          git merge --no-edit origin/main
+          merge_status=$?
+          set -e
+
+          if [ "$merge_status" -ne 0 ]; then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            expected=$'components/workspace/WorkspaceSession.tsx\nlib/stores/workspace.tsx'
+            if [ "$conflicts" != "$expected" ]; then
+              echo "Unexpected merge conflicts:"
+              printf '%s\n' "$conflicts"
+              exit 1
+            fi
+
+            git checkout --theirs components/workspace/WorkspaceSession.tsx lib/stores/workspace.tsx
+
+            python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected 1 match, found {count}")
+              return text.replace(old, new, 1)
+
+          session_path = Path("components/workspace/WorkspaceSession.tsx")
+          text = session_path.read_text()
+
+          text = replace_once(text, '  startCompareWorkflow,\n  startUnderstandWorkflow,', '  startCompareWorkflow,\n  startScoreWorkflow,\n  startUnderstandWorkflow,', 'score workflow import')
+          text = replace_once(text, 'import { buildPlaybackSources } from "@/lib/playback-sources";\nimport { qualifySymbolicSourceLabel } from "@/lib/transcription-qualification";', 'import { buildPlaybackSources } from "@/lib/playback-sources";\nimport { hasReusableScoreArtifacts, selectScoreArtifacts } from "@/lib/score-artifacts";\nimport { qualifySymbolicSourceLabel } from "@/lib/transcription-qualification";', 'score artifact import')
+          text = replace_once(text, '  const loadedWorkRef = useRef<string | null>(null);\n  const initializedProjectSelectionRef = useRef<string | null>(null);', '  const loadedWorkRef = useRef<string | null>(null);\n  const loadedBundleRef = useRef<Awaited<ReturnType<typeof fetchWorkBundle>> | null>(null);\n  const initializedProjectSelectionRef = useRef<string | null>(null);\n  const performanceMidiVersionRef = useRef<{ workId: string; versionId: string | null } | null>(null);', 'score refs')
+          text = replace_once(text, '      const bundle = await fetchWorkBundle(queryClient, workId);\n      if (!isCurrentLoad()) return;\n\n      const latestJob = bundle.jobs[0];', '      const bundle = await fetchWorkBundle(queryClient, workId);\n      if (!isCurrentLoad()) return;\n      loadedBundleRef.current = bundle;\n\n      const latestJob = bundle.jobs[0];', 'loaded bundle ref')
+          text = replace_once(text, '        setPendingSourceVersionId(null);\n        setAnalysisState("analyzing");\n        setFilename(bundle.work.title);\n        setStage("processing");\n        setProgress(Math.round(activeJob.lifecycle.progress * 100));\n        setMessage(understandStageLabel(activeJob.lifecycle.progress));', '        setPendingSourceVersionId(null);\n        if (activeJob.capability.name !== "score") setAnalysisState("analyzing");\n        setFilename(bundle.work.title);\n        setStage("processing");\n        setProgress(Math.round(activeJob.lifecycle.progress * 100));\n        setMessage(activeJob.capability.name === "score" ? "Rebuilding Score…" : understandStageLabel(activeJob.lifecycle.progress));', 'score active-job presentation')
+          text = replace_once(text, '      const original = latestByKind.get("audio_original");\n      const baseMidi = latestByKind.get("midi_performance");\n      const midi = baseMidi ?? latestByKind.get("midi_corrected");\n      const score = latestByKind.get("musicxml_score");\n      const renderedScore = latestByKind.get("rendered_score");\n      const transcriptionMetadata = baseMidi?.latest_version?.metadata ?? midi?.latest_version?.metadata;', '      const original = latestByKind.get("audio_original");\n      const baseMidi = latestByKind.get("midi_performance");\n      const performanceMidiVersionId = baseMidi?.latest_version?.id ?? null;\n      performanceMidiVersionRef.current = { workId, versionId: performanceMidiVersionId };\n      const midi = baseMidi ?? latestByKind.get("midi_corrected");\n      const { score, renderedScore } = selectScoreArtifacts(\n        bundle,\n        performanceMidiVersionId,\n        scoreEngine,\n      );\n      const transcriptionMetadata = baseMidi?.latest_version?.metadata ?? midi?.latest_version?.metadata;', 'score artifact selection')
+          text = replace_once(text, '  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTimeSignature]);', '  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, scoreEngine, setAnalysisState, setBpm, setInsights, setLoadingWork, setTimeSignature]);', 'loadWork dependencies')
+          text = replace_once(text, '  const handledStudioAction = useRef(0);', '  const handledScoreEngineAction = useRef(0);\n  const handledStudioAction = useRef(0);', 'score action ref')
+
+          score_effect = '''  useEffect(() => {
+            const action = workspace.scoreEngineAction;
+            const workId = workspace.activeWorkId;
+            if (!action || action.id === handledScoreEngineAction.current || !projectId || !workId) return;
+            handledScoreEngineAction.current = action.id;
+            const isCurrentScoreWork = () => activeWorkIdRef.current === workId;
+
+            const bundle = loadedBundleRef.current?.work.id === workId ? loadedBundleRef.current : null;
+            const performanceMidi = performanceMidiVersionRef.current;
+            const performanceMidiVersionId = performanceMidi?.workId === workId
+              ? performanceMidi.versionId
+              : null;
+            if (bundle && hasReusableScoreArtifacts(bundle, performanceMidiVersionId, action.engine)) {
+              return;
+            }
+
+            if (!performanceMidiVersionId) {
+              if (!isCurrentScoreWork()) return;
+              setError("Score reinterpretation requires the canonical performance transcription.");
+              setStage("error");
+              return;
+            }
+
+            void (async () => {
+              if (!isCurrentScoreWork()) return;
+              setError(null);
+              setProgress(0);
+              setProcessingWorkId(workId);
+              setStage("processing");
+              setMessage(`Rebuilding Score with ${action.engine === "pm2s" ? "PM2S" : "MuseScore"}…`);
+              try {
+                const { job } = await startScoreWorkflow(performanceMidiVersionId, projectId, action.engine);
+                if (!isCurrentScoreWork()) return;
+                setActiveJobId(job.id);
+                await waitForJob(job.id, (current) => {
+                  if (!isCurrentScoreWork()) return;
+                  setMessage(current.message || "Rebuilding Score…");
+                  setProgress(Math.round(current.progress * 100));
+                });
+                if (!isCurrentScoreWork()) return;
+                await loadWork(workId);
+              } catch (cause) {
+                if (!isCurrentScoreWork()) return;
+                setActiveJobId(null);
+                const disconnected = cause instanceof JobObservationError;
+                setError(cause instanceof Error ? cause.message : "Could not rebuild Score");
+                setStage(disconnected ? "disconnected" : "error");
+              }
+            })();
+          }, [loadWork, projectId, workspace.activeWorkId, workspace.scoreEngineAction]);
+
+          '''
+          text = replace_once(text, '  }, [loadWork, projectId, setStudioOperation, workspace.activeWorkId, workspace.studioAction]);\n\n  useEffect(() => {\n    if (projectQuery.isError || worksQuery.isError) {', '  }, [loadWork, projectId, setStudioOperation, workspace.activeWorkId, workspace.studioAction]);\n\n' + score_effect + '  useEffect(() => {\n    if (projectQuery.isError || worksQuery.isError) {', 'score engine effect')
+          session_path.write_text(text)
+
+          store_path = Path("lib/stores/workspace.tsx")
+          text = store_path.read_text()
+          text = replace_once(text, '  scoreEngine: ScoreEngine;\n  analysisState: AnalysisState;', '  scoreEngine: ScoreEngine;\n  scoreEngineAction: { id: number; engine: ScoreEngine } | null;\n  analysisState: AnalysisState;', 'score action state type')
+          text = replace_once(text, '  setScoreEngine: (engine: ScoreEngine) => void;\n  setAnalysisState: (state: AnalysisState) => void;', '  setScoreEngine: (engine: ScoreEngine) => void;\n  requestScoreEngine: (engine: ScoreEngine) => void;\n  setAnalysisState: (state: AnalysisState) => void;', 'score action context type')
+          text = replace_once(text, '    scoreEngine: "musescore",\n    analysisState: "idle",', '    scoreEngine: "musescore",\n    scoreEngineAction: null,\n    analysisState: "idle",', 'score action initial state')
+          text = replace_once(text, '  const setScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => prev.scoreEngine === scoreEngine ? prev : { ...prev, scoreEngine }), []);\n  const setAnalysisState = useCallback((analysisState: AnalysisState) => setWorkspace((prev) => ({ ...prev, analysisState })), []);', '  const setScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => prev.scoreEngine === scoreEngine ? prev : { ...prev, scoreEngine }), []);\n  const requestScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => ({\n    ...prev,\n    scoreEngine,\n    scoreEngineAction: {\n      id: (prev.scoreEngineAction?.id ?? 0) + 1,\n      engine: scoreEngine,\n    },\n  })), []);\n  const setAnalysisState = useCallback((analysisState: AnalysisState) => setWorkspace((prev) => ({ ...prev, analysisState })), []);', 'score action callback')
+          text = replace_once(text, '      setScoreEngine,\n      setAnalysisState,', '      setScoreEngine,\n      requestScoreEngine,\n      setAnalysisState,', 'score action provider')
+          store_path.write_text(text)
+          PY
+
+            git add components/workspace/WorkspaceSession.tsx lib/stores/workspace.tsx
+            git commit --no-edit
+          fi
+
+          test -z "$(git diff --name-only --diff-filter=U)"
+          ! grep -q 'setTakes' components/workspace/WorkspaceSession.tsx
+          ! grep -q 'StudioTake' lib/stores/workspace.tsx
+          grep -q 'hasReusableScoreArtifacts' components/workspace/WorkspaceSession.tsx
+          grep -q 'requestScoreEngine' lib/stores/workspace.tsx
+
+          rm .github/workflows/reconcile-1021.yml
+          git add .github/workflows/reconcile-1021.yml
+          git commit --amend --no-edit
+          git push origin HEAD:fix/991-score-legacy-selection
