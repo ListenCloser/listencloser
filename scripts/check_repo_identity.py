@@ -70,7 +70,7 @@ COMPATIBILITY_PATTERNS = {
         "hello-ai:variation:1.0:",
         "hello-ai:variation-workflow:1.0:",
     ),
-    "backend/domain/repositories.py": ("hello-ai:retry:",),
+    "backend/domain/repositories/workflows_jobs.py": ("hello-ai:retry:",),
     "backend/observability.py": (
         "hello_ai.http.server.requests",
         "hello_ai.http.server.duration",
