@@ -1,0 +1,481 @@
+name: Temporary #1132 final validation
+
+on:
+  push:
+    branches:
+      - cleanup/1132-remove-allin1-runtime
+    paths:
+      - .github/workflows/tmp-1132-finalize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+      - name: Remove retired production Structure seam
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import ast
+          import json
+          from pathlib import Path
+
+
+          def read(path: str) -> str:
+              return Path(path).read_text()
+
+
+          def write(path: str, text: str) -> None:
+              Path(path).write_text(text)
+
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              text = read(path)
+              count = text.count(old)
+              assert count == 1, f"{path}: expected one match, found {count}: {old[:100]!r}"
+              write(path, text.replace(old, new, 1))
+
+
+          def replace_top_level_definition(path: str, name: str, replacement: str = "") -> None:
+              text = read(path)
+              tree = ast.parse(text, filename=path)
+              matches = [
+                  node
+                  for node in tree.body
+                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                  and node.name == name
+              ]
+              assert len(matches) == 1, f"{path}: expected one top-level definition {name}, found {len(matches)}"
+              node = matches[0]
+              starts = [node.lineno]
+              starts.extend(decorator.lineno for decorator in node.decorator_list)
+              start_line = min(starts) - 1
+              end_line = node.end_lineno
+              lines = text.splitlines(keepends=True)
+              prefix = "".join(lines[:start_line])
+              suffix = "".join(lines[end_line:])
+              if replacement:
+                  middle = replacement.rstrip() + "\n\n"
+              else:
+                  middle = ""
+              result = prefix + middle + suffix
+              write(path, result)
+
+
+          def json_object_span(text: str, key: str) -> tuple[int, int]:
+              marker = f'    "{key}": {{'
+              start = text.index(marker)
+              brace = text.index("{", start)
+              depth = 0
+              in_string = False
+              escaped = False
+              for index in range(brace, len(text)):
+                  char = text[index]
+                  if in_string:
+                      if escaped:
+                          escaped = False
+                      elif char == "\\":
+                          escaped = True
+                      elif char == '"':
+                          in_string = False
+                      continue
+                  if char == '"':
+                      in_string = True
+                  elif char == "{":
+                      depth += 1
+                  elif char == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return start, index + 1
+              raise AssertionError(f"unterminated JSON object for {key}")
+
+
+          def replace_json_member(path: str, key: str, replacement: str) -> None:
+              text = read(path)
+              start, end = json_object_span(text, key)
+              write(path, text[:start] + replacement + text[end:])
+
+
+          def remove_json_member(path: str, key: str) -> None:
+              text = read(path)
+              start, end = json_object_span(text, key)
+              if text[end : end + 2] == ",\n":
+                  write(path, text[:start] + text[end + 2 :])
+                  return
+              separator = text.rfind(",\n", 0, start)
+              assert separator != -1, f"{path}: no separator before final member {key}"
+              write(path, text[:separator] + text[end:])
+
+
+          # Understand keeps transcription, analysis, and score; the closed Structure bet
+          # no longer consumes audio I/O/decode or a phantom progress interval.
+          capabilities = "backend/domain/capabilities.py"
+          text = read(capabilities)
+          understand_start = text.index("\ndef handle_understand(")
+          understand_end = text.index("\ndef handle_transcribe(", understand_start)
+          stage_start = text.index("    structure_job = job.model_copy(", understand_start, understand_end)
+          return_start = text.index("    return [*output_ids, *score_ids]", stage_start, understand_end)
+          replacement = "\n".join(
+              [
+                  "    analyze_job = job.model_copy(",
+                  "        update={",
+                  '            "capability": Capability(name="analyze", version="1.0"),',
+                  '            "input_version_ids": [midi_version_id, job.input_version_ids[0]],',
+                  "        }",
+                  "    )",
+                  "    handle_analyze(analyze_job, _ProgressClient(client, 0.65, 0.20))",
+                  "    score_job = job.model_copy(",
+                  "        update={",
+                  '            "capability": Capability(name="score", version="1.0"),',
+                  '            "input_version_ids": [midi_version_id, job.input_version_ids[0]],',
+                  "        }",
+                  "    )",
+                  "    score_ids = handle_score(score_job, _ProgressClient(client, 0.85, 0.15))",
+                  "",
+              ]
+          )
+          write(capabilities, text[:stage_start] + replacement + text[return_start:])
+          replace_top_level_definition(capabilities, "handle_audio_structure")
+          replace_once(
+              capabilities,
+              '    worker.register("audio_structure", "1.0", handle_audio_structure)\n',
+              "",
+          )
+
+          # Delete the production wrapper and registry path. Evaluation has isolated adapters.
+          replace_top_level_definition("backend/music_features.py", "structure_with_engine")
+          music_features = Path("backend/music_features.py")
+          music_features.write_text(music_features.read_text().rstrip() + "\n")
+
+          registry = "backend/engines/registry.py"
+          for old in (
+              "  STRUCTURE_ENGINE=allin1\n",
+              "    StructureEngine,\n",
+              "from engines.structure.allin1_engine import AllInOneEngine\n",
+          ):
+              replace_once(registry, old, "")
+          replace_top_level_definition(registry, "get_structure_engine")
+
+          engines_init = "backend/engines/__init__.py"
+          for old in (
+              "  - structure: allin1 (optional)\n",
+              "    get_structure_engine,\n",
+              '    "get_structure_engine",\n',
+          ):
+              replace_once(engines_init, old, "")
+
+          for deletion in (
+              "backend/engines/structure/allin1_engine.py",
+              "backend/engines/structure/__init__.py",
+              "backend/tests/test_audio_structure_confidence.py",
+              "backend/tests/test_engines/test_allin1_structure_engine.py",
+          ):
+              target = Path(deletion)
+              assert target.exists(), f"missing expected deletion target: {deletion}"
+              target.unlink()
+
+          # Production base types are dead once the adapter is gone. Ignore same-named
+          # evaluation-local contracts; fail if any module still imports these from engines.base.
+          base_path = "backend/engines/base.py"
+          base = Path(base_path)
+          for candidate in Path("backend").rglob("*.py"):
+              if candidate == base:
+                  continue
+              tree = ast.parse(candidate.read_text(), filename=str(candidate))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.ImportFrom) and node.module == "engines.base":
+                      imported = {alias.name for alias in node.names}
+                      assert "StructureResult" not in imported, f"StructureResult imported by {candidate}"
+                      assert "StructureEngine" not in imported, f"StructureEngine imported by {candidate}"
+          replace_top_level_definition(base_path, "StructureResult")
+          replace_top_level_definition(base_path, "StructureEngine")
+
+          # Historical persisted kinds remain explicit fail-closed tombstones. The generic
+          # `structure` capability was never persisted by the old runtime and is removed.
+          manifest = "backend/config/capabilities.json"
+          replace_json_member(
+              manifest,
+              "section",
+              "\n".join(
+                  [
+                      '    "section": {',
+                      '      "status": "withheld",',
+                      '      "input": "historical",',
+                      '      "exposure": {"inspector": false, "annotations": false, "ask": false},',
+                      '      "reason": "Historical section evidence only; new production generation was retired by #1132."',
+                      "    }",
+                  ]
+              ),
+          )
+          replace_json_member(
+              manifest,
+              "audio_structure",
+              "\n".join(
+                  [
+                      '    "audio_structure": {',
+                      '      "status": "withheld",',
+                      '      "input": "historical",',
+                      '      "exposure": {"inspector": false, "annotations": false, "ask": false},',
+                      '      "reason": "Historical structure-summary evidence only; new production generation was retired by #1132."',
+                      "    }",
+                  ]
+              ),
+          )
+          remove_json_member(manifest, "structure")
+
+          replace_once(
+              "backend/.env.example",
+              "\n".join(
+                  [
+                      "# Optional All-In-One audio structure worker. Enable only after its PyTorch,",
+                      "# NATTEN and madmom runtime has been installed in the worker image.",
+                      "ALLIN1_ENABLED=false",
+                      "ALLIN1_MODEL=harmonix-all",
+                      "ALLIN1_DEVICE=cpu",
+                      "",
+                      "",
+                  ]
+              ),
+              "",
+          )
+          compose = "backend/docker-compose.yml"
+          for old in (
+              "      ALLIN1_ENABLED: ${ALLIN1_ENABLED:-false}\n",
+              "      ALLIN1_MODEL: ${ALLIN1_MODEL:-harmonix-all}\n",
+              "      ALLIN1_DEVICE: ${ALLIN1_DEVICE:-cpu}\n",
+          ):
+              replace_once(compose, old, "")
+
+          perf = "backend/domain/performance_instrumentation.py"
+          replace_once(perf, "the four sequential child stages", "the three sequential child stages")
+          replace_once(
+              perf,
+              '_UNDERSTAND_STAGES = ("transcribe", "audio_structure", "analyze", "score")',
+              '_UNDERSTAND_STAGES = ("transcribe", "analyze", "score")',
+          )
+
+          replace_once(
+              "backend/tests/test_capability_registration.py",
+              '    assert "audio_structure" in worker.names\n',
+              '    assert "audio_structure" not in worker.names\n',
+          )
+
+          registry_test = "backend/tests/test_engines/test_registry.py"
+          replace_once(registry_test, "    get_structure_engine,\n", "")
+          replace_once(registry_test, "from engines.structure.allin1_engine import AllInOneEngine\n", "")
+          replace_once(
+              registry_test,
+              "\n".join(
+                  [
+                      "    def test_default_structure_is_allin1(self):",
+                      "        engine = get_structure_engine()",
+                      "        assert isinstance(engine, AllInOneEngine)",
+                      "",
+                      "",
+                  ]
+              ),
+              "",
+          )
+
+          adapters_test = "backend/tests/test_engines/test_adapters.py"
+          replace_once(adapters_test, "from engines.structure.allin1_engine import AllInOneEngine\n", "")
+          replace_top_level_definition(adapters_test, "TestAllInOneAdapter")
+
+          perf_test = "backend/tests/test_performance_instrumentation.py"
+          replace_once(perf_test, '    module.handle_audio_structure = child("audio_structure")\n', "")
+          replace_once(perf_test, '        output.extend(module.handle_audio_structure(job, client))\n', "")
+          replace_once(
+              perf_test,
+              '    assert result == ["transcribe", "audio_structure", "analyze", "score"]\n',
+              '    assert result == ["transcribe", "analyze", "score"]\n',
+          )
+          text = read(perf_test)
+          count = text.count('        "audio_structure",\n')
+          assert count == 3, f"expected three stage-list entries, found {count}"
+          text = text.replace('        "audio_structure",\n', "")
+          failure_row = '        {"understand.stage": "audio_structure", "job.outcome": "succeeded"},\n'
+          assert text.count(failure_row) == 1
+          write(perf_test, text.replace(failure_row, "", 1))
+
+          real_pipeline_test = "backend/tests/test_real_pipeline_contracts.py"
+          replace_top_level_definition(
+              real_pipeline_test,
+              "test_understand_runs_all_stages_without_browser_orchestration",
+              "\n".join(
+                  [
+                      "def test_understand_runs_all_stages_without_browser_orchestration(monkeypatch):",
+                      "    midi_id = uuid4()",
+                      "    audio_id = uuid4()",
+                      "    score_id = uuid4()",
+                      "    job = Job(",
+                      "        workflow_id=uuid4(),",
+                      '        capability=Capability(name="understand", version="1.0"),',
+                      "        input_version_ids=[uuid4()],",
+                      "    )",
+                      "    original_audio_id = job.input_version_ids[0]",
+                      "    analyzed_inputs = []",
+                      "    derived_capabilities = []",
+                      "    progress_ranges = []",
+                      "",
+                      "    def transcribe(_job, derived_client):",
+                      '        progress_ranges.append(("transcribe", derived_client._base, derived_client._scale))',
+                      "        return [str(midi_id), str(audio_id)]",
+                      "",
+                      '    monkeypatch.setattr(capabilities, "handle_transcribe", transcribe)',
+                      "    monkeypatch.setattr(",
+                      "        capabilities,",
+                      '        "_artifact_kind_for_version",',
+                      "        lambda _client, version_id: (",
+                      "            ArtifactKind.midi_performance",
+                      "            if version_id == midi_id",
+                      "            else ArtifactKind.audio_rendered",
+                      "        ),",
+                      "    )",
+                      "",
+                      "    def analyze(derived_job, derived_client):",
+                      "        analyzed_inputs.extend(derived_job.input_version_ids)",
+                      "        derived_capabilities.append(derived_job.capability.name)",
+                      '        progress_ranges.append(("analyze", derived_client._base, derived_client._scale))',
+                      "        return []",
+                      "",
+                      "    def score(derived_job, derived_client):",
+                      "        derived_capabilities.append(derived_job.capability.name)",
+                      '        progress_ranges.append(("score", derived_client._base, derived_client._scale))',
+                      "        return [str(score_id)]",
+                      "",
+                      '    monkeypatch.setattr(capabilities, "handle_analyze", analyze)',
+                      '    monkeypatch.setattr(capabilities, "handle_score", score)',
+                      "",
+                      "    outputs = capabilities.handle_understand(job, MagicMock())",
+                      "",
+                      "    assert outputs == [str(midi_id), str(audio_id), str(score_id)]",
+                      "    assert analyzed_inputs == [midi_id, original_audio_id]",
+                      '    assert derived_capabilities == ["analyze", "score"]',
+                      "    assert progress_ranges == [",
+                      '        ("transcribe", 0.0, 0.65),',
+                      '        ("analyze", 0.65, 0.20),',
+                      '        ("score", 0.85, 0.15),',
+                      "    ]",
+                  ]
+              ),
+          )
+
+          replace_once(
+              "backend/tests/integration/test_pipeline_smoke.py",
+              '    monkeypatch.setattr(music_features, "structure_with_engine", lambda wav: None)\n',
+              "",
+          )
+
+          replace_top_level_definition(
+              "backend/tests/test_capability_policy.py",
+              "test_structure_is_evaluation_only_and_not_exposed",
+              "\n".join(
+                  [
+                      "def test_retired_structure_evidence_is_withheld_and_not_exposed():",
+                      '    for kind in ("section", "audio_structure"):',
+                      '        assert capability_policy(kind)["status"] == "withheld"',
+                      "        assert not is_product_evidence(kind)",
+                      '        assert not is_exposed(kind, "inspector")',
+                      '        assert not is_exposed(kind, "annotations")',
+                      '        assert not is_exposed(kind, "ask")',
+                  ]
+              ),
+          )
+
+          frontend_test = "tests/lib/inspector/capabilities.test.ts"
+          replace_once(
+              frontend_test,
+              '    it("returns false for evaluation-only capabilities", () => {\n',
+              '    it("returns false for retired historical structure kinds", () => {\n',
+          )
+          replace_once(
+              frontend_test,
+              '    it("excludes evaluation-only kinds", () => {\n',
+              '    it("excludes retired historical structure kinds", () => {\n',
+          )
+          replace_once(frontend_test, '      expect(isInspectorExposed("structure")).toBe(false);\n', "")
+          replace_once(
+              frontend_test,
+              '      expect(INSPECTOR_EXPOSED_KINDS).not.toContain("structure");\n',
+              "",
+          )
+
+          eval_adapter = "backend/evaluation/engines/structure.py"
+          replace_once(
+              eval_adapter,
+              "# All-In-One (existing baseline - already in production)",
+              "# All-In-One (evaluation-only candidate)",
+          )
+          replace_once(
+              eval_adapter,
+              'notes="Joint beat/downbeat/segmentation model. Current production baseline (optional).",',
+              'notes="Joint beat/downbeat/segmentation model. Evaluation-only candidate; not installed or routed in production.",',
+          )
+          PY
+
+          python -m json.tool backend/config/capabilities.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          registry = json.loads(Path('backend/config/capabilities.json').read_text())['capabilities']
+          assert 'structure' not in registry
+          for kind in ('section', 'audio_structure'):
+              assert registry[kind]['status'] == 'withheld'
+              assert registry[kind]['input'] == 'historical'
+              assert 'engine' not in registry[kind]
+              assert not any(registry[kind]['exposure'].values())
+          PY
+          git diff --check
+
+          echo '=== production runtime Structure references (must be empty) ==='
+          if git grep -n -I -E 'AllInOne|allin1|ALLIN1|get_structure_engine|structure_with_engine|STRUCTURE_ENGINE|handle_audio_structure' -- \
+            backend/domain \
+            backend/music_features.py \
+            backend/engines \
+            backend/docker-compose.yml \
+            backend/.env.example; then
+            echo 'unexpected retired Structure runtime reference remains' >&2
+            exit 1
+          fi
+
+          echo '=== surviving references are historical tombstones or evaluation-only ==='
+          git grep -n -I -E 'audio_structure|allin1|AllInOne' -- backend tests evaluation || true
+
+          uv sync --project backend --locked
+          uv run --project backend --locked ruff check backend/
+          uv run --project backend --locked ruff format backend/ --check
+          uv run --project backend --locked python -m pytest -q \
+            backend/tests/test_capability_registration.py \
+            backend/tests/test_capability_policy.py \
+            backend/tests/test_performance_instrumentation.py \
+            backend/tests/test_real_pipeline_contracts.py \
+            backend/tests/test_engines/test_registry.py \
+            backend/tests/test_engines/test_adapters.py \
+            backend/tests/test_import_root.py \
+            backend/tests/test_public_workflow_dispatch.py
+
+      - name: Commit validated deletion
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add backend tests
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'cleanup(structure): remove hidden All-In-One runtime'
+          git push origin HEAD:cleanup/1132-remove-allin1-runtime
