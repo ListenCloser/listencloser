@@ -28,7 +28,7 @@ def _inspector_exposed(insight) -> bool:
 
 
 @router.get("/versions/{version_id}/entities", response_model=list[Entity])
-async def list_entities(
+def list_entities(
     version_id: UUID,
     auth=Depends(verify_token),
 ):
@@ -44,7 +44,7 @@ async def list_entities(
 
 
 @router.get("/versions/{version_id}/insights", response_model=list[Insight])
-async def list_insights(
+def list_insights(
     version_id: UUID,
     auth=Depends(verify_token),
 ):

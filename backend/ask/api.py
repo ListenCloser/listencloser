@@ -18,6 +18,7 @@ import logging
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from starlette.concurrency import run_in_threadpool
 
 from auth_utils import limiter, verify_token
 from domain.repositories import WorkRepo, get_supabase
@@ -60,7 +61,7 @@ async def create_ask(
     # authorization. Reuse the existing ownership check exactly as the domain
     # API does — the caller must own the project the work belongs to.
     try:
-        work = WorkRepo(sb).get(body.context.workId, owner_id)
+        work = await run_in_threadpool(WorkRepo(sb).get, body.context.workId, owner_id)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Work access denied") from exc
     except ValueError as exc:
@@ -72,7 +73,7 @@ async def create_ask(
     # current view, but it is not authoritative for their claim/kind/span or
     # Work membership. Resolve those fields from server-owned persistence and
     # use the resulting context consistently for both prompting and sanitizing.
-    canonical_context = load_canonical_ask_context(sb, body.context)
+    canonical_context = await run_in_threadpool(load_canonical_ask_context, sb, body.context)
 
     provider: LLMProvider | None = build_provider(settings, client=request.app.state.http_client)
     if provider is None:

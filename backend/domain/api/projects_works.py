@@ -31,7 +31,7 @@ class CreateWorkBody(BaseModel):
 
 @router.post("/projects", response_model=Project)
 @limiter.limit("10/minute")
-async def create_project(
+def create_project(
     body: CreateProjectBody,
     request: Request,
     auth=Depends(verify_token),
@@ -49,7 +49,7 @@ async def create_project(
 
 
 @router.get("/projects", response_model=list[Project])
-async def list_projects(
+def list_projects(
     auth=Depends(verify_token),
 ):
     sb = supabase_client()
@@ -59,7 +59,7 @@ async def list_projects(
 
 @router.post("/projects/{project_id}/works", response_model=Work)
 @limiter.limit("10/minute")
-async def create_work(
+def create_work(
     project_id: UUID,
     body: CreateWorkBody,
     request: Request,
@@ -78,7 +78,7 @@ async def create_work(
 
 
 @router.get("/projects/{project_id}/works", response_model=list[Work])
-async def list_works(
+def list_works(
     project_id: UUID,
     auth=Depends(verify_token),
 ):
@@ -93,7 +93,7 @@ async def list_works(
 
 
 @router.get("/works/{work_id}", response_model=WorkBundleResponse)
-async def get_work_bundle(
+def get_work_bundle(
     work_id: UUID,
     auth=Depends(verify_token),
 ):
@@ -157,7 +157,7 @@ async def get_work_bundle(
 
 @router.delete("/works/{work_id}", response_model=DeletedWorkResponse)
 @limiter.limit("10/minute")
-async def delete_work(
+def delete_work(
     work_id: UUID,
     request: Request,
     auth=Depends(verify_token),
