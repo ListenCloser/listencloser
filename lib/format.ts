@@ -59,7 +59,7 @@ export function presentableTitle(title: string): string {
 }
 
 /** Truncate long titles gracefully, preserving the meaningful ending. */
-export function truncateMiddle(value: string, maxLength: number): string {
+function truncateMiddle(value: string, maxLength: number): string {
   if (value.length <= maxLength) return value;
   const keep = maxLength - 1;
   const head = Math.ceil(keep * 0.6);
