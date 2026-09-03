@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from domain.api import _require_public_create_action
+from domain.api.workflows_jobs import _require_public_create_action
 
 
 @pytest.mark.parametrize("action", ["transform", "perceptual_series"])

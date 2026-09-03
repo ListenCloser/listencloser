@@ -15,8 +15,8 @@ class TestScoreRebuildWorkflow:
     WORK_ID = "00000000-0000-0000-0000-000000000012"
 
     def _client(self, monkeypatch, *, artifact_kind=ArtifactKind.midi_performance):
-        import domain.api as api
         from auth_utils import verify_token
+        from domain.api import workflows_jobs as api
         from main import app
 
         owner = "owner-1"
@@ -87,7 +87,7 @@ class TestScoreRebuildWorkflow:
         monkeypatch.setattr(api, "WorkRepo", FakeWorkRepo)
         monkeypatch.setattr(api, "JobRepo", lambda sb: job_repo)
         monkeypatch.setattr(api, "WorkflowRepo", lambda sb: workflow_repo)
-        monkeypatch.setattr(api, "get_supabase", lambda: SimpleNamespace())
+        monkeypatch.setattr(api, "supabase_client", lambda: SimpleNamespace())
         app.dependency_overrides[verify_token] = lambda: SimpleNamespace(
             user=SimpleNamespace(id=owner)
         )
