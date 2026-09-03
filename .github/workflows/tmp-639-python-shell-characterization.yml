@@ -1,0 +1,69 @@
+name: Temporary #639 Python and shell characterization
+
+on:
+  push:
+    branches:
+      - research/639-deptry-shellcheck
+    paths:
+      - .github/workflows/tmp-639-python-shell-characterization.yml
+
+permissions:
+  contents: read
+
+jobs:
+  deptry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+      - name: Characterize shipped backend dependency ownership
+        shell: bash
+        run: |
+          set +e
+          cd backend
+          uv run --locked --with deptry==0.25.1 \
+            deptry . \
+            --extend-exclude 'evaluation' \
+            --non-dev-dependency-groups worker \
+            --no-ansi
+          status=$?
+          echo "DEPTRY_EXIT_CODE=$status"
+          exit 0
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pinned upstream ShellCheck binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='v0.11.0'
+          archive="shellcheck-${version}.linux.x86_64.tar.xz"
+          url="https://github.com/koalaman/shellcheck/releases/download/${version}/${archive}"
+          curl --fail --location --silent --show-error "$url" --output "/tmp/$archive"
+          echo '8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  /tmp/'"$archive" | sha256sum --check --strict
+          tar -xJf "/tmp/$archive" -C /tmp
+          echo "/tmp/shellcheck-${version}" >> "$GITHUB_PATH"
+      - name: Characterize all repository-owned shell scripts
+        shell: bash
+        run: |
+          set +e
+          mapfile -t scripts < <(git ls-files '*.sh' | sort)
+          printf 'Repository-owned shell scripts (%d):\n' "${#scripts[@]}"
+          printf '  %s\n' "${scripts[@]}"
+          shellcheck --version
+          shellcheck --format=gcc "${scripts[@]}"
+          status=$?
+          echo "SHELLCHECK_EXIT_CODE=$status"
+          exit 0
