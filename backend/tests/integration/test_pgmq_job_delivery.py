@@ -99,8 +99,7 @@ def test_job_insert_and_pgmq_signal_share_one_transaction() -> None:
         )
         assert _psql(
             db_url,
-            "select count(*) from pgmq.q_job_delivery "
-            f"where message ->> 'job_id' = '{job_id}';",
+            "select count(*) from pgmq.q_job_delivery " f"where message ->> 'job_id' = '{job_id}';",
         ) == ["0"]
 
         _psql(
@@ -115,8 +114,7 @@ def test_job_insert_and_pgmq_signal_share_one_transaction() -> None:
         )
         assert _psql(
             db_url,
-            "select count(*) from pgmq.q_job_delivery "
-            f"where message ->> 'job_id' = '{job_id}';",
+            "select count(*) from pgmq.q_job_delivery " f"where message ->> 'job_id' = '{job_id}';",
         ) == ["1"]
     finally:
         _cleanup_job_message(db_url, job_id)
@@ -169,8 +167,7 @@ def test_visibility_expiry_allows_takeover_but_stale_attempt_cannot_ack() -> Non
         # fenced by the exact same execution token as product-visible writes.
         assert _psql(
             db_url,
-            "select public.finish_job_delivery("
-            f"'{job_id}', '{token_a}', {msg_id}, 0);",
+            "select public.finish_job_delivery(" f"'{job_id}', '{token_a}', {msg_id}, 0);",
         ) == ["stale"]
         assert _psql(
             db_url,
@@ -190,8 +187,7 @@ def test_visibility_expiry_allows_takeover_but_stale_attempt_cannot_ack() -> Non
         )
         assert _psql(
             db_url,
-            "select public.finish_job_delivery("
-            f"'{job_id}', '{token_b}', {msg_id}, 0);",
+            "select public.finish_job_delivery(" f"'{job_id}', '{token_b}', {msg_id}, 0);",
         ) == ["archived"]
         assert _psql(
             db_url,
@@ -233,13 +229,11 @@ def test_retry_reuses_same_delivery_and_cancellation_archives_it() -> None:
         )
         assert _psql(
             db_url,
-            "select public.finish_job_delivery("
-            f"'{job_id}', '{token_a}', {msg_id}, 0);",
+            "select public.finish_job_delivery(" f"'{job_id}', '{token_a}', {msg_id}, 0);",
         ) == ["released"]
         assert _psql(
             db_url,
-            "select count(*) from pgmq.q_job_delivery "
-            f"where message ->> 'job_id' = '{job_id}';",
+            "select count(*) from pgmq.q_job_delivery " f"where message ->> 'job_id' = '{job_id}';",
         ) == ["1"]
 
         attempt_b = _receive(db_url, "worker-b")
@@ -258,8 +252,7 @@ def test_retry_reuses_same_delivery_and_cancellation_archives_it() -> None:
         )
         assert _psql(
             db_url,
-            "select public.finish_job_delivery("
-            f"'{job_id}', '{token_b}', {msg_id}, 0);",
+            "select public.finish_job_delivery(" f"'{job_id}', '{token_b}', {msg_id}, 0);",
         ) == ["archived"]
         assert _psql(
             db_url,
