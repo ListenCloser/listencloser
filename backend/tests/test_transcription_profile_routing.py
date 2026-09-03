@@ -65,8 +65,6 @@ class TestTranscriptionProfileRouting:
     def test_transcribe_with_engine_provenance_includes_profile(self):
         """transcribe_with_engine persists profile_requested and routing_reason in provenance."""
         import io
-
-        # Use a tiny valid WAV
         import wave
 
         buf = io.BytesIO()
@@ -74,26 +72,21 @@ class TestTranscriptionProfileRouting:
             wf.setnchannels(1)
             wf.setsampwidth(2)
             wf.setframerate(16000)
-            wf.writeframes(b"\x00\x00" * 16000)  # 1 second of silence
+            wf.writeframes(b"\x00\x00" * 16000)
         wav_bytes = buf.getvalue()
 
-        # Test solo_piano profile
         result = transcribe_with_engine(wav_bytes, profile="solo_piano", fmt="wav")
         prov = result["provenance"]
         assert prov["engine"] == "transkun"
-        # profile_requested and routing_reason are job-level metadata,
-        # not part of engine provenance. They should be added by the caller.
         assert "profile_requested" not in prov
         assert "routing_reason" not in prov
 
-        # Test general profile
         result = transcribe_with_engine(wav_bytes, profile="general", fmt="wav")
         prov = result["provenance"]
         assert prov["engine"] == "basic_pitch"
         assert "profile_requested" not in prov
         assert "routing_reason" not in prov
 
-        # Test omitted profile (auto)
         result = transcribe_with_engine(wav_bytes, fmt="wav")
         prov = result["provenance"]
         assert prov["engine"] == "basic_pitch"
@@ -123,35 +116,22 @@ class TestTranscriptionProfileRouting:
                     provenance=EngineProvenance(engine=self.engine_name, library_version="test"),
                 )
 
-        # This test verifies the parameter passing at the function boundary.
-        # Full DB integration is tested in test_pipeline_smoke.py
-
         with patch(
             "domain.capabilities.music_features.get_transcription_engine_for_job"
         ) as mock_get:
             fake_engine = _FakeEngine("transkun")
             mock_get.return_value = fake_engine
 
-            # Verify the function signature accepts transcription_profile
             import inspect
 
             sig = inspect.signature(handle_transcribe)
             assert "job" in sig.parameters
             assert "client" in sig.parameters
-
-            # The actual routing is verified by the registry tests above
-            mock_get.assert_not_called()  # Not called in this test
-            print("  handle_transcribe signature verified - profile parameter supported")
+            mock_get.assert_not_called()
 
 
 class TestHandleTranscribeCallSite:
-    """Regression: handle_transcribe must pass engine args by keyword.
-
-    PR #229 introduced a call that bound profile twice (positional + keyword),
-    raising ``TypeError: got multiple values for argument 'profile'`` on every
-    transcription job in production. This test drives the real call site and
-    asserts the engine resolver receives explicit keyword arguments.
-    """
+    """Regression: handle_transcribe must pass engine args by keyword."""
 
     def test_engine_resolver_called_with_keyword_args(self, monkeypatch):
         import uuid as _uuid
@@ -271,33 +251,23 @@ class TestTranskunResampling:
     """Regression tests for Transkun resampling behavior."""
 
     def test_resampling_required_when_fs_differs(self):
-        """If input sample rate != model sample rate, soxr must be used."""
         from unittest.mock import MagicMock, patch
 
         from engines.transcription.transkun import TranskunEngine
 
-        # Create engine
         engine = TranskunEngine(device="cpu")
-
-        # Mock the model with a different fs
         mock_model = MagicMock()
-        mock_model.fs = 16000  # Model expects 16kHz
+        mock_model.fs = 16000
         engine._model = mock_model
 
-        # Create dummy audio at 44.1kHz
         import numpy as np
 
-        audio = np.random.randn(44100).astype(np.float32)  # 1 second at 44.1kHz
+        audio = np.random.randn(44100).astype(np.float32)
 
-        # Should call soxr.resample
         with patch("soxr.resample") as mock_resample:
             mock_resample.return_value = audio[:16000]
-            # We can't easily test the full transcribe without a real model,
-            # but we can test the resampling logic in isolation
-            # This test documents the expected behavior
 
     def test_missing_soxr_raises_error_when_resampling_needed(self):
-        """If soxr is not installed and resampling is needed, fail loudly."""
         import importlib.util
         from contextlib import suppress
         from unittest.mock import MagicMock, patch
@@ -309,30 +279,23 @@ class TestTranskunResampling:
         mock_model.fs = 16000
         engine._model = mock_model
 
-        # Simulate soxr not being available
         with patch.dict("sys.modules", {"soxr": None}):
             with suppress(ImportError):
                 import soxr  # noqa: F401
 
-            # The transcribe method should raise RuntimeError if fs != model.fs
-            # and soxr is not available. We test the error path logic directly.
             soxr_missing = importlib.util.find_spec("soxr") is None
-
             if soxr_missing:
-                # fs != model_fs and no soxr: this should raise RuntimeError in
-                # the actual engine. We're testing the conceptual requirement.
-                assert True  # Document the requirement
+                assert True
 
 
 class TestUnderstandProfileWiring:
-    """The understand workflow accepts transcription_profile and persists it
-    on the job so handle_transcribe can route to the piano-specialist engine."""
+    """The understand workflow persists transcription and score engine selection."""
 
     def _client(self, monkeypatch):
         from types import SimpleNamespace
         from uuid import UUID
 
-        import domain.api as api
+        from domain.api import workflows_jobs as api
         from auth_utils import verify_token
         from main import app
 
@@ -405,7 +368,7 @@ class TestUnderstandProfileWiring:
         monkeypatch.setattr(api, "WorkRepo", FakeWorkRepo)
         monkeypatch.setattr(api, "JobRepo", lambda sb: job_repo)
         monkeypatch.setattr(api, "WorkflowRepo", lambda sb: workflow_repo)
-        monkeypatch.setattr(api, "get_supabase", lambda: SimpleNamespace())
+        monkeypatch.setattr(api, "supabase_client", lambda: SimpleNamespace())
 
         app.dependency_overrides[verify_token] = lambda: SimpleNamespace(
             user=SimpleNamespace(id=owner)
@@ -425,7 +388,7 @@ class TestUnderstandProfileWiring:
             }
             resp = client.post("/api/v1/workflows/understand", json=body)
             assert resp.status_code == 200
-            assert job_repo.created, "a job should have been created"
+            assert job_repo.created
             params = job_repo.created[0].parameters
             assert params["transcription_profile"] == "solo_piano"
             assert params["score_engine"] == "musescore"
@@ -442,7 +405,7 @@ class TestUnderstandProfileWiring:
             body = {"version_id": version.id, "project_id": "00000000-0000-0000-0000-000000000020"}
             resp = client.post("/api/v1/workflows/understand", json=body)
             assert resp.status_code == 200
-            assert job_repo.created, "a job should have been created"
+            assert job_repo.created
             params = job_repo.created[0].parameters
             assert params["transcription_profile"] == "auto"
             assert params["score_engine"] == "musescore"
@@ -454,17 +417,9 @@ class TestUnderstandProfileWiring:
             app.dependency_overrides.pop(verify_token, None)
 
     def test_understand_profile_is_part_of_idempotency_identity(self, monkeypatch):
-        """Requesting the same version with a different transcription profile
-        must create a distinct job, not return the cached one.
-
-        Regression for the bug where job/workflow/cache identity was only
-        owner+version_id, so Auto then Solo piano on the same source returned
-        the stale Auto job and Transkun never ran.
-        """
         client, job_repo, version, owner = self._client(monkeypatch)
         try:
             base = {"version_id": version.id, "project_id": "00000000-0000-0000-0000-000000000020"}
-
             auto_resp = client.post("/api/v1/workflows/understand", json=base)
             solo_resp = client.post(
                 "/api/v1/workflows/understand", json={**base, "transcription_profile": "solo_piano"}
@@ -472,10 +427,8 @@ class TestUnderstandProfileWiring:
 
             assert auto_resp.status_code == 200
             assert solo_resp.status_code == 200
-            assert len(job_repo.created) == 2, "two distinct jobs should be created"
-
-            auto_job = job_repo.created[0]
-            solo_job = job_repo.created[1]
+            assert len(job_repo.created) == 2
+            auto_job, solo_job = job_repo.created
             assert auto_job.id != solo_job.id
             assert auto_job.parameters["transcription_profile"] == "auto"
             assert solo_job.parameters["transcription_profile"] == "solo_piano"
@@ -540,8 +493,6 @@ class TestUnderstandProfileWiring:
             app.dependency_overrides.pop(verify_token, None)
 
     def test_understand_same_profile_is_idempotent(self, monkeypatch):
-        """Re-requesting the same version with the same profile returns the
-        cached job (no duplicate)."""
         client, job_repo, version, owner = self._client(monkeypatch)
         try:
             body = {
@@ -563,10 +514,7 @@ class TestUnderstandProfileWiring:
 
 
 class TestTranscriptionPlaybackWavFallback:
-    """Regression: an engine that returns only MIDI (no synthesized WAV) must
-    still produce a playable "Transcription playback" artifact. Transkun returns
-    an empty WAV; without the fallback the transport surfaces a broken 0-byte
-    source (416 / AudioContext errors in the browser)."""
+    """Regression coverage for engines that omit or provide playback WAV bytes."""
 
     def test_empty_engine_wav_is_synthesized_from_midi(self, monkeypatch):
         import uuid as _uuid
@@ -629,7 +577,6 @@ class TestTranscriptionPlaybackWavFallback:
             "EntityRepo",
             lambda client: type("R", (), {"create_many": lambda self, entities, owner_id: None})(),
         )
-        # The synthesized WAV must be produced from the engine MIDI.
         synthesized = {}
 
         def _fake_midi_to_wav(midi_bytes, sr=22050):
@@ -657,7 +604,6 @@ class TestTranscriptionPlaybackWavFallback:
         assert len(uploaded[wav_key]) > 0
 
     def test_engine_wav_is_used_as_is_when_present(self, monkeypatch):
-        """Engines that already synthesize audio keep their WAV unchanged."""
         import uuid as _uuid
 
         from domain import capabilities
