@@ -13,7 +13,6 @@ from domain import capabilities
 from domain import pulse_evidence_reuse as reuse
 from domain.models import Capability, Insight, Job
 
-
 _EXPECTED_PROVENANCE = {
     "engine": "beat_this",
     "library_version": "1.1.0",
@@ -50,9 +49,7 @@ def _install_repo(monkeypatch, insights) -> None:
     monkeypatch.setattr(
         reuse,
         "InsightRepo",
-        lambda _client: SimpleNamespace(
-            list_by_version=lambda _version_id, _owner_id: insights
-        ),
+        lambda _client: SimpleNamespace(list_by_version=lambda _version_id, _owner_id: insights),
     )
     monkeypatch.setattr(
         reuse,
@@ -86,9 +83,7 @@ def test_load_reusable_score_pulse_requires_exact_durable_identity(monkeypatch) 
     "mutation",
     ["source", "preprocessing", "provenance", "coordinates", "bpm"],
 )
-def test_load_reusable_score_pulse_fails_closed_on_any_mismatch(
-    monkeypatch, mutation
-) -> None:
+def test_load_reusable_score_pulse_fails_closed_on_any_mismatch(monkeypatch, mutation) -> None:
     midi_version_id = uuid4()
     audio_version_id = uuid4()
     insight = _rhythm_insight(midi_version_id, audio_version_id)
@@ -125,9 +120,7 @@ def test_load_reusable_score_pulse_fails_closed_on_any_mismatch(
             update={"evidence": {**insight.evidence, "beats_seconds": [0.7, 0.1]}}
         )
     elif mutation == "bpm":
-        insight = insight.model_copy(
-            update={"evidence": {**insight.evidence, "pulse_bpm": None}}
-        )
+        insight = insight.model_copy(update={"evidence": {**insight.evidence, "pulse_bpm": None}})
 
     _install_repo(monkeypatch, [insight])
     assert (
@@ -185,9 +178,7 @@ def test_handle_analyze_persists_source_and_preprocessing_identity(monkeypatch) 
     persisted = []
 
     monkeypatch.setattr(capabilities, "_resolve_owner_id", lambda *_args: "owner")
-    monkeypatch.setattr(
-        capabilities, "_update_progress", lambda *_args, **_kwargs: None
-    )
+    monkeypatch.setattr(capabilities, "_update_progress", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         capabilities,
         "_lookup_version",
@@ -196,9 +187,7 @@ def test_handle_analyze_persists_source_and_preprocessing_identity(monkeypatch) 
     monkeypatch.setattr(
         capabilities,
         "download_version_bytes",
-        lambda version, _client: (
-            b"midi" if version.id == midi_version_id else b"audio"
-        ),
+        lambda version, _client: (b"midi" if version.id == midi_version_id else b"audio"),
     )
     monkeypatch.setattr(
         capabilities.music_features,
@@ -245,20 +234,14 @@ def test_handle_analyze_persists_source_and_preprocessing_identity(monkeypatch) 
 
     saved = next(item for item in persisted if item["kind"] == "rhythm")
     assert saved["evidence"]["pulse_source_audio_version_id"] == str(audio_version_id)
-    assert saved["evidence"]["pulse_preprocessing"] == (
-        reuse.pulse_preprocessing_contract("m4a")
-    )
+    assert saved["evidence"]["pulse_preprocessing"] == (reuse.pulse_preprocessing_contract("m4a"))
     assert saved["evidence"]["pulse_bpm"] == 100.0
     assert saved["engine_provenance"] == _EXPECTED_PROVENANCE
 
 
 def _stub_score_outputs(monkeypatch, *, captured, created_metadata) -> None:
-    monkeypatch.setattr(
-        capabilities, "_update_progress", lambda *_args, **_kwargs: None
-    )
-    monkeypatch.setattr(
-        capabilities, "_upload_bytes", lambda *_args, **_kwargs: None
-    )
+    monkeypatch.setattr(capabilities, "_update_progress", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(capabilities, "_upload_bytes", lambda *_args, **_kwargs: None)
 
     def create_output(*_args, **kwargs):
         created_metadata.append(kwargs.get("metadata") or {})
@@ -351,13 +334,8 @@ def test_handle_score_reuses_exact_pulse_without_redownloading_audio(monkeypatch
     assert downloads == [midi_version_id]
     assert captured["beat_times"] == [0.1, 0.7, 1.3]
     assert captured["downbeats"] == [0.1]
-    assert any(
-        item.get("estimated_tempo_bpm") == 100.0 for item in created_metadata
-    )
-    assert any(
-        item.get("beat_provenance") == _EXPECTED_PROVENANCE
-        for item in created_metadata
-    )
+    assert any(item.get("estimated_tempo_bpm") == 100.0 for item in created_metadata)
+    assert any(item.get("beat_provenance") == _EXPECTED_PROVENANCE for item in created_metadata)
 
 
 def test_handle_score_falls_back_to_fresh_beat_tracking_on_reuse_miss(
