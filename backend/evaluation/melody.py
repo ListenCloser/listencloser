@@ -94,9 +94,7 @@ def load_pop909_test_manifest(path: str | Path) -> MelodySplitManifest:
 
     raw_song_ids = payload.get("song_ids")
     if not isinstance(raw_song_ids, list):
-        raise ValueError(
-            "melody split manifest must contain exact song_ids; seed-only is invalid"
-        )
+        raise ValueError("melody split manifest must contain exact song_ids; seed-only is invalid")
     if len(raw_song_ids) != _POP909_TEST_COUNT:
         raise ValueError(
             "POP909 historical test manifest must contain exactly "
@@ -106,9 +104,7 @@ def load_pop909_test_manifest(path: str | Path) -> MelodySplitManifest:
     song_ids = tuple(str(song_id) for song_id in raw_song_ids)
     if len(set(song_ids)) != len(song_ids):
         raise ValueError("melody split manifest song_ids must be unique")
-    invalid_ids = [
-        song_id for song_id in song_ids if not _SONG_ID_RE.fullmatch(song_id)
-    ]
+    invalid_ids = [song_id for song_id in song_ids if not _SONG_ID_RE.fullmatch(song_id)]
     if invalid_ids:
         raise ValueError(
             "POP909 song_ids must be zero-padded three-digit strings: "
@@ -117,9 +113,7 @@ def load_pop909_test_manifest(path: str | Path) -> MelodySplitManifest:
 
     source = payload.get("source")
     if not isinstance(source, str) or not source.strip():
-        raise ValueError(
-            "melody split manifest must name the source of the exact membership"
-        )
+        raise ValueError("melody split manifest must name the source of the exact membership")
 
     canonical = json.dumps(
         {
@@ -150,9 +144,7 @@ def score_binary_note_labels(
     """Score one aligned note sequence under a binary melody contract."""
 
     if len(reference_labels) != len(predicted_labels):
-        raise ValueError(
-            "reference and predicted label sequences must have identical lengths"
-        )
+        raise ValueError("reference and predicted label sequences must have identical lengths")
     if not reference_labels:
         raise ValueError("cannot score an empty note sequence")
 
@@ -191,21 +183,15 @@ def aggregate_song_results(results: Sequence[MelodySongResult]) -> MelodyAggrega
     valid_statuses = {"ok", "abstained", "error"}
     invalid_statuses = {result.status for result in results} - valid_statuses
     if invalid_statuses:
-        raise ValueError(
-            f"unknown melody result statuses: {sorted(invalid_statuses)!r}"
-        )
+        raise ValueError(f"unknown melody result statuses: {sorted(invalid_statuses)!r}")
 
     for result in results:
         if result.status == "ok" and result.metrics is None:
             raise ValueError(f"scored result {result.song_id!r} is missing metrics")
         if result.status != "ok" and result.metrics is not None:
-            raise ValueError(
-                f"non-scored result {result.song_id!r} must not contain metrics"
-            )
+            raise ValueError(f"non-scored result {result.song_id!r} must not contain metrics")
 
-    precisions = [
-        result.metrics.precision if result.metrics else 0.0 for result in results
-    ]
+    precisions = [result.metrics.precision if result.metrics else 0.0 for result in results]
     recalls = [result.metrics.recall if result.metrics else 0.0 for result in results]
     f1s = [result.metrics.f1 if result.metrics else 0.0 for result in results]
 
