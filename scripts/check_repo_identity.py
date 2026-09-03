@@ -64,7 +64,7 @@ COMPATIBILITY_PATTERNS = {
     ".gitignore": ("hello-ai-worktrees/",),
     ".github/workflows/deploy-backend.yml": ("~/hello-ai",),
     "package-lock.json": ('"name": "hello-ai"',),
-    "backend/domain/api.py": (
+    "backend/domain/api/workflows_jobs.py": (
         "hello-ai:understand:1.0:",
         "hello-ai:understand-workflow:1.0:",
         "hello-ai:variation:1.0:",
