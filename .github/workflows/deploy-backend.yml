@@ -78,6 +78,13 @@ jobs:
             fi
           fi
 
+          # GitHub concurrency may replace a pending database-only run with a newer
+          # backend run. Reconcile Supabase on every runtime deployment so checked-in
+          # migrations cannot be stranded by event-level release classification.
+          if [[ "$backend" == "true" ]]; then
+            database=true
+          fi
+
           echo "backend=$backend" >>"$GITHUB_OUTPUT"
           echo "database=$database" >>"$GITHUB_OUTPUT"
           echo "Release scope: backend=$backend database=$database"

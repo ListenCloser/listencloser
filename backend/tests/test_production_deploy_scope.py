@@ -38,6 +38,18 @@ def test_release_contract_changes_fail_closed_to_both_components() -> None:
     assert _components("scripts/classify_production_scope.py") == {"backend", "database"}
 
 
+def test_backend_release_reconciles_database_before_runtime_deploy() -> None:
+    workflow = DEPLOY_WORKFLOW.read_text()
+    lines = workflow.splitlines()
+    start = lines.index('          if [[ "$backend" == "true" ]]; then')
+
+    assert lines[start + 1] == "            database=true"
+    assert lines[start + 2] == "          fi"
+    assert "needs: [scope, publish-image]" in workflow
+    assert "needs: [scope, publish-image, migrate]" in workflow
+    assert "needs.migrate.result == 'success'" in workflow
+
+
 def test_deploy_workflow_can_migrate_without_publishing_runtime() -> None:
     workflow = DEPLOY_WORKFLOW.read_text()
 
