@@ -8,6 +8,7 @@ import {
   cancelJob,
   getEntities,
   getInsights,
+  getWorkBundle,
   retryJob,
   startCompareWorkflow,
   startUnderstandWorkflow,
@@ -17,7 +18,6 @@ import {
 import { getMusicXml } from "@/lib/musicxml-cache";
 import { JobObservationError, waitForJob, sanitizeJobError } from "@/lib/job-tracking";
 import {
-  fetchWorkBundle,
   refreshProjectWorks,
   useLibraryProject,
   useProjectWorks,
@@ -112,7 +112,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     }
 
     try {
-      const bundle = await fetchWorkBundle(queryClient, workId);
+      const bundle = await getWorkBundle(workId);
       if (!isCurrentLoad()) return;
 
       const latestJob = bundle.jobs[0];
@@ -177,7 +177,6 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
           versionId: original.latest_version?.id,
         });
       }
-
       // The durable source is the first usable workspace state. Processing may
       // still be running, but it must not hold playback behind a job modal.
       replaceSources(sources, activeId ?? undefined, preserveWorkspace);
