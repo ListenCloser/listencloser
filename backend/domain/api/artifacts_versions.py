@@ -165,6 +165,6 @@ def get_version_resource(
             "signed_url": signed_url(response),
         }
     except PermissionError as error:
-        raise HTTPException(status_code=403, detail=str(error))
+        raise HTTPException(status_code=404, detail="Version not found") from error
     except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error))
+        raise HTTPException(status_code=404, detail="Version not found") from error

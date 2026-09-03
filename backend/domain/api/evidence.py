@@ -37,10 +37,8 @@ def list_entities(
 
     try:
         return EntityRepo(sb).list_by_version(version_id, owner)
-    except PermissionError as error:
-        raise HTTPException(status_code=403, detail=str(error))
-    except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error))
+    except (PermissionError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Version not found") from error
 
 
 @router.get("/versions/{version_id}/insights", response_model=list[Insight])
@@ -54,7 +52,5 @@ def list_insights(
     try:
         all_insights = InsightRepo(sb).list_by_version(version_id, owner)
         return [item for item in all_insights if _inspector_exposed(item)]
-    except PermissionError as error:
-        raise HTTPException(status_code=403, detail=str(error))
-    except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error))
+    except (PermissionError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Version not found") from error
