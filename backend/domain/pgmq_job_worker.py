@@ -103,9 +103,7 @@ class PgmqJobWorker(FencedJobWorker):
             token = row.get("execution_token")
             msg_id = row.get("_queue_msg_id")
             if not token or msg_id is None:
-                raise RuntimeError(
-                    "PGMQ receive returned incomplete execution identity"
-                )
+                raise RuntimeError("PGMQ receive returned incomplete execution identity")
 
             self._remember_execution_token(job_id, str(token))
             self._remember_delivery(job_id, int(msg_id))
