@@ -7,6 +7,10 @@ import Waveform from "./Waveform";
 import SheetMusic from "@/components/SheetMusic";
 import { extractAnnotations } from "@/lib/analysis-annotations";
 import {
+  resolveEvidenceProjection,
+  type EvidenceProjectionTarget,
+} from "@/lib/evidence-projections";
+import {
   REPRESENTATION_CATALOG,
   type RepresentationId,
   type RepresentationMetadata,
@@ -37,14 +41,29 @@ export type RepresentationDefinition = RepresentationMetadata & {
   component: ComponentType<RepresentationViewProps>;
 };
 
+function visibleAnnotations(
+  insights: Parameters<typeof extractAnnotations>[0],
+  target: EvidenceProjectionTarget,
+  inspectorCollapsed: boolean,
+) {
+  const annotations = extractAnnotations(insights);
+  if (!inspectorCollapsed) return annotations;
+
+  // Legacy annotations are temporal locator projections. With the Inspector
+  // closed, keep only evidence whose approximate locator policy is passive by
+  // default; focused/secondary evidence remains available when inspecting.
+  return annotations.filter((annotation) => (
+    resolveEvidenceProjection(annotation.kind, target, "approximate").passiveByDefault
+  ));
+}
+
 function WaveformView({ active, orientationCue = false }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
-  const inspectorOpen = !workspace.inspectorCollapsed;
   const annotations = useMemo(
-    () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
-    [workspace.insights, inspectorOpen],
+    () => visibleAnnotations(workspace.insights, "listen", workspace.inspectorCollapsed),
+    [workspace.insights, workspace.inspectorCollapsed],
   );
   const selection = workspace.selection;
   const focusedAnnotationId = useMemo(() => {
@@ -101,10 +120,9 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
     [workspace.insights, entry?.versionId],
   );
   const selection = workspace.selection;
-  const inspectorOpen = !workspace.inspectorCollapsed;
   const annotations = useMemo(
-    () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
-    [workspace.insights, inspectorOpen],
+    () => visibleAnnotations(workspace.insights, "piano_roll", workspace.inspectorCollapsed),
+    [workspace.insights, workspace.inspectorCollapsed],
   );
   const focusedAnnotationId = useMemo(() => {
     if (!selection?.timeRange || !annotations.length) return null;
@@ -157,10 +175,9 @@ function SpectrogramView({ active }: RepresentationViewProps) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek } = useTransport();
   const waveform = workspace.representations.find((item) => item.kind === "waveform");
-  const inspectorOpen = !workspace.inspectorCollapsed;
   const annotations = useMemo(
-    () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
-    [workspace.insights, inspectorOpen],
+    () => visibleAnnotations(workspace.insights, "spectrogram", workspace.inspectorCollapsed),
+    [workspace.insights, workspace.inspectorCollapsed],
   );
   const selection = workspace.selection;
   const focusedAnnotationId = useMemo(() => {
@@ -211,10 +228,9 @@ function ScoreView({ active, orientationCue = false }: RepresentationViewProps) 
       )
     : (transport.duration || null);
   const selection = workspace.selection;
-  const inspectorOpen = !workspace.inspectorCollapsed;
   const annotations = useMemo(
-    () => (inspectorOpen ? extractAnnotations(workspace.insights) : []),
-    [workspace.insights, inspectorOpen],
+    () => visibleAnnotations(workspace.insights, "score", workspace.inspectorCollapsed),
+    [workspace.insights, workspace.inspectorCollapsed],
   );
   const focusedAnnotationId = useMemo(() => {
     if (!selection?.timeRange || !annotations.length) return null;
