@@ -556,9 +556,7 @@ class JobWorker:
                         "completed_at": now,
                         "lease_expires_at": None,
                     }
-                ).eq("id", job_id).eq("worker_id", self._worker_id).eq(
-                    "stage", "claimed"
-                ).execute()
+                ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "claimed").execute()
                 return
             logger.warning(
                 "cache_hit_output_missing",
