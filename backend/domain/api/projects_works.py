@@ -11,7 +11,7 @@ from domain.api.dependencies import owner_id, supabase_client
 from domain.api.storage import signed_url
 from domain.api_schemas import DeletedWorkResponse, WorkBundleResponse
 from domain.models import Project, Work
-from domain.repositories import ArtifactRepo, ProjectRepo, VersionRepo, WorkRepo
+from domain.repositories import ProjectRepo, WorkRepo
 from domain.storage_locator_policy import classify_version_storage_locator
 from domain.work_bundle_repository import WorkBundleRepository
 
@@ -155,6 +155,55 @@ def get_work_bundle(
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
+def _delete_work_and_cleanup(sb, work_id: UUID, owner: str) -> dict[str, str]:
+    """Delete the authoritative Work row before best-effort object cleanup."""
+    work_repo = WorkRepo(sb)
+    work = work_repo.get(work_id, owner)
+    if not work:
+        raise HTTPException(status_code=404, detail="Work not found")
+    snapshot = WorkBundleRepository(sb).load(work_id, owner)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Work not found")
+
+    allowed_job_ids = {job.id for job in snapshot.jobs}
+    deletion_targets: list[tuple[str, str, str]] = []
+    for artifact in snapshot.artifacts:
+        for version in snapshot.versions_by_artifact.get(artifact.id, []):
+            decision = classify_version_storage_locator(
+                version,
+                owner_id=owner,
+                project_id=work.project_id,
+                artifact_id=artifact.id,
+                allowed_job_ids=allowed_job_ids,
+            )
+            if not decision.trusted:
+                logger.warning(
+                    "artifact_storage_locator_rejected",
+                    extra={
+                        "artifact_id": str(artifact.id),
+                        "version_id": str(version.id),
+                        "operation": "delete",
+                        "reason": decision.reason,
+                    },
+                )
+                continue
+            deletion_targets.append(
+                (version.storage_bucket, version.storage_key, str(version.id))
+            )
+
+    # The Work row is the authoritative deletion boundary. Database foreign keys
+    # cascade dependent rows; object storage cleanup must never keep the Work live.
+    work_repo.delete(work_id, owner)
+
+    for bucket, key, version_id in deletion_targets:
+        try:
+            sb.storage.from_(bucket).remove([key])
+        except Exception:
+            logger.warning("storage_cleanup_skipped", extra={"version_id": version_id})
+
+    return {"deleted": str(work_id)}
+
+
 @router.delete("/works/{work_id}", response_model=DeletedWorkResponse)
 @limiter.limit("10/minute")
 def delete_work(
@@ -162,54 +211,11 @@ def delete_work(
     request: Request,
     auth=Depends(verify_token),
 ):
-    """Delete a work and its artifacts, versions, and storage objects."""
+    """Delete a work authoritatively, then best-effort clean its storage objects."""
     sb = supabase_client()
     owner = owner_id(auth)
     try:
-        work_repo = WorkRepo(sb)
-        work = work_repo.get(work_id, owner)
-        if not work:
-            raise HTTPException(status_code=404, detail="Work not found")
-        snapshot = WorkBundleRepository(sb).load(work_id, owner)
-        if not snapshot:
-            raise HTTPException(status_code=404, detail="Work not found")
-        allowed_job_ids = {job.id for job in snapshot.jobs}
-
-        artifact_repo = ArtifactRepo(sb)
-        version_repo = VersionRepo(sb)
-        artifacts = artifact_repo.list_by_work(work_id, owner)
-        for artifact in artifacts:
-            versions = version_repo.list_by_artifact(artifact.id, owner)
-            for version in versions:
-                decision = classify_version_storage_locator(
-                    version,
-                    owner_id=owner,
-                    project_id=work.project_id,
-                    artifact_id=artifact.id,
-                    allowed_job_ids=allowed_job_ids,
-                )
-                if not decision.trusted:
-                    logger.warning(
-                        "artifact_storage_locator_rejected",
-                        extra={
-                            "artifact_id": str(artifact.id),
-                            "version_id": str(version.id),
-                            "operation": "delete",
-                            "reason": decision.reason,
-                        },
-                    )
-                    continue
-                try:
-                    sb.storage.from_(version.storage_bucket).remove([version.storage_key])
-                except Exception:
-                    logger.warning("storage_cleanup_skipped", extra={"version_id": str(version.id)})
-            try:
-                artifact_repo.delete(artifact.id, owner)
-            except Exception:
-                logger.exception("artifact_delete_failed")
-
-        work_repo.delete(work_id, owner)
-        return {"deleted": str(work_id)}
+        return _delete_work_and_cleanup(sb, work_id, owner)
     except PermissionError as error:
         raise HTTPException(status_code=403, detail=str(error)) from error
     except ValueError as error:
