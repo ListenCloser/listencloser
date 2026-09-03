@@ -1,4 +1,4 @@
-name: Temporary Ruff format inspection 1101
+name: Temporary Ruff formatter 1101
 
 on:
   push:
@@ -6,18 +6,28 @@ on:
       - issue-1083-score-performance-alignment
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  format-diff:
+  format:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
         with:
           version: "0.12.6"
-      - name: Show canonical Ruff 0.5.7 format diff
-        run: >-
-          uvx --from ruff==0.5.7 ruff format --diff
-          backend/domain/score_performance_alignment.py
-          backend/tests/test_score_performance_alignment.py
+      - name: Apply canonical formatting and self-remove
+        run: |
+          uvx --from ruff==0.5.7 ruff format \
+            backend/domain/score_performance_alignment.py \
+            backend/tests/test_score_performance_alignment.py
+          printf 'formatted by Ruff 0.5.7\n' > .tmp-format-1101-trigger
+          rm .github/workflows/tmp-format-1101.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add backend/domain/score_performance_alignment.py \
+            backend/tests/test_score_performance_alignment.py \
+            .tmp-format-1101-trigger \
+            .github/workflows/tmp-format-1101.yml
+          git commit -m "style: apply canonical Ruff formatting"
+          git push origin HEAD:issue-1083-score-performance-alignment
