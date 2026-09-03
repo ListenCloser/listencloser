@@ -85,6 +85,7 @@ subgraph lib["lib"]
     lib_stores_[" "]
   end
   lib_supabase_ts["supabase.ts"]
+  lib_transcription_qualification_ts["transcription-qualification.ts"]
   lib_work_selection_ts["work-selection.ts"]
 end
 app__test_support_-->lib_notes_ts
@@ -124,6 +125,7 @@ components_workspace_-->lib_musicxml_cache_ts
 components_workspace_-->lib_playback_sources_ts
 components_workspace_-->lib_server_state_ts
 components_workspace_-->lib_stores_
+components_workspace_-->lib_transcription_qualification_ts
 components_workspace_-->components_ui_
 components_workspace_-->lib_inspector_
 components_workspace_-->lib_ask_
