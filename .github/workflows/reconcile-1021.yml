@@ -32,14 +32,18 @@ jobs:
 
           if [ "$merge_status" -ne 0 ]; then
             conflicts="$(git diff --name-only --diff-filter=U)"
-            expected=$'components/workspace/WorkspaceSession.tsx\nlib/stores/workspace.tsx'
+            expected='components/workspace/WorkspaceSession.tsx'
             if [ "$conflicts" != "$expected" ]; then
               echo "Unexpected merge conflicts:"
               printf '%s\n' "$conflicts"
               exit 1
             fi
 
-            git checkout --theirs components/workspace/WorkspaceSession.tsx lib/stores/workspace.tsx
+            # workspace.tsx auto-merges cleanly: keep that Git result so the
+            # upstream dead-takes deletion and #1021 Score action both survive.
+            # Rebuild only WorkspaceSession from current main plus #1021's
+            # Score-specific behavior.
+            git checkout --theirs components/workspace/WorkspaceSession.tsx
 
             python - <<'PY'
           from pathlib import Path
@@ -50,8 +54,8 @@ jobs:
                   raise SystemExit(f"{label}: expected 1 match, found {count}")
               return text.replace(old, new, 1)
 
-          session_path = Path("components/workspace/WorkspaceSession.tsx")
-          text = session_path.read_text()
+          path = Path("components/workspace/WorkspaceSession.tsx")
+          text = path.read_text()
 
           text = replace_once(text, '  startCompareWorkflow,\n  startUnderstandWorkflow,', '  startCompareWorkflow,\n  startScoreWorkflow,\n  startUnderstandWorkflow,', 'score workflow import')
           text = replace_once(text, 'import { buildPlaybackSources } from "@/lib/playback-sources";\nimport { qualifySymbolicSourceLabel } from "@/lib/transcription-qualification";', 'import { buildPlaybackSources } from "@/lib/playback-sources";\nimport { hasReusableScoreArtifacts, selectScoreArtifacts } from "@/lib/score-artifacts";\nimport { qualifySymbolicSourceLabel } from "@/lib/transcription-qualification";', 'score artifact import')
@@ -115,19 +119,10 @@ jobs:
 
           '''
           text = replace_once(text, '  }, [loadWork, projectId, setStudioOperation, workspace.activeWorkId, workspace.studioAction]);\n\n  useEffect(() => {\n    if (projectQuery.isError || worksQuery.isError) {', '  }, [loadWork, projectId, setStudioOperation, workspace.activeWorkId, workspace.studioAction]);\n\n' + score_effect + '  useEffect(() => {\n    if (projectQuery.isError || worksQuery.isError) {', 'score engine effect')
-          session_path.write_text(text)
-
-          store_path = Path("lib/stores/workspace.tsx")
-          text = store_path.read_text()
-          text = replace_once(text, '  scoreEngine: ScoreEngine;\n  analysisState: AnalysisState;', '  scoreEngine: ScoreEngine;\n  scoreEngineAction: { id: number; engine: ScoreEngine } | null;\n  analysisState: AnalysisState;', 'score action state type')
-          text = replace_once(text, '  setScoreEngine: (engine: ScoreEngine) => void;\n  setAnalysisState: (state: AnalysisState) => void;', '  setScoreEngine: (engine: ScoreEngine) => void;\n  requestScoreEngine: (engine: ScoreEngine) => void;\n  setAnalysisState: (state: AnalysisState) => void;', 'score action context type')
-          text = replace_once(text, '    scoreEngine: "musescore",\n    analysisState: "idle",', '    scoreEngine: "musescore",\n    scoreEngineAction: null,\n    analysisState: "idle",', 'score action initial state')
-          text = replace_once(text, '  const setScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => prev.scoreEngine === scoreEngine ? prev : { ...prev, scoreEngine }), []);\n  const setAnalysisState = useCallback((analysisState: AnalysisState) => setWorkspace((prev) => ({ ...prev, analysisState })), []);', '  const setScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => prev.scoreEngine === scoreEngine ? prev : { ...prev, scoreEngine }), []);\n  const requestScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => ({\n    ...prev,\n    scoreEngine,\n    scoreEngineAction: {\n      id: (prev.scoreEngineAction?.id ?? 0) + 1,\n      engine: scoreEngine,\n    },\n  })), []);\n  const setAnalysisState = useCallback((analysisState: AnalysisState) => setWorkspace((prev) => ({ ...prev, analysisState })), []);', 'score action callback')
-          text = replace_once(text, '      setScoreEngine,\n      setAnalysisState,', '      setScoreEngine,\n      requestScoreEngine,\n      setAnalysisState,', 'score action provider')
-          store_path.write_text(text)
+          path.write_text(text)
           PY
 
-            git add components/workspace/WorkspaceSession.tsx lib/stores/workspace.tsx
+            git add components/workspace/WorkspaceSession.tsx
             git commit --no-edit
           fi
 
