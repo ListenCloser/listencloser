@@ -4,6 +4,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock
 
+import pytest
+
 import auth_utils
 import domain.repositories as repositories
 
@@ -42,10 +44,31 @@ def test_shared_client_is_constructed_once_under_concurrent_first_access(monkeyp
     assert auth_utils.get_supabase() is sentinel
 
 
-def test_missing_service_role_configuration_stays_unconfigured(monkeypatch):
+@pytest.mark.parametrize(
+    "environment",
+    [
+        {},
+        {"SUPABASE_URL": "https://project.supabase.invalid"},
+        {"SUPABASE_SERVICE_ROLE_KEY": "service-role-test-key"},
+        {
+            "SUPABASE_URL": "",
+            "SUPABASE_SERVICE_ROLE_KEY": "service-role-test-key",
+        },
+        {
+            "SUPABASE_URL": "https://project.supabase.invalid",
+            "SUPABASE_SERVICE_ROLE_KEY": "",
+        },
+    ],
+)
+def test_incomplete_service_role_configuration_stays_unconfigured(
+    monkeypatch,
+    environment: dict[str, str],
+):
     create_client = Mock()
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
+    for key, value in environment.items():
+        monkeypatch.setenv(key, value)
     monkeypatch.setattr(repositories, "_sb_client", None)
     monkeypatch.setattr(repositories, "create_client", create_client)
 
