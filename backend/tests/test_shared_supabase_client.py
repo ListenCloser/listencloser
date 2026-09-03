@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 import auth_utils
-import domain.repositories as repositories
+from domain.repositories import client as repositories
 
 
 def test_auth_and_repositories_return_the_same_process_client(monkeypatch):
