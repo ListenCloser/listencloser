@@ -39,7 +39,6 @@ import numpy as np
 import pretty_midi
 
 from engines.harmony.music21_engine import (  # noqa: F401  # legacy re-export
-    _m21_cadences,
     _m21_chords,
     _m21_key,
     _m21_phrases,
