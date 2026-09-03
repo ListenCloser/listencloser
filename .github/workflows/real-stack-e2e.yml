@@ -2,24 +2,6 @@ name: Real-stack E2E
 
 on:
   workflow_call:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - '!backend/evaluation/**'
-      - '!backend/tests/**'
-      - 'app/**'
-      - 'components/**'
-      - 'lib/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'next.config.mjs'
-      - 'tsconfig.json'
-      - 'supabase/config.toml'
-      - 'tests/e2e/import-performance.ts'
-      - 'tests/e2e/real-stack-auth.ts'
-      - 'tests/e2e/real-stack-golden.spec.ts'
-      - 'playwright.realstack.config.ts'
 
 permissions:
   contents: read

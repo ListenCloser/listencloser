@@ -46,6 +46,12 @@
 | idx_jobs_workflow | CREATE INDEX idx_jobs_workflow ON public.jobs USING btree (workflow_id) |
 | jobs_pkey | CREATE UNIQUE INDEX jobs_pkey ON public.jobs USING btree (id) |
 
+## Triggers
+
+| Name | Definition |
+| ---- | ---------- |
+| jobs_enqueue_pgmq_delivery | CREATE TRIGGER jobs_enqueue_pgmq_delivery AFTER INSERT ON public.jobs FOR EACH ROW WHEN ((new.stage = 'queued'::job_stage)) EXECUTE FUNCTION enqueue_job_delivery() |
+
 ## Relations
 
 ```mermaid

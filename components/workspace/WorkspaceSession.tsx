@@ -49,7 +49,6 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     setInsights,
     setLoadingWork,
     setStudioOperation,
-    setTakes,
     workspace,
   } = useWorkspace();
   const transcriptionProfile = workspace.transcriptionProfile;
@@ -113,7 +112,6 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       replaceRepresentations([]);
       replaceSources([]);
       setInsights([]);
-      setTakes([]);
       setAnalysisState("idle");
     }
 
@@ -157,15 +155,6 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         scoreEngine,
       );
       const transcriptionMetadata = baseMidi?.latest_version?.metadata ?? midi?.latest_version?.metadata;
-
-      const takeArtifacts = bundle.artifacts.filter((item) =>
-        item.latest_version && item.signed_url && ["midi_performance", "midi_corrected"].includes(item.artifact.kind),
-      );
-      setTakes(takeArtifacts.flatMap((item) => item.latest_version ? [{
-        versionId: item.latest_version.id,
-        label: item.artifact.kind === "midi_performance" ? "Transcription" : item.latest_version.label || "Derived take",
-        parentVersionId: item.latest_version.parent_version_id,
-      }] : []));
 
       const renderedArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && item.artifact.kind === "audio_rendered",
@@ -387,7 +376,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     } finally {
       if (isCurrentLoad()) setLoadingWork(false);
     }
-  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, scoreEngine, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
+  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, scoreEngine, setAnalysisState, setBpm, setInsights, setLoadingWork, setTimeSignature]);
 
   useEffect(() => () => {
     clearProcessingRefresh();
@@ -440,58 +429,55 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   }, [loadWork, projectId, setStudioOperation, workspace.activeWorkId, workspace.studioAction]);
 
   useEffect(() => {
-    const action = workspace.scoreEngineAction;
-    const workId = workspace.activeWorkId;
-    if (!action || action.id === handledScoreEngineAction.current || !projectId || !workId) return;
-    handledScoreEngineAction.current = action.id;
-    const isCurrentScoreWork = () => activeWorkIdRef.current === workId;
+  const action = workspace.scoreEngineAction;
+  const workId = workspace.activeWorkId;
+  if (!action || action.id === handledScoreEngineAction.current || !projectId || !workId) return;
+  handledScoreEngineAction.current = action.id;
+  const isCurrentScoreWork = () => activeWorkIdRef.current === workId;
 
-    const bundle = loadedBundleRef.current?.work.id === workId ? loadedBundleRef.current : null;
-    const performanceMidi = performanceMidiVersionRef.current;
-    const performanceMidiVersionId = performanceMidi?.workId === workId
-      ? performanceMidi.versionId
-      : null;
-    if (bundle && hasReusableScoreArtifacts(bundle, performanceMidiVersionId, action.engine)) {
-      // The selected engine already exists for this exact canonical performance
-      // MIDI. Updating scoreEngine changes loadWork identity, so the normal Work
-      // refresh switches Score + score playback without a compute/storage write.
-      return;
-    }
+  const bundle = loadedBundleRef.current?.work.id === workId ? loadedBundleRef.current : null;
+  const performanceMidi = performanceMidiVersionRef.current;
+  const performanceMidiVersionId = performanceMidi?.workId === workId
+    ? performanceMidi.versionId
+    : null;
+  if (bundle && hasReusableScoreArtifacts(bundle, performanceMidiVersionId, action.engine)) {
+    return;
+  }
 
-    if (!performanceMidiVersionId) {
+  if (!performanceMidiVersionId) {
+    if (!isCurrentScoreWork()) return;
+    setError("Score reinterpretation requires the canonical performance transcription.");
+    setStage("error");
+    return;
+  }
+
+  void (async () => {
+    if (!isCurrentScoreWork()) return;
+    setError(null);
+    setProgress(0);
+    setProcessingWorkId(workId);
+    setStage("processing");
+    setMessage(`Rebuilding Score with ${action.engine === "pm2s" ? "PM2S" : "MuseScore"}…`);
+    try {
+      const { job } = await startScoreWorkflow(performanceMidiVersionId, projectId, action.engine);
       if (!isCurrentScoreWork()) return;
-      setError("Score reinterpretation requires the canonical performance transcription.");
-      setStage("error");
-      return;
-    }
-
-    void (async () => {
+      setActiveJobId(job.id);
+      await waitForJob(job.id, (current) => {
+        if (!isCurrentScoreWork()) return;
+        setMessage(current.message || "Rebuilding Score…");
+        setProgress(Math.round(current.progress * 100));
+      });
       if (!isCurrentScoreWork()) return;
-      setError(null);
-      setProgress(0);
-      setProcessingWorkId(workId);
-      setStage("processing");
-      setMessage(`Rebuilding Score with ${action.engine === "pm2s" ? "PM2S" : "MuseScore"}…`);
-      try {
-        const { job } = await startScoreWorkflow(performanceMidiVersionId, projectId, action.engine);
-        if (!isCurrentScoreWork()) return;
-        setActiveJobId(job.id);
-        await waitForJob(job.id, (current) => {
-          if (!isCurrentScoreWork()) return;
-          setMessage(current.message || "Rebuilding Score…");
-          setProgress(Math.round(current.progress * 100));
-        });
-        if (!isCurrentScoreWork()) return;
-        await loadWork(workId);
-      } catch (cause) {
-        if (!isCurrentScoreWork()) return;
-        setActiveJobId(null);
-        const disconnected = cause instanceof JobObservationError;
-        setError(cause instanceof Error ? cause.message : "Could not rebuild Score");
-        setStage(disconnected ? "disconnected" : "error");
-      }
-    })();
-  }, [loadWork, projectId, workspace.activeWorkId, workspace.scoreEngineAction]);
+      await loadWork(workId);
+    } catch (cause) {
+      if (!isCurrentScoreWork()) return;
+      setActiveJobId(null);
+      const disconnected = cause instanceof JobObservationError;
+      setError(cause instanceof Error ? cause.message : "Could not rebuild Score");
+      setStage(disconnected ? "disconnected" : "error");
+    }
+  })();
+}, [loadWork, projectId, workspace.activeWorkId, workspace.scoreEngineAction]);
 
   useEffect(() => {
     if (projectQuery.isError || worksQuery.isError) {

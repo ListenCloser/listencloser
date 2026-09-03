@@ -5,9 +5,9 @@ import signal
 
 import domain.capabilities as capability_module
 from domain.correction_entity_sync import register_corrected_midi_entity_sync
-from domain.fenced_job_worker import FencedJobWorker
 from domain.perceptual_capability import register_perceptual_capability
 from domain.performance_instrumentation import install_understand_instrumentation
+from domain.pgmq_job_worker import PgmqJobWorker
 from domain.worker_warmup import (
     prewarm_basic_pitch_inference,
     prewarm_beat_this_inference,
@@ -24,8 +24,8 @@ def main() -> None:
     init_sentry(logger)
     settings = WorkerSettings.from_environment()
 
-    # Pay expensive process-local cold paths before FencedJobWorker.run() publishes
-    # its first heartbeat or claims a user's job. Warmups are optimization-only:
+    # Pay expensive process-local cold paths before PgmqJobWorker.run() publishes
+    # its first heartbeat or receives a user's job. Warmups are optimization-only:
     # one failure must not prevent worker startup. Exactly one beat-engine warmup
     # runs for the configured engine; Beat This is the production default and
     # librosa remains an explicit rollback path.
@@ -44,7 +44,7 @@ def main() -> None:
     except Exception:
         logger.exception("librosa_beat_prewarm_failed")
 
-    worker = FencedJobWorker(max_workers=settings.concurrency)
+    worker = PgmqJobWorker(max_workers=settings.concurrency)
     install_understand_instrumentation(capability_module)
     capability_module.register_all_capabilities(worker)
     register_corrected_midi_entity_sync(worker)

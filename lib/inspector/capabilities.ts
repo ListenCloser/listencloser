@@ -81,6 +81,3 @@ export function isExperimental(kind: string): boolean {
 
 /** Kinds that may appear in the Inspector. */
 export const INSPECTOR_EXPOSED_KINDS = [...INSPECTOR_ALLOWED];
-
-/** Kinds that may participate in Ask context. */
-export const ASK_EXPOSED_KINDS = [...ASK_ALLOWED];

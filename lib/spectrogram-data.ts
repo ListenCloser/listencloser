@@ -23,7 +23,7 @@ function mergedSamples(buffer: AudioBuffer): Float32Array {
   return mixed;
 }
 
-export function spectrogramQueryKey(cacheIdentity: string) {
+function spectrogramQueryKey(cacheIdentity: string) {
   return ["representation-data", "spectrogram", cacheIdentity] as const;
 }
 
