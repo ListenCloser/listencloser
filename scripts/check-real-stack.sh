@@ -95,7 +95,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-require_command git "tracked Supabase isolation"
+require_command git "Supabase isolation file discovery"
 require_command docker "production-image API/worker"
 require_command supabase "fresh local Supabase"
 require_command node "frontend runtime"
@@ -126,7 +126,7 @@ while IFS= read -r -d '' source_path; do
   destination="$SUPABASE_WORKDIR/$source_path"
   mkdir -p "$(dirname "$destination")"
   cp "$source_path" "$destination"
-done < <(git ls-files -z supabase)
+done < <(git ls-files -z --cached --others --exclude-standard -- supabase)
 
 isolated_project_id="listencloser-realstack-$RUN_ID"
 awk -v project_id="$isolated_project_id" '
