@@ -11,7 +11,7 @@ from domain.api.dependencies import owner_id, supabase_client
 from domain.api.storage import signed_url
 from domain.api_schemas import DeletedWorkResponse, WorkBundleResponse
 from domain.models import Project, Work
-from domain.repositories import ArtifactRepo, ProjectRepo, VersionRepo, WorkRepo
+from domain.repositories import ProjectRepo, WorkRepo
 from domain.storage_locator_policy import classify_version_storage_locator
 from domain.work_bundle_repository import WorkBundleRepository
 
@@ -162,7 +162,7 @@ def delete_work(
     request: Request,
     auth=Depends(verify_token),
 ):
-    """Delete a work and its artifacts, versions, and storage objects."""
+    """Delete a work durably, then clean up its storage objects."""
     sb = supabase_client()
     owner = owner_id(auth)
     try:
@@ -175,11 +175,16 @@ def delete_work(
             raise HTTPException(status_code=404, detail="Work not found")
         allowed_job_ids = {job.id for job in snapshot.jobs}
 
-        artifact_repo = ArtifactRepo(sb)
-        version_repo = VersionRepo(sb)
-        artifacts = artifact_repo.list_by_work(work_id, owner)
-        for artifact in artifacts:
-            versions = version_repo.list_by_artifact(artifact.id, owner)
+        # The Work row is the authoritative visibility boundary. Delete it
+        # before slow external storage cleanup so a reload cannot rediscover a
+        # Work whose deletion is already visible optimistically in the client.
+        # Artifacts and Versions are removed by the schema's ON DELETE CASCADE;
+        # the pre-delete snapshot retains the trusted storage locators needed
+        # for best-effort object cleanup below.
+        work_repo.delete(work_id, owner)
+
+        for artifact in snapshot.artifacts:
+            versions = snapshot.versions_by_artifact.get(artifact.id, [])
             for version in versions:
                 decision = classify_version_storage_locator(
                     version,
@@ -203,12 +208,7 @@ def delete_work(
                     sb.storage.from_(version.storage_bucket).remove([version.storage_key])
                 except Exception:
                     logger.warning("storage_cleanup_skipped", extra={"version_id": str(version.id)})
-            try:
-                artifact_repo.delete(artifact.id, owner)
-            except Exception:
-                logger.exception("artifact_delete_failed")
 
-        work_repo.delete(work_id, owner)
         return {"deleted": str(work_id)}
     except PermissionError as error:
         raise HTTPException(status_code=403, detail=str(error)) from error
