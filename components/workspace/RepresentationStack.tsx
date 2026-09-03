@@ -41,8 +41,8 @@ function TranscriptionModeToggle() {
   );
 }
 
-function ScoreEngineToggle() {
-  const { workspace, setScoreEngine } = useWorkspace();
+function ScoreEngineToggle({ loaded = false }: { loaded?: boolean }) {
+  const { workspace, requestScoreEngine, setScoreEngine } = useWorkspace();
   const options: { id: ScoreEngine; label: string; description: string }[] = [
     { id: "musescore", label: "MuseScore", description: "Current notation baseline" },
     {
@@ -59,7 +59,7 @@ function ScoreEngineToggle() {
             type="button"
             aria-pressed={workspace.scoreEngine === option.id}
             className={workspace.scoreEngine === option.id ? "active" : ""}
-            onClick={() => setScoreEngine(option.id)}
+            onClick={() => loaded ? requestScoreEngine(option.id) : setScoreEngine(option.id)}
           >
             {option.label}
           </button>
@@ -276,6 +276,15 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
           onIntentStart={handleRepresentationIntentStart}
           onIntentEnd={handleRepresentationIntentEnd}
         />
+        {activeView === "score" && (
+          <div
+            aria-label="Score controls"
+            style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-2)" }}
+          >
+            <span className="muted" style={{ fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}>Score interpretation</span>
+            <ScoreEngineToggle loaded />
+          </div>
+        )}
       </div>
 
       {activeSymbolicSourceLabel && (

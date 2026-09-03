@@ -1,0 +1,77 @@
+name: Sync score selector with main
+
+on:
+  push:
+    branches:
+      - fix/991-score-legacy-selection
+    paths:
+      - .github/workflows/sync-1021-main.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/991-score-legacy-selection
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Merge current main without restoring the deleted Work-bundle cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          if ! git merge --no-edit origin/main; then
+            conflicts=$(git diff --name-only --diff-filter=U)
+            test "$conflicts" = "components/workspace/WorkspaceSession.tsx"
+            git checkout --ours components/workspace/WorkspaceSession.tsx
+            python - <<'PY'
+          from pathlib import Path
+
+          path = Path("components/workspace/WorkspaceSession.tsx")
+          text = path.read_text()
+          text = text.replace(
+              '  getInsights,\n  retryJob,',
+              '  getInsights,\n  getWorkBundle,\n  retryJob,',
+              1,
+          )
+          text = text.replace(
+              '  fetchWorkBundle,\n  refreshProjectWorks,',
+              '  refreshProjectWorks,',
+              1,
+          )
+          text = text.replace(
+              'Awaited<ReturnType<typeof fetchWorkBundle>>',
+              'Awaited<ReturnType<typeof getWorkBundle>>',
+              1,
+          )
+          text = text.replace(
+              'const bundle = await fetchWorkBundle(queryClient, workId);',
+              'const bundle = await getWorkBundle(workId);',
+              1,
+          )
+          if 'fetchWorkBundle' in text:
+              raise SystemExit('obsolete fetchWorkBundle remains')
+          path.write_text(text)
+          PY
+            git add components/workspace/WorkspaceSession.tsx
+            git commit --no-edit
+          fi
+          npm ci
+          npm run typecheck
+          npm test -- tests/score-artifacts.test.ts
+          rm .github/workflows/sync-1021-main.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(score): remove temporary main-sync workflow"
+          fi
+          git push origin HEAD:fix/991-score-legacy-selection
