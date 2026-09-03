@@ -69,6 +69,7 @@ jobs:
               - 'package-lock.json'
               - 'next.config.mjs'
               - 'tsconfig.json'
+              - 'tests/e2e/import-performance.ts'
               - 'tests/e2e/real-stack-golden.spec.ts'
               - 'playwright.realstack.config.ts'
               - '.github/workflows/real-stack-e2e.yml'
