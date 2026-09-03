@@ -94,7 +94,7 @@ test.describe("contextual Ask inspector (MSW)", () => {
 
   test("performance-time evidence reference seeks the shared transport", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole("button", { name: "Playback source: Original audio", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible();
 
     await openAsk(page);
     await askGroundedStarter(page);
