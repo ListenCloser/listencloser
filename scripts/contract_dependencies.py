@@ -11,7 +11,7 @@ from typing import Any
 
 ALLOWED_MODES = frozenset({"discovery", "evaluation", "delivery"})
 SOURCE_ID_RE = re.compile(r"^[1-9][0-9]*$")
-DEFAULT_GRAPH = Path(__file__).resolve().parents[1] / "docs" / "contract-dependencies.json"
+DEFAULT_GRAPH = Path(__file__).resolve().parents[1] / "contract-dependencies.json"
 
 
 class ContractGraphError(ValueError):
