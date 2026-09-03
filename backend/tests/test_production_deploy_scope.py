@@ -42,8 +42,7 @@ def test_backend_release_reconciles_database_before_runtime_deploy() -> None:
     workflow = DEPLOY_WORKFLOW.read_text()
 
     assert (
-        'if [[ "$backend" == "true" ]]; then\n            database=true\n          fi'
-        in workflow
+        'if [[ "$backend" == "true" ]]; then\n            database=true\n          fi' in workflow
     )
     assert "needs: [scope, publish-image]" in workflow
     assert "needs: [scope, publish-image, migrate]" in workflow
@@ -64,7 +63,6 @@ def test_production_smoke_waits_for_database_delivery_without_requiring_release_
     workflow = SMOKE_WORKFLOW.read_text()
 
     assert (
-        "steps.scope.outputs.backend == 'true' || steps.scope.outputs.database == 'true'"
-        in workflow
+        "steps.scope.outputs.backend == 'true' || steps.scope.outputs.database == 'true'" in workflow
     )
     assert "REQUIRE_EXACT_BACKEND_RELEASE: ${{ steps.scope.outputs.backend }}" in workflow
