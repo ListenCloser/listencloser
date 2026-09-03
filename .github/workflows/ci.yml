@@ -87,5 +87,5 @@ jobs:
         run: npm run api:check
       - name: Run required Python unit tests
         run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg fluidsynth fluid-soundfont-gm
+          sudo apt-get update && sudo apt-get install -y ffmpeg
           uv run --project backend python -m pytest backend/tests/ -m "not integration and not real_stack and not benchmark and not external_provider" -v
