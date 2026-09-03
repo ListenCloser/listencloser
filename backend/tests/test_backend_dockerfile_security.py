@@ -19,16 +19,17 @@ def test_pm2s_checkpoints_are_content_verified_when_downloaded() -> None:
         "FROM python:3.11-slim AS musescore", 1
     )[0]
 
-    pinned_checkpoints = dict(re.findall(r'"([^":]+\.pth):([0-9a-f]{64})"', pm2s_stage))
+    pinned_checkpoints = dict(re.findall(r'\"([^\":]+\.pth):([0-9a-f]{64})\"', pm2s_stage))
 
     assert pinned_checkpoints == EXPECTED_PM2S_CHECKPOINTS
     assert (
         'echo "${expected_sha256}  /opt/pm2s-models/${model}" '
         "| sha256sum --check -;"
-    ) in pm2s_stage
+        in pm2s_stage
+    )
 
     download = pm2s_stage.index(
-        '"https://zenodo.org/records/${PM2S_MODEL_RECORD}/files/${model}?download=1"'
+        '\"https://zenodo.org/records/${PM2S_MODEL_RECORD}/files/${model}?download=1\"'
     )
     verification = pm2s_stage.index("sha256sum --check -;", download)
     assert verification > download
