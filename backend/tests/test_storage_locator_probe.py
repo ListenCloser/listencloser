@@ -28,7 +28,11 @@ def _legacy_rows(
         storage_key=storage_key,
         storage_bucket="artifacts",
         byte_size=len(content) if stored_byte_size is None else stored_byte_size,
-        sha256=hashlib.sha256(content).hexdigest() if stored_sha256 is None else stored_sha256,
+        sha256=(
+            hashlib.sha256(content).hexdigest()
+            if stored_sha256 is None
+            else stored_sha256
+        ),
         created_by=owner_id,
         created_at=datetime.now(UTC),
     ).model_dump(mode="json")
