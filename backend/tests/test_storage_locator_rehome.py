@@ -15,27 +15,21 @@ from domain.storage_locator_policy import StorageLocatorKind, classify_version_s
 from domain.storage_locator_rehome import rehome_selected_storage
 
 
-def _legacy_rows(
-    *,
-    content: bytes,
-    stored_sha256: str | None = None,
-    stored_byte_size: int | None = None,
-) -> tuple[AuditRows, dict, str, UUID, UUID, UUID, str]:
+def _legacy_rows(content: bytes) -> tuple[AuditRows, dict, str, UUID, UUID, str]:
     owner_id = str(uuid4())
     project_id = uuid4()
     work_id = uuid4()
     artifact_id = uuid4()
-    lineage_parent = uuid4()
+    parent_id = uuid4()
     storage_key = "transcriptions/private-take.mid"
-    actual_sha256 = hashlib.sha256(content).hexdigest()
     version = Version(
         artifact_id=artifact_id,
-        parent_version_id=lineage_parent,
-        lineage=[lineage_parent],
+        parent_version_id=parent_id,
+        lineage=[parent_id],
         storage_key=storage_key,
         storage_bucket="artifacts",
-        byte_size=len(content) if stored_byte_size is None else stored_byte_size,
-        sha256=actual_sha256 if stored_sha256 is None else stored_sha256,
+        byte_size=len(content),
+        sha256=hashlib.sha256(content).hexdigest(),
         created_by=owner_id,
         label="private-take.mid",
         metadata={"semantic_role": "performance_transcription"},
@@ -55,11 +49,11 @@ def _legacy_rows(
         workflows=[],
         jobs=[],
     )
-    return rows, version, owner_id, project_id, work_id, artifact_id, storage_key
+    return rows, version, owner_id, project_id, artifact_id, storage_key
 
 
 class _Bucket:
-    def __init__(self, client: "_Client", bucket: str):
+    def __init__(self, client: _Client, bucket: str):
         self.client = client
         self.bucket = bucket
 
@@ -71,8 +65,9 @@ class _Bucket:
 
     def upload(self, key: str, content: bytes, _options: dict) -> None:
         self.client.uploads.append((self.bucket, key))
-        stored = b"corrupt-copy" if self.client.corrupt_upload else content
-        self.client.objects[(self.bucket, key)] = stored
+        self.client.objects[(self.bucket, key)] = (
+            b"corrupt-copy" if self.client.corrupt_upload else content
+        )
 
     def remove(self, keys: list[str]) -> None:
         for key in keys:
@@ -81,7 +76,7 @@ class _Bucket:
 
 
 class _Storage:
-    def __init__(self, client: "_Client"):
+    def __init__(self, client: _Client):
         self.client = client
 
     def from_(self, bucket: str) -> _Bucket:
@@ -89,11 +84,11 @@ class _Storage:
 
 
 class _InsertQuery:
-    def __init__(self, client: "_Client"):
+    def __init__(self, client: _Client):
         self.client = client
         self.row: dict | None = None
 
-    def insert(self, row: dict) -> "_InsertQuery":
+    def insert(self, row: dict) -> _InsertQuery:
         self.row = row
         return self
 
@@ -126,11 +121,9 @@ class _Client:
         return _InsertQuery(self)
 
 
-def test_rehome_dry_run_verifies_source_without_mutation_or_private_locator_leakage():
+def test_dry_run_verifies_source_without_mutation_or_private_locator_leakage():
     content = b"legacy-midi"
-    rows, version, owner_id, _project_id, _work_id, _artifact_id, storage_key = _legacy_rows(
-        content=content
-    )
+    rows, version, owner_id, _project_id, _artifact_id, storage_key = _legacy_rows(content)
     client = _Client({("artifacts", storage_key): content})
 
     result = rehome_selected_storage(client, rows, [version["id"]])[0]
@@ -143,24 +136,20 @@ def test_rehome_dry_run_verifies_source_without_mutation_or_private_locator_leak
     assert result["source_sha256_matches"] is True
     assert client.uploads == []
     assert client.inserted_rows == []
-
     serialized = json.dumps(result)
     assert owner_id not in serialized
     assert storage_key not in serialized
     assert version["label"] not in serialized
 
 
-def test_rehome_apply_copies_exact_bytes_and_publishes_trusted_immutable_version():
+def test_apply_copies_exact_bytes_and_publishes_trusted_immutable_version():
     content = b"legacy-midi"
-    rows, version, owner_id, project_id, _work_id, artifact_id, storage_key = _legacy_rows(
-        content=content
-    )
+    rows, version, owner_id, project_id, artifact_id, storage_key = _legacy_rows(content)
     client = _Client({("artifacts", storage_key): content})
 
     result = rehome_selected_storage(client, rows, [version["id"]], apply=True)[0]
 
     assert result["state"] == "applied"
-    assert result["applied"] is True
     assert len(client.uploads) == 1
     assert len(client.inserted_rows) == 1
     assert client.objects[("artifacts", storage_key)] == content
@@ -186,18 +175,37 @@ def test_rehome_apply_copies_exact_bytes_and_publishes_trusted_immutable_version
     )
     assert decision.trusted is True
     assert decision.kind is StorageLocatorKind.owner_upload
-
     serialized = json.dumps(result)
     assert owner_id not in serialized
     assert storage_key not in serialized
     assert created.storage_key not in serialized
 
 
-def test_rehome_apply_leaves_missing_source_as_explicit_non_mutating_state():
-    content = b"missing"
-    rows, version, _owner_id, _project_id, _work_id, _artifact_id, _storage_key = _legacy_rows(
-        content=content
+def test_missing_historical_sha_is_computed_for_replacement():
+    content = b"production-shaped-no-historical-hash"
+    rows, version, _owner_id, _project_id, _artifact_id, storage_key = _legacy_rows(content)
+    version["sha256"] = None
+    rows = AuditRows(
+        projects=rows.projects,
+        works=rows.works,
+        artifacts=rows.artifacts,
+        versions=[version],
+        workflows=[],
+        jobs=[],
     )
+    client = _Client({("artifacts", storage_key): content})
+
+    result = rehome_selected_storage(client, rows, [version["id"]], apply=True)[0]
+    created = Version.model_validate(client.inserted_rows[0])
+
+    assert result["source_sha256_matches"] is None
+    assert created.byte_size == len(content)
+    assert created.sha256 == hashlib.sha256(content).hexdigest()
+
+
+def test_missing_source_is_explicit_and_non_mutating():
+    content = b"missing"
+    rows, version, _owner_id, _project_id, _artifact_id, _storage_key = _legacy_rows(content)
     client = _Client({})
 
     result = rehome_selected_storage(client, rows, [version["id"]], apply=True)[0]
@@ -208,12 +216,18 @@ def test_rehome_apply_leaves_missing_source_as_explicit_non_mutating_state():
     assert client.inserted_rows == []
 
 
-def test_rehome_refuses_source_metadata_mismatch_before_copy():
+def test_source_metadata_mismatch_prevents_copy():
     content = b"actual"
-    rows, version, _owner_id, _project_id, _work_id, _artifact_id, storage_key = _legacy_rows(
-        content=content,
-        stored_sha256="0" * 64,
-        stored_byte_size=len(content) + 1,
+    rows, version, _owner_id, _project_id, _artifact_id, storage_key = _legacy_rows(content)
+    version["byte_size"] = len(content) + 1
+    version["sha256"] = "0" * 64
+    rows = AuditRows(
+        projects=rows.projects,
+        works=rows.works,
+        artifacts=rows.artifacts,
+        versions=[version],
+        workflows=[],
+        jobs=[],
     )
     client = _Client({("artifacts", storage_key): content})
 
@@ -226,11 +240,9 @@ def test_rehome_refuses_source_metadata_mismatch_before_copy():
     assert client.inserted_rows == []
 
 
-def test_rehome_rejects_non_latest_source_to_avoid_resurrecting_history():
+def test_non_latest_source_is_rejected_to_avoid_resurrecting_history():
     content = b"legacy"
-    rows, version, owner_id, project_id, _work_id, artifact_id, storage_key = _legacy_rows(
-        content=content
-    )
+    rows, version, owner_id, project_id, artifact_id, storage_key = _legacy_rows(content)
     newer = Version(
         artifact_id=artifact_id,
         storage_key=f"{owner_id}/{project_id}/{artifact_id}/newer.mid",
@@ -257,11 +269,9 @@ def test_rehome_rejects_non_latest_source_to_avoid_resurrecting_history():
     assert client.inserted_rows == []
 
 
-def test_rehome_removes_new_destination_when_post_copy_verification_fails():
+def test_corrupt_copy_is_removed_before_version_publication():
     content = b"legacy"
-    rows, version, _owner_id, _project_id, _work_id, _artifact_id, storage_key = _legacy_rows(
-        content=content
-    )
+    rows, version, _owner_id, _project_id, _artifact_id, storage_key = _legacy_rows(content)
     client = _Client({("artifacts", storage_key): content}, corrupt_upload=True)
 
     with pytest.raises(RuntimeError, match="post-copy verification"):
@@ -269,16 +279,30 @@ def test_rehome_removes_new_destination_when_post_copy_verification_fails():
 
     assert len(client.uploads) == 1
     assert client.removes == client.uploads
-    assert len(client.objects) == 1
-    assert client.objects[("artifacts", storage_key)] == content
+    assert client.objects == {("artifacts", storage_key): content}
     assert client.inserted_rows == []
 
 
-def test_rehome_is_idempotent_after_replacement_version_exists():
+def test_uncertain_version_publication_preserves_verified_destination_for_retry():
     content = b"legacy"
-    rows, version, _owner_id, _project_id, _work_id, _artifact_id, storage_key = _legacy_rows(
-        content=content
+    rows, version, _owner_id, _project_id, _artifact_id, storage_key = _legacy_rows(content)
+    client = _Client(
+        {("artifacts", storage_key): content},
+        insert_error=TimeoutError("response lost after possible commit"),
     )
+
+    with pytest.raises(RuntimeError, match="outcome is unknown"):
+        rehome_selected_storage(client, rows, [version["id"]], apply=True)
+
+    assert len(client.uploads) == 1
+    assert client.removes == []
+    assert len(client.objects) == 2
+    assert client.objects[("artifacts", storage_key)] == content
+
+
+def test_rerun_after_replacement_exists_is_idempotent():
+    content = b"legacy"
+    rows, version, _owner_id, _project_id, _artifact_id, storage_key = _legacy_rows(content)
     client = _Client({("artifacts", storage_key): content})
 
     first = rehome_selected_storage(client, rows, [version["id"]], apply=True)[0]
