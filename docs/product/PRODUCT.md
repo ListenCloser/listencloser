@@ -2,7 +2,7 @@
 
 Listen Closer is an **evidence-first music-understanding workspace**. It helps a person turn music they care about into an understanding they can hear, inspect, question, verify, relate, and use.
 
-This document owns durable product identity, user progress, strategic arena, product mental model, and product principles. It does **not** prioritize current work or authorize implementation. Until the separate roadmap migration lands, GitHub #458 remains the authority for current portfolio posture, sequencing, and activation.
+This document owns durable product identity, user progress, strategic arena, product mental model, and product principles. It does **not** prioritize current work, describe current capability maturity, or authorize implementation. The documentation map routes those questions to their current authorities.
 
 ## 1. Product definition
 
