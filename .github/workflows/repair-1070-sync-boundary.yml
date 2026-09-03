@@ -36,59 +36,14 @@ jobs:
           from pathlib import Path
           import re
 
-          sync_routes = {
-              "backend/domain/api/projects_works.py": [
-                  "create_project",
-                  "list_projects",
-                  "get_project",
-                  "create_work",
-                  "list_works",
-                  "get_work_bundle",
-                  "delete_work",
-              ],
-              "backend/domain/api/artifacts_versions.py": [
-                  "upload_artifact",
-                  "get_version_resource",
-              ],
-              "backend/domain/api/evidence.py": [
-                  "get_entities",
-                  "get_insights",
-              ],
-              "backend/domain/api/workflows_jobs.py": [
-                  "start_beat_workflow",
-                  "start_score_workflow",
-                  "start_understand_workflow",
-                  "start_variation_workflow",
-                  "start_compare_workflow",
-                  "start_palette_workflow",
-                  "start_export_workflow",
-                  "get_job",
-                  "cancel_job",
-                  "retry_job",
-              ],
-              "backend/domain/relation_api.py": [
-                  "compare_perceptual_spans",
-              ],
-              "backend/domain/upload_api.py": [
-                  "create_upload_intent",
-                  "finalize_upload",
-              ],
-          }
-
-          for filename, names in sync_routes.items():
-              path = Path(filename)
-              text = path.read_text()
-              for name in names:
-                  pattern = re.compile(rf"^(async )?def {re.escape(name)}\(", re.MULTILINE)
-                  matches = list(pattern.finditer(text))
-                  if len(matches) != 1:
-                      raise SystemExit(
-                          f"expected exactly one definition for {name!r} in {filename}; "
-                          f"found {len(matches)}"
-                      )
-                  if matches[0].group(1):
-                      text = pattern.sub(f"def {name}(", text, count=1)
-              path.write_text(text)
+          persistence_modules = (
+              "backend/domain/api/projects_works.py",
+              "backend/domain/api/artifacts_versions.py",
+              "backend/domain/api/evidence.py",
+              "backend/domain/api/workflows_jobs.py",
+              "backend/domain/relation_api.py",
+              "backend/domain/upload_api.py",
+          )
 
           artifacts = Path("backend/domain/api/artifacts_versions.py")
           text = artifacts.read_text()
@@ -101,6 +56,14 @@ jobs:
           elif text.count(sync_read) != 1:
               raise SystemExit("expected one UploadFile read boundary")
           artifacts.write_text(text)
+
+          for filename in persistence_modules:
+              path = Path(filename)
+              text = path.read_text()
+              text = re.sub(r"^async def ", "def ", text, flags=re.MULTILINE)
+              if re.search(r"\bawait\b", text):
+                  raise SystemExit(f"unexpected await remains in persistence-only router {filename}")
+              path.write_text(text)
 
           ask = Path("backend/ask/api.py")
           text = ask.read_text()
@@ -137,7 +100,7 @@ jobs:
           ask.write_text(text)
 
           test = Path("backend/tests/test_api_execution_boundary.py")
-          test.write_text('''"""FastAPI execution-boundary invariants for synchronous persistence clients."""\n\nfrom __future__ import annotations\n\nimport inspect\n\nfrom ask.api import create_ask\nfrom domain.api.artifacts_versions import get_version_resource, upload_artifact\nfrom domain.api.evidence import get_entities, get_insights\nfrom domain.api.projects_works import (\n    create_project,\n    create_work,\n    delete_work,\n    get_project,\n    get_work_bundle,\n    list_projects,\n    list_works,\n)\nfrom domain.api.workflows_jobs import (\n    cancel_job,\n    get_job,\n    retry_job,\n    start_beat_workflow,\n    start_compare_workflow,\n    start_export_workflow,\n    start_palette_workflow,\n    start_score_workflow,\n    start_understand_workflow,\n    start_variation_workflow,\n)\nfrom domain.relation_api import compare_perceptual_spans\nfrom domain.upload_api import create_upload_intent, finalize_upload\n\n\nSYNC_PERSISTENCE_ROUTES = (\n    create_project,\n    list_projects,\n    get_project,\n    create_work,\n    list_works,\n    get_work_bundle,\n    delete_work,\n    upload_artifact,\n    get_version_resource,\n    get_entities,\n    get_insights,\n    start_beat_workflow,\n    start_score_workflow,\n    start_understand_workflow,\n    start_variation_workflow,\n    start_compare_workflow,\n    start_palette_workflow,\n    start_export_workflow,\n    get_job,\n    cancel_job,\n    retry_job,\n    compare_perceptual_spans,\n    create_upload_intent,\n    finalize_upload,\n)\n\n\ndef test_sync_persistence_routes_are_not_coroutines() -> None:\n    async_routes = [\n        route.__name__ for route in SYNC_PERSISTENCE_ROUTES if inspect.iscoroutinefunction(route)\n    ]\n    assert async_routes == []\n\n\ndef test_ask_keeps_real_async_provider_boundary_and_offloads_sync_reads() -> None:\n    assert inspect.iscoroutinefunction(create_ask)\n    assert inspect.getsource(create_ask).count("await run_in_threadpool(") == 2\n''')
+          test.write_text('''"""FastAPI execution-boundary invariants for synchronous persistence clients."""\n\nfrom __future__ import annotations\n\nimport inspect\n\nfrom ask.api import create_ask\nfrom domain.api.artifacts_versions import router as artifacts_versions_router\nfrom domain.api.evidence import router as evidence_router\nfrom domain.api.projects_works import router as projects_works_router\nfrom domain.api.workflows_jobs import router as workflows_jobs_router\nfrom domain.relation_api import router as relation_router\nfrom domain.upload_api import router as upload_router\n\n\nPERSISTENCE_ROUTERS = (\n    projects_works_router,\n    artifacts_versions_router,\n    evidence_router,\n    workflows_jobs_router,\n    relation_router,\n    upload_router,\n)\n\n\ndef test_persistence_router_endpoints_are_sync() -> None:\n    async_endpoints = [\n        route.endpoint.__name__\n        for router in PERSISTENCE_ROUTERS\n        for route in router.routes\n        if inspect.iscoroutinefunction(route.endpoint)\n    ]\n    assert async_endpoints == []\n\n\ndef test_ask_keeps_real_async_provider_boundary_and_offloads_sync_reads() -> None:\n    assert inspect.iscoroutinefunction(create_ask)\n    assert inspect.getsource(create_ask).count("await run_in_threadpool(") == 2\n''')
           PY
 
           uv sync --project backend --locked
