@@ -5,9 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "check-real-stack.sh"
-ISOLATION_LIST_COMMAND = (
-    "git ls-files -z --cached --others --exclude-standard -- supabase"
-)
+ISOLATION_LIST_COMMAND = "git ls-files -z --cached --others --exclude-standard -- supabase"
 
 
 def test_real_stack_isolation_includes_untracked_nonignored_supabase_files(
