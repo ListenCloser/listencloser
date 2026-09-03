@@ -30,13 +30,6 @@ export type RepresentationEntry = {
   versionId?: string;
 };
 
-export type StudioTake = {
-  versionId: string;
-  label: string;
-  parentVersionId: string | null;
-  audioUrl?: string;
-};
-
 export type StudioOperation = {
   state: "idle" | "running" | "success" | "error" | "disconnected";
   label: string;
@@ -71,7 +64,6 @@ type WorkspaceState = {
   askConversation: AskMessage[];
   representations: RepresentationEntry[];
   insights: Insight[];
-  takes: StudioTake[];
   studioAction: { id: number; kind: "variation" | "compare"; versionIds: string[]; semitones?: number } | null;
   studioOperation: StudioOperation;
   activeRepresentation: RepresentationId | null;
@@ -94,7 +86,6 @@ type WorkspaceContextValue = {
   addRepresentation: (rep: RepresentationEntry) => void;
   replaceRepresentations: (reps: RepresentationEntry[]) => void;
   setInsights: (insights: Insight[]) => void;
-  setTakes: (takes: StudioTake[]) => void;
   requestVariation: (versionId: string, semitones: number) => void;
   requestComparison: (versionIdA: string, versionIdB: string) => void;
   setStudioOperation: (operation: StudioOperation) => void;
@@ -160,7 +151,6 @@ export function WorkspaceProvider({
     askConversation: [],
     representations: [],
     insights: [],
-    takes: [],
     studioAction: null,
     studioOperation: { state: "idle", label: "" },
     activeRepresentation: null,
@@ -179,7 +169,6 @@ export function WorkspaceProvider({
         isLoadingWork: Boolean(activeWorkId),
         representations: [],
         insights: [],
-        takes: [],
         studioAction: null,
         studioOperation: { state: "idle", label: "" },
         activeRepresentation: null,
@@ -214,7 +203,6 @@ export function WorkspaceProvider({
   }, []);
 
   const setInsights = useCallback((insights: Insight[]) => setWorkspace((prev) => ({ ...prev, insights })), []);
-  const setTakes = useCallback((takes: StudioTake[]) => setWorkspace((prev) => ({ ...prev, takes })), []);
   const requestVariation = useCallback((versionId: string, semitones: number) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "variation", versionIds: [versionId], semitones } })), []);
   const requestComparison = useCallback((versionIdA: string, versionIdB: string) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "compare", versionIds: [versionIdA, versionIdB] } })), []);
   const setStudioOperation = useCallback((studioOperation: StudioOperation) => setWorkspace((prev) => ({ ...prev, studioOperation })), []);
@@ -244,7 +232,6 @@ export function WorkspaceProvider({
       addRepresentation,
       replaceRepresentations,
       setInsights,
-      setTakes,
       requestVariation,
       requestComparison,
       setStudioOperation,

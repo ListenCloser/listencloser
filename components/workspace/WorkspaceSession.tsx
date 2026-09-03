@@ -47,7 +47,6 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     setInsights,
     setLoadingWork,
     setStudioOperation,
-    setTakes,
     workspace,
   } = useWorkspace();
   const transcriptionProfile = workspace.transcriptionProfile;
@@ -109,7 +108,6 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       replaceRepresentations([]);
       replaceSources([]);
       setInsights([]);
-      setTakes([]);
       setAnalysisState("idle");
     }
 
@@ -147,15 +145,6 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       const score = latestByKind.get("musicxml_score");
       const renderedScore = latestByKind.get("rendered_score");
       const transcriptionMetadata = baseMidi?.latest_version?.metadata ?? midi?.latest_version?.metadata;
-
-      const takeArtifacts = bundle.artifacts.filter((item) =>
-        item.latest_version && item.signed_url && ["midi_performance", "midi_corrected"].includes(item.artifact.kind),
-      );
-      setTakes(takeArtifacts.flatMap((item) => item.latest_version ? [{
-        versionId: item.latest_version.id,
-        label: item.artifact.kind === "midi_performance" ? "Transcription" : item.latest_version.label || "Derived take",
-        parentVersionId: item.latest_version.parent_version_id,
-      }] : []));
 
       const renderedArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && item.artifact.kind === "audio_rendered",
@@ -377,7 +366,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     } finally {
       if (isCurrentLoad()) setLoadingWork(false);
     }
-  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTakes, setTimeSignature]);
+  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, setAnalysisState, setBpm, setInsights, setLoadingWork, setTimeSignature]);
 
   useEffect(() => () => {
     clearProcessingRefresh();
