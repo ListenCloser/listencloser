@@ -1,0 +1,145 @@
+name: Backend Image Characterization
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-image-characterization-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trivy:
+    name: Trivy characterize (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build exact production backend image shape
+        run: docker build --tag listencloser-backend:${{ matrix.arch }} backend
+      - name: Start scan timer
+        id: scan-start
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - name: Characterize final image with Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: listencloser-backend:${{ matrix.arch }}
+          format: json
+          output: trivy-${{ matrix.arch }}.json
+          exit-code: "0"
+          ignore-unfixed: "false"
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          list-all-pkgs: "true"
+          scanners: vuln
+          version: v0.70.0
+      - name: Summarize characterization
+        env:
+          ARCH: ${{ matrix.arch }}
+          SCAN_STARTED_AT: ${{ steps.scan-start.outputs.epoch }}
+        run: |
+          set -euo pipefail
+          mkdir -p security-results
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import time
+          from collections import Counter
+          from pathlib import Path
+
+          arch = os.environ["ARCH"]
+          report_path = Path(f"trivy-{arch}.json")
+          report = json.loads(report_path.read_text())
+          results = report.get("Results") or []
+          vulnerabilities = [
+              vuln
+              for result in results
+              for vuln in (result.get("Vulnerabilities") or [])
+          ]
+          severities = ("UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL")
+          severity_counts = Counter(
+              (vuln.get("Severity") or "UNKNOWN").upper() for vuln in vulnerabilities
+          )
+          fixable = [vuln for vuln in vulnerabilities if vuln.get("FixedVersion")]
+          fixable_counts = Counter(
+              (vuln.get("Severity") or "UNKNOWN").upper() for vuln in fixable
+          )
+          package_records = sum(len(result.get("Packages") or []) for result in results)
+          package_types = {
+              result.get("Type") or "unknown": len(result.get("Packages") or [])
+              for result in results
+              if result.get("Packages")
+          }
+          metadata = report.get("Metadata") or {}
+          os_metadata = metadata.get("OS") or {}
+          image_size = int(
+              subprocess.check_output(
+                  [
+                      "docker",
+                      "image",
+                      "inspect",
+                      f"listencloser-backend:{arch}",
+                      "--format",
+                      "{{.Size}}",
+                  ],
+                  text=True,
+              ).strip()
+          )
+          summary = {
+              "schema_version": 1,
+              "characterization_only": True,
+              "arch": arch,
+              "scanner": {"name": "trivy", "version": "v0.70.0"},
+              "image_size_bytes": image_size,
+              "scan_wall_seconds": max(0, int(time.time()) - int(os.environ["SCAN_STARTED_AT"])),
+              "os": {
+                  "family": os_metadata.get("Family"),
+                  "name": os_metadata.get("Name"),
+              },
+              "package_inventory": {
+                  "records": package_records,
+                  "records_by_type": package_types,
+              },
+              "vulnerabilities": {
+                  "total": len(vulnerabilities),
+                  "fixable": len(fixable),
+                  "unfixed": len(vulnerabilities) - len(fixable),
+                  "by_severity": {severity: severity_counts[severity] for severity in severities},
+                  "fixable_by_severity": {
+                      severity: fixable_counts[severity] for severity in severities
+                  },
+              },
+              "targets": [
+                  {
+                      "target": result.get("Target"),
+                      "class": result.get("Class"),
+                      "type": result.get("Type"),
+                      "packages": len(result.get("Packages") or []),
+                      "vulnerabilities": len(result.get("Vulnerabilities") or []),
+                  }
+                  for result in results
+              ],
+          }
+          output = json.dumps(summary, indent=2, sort_keys=True) + "\n"
+          Path(f"security-results/backend-image-{arch}.json").write_text(output)
+          print(output, end="")
+          PY
+          mv "trivy-${ARCH}.json" security-results/
+      - name: Upload short-lived characterization evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-image-security-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: security-results/
+          if-no-files-found: error
+          retention-days: 7
