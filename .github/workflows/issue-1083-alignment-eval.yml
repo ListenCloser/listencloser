@@ -1,0 +1,63 @@
+name: issue-1083-alignment-eval
+
+on:
+  push:
+    branches:
+      - issue-1083-score-performance-alignment
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Record baseline environment size
+        run: |
+          set -euxo pipefail
+          python -VV
+          SITE=$(python -c 'import site; print(site.getsitepackages()[0])')
+          du -sk "$SITE" | tee /tmp/site-before.txt
+      - name: Install production-compatible base alignment stack
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            'numpy>=1.26.4,<2.0.0' \
+            'scipy>=1.12.0' \
+            'music21>=9.1.0' \
+            'pretty-midi>=0.2.10' \
+            'partitura==1.9.0' \
+            'parangonar==3.3.3'
+          python -m pip check
+          python -m pip freeze | sort | tee /tmp/alignment-freeze.txt
+          SITE=$(python -c 'import site; print(site.getsitepackages()[0])')
+          du -sk "$SITE" | tee /tmp/site-after.txt
+          BEFORE=$(cut -f1 /tmp/site-before.txt)
+          AFTER=$(cut -f1 /tmp/site-after.txt)
+          printf 'site_packages_delta_kib=%s\n' "$((AFTER-BEFORE))" | tee /tmp/install-delta.txt
+      - name: Run real symbolic alignment evaluation
+        run: |
+          set -euxo pipefail
+          /usr/bin/time -v -o /tmp/alignment-time.txt \
+            python scripts/evaluate_score_performance_alignment.py \
+            | tee /tmp/alignment-report.json
+          cat /tmp/alignment-time.txt
+          cat /tmp/install-delta.txt
+      - name: Upload reproducibility artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-1083-alignment-eval
+          path: |
+            /tmp/alignment-report.json
+            /tmp/alignment-time.txt
+            /tmp/install-delta.txt
+            /tmp/alignment-freeze.txt
