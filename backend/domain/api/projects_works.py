@@ -150,7 +150,7 @@ def get_work_bundle(
             )
         return {"work": snapshot.work, "artifacts": items, "jobs": snapshot.jobs}
     except PermissionError as error:
-        raise HTTPException(status_code=403, detail=str(error)) from error
+        raise HTTPException(status_code=404, detail="Work not found") from error
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
@@ -207,6 +207,6 @@ def delete_work(
 
         return {"deleted": str(work_id)}
     except PermissionError as error:
-        raise HTTPException(status_code=403, detail=str(error)) from error
+        raise HTTPException(status_code=404, detail="Work not found") from error
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
