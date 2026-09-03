@@ -1,0 +1,167 @@
+name: Apply PR 1070 execution boundary
+
+on:
+  push:
+    branches:
+      - backend/1070-sync-route-boundary
+    paths:
+      - .github/workflows/repair-1070-sync-boundary.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: backend/1070-sync-route-boundary
+          fetch-depth: 1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: .python-version
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: 0.12.6
+
+      - name: Apply explicit sync/async route boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          sync_routes = {
+              "backend/domain/api/projects_works.py": [
+                  "create_project",
+                  "list_projects",
+                  "get_project",
+                  "create_work",
+                  "list_works",
+                  "get_work_bundle",
+                  "delete_work",
+              ],
+              "backend/domain/api/artifacts_versions.py": [
+                  "upload_artifact",
+                  "get_version_resource",
+              ],
+              "backend/domain/api/evidence.py": [
+                  "get_entities",
+                  "get_insights",
+              ],
+              "backend/domain/api/workflows_jobs.py": [
+                  "start_beat_workflow",
+                  "start_score_workflow",
+                  "start_understand_workflow",
+                  "start_variation_workflow",
+                  "start_compare_workflow",
+                  "start_palette_workflow",
+                  "start_export_workflow",
+                  "get_job",
+                  "cancel_job",
+                  "retry_job",
+              ],
+              "backend/domain/relation_api.py": [
+                  "compare_perceptual_spans",
+              ],
+              "backend/domain/upload_api.py": [
+                  "create_upload_intent",
+                  "finalize_upload",
+              ],
+          }
+
+          for filename, names in sync_routes.items():
+              path = Path(filename)
+              text = path.read_text()
+              for name in names:
+                  old = f"async def {name}("
+                  new = f"def {name}("
+                  if text.count(old) != 1:
+                      raise SystemExit(f"expected exactly one {old!r} in {filename}")
+                  text = text.replace(old, new)
+              path.write_text(text)
+
+          artifacts = Path("backend/domain/api/artifacts_versions.py")
+          text = artifacts.read_text()
+          old = "raw = await file.read(max_upload_bytes + 1)"
+          new = "raw = file.file.read(max_upload_bytes + 1)"
+          if text.count(old) != 1:
+              raise SystemExit("expected one UploadFile async read")
+          artifacts.write_text(text.replace(old, new))
+
+          ask = Path("backend/ask/api.py")
+          text = ask.read_text()
+          import_anchor = "from fastapi import APIRouter, Depends, HTTPException, Request\n"
+          import_replacement = (
+              import_anchor + "from starlette.concurrency import run_in_threadpool\n"
+          )
+          if text.count(import_anchor) != 1:
+              raise SystemExit("unexpected Ask import shape")
+          text = text.replace(import_anchor, import_replacement)
+
+          work_lookup = "work = WorkRepo(sb).get(body.context.workId, owner_id)"
+          work_offload = (
+              "work = await run_in_threadpool("
+              "WorkRepo(sb).get, body.context.workId, owner_id)"
+          )
+          if text.count(work_lookup) != 1:
+              raise SystemExit("unexpected Ask Work lookup shape")
+          text = text.replace(work_lookup, work_offload)
+
+          context_lookup = "canonical_context = load_canonical_ask_context(sb, body.context)"
+          context_offload = (
+              "canonical_context = await run_in_threadpool("
+              "load_canonical_ask_context, sb, body.context)"
+          )
+          if text.count(context_lookup) != 1:
+              raise SystemExit("unexpected Ask evidence lookup shape")
+          ask.write_text(text.replace(context_lookup, context_offload))
+
+          test = Path("backend/tests/test_api_execution_boundary.py")
+          test.write_text('''"""FastAPI execution-boundary invariants for synchronous persistence clients."""\n\nfrom __future__ import annotations\n\nimport inspect\n\nfrom ask.api import create_ask\nfrom domain.api.artifacts_versions import get_version_resource, upload_artifact\nfrom domain.api.evidence import get_entities, get_insights\nfrom domain.api.projects_works import (\n    create_project,\n    create_work,\n    delete_work,\n    get_project,\n    get_work_bundle,\n    list_projects,\n    list_works,\n)\nfrom domain.api.workflows_jobs import (\n    cancel_job,\n    get_job,\n    retry_job,\n    start_beat_workflow,\n    start_compare_workflow,\n    start_export_workflow,\n    start_palette_workflow,\n    start_score_workflow,\n    start_understand_workflow,\n    start_variation_workflow,\n)\nfrom domain.relation_api import compare_perceptual_spans\nfrom domain.upload_api import create_upload_intent, finalize_upload\n\n\nSYNC_PERSISTENCE_ROUTES = (\n    create_project,\n    list_projects,\n    get_project,\n    create_work,\n    list_works,\n    get_work_bundle,\n    delete_work,\n    upload_artifact,\n    get_version_resource,\n    get_entities,\n    get_insights,\n    start_beat_workflow,\n    start_score_workflow,\n    start_understand_workflow,\n    start_variation_workflow,\n    start_compare_workflow,\n    start_palette_workflow,\n    start_export_workflow,\n    get_job,\n    cancel_job,\n    retry_job,\n    compare_perceptual_spans,\n    create_upload_intent,\n    finalize_upload,\n)\n\n\ndef test_sync_persistence_routes_are_not_coroutines() -> None:\n    async_routes = [route.__name__ for route in SYNC_PERSISTENCE_ROUTES if inspect.iscoroutinefunction(route)]\n    assert async_routes == []\n\n\ndef test_ask_keeps_real_async_provider_boundary() -> None:\n    assert inspect.iscoroutinefunction(create_ask)\n''')
+          PY
+
+          uv sync --project backend --locked
+          (
+            cd backend
+            uv run ruff format \
+              ask/api.py \
+              domain/api/projects_works.py \
+              domain/api/artifacts_versions.py \
+              domain/api/evidence.py \
+              domain/api/workflows_jobs.py \
+              domain/relation_api.py \
+              domain/upload_api.py \
+              tests/test_api_execution_boundary.py
+            uv run ruff check \
+              ask/api.py \
+              domain/api/projects_works.py \
+              domain/api/artifacts_versions.py \
+              domain/api/evidence.py \
+              domain/api/workflows_jobs.py \
+              domain/relation_api.py \
+              domain/upload_api.py \
+              tests/test_api_execution_boundary.py
+            uv run pytest -q tests/test_api_execution_boundary.py
+          )
+
+          rm .github/workflows/repair-1070-sync-boundary.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            backend/ask/api.py \
+            backend/domain/api/projects_works.py \
+            backend/domain/api/artifacts_versions.py \
+            backend/domain/api/evidence.py \
+            backend/domain/api/workflows_jobs.py \
+            backend/domain/relation_api.py \
+            backend/domain/upload_api.py \
+            backend/tests/test_api_execution_boundary.py \
+            .github/workflows/repair-1070-sync-boundary.yml
+          git commit -m "fix(api): make persistence execution boundary explicit"
+          git push origin HEAD:backend/1070-sync-route-boundary
