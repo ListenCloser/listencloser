@@ -23,16 +23,13 @@ def _legacy_rows(
     work_id = uuid4()
     artifact_id = uuid4()
     storage_key = "transcriptions/private-take.mid"
+    actual_sha256 = hashlib.sha256(content).hexdigest()
     version = Version(
         artifact_id=artifact_id,
         storage_key=storage_key,
         storage_bucket="artifacts",
         byte_size=len(content) if stored_byte_size is None else stored_byte_size,
-        sha256=(
-            hashlib.sha256(content).hexdigest()
-            if stored_sha256 is None
-            else stored_sha256
-        ),
+        sha256=actual_sha256 if stored_sha256 is None else stored_sha256,
         created_by=owner_id,
         created_at=datetime.now(UTC),
     ).model_dump(mode="json")
@@ -82,6 +79,7 @@ def test_selected_probe_reports_exact_byte_integrity_without_locator_leakage():
     content = b"legacy-midi-bytes"
     rows, version, owner_id, storage_key = _legacy_rows(content=content)
     client = _Client({("artifacts", storage_key): content})
+    expected_sha256 = hashlib.sha256(content).hexdigest()
 
     probes = probe_selected_storage(client, rows, [version["id"]])
 
@@ -94,9 +92,9 @@ def test_selected_probe_reports_exact_byte_integrity_without_locator_leakage():
             "storage_key_sha256": hashlib.sha256(storage_key.encode()).hexdigest(),
             "object_exists": True,
             "actual_byte_size": len(content),
-            "actual_sha256": hashlib.sha256(content).hexdigest(),
+            "actual_sha256": expected_sha256,
             "stored_byte_size": len(content),
-            "stored_sha256": hashlib.sha256(content).hexdigest(),
+            "stored_sha256": expected_sha256,
             "byte_size_matches": True,
             "sha256_matches": True,
         }
@@ -180,17 +178,14 @@ def test_selected_probe_rejects_already_trusted_version():
 
 def test_selected_probe_requires_explicit_version_selection():
     client = _Client({})
+    empty_rows = AuditRows(
+        projects=[],
+        works=[],
+        artifacts=[],
+        versions=[],
+        workflows=[],
+        jobs=[],
+    )
 
     with pytest.raises(ValueError, match="at least one Version"):
-        probe_selected_storage(
-            client,
-            AuditRows(
-                projects=[],
-                works=[],
-                artifacts=[],
-                versions=[],
-                workflows=[],
-                jobs=[],
-            ),
-            [],
-        )
+        probe_selected_storage(client, empty_rows, [])
