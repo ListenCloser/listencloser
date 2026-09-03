@@ -59,8 +59,7 @@ jobs:
 
           for filename in persistence_modules:
               path = Path(filename)
-              text = path.read_text()
-              text = re.sub(r"^async def ", "def ", text, flags=re.MULTILINE)
+              text = re.sub(r"^async def ", "def ", path.read_text(), flags=re.MULTILINE)
               if re.search(r"\bawait\b", text):
                   raise SystemExit(f"unexpected await remains in persistence-only router {filename}")
               path.write_text(text)
@@ -99,36 +98,32 @@ jobs:
               raise SystemExit("expected one Ask evidence threadpool boundary")
           ask.write_text(text)
 
-          test = Path("backend/tests/test_api_execution_boundary.py")
-          test.write_text('''"""FastAPI execution-boundary invariants for synchronous persistence clients."""\n\nfrom __future__ import annotations\n\nimport inspect\n\nfrom ask.api import create_ask\nfrom domain.api.artifacts_versions import router as artifacts_versions_router\nfrom domain.api.evidence import router as evidence_router\nfrom domain.api.projects_works import router as projects_works_router\nfrom domain.api.workflows_jobs import router as workflows_jobs_router\nfrom domain.relation_api import router as relation_router\nfrom domain.upload_api import router as upload_router\n\n\nPERSISTENCE_ROUTERS = (\n    projects_works_router,\n    artifacts_versions_router,\n    evidence_router,\n    workflows_jobs_router,\n    relation_router,\n    upload_router,\n)\n\n\ndef test_persistence_router_endpoints_are_sync() -> None:\n    async_endpoints = [\n        route.endpoint.__name__\n        for router in PERSISTENCE_ROUTERS\n        for route in router.routes\n        if inspect.iscoroutinefunction(route.endpoint)\n    ]\n    assert async_endpoints == []\n\n\ndef test_ask_keeps_real_async_provider_boundary_and_offloads_sync_reads() -> None:\n    assert inspect.iscoroutinefunction(create_ask)\n    assert inspect.getsource(create_ask).count("await run_in_threadpool(") == 2\n''')
+          Path("backend/tests/test_api_execution_boundary.py").write_text(
+              '''"""FastAPI execution-boundary invariants for synchronous persistence clients."""\n\nfrom __future__ import annotations\n\nimport importlib\nimport inspect\n\nfrom ask.api import create_ask\n\nPERSISTENCE_MODULES = (\n    "domain.api.projects_works",\n    "domain.api.artifacts_versions",\n    "domain.api.evidence",\n    "domain.api.workflows_jobs",\n    "domain.relation_api",\n    "domain.upload_api",\n)\n\n\ndef test_persistence_router_endpoints_are_sync() -> None:\n    async_endpoints = []\n    for module_name in PERSISTENCE_MODULES:\n        router = importlib.import_module(module_name).router\n        async_endpoints.extend(\n            route.endpoint.__name__\n            for route in router.routes\n            if inspect.iscoroutinefunction(route.endpoint)\n        )\n    assert async_endpoints == []\n\n\ndef test_ask_keeps_real_async_provider_boundary_and_offloads_sync_reads() -> None:\n    assert inspect.iscoroutinefunction(create_ask)\n    assert inspect.getsource(create_ask).count("await run_in_threadpool(") == 2\n'''
+          )
           PY
 
           uv sync --project backend --locked
           (
             cd backend
-            uv run ruff format \
-              ask/api.py \
-              domain/api/projects_works.py \
-              domain/api/artifacts_versions.py \
-              domain/api/evidence.py \
-              domain/api/workflows_jobs.py \
-              domain/relation_api.py \
-              domain/upload_api.py \
+            files=(
+              ask/api.py
+              domain/api/projects_works.py
+              domain/api/artifacts_versions.py
+              domain/api/evidence.py
+              domain/api/workflows_jobs.py
+              domain/relation_api.py
+              domain/upload_api.py
               tests/test_api_execution_boundary.py
-            uv run ruff check \
-              ask/api.py \
-              domain/api/projects_works.py \
-              domain/api/artifacts_versions.py \
-              domain/api/evidence.py \
-              domain/api/workflows_jobs.py \
-              domain/relation_api.py \
-              domain/upload_api.py \
-              tests/test_api_execution_boundary.py
+            )
+            uv run ruff check --fix "${files[@]}"
+            uv run ruff format "${files[@]}"
+            uv run ruff check "${files[@]}"
+            uv run ruff format --check "${files[@]}"
             uv run pytest -q tests/test_api_execution_boundary.py
           )
 
           rm .github/workflows/repair-1070-sync-boundary.yml
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
