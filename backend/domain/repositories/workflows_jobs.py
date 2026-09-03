@@ -4,7 +4,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from supabase import Client
 
 from domain.models import Capability, Job, JobLifecycle, JobStage, Workflow
-from domain.repositories._base import _Repo, _first
+from domain.repositories._base import _first, _Repo
 from observability import capture_job_trace_provenance
 
 
@@ -207,7 +207,12 @@ class JobRepo(_Repo):
         return self._row_to_job(updated.data[0])
 
     def _verify_workflow_owner(self, workflow_id: UUID, owner_id: str) -> None:
-        wf = self.client.table("workflows").select("project_id").eq("id", str(workflow_id)).execute()
+        wf = (
+            self.client.table("workflows")
+            .select("project_id")
+            .eq("id", str(workflow_id))
+            .execute()
+        )
         if not wf.data:
             raise ValueError("workflow not found")
         proj = (
