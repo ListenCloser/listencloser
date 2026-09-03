@@ -3,7 +3,7 @@ from uuid import UUID
 from supabase import Client
 
 from domain.models import Artifact, Version
-from domain.repositories._base import _Repo, _first
+from domain.repositories._base import _first, _Repo
 
 
 class ArtifactRepo(_Repo):
