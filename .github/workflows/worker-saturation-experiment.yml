@@ -1,0 +1,85 @@
+name: Worker saturation experiment
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/worker-saturation-experiment.yml"
+      - "backend/evaluation/worker_saturation_benchmark.py"
+      - "backend/evaluation/worker_saturation_seed.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-saturation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  saturation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.113.0
+
+      - name: Start fresh local Supabase with PGMQ migrations
+        run: supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      - name: Export Supabase environment
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
+          SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
+          {
+            echo "SUPABASE_URL=$SUPABASE_URL"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Resolve production harmony routing
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import re
+          from pathlib import Path
+
+          compose = Path("backend/docker-compose.yml").read_text()
+          values = re.findall(
+              r"^\s+HARMONY_ENGINE:\s*([A-Za-z0-9_.-]+)\s*$",
+              compose,
+              flags=re.MULTILINE,
+          )
+          if len(values) != 2 or len(set(values)) != 1:
+              raise SystemExit(f"production Compose HARMONY_ENGINE mismatch: {values}")
+          print(f"HARMONY_ENGINE={values[0]}")
+          PY
+
+      - name: Build production worker image
+        run: docker build --tag listencloser-worker-saturation backend
+
+      - name: Measure concurrency 1 / 2 / 4
+        run: |
+          set -euo pipefail
+          mkdir -p performance-results
+          python3 backend/evaluation/worker_saturation_benchmark.py \
+            --image listencloser-worker-saturation \
+            --fixture tests/fixtures/real-piano.m4a \
+            --jobs-per-point 6 \
+            --concurrency 1 2 4 \
+            --output performance-results/worker-saturation.json
+
+      - name: Upload saturation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: worker-saturation-${{ github.run_attempt }}
+          path: performance-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
