@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
+
 from auth_utils import verify_token
 from domain.api import projects_works
 from domain.models import Artifact, ArtifactKind, Version, Work
@@ -9,27 +11,32 @@ from main import app
 
 
 class FakeBucket:
-    def __init__(self, events: list[tuple[str, object]]):
+    def __init__(self, events: list[tuple[str, object]], *, fail_remove: bool):
         self.events = events
+        self.fail_remove = fail_remove
 
     def remove(self, paths):
         self.events.append(("storage.remove", paths))
+        if self.fail_remove:
+            raise RuntimeError("storage unavailable")
 
 
 class FakeStorage:
-    def __init__(self, events: list[tuple[str, object]]):
+    def __init__(self, events: list[tuple[str, object]], *, fail_remove: bool):
         self.events = events
+        self.fail_remove = fail_remove
 
     def from_(self, _bucket):
-        return FakeBucket(self.events)
+        return FakeBucket(self.events, fail_remove=self.fail_remove)
 
 
 class FakeClient:
-    def __init__(self, events: list[tuple[str, object]]):
-        self.storage = FakeStorage(events)
+    def __init__(self, events: list[tuple[str, object]], *, fail_remove: bool):
+        self.storage = FakeStorage(events, fail_remove=fail_remove)
 
 
-def test_delete_work_is_durable_before_storage_cleanup(client, monkeypatch):
+@pytest.mark.parametrize("fail_remove", [False, True])
+def test_delete_work_is_durable_before_storage_cleanup(client, monkeypatch, fail_remove):
     events: list[tuple[str, object]] = []
     project_id = uuid4()
     work = Work(project_id=project_id, title="Delete me")
@@ -74,7 +81,7 @@ def test_delete_work_is_durable_before_storage_cleanup(client, monkeypatch):
         def list_by_artifact(self, _artifact_id, _owner_id):
             return [version]
 
-    fake_client = FakeClient(events)
+    fake_client = FakeClient(events, fail_remove=fail_remove)
     auth = SimpleNamespace(user=SimpleNamespace(id="alice"))
 
     monkeypatch.setitem(app.dependency_overrides, verify_token, lambda: auth)
