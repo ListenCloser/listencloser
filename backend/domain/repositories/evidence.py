@@ -49,10 +49,7 @@ class EntityRepo(_Repo):
     def list_by_version(self, version_id: UUID, owner_id: str) -> list[Entity]:
         self._verify_version_owner(version_id, owner_id)
         result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("version_id", str(version_id))
-            .execute()
+            self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
         )
         return [self._row_to_entity(r) for r in result.data]
 
@@ -194,10 +191,7 @@ class InsightRepo(_Repo):
     def list_by_version(self, version_id: UUID, owner_id: str) -> list[Insight]:
         self._verify_version_owner(version_id, owner_id)
         result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("version_id", str(version_id))
-            .execute()
+            self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
         )
         return [Insight.model_validate(r) for r in result.data]
 
@@ -259,19 +253,13 @@ class AlignmentRepo(_Repo):
     def list_by_version(self, version_id: UUID, owner_id: str) -> list[Alignment]:
         self._verify_version_owner(version_id, owner_id)
         result = (
-            self.client.table(self.table)
-            .select("*")
-            .eq("version_id", str(version_id))
-            .execute()
+            self.client.table(self.table).select("*").eq("version_id", str(version_id)).execute()
         )
         return [Alignment.model_validate(r) for r in result.data]
 
     def delete(self, alignment_id: UUID, owner_id: str) -> None:
         al = (
-            self.client.table(self.table)
-            .select("version_id")
-            .eq("id", str(alignment_id))
-            .execute()
+            self.client.table(self.table).select("version_id").eq("id", str(alignment_id)).execute()
         )
         if not al.data:
             raise ValueError("alignment not found")
