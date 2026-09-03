@@ -47,9 +47,7 @@ def _foreign_version_client():
                 "projects": [{"id": str(project_id), "owner_id": "bob"}],
                 "works": [{"id": str(work_id), "project_id": str(project_id)}],
                 "artifacts": [{"id": str(artifact_id), "work_id": str(work_id)}],
-                "artifact_versions": [
-                    {"id": str(version_id), "artifact_id": str(artifact_id)}
-                ],
+                "artifact_versions": [{"id": str(version_id), "artifact_id": str(artifact_id)}],
             }
         ),
         version_id,
