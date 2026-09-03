@@ -146,6 +146,48 @@ test.describe("workspace ergonomics (MSW)", () => {
     expect(box!.height).toBeGreaterThanOrEqual(320);
   });
 
+  test("keeps the Piano Roll note layer continuous through workspace interaction", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /^Test Work\\b/ })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("tab", { name: "Piano Roll" }).click();
+
+    const pianoRoll = page.getByTestId("piano-roll");
+    const staticNotes = pianoRoll.locator('[data-piano-roll-layer="static-notes"]');
+    await expect(staticNotes).toBeVisible({ timeout: 20_000 });
+
+    // An expando survives only while this exact DOM node remains mounted. This
+    // observes the user-visible continuity boundary without coupling the test
+    // to React render counts or implementation-specific memoization.
+    await staticNotes.evaluate((node) => {
+      (node as SVGElement & { __continuityProbe?: string }).__continuityProbe = "original-static-layer";
+    });
+
+    const play = page.getByRole("button", { name: "Play Original", exact: true });
+    await play.click();
+    await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible();
+    await expect(pianoRoll.locator('[data-playhead="true"]')).toBeVisible({ timeout: 10_000 });
+
+    const svg = pianoRoll.locator("svg");
+    const box = await svg.boundingBox();
+    if (!box) throw new Error("piano roll SVG not found");
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.45, box.y + box.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await expect(pianoRoll.locator('[data-selection-range="true"]')).toBeVisible();
+
+    await page.locator("aside.inspector").getByRole("tab", { name: "Ask" }).click();
+    await expect(staticNotes).toHaveJSProperty("__continuityProbe", "original-static-layer");
+
+    await page.getByRole("tab", { name: "Waveform" }).click();
+    await expect(pianoRoll).toBeHidden();
+    await expect(staticNotes).toHaveJSProperty("__continuityProbe", "original-static-layer");
+
+    await page.getByRole("tab", { name: "Piano Roll" }).click();
+    await expect(pianoRoll).toBeVisible();
+    await expect(staticNotes).toHaveJSProperty("__continuityProbe", "original-static-layer");
+    await expect(pianoRoll.locator('[data-selection-range="true"]')).toBeVisible();
+  });
+
   test("waveform ruler has sparse timestamps", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Waveform" })).toBeVisible();
