@@ -14,6 +14,10 @@ def test_signed_url_preserves_provider_origin_without_public_override(monkeypatc
 
 def test_signed_url_uses_browser_visible_supabase_origin(monkeypatch):
     monkeypatch.setenv("SUPABASE_PUBLIC_URL", "http://127.0.0.1:54321")
+    expected = (
+        "http://127.0.0.1:54321/"
+        "storage/v1/object/sign/artifacts/file.musicxml?token=abc"
+    )
 
     assert signed_url(
         {
@@ -22,7 +26,7 @@ def test_signed_url_uses_browser_visible_supabase_origin(monkeypatch):
                 "storage/v1/object/sign/artifacts/file.musicxml?token=abc"
             ),
         }
-    ) == "http://127.0.0.1:54321/" "storage/v1/object/sign/artifacts/file.musicxml?token=abc"
+    ) == expected
 
 
 def test_signed_url_rejects_invalid_public_origin(monkeypatch):
