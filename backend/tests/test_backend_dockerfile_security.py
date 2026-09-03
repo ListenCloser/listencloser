@@ -19,7 +19,9 @@ def test_pm2s_checkpoints_are_content_verified_when_downloaded() -> None:
         "FROM python:3.11-slim AS musescore", 1
     )[0]
 
-    pinned_checkpoints = dict(re.findall(r'\"([^\":]+\.pth):([0-9a-f]{64})\"', pm2s_stage))
+    pinned_checkpoints = dict(
+        re.findall(r'\"([^\":]+\.pth):([0-9a-f]{64})\"', pm2s_stage)
+    )
 
     assert pinned_checkpoints == EXPECTED_PM2S_CHECKPOINTS
     assert (
