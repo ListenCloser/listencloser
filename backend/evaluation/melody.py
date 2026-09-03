@@ -97,8 +97,7 @@ def load_pop909_test_manifest(path: str | Path) -> MelodySplitManifest:
         raise ValueError("melody split manifest must contain exact song_ids; seed-only is invalid")
     if len(raw_song_ids) != _POP909_TEST_COUNT:
         raise ValueError(
-            "POP909 historical test manifest must contain exactly "
-            f"{_POP909_TEST_COUNT} song_ids"
+            "POP909 historical test manifest must contain exactly " f"{_POP909_TEST_COUNT} song_ids"
         )
 
     song_ids = tuple(str(song_id) for song_id in raw_song_ids)
@@ -107,8 +106,7 @@ def load_pop909_test_manifest(path: str | Path) -> MelodySplitManifest:
     invalid_ids = [song_id for song_id in song_ids if not _SONG_ID_RE.fullmatch(song_id)]
     if invalid_ids:
         raise ValueError(
-            "POP909 song_ids must be zero-padded three-digit strings: "
-            f"{invalid_ids!r}"
+            "POP909 song_ids must be zero-padded three-digit strings: " f"{invalid_ids!r}"
         )
 
     source = payload.get("source")
@@ -196,14 +194,10 @@ def aggregate_song_results(results: Sequence[MelodySongResult]) -> MelodyAggrega
     f1s = [result.metrics.f1 if result.metrics else 0.0 for result in results]
 
     reference_positive = sum(
-        result.metrics.reference_positive
-        for result in results
-        if result.metrics is not None
+        result.metrics.reference_positive for result in results if result.metrics is not None
     )
     predicted_positive = sum(
-        result.metrics.predicted_positive
-        for result in results
-        if result.metrics is not None
+        result.metrics.predicted_positive for result in results if result.metrics is not None
     )
 
     return MelodyAggregate(
