@@ -162,7 +162,7 @@ def delete_work(
     request: Request,
     auth=Depends(verify_token),
 ):
-    """Delete a work durably, then best-effort clean its storage objects."""
+    """Delete a work and its artifacts, versions, and storage objects."""
     sb = supabase_client()
     owner = owner_id(auth)
     try:
