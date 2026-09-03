@@ -138,18 +138,6 @@ def _m21_roman_numerals(score, detected_key) -> list[dict[str, Any]]:
     return results
 
 
-def _m21_cadences(_score, _detected_key) -> list[dict[str, Any]]:
-    """Return no cadence claims until a validated detector is production-ready.
-
-    The previous implementation matched adjacent Roman-numeral pairs such as
-    V-I and IV-I. Those progressions are not sufficient evidence of phrase
-    closure, so emitting them as cadence candidates overstated what the input
-    established. Keep the capability explicitly abstaining until a legitimate
-    cadence evaluation clears the repository's promotion gates.
-    """
-    return []
-
-
 def _m21_voice_leading(score):
     """Voice-leading analysis, only when separated voices exist.
 
@@ -306,7 +294,7 @@ class Music21HarmonyEngine(HarmonyEngine):
             key=key_result,
             chords=_m21_chords(score),
             roman_numerals=_m21_roman_numerals(score, detected_key),
-            cadences=_m21_cadences(score, detected_key),
+            cadences=[],
             voice_leading=_m21_voice_leading(score),
             phrases=_m21_phrases(score),
             provenance=self.provenance,
