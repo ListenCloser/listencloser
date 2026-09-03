@@ -53,16 +53,11 @@ Avoid:
 - productionizing from objective model quality without downstream product-value evidence;
 - treating a green harness CI run as a benchmark result.
 
-## Highest-leverage current sequence
+## Portfolio boundary
 
-Assuming the existing agents keep their current lanes, the repository should favor conversion of evidence into decisions/product value in roughly this order:
+This ledger does not order product or repository work. [`product/ROADMAP.md`](product/ROADMAP.md) owns current product portfolio posture and sequencing.
 
-1. **Treat #800 as shipped and finish the bounded MuseScore rollback window; then delete the superseded custom notation path.** Do not reopen the notation bakeoff first.
-2. **Treat Beat This as promoted and move downstream.** Only run the independent pulse-generalization gate when a broader claim or concrete failure requires it; do not reopen beat infrastructure by default.
-3. **Run the merged #516 Structure harness instead of extending it** so Structure finally has candidate data.
-4. **Treat #530/#562 as shipped and #531/#589/#604 as useful negative evidence. Complete #585 next** and rerun the canonical Import → usable/terminal path with production `lv_chordia` routing before spending another performance PR on engine micro-optimization.
-5. **Carry the already-promoted perceptual/relation substrate into the product** rather than widening the evidence catalog.
-6. Treat source separation, generic embeddings, and persistent MR-MT3 CPU reuse as **closed-for-now research decisions** until a concrete product capability or materially different execution topology creates a new decision question.
+The `Next result that can change the decision` column is the evaluation-owned forward guidance: it names the result or reopening evidence that could change that row's current conclusion. It does not create a second cross-product priority order.
 
 ## Maintenance
 
