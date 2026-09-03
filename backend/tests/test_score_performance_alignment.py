@@ -4,16 +4,15 @@ from uuid import uuid4
 
 import pytest
 
-from domain.score_performance_alignment import (
-    AlignmentInputRole,
-    AlignmentInputVersion,
-    AlignmentProjectionPrecision,
-    AlignmentRelationKind,
-    AlignmentSufficiency,
-    AlignmentSufficiencyPolicy,
-    normalize_parangonar_alignment,
-)
+from domain import score_performance_alignment as alignment
 
+AlignmentInputRole = alignment.AlignmentInputRole
+AlignmentInputVersion = alignment.AlignmentInputVersion
+AlignmentProjectionPrecision = alignment.AlignmentProjectionPrecision
+AlignmentRelationKind = alignment.AlignmentRelationKind
+AlignmentSufficiency = alignment.AlignmentSufficiency
+AlignmentSufficiencyPolicy = alignment.AlignmentSufficiencyPolicy
+normalize_parangonar_alignment = alignment.normalize_parangonar_alignment
 
 POLICY = AlignmentSufficiencyPolicy(
     minimum_score_fraction=0.8,
@@ -56,24 +55,26 @@ def _normalize(
 
 
 def test_normalizes_simple_one_to_one_with_timing_and_exact_versions():
-    alignment = _normalize([{"label": "match", "score_id": "s1", "performance_id": "p1"}])
+    alignment_result = _normalize(
+        [{"label": "match", "score_id": "s1", "performance_id": "p1"}]
+    )
 
-    assert alignment.sufficiency is AlignmentSufficiency.sufficient
-    assert alignment.projection_precision is AlignmentProjectionPrecision.adequate
-    assert alignment.coverage.score_fraction == 1.0
-    assert alignment.coverage.performance_fraction == 1.0
-    assert len(alignment.relations) == 1
-    relation = alignment.relations[0]
+    assert alignment_result.sufficiency is AlignmentSufficiency.sufficient
+    assert alignment_result.projection_precision is AlignmentProjectionPrecision.adequate
+    assert alignment_result.coverage.score_fraction == 1.0
+    assert alignment_result.coverage.performance_fraction == 1.0
+    assert len(alignment_result.relations) == 1
+    relation = alignment_result.relations[0]
     assert relation.kind is AlignmentRelationKind.matched
     assert relation.score_events[0].event_id == "s1"
     assert relation.score_events[0].onset_beat == 0.0
     assert relation.performance_events[0].event_id == "p1"
     assert relation.performance_events[0].onset_seconds == 0.0
-    assert alignment.score_version_id != alignment.performance_version_id
+    assert alignment_result.score_version_id != alignment_result.performance_version_id
 
 
 def test_preserves_score_only_and_performance_only_without_timestamp_fallback():
-    alignment = _normalize(
+    alignment_result = _normalize(
         [
             {"label": "match", "score_id": "s1", "performance_id": "p1"},
             {"label": "deletion", "score_id": "s2"},
@@ -87,18 +88,18 @@ def test_preserves_score_only_and_performance_only_without_timestamp_fallback():
         ),
     )
 
-    kinds = {relation.kind for relation in alignment.relations}
+    kinds = {relation.kind for relation in alignment_result.relations}
     assert kinds == {
         AlignmentRelationKind.matched,
         AlignmentRelationKind.score_only,
         AlignmentRelationKind.performance_only,
     }
-    assert alignment.coverage.score_fraction == 0.5
-    assert alignment.coverage.performance_fraction == 0.5
+    assert alignment_result.coverage.score_fraction == 0.5
+    assert alignment_result.coverage.performance_fraction == 0.5
 
 
 def test_collapses_non_one_to_one_match_edges_into_explicit_grouped_relation():
-    alignment = _normalize(
+    alignment_result = _normalize(
         [
             {"label": "match", "score_id": "s1", "performance_id": "p1"},
             {"label": "match", "score_id": "s1", "performance_id": "p2"},
@@ -106,8 +107,8 @@ def test_collapses_non_one_to_one_match_edges_into_explicit_grouped_relation():
         performance_ids=("p1", "p2"),
     )
 
-    assert len(alignment.relations) == 1
-    relation = alignment.relations[0]
+    assert len(alignment_result.relations) == 1
+    relation = alignment_result.relations[0]
     assert relation.kind is AlignmentRelationKind.grouped
     assert [event.event_id for event in relation.score_events] == ["s1"]
     assert [event.event_id for event in relation.performance_events] == ["p1", "p2"]
@@ -160,38 +161,38 @@ def test_same_version_cannot_cross_score_and_performance_authority():
 
 
 def test_matcher_failure_is_explicit_and_projection_is_unsupported():
-    alignment = _normalize(
+    alignment_result = _normalize(
         None,
         matcher_failure="IndexError: degenerate score input",
     )
 
-    assert alignment.sufficiency is AlignmentSufficiency.failed
-    assert alignment.projection_precision is AlignmentProjectionPrecision.unsupported
-    assert alignment.failure == "IndexError: degenerate score input"
-    assert alignment.relations == ()
+    assert alignment_result.sufficiency is AlignmentSufficiency.failed
+    assert alignment_result.projection_precision is AlignmentProjectionPrecision.unsupported
+    assert alignment_result.failure == "IndexError: degenerate score input"
+    assert alignment_result.relations == ()
 
 
 def test_malformed_matcher_output_outside_exact_inputs_fails_closed():
-    alignment = _normalize(
+    alignment_result = _normalize(
         [{"label": "match", "score_id": "other", "performance_id": "p1"}]
     )
 
-    assert alignment.sufficiency is AlignmentSufficiency.failed
-    assert alignment.projection_precision is AlignmentProjectionPrecision.unsupported
-    assert "outside the exact input Versions" in alignment.failure
+    assert alignment_result.sufficiency is AlignmentSufficiency.failed
+    assert alignment_result.projection_precision is AlignmentProjectionPrecision.unsupported
+    assert "outside the exact input Versions" in alignment_result.failure
 
 
 def test_empty_or_incomplete_alignment_cannot_masquerade_as_adequate():
-    alignment = _normalize(
+    alignment_result = _normalize(
         [],
         score_ids=("s1", "s2"),
         performance_ids=("p1", "p2"),
     )
 
-    assert alignment.coverage.score_fraction == 0.0
-    assert alignment.coverage.performance_fraction == 0.0
-    assert alignment.sufficiency is AlignmentSufficiency.insufficient
-    assert alignment.projection_precision is AlignmentProjectionPrecision.unsupported
+    assert alignment_result.coverage.score_fraction == 0.0
+    assert alignment_result.coverage.performance_fraction == 0.0
+    assert alignment_result.sufficiency is AlignmentSufficiency.insufficient
+    assert alignment_result.projection_precision is AlignmentProjectionPrecision.unsupported
 
 
 def test_serialization_and_provenance_are_deterministic_without_generic_confidence():
