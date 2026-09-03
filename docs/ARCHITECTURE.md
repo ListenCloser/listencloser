@@ -1,4 +1,4 @@
-> **Authority note:** This file describes the currently shipped runtime architecture. Product strategy and portfolio direction remain temporarily owned by [#458](https://github.com/ListenCloser/listencloser/issues/458) during the #1139 authority migration. Durable target architecture changes belong in accepted ADRs; unresolved future architecture belongs in the focused issue that is evaluating or shaping it. Where this file describes current deployment/runtime behavior, code and this file should remain consistent.
+> **Authority note:** This file describes the currently shipped runtime architecture. [`product/PRODUCT.md`](product/PRODUCT.md) owns durable product strategy; [`product/ROADMAP.md`](product/ROADMAP.md) owns current product portfolio posture and sequencing. Durable target architecture changes belong in accepted ADRs; unresolved future architecture belongs in the focused issue that is evaluating or shaping it. Where this file describes current deployment/runtime behavior, code and this file should remain consistent.
 
 # Architecture
 
