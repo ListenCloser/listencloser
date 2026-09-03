@@ -1,4 +1,3 @@
-// Temporary CI retrigger; restored in the next commit.
 import { describe, expect, it } from "vitest";
 import type { WorkBundle } from "../lib/domain.types";
 import { hasReusableScoreArtifacts, selectScoreArtifacts } from "../lib/score-artifacts";
