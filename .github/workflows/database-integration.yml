@@ -14,6 +14,7 @@ on:
       - 'backend/tests/integration/**'
       - 'backend/pyproject.toml'
       - 'backend/uv.lock'
+      - 'scripts/check-database.sh'
 
 permissions:
   contents: read
@@ -43,34 +44,9 @@ jobs:
           version: '0.12.6'
           enable-cache: true
           cache-dependency-glob: 'backend/uv.lock'
-      - name: Start fresh local Supabase and apply every migration
+      - name: Install system dependencies for backend integration tests
         run: |
-          set -euo pipefail
-          # Hosted runners start with no local Supabase database. `supabase start`
-          # creates it and applies the migration history once; immediately running
-          # `db reset` repeats the same destructive bootstrap and has intermittently
-          # failed with Docker exit 125 while containers are still settling.
-          supabase start
-      - name: Verify database contracts with pgTAP
-        run: supabase test db
-      - name: Verify generated database documentation
-        env:
-          TBLS_DSN: pg://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable
-        run: tbls diff "$TBLS_DSN" docs/generated/database --config supabase/tbls.yml
-      - name: Sync locked backend + worker environment
-        run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg
-          uv sync --project backend --locked --group worker
-      - name: Run backend integration tests against the fresh database
-        run: |
-          set -euo pipefail
-          eval "$(supabase status -o env)"
-          # The CLI exposes these under version-dependent names; normalize to the
-          # names the backend/backend tests expect.
-          export SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
-          export SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
-          export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
-          uv run --project backend python -m pytest backend/tests/ -m real_stack -v
-      - name: Stop local Supabase
-        if: always()
-        run: supabase stop --no-backup || true
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Run canonical database verification
+        run: bash scripts/check-database.sh

@@ -34,6 +34,7 @@
     "check:fast": "bash scripts/check.sh fast",
     "check:frontend": "bash scripts/check.sh frontend",
     "check:backend": "bash scripts/check.sh backend",
+    "check:database": "bash scripts/check-database.sh",
     "check:e2e": "bash scripts/check.sh e2e",
     "test": "vitest run",
     "test:watch": "vitest",

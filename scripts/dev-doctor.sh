@@ -12,6 +12,10 @@ version_of() {
   "$@" 2>/dev/null | head -n 1
 }
 
+semver_from() {
+  grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1
+}
+
 require_command() {
   local command_name="$1"
   local purpose="$2"
@@ -68,9 +72,9 @@ fi
 printf '\nOptional tier prerequisites\n'
 printf '%s\n' '---------------------------'
 if command -v ffmpeg >/dev/null 2>&1; then
-  ok "ffmpeg available (backend media tests/local processing)"
+  ok "ffmpeg available (backend media tests/database integration)"
 else
-  warn "ffmpeg missing; backend media tests/local processing may fail (the devcontainer provides it)"
+  warn "ffmpeg missing; backend media/database integration tests may fail (the devcontainer provides it)"
 fi
 
 if command -v docker >/dev/null 2>&1; then
@@ -80,10 +84,27 @@ else
 fi
 
 if command -v supabase >/dev/null 2>&1; then
-  SUPABASE_VERSION="$(version_of supabase --version)"
-  ok "Supabase CLI available${SUPABASE_VERSION:+ ($SUPABASE_VERSION)} (database/real-stack tiers)"
+  SUPABASE_VERSION="$(version_of supabase --version | semver_from || true)"
+  if [ "$SUPABASE_VERSION" = "2.113.0" ]; then
+    ok "Supabase CLI $SUPABASE_VERSION matches database/real-stack toolchain"
+  else
+    warn "Supabase CLI ${SUPABASE_VERSION:-unknown}; database/real-stack tiers use 2.113.0"
+  fi
 else
-  warn "Supabase CLI missing; database/real-stack tiers require it"
+  warn "Supabase CLI missing; database/real-stack tiers require 2.113.0"
+fi
+
+if command -v tbls >/dev/null 2>&1; then
+  TBLS_VERSION="$(
+    { tbls version 2>/dev/null || tbls --version 2>/dev/null || true; } | semver_from || true
+  )"
+  if [ "$TBLS_VERSION" = "1.95.0" ]; then
+    ok "tbls $TBLS_VERSION matches database documentation toolchain"
+  else
+    warn "tbls ${TBLS_VERSION:-unknown}; database verification uses 1.95.0"
+  fi
+else
+  warn "tbls missing; database verification requires 1.95.0"
 fi
 
 printf '\nRepository state\n'
