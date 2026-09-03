@@ -1,6 +1,8 @@
 import { http, HttpResponse } from "msw";
 
 const MOCK_STORAGE_KEY = "test/mock-version-1.wav";
+const FAILURE_FIXTURE_NAME = "failure-status.m4a";
+const FAILURE_VERSION_ID = "mock-version-failure";
 
 export const directUploadHandlers = [
   http.post("/api/v1/projects/:projectId/artifacts/upload-intent", async () => {
@@ -16,8 +18,10 @@ export const directUploadHandlers = [
     return HttpResponse.json({ Key: `artifacts/${MOCK_STORAGE_KEY}` });
   }),
 
-  http.post("/api/v1/projects/:projectId/artifacts/finalize-upload", async () => {
+  http.post("/api/v1/projects/:projectId/artifacts/finalize-upload", async ({ request }) => {
     const now = new Date().toISOString();
+    const body = await request.json() as { filename?: string };
+    const versionId = body.filename === FAILURE_FIXTURE_NAME ? FAILURE_VERSION_ID : "mock-version-1";
     return HttpResponse.json({
       artifact: {
         id: "mock-artifact-1",
@@ -27,7 +31,7 @@ export const directUploadHandlers = [
         created_at: now,
       },
       version: {
-        id: "mock-version-1",
+        id: versionId,
         artifact_id: "mock-artifact-1",
         storage_bucket: "artifacts",
         storage_key: MOCK_STORAGE_KEY,
