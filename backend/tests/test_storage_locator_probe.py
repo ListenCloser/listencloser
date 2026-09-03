@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+from storage3.exceptions import StorageApiError
 
 from domain.models import Version
 from domain.storage_locator_audit import AuditRows
@@ -51,28 +52,46 @@ def _legacy_rows(
 
 
 class _Bucket:
-    def __init__(self, objects: dict[tuple[str, str], bytes], bucket: str):
+    def __init__(
+        self,
+        objects: dict[tuple[str, str], bytes],
+        bucket: str,
+        error: Exception | None,
+    ):
         self.objects = objects
         self.bucket = bucket
+        self.error = error
 
     def download(self, key: str) -> bytes:
+        if self.error is not None:
+            raise self.error
         try:
             return self.objects[(self.bucket, key)]
         except KeyError as exc:
-            raise FileNotFoundError(f"missing private object: {key}") from exc
+            message = f"missing private object: {key}"
+            raise StorageApiError(message, "NoSuchKey", 404) from exc
 
 
 class _Storage:
-    def __init__(self, objects: dict[tuple[str, str], bytes]):
+    def __init__(
+        self,
+        objects: dict[tuple[str, str], bytes],
+        error: Exception | None = None,
+    ):
         self.objects = objects
+        self.error = error
 
     def from_(self, bucket: str) -> _Bucket:
-        return _Bucket(self.objects, bucket)
+        return _Bucket(self.objects, bucket, self.error)
 
 
 class _Client:
-    def __init__(self, objects: dict[tuple[str, str], bytes]):
-        self.storage = _Storage(objects)
+    def __init__(
+        self,
+        objects: dict[tuple[str, str], bytes],
+        error: Exception | None = None,
+    ):
+        self.storage = _Storage(objects, error)
 
 
 def test_selected_probe_reports_exact_byte_integrity_without_locator_leakage():
@@ -122,6 +141,21 @@ def test_selected_probe_reports_missing_object_without_provider_exception_text()
     assert owner_id not in serialized
     assert storage_key not in serialized
     assert "missing private object" not in serialized
+
+
+def test_selected_probe_fails_closed_on_non_missing_storage_error():
+    content = b"unknown-state"
+    rows, version, _owner_id, storage_key = _legacy_rows(content=content)
+    provider_message = f"gateway failure while reading {storage_key}"
+    error = StorageApiError(provider_message, "InternalError", 500)
+    client = _Client({}, error=error)
+
+    with pytest.raises(RuntimeError) as captured:
+        probe_selected_storage(client, rows, [version["id"]])
+
+    assert "without proving the source object is missing" in str(captured.value)
+    assert storage_key not in str(captured.value)
+    assert provider_message not in str(captured.value)
 
 
 def test_selected_probe_surfaces_stored_metadata_mismatch():
