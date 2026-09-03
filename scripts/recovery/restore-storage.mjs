@@ -3,7 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
-import { basename, join, relative, resolve, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 
 function fail(message) {
@@ -99,7 +99,9 @@ for (const bucket of buckets) {
     if (!expectedHash) fail("a Storage backup file is missing from the private hash manifest");
 
     const bytes = await readFile(filePath);
-    if (sha256(bytes) !== expectedHash) fail("a Storage backup file failed pre-upload integrity verification");
+    if (sha256(bytes) !== expectedHash) {
+      fail("a Storage backup file failed pre-upload integrity verification");
+    }
 
     const metadata = objectMetadata.get(`${bucket}\n${objectName}`) ?? {};
     const options = { upsert: true };
@@ -116,7 +118,9 @@ for (const bucket of buckets) {
     const { data: downloaded, error: downloadError } = await client.storage.from(bucket).download(objectName);
     if (downloadError || !downloaded) fail("restored Storage object could not be read back");
     const downloadedBytes = Buffer.from(await downloaded.arrayBuffer());
-    if (sha256(downloadedBytes) !== expectedHash) fail("restored Storage object failed post-upload integrity verification");
+    if (sha256(downloadedBytes) !== expectedHash) {
+      fail("restored Storage object failed post-upload integrity verification");
+    }
 
     uploadedObjects += 1;
     uploadedBytes += bytes.length;
@@ -128,10 +132,15 @@ if (uploadedObjects !== expectedHashes.size) {
 }
 
 // Prove private signed-read behavior without printing an object name or URL.
-const artifactFiles = expectedHashes.keys().filter((path) => path.startsWith("storage/artifacts/"));
-const firstArtifact = artifactFiles.next();
-if (!firstArtifact.done) {
-  const objectName = firstArtifact.value.slice("storage/artifacts/".length);
+let firstArtifactPath = null;
+for (const path of expectedHashes.keys()) {
+  if (path.startsWith("storage/artifacts/")) {
+    firstArtifactPath = path;
+    break;
+  }
+}
+if (firstArtifactPath !== null) {
+  const objectName = firstArtifactPath.slice("storage/artifacts/".length);
   const { data: signed, error: signError } = await client.storage
     .from("artifacts")
     .createSignedUrl(objectName, 60);
@@ -139,7 +148,7 @@ if (!firstArtifact.done) {
   const response = await fetch(signed.signedUrl);
   if (!response.ok) fail("private signed artifact read failed");
   const signedBytes = Buffer.from(await response.arrayBuffer());
-  if (sha256(signedBytes) !== expectedHashes.get(firstArtifact.value)) {
+  if (sha256(signedBytes) !== expectedHashes.get(firstArtifactPath)) {
     fail("private signed artifact bytes failed integrity verification");
   }
 }
@@ -148,6 +157,6 @@ console.log(
   JSON.stringify({
     restored_storage_objects: uploadedObjects,
     restored_storage_bytes: uploadedBytes,
-    private_signed_read_verified: !firstArtifact.done,
+    private_signed_read_verified: firstArtifactPath !== null,
   }),
 );
