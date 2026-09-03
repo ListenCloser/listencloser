@@ -149,9 +149,7 @@ def decode_audio_to_wav(audio_bytes: bytes, fmt: str = "wav") -> bytes:
         except (OSError, wave.Error) as error:
             raise ValueError("Audio decoding produced an invalid WAV") from error
         if decoded_duration_seconds > max_duration_seconds:
-            raise ValueError(
-                f"Audio exceeds maximum duration of {max_duration_seconds:g} seconds"
-            )
+            raise ValueError(f"Audio exceeds maximum duration of {max_duration_seconds:g} seconds")
         with open(output_path, "rb") as file_handle:
             decoded = file_handle.read()
         if not decoded.startswith(b"RIFF") or len(decoded) < 44:
