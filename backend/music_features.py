@@ -611,14 +611,3 @@ def adaptive_notation_from_performance(
         report["grid"] = grid.to_dict()
 
     return notation_midi, report
-
-
-def structure_with_engine(wav_bytes: bytes):
-    """Run structure analysis using the configured structure engine.
-
-    Returns an engines.base.StructureResult, or None when disabled.
-    """
-    from engines.registry import get_structure_engine
-
-    engine = get_structure_engine()
-    return engine.analyze(wav_bytes)

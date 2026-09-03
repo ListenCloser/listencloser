@@ -18,7 +18,6 @@ from engines.base import (
 from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
-from engines.structure.allin1_engine import AllInOneEngine
 from engines.transcription.basic_pitch import BasicPitchEngine
 
 
@@ -71,18 +70,6 @@ class TestLibrosaBeatAdapter:
         d = result.to_dict()
         assert d["beat_count"] == 3
         assert d["provenance"]["engine"] == "librosa"
-
-
-class TestAllInOneAdapter:
-    def test_disabled_by_default(self):
-        engine = AllInOneEngine()
-        result = engine.analyze(b"fake-wav")
-        assert result is None
-
-    def test_provenance_includes_model(self):
-        engine = AllInOneEngine()
-        p = engine.provenance
-        assert p.model == "harmonix-all"
 
 
 class TestHarmonyResult:

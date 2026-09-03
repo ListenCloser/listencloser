@@ -2,7 +2,7 @@
 
 The product-level import benchmark measures user-visible readiness. This module
 adds worker-side decomposition without changing capability behavior: queue wait,
-the four sequential child stages that currently make up ``understand``, and a
+the three sequential child stages that currently make up ``understand``, and a
 small allowlist of expensive operations inside those stages.
 
 Instrumentation is installed once at worker startup. Child capability wrappers
@@ -25,7 +25,7 @@ from opentelemetry import metrics
 
 logger = logging.getLogger("performance")
 
-_UNDERSTAND_STAGES = ("transcribe", "audio_structure", "analyze", "score")
+_UNDERSTAND_STAGES = ("transcribe", "analyze", "score")
 _UNDERSTAND_OPERATIONS = (
     "transcribe.pipeline",
     "transcribe.playback_synthesis",
