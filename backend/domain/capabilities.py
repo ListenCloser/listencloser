@@ -31,6 +31,10 @@ from domain.models import (
     TimelineUnit,
     Version,
 )
+from domain.pulse_evidence_reuse import (
+    enrich_rhythm_pulse_evidence,
+    load_reusable_score_pulse,
+)
 from domain.repositories import (
     AlignmentRepo,
     ArtifactRepo,
@@ -682,6 +686,7 @@ def handle_analyze(job: Job, client) -> list[str]:
         midi_path = f.name
 
     pulse: dict | None = None
+    pulse_source_audio_version_id: UUID | None = None
     wav_bytes: bytes | None = None
     if len(job.input_version_ids) > 1:
         try:
@@ -704,6 +709,7 @@ def handle_analyze(job: Job, client) -> list[str]:
                 "downbeats": beat_result.get("downbeats"),
                 "provenance": beat_result.get("provenance"),
             }
+            pulse_source_audio_version_id = audio_version.id
         except Exception:
             logger.exception("analyze_pulse_measurement_failed")
 
@@ -1025,6 +1031,17 @@ def handle_analyze(job: Job, client) -> list[str]:
 
     # Rhythm: compact, evidence-backed observations instead of a wall of cards.
     rhythm = analysis.get("rhythm") or {}
+    if (
+        rhythm
+        and pulse_source_audio_version_id is not None
+        and rhythm.get("pulse_coordinate_unit") == "seconds"
+    ):
+        rhythm = enrich_rhythm_pulse_evidence(
+            rhythm,
+            audio_version_id=pulse_source_audio_version_id,
+            fmt=job.parameters.get("fmt", "wav"),
+            bpm=pulse.get("bpm") if pulse else None,
+        )
     if rhythm:
         offbeat_ratio = rhythm.get("offbeat_onset_ratio")
         if offbeat_ratio is not None:
@@ -1239,13 +1256,27 @@ def handle_score(job: Job, client) -> list[str]:
     if len(job.input_version_ids) > 1:
         try:
             _update_progress(client, job.id, 0.35, "aligning notation to the recording")
-            audio_bytes = download_version_bytes(
-                _lookup_version(client, job.input_version_ids[1]), client
+            audio_version = _lookup_version(client, job.input_version_ids[1])
+            fmt = job.parameters.get("fmt", "wav")
+            beat_result = load_reusable_score_pulse(
+                client,
+                midi_version_id=input_version.id,
+                audio_version_id=audio_version.id,
+                owner_id=owner_id,
+                fmt=fmt,
             )
-            wav_bytes = music_features.decode_audio_to_wav(
-                audio_bytes, fmt=job.parameters.get("fmt", "wav")
-            )
-            beat_result = music_features.estimate_beats_with_engine(wav_bytes)
+            if beat_result is None:
+                audio_bytes = download_version_bytes(audio_version, client)
+                wav_bytes = music_features.decode_audio_to_wav(audio_bytes, fmt=fmt)
+                beat_result = music_features.estimate_beats_with_engine(wav_bytes)
+            else:
+                logger.info(
+                    "score_pulse_evidence_reused",
+                    extra={
+                        "midi_version_id": str(input_version.id),
+                        "audio_version_id": str(audio_version.id),
+                    },
+                )
             tempo = beat_result["bpm"]
             beat_times = beat_result["beats"]
             downbeats = beat_result.get("downbeats")
