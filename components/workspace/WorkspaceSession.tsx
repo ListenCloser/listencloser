@@ -22,6 +22,7 @@ import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
 import { understandStageLabel, presentableTitle } from "@/lib/format";
 import { buildPlaybackSources } from "@/lib/playback-sources";
+import { qualifySymbolicSourceLabel } from "@/lib/transcription-qualification";
 import {
   useWorkspace,
   type RepresentationEntry,
@@ -133,6 +134,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       const midi = baseMidi ?? latestByKind.get("midi_corrected");
       const score = latestByKind.get("musicxml_score");
       const renderedScore = latestByKind.get("rendered_score");
+      const transcriptionMetadata = baseMidi?.latest_version?.metadata ?? midi?.latest_version?.metadata;
 
       const takeArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && ["midi_performance", "midi_corrected"].includes(item.artifact.kind),
@@ -218,7 +220,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
           kind: "piano_roll",
           label: "Piano Roll",
           sourceUrl: midi?.signed_url ?? "",
-          sourceLabel: `${notes.length} detected notes`,
+          sourceLabel: qualifySymbolicSourceLabel(`${notes.length} detected notes`, transcriptionMetadata),
           confidence: null,
           provenance: "transcription",
           notes,
@@ -238,7 +240,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
           kind: "score",
           label: "Score",
           sourceUrl: score.signed_url,
-          sourceLabel: "Notation draft",
+          sourceLabel: qualifySymbolicSourceLabel("Notation draft", transcriptionMetadata),
           confidence: null,
           provenance: scoreProvenance,
           musicxml,

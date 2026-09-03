@@ -119,6 +119,11 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   const activeView = available.some((view) => view.id === workspace.activeRepresentation)
     ? workspace.activeRepresentation
     : available[0]?.id ?? null;
+  const activeSymbolicSourceLabel = activeView === "piano_roll"
+    ? workspace.representations.find((item) => item.kind === "piano_roll")?.sourceLabel
+    : activeView === "score"
+      ? workspace.representations.find((item) => item.kind === "score")?.sourceLabel
+      : null;
   const preparingRepresentations =
     workspace.analysisState === "analyzing" && available.length < REPRESENTATIONS.length;
 
@@ -276,6 +281,17 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
           </span>
         )}
       </div>
+
+      {activeSymbolicSourceLabel && (
+        <div
+          className="muted"
+          role="note"
+          aria-label="Symbolic representation source"
+          style={{ padding: "8px 12px", fontSize: "var(--fs-xs)" }}
+        >
+          {activeSymbolicSourceLabel}
+        </div>
+      )}
 
       {renderedViews.map((definition) => {
         const ViewComponent = definition.component;

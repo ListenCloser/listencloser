@@ -139,14 +139,20 @@ test("real audio golden path", async ({ page }) => {
     await expect(page.getByRole("button", { name: "Pause Transcription", exact: true })).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Pause Transcription", exact: true }).click();
 
-    // Piano roll renders notes
+    // Piano roll renders notes and preserves the persisted Auto qualification.
     await page.getByRole("tab", { name: "Piano Roll" }).click();
     await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId("piano-roll").getByText(/\d+ notes/)).toBeVisible();
+    await expect(page.getByRole("note", { name: "Symbolic representation source" })).toContainText(
+      "General transcription draft — dense or full mixes may miss notes or add extra notes.",
+    );
 
-    // Score renders
+    // Score renders and inherits the same upstream transcription qualification.
     await page.getByRole("tab", { name: "Score" }).click();
     await expect(page.locator(".sheet-music-container")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("note", { name: "Symbolic representation source" })).toContainText(
+      "Notation draft · General transcription draft — dense or full mixes may miss notes or add extra notes.",
+    );
 
     // A rendered Score must also have its distinct notation-derived playback source.
     await openSourceSelector(page);
