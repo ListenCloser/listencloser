@@ -64,7 +64,11 @@ function WorkspaceContent({
   }, [toggleInspector, toggleLibrary]);
 
   const inspectorOpen = !workspace.inspectorCollapsed;
-  const analysisAvailable = workspace.analysisState === "completed" && Boolean(workspace.activeWorkId);
+  // Breakdown owns both the honest in-progress state and the terminal result.
+  // Do not hold progressively published evidence behind workflow completion:
+  // once an active Work enters analysis, the Inspector can explain what is
+  // available now and promote supported findings as they arrive.
+  const inspectorAvailable = Boolean(workspace.activeWorkId) && workspace.analysisState !== "idle";
   // Import is a processing-dependent action. "Checking" is not equivalent to
   // ready: enabling the control optimistically creates a race where health can
   // resolve unavailable between the click and file selection.
@@ -93,7 +97,7 @@ function WorkspaceContent({
           >
             Library
           </button>
-          {analysisAvailable && (
+          {inspectorAvailable && (
             <button
               type="button"
               className={`studio-mobile-action studio-inspector-btn${inspectorOpen ? " active" : ""}`}
@@ -114,7 +118,7 @@ function WorkspaceContent({
           <RepresentationStack signedIn={signedIn} canImport={canImport} />
         </div>
 
-        {analysisAvailable && (
+        {inspectorAvailable && (
           <>
             <aside
               className={`studio-inspector studio-inspector-v3${inspectorOpen ? " is-open" : ""}`}
