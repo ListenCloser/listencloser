@@ -28,7 +28,17 @@ from domain.storage_locator_audit import (
 
 
 def _version_rows_by_id(rows: AuditRows) -> dict[str, dict[str, Any]]:
-    return {str(row["id"]): row for row in rows.versions if row.get("id") is not None}
+    rows_by_id: dict[str, dict[str, Any]] = {}
+    for row in rows.versions:
+        if row.get("id") is not None:
+            rows_by_id[str(row["id"])] = row
+    return rows_by_id
+
+
+def _metadata_matches(actual: int | str, stored: int | str | None) -> bool | None:
+    if stored is None:
+        return None
+    return actual == stored
 
 
 def probe_selected_storage(
@@ -99,14 +109,11 @@ def probe_selected_storage(
                 "actual_sha256": actual_sha256,
                 "stored_byte_size": stored_byte_size,
                 "stored_sha256": stored_sha256,
-                "byte_size_matches": (
-                    None
-                    if stored_byte_size is None
-                    else actual_byte_size == stored_byte_size
+                "byte_size_matches": _metadata_matches(
+                    actual_byte_size,
+                    stored_byte_size,
                 ),
-                "sha256_matches": (
-                    None if stored_sha256 is None else actual_sha256 == stored_sha256
-                ),
+                "sha256_matches": _metadata_matches(actual_sha256, stored_sha256),
             }
         )
 
@@ -114,11 +121,8 @@ def probe_selected_storage(
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Read-only byte/hash probe for selected legacy Version Storage objects."
-        ),
-    )
+    description = "Read-only byte/hash probe for selected legacy Version Storage objects."
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
         "--version",
         dest="version_ids",
