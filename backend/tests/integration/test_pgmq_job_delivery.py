@@ -34,12 +34,7 @@ def _psql(db_url: str, sql: str) -> list[str]:
 
 
 def _fixture_ids() -> tuple[str, str, str, str]:
-    return (
-        str(uuid4()),
-        str(uuid4()),
-        str(uuid4()),
-        str(uuid4()),
-    )
+    return (str(uuid4()), str(uuid4()), str(uuid4()), str(uuid4()))
 
 
 def _insert_fixture(db_url: str, owner_id: str, project_id: str, workflow_id: str) -> None:
