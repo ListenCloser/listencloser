@@ -73,7 +73,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   const loadSequenceRef = useRef(0);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedWorkRef = useRef<string | null>(null);
-  const loadedBundleRef = useRef<Awaited<ReturnType<typeof fetchWorkBundle>> | null>(null);
+  const loadedBundleRef = useRef<Awaited<ReturnType<typeof getWorkBundle>> | null>(null);
   const initializedProjectSelectionRef = useRef<string | null>(null);
   const performanceMidiVersionRef = useRef<{ workId: string; versionId: string | null } | null>(null);
   // Request order is not the only authority boundary: the user can select a
