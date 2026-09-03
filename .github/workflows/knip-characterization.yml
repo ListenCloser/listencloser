@@ -1,0 +1,35 @@
+name: Knip characterization
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  characterize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - run: npm ci
+      - name: Characterize full frontend/tooling graph
+        shell: bash
+        run: |
+          set +e
+          npx --yes knip@6.31.0
+          status=$?
+          echo "Knip full-graph exit status: ${status} (report-only characterization)"
+          exit 0
+      - name: Characterize production graph separately
+        shell: bash
+        run: |
+          set +e
+          npx --yes knip@6.31.0 --production
+          status=$?
+          echo "Knip production exit status: ${status} (report-only characterization)"
+          exit 0
