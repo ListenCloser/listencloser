@@ -80,6 +80,42 @@ test("phone workspace stages supporting surfaces around a touch-safe canvas", as
     .toBe(true);
 });
 
+test("breakpoint changes keep visible support panels interactive without a reload", async ({ page }) => {
+  await openPhoneWorkspace(page);
+
+  const library = page.locator(".studio-library-v3");
+  const inspector = page.locator(".studio-inspector-v3");
+  await expect(library).toHaveAttribute("aria-hidden", "true");
+  await expect(library).toHaveAttribute("inert", "");
+  await expect(inspector).toHaveAttribute("aria-hidden", "true");
+  await expect(inspector).toHaveAttribute("inert", "");
+
+  // Crossing into desktop changes the CSS layout immediately. Shared state must
+  // cross with it, otherwise these visually restored panels remain inert/dead.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(library).toHaveAttribute("aria-hidden", "false");
+  await expect(library).not.toHaveAttribute("inert", "");
+  await expect(inspector).toHaveAttribute("aria-hidden", "false");
+  await expect(inspector).not.toHaveAttribute("inert", "");
+  await expect(page.getByRole("button", { name: "Import audio", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Breakdown", exact: true })).toBeVisible();
+
+  // Crossing back into compact layout stages both supporting surfaces once.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const libraryTrigger = page.getByRole("button", { name: "Show library", exact: true });
+  const breakdownTrigger = page.getByRole("button", { name: "Show breakdown", exact: true });
+  await expect(libraryTrigger).toBeVisible();
+  await expect(breakdownTrigger).toBeVisible();
+  await expect(library).toHaveAttribute("inert", "");
+  await expect(inspector).toHaveAttribute("inert", "");
+
+  // Staying inside the compact breakpoint must not make the responsive listener
+  // fight a deliberate user action.
+  await libraryTrigger.click();
+  await expect(page.getByRole("button", { name: "Hide library", exact: true })).toBeVisible();
+  await expect(library).not.toHaveAttribute("inert", "");
+});
+
 test("phone operation feedback cannot overflow the viewport", async ({ page }) => {
   await openPhoneWorkspace(page);
 

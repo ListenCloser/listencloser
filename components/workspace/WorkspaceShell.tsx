@@ -12,6 +12,8 @@ import styles from "./WorkspaceShell.module.css";
 
 export type ServiceStatus = "checking" | "ready" | "unavailable";
 
+const COMPACT_WORKSPACE_QUERY = "(max-width: 820px)";
+
 function WorkspaceContent({
   signedIn = false,
   serviceStatus,
@@ -23,17 +25,43 @@ function WorkspaceContent({
 }) {
   const { workspace, toggleLibrary, toggleInspector } = useWorkspace();
   const initializedResponsiveLayout = useRef(false);
+  const responsivePanelState = useRef({
+    libraryCollapsed: workspace.libraryCollapsed,
+    inspectorCollapsed: workspace.inspectorCollapsed,
+  });
 
   useEffect(() => {
-    if (initializedResponsiveLayout.current) return;
-    initializedResponsiveLayout.current = true;
-    if (!window.matchMedia("(max-width: 820px)").matches) return;
+    responsivePanelState.current = {
+      libraryCollapsed: workspace.libraryCollapsed,
+      inspectorCollapsed: workspace.inspectorCollapsed,
+    };
+  }, [workspace.inspectorCollapsed, workspace.libraryCollapsed]);
+
+  useEffect(() => {
+    const compactLayout = window.matchMedia(COMPACT_WORKSPACE_QUERY);
+
+    const synchronizePanels = (compact: boolean) => {
+      const current = responsivePanelState.current;
+      const shouldCollapse = compact;
+
+      if (current.libraryCollapsed !== shouldCollapse) toggleLibrary();
+      if (current.inspectorCollapsed !== shouldCollapse) toggleInspector();
+    };
 
     // Compact layouts are staged rather than simultaneous: the musical canvas
     // is the default surface and Library / Breakdown open only when requested.
-    if (!workspace.libraryCollapsed) toggleLibrary();
-    if (!workspace.inspectorCollapsed) toggleInspector();
-  }, [toggleInspector, toggleLibrary, workspace.inspectorCollapsed, workspace.libraryCollapsed]);
+    // Desktop restores both support panels. The initialization guard preserves
+    // toggle correctness under React Strict Mode's repeated effect setup, while
+    // the listener still reconciles every later breakpoint crossing.
+    if (!initializedResponsiveLayout.current) {
+      initializedResponsiveLayout.current = true;
+      synchronizePanels(compactLayout.matches);
+    }
+
+    const handleLayoutChange = (event: MediaQueryListEvent) => synchronizePanels(event.matches);
+    compactLayout.addEventListener("change", handleLayoutChange);
+    return () => compactLayout.removeEventListener("change", handleLayoutChange);
+  }, [toggleInspector, toggleLibrary]);
 
   const inspectorOpen = !workspace.inspectorCollapsed;
   const analysisAvailable = workspace.analysisState === "completed" && Boolean(workspace.activeWorkId);
