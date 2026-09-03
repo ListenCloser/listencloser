@@ -22,10 +22,7 @@ def test_signed_url_uses_browser_visible_supabase_origin(monkeypatch):
                 "storage/v1/object/sign/artifacts/file.musicxml?token=abc"
             ),
         }
-    ) == (
-        "http://127.0.0.1:54321/"
-        "storage/v1/object/sign/artifacts/file.musicxml?token=abc"
-    )
+    ) == "http://127.0.0.1:54321/" "storage/v1/object/sign/artifacts/file.musicxml?token=abc"
 
 
 def test_signed_url_rejects_invalid_public_origin(monkeypatch):
