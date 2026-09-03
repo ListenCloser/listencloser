@@ -39,21 +39,25 @@ def test_real_stack_isolation_includes_untracked_nonignored_supabase_files(
         cwd=repo,
         check=True,
     )
-    listed = subprocess.run(
-        [
-            "git",
-            "ls-files",
-            "-z",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-            "--",
-            "supabase",
-        ],
-        cwd=repo,
-        check=True,
-        stdout=subprocess.PIPE,
-    ).stdout.decode().split("\0")
+    listed = (
+        subprocess.run(
+            [
+                "git",
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "--",
+                "supabase",
+            ],
+            cwd=repo,
+            check=True,
+            stdout=subprocess.PIPE,
+        )
+        .stdout.decode()
+        .split("\0")
+    )
 
     assert set(filter(None, listed)) == {
         "supabase/config.toml",
