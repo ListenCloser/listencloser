@@ -3,7 +3,6 @@
 Production defaults:
   TRANSCRIPTION_ENGINE=basic_pitch
   BEAT_ENGINE=beat_this
-  STRUCTURE_ENGINE=allin1
   NOTATION_ENGINE=musescore
   HARMONY_ENGINE=music21
   MELODY_ENGINE=lstom
@@ -21,14 +20,12 @@ from engines.base import (
     HarmonyEngine,
     MelodyEngine,
     NotationEngine,
-    StructureEngine,
     TranscriptionEngine,
 )
 from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.musescore_engine import MuseScoreNotationEngine
-from engines.structure.allin1_engine import AllInOneEngine
 
 
 def get_transcription_engine(
@@ -100,13 +97,6 @@ def get_beat_engine(name: str | None = None) -> BeatTrackingEngine:
             ) from exc
         return BeatThisEngine()
     raise ValueError(f"Unknown beat engine: {name}")
-
-
-def get_structure_engine(name: str | None = None) -> StructureEngine:
-    name = name or os.environ.get("STRUCTURE_ENGINE", "allin1")
-    if name == "allin1":
-        return AllInOneEngine()
-    raise ValueError(f"Unknown structure engine: {name}")
 
 
 def get_notation_engine(name: str | None = None) -> NotationEngine:

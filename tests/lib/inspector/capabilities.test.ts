@@ -37,10 +37,9 @@ describe("capabilities", () => {
       expect(isInspectorExposed("voice_leading")).toBe(false);
     });
 
-    it("returns false for evaluation-only capabilities", () => {
+    it("returns false for retired historical structure kinds", () => {
       expect(isInspectorExposed("section")).toBe(false);
       expect(isInspectorExposed("audio_structure")).toBe(false);
-      expect(isInspectorExposed("structure")).toBe(false);
     });
 
     it("returns false for unknown capability kinds", () => {
@@ -91,10 +90,9 @@ describe("capabilities", () => {
       expect(INSPECTOR_EXPOSED_KINDS).not.toContain("voice_leading");
     });
 
-    it("excludes evaluation-only kinds", () => {
+    it("excludes retired historical structure kinds", () => {
       expect(INSPECTOR_EXPOSED_KINDS).not.toContain("section");
       expect(INSPECTOR_EXPOSED_KINDS).not.toContain("audio_structure");
-      expect(INSPECTOR_EXPOSED_KINDS).not.toContain("structure");
     });
   });
 

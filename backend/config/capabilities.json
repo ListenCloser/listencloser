@@ -204,18 +204,16 @@
       "notes": "Audio-derived tempo estimate from the beat engine."
     },
     "section": {
-      "status": "evaluation_only",
-      "input": "audio",
-      "engine": "allin1",
+      "status": "withheld",
+      "input": "historical",
       "exposure": {"inspector": false, "annotations": false, "ask": false},
-      "reason": "Section detection from unvalidated audio structure engine; no trusted section evidence yet."
+      "reason": "Historical section evidence only; new production generation was retired by #1132."
     },
     "audio_structure": {
-      "status": "evaluation_only",
-      "input": "audio",
-      "engine": "allin1",
+      "status": "withheld",
+      "input": "historical",
       "exposure": {"inspector": false, "annotations": false, "ask": false},
-      "reason": "Whole-work structure summary from unvalidated audio structure engine."
+      "reason": "Historical structure-summary evidence only; new production generation was retired by #1132."
     },
     "rhythm_density": {
       "status": "production",
@@ -257,13 +255,6 @@
       },
       "validated_domain": "within-work measured comparison under identical mono 22.05 kHz preprocessing",
       "notes": "Measured evidence only. RMS is an amplitude proxy, not calibrated loudness. Do not infer semantic timbre adjectives, source identity, section labels, cross-song rankings, or population norms."
-    },
-    "structure": {
-      "status": "evaluation_only",
-      "input": "audio",
-      "engine": "allin1",
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
-      "reason": "Production dependency path is blocked/unvalidated; no trusted section evidence yet."
     }
   }
 }

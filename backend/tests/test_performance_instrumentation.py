@@ -50,14 +50,12 @@ def _fake_capabilities(*, fail_stage: str | None = None) -> tuple[ModuleType, li
         return handler
 
     module.handle_transcribe = child("transcribe")
-    module.handle_audio_structure = child("audio_structure")
     module.handle_analyze = child("analyze")
     module.handle_score = child("score")
 
     def handle_understand(job, client):
         output: list[str] = []
         output.extend(module.handle_transcribe(job, client))
-        output.extend(module.handle_audio_structure(job, client))
         output.extend(module.handle_analyze(job, client))
         output.extend(module.handle_score(job, client))
         return output
@@ -112,12 +110,11 @@ def test_understand_records_queue_stages_and_operations_but_standalone_does_not(
 
     result = module.handle_understand(_job(), object())
 
-    assert result == ["transcribe", "audio_structure", "analyze", "score"]
+    assert result == ["transcribe", "analyze", "score"]
     assert calls == [
         "transcribe",
         "transcribe.pipeline",
         "playback_synthesis",
-        "audio_structure",
         "analyze",
         "beat_tracking",
         "analyze.music_analysis",
@@ -133,7 +130,6 @@ def test_understand_records_queue_stages_and_operations_but_standalone_does_not(
 
     assert [attrs["understand.stage"] for _duration, attrs in stage_histogram.records] == [
         "transcribe",
-        "audio_structure",
         "analyze",
         "score",
     ]
@@ -180,13 +176,11 @@ def test_failed_child_records_failure_and_preserves_exception(monkeypatch) -> No
         "transcribe",
         "transcribe.pipeline",
         "playback_synthesis",
-        "audio_structure",
         "analyze",
         "beat_tracking",
         "analyze.music_analysis",
     ]
     assert [attrs for _duration, attrs in stage_histogram.records] == [
         {"understand.stage": "transcribe", "job.outcome": "succeeded"},
-        {"understand.stage": "audio_structure", "job.outcome": "succeeded"},
         {"understand.stage": "analyze", "job.outcome": "failed"},
     ]

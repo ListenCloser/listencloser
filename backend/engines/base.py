@@ -67,35 +67,6 @@ class BeatTrackingResult:
 
 
 @dataclass(frozen=True)
-class StructureResult:
-    bpm: float
-    beats: list[float]
-    downbeats: list[float] | None
-    beat_positions: list[int]
-    segments: list[dict[str, Any]]
-    provenance: EngineProvenance
-
-    def evidence(self) -> dict[str, Any]:
-        return {
-            "bpm": self.bpm,
-            "beat_count": len(self.beats),
-            "downbeat_count": len(self.downbeats) if self.downbeats is not None else 0,
-            "segment_count": len(self.segments),
-            "engine": self.provenance.engine,
-        }
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "bpm": round(self.bpm, 3),
-            "beat_count": len(self.beats),
-            "downbeat_count": len(self.downbeats) if self.downbeats is not None else None,
-            "segment_count": len(self.segments),
-            "segments": self.segments,
-            "provenance": self.provenance.to_dict(),
-        }
-
-
-@dataclass(frozen=True)
 class NotationResult:
     notation_midi: bytes
     musicxml: bytes
@@ -119,11 +90,6 @@ class TranscriptionEngine(Protocol):
 @runtime_checkable
 class BeatTrackingEngine(Protocol):
     def analyze(self, wav_bytes: bytes, **kwargs: Any) -> BeatTrackingResult: ...
-
-
-@runtime_checkable
-class StructureEngine(Protocol):
-    def analyze(self, wav_bytes: bytes, **kwargs: Any) -> StructureResult | None: ...
 
 
 @dataclass(frozen=True)

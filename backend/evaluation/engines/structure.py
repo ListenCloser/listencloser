@@ -20,7 +20,7 @@ logger = logging.getLogger("eval.engines.structure")
 
 
 # ============================================================
-# All-In-One (existing baseline - already in production)
+# All-In-One (evaluation-only candidate)
 # ============================================================
 
 
@@ -34,7 +34,10 @@ class AllInOneAdapter(EngineAdapter):
         install_cmd="pip install allin1",
         model_size_mb=100,
         requires_gpu=True,
-        notes="Joint beat/downbeat/segmentation model. Current production baseline (optional).",
+        notes=(
+            "Joint beat/downbeat/segmentation model. Evaluation-only candidate; "
+            "not installed or routed in production."
+        ),
     )
 
     def __init__(self, device: str = "cpu", **kwargs):

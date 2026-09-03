@@ -136,7 +136,6 @@ def test_understand_pipeline_persists_full_bundle(sb, monkeypatch):
     monkeypatch.setattr(
         music_features, "get_transcription_engine_for_job", lambda *a, **k: _FixtureEngine()
     )
-    monkeypatch.setattr(music_features, "structure_with_engine", lambda wav: None)
     # This is a persistence smoke test, not an external-binary integration test.
     # Keep the durable score path real while replacing MuseScore conversion with
     # deterministic notation bytes, just as transcription inference is stubbed.

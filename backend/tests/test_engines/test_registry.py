@@ -13,10 +13,8 @@ from engines.registry import (
     get_harmony_engine,
     get_melody_engine,
     get_notation_engine,
-    get_structure_engine,
     get_transcription_engine,
 )
-from engines.structure.allin1_engine import AllInOneEngine
 
 
 class TestRegistryDefaults:
@@ -40,10 +38,6 @@ class TestRegistryDefaults:
     def test_explicit_librosa_rollback(self):
         engine = get_beat_engine(name="librosa")
         assert isinstance(engine, LibrosaBeatEngine)
-
-    def test_default_structure_is_allin1(self):
-        engine = get_structure_engine()
-        assert isinstance(engine, AllInOneEngine)
 
     def test_default_notation_is_musescore(self, monkeypatch):
         monkeypatch.delenv("NOTATION_ENGINE", raising=False)

@@ -11,7 +11,7 @@ from domain.api.dependencies import owner_id, supabase_client
 from domain.api.storage import signed_url
 from domain.api_schemas import DeletedWorkResponse, WorkBundleResponse
 from domain.models import Project, Work
-from domain.repositories import ArtifactRepo, ProjectRepo, VersionRepo, WorkRepo
+from domain.repositories import ProjectRepo, WorkRepo
 from domain.storage_locator_policy import classify_version_storage_locator
 from domain.work_bundle_repository import WorkBundleRepository
 
@@ -175,12 +175,13 @@ def delete_work(
             raise HTTPException(status_code=404, detail="Work not found")
         allowed_job_ids = {job.id for job in snapshot.jobs}
 
-        artifact_repo = ArtifactRepo(sb)
-        version_repo = VersionRepo(sb)
-        artifacts = artifact_repo.list_by_work(work_id, owner)
-        for artifact in artifacts:
-            versions = version_repo.list_by_artifact(artifact.id, owner)
-            for version in versions:
+        # Make the authoritative Work non-listable before slow external cleanup.
+        # Artifact and Version rows are removed by the database's ON DELETE CASCADE;
+        # the validated pre-delete snapshot retains the storage locators needed below.
+        work_repo.delete(work_id, owner)
+
+        for artifact in snapshot.artifacts:
+            for version in snapshot.versions_by_artifact.get(artifact.id, []):
                 decision = classify_version_storage_locator(
                     version,
                     owner_id=owner,
@@ -203,12 +204,7 @@ def delete_work(
                     sb.storage.from_(version.storage_bucket).remove([version.storage_key])
                 except Exception:
                     logger.warning("storage_cleanup_skipped", extra={"version_id": str(version.id)})
-            try:
-                artifact_repo.delete(artifact.id, owner)
-            except Exception:
-                logger.exception("artifact_delete_failed")
 
-        work_repo.delete(work_id, owner)
         return {"deleted": str(work_id)}
     except PermissionError as error:
         raise HTTPException(status_code=404, detail="Work not found") from error

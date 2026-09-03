@@ -17,4 +17,4 @@ def test_removed_legacy_capabilities_are_not_registered() -> None:
 
     assert "describe" not in worker.names
     assert "generate_continuation" not in worker.names
-    assert "audio_structure" in worker.names
+    assert "audio_structure" not in worker.names

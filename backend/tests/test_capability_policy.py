@@ -46,15 +46,13 @@ def test_production_harmony_surfaces_are_explicitly_enabled():
         assert is_exposed(kind, "ask")
 
 
-def test_structure_is_evaluation_only_and_not_exposed():
-    assert capability_policy("structure")["status"] == "evaluation_only"
-    assert not is_product_evidence("structure")
-    assert not is_exposed("structure", "inspector")
-    assert not is_exposed("structure", "annotations")
-    assert not is_product_evidence("section")
-    assert not is_exposed("section", "inspector")
-    assert not is_product_evidence("audio_structure")
-    assert not is_exposed("audio_structure", "inspector")
+def test_retired_structure_evidence_is_withheld_and_not_exposed():
+    for kind in ("section", "audio_structure"):
+        assert capability_policy(kind)["status"] == "withheld"
+        assert not is_product_evidence(kind)
+        assert not is_exposed(kind, "inspector")
+        assert not is_exposed(kind, "annotations")
+        assert not is_exposed(kind, "ask")
 
 
 def test_production_capabilities_expose_inspector():

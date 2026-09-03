@@ -121,12 +121,13 @@ def test_understand_runs_all_stages_without_browser_orchestration(monkeypatch):
     original_audio_id = job.input_version_ids[0]
     analyzed_inputs = []
     derived_capabilities = []
+    progress_ranges = []
 
-    monkeypatch.setattr(
-        capabilities,
-        "handle_transcribe",
-        lambda _job, _client: [str(midi_id), str(audio_id)],
-    )
+    def transcribe(_job, derived_client):
+        progress_ranges.append(("transcribe", derived_client._base, derived_client._scale))
+        return [str(midi_id), str(audio_id)]
+
+    monkeypatch.setattr(capabilities, "handle_transcribe", transcribe)
     monkeypatch.setattr(
         capabilities,
         "_artifact_kind_for_version",
@@ -135,32 +136,27 @@ def test_understand_runs_all_stages_without_browser_orchestration(monkeypatch):
         ),
     )
 
-    def analyze(derived_job, _client):
+    def analyze(derived_job, derived_client):
         analyzed_inputs.extend(derived_job.input_version_ids)
         derived_capabilities.append(derived_job.capability.name)
+        progress_ranges.append(("analyze", derived_client._base, derived_client._scale))
         return []
 
+    def score(derived_job, derived_client):
+        derived_capabilities.append(derived_job.capability.name)
+        progress_ranges.append(("score", derived_client._base, derived_client._scale))
+        return [str(score_id)]
+
     monkeypatch.setattr(capabilities, "handle_analyze", analyze)
-    monkeypatch.setattr(
-        capabilities,
-        "handle_audio_structure",
-        lambda derived_job, _client: (
-            derived_capabilities.append(derived_job.capability.name) or []
-        ),
-    )
-    monkeypatch.setattr(
-        capabilities,
-        "handle_score",
-        lambda derived_job, _client: (
-            derived_capabilities.append(derived_job.capability.name) or [str(score_id)]
-        ),
-    )
+    monkeypatch.setattr(capabilities, "handle_score", score)
 
     outputs = capabilities.handle_understand(job, MagicMock())
 
     assert outputs == [str(midi_id), str(audio_id), str(score_id)]
-    # The analyze stage receives both the transcribed MIDI and the original
-    # audio so it can measure pulse evidence (BPM/beats/downbeats) from the
-    # recording rather than relying on transcription placeholders.
     assert analyzed_inputs == [midi_id, original_audio_id]
-    assert derived_capabilities == ["audio_structure", "analyze", "score"]
+    assert derived_capabilities == ["analyze", "score"]
+    assert progress_ranges == [
+        ("transcribe", 0.0, 0.65),
+        ("analyze", 0.65, 0.20),
+        ("score", 0.85, 0.15),
+    ]
