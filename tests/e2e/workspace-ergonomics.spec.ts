@@ -147,7 +147,7 @@ test.describe("workspace ergonomics (MSW)", () => {
   });
 
   test("keeps the Piano Roll note layer continuous through workspace interaction", async ({ page }) => {
-    await expect(page.getByRole("button", { name: /^Test Work\\b/ })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("tab", { name: "Piano Roll" }).click();
 
     const pianoRoll = page.getByTestId("piano-roll");
