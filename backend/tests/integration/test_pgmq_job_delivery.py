@@ -42,12 +42,7 @@ def _fixture_ids() -> tuple[str, str, str, str]:
     )
 
 
-def _insert_fixture(
-    db_url: str,
-    owner_id: str,
-    project_id: str,
-    workflow_id: str,
-) -> None:
+def _insert_fixture(db_url: str, owner_id: str, project_id: str, workflow_id: str) -> None:
     _psql(
         db_url,
         f"""
