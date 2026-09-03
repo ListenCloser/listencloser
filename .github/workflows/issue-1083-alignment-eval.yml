@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - issue-1083-score-performance-alignment
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
