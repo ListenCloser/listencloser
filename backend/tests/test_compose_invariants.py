@@ -13,7 +13,9 @@ from pathlib import Path
 
 import yaml
 
-COMPOSE_PATH = Path(__file__).resolve().parents[1] / "docker-compose.yml"
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+COMPOSE_PATH = BACKEND_ROOT / "docker-compose.yml"
+DEPLOY_SCRIPT = BACKEND_ROOT.parent / "scripts" / "deploy.sh"
 
 
 def _load_compose() -> dict:
@@ -39,3 +41,27 @@ def test_worker_service_does_not_have_llm_credentials() -> None:
         "Worker service must not receive LLM_API_KEY. "
         "No worker-invoked code path touches the ask/ package."
     )
+
+
+def test_long_lived_services_drop_all_linux_capabilities() -> None:
+    compose = _load_compose()
+
+    for service_name in ("backend", "worker"):
+        service = compose["services"][service_name]
+        assert service.get("cap_drop") == ["ALL"]
+
+
+def test_long_lived_services_cannot_gain_new_privileges() -> None:
+    compose = _load_compose()
+
+    for service_name in ("backend", "worker"):
+        security_opt = compose["services"][service_name].get("security_opt", [])
+        assert "no-new-privileges:true" in security_opt
+
+
+def test_runtime_volume_root_helpers_restore_only_required_capabilities() -> None:
+    script = DEPLOY_SCRIPT.read_text()
+    helper_caps = "--cap-add CHOWN --cap-add DAC_OVERRIDE"
+
+    assert script.count(helper_caps) == 2
+    assert "--cap-add ALL" not in script

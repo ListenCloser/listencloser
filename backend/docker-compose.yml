@@ -6,6 +6,10 @@ services:
       dockerfile: Dockerfile
     container_name: music-ai-backend
     restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "127.0.0.1:8000:8000"
     environment:
@@ -39,6 +43,10 @@ services:
       dockerfile: Dockerfile
     container_name: music-ai-worker
     restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     command: ["python", "worker.py"]
     environment:
       SUPABASE_URL: ${SUPABASE_URL}
