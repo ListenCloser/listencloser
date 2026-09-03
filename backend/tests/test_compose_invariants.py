@@ -48,9 +48,7 @@ def test_long_lived_services_drop_all_linux_capabilities() -> None:
 
     for service_name in ("backend", "worker"):
         service = compose["services"][service_name]
-        assert service.get("cap_drop") == ["ALL"], (
-            f"{service_name} must drop Docker's default Linux capabilities"
-        )
+        assert service.get("cap_drop") == ["ALL"]
 
 
 def test_long_lived_services_cannot_gain_new_privileges() -> None:
@@ -58,9 +56,7 @@ def test_long_lived_services_cannot_gain_new_privileges() -> None:
 
     for service_name in ("backend", "worker"):
         security_opt = compose["services"][service_name].get("security_opt", [])
-        assert "no-new-privileges:true" in security_opt, (
-            f"{service_name} must run with no-new-privileges"
-        )
+        assert "no-new-privileges:true" in security_opt
 
 
 def test_runtime_volume_root_helpers_restore_only_required_capabilities() -> None:
