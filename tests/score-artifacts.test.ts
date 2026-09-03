@@ -55,6 +55,19 @@ function preLineageBundle(): WorkBundle {
   } as unknown as WorkBundle;
 }
 
+function sourceScoreBundle(): WorkBundle {
+  return {
+    work: { id: "work" },
+    jobs: [],
+    artifacts: [
+      artifact("perf-artifact", "midi_performance", "perf-v1", null),
+      artifact("source-score", "musicxml_score", "source-score-v1", null, {
+        representation: "score_source",
+      }),
+    ],
+  } as unknown as WorkBundle;
+}
+
 describe("selectScoreArtifacts", () => {
   it("selects the requested score engine and its matching playback", () => {
     const selected = selectScoreArtifacts(bundle(), "perf-v1", "pm2s");
@@ -74,6 +87,13 @@ describe("selectScoreArtifacts", () => {
     const selected = selectScoreArtifacts(preLineageBundle(), "perf-v1", "musescore");
     expect(selected.score?.latest_version?.id).toBe("legacy-score-v1");
     expect(selected.renderedScore?.latest_version?.id).toBe("legacy-audio-v1");
+    expect(selected.matchesPerformanceMidi).toBe(false);
+  });
+
+  it("never treats an attached source score as the historical MuseScore fallback", () => {
+    const selected = selectScoreArtifacts(sourceScoreBundle(), "perf-v1", "musescore");
+    expect(selected.score).toBeUndefined();
+    expect(selected.renderedScore).toBeUndefined();
     expect(selected.matchesPerformanceMidi).toBe(false);
   });
 
