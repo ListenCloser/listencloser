@@ -106,9 +106,7 @@ def load_pop909_test_manifest(path: str | Path) -> MelodySplitManifest:
     song_ids = tuple(str(song_id) for song_id in raw_song_ids)
     if len(set(song_ids)) != len(song_ids):
         raise ValueError("melody split manifest song_ids must be unique")
-    invalid_ids = [
-        song_id for song_id in song_ids if not _SONG_ID_RE.fullmatch(song_id)
-    ]
+    invalid_ids = [song_id for song_id in song_ids if not _SONG_ID_RE.fullmatch(song_id)]
     if invalid_ids:
         raise ValueError(
             "POP909 song_ids must be zero-padded three-digit strings: "
@@ -161,9 +159,7 @@ def score_binary_note_labels(
 
     reference_positive = sum(reference)
     predicted_positive = sum(predicted)
-    true_positive = sum(
-        ref and pred for ref, pred in zip(reference, predicted, strict=True)
-    )
+    true_positive = sum(ref and pred for ref, pred in zip(reference, predicted, strict=True))
 
     precision = true_positive / predicted_positive if predicted_positive else 0.0
     recall = true_positive / reference_positive if reference_positive else 0.0
@@ -205,9 +201,7 @@ def aggregate_song_results(results: Sequence[MelodySongResult]) -> MelodyAggrega
                 f"non-scored result {result.song_id!r} must not contain metrics"
             )
 
-    precisions = [
-        result.metrics.precision if result.metrics else 0.0 for result in results
-    ]
+    precisions = [result.metrics.precision if result.metrics else 0.0 for result in results]
     recalls = [result.metrics.recall if result.metrics else 0.0 for result in results]
     f1s = [result.metrics.f1 if result.metrics else 0.0 for result in results]
 
