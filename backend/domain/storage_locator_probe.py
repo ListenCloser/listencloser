@@ -43,7 +43,7 @@ def _metadata_matches(actual: int | str, stored: int | str | None) -> bool | Non
 
 
 def _is_missing_object_error(error: StorageApiError) -> bool:
-    return error.code in {"NoSuchKey", "not_found"}
+    return error.code == "NoSuchKey"
 
 
 def _download_selected_object(client: Client, bucket: str, key: str) -> bytes | None:
