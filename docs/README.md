@@ -13,7 +13,8 @@ There is intentionally no universal specification. Each durable fact has one aut
 | What analysis capability may the product expose? | `backend/config/capabilities.json` + its policy/tests |
 | What architecture is currently shipped? | [`ARCHITECTURE.md`](ARCHITECTURE.md), verified against code |
 | What accepted architecture decision constrains future changes? | relevant accepted ADR in [`adr/`](adr/) |
-| What product strategy / portfolio direction is current? | [GitHub #458](https://github.com/ListenCloser/listencloser/issues/458) until #1139 lands and explicitly adopts its repo-native replacement |
+| What is Listen Closer, who is it for, and what durable product principles constrain it? | [`product/PRODUCT.md`](product/PRODUCT.md) |
+| What product bets / portfolio posture are current? | [GitHub #458](https://github.com/ListenCloser/listencloser/issues/458) until the separate ROADMAP migration lands |
 | What repository execution responsibility is currently routed where? | [GitHub #634](https://github.com/ListenCloser/listencloser/issues/634) until #1139 lands and explicitly adopts its replacement |
 | How should an evaluation be designed? | [`EVALUATION_METHODOLOGY.md`](EVALUATION_METHODOLOGY.md) |
 | What did current evaluation tracks conclude? | [`EVALUATION_DECISIONS.md`](EVALUATION_DECISIONS.md) + owning result/report |
@@ -26,7 +27,7 @@ There is intentionally no universal specification. Each durable fact has one aut
 
 For production claims, the deployed release SHA and live configuration matter. A document describing intended `main` behavior cannot prove what is currently deployed.
 
-[#1139](https://github.com/ListenCloser/listencloser/issues/1139) owns the bounded migration from the temporary issue-thread product/routing authorities above to repo-native product authority and deterministic work governance. Until a replacement lands and is explicitly adopted, #458 and #634 remain the current owners of their respective responsibilities; do not create parallel product roadmaps or routing systems during the migration.
+[#1139](https://github.com/ListenCloser/listencloser/issues/1139) owns the bounded authority migration. `product/PRODUCT.md` now owns durable product constitution; #458 remains the temporary roadmap/portfolio authority until the separate ROADMAP migration lands; #634 remains the temporary execution-routing authority until its replacement is explicitly adopted. Do not create parallel product roadmaps or routing systems during the migration.
 
 ## Minimal read paths
 
@@ -53,7 +54,7 @@ The architecture diagrams are deliberately not exhaustive code maps. Human-autho
 
 ### Product / UX
 
-For current product strategy and portfolio posture during the #1139 migration, read only the relevant section of [#458](https://github.com/ListenCloser/listencloser/issues/458) plus the focused product issue. Root [`DESIGN.md`](../DESIGN.md) remains the broad visual/product-UI contract; focused UX issues own bounded interaction decisions until durable rules are incorporated into their canonical product/design authority.
+Read [`product/PRODUCT.md`](product/PRODUCT.md) for durable product identity, target circumstances, JTBD, strategic arena, mental model, and product principles. Read [#458](https://github.com/ListenCloser/listencloser/issues/458) only when current roadmap/portfolio posture is relevant, then read the focused product issue for bounded scope. Root [`DESIGN.md`](../DESIGN.md) owns concrete visual/product-UI guidance; focused UX issues own bounded interaction decisions until durable rules are incorporated into their canonical product/design authority.
 
 ### Evaluation / research
 
@@ -93,9 +94,10 @@ When sources disagree, resolve the disagreement according to the kind of fact in
 2. **Analysis exposure/truthfulness:** the capability registry and policy tests.
 3. **Accepted architecture decisions:** the newest applicable accepted ADR.
 4. **Engineering/agent process:** root `AGENTS.md`.
-5. **Current product strategy/portfolio during migration:** #458 until #1139 explicitly adopts its replacement.
-6. **Current execution routing during migration:** #634 until #1139 explicitly adopts its replacement.
-7. **Focused execution scope/acceptance:** the focused issue body; comments are evidence/history unless incorporated into current authority.
+5. **Durable product constitution:** `product/PRODUCT.md`.
+6. **Current roadmap/portfolio during migration:** #458 until the separate ROADMAP migration lands.
+7. **Current execution routing during migration:** #634 until #1139 explicitly adopts its replacement.
+8. **Focused execution scope/acceptance:** the focused issue body; comments are evidence/history unless incorporated into current authority.
 
 Do not use a future-looking plan to claim a capability is implemented. Do not use stale runtime prose to veto a newer accepted decision.
 
@@ -104,6 +106,7 @@ Do not use a future-looking plan to claim a capability is implemented. Do not us
 ### Canonical / maintained
 
 - `../AGENTS.md` — engineering guardrails and autonomous-agent contract.
+- `product/PRODUCT.md` — durable product constitution: identity, target circumstances, JTBD, strategic arena, mental model, and product principles.
 - `ARCHITECTURE.md` — current runtime architecture and canonical architecture views.
 - `EVALUATION_METHODOLOGY.md` — reusable evaluation decision protocol.
 - `EVALUATION_DECISIONS.md` — cross-track evaluation decision ledger.
@@ -117,7 +120,7 @@ Do not use a future-looking plan to claim a capability is implemented. Do not us
 - `generated/` — mechanically derived architecture/schema views; regenerate from their source rather than hand-editing.
 - machine-readable registries/contracts in source control.
 
-Current product strategy/roadmap and repository execution routing are still temporarily issue-owned by #458 and #634 while #1139 migrates those responsibilities. They are deliberately not duplicated into another maintained Markdown file before the replacement authority lands.
+Current roadmap/portfolio posture and repository execution routing are still temporarily issue-owned by #458 and #634 while #1139 migrates those responsibilities. They are deliberately not duplicated into maintained Markdown before each replacement authority lands.
 
 ### Research / evaluation evidence
 
