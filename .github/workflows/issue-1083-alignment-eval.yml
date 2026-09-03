@@ -28,7 +28,7 @@ jobs:
           python -m pip install 'uv==0.12.6'
           cd backend
           uv sync --frozen --no-dev --group worker
-          .venv/bin/python -m pip check
+          uv pip check --python .venv/bin/python
           du -sk .venv | tee /tmp/worker-before.txt
           .venv/bin/python - <<'PY' | tee /tmp/worker-baseline.txt
           import importlib.metadata
@@ -40,12 +40,12 @@ jobs:
           set -euxo pipefail
           cd backend
           uv pip install --python .venv/bin/python 'parangonar==3.3.3'
-          .venv/bin/python -m pip check
+          uv pip check --python .venv/bin/python
           du -sk .venv | tee /tmp/worker-after.txt
           BEFORE=$(cut -f1 /tmp/worker-before.txt)
           AFTER=$(cut -f1 /tmp/worker-after.txt)
           printf 'locked_worker_incremental_delta_kib=%s\n' "$((AFTER-BEFORE))" | tee /tmp/install-delta.txt
-          .venv/bin/python -m pip freeze | sort | tee /tmp/alignment-freeze.txt
+          uv pip freeze --python .venv/bin/python | sort | tee /tmp/alignment-freeze.txt
       - name: Run real symbolic alignment evaluation
         run: |
           set -euxo pipefail
