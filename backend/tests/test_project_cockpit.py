@@ -34,22 +34,22 @@ def compile_scenario(scenarios: dict, name: str) -> dict:
 
 def test_open_focused_issue_with_no_pr_is_eligible(scenarios: dict) -> None:
     cockpit = compile_scenario(scenarios, "open_focused_issue_no_pr")
-    assert [item["issue"] for item in cockpit["eligible_next"]] == [10]
+    issue_numbers = [item["issue"] for item in cockpit["eligible_next"]]
+    assert issue_numbers == [10]
     assert cockpit["in_flight"] == []
 
 
 def test_exactly_one_active_pr_claims_issue(scenarios: dict) -> None:
     cockpit = compile_scenario(scenarios, "exactly_one_active_pr")
-    assert [(item["pr"], item["issue"]) for item in cockpit["in_flight"]] == [(101, 10)]
+    ownership = [(item["pr"], item["issue"]) for item in cockpit["in_flight"]]
+    assert ownership == [(101, 10)]
     assert cockpit["eligible_next"] == []
 
 
 def test_duplicate_active_pr_ownership_warns(scenarios: dict) -> None:
     cockpit = compile_scenario(scenarios, "duplicate_active_pr_ownership")
-    assert any(
-        "duplicate active PR ownership for issue #10: #101, #102" in warning
-        for warning in cockpit["warnings"]
-    )
+    expected = "duplicate active PR ownership for issue #10: #101, #102"
+    assert any(expected in warning for warning in cockpit["warnings"])
 
 
 def test_draft_and_ready_are_distinct(scenarios: dict) -> None:
@@ -65,49 +65,36 @@ def test_green_red_pending_build_states(scenarios: dict) -> None:
     reasons = {(item["number"], item["reason"]) for item in cockpit["blocked"]}
     assert (102, "Build red") in reasons
     assert (103, "Build pending") in reasons
-    assert not any(
-        number == 101 and reason.startswith("Build") for number, reason in reasons
-    )
+    assert (101, "Build red") not in reasons
+    assert (101, "Build pending") not in reasons
 
 
 def test_protected_build_name_is_case_insensitive() -> None:
-    assert project_cockpit.build_state(
-        {
-            "statusCheckRollup": [
-                {"name": "build", "status": "COMPLETED", "conclusion": "SUCCESS"}
-            ]
-        }
-    ) == "green"
+    check = {"name": "build", "status": "COMPLETED", "conclusion": "SUCCESS"}
+    pull_request = {"statusCheckRollup": [check]}
+    assert project_cockpit.build_state(pull_request) == "green"
 
 
 def test_hard_dependency_blocks_delivery(scenarios: dict) -> None:
     cockpit = compile_scenario(scenarios, "hard_dependency_blocks_delivery")
     assert cockpit["eligible_next"] == []
-    assert any(
-        item["number"] == 20 and item["reason"] == "hard delivery dependency open: #10"
-        for item in cockpit["blocked"]
-    )
+    reasons = {(item["number"], item["reason"]) for item in cockpit["blocked"]}
+    assert (20, "hard delivery dependency open: #10") in reasons
 
 
 def test_recent_merge_moves_out_of_in_flight(scenarios: dict) -> None:
     cockpit = compile_scenario(scenarios, "recent_merge_transition")
     assert cockpit["in_flight"] == []
-    assert [
-        (item["pr"], item["issue"]) for item in cockpit["recently_landed"]
-    ] == [(101, 10)]
+    landed = [(item["pr"], item["issue"]) for item in cockpit["recently_landed"]]
+    assert landed == [(101, 10)]
 
 
 def test_unknown_or_gated_posture_is_not_guessed(scenarios: dict) -> None:
     cockpit = compile_scenario(scenarios, "unknown_and_gated_posture")
     assert cockpit["eligible_next"] == []
-    assert any(
-        item["number"] == 30 and item["reason"] == "ROADMAP posture GATED"
-        for item in cockpit["blocked"]
-    )
-    assert any(
-        warning == "issue #31 eligibility: requires judgment"
-        for warning in cockpit["warnings"]
-    )
+    reasons = {(item["number"], item["reason"]) for item in cockpit["blocked"]}
+    assert (30, "ROADMAP posture GATED") in reasons
+    assert "issue #31 eligibility: requires judgment" in cockpit["warnings"]
     assert "requires judgment" in project_cockpit.render_markdown(cockpit)
 
 
@@ -115,10 +102,8 @@ def test_api_failure_is_explicitly_incomplete(scenarios: dict) -> None:
     cockpit = compile_scenario(scenarios, "api_failure_is_incomplete")
     assert cockpit["complete"] is False
     assert cockpit["main_sha"] is None
-    assert any(
-        warning.startswith("incomplete status: GitHub/API query failed")
-        for warning in cockpit["warnings"]
-    )
+    prefix = "incomplete status: GitHub/API query failed"
+    assert any(warning.startswith(prefix) for warning in cockpit["warnings"])
     assert "**Status: incomplete**" in project_cockpit.render_markdown(cockpit)
 
 
@@ -130,4 +115,5 @@ def test_markdown_and_json_contract_are_serializable(scenarios: dict) -> None:
     assert "## Recently landed" in markdown
     assert "## Eligible next" in markdown
     assert "## Warnings" in markdown
-    assert json.loads(json.dumps(cockpit))["main_sha"] == "a" * 40
+    serialized = json.loads(json.dumps(cockpit))
+    assert serialized["main_sha"] == "a" * 40
