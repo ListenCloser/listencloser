@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { clearWorkDataCache, getJob, getWorkBundle } from "@/lib/api-client";
+import AddAnalysis from "@/components/workspace/AddAnalysis";
+import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import { formatTime } from "@/lib/format";
+import { JobObservationError, waitForJob } from "@/lib/job-tracking";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
 import {
@@ -13,13 +15,7 @@ import {
 } from "@/lib/structure-map-client";
 import styles from "./StructureMap.module.css";
 
-const POLL_MS = 1000;
-const MAX_POLLS = 180;
 const ACTIVE_JOB_STAGES = new Set(["queued", "claimed", "running"]);
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function sourceAndMapState(bundle: Awaited<ReturnType<typeof getWorkBundle>>) {
   const source = bundle.artifacts.find(
@@ -76,9 +72,16 @@ export default function StructureMap() {
         }
         setActiveJobId(null);
         setStatus("idle");
-        if (resolved.job?.lifecycle.current === "failed") {
+        if (
+          resolved.job?.lifecycle.current === "failed"
+          || resolved.job?.lifecycle.current === "cancelled"
+        ) {
           setChooserOpen(true);
-          setError(resolved.job.error || resolved.job.lifecycle.message || "Structure Map processing failed");
+          setError(
+            resolved.job.error
+            || resolved.job.lifecycle.message
+            || "Structure Map processing did not complete",
+          );
         }
         return;
       }
@@ -116,49 +119,39 @@ export default function StructureMap() {
     const workId = workspace.activeWorkId;
     const jobId = activeJobId;
     if (!workId || !jobId) return;
-    let cancelled = false;
+    const controller = new AbortController();
 
-    void (async () => {
-      try {
-        for (let poll = 0; poll < MAX_POLLS; poll += 1) {
-          await sleep(POLL_MS);
-          if (cancelled) return;
-          const job = await getJob(jobId);
-          if (job.stage === "succeeded") {
-            setActiveJobId(null);
-            await load(workId, true);
-            return;
-          }
-          if (job.stage === "failed" || job.stage === "cancelled") {
-            setActiveJobId(null);
-            setStatus("idle");
-            setChooserOpen(true);
-            setError(job.error ?? "Structure Map processing did not complete");
-            return;
-          }
-        }
-        if (!cancelled) {
-          setActiveJobId(null);
-          setStatus("idle");
-          setChooserOpen(true);
-          setError("Structure Map processing is taking longer than expected");
-        }
-      } catch (cause) {
-        if (cancelled) return;
+    void waitForJob(jobId, () => undefined, { signal: controller.signal })
+      .then(async () => {
+        if (controller.signal.aborted) return;
         setActiveJobId(null);
-        setStatus("idle");
-        setChooserOpen(true);
-        setError(cause instanceof Error ? cause.message : "Structure Map processing failed");
-      }
-    })();
+        await load(workId, true);
+      })
+      .catch(async (cause) => {
+        if (controller.signal.aborted) return;
 
-    return () => {
-      cancelled = true;
-    };
+        // The Work bundle is durable authority for terminal state. In
+        // particular, JobObservationError means only that this browser lost
+        // contact or timed out; it must not fabricate a server-side failure.
+        await load(workId, true);
+        if (controller.signal.aborted) return;
+        if (cause instanceof JobObservationError) {
+          setChooserOpen(true);
+          setError(cause.message);
+        }
+      });
+
+    return () => controller.abort();
   }, [activeJobId, load, workspace.activeWorkId]);
 
   const generate = useCallback(async () => {
-    if (!workspace.activeWorkId || !sourceVersionId || !projectId || status === "generating") return;
+    if (
+      !workspace.activeWorkId
+      || !sourceVersionId
+      || !projectId
+      || status === "generating"
+      || status === "loading"
+    ) return;
     setStatus("generating");
     setError(null);
     setChooserOpen(true);
@@ -177,17 +170,16 @@ export default function StructureMap() {
       if (shouldPlay) play();
     };
     const originalSource = transport.sources.find((source) => source.role === "original");
+    const requiresOriginal = transport.activeSource?.role === "score";
 
-    // Structure Map spans are exact performance-time locators for the source
-    // audio Version. Score playback uses notation time, so a map jump must not
-    // reinterpret these seconds against the score timeline. Switch back to the
-    // exact source audio before seeking; the transport's own loadedmetadata
-    // handler runs first, then this handler applies the requested locator.
-    if (transport.activeSource?.role === "score" && originalSource && audioRef.current) {
+    // Map spans use source-audio performance seconds. Score playback uses
+    // notation time, so an exact audition must explicitly choose Original
+    // before seeking rather than silently reinterpreting the coordinate.
+    if (requiresOriginal && originalSource && audioRef.current) {
       const audio = audioRef.current;
       setActiveSource(originalSource);
       audio.addEventListener("loadedmetadata", focus, { once: true });
-    } else if (transport.activeSource?.role !== "score") {
+    } else if (!requiresOriginal) {
       focus();
     }
 
@@ -204,38 +196,34 @@ export default function StructureMap() {
   if (!workspace.activeWorkId || !sourceVersionId) return null;
 
   if (!report) {
+    if (status === "loading" && !chooserOpen) return null;
+    const busy = status === "loading" || status === "generating";
     return (
-      <section className={styles.discovery} aria-label="Add analysis">
-        {!chooserOpen && status !== "loading" ? (
-          <button type="button" className={styles.addAnalysis} onClick={() => setChooserOpen(true)}>
-            + Add analysis
-          </button>
-        ) : chooserOpen ? (
-          <div className={styles.chooser}>
-            <div className={styles.chooserHeader}>
-              <strong>Add analysis</strong>
-              {status !== "generating" && (
-                <button type="button" className={styles.closeChooser} onClick={() => setChooserOpen(false)} aria-label="Close analysis chooser">×</button>
-              )}
-            </div>
-            <div className={styles.choice}>
-              <div>
-                <div className={styles.titleLine}>
-                  <strong>Structure Map</strong>
-                  <span className={styles.experimental}>Experimental</span>
-                </div>
-                <p>Find rough candidate spans so you can jump through the recording&apos;s shape.</p>
-              </div>
-              <button type="button" className={styles.generate} onClick={() => void generate()} disabled={status === "generating"}>
-                {status === "generating" ? "Finding shape…" : error ? "Retry" : "Add"}
-              </button>
-            </div>
-            {error && <p className={styles.error} role="alert">{error}</p>}
-          </div>
-        ) : null}
-      </section>
+      <AddAnalysis
+        open={chooserOpen}
+        onOpenChange={setChooserOpen}
+        options={[{
+          id: "structure-map",
+          title: "Structure Map",
+          description: "Find rough candidate spans so you can jump through the recording's shape.",
+          maturity: "Experimental",
+          actionLabel: status === "generating"
+            ? "Finding shape…"
+            : status === "loading"
+              ? "Checking…"
+              : error
+                ? "Retry"
+                : "Add",
+          onAction: () => void generate(),
+          busy,
+        }]}
+        notice={error}
+        noticeRole={busy ? "status" : "alert"}
+      />
     );
   }
+
+  const hearingRequiresOriginal = transport.activeSource?.role === "score";
 
   return (
     <section className={styles.map} aria-label="Experimental Structure Map">
@@ -252,14 +240,20 @@ export default function StructureMap() {
       <div className={styles.rows}>
         {report.candidate_spans.map((span, index) => {
           const active = transport.position >= span.start_seconds && transport.position < span.end_seconds;
+          const hearLabel = hearingRequiresOriginal ? "Hear original" : "Hear";
           return (
             <div className={`${styles.row}${active ? ` ${styles.active}` : ""}`} key={`${span.start_seconds}-${index}`}>
               <button type="button" className={styles.jump} onClick={() => focusSpan(span, false)} aria-current={active ? "true" : undefined}>
                 <strong>{span.label}</strong>
                 <span>{formatTime(span.start_seconds)}–{formatTime(span.end_seconds)}</span>
               </button>
-              <button type="button" className={styles.hear} onClick={() => focusSpan(span, true)} aria-label={`Hear ${span.label} from ${formatTime(span.start_seconds)}`}>
-                Hear
+              <button
+                type="button"
+                className={styles.hear}
+                onClick={() => focusSpan(span, true)}
+                aria-label={`${hearLabel} ${span.label} from ${formatTime(span.start_seconds)}`}
+              >
+                {hearLabel}
               </button>
             </div>
           );
