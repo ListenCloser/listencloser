@@ -1,82 +1,12 @@
 /*
- * ListenCloser interface foundation.
+ * ListenCloser interface normalization.
  *
- * Generic application chrome uses one restrained token contract. Product-
- * specific renderers remain responsible for measured musical data and shared
- * time/selection semantics; the shell should not invent a second visual system.
+ * app/tokens.css owns ordinary application-chrome tokens. This temporary
+ * normalization layer keeps historical component owners visually coherent
+ * while #1211 / #523 migrate and delete the older cascade strata.
+ * Product-specific renderers remain responsible for measured musical data and
+ * shared time/selection semantics.
  */
-
-:root {
-  color-scheme: dark;
-
-  --ui-canvas: #0d100e;
-  --ui-chrome: #111411;
-  --ui-panel: #151815;
-  --ui-raised: #1b1f1b;
-  --ui-hover: #202520;
-  --ui-line: rgba(239, 241, 233, 0.075);
-  --ui-line-strong: rgba(239, 241, 233, 0.14);
-
-  --ui-text: #eceee6;
-  --ui-text-2: #b5bab1;
-  --ui-text-3: #767d75;
-  --measurement-font-size: 10px;
-  --measurement-font-weight: 500;
-
-  --ui-action: #dff45a;
-  --ui-action-soft: rgba(223, 244, 90, 0.08);
-  --ui-relation: #829d9d;
-  --ui-time: #a8afa7;
-  --ui-time-soft: rgba(168, 175, 167, 0.12);
-
-  /* Keep legacy component owners coherent until #523 consolidates them. */
-  --bg: var(--ui-canvas);
-  --bg-subtle: var(--ui-chrome);
-  --panel: var(--ui-panel);
-  --panel-2: var(--ui-raised);
-  --panel-3: var(--ui-hover);
-  --panel-4: #262b26;
-  --text: var(--ui-text);
-  --muted: var(--ui-text-3);
-  --accent: var(--ui-action);
-  --accent-strong: #efff86;
-  --accent-soft: var(--ui-action-soft);
-  --accent-2: var(--ui-relation);
-  --accent-soft-2: rgba(130, 157, 157, 0.1);
-  --border: var(--ui-line);
-  --border-strong: var(--ui-line-strong);
-  --danger: #cf7770;
-  --danger-soft: rgba(207, 119, 112, 0.09);
-
-  --surface-canvas: var(--ui-canvas);
-  --surface-tool: var(--ui-chrome);
-  --surface-tool-raised: var(--ui-raised);
-  --surface-music: #0b0e0c;
-  --surface-music-deep: #080b09;
-  --surface-paper: #efeee8;
-  --surface-paper-edge: #deddd5;
-  --ink-subtle: var(--ui-text-3);
-  --ink-secondary: var(--ui-text-2);
-  --line-soft: var(--ui-line);
-  --line-medium: var(--ui-line-strong);
-  --waveform-trace: #d6dad2;
-  --waveform-axis: rgba(220, 224, 216, 0.1);
-
-  --color-theory: var(--ui-relation);
-  --color-harmony: var(--ui-relation);
-  --color-harmony-soft: rgba(130, 157, 157, 0.09);
-  --color-rhythm: #979e98;
-  --color-rhythm-soft: rgba(151, 158, 152, 0.08);
-  --color-melody: #a8ada6;
-  --color-melody-soft: rgba(168, 173, 166, 0.08);
-  --color-structure: #758d8f;
-  --color-structure-soft: rgba(117, 141, 143, 0.09);
-
-  --representation-playback-on-dark: var(--ui-time);
-  --representation-playback-soft-on-dark: var(--ui-time-soft);
-  --score-playback: var(--ui-time);
-  --score-playback-soft: var(--ui-time-soft);
-}
 
 html,
 body,
