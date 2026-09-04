@@ -16,15 +16,7 @@ from uuid import UUID
 import pretty_midi
 
 import music_features
-from domain.models import (
-    Artifact,
-    ArtifactKind,
-    Entity,
-    EntityKind,
-    Insight,
-    Job,
-    Version,
-)
+from domain.models import Artifact, ArtifactKind, Entity, EntityKind, Insight, Job, Version
 from domain.repositories import ArtifactRepo, EntityRepo, InsightRepo, VersionRepo
 
 _STORAGE_BUCKET = "artifacts"
@@ -140,9 +132,7 @@ def _build_melody_midi(matched: list[Entity], piece_end_seconds: float) -> bytes
     # Keep the derived source on the same performance-time extent as the Piano
     # Roll even when the proposed melody ends early. A non-audible lyric event
     # extends the MIDI timeline without inventing a musical note or meter event.
-    last_note_end = max(
-        (note.note.end_seconds for note in matched if note.note), default=0.0
-    )
+    last_note_end = max((note.note.end_seconds for note in matched if note.note), default=0.0)
     if piece_end_seconds > last_note_end:
         midi.lyrics.append(pretty_midi.Lyric(text=" ", time=piece_end_seconds))
 
