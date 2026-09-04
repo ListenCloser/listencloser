@@ -594,9 +594,7 @@ def create_create_workflow(
             if existing_job:
                 workflow = WorkflowRepo(sb).get(existing_job.workflow_id, owner)
                 if not workflow:
-                    raise RuntimeError(
-                        "idempotent separation job references a missing workflow"
-                    )
+                    raise RuntimeError("idempotent separation job references a missing workflow")
                 return {"workflow": workflow, "job": existing_job}
 
             workflow = Workflow(
