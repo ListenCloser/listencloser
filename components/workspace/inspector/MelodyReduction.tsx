@@ -1,7 +1,6 @@
 "use client";
 
 import type { Insight } from "@/lib/domain.types";
-import { pitchToName } from "@/lib/notes";
 import {
   projectMelodyReduction,
   type MelodyReductionProjection,
@@ -9,6 +8,12 @@ import {
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
 import styles from "./MelodyReduction.module.css";
+
+const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"] as const;
+
+function pitchName(pitch: number): string {
+  return `${NOTE_NAMES[((pitch % 12) + 12) % 12]}${Math.floor(pitch / 12) - 1}`;
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? value as Record<string, unknown> : null;
@@ -94,7 +99,7 @@ export function MelodyReductionObject({
                 rx={2}
                 fill="var(--accent)"
               >
-                <title>{pitchToName(note.pitch)} · exact note {note.id}</title>
+                <title>{pitchName(note.pitch)} · exact note {note.id}</title>
               </rect>
             );
           })}
