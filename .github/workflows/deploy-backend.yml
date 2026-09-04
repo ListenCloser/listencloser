@@ -280,3 +280,5 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/production-verify.yml
+    secrets:
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
