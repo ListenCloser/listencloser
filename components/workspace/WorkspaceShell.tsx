@@ -117,7 +117,7 @@ function WorkspaceContent({
 
         <div className="studio-canvas-area studio-canvas-area-v3">
           <RepresentationStack signedIn={signedIn} canImport={canImport} />
-          <StructureMap />
+          <StructureMap canProcess={canImport} />
         </div>
 
         {inspectorAvailable && (
