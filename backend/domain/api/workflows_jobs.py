@@ -14,7 +14,9 @@ from domain.models import ArtifactKind, Capability, Job, JobStage, Version, Work
 from domain.repositories import ArtifactRepo, JobRepo, VersionRepo, WorkflowRepo, WorkRepo
 
 router = APIRouter()
-_PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset({"melody_audition", "perceptual_series", "transform"})
+_PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset(
+    {"melody_audition", "perceptual_series", "structure_map", "transform"}
+)
 
 
 class UnderstandWorkflowBody(BaseModel):
