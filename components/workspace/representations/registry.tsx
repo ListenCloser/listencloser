@@ -2,7 +2,6 @@
 
 import { useMemo, type ComponentType } from "react";
 import PianoRoll from "./PianoRoll";
-import PitchContour from "./PitchContour";
 import Spectrogram from "./Spectrogram";
 import Waveform from "./Waveform";
 import SheetMusic from "@/components/SheetMusic";
@@ -283,16 +282,11 @@ function ScoreView({ active, orientationCue = false }: RepresentationViewProps) 
   );
 }
 
-function PitchContourView({ active }: RepresentationViewProps) {
-  return <PitchContour active={active} />;
-}
-
 const VIEW_COMPONENTS: Record<RepresentationId, ComponentType<RepresentationViewProps>> = {
   listen: WaveformView,
   piano_roll: PianoRollView,
   score: ScoreView,
   spectrogram: SpectrogramView,
-  pitch_contour: PitchContourView,
 };
 
 /** Workspace-owned renderer registry built from the shared pure catalog. */
