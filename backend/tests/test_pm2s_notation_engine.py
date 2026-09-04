@@ -84,8 +84,13 @@ def test_pm2s_preserves_score_midi_and_feeds_only_it_to_musescore() -> None:
     assert result.provenance.engine == "pm2s"
     assert result.provenance.parameters["input_representation"] == "performance_midi"
     assert result.provenance.parameters["output_representation"] == "score_midi"
+    assert (
+        result.provenance.parameters["source_compatibility_patch"]
+        == "midi_tempo_uint24_bound_v1"
+    )
     assert result.quantization_report["score_midi_engine"] == "pm2s"
     assert result.quantization_report["musicxml_stage"] == "musescore_midi_import"
+    assert result.quantization_report["source_compatibility_patch"] == "midi_tempo_uint24_bound_v1"
     assert result.quantization_report["musescore_report"] == {
         "engine": "musescore",
         "stage": "midi_import",
