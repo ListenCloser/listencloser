@@ -53,7 +53,7 @@ class SimilarMomentsMethod(BaseModel):
 
     id: Literal["perceptual_descriptor_shape"] = SIMILAR_MOMENTS_METHOD_ID
     version: Literal["1.0"] = SIMILAR_MOMENTS_METHOD_VERSION
-    dimensions: list[str] = Field(default_factory=lambda: list(RECURRENCE_DIMENSIONS))
+    dimensions: list[str]
     distance: Literal["mean_length_normalized_z_euclidean"] = (
         "mean_length_normalized_z_euclidean"
     )
@@ -84,7 +84,7 @@ class SimilarMomentsObservation(BaseModel):
     query_end_seconds: float = Field(gt=0)
     max_matches: int = Field(ge=1, le=MAX_MATCHES)
     method: SimilarMomentsMethod
-    matches: list[SimilarMomentMatch] = Field(default_factory=list)
+    matches: list[SimilarMomentMatch]
     no_match_reason: str | None = None
 
 
@@ -347,11 +347,14 @@ def find_similar_moments(
         query_end_seconds=query_end_seconds,
         max_matches=max_matches,
         method=SimilarMomentsMethod(
+            dimensions=list(RECURRENCE_DIMENSIONS),
             parameters={
                 "constant_std_threshold": CONSTANT_STD_THRESHOLD,
                 "minimum_query_frames": MIN_QUERY_FRAMES,
+                "window_frames": window_frames,
+                "query_duration_seconds": query_duration,
                 "max_matches": max_matches,
-            }
+            },
         ),
         matches=matches,
         no_match_reason=None if matches else "no_valid_non_overlapping_candidate_windows",
