@@ -14,6 +14,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pitchToName } from "@/lib/notes";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
+import TranscriptionCorrectionControls from "./TranscriptionCorrectionControls";
 
 type Note = { id?: string; pitch: number; start: number; end: number; velocity: number };
 type TimeRange = { start: number; end: number };
@@ -151,6 +152,7 @@ export default function PianoRoll({
   selectedNoteIds,
   emphasizeSelection = false,
   onSelectRange,
+  onSelectNotes,
   onAnnotationClick,
 }: {
   notes: Note[];
@@ -177,7 +179,6 @@ export default function PianoRoll({
     (time: number) => LABEL_W + (time / 60) * bpm * PPQ,
     [bpm],
   );
-
   const observedBeats = validSecondsGrid(beatTimes, 2);
   const observedDownbeats = observedBeats.length > 0
     ? validSecondsGrid(downbeatTimes)
@@ -314,7 +315,21 @@ export default function PianoRoll({
       return;
     }
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left + (scrollRef.current?.scrollLeft ?? 0);
+    const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
+    const x = event.clientX - rect.left + scrollLeft;
+    const y = event.clientY - rect.top;
+    const clickedNote = noteGeometry.find(
+      ({ note, x: noteX, y: noteY, width, height }) =>
+        Boolean(note.id)
+        && x >= noteX
+        && x <= noteX + width
+        && y >= noteY
+        && y <= noteY + height,
+    );
+    if (clickedNote?.note.id && onSelectNotes) {
+      onSelectNotes([clickedNote.note.id]);
+      return;
+    }
     const clickTime = Math.max(0, ((x - LABEL_W) / (PPQ * bpm)) * 60);
     if (onAnnotationClick && annotations) {
       for (const annotation of annotations) {
@@ -342,11 +357,11 @@ export default function PianoRoll({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          role={onSeek || onSelectRange ? "button" : undefined}
+          role={onSeek || onSelectRange || onSelectNotes ? "button" : undefined}
           aria-label={
             onSelectRange
-              ? "Select region or seek playback from piano roll"
-              : "Seek playback from piano roll"
+              ? "Select notes or a region, or seek playback from piano roll"
+              : "Select a note or seek playback from piano roll"
           }
         >
           <rect x={0} y={0} width={LABEL_W} height={h} fill="var(--panel)" />
@@ -552,6 +567,7 @@ export default function PianoRoll({
         <span className="muted">{notes.length} notes &middot; {endTime.toFixed(1)}s</span>
         {playheadTime > 0 && <span className="muted">{playheadTime.toFixed(1)}s</span>}
       </div>
+      <TranscriptionCorrectionControls notes={notes} />
     </div>
   );
 }
