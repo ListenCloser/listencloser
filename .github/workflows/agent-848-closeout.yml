@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   closeout:
-    timeout-minutes: 15
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,11 +37,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
+
       - name: Generate exact API artifacts
+        id: contracts
+        continue-on-error: true
         run: npm run api:generate
-      - name: Run focused measured-change tests
-        run: uv run --project backend --locked python -m pytest backend/tests/test_measured_changes.py -v
+
+      - name: Run focused measured-change and relation tests
+        id: focused
+        continue-on-error: true
+        run: |
+          uv run --project backend --locked python -m pytest \
+            backend/tests/test_measured_changes.py \
+            backend/tests/test_relation_query.py \
+            backend/tests/test_relation_observations.py \
+            -v
+
       - name: Inspect branch method on public-domain recordings
+        id: real
+        continue-on-error: true
         env:
           PYTHONPATH: backend
         run: |
@@ -93,6 +107,7 @@ jobs:
                   report,
                   evidence_report_version_id=report_version_id,
               )
+              feature_floor = float(discovery.method_parameters.get("feature_change_floor", 0.0))
               output.append({
                   "title": title,
                   "file_title": file_title,
@@ -105,8 +120,15 @@ jobs:
                       {
                           "rank": candidate.rank,
                           "boundary_seconds": candidate.boundary_seconds,
+                          "before_span_seconds": candidate.before_span_seconds,
+                          "after_span_seconds": candidate.after_span_seconds,
                           "ranking_score": candidate.ranking_score,
                           "changed_feature_count": candidate.changed_feature_count,
+                          "changed_feature_groups": [
+                              name
+                              for name, value in candidate.normalized_feature_changes.items()
+                              if value >= feature_floor
+                          ],
                           "normalized_feature_changes": candidate.normalized_feature_changes,
                           "measurement_summaries": [
                               measurement.summary
@@ -120,14 +142,43 @@ jobs:
           with open("closeout-artifacts/real-recordings.json", "w", encoding="utf-8") as handle:
               json.dump(output, handle, indent=2, sort_keys=True)
           PY
-      - name: Stage generated contracts
+
+      - name: Stage diagnostic artifacts
+        if: always()
+        env:
+          CONTRACTS_OUTCOME: ${{ steps.contracts.outcome }}
+          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
+          REAL_OUTCOME: ${{ steps.real.outcome }}
         run: |
-          cp openapi/openapi.json closeout-artifacts/openapi.json
-          cp lib/api-types.ts closeout-artifacts/api-types.ts
+          mkdir -p closeout-artifacts
+          if [ -f openapi/openapi.json ]; then
+            cp openapi/openapi.json closeout-artifacts/openapi.json
+          fi
+          if [ -f lib/api-types.ts ]; then
+            cp lib/api-types.ts closeout-artifacts/api-types.ts
+          fi
+          cat > closeout-artifacts/outcomes.txt <<EOF
+          contracts=${CONTRACTS_OUTCOME}
+          focused_tests=${FOCUSED_OUTCOME}
+          real_recordings=${REAL_OUTCOME}
+          EOF
+
       - name: Upload closeout artifacts
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: agent-848-closeout-${{ github.run_attempt }}
           path: closeout-artifacts/
           if-no-files-found: error
           retention-days: 1
+
+      - name: Require closeout correctness
+        if: always()
+        env:
+          CONTRACTS_OUTCOME: ${{ steps.contracts.outcome }}
+          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
+          REAL_OUTCOME: ${{ steps.real.outcome }}
+        run: |
+          test "$CONTRACTS_OUTCOME" = success
+          test "$FOCUSED_OUTCOME" = success
+          test "$REAL_OUTCOME" = success
