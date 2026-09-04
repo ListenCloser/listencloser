@@ -1210,7 +1210,10 @@ export interface components {
                 number,
                 number
             ];
-            /** Boundary Seconds */
+            /**
+             * Boundary Seconds
+             * @description Shared edge between the candidate's before/after comparison windows; a listening-navigation anchor, not an estimate of the physical transition instant.
+             */
             boundary_seconds: number;
             /** Changed Component Count */
             changed_component_count: number;

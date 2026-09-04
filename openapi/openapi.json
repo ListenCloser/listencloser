@@ -1911,6 +1911,7 @@
             "type": "array"
           },
           "boundary_seconds": {
+            "description": "Shared edge between the candidate's before/after comparison windows; a listening-navigation anchor, not an estimate of the physical transition instant.",
             "title": "Boundary Seconds",
             "type": "number"
           },
