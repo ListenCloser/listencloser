@@ -50,7 +50,7 @@ test("import starts one durable understand job and reloads the persisted work", 
   await importButton.click();
   await page.getByRole("menuitem", { name: /Upload recording/ }).click();
   const realAudio = process.env.REAL_AUDIO_FILE;
-  await page.locator('input[type="file"]').setInputFiles(
+  await page.locator("#audio-import-input").setInputFiles(
     realAudio && existsSync(realAudio)
       ? realAudio
       : { name: "fixture.m4a", mimeType: "audio/mp4", buffer: Buffer.from("mock m4a payload") },
