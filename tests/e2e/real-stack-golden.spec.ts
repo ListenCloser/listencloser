@@ -102,12 +102,16 @@ async function importWithRetry(
     await expect(importButton).toBeEnabled({ timeout: 30_000 });
     await importButton.click();
     await page.getByRole("menuitem", { name: /Upload recording/ }).click();
+    await expect(page.getByRole("dialog", { name: "Process recording" })).toBeVisible();
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Choose audio" }).click();
+    const fileChooser = await fileChooserPromise;
 
     // The product-level clock starts at the user's file selection, not at the
     // first backend request. Keep this observer alive through enrichment so it
     // also captures upload/finalize/workflow responses and Work polling.
     const tracker = beginImportPerformanceAttempt(page);
-    await page.locator('input[type="file"]').setInputFiles(REAL_AUDIO!);
+    await fileChooser.setFiles(REAL_AUDIO!);
 
     const processing = page.getByRole("progressbar");
     const failed = page.getByRole("alert").filter({ hasText: "Your project is still loading" });
