@@ -77,7 +77,10 @@ def _authorized_report_loader(
 
     def load_report(version: Version) -> bytes:
         authorized_version_ids = version_ids_by_artifact.get(version.artifact_id, set())
-        if version.artifact_id not in artifact_ids or version.id not in authorized_version_ids:
+        if (
+            version.artifact_id not in artifact_ids
+            or version.id not in authorized_version_ids
+        ):
             raise PermissionError(
                 "perceptual evidence report is not in the authorized Work snapshot"
             )
@@ -107,6 +110,16 @@ def _authorized_work_snapshot(work_id: UUID, auth):
     if not snapshot:
         raise HTTPException(status_code=404, detail="Work not found")
     return sb, owner_id, snapshot
+
+
+def find_persisted_similar_moments(*args, **kwargs):
+    """Lazy test seam that keeps worker/DSP dependencies out of API imports."""
+
+    from domain.similar_moments_query import (
+        find_persisted_similar_moments as implementation,
+    )
+
+    return implementation(*args, **kwargs)
 
 
 @router.post(
@@ -157,10 +170,7 @@ def similar_moments(
 
     # Keep NumPy/perceptual matcher imports behind the on-demand endpoint so
     # importing the HTTP application does not require worker/DSP dependencies.
-    from domain.similar_moments_query import (
-        SimilarMomentsQuery,
-        find_persisted_similar_moments,
-    )
+    from domain.similar_moments_query import SimilarMomentsQuery
 
     sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
     source_version = _source_version(snapshot, body.source_version_id)
