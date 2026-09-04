@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import AddAnalysis from "@/components/workspace/AddAnalysis";
+import AddAnalysis, { type AddAnalysisOption } from "@/components/workspace/AddAnalysis";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import { formatTime } from "@/lib/format";
 import { JobObservationError, waitForJob } from "@/lib/job-tracking";
@@ -40,7 +40,7 @@ function sourceAndMapState(bundle: Awaited<ReturnType<typeof getWorkBundle>>) {
 }
 
 export default function StructureMap() {
-  const { workspace, setSelection } = useWorkspace();
+  const { workspace, setSelection, setInspectorMode, toggleInspector } = useWorkspace();
   const { transport, seek, play, setActiveSource, audioRef } = useTransport();
   const [report, setReport] = useState<StructureMapReport | null>(null);
   const [sourceVersionId, setSourceVersionId] = useState<string | null>(null);
@@ -177,6 +177,12 @@ export default function StructureMap() {
     void load(workspace.activeWorkId, true);
   }, [load, status, workspace.activeWorkId]);
 
+  const openChanges = useCallback(() => {
+    setInspectorMode("analysis");
+    if (workspace.inspectorCollapsed) toggleInspector();
+    setChooserOpen(false);
+  }, [setInspectorMode, toggleInspector, workspace.inspectorCollapsed]);
+
   const focusSpan = useCallback((span: StructureMapSpan, shouldPlay: boolean) => {
     const focus = () => {
       seek(span.start_seconds);
@@ -208,78 +214,98 @@ export default function StructureMap() {
 
   if (!workspace.activeWorkId || !sourceVersionId) return null;
 
+  const busy = status === "loading" || status === "generating";
+  const analysisOptions: AddAnalysisOption[] = [];
+  if (!report) {
+    analysisOptions.push({
+      id: "structure-map",
+      title: "Structure Map",
+      description: "Find rough candidate spans so you can jump through the recording's shape.",
+      maturity: "Experimental",
+      actionLabel: observationLost
+        ? "Check status"
+        : status === "generating"
+          ? "Finding shape…"
+          : status === "loading"
+            ? "Checking…"
+            : error
+              ? "Retry"
+              : "Add",
+      onAction: observationLost ? checkStatus : () => void generate(),
+      busy,
+    });
+  }
+  if (workspace.analysisState !== "idle") {
+    analysisOptions.push({
+      id: "measured-changes",
+      title: "Changes",
+      description: "Open measured change moments in Breakdown without starting another job.",
+      maturity: "Experimental",
+      actionLabel: "Open",
+      onAction: openChanges,
+    });
+  }
+
+  const discovery = analysisOptions.length > 0 ? (
+    <AddAnalysis
+      open={chooserOpen}
+      onOpenChange={setChooserOpen}
+      options={analysisOptions}
+      notice={error}
+      noticeRole={busy || observationLost ? "status" : "alert"}
+    />
+  ) : null;
+
   if (!report) {
     if (status === "loading" && !chooserOpen) return null;
-    const busy = status === "loading" || status === "generating";
-    return (
-      <AddAnalysis
-        open={chooserOpen}
-        onOpenChange={setChooserOpen}
-        options={[{
-          id: "structure-map",
-          title: "Structure Map",
-          description: "Find rough candidate spans so you can jump through the recording's shape.",
-          maturity: "Experimental",
-          actionLabel: observationLost
-            ? "Check status"
-            : status === "generating"
-              ? "Finding shape…"
-              : status === "loading"
-                ? "Checking…"
-                : error
-                  ? "Retry"
-                  : "Add",
-          onAction: observationLost ? checkStatus : () => void generate(),
-          busy,
-        }]}
-        notice={error}
-        noticeRole={busy || observationLost ? "status" : "alert"}
-      />
-    );
+    return discovery;
   }
 
   const hearingRequiresOriginal = transport.activeSource?.role === "score";
 
   return (
-    <section className={styles.map} aria-label="Experimental Structure Map">
-      <header className={styles.header}>
-        <div>
-          <div className={styles.titleLine}>
-            <h2>Map</h2>
-            <span className={styles.experimental}>Experimental</span>
-          </div>
-          <p>Rough candidate spans for jumping through the recording.</p>
-        </div>
-      </header>
-
-      <div className={styles.rows}>
-        {report.candidate_spans.map((span, index) => {
-          const active = transport.position >= span.start_seconds && transport.position < span.end_seconds;
-          const hearLabel = hearingRequiresOriginal ? "Hear original" : "Hear";
-          return (
-            <div className={`${styles.row}${active ? ` ${styles.active}` : ""}`} key={`${span.start_seconds}-${index}`}>
-              <button type="button" className={styles.jump} onClick={() => focusSpan(span, false)} aria-current={active ? "true" : undefined}>
-                <strong>{span.label}</strong>
-                <span>{formatTime(span.start_seconds)}–{formatTime(span.end_seconds)}</span>
-              </button>
-              <button
-                type="button"
-                className={styles.hear}
-                onClick={() => focusSpan(span, true)}
-                aria-label={`${hearLabel} ${span.label} from ${formatTime(span.start_seconds)}`}
-              >
-                {hearLabel}
-              </button>
+    <>
+      {discovery}
+      <section className={styles.map} aria-label="Experimental Structure Map">
+        <header className={styles.header}>
+          <div>
+            <div className={styles.titleLine}>
+              <h2>Map</h2>
+              <span className={styles.experimental}>Experimental</span>
             </div>
-          );
-        })}
-      </div>
-      <details className={styles.method}>
-        <summary>How this map was made</summary>
-        <p>{report.interpretation}</p>
-        <p><strong>Method:</strong> {report.method.label}</p>
-        <p><strong>Source Version:</strong> <span className={styles.versionId}>{report.source_version_id}</span></p>
-      </details>
-    </section>
+            <p>Rough candidate spans for jumping through the recording.</p>
+          </div>
+        </header>
+
+        <div className={styles.rows}>
+          {report.candidate_spans.map((span, index) => {
+            const active = transport.position >= span.start_seconds && transport.position < span.end_seconds;
+            const hearLabel = hearingRequiresOriginal ? "Hear original" : "Hear";
+            return (
+              <div className={`${styles.row}${active ? ` ${styles.active}` : ""}`} key={`${span.start_seconds}-${index}`}>
+                <button type="button" className={styles.jump} onClick={() => focusSpan(span, false)} aria-current={active ? "true" : undefined}>
+                  <strong>{span.label}</strong>
+                  <span>{formatTime(span.start_seconds)}–{formatTime(span.end_seconds)}</span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.hear}
+                  onClick={() => focusSpan(span, true)}
+                  aria-label={`${hearLabel} ${span.label} from ${formatTime(span.start_seconds)}`}
+                >
+                  {hearLabel}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <details className={styles.method}>
+          <summary>How this map was made</summary>
+          <p>{report.interpretation}</p>
+          <p><strong>Method:</strong> {report.method.label}</p>
+          <p><strong>Source Version:</strong> <span className={styles.versionId}>{report.source_version_id}</span></p>
+        </details>
+      </section>
+    </>
   );
 }
