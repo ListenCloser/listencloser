@@ -25,6 +25,14 @@ function notationMidiVersionId(item: WorkArtifactBundle | undefined): string | n
   return item.latest_version.parent_version_id;
 }
 
+function isEditedPerformanceSource(bundle: WorkBundle, versionId: string | null): boolean {
+  if (!versionId) return false;
+  return bundle.artifacts.some(
+    (item) => item.latest_version?.id === versionId
+      && item.latest_version.metadata?.representation_role === "edited_performance",
+  );
+}
+
 export function selectScoreArtifacts(
   bundle: WorkBundle,
   performanceMidiVersionId: string | null,
@@ -49,12 +57,14 @@ export function selectScoreArtifacts(
   });
 
   let legacyFallback = false;
-  if (!score && scoreEngine === "musescore") {
+  const allowLegacyFallback = !isEditedPerformanceSource(bundle, performanceMidiVersionId);
+  if (!score && scoreEngine === "musescore" && allowLegacyFallback) {
     // Older persisted Works predate score-engine and notation-MIDI lineage
     // metadata. They were produced by the historical MuseScore baseline and
     // were already valid Score surfaces before score reinterpretation existed.
-    // Preserve that display contract, but never borrow an explicitly tagged
-    // score whose lineage does not match the canonical performance MIDI.
+    // Preserve that display contract for machine transcription, but an edited
+    // performance source must fail closed until Score is explicitly regenerated
+    // from that exact correction.
     score = bundle.artifacts.find((item) =>
       item.artifact.kind === "musicxml_score"
       && Boolean(item.latest_version)
