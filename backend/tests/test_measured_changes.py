@@ -162,7 +162,8 @@ def test_discovers_bounded_multi_feature_change_with_literal_evidence():
     )
     assert candidate.finding.support_refs
     assert all(
-        ref.evidence_report_version_id == report_version_id
+        ref.namespace == "perceptual_series"
+        and ref.id.startswith(f"{report_version_id}:")
         for ref in candidate.finding.support_refs
     )
     assert {measurement.feature for measurement in candidate.finding.measurements} == {
