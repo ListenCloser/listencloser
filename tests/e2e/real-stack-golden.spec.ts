@@ -20,6 +20,7 @@ const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SOURCE_SCORE = "tests/fixtures/source-score.musicxml";
 
 type ImportUiMilestones = {
   original_source_ready_ms: number;
@@ -217,7 +218,6 @@ test("real audio golden path", async ({ page }, testInfo) => {
 
   await injectAuth(page);
   await page.goto("/");
-
   // ── Import and processing ────────────────────────────────────────────
   await test.step("import and processing", async () => {
     const tracker = await importWithRetry(page);
@@ -305,6 +305,79 @@ test("real audio golden path", async ({ page }, testInfo) => {
     await page.getByRole("button", { name: "Play Score", exact: true }).click();
     await expect(page.getByRole("button", { name: "Pause Score", exact: true })).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Pause Score", exact: true }).click();
+  });
+
+  // ── First-class attached score source ────────────────────────────────
+  await test.step("attached MusicXML source", async () => {
+    await page.getByRole("tab", { name: "Score" }).click();
+    await page.getByRole("complementary").getByText("Processing", { exact: true }).click();
+    const scoreSource = page.getByRole("combobox", { name: "Score source" });
+    await expect(scoreSource).toBeVisible();
+
+    await selectSource(page, "Original");
+    const positionBeforeSourceScore = await transportPosition(page);
+
+    const chooseFirstScore = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Attach score", exact: true }).click();
+    await (await chooseFirstScore).setFiles(SOURCE_SCORE);
+
+    await expect(scoreSource).toHaveValue(/^source:/, { timeout: 30_000 });
+    await expect(scoreSource.locator("option:checked")).toHaveText("Attached · source-score.musicxml");
+    await expect(page.getByRole("note", { name: "Symbolic representation source" })).toContainText(
+      "Attached score · source-score.musicxml",
+    );
+    await expect(page.locator(".sheet-music-container g.vf-measure").first()).toBeVisible({ timeout: 30_000 });
+
+    // No score↔audio mapping exists for an attached source. Clicking notation
+    // must not seek, and generated Score playback must disappear for this view.
+    const firstMeasure = page.locator(".sheet-music-container g.vf-measure").first();
+    const box = await firstMeasure.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await expectPositionPreserved(page, positionBeforeSourceScore, 0.02);
+
+    await openSourceSelector(page);
+    await expect(page.getByRole("option", { name: "Score", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("option", { name: "Original", exact: true })).toBeVisible();
+    await expect(page.getByRole("option", { name: "Transcription", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await page.getByRole("tab", { name: "Piano Roll" }).click();
+    await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("piano-roll").getByText(/\d+ notes/)).toBeVisible();
+    await selectSource(page, "Original");
+    await expect(await listeningTo(page, "Original")).toBeVisible();
+
+    // One attached source is unambiguous and restores as itself.
+    await page.reload();
+    await dismissWorkspaceNotice(page);
+    await page.getByRole("tab", { name: "Score" }).click();
+    await page.getByRole("complementary").getByText("Processing", { exact: true }).click();
+    await expect(scoreSource).toHaveValue(/^source:/, { timeout: 30_000 });
+    await expect(scoreSource.locator("option:checked")).toHaveText("Attached · source-score.musicxml");
+    await expect(page.getByRole("note", { name: "Symbolic representation source" })).toContainText(
+      "Attached score · source-score.musicxml",
+    );
+
+    // A second immutable source coexists. On reload, no attached source wins by
+    // recency; generated MuseScore remains the safe existing display baseline.
+    const chooseSecondScore = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Attach score", exact: true }).click();
+    await (await chooseSecondScore).setFiles(SOURCE_SCORE);
+    await expect(scoreSource).toHaveValue(/^source:/, { timeout: 30_000 });
+
+    await page.reload();
+    await dismissWorkspaceNotice(page);
+    await page.getByRole("tab", { name: "Score" }).click();
+    await page.getByRole("complementary").getByText("Processing", { exact: true }).click();
+    await expect(scoreSource).toHaveValue("engine:musescore", { timeout: 30_000 });
+    await expect(page.getByRole("option", { name: "Attached · source-score.musicxml (1)", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("option", { name: "Attached · source-score.musicxml (2)", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("note", { name: "Symbolic representation source" })).toContainText("Notation draft");
+
+    await openSourceSelector(page);
+    await expect(page.getByRole("option", { name: "Score", exact: true })).toBeVisible({ timeout: 10_000 });
+    await page.keyboard.press("Escape");
   });
 
   // ── Breakdown ────────────────────────────────────────────────────────
