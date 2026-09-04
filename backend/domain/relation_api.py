@@ -1,4 +1,4 @@
-"""HTTP exposure for on-demand same-work perceptual span comparisons."""
+"""HTTP exposure for on-demand same-work perceptual relations."""
 
 from __future__ import annotations
 
@@ -10,6 +10,10 @@ from pydantic import BaseModel
 
 from auth_utils import verify_token
 from domain.api_schemas import PerceptualSpanComparisonResponse
+from domain.measured_change_query import (
+    MeasuredChangeQueryResult,
+    discover_persisted_measured_changes,
+)
 from domain.models import Version
 from domain.relation_query import (
     PerceptualSpanComparisonQuery,
@@ -87,6 +91,41 @@ def _authorized_report_loader(
     return load_report
 
 
+def _authorized_work_snapshot(work_id: UUID, auth):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    owner_id = _owner_id(auth)
+    snapshot = WorkBundleRepository(sb).load(work_id, owner_id)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Work not found")
+    return sb, owner_id, snapshot
+
+
+@router.get(
+    "/works/{work_id}/relations/measured-changes",
+    response_model=MeasuredChangeQueryResult,
+)
+def measured_changes(
+    work_id: UUID,
+    source_version_id: UUID,
+    auth=Depends(verify_token),
+):
+    """Return a bounded experimental top set from exact persisted evidence."""
+
+    sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
+    source_version = _source_version(snapshot, source_version_id)
+    if source_version is None:
+        raise HTTPException(status_code=404, detail="Source version not found in work")
+
+    return discover_persisted_measured_changes(
+        snapshot,
+        source_version=source_version,
+        load_report=_authorized_report_loader(snapshot, sb, owner_id),
+    )
+
+
 @router.post(
     "/works/{work_id}/relations/perceptual-span-comparison",
     response_model=PerceptualSpanComparisonResponse,
@@ -98,20 +137,12 @@ def compare_perceptual_spans(
 ):
     """Compare two user-selected spans using persisted, lineage-checked evidence."""
 
-    sb = get_supabase()
-    if not sb:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
-
     # WorkBundleRepository already uses the owned Work as its authorization
     # root and returns None when that Work is unavailable to this owner. Do not
     # reinterpret generic ValueError/validation failures as client-facing 404s:
     # descendant model-validation or repository bugs are internal failures and
     # must reach the normal server-error boundary without leaking their detail.
-    owner_id = _owner_id(auth)
-    snapshot = WorkBundleRepository(sb).load(work_id, owner_id)
-    if not snapshot:
-        raise HTTPException(status_code=404, detail="Work not found")
-
+    sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
     source_version = _source_version(snapshot, body.source_version_id)
     if source_version is None:
         raise HTTPException(status_code=404, detail="Source version not found in work")
