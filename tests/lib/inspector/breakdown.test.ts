@@ -136,7 +136,7 @@ describe("rankBreakdownFindings", () => {
     expect(ranked.map((item) => item.kind)).toEqual(["density_valley", "melody_register_peak"]);
   });
 
-  it("uses truthful harmonic language without duplicating a methodology disclaimer in the card", () => {
+  it("uses truthful harmonic language with the necessary interpretation boundary", () => {
     const harmony = finding({
       kind: "harmonic_activity",
       category: "harmony",
@@ -149,7 +149,7 @@ describe("rankBreakdownFindings", () => {
     const [ranked] = rankBreakdownFindings([harmony]);
 
     expect(ranked.headline).toBe("Chord changes become more frequent in this passage.");
-    expect(ranked.evidenceSummary).toBe("");
+    expect(ranked.evidenceSummary).toContain("not harmonic tension");
   });
 
   it("keeps a concrete measured rest duration as useful second-line context", () => {
