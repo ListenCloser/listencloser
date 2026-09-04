@@ -158,7 +158,7 @@ test("a durable recording stays usable while understand artifacts and the first 
   await expect(importButton).toBeEnabled({ timeout: 10_000 });
   await importButton.click();
   await page.getByRole("menuitem", { name: /Upload recording/ }).click();
-  await page.locator('input[type="file"]').setInputFiles({
+  await page.locator("#audio-import-input").setInputFiles({
     name: "progressive-fixture.m4a",
     mimeType: "audio/mp4",
     buffer: Buffer.from("mock progressive m4a payload"),
