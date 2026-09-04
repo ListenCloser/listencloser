@@ -91,7 +91,7 @@ describe("rankBreakdownFindings", () => {
     expect(ranked[0].kind).toBe("density_peak");
   });
 
-  it("keeps experimental melody findings explicitly experimental", () => {
+  it("keeps experimental melody findings explicitly experimental without repeating proof prose", () => {
     const melody = finding({
       id: "melody-peak",
       sourceInsightId: "melody-1",
@@ -107,7 +107,7 @@ describe("rankBreakdownFindings", () => {
 
     expect(ranked.maturity).toBe("experimental");
     expect(ranked.trustClass).toBe("deterministic_derived");
-    expect(ranked.evidenceSummary).toContain("experimental melody extraction");
+    expect(ranked.evidenceSummary).toBe("");
     expect(ranked.primaryRepresentation).toBe("piano_roll");
   });
 
@@ -136,7 +136,7 @@ describe("rankBreakdownFindings", () => {
     expect(ranked.map((item) => item.kind)).toEqual(["density_valley", "melody_register_peak"]);
   });
 
-  it("uses current truthful language for harmonic activity", () => {
+  it("uses truthful harmonic language with the necessary interpretation boundary", () => {
     const harmony = finding({
       kind: "harmonic_activity",
       category: "harmony",
@@ -149,7 +149,21 @@ describe("rankBreakdownFindings", () => {
     const [ranked] = rankBreakdownFindings([harmony]);
 
     expect(ranked.headline).toBe("Chord changes become more frequent in this passage.");
-    expect(ranked.evidenceSummary).toContain("change rate, not harmonic tension");
+    expect(ranked.evidenceSummary).toContain("not harmonic tension");
+  });
+
+  it("keeps a concrete measured rest duration as useful second-line context", () => {
+    const rest = finding({
+      kind: "rest",
+      sourceInsightId: "rests",
+      startSeconds: 15,
+      endSeconds: 17.7,
+      evidence: { duration: 2.7 },
+    });
+
+    const [ranked] = rankBreakdownFindings([rest]);
+
+    expect(ranked.evidenceSummary).toBe("Observed 2.7s gap between note attacks.");
   });
 
   it("propagates the actual support set for relational findings", () => {
