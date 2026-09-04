@@ -5,6 +5,7 @@ import PianoRoll from "./PianoRoll";
 import Spectrogram from "./Spectrogram";
 import Waveform from "./Waveform";
 import SheetMusic from "@/components/SheetMusic";
+import MelodyReduction from "@/components/workspace/inspector/MelodyReduction";
 import { extractAnnotations } from "@/lib/analysis-annotations";
 import {
   resolveEvidenceProjection,
@@ -114,6 +115,7 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
   const { transport, seek } = useTransport();
   const { timeline } = useTimeline();
   const entry = workspace.representations.find((item) => item.kind === "piano_roll");
+  const melody = workspace.insights.find((item) => item.kind === "melody");
   const notes = entry?.notes ?? [];
   const pulseGrid = useMemo(
     () => extractObservedPulseGrid(workspace.insights, entry?.versionId),
@@ -137,6 +139,7 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
     : [];
   return (
     <div className="representation-body">
+      {melody && <MelodyReduction insight={melody} />}
       <PianoRoll
         notes={notes}
         bpm={timeline.bpm}
