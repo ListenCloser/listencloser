@@ -88,25 +88,35 @@ Horizons describe current investment posture, not a calendar.
 
 | Bet | Posture | Why now | Current decision / next action | Focused owner |
 | --- | --- | --- | --- | --- |
-| Deep musical-understanding frontier + rapid OSS integration queue | **ACTIVE** | The product now needs a much richer evidence/relationship substrate, not another presentation-only experiment. | Define the dream Lens × Product Mode frontier, map current gaps, maintain a broad OSS/method inventory, and activate 5–10 bounded experimental product capabilities. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
+| Deep musical-understanding frontier + rapid OSS integration queue | **DONE** | #1172 established that the current OSS/method ecosystem is already rich enough to deepen ListenCloser materially. The bottleneck is bounded integration and product surfacing, not another evergreen candidate survey. | Research is complete. Preserve the full candidate matrix as provenance in #1172; execution now belongs to the focused first- and second-wave owners below. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
 | Experimental-capability product/UX architecture | **ACTIVE** | Rapid breadth will create cognitive load unless capability discovery, processing, result placement, trust status, and alternate interpretations have a coherent product model. | Design `many capabilities; few concepts`: Processing/Add analysis as the likely control home, results placed by musician task, and experimental status/provenance progressively disclosed. | [#1173](https://github.com/ListenCloser/listencloser/issues/1173) |
 | Grounded contextual Breakdown | **ACTIVE** | Supported grounded findings remain an important product primitive and proof layer. | Continue shipping useful supported observations through existing ranking/focus/evidence seams; low-value truth need not occupy primary UI. | [#588](https://github.com/ListenCloser/listencloser/issues/588) |
 | Understanding-presentation probe | **DONE** — `INSUFFICIENT_EVIDENCE` | Current evidence density was too weak to distinguish narrative/guided presentation honestly across representative Works. | Do not implement another narrative/guided surface now. Revisit after the evidence/relationship substrate is materially richer. | [#1089](https://github.com/ListenCloser/listencloser/issues/1089) |
 
-#### First experimental breadth lanes
+#### First experimental breadth wave
 
-These lanes are authorized for **bounded experimental product integration**, not automatic canonization. Focused owners must refresh their issue bodies to remove stale evaluation-before-exposure gates where they conflict with this roadmap, while preserving provenance and exact existing dependencies.
+These focused lanes are authorized for **bounded experimental product integration**, not automatic canonization.
 
 | Capability / relationship | Posture | Product value | Experimental direction | Focused owner |
 | --- | --- | --- | --- | --- |
 | Continuous pitch / expressive F0 | **ACTIVE** | Makes singing, bends, vibrato, fretless/expressive monophonic motion inspectable instead of forcing it into discrete MIDI. | Ship one maintained F0 path (e.g. PESTO/torchcrepe) as an experimental synchronized result; canonize later. | [#1087](https://github.com/ListenCloser/listencloser/issues/1087) |
 | Measured change moments | **ACTIVE** | Gives a direct `where should I listen next?` interaction from evidence already in production. | Productize bounded change candidates from current perceptual evidence; no semantic `section/drop/climax` inflation. | [#848](https://github.com/ListenCloser/listencloser/issues/848) |
 | Within-Work recurrence / similar moments | **ACTIVE** | Enables `where does something like this come back?`, one of the most general deep-dive relationships. | Start with transparent existing-stack recurrence/cross-similarity; label returned candidates as method-specific similarity, not motif/chorus truth. | [#812](https://github.com/ListenCloser/listencloser/issues/812) |
-| Experimental structure map | **ACTIVE** | Functional/segment maps can immediately orient the listener and provide a new analysis lens even when imperfect. | Under #1172, create a focused owner for a current maintained structure candidate/control (including current All-In-One successor/port if viable); expose as an alternate interpretation with exact provenance. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
-| Source/layer isolation + arrangement evidence | **ACTIVE** | Popular-music understanding repeatedly depends on vocals/drums/bass/layer entry/exit and isolation. Isolation itself is useful even before downstream claims are canonical. | Under #1172, create a focused owner for a maintained separator ecosystem; make stems optional/user-triggered and preserve source-model provenance. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
-| Vocal/lead melody alternate interpretation | **ACTIVE** | General mixed-music understanding is weak when the product cannot trace the salient sung/played line. | Under #1172/#931 boundaries, integrate one production-eligible vocal/lead path as an alternate experimental interpretation without replacing canonical `auto` by default. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
-| Symbolic deep-analysis enrichment | **ACTIVE** | Source-score/MIDI-bearing Works can become much deeper immediately using maintained symbolic-analysis libraries. | Reuse music21/Partitura and evaluate thin adapters such as musif/jSymbolic only where they produce a clear product behavior. Do not wait for audio-only parity. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
-| Lyrics/voice alignment | **ACTIVE** | User-supplied lyrics aligned to audio unlock synced text, vocal navigation, and later flow/text↔music relations. | Find one lawful maintained aligner and ship only for user-supplied/licensed text; no implicit copyrighted lyric acquisition. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
+| Experimental structure map | **ACTIVE** | Functional/segment maps can immediately orient the listener and provide a new analysis lens even when imperfect. | Integrate one current maintained structure candidate/control as a qualified alternate map with exact source/engine provenance. | [#1175](https://github.com/ListenCloser/listencloser/issues/1175) |
+| Source/layer isolation + arrangement evidence | **ACTIVE** | Popular-music understanding repeatedly depends on vocals/drums/bass/layer entry/exit and isolation. Isolation itself is useful even before downstream claims are canonical. | Make one maintained separator path optional/user-triggered; preserve stems and exact source/model provenance; do not make separation universal preprocessing. | [#1176](https://github.com/ListenCloser/listencloser/issues/1176) |
+
+#### Second experimental breadth wave
+
+#1172 shaped the next six opportunities. **Shaping does not mean starting all six implementation paths simultaneously.** Prefer the especially cheap/independent source-score, production/spatial, and supplied-lyrics lanes as capacity permits; drums/groove is somewhat heavier; singing-specific note transcription and learned retrieval remain gated on first-wave overlap becoming clear.
+
+| Capability / relationship | Posture | Product value | Experimental direction / gate | Focused owner |
+| --- | --- | --- | --- | --- |
+| Source-score / trusted-MIDI symbolic detail | **ACTIVE** | Trusted written evidence can immediately answer richer questions about register, contour, interval motion, density, texture and voice motion. | Reuse music21 + Partitura first; do not wait for audio-only parity. Do not compete with #1082 / active source-score attachment ownership; consume exact symbolic roles once available. | [#1178](https://github.com/ListenCloser/listencloser/issues/1178) |
+| Measured production / spatial lens | **ACTIVE** | Produced-music understanding needs literal loudness, stereo/spatial, spectral and transient change evidence, not only symbolic facts. | Start with existing librosa + pyloudnorm + transparent stereo/mid-side measures; expose method-qualified relations, not a descriptor dashboard or semantic adjectives. | [#1179](https://github.com/ListenCloser/listencloser/issues/1179) |
+| Drum / groove evidence | **GATED** | Beat/downbeat alone does not explain drum patterns, bar recurrence, displacement or microtiming. | Begin after bounded integration capacity is available and one production-eligible drum-event checkpoint is license/runtime verified; align events to the exact Beat This pulse rather than creating another pulse authority. | [#1180](https://github.com/ListenCloser/listencloser/issues/1180) |
+| User-supplied lyrics alignment | **ACTIVE** | Synchronized supplied text unlocks direct vocal navigation and later text↔beat/phrase relations. | Align only user-provided/licensed text to exact audio; no lyrics acquisition/scraping; preserve text/audio/model provenance and explicit failed/ambiguous spans. | [#1181](https://github.com/ListenCloser/listencloser/issues/1181) |
+| Singing-specific note transcription | **GATED** | Singing→notes is a different contract from continuous F0 and could make the sung melodic line inspectable without pretending the general auto transcription is canonical for voice. | Do not create a parallel owner until #1087's first pitch-contour slice and #931's general-transcription boundary can be cleanly partitioned. GAME/current successors are candidate families, not a default decision. | [#1087](https://github.com/ListenCloser/listencloser/issues/1087) / [#931](https://github.com/ListenCloser/listencloser/issues/931) gate |
+| Task-shaped learned retrieval | **GATED** | A concrete text→passage or cross-Work `find something like this` job could add value beyond within-Work recurrence. | Wait for #812's first Similar Moments slice to clarify the distinct residual job. If activated, use bounded local storage/indexing; historical #332 still forbids generic embedding/vector infrastructure merely because CLaMP3/CLAP-like models exist. | [#812](https://github.com/ListenCloser/listencloser/issues/812) gate; create a focused retrieval owner only after a distinct job is proven |
 
 #### Trust / representation enablers
 
@@ -131,9 +141,9 @@ These remain active because rapid breadth must not destroy source/provenance cor
 
 ### H3 — later defaults / larger systems, but experimental slices may be allowed
 
-The following remain gated as **large canonical systems/defaults**, while #1172 may still authorize small reversible experiments if they have a concrete product behavior and lawful provenance:
+The following remain gated as **large canonical systems/defaults**, while focused owners may still propose small reversible experiments when they have a concrete product behavior and lawful provenance:
 
-- **personal corpus / cross-Work retrieval:** no default embedding/vector-search architecture yet; a thin experimental text→passage or passage→passage interaction may be tested if it does not force a permanent storage/index choice;
+- **personal corpus / cross-Work retrieval:** no default embedding/vector-search architecture yet; a thin experimental text→passage or passage→passage interaction may be tested only after the distinct job is clear and without forcing a permanent storage/index choice;
 - **multi-performance comparison / practice:** broad product mode waits on score↔performance alignment, though bounded alignment/following experiments may proceed through focused owners;
 - **source-score OMR:** still gated until attached source scores prove enough value;
 - **creative proposal / transformation loop:** still later as a broad product program; local counterfactual/isolation experiments may be useful proof actions;
@@ -143,12 +153,14 @@ The following remain gated as **large canonical systems/defaults**, while #1172 
 
 Only real decision dependencies belong here; experimental breadth should not be serialized by historical product-order assumptions.
 
-- **Breadth and trust run in parallel.** #1172/#1173 and independent experimental capability lanes may advance while #588/#613/#807/#498 continue improving authority and fidelity.
+- **Breadth and trust run in parallel.** Focused first-/second-wave owners and #1173 may advance while #588/#613/#807/#498 continue improving authority and fidelity.
 - **Experimental exposure is not canonization.** A working experimental engine may be visible to users while still excluded from default routing or authoritative Breakdown claims.
-- **Compare no longer blocks reversible discovery experiments.** #1088 still owns explicit A/B desirability, but #812/#848/experimental structure may proceed independently because their outputs remain qualified and reversible.
-- **Source/authority dependencies remain hard where semantically real.** #1082/#613/#807 still gate product-safe score↔performance publication and downstream #1086 expression work.
+- **Compare no longer blocks reversible discovery experiments.** #1088 still owns explicit A/B desirability, but #812/#848/#1175 may proceed independently because their outputs remain qualified and reversible.
+- **Source/authority dependencies remain hard where semantically real.** #1082/#613/#807 still gate product-safe score↔performance publication and downstream #1086 expression work; #1178 must not invent score/performance alignment while source-score ownership is in flight.
 - **Do not auto-run the model zoo.** Expensive or domain-specific analyses should generally be opt-in and separately fail-safe.
 - **Many capabilities, few concepts.** #1173 owns the UX pressure created by breadth; do not add one permanent top-level tab, card taxonomy, or settings concept per engine.
+- **Do not activate every shaped lane at once.** Prefer independent low-lift lanes first; heavier/shared-runtime work should wait for available integration capacity and clean ownership seams.
+- **Evaluate only when a durable decision exists.** Defaults, broad trusted claims, automatic routing, persistent learned-retrieval infrastructure, or retirement of alternatives may justify focused evaluation; experimental exposure by itself does not.
 - **Runtime capability maturity is not product authority.** `capabilities.json` describes runtime exposure/maturity; the roadmap decides whether a product path is active, and provenance/trust UI must remain honest.
 
 ## How roadmap changes
