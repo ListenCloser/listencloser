@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getWorkBundle, retryJob } from "@/lib/api-client";
+import { getJob, getWorkBundle, retryJob } from "@/lib/api-client";
 import { JobObservationError, sanitizeJobError, waitForJob } from "@/lib/job-tracking";
 import {
+  completeLayerJobIds,
   invalidateLayerWork,
   originalPlaybackSource,
   selectLayerSources,
@@ -14,6 +15,25 @@ import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
 
 type LayerState = "idle" | "loading" | "separating" | "ready" | "error";
+
+async function succeededSeparationJobs(
+  bundle: Awaited<ReturnType<typeof getWorkBundle>>,
+  sourceVersionId: string,
+): Promise<Set<string>> {
+  const candidateIds = completeLayerJobIds(bundle, sourceVersionId);
+  if (candidateIds.length === 0) return new Set();
+
+  const statuses = await Promise.allSettled(candidateIds.map((jobId) => getJob(jobId)));
+  return new Set(
+    statuses.flatMap((result, index) => (
+      result.status === "fulfilled"
+      && result.value.capability === "separate"
+      && result.value.stage === "succeeded"
+        ? [candidateIds[index]]
+        : []
+    )),
+  );
+}
 
 export default function LayersControl({
   projectId,
@@ -25,6 +45,7 @@ export default function LayersControl({
   const { workspace } = useWorkspace();
   const { transport, setActiveSource } = useTransport();
   const [bundle, setBundle] = useState<Awaited<ReturnType<typeof getWorkBundle>> | null>(null);
+  const [succeededJobIds, setSucceededJobIds] = useState<Set<string>>(() => new Set());
   const [state, setState] = useState<LayerState>("idle");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +54,15 @@ export default function LayersControl({
 
   const refresh = useCallback(async (workId: string) => {
     const nextBundle = await getWorkBundle(workId);
-    setBundle(nextBundle);
     const original = originalPlaybackSource(nextBundle);
-    const layers = original ? selectLayerSources(nextBundle, original.id) : [];
+    const succeeded = original
+      ? await succeededSeparationJobs(nextBundle, original.id)
+      : new Set<string>();
+    const layers = original
+      ? selectLayerSources(nextBundle, original.id, succeeded)
+      : [];
+    setBundle(nextBundle);
+    setSucceededJobIds(succeeded);
     setState(layers.length === 4 ? "ready" : "idle");
     return nextBundle;
   }, []);
@@ -44,6 +71,7 @@ export default function LayersControl({
     trackingAbortRef.current?.abort();
     trackingAbortRef.current = null;
     setBundle(null);
+    setSucceededJobIds(new Set());
     setError(null);
     setMessage("");
 
@@ -55,11 +83,17 @@ export default function LayersControl({
     let cancelled = false;
     setState("loading");
     void getWorkBundle(activeWorkId)
-      .then((nextBundle) => {
+      .then(async (nextBundle) => {
+        const original = originalPlaybackSource(nextBundle);
+        const succeeded = original
+          ? await succeededSeparationJobs(nextBundle, original.id)
+          : new Set<string>();
         if (cancelled) return;
         setBundle(nextBundle);
-        const original = originalPlaybackSource(nextBundle);
-        const layers = original ? selectLayerSources(nextBundle, original.id) : [];
+        setSucceededJobIds(succeeded);
+        const layers = original
+          ? selectLayerSources(nextBundle, original.id, succeeded)
+          : [];
         setState(layers.length === 4 ? "ready" : "idle");
       })
       .catch(() => {
@@ -74,12 +108,18 @@ export default function LayersControl({
 
   const original = useMemo(() => (bundle ? originalPlaybackSource(bundle) : null), [bundle]);
   const layers = useMemo(
-    () => (bundle && original ? selectLayerSources(bundle, original.id) : []),
-    [bundle, original],
+    () => (
+      bundle && original
+        ? selectLayerSources(bundle, original.id, succeededJobIds)
+        : []
+    ),
+    [bundle, original, succeededJobIds],
   );
   const ready = layers.length === 4;
 
   const hear = useCallback((source: PlaybackSource) => {
+    // Shared transport preserves the current position and resumes only if the
+    // musician was already playing. Merely generating Layers never calls this.
     setActiveSource(source);
   }, [setActiveSource]);
 
@@ -121,12 +161,16 @@ export default function LayersControl({
       invalidateLayerWork();
       const refreshed = await refresh(activeWorkId);
       const refreshedOriginal = originalPlaybackSource(refreshed);
+      const succeeded = refreshedOriginal
+        ? await succeededSeparationJobs(refreshed, refreshedOriginal.id)
+        : new Set<string>();
       const refreshedLayers = refreshedOriginal
-        ? selectLayerSources(refreshed, refreshedOriginal.id)
+        ? selectLayerSources(refreshed, refreshedOriginal.id, succeeded)
         : [];
       if (refreshedLayers.length !== 4) {
         throw new Error("Layer separation finished without a complete four-layer result.");
       }
+      setSucceededJobIds(succeeded);
       setMessage("Layers ready");
       setState("ready");
     } catch (cause) {
@@ -146,7 +190,7 @@ export default function LayersControl({
 
   if (!activeWorkId || state === "loading" || !original) return null;
 
-  const rowSources: PlaybackSource[] = ready ? [...layers, original] : [original];
+  const rowSources: PlaybackSource[] = ready ? [original, ...layers] : [original];
   const separating = state === "separating";
 
   return (
@@ -216,7 +260,7 @@ export default function LayersControl({
       <details>
         <summary className="muted" style={{ cursor: "pointer", fontSize: "10px" }}>Method</summary>
         <span className="muted" style={{ display: "block", paddingTop: "4px", fontSize: "10px", lineHeight: 1.35 }}>
-          HTDemucs 955717e8 · CPU · shifts 0. Roles are model-emitted isolation targets, not instrumentation or arrangement claims.
+          Demucs 4.1.0 (MIT code) · HTDemucs 955717e8 checkpoint (MIT) · CPU · shifts 0. Roles are model-emitted isolation targets, not instrumentation or arrangement claims.
         </span>
       </details>
     </div>
