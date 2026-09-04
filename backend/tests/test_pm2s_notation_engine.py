@@ -121,3 +121,13 @@ def test_pm2s_failure_propagates_without_invoking_musescore() -> None:
         engine.convert(_performance_midi(), [])
 
     assert importer.inputs == []
+
+
+def test_debug_ruff_formatter_diff() -> None:
+    completed = __import__("subprocess").run(
+        ["backend/.venv/bin/ruff", "format", __file__, "--diff"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    pytest.fail(completed.stdout or completed.stderr)
