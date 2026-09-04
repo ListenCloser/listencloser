@@ -10,7 +10,15 @@ from pydantic import BaseModel, Field
 from auth_utils import limiter, verify_token
 from domain.api.dependencies import owner_id, supabase_client
 from domain.api_schemas import WorkflowJobResponse
-from domain.models import ArtifactKind, Capability, Job, JobStage, Version, Workflow, WorkflowKind
+from domain.models import (
+    ArtifactKind,
+    Capability,
+    Job,
+    JobStage,
+    Version,
+    Workflow,
+    WorkflowKind,
+)
 from domain.repositories import ArtifactRepo, JobRepo, VersionRepo, WorkflowRepo, WorkRepo
 
 router = APIRouter()
@@ -576,28 +584,25 @@ def create_create_workflow(
             # The durable Job still references the exact input Version, and its
             # output Versions parent to that source, but a queued/failed optional
             # model must never become the Work's latest understanding state.
+            separation_identity = f"{owner}:{version_id}:{_SEPARATION_MODEL_SIGNATURE}"
             job_id = uuid5(
                 NAMESPACE_URL,
-                (
-                    "listencloser:separate:1.0:"
-                    f"{owner}:{version_id}:{_SEPARATION_MODEL_SIGNATURE}"
-                ),
+                f"listencloser:separate:1.0:{separation_identity}",
             )
             job_repo = JobRepo(sb)
             existing_job = job_repo.get(job_id, owner)
             if existing_job:
                 workflow = WorkflowRepo(sb).get(existing_job.workflow_id, owner)
                 if not workflow:
-                    raise RuntimeError("idempotent separation job references a missing workflow")
+                    raise RuntimeError(
+                        "idempotent separation job references a missing workflow"
+                    )
                 return {"workflow": workflow, "job": existing_job}
 
             workflow = Workflow(
                 id=uuid5(
                     NAMESPACE_URL,
-                    (
-                        "listencloser:separate-workflow:1.0:"
-                        f"{owner}:{version_id}:{_SEPARATION_MODEL_SIGNATURE}"
-                    ),
+                    f"listencloser:separate-workflow:1.0:{separation_identity}",
                 ),
                 project_id=project_id,
                 kind=WorkflowKind.create,
@@ -635,10 +640,7 @@ def create_create_workflow(
                 capability=Capability(name="separate", version="1.0"),
                 input_version_ids=[version_id],
                 parameters=parameters,
-                cache_key=(
-                    "separate:1.0:"
-                    f"{owner}:{version_id}:{_SEPARATION_MODEL_SIGNATURE}:shifts=0"
-                ),
+                cache_key=f"separate:1.0:{separation_identity}:shifts=0",
                 created_by=owner,
             )
             try:
