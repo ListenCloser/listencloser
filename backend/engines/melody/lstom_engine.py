@@ -222,9 +222,7 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
 
         # Collect melody notes while retaining the method-specific model score.
         selected = [
-            (notes[i], float(predictions[i]))
-            for i in range(len(notes))
-            if pred_binary[i] == 1
+            (notes[i], float(predictions[i])) for i in range(len(notes)) if pred_binary[i] == 1
         ]
 
         if len(selected) < 2:
