@@ -106,7 +106,7 @@ services:
     working_dir: /workspace
     user: "501:501"
     command: >
-      sh -c "uv sync --project /workspace/backend --locked &&
+      sh -c "uv sync --project /workspace/backend --locked --group worker &&
              uv run --project /workspace/backend python /workspace/backend/worker.py"
     volumes:
       - .:/workspace
