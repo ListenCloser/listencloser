@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   seek: vi.fn(),
   play: vi.fn(),
   setActiveSource: vi.fn(),
+  activeSourceRole: "original" as "original" | "score",
 }));
 
 vi.mock("@/lib/stores/workspace", () => ({
@@ -39,11 +40,11 @@ vi.mock("@/lib/stores/transport", () => ({
   useTransport: () => ({
     transport: {
       activeSource: {
-        id: "original-v1",
-        label: "Original",
-        url: "/original.ogg",
+        id: "source-v1",
+        label: mocks.activeSourceRole === "score" ? "Score" : "Original",
+        url: "/source.ogg",
         kind: "audio",
-        role: "original",
+        role: mocks.activeSourceRole,
       },
     },
     seek: mocks.seek,
@@ -72,6 +73,7 @@ const insight = {
 describe("MelodyReduction shared workspace integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.activeSourceRole = "original";
   });
 
   it("Focus uses all exact source note IDs and the existing Piano Roll representation", () => {
@@ -86,12 +88,24 @@ describe("MelodyReduction shared workspace integration", () => {
     expect(mocks.setActiveRepresentation).toHaveBeenCalledWith("piano_roll");
   });
 
-  it("clicking one reduced note selects the exact persisted Piano Roll note", () => {
+  it("clicking one reduced note selects only the exact persisted Piano Roll note and navigates there", () => {
     render(<MelodyReduction insight={insight} />);
     fireEvent.click(screen.getByRole("button", { name: "Show C5 at 0:01 in Piano Roll" }));
 
     expect(mocks.setSelection).toHaveBeenCalledWith({
-      timeRange: { start: 1, end: 1.5, domain: "performance" },
+      noteIds: ["source-note-1"],
+      provenance: { origin: null, timeExact: true, measureApproximate: false },
+    });
+    expect(mocks.setActiveRepresentation).toHaveBeenCalledWith("piano_roll");
+    expect(mocks.seek).toHaveBeenCalledWith(1);
+  });
+
+  it("does not apply performance seconds to Score playback when locating an exact note", () => {
+    mocks.activeSourceRole = "score";
+    render(<MelodyReduction insight={insight} />);
+    fireEvent.click(screen.getByRole("button", { name: "Show C5 at 0:01 in Piano Roll" }));
+
+    expect(mocks.setSelection).toHaveBeenCalledWith({
       noteIds: ["source-note-1"],
       provenance: { origin: null, timeExact: true, measureApproximate: false },
     });
