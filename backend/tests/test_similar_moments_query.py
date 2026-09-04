@@ -8,7 +8,7 @@ from domain.perceptual_report import (
     PerceptualProvenance,
     PerceptualSeriesEvidence,
 )
-from domain.relation_query import SimilarMomentsQuery, find_persisted_similar_moments
+from domain.similar_moments_query import SimilarMomentsQuery, find_persisted_similar_moments
 from domain.work_bundle_repository import WorkBundleSnapshot
 
 _HOP_LENGTH = CANONICAL_SAMPLE_RATE // 2
