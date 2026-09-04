@@ -4,10 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATION = (
-    REPO_ROOT
-    / "supabase"
-    / "migrations"
-    / "20260903195000_storage_locator_rehome_fence.sql"
+    REPO_ROOT / "supabase" / "migrations" / "20260903195000_storage_locator_rehome_fence.sql"
 )
 
 
