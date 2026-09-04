@@ -58,7 +58,7 @@ worker = [
 
 [tool.uv]
 package = false
-required-version = "==0.12.6"
+required-version = "==0.12.9"
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
@@ -78,25 +78,4 @@ pythonpath = ["."]
 asyncio_mode = "strict"
 markers = [
   "integration: real-model inference tests (Basic Pitch / Transkun / piano-transcription) run against real ML models; excluded from the default unit suite",
-  "worker: tests requiring the backend worker/model dependency group; run in worker-backed CI",
-  "real_stack: tests requiring a live Supabase/Postgres database (RLS policies, pipeline smoke); excluded from the default unit suite",
-  "external_provider: tests requiring a real external LLM/provider (opt-in smoke); excluded from the default unit suite",
-  "benchmark: evaluation benchmark runs kept out of required unit semantics",
 ]
-addopts = '-m "not integration and not real_stack and not benchmark and not external_provider"'
-
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
-ignore = ["B008", "B904"]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["B017", "E501"]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-line-ending = "lf"
