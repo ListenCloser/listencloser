@@ -33,9 +33,7 @@ class SimilarMomentsMethod(BaseModel):
     id: Literal["perceptual_descriptor_shape"] = SIMILAR_MOMENTS_METHOD_ID
     version: Literal["1.0"] = SIMILAR_MOMENTS_METHOD_VERSION
     dimensions: list[str]
-    distance: Literal["mean_length_normalized_z_euclidean"] = (
-        "mean_length_normalized_z_euclidean"
-    )
+    distance: Literal["mean_length_normalized_z_euclidean"] = "mean_length_normalized_z_euclidean"
     candidate_window: Literal["same_evidence_frame_count_as_query"] = (
         "same_evidence_frame_count_as_query"
     )

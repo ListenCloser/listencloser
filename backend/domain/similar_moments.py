@@ -106,8 +106,7 @@ def _build_fixed_perceptual_matrix(report: PerceptualEvidenceReport) -> _FixedPe
     band_order = tuple(bands.parameters.get("band_order", ()))
     if band_order != EXPECTED_BAND_ORDER:
         raise ValueError(
-            "relative_band_energy band_order must be "
-            f"{EXPECTED_BAND_ORDER}, got {band_order}"
+            "relative_band_energy band_order must be " f"{EXPECTED_BAND_ORDER}, got {band_order}"
         )
 
     values = np.vstack(
@@ -175,11 +174,9 @@ def _distance_profile(
     for candidate_start in range(candidate_count):
         candidate = matrix.values[:, candidate_start : candidate_start + window_frames]
         for dimension_index in range(len(RECURRENCE_DIMENSIONS)):
-            component_profiles[candidate_start, dimension_index] = (
-                _normalized_component_distance(
-                    query[dimension_index],
-                    candidate[dimension_index],
-                )
+            component_profiles[candidate_start, dimension_index] = _normalized_component_distance(
+                query[dimension_index],
+                candidate[dimension_index],
             )
 
     aggregate_profile = np.mean(component_profiles, axis=1)

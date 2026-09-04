@@ -77,10 +77,7 @@ def _authorized_report_loader(
 
     def load_report(version: Version) -> bytes:
         authorized_version_ids = version_ids_by_artifact.get(version.artifact_id, set())
-        if (
-            version.artifact_id not in artifact_ids
-            or version.id not in authorized_version_ids
-        ):
+        if version.artifact_id not in artifact_ids or version.id not in authorized_version_ids:
             raise PermissionError(
                 "perceptual evidence report is not in the authorized Work snapshot"
             )

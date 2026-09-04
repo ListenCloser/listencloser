@@ -137,10 +137,7 @@ def test_repeated_descriptor_shape_is_ranked_first_with_exact_lineage():
     assert result.query_start_seconds == 0.0
     assert result.query_end_seconds == 2.0
     assert result.method.dimensions == list(RECURRENCE_DIMENSIONS)
-    assert (
-        result.method.score_semantics
-        == "lower_is_closer_under_this_method_not_confidence"
-    )
+    assert result.method.score_semantics == "lower_is_closer_under_this_method_not_confidence"
     assert result.matches
     assert result.matches[0].start_seconds == 4.0
     assert result.matches[0].end_seconds == 6.0
@@ -163,8 +160,7 @@ def test_query_and_returned_candidates_are_explicitly_non_overlapping():
     for index, left in enumerate(result.matches):
         for right in result.matches[index + 1 :]:
             assert (
-                left.end_seconds <= right.start_seconds
-                or right.end_seconds <= left.start_seconds
+                left.end_seconds <= right.start_seconds or right.end_seconds <= left.start_seconds
             )
 
 
