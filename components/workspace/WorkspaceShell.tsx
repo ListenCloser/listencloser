@@ -7,6 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
 import TransportBar from "./TransportBar";
 import LibraryPanel from "./LibraryPanel";
 import RepresentationStack from "./RepresentationStack";
+import StructureMap from "./StructureMap";
 import InspectorPanel from "./inspector/Inspector";
 import styles from "./WorkspaceShell.module.css";
 
@@ -116,6 +117,7 @@ function WorkspaceContent({
 
         <div className="studio-canvas-area studio-canvas-area-v3">
           <RepresentationStack signedIn={signedIn} canImport={canImport} />
+          <StructureMap />
         </div>
 
         {inspectorAvailable && (
