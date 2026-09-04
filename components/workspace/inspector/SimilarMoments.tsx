@@ -60,6 +60,10 @@ export default function SimilarMoments() {
   const activeQuery = queryRange ?? selectedRange;
   if (!activeQuery) return null;
 
+  const originalSource = transport.sources.find((source) => source.role === "original");
+  const hearingRequiresOriginal = transport.activeSource?.role === "score";
+  const canHear = !hearingRequiresOriginal || Boolean(originalSource);
+
   const runSearch = async () => {
     const captured = queryRange ?? selectedRange;
     if (!captured) return;
@@ -92,9 +96,9 @@ export default function SimilarMoments() {
   };
 
   const hear = (startSeconds: number) => {
-    const original = transport.sources.find((source) => source.role === "original");
-    if (transport.activeSource?.role === "score" && original) {
-      setActiveSource(original);
+    if (hearingRequiresOriginal) {
+      if (!originalSource) return;
+      setActiveSource(originalSource);
       const audio = audioRef.current;
       if (audio) {
         audio.addEventListener(
@@ -154,9 +158,10 @@ export default function SimilarMoments() {
             <button
               type="button"
               className="inspector-breakdown-action"
+              disabled={!canHear}
               onClick={() => hear(queryRange.start)}
             >
-              Hear selected
+              {hearingRequiresOriginal ? "Hear selected · Original" : "Hear selected"}
             </button>
           )}
           {queryRange && selectedRange && (
@@ -225,9 +230,10 @@ export default function SimilarMoments() {
                 <button
                   type="button"
                   className="inspector-breakdown-action"
+                  disabled={!canHear}
                   onClick={() => hear(match.start_seconds)}
                 >
-                  Hear
+                  {hearingRequiresOriginal ? "Hear original" : "Hear"}
                 </button>
                 <button
                   type="button"
