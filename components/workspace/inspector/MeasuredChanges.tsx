@@ -11,6 +11,7 @@ import {
 } from "@/lib/relation-api-client";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
+import SymbolicDetail from "./SymbolicDetail";
 
 type MeasuredChangesResultsProps = {
   workId: string;
@@ -137,7 +138,12 @@ export default function MeasuredChanges() {
     (representation) => representation.kind === "waveform" && representation.versionId,
   )?.versionId ?? null;
 
-  if (!exposed || !workId || !sourceVersionId) return null;
-
-  return <MeasuredChangesResults workId={workId} sourceVersionId={sourceVersionId} />;
+  return (
+    <>
+      <SymbolicDetail />
+      {exposed && workId && sourceVersionId
+        ? <MeasuredChangesResults workId={workId} sourceVersionId={sourceVersionId} />
+        : null}
+    </>
+  );
 }
