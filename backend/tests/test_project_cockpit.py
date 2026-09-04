@@ -65,7 +65,9 @@ def test_green_red_pending_build_states(scenarios: dict) -> None:
     reasons = {(item["number"], item["reason"]) for item in cockpit["blocked"]}
     assert (102, "Build red") in reasons
     assert (103, "Build pending") in reasons
-    assert not any(number == 101 and reason.startswith("Build") for number, reason in reasons)
+    assert not any(
+        number == 101 and reason.startswith("Build") for number, reason in reasons
+    )
 
 
 def test_protected_build_name_is_case_insensitive() -> None:
@@ -90,7 +92,9 @@ def test_hard_dependency_blocks_delivery(scenarios: dict) -> None:
 def test_recent_merge_moves_out_of_in_flight(scenarios: dict) -> None:
     cockpit = compile_scenario(scenarios, "recent_merge_transition")
     assert cockpit["in_flight"] == []
-    assert [(item["pr"], item["issue"]) for item in cockpit["recently_landed"]] == [(101, 10)]
+    assert [
+        (item["pr"], item["issue"]) for item in cockpit["recently_landed"]
+    ] == [(101, 10)]
 
 
 def test_unknown_or_gated_posture_is_not_guessed(scenarios: dict) -> None:
@@ -101,7 +105,8 @@ def test_unknown_or_gated_posture_is_not_guessed(scenarios: dict) -> None:
         for item in cockpit["blocked"]
     )
     assert any(
-        warning == "issue #31 eligibility: requires judgment" for warning in cockpit["warnings"]
+        warning == "issue #31 eligibility: requires judgment"
+        for warning in cockpit["warnings"]
     )
     assert "requires judgment" in project_cockpit.render_markdown(cockpit)
 
