@@ -6,7 +6,7 @@ import pytest
 import domain.relation_api as relation_api
 from auth_utils import verify_token
 from domain.models import Artifact, ArtifactKind, Version, Work
-from domain.relation_query import SimilarMomentsQueryResult
+from domain.similar_moments_query import SimilarMomentsQueryResult
 from domain.work_bundle_repository import WorkBundleSnapshot
 from main import app
 
