@@ -1,136 +1,132 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
 
-const LAYER_JOB_ID = "mock-separate-job";
-const LAYER_WORKFLOW_ID = "mock-separate-workflow";
-const LAYER_ROLES = ["vocals", "drums", "bass", "other"] as const;
+function installLayerFetchFixture({ fail }: { fail: boolean }) {
+  const layerJobId = "mock-separate-job";
+  const layerWorkflowId = "mock-separate-workflow";
+  const layerRoles = ["vocals", "drums", "bass", "other"] as const;
+  const nativeFetch = window.fetch.bind(window);
+  let separationRequested = false;
 
-function layerFetchFixture(failSeparation: boolean) {
-  return ({ fail }: { fail: boolean }) => {
-    const nativeFetch = window.fetch.bind(window);
-    let separationRequested = false;
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 
-    const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    });
-
-    const workflowJob = () => ({
-      workflow: {
-        id: LAYER_WORKFLOW_ID,
-        project_id: "mock-project-1",
-        kind: "create",
-        target_version_id: null,
-        parameters: { action: "separate" },
-        created_at: new Date().toISOString(),
-      },
-      job: {
-        id: LAYER_JOB_ID,
-        workflow_id: LAYER_WORKFLOW_ID,
-        capability: {
-          name: "separate",
-          version: "1.0",
-          accepted_input_kinds: [],
-          produces_output_kinds: [],
-          parameters: {},
-          failure_modes: [],
-        },
-        lifecycle: {
-          current: "running",
-          progress: 0.5,
-          message: "Separating layers…",
-          stages: [],
-          retry_count: 0,
-          max_retries: 3,
-          lease_expires_at: null,
-          started_at: new Date().toISOString(),
-          completed_at: null,
-        },
-        input_version_ids: ["mock-version-1"],
-        output_version_ids: [],
+  const workflowJob = () => ({
+    workflow: {
+      id: layerWorkflowId,
+      project_id: "mock-project-1",
+      kind: "create",
+      target_version_id: null,
+      parameters: { action: "separate" },
+      created_at: new Date().toISOString(),
+    },
+    job: {
+      id: layerJobId,
+      workflow_id: layerWorkflowId,
+      capability: {
+        name: "separate",
+        version: "1.0",
+        accepted_input_kinds: [],
+        produces_output_kinds: [],
         parameters: {},
-        cache_key: null,
-        error: null,
-        error_details: {},
-        provenance: {},
-        created_at: new Date().toISOString(),
-        created_by: "mock-user-1",
+        failure_modes: [],
       },
-    });
+      lifecycle: {
+        current: "running",
+        progress: 0.5,
+        message: "Separating layers…",
+        stages: [],
+        retry_count: 0,
+        max_retries: 3,
+        lease_expires_at: null,
+        started_at: new Date().toISOString(),
+        completed_at: null,
+      },
+      input_version_ids: ["mock-version-1"],
+      output_version_ids: [],
+      parameters: {},
+      cache_key: null,
+      error: null,
+      error_details: {},
+      provenance: {},
+      created_at: new Date().toISOString(),
+      created_by: "mock-user-1",
+    },
+  });
 
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const request = input instanceof Request ? input : new Request(input, init);
-      const url = new URL(request.url, window.location.origin);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(input, init);
+    const url = new URL(request.url, window.location.origin);
 
-      if (url.pathname === "/api/v1/workflows/create" && request.method === "POST") {
-        const body = await request.clone().json() as { action?: string };
-        if (body.action === "separate") {
-          separationRequested = true;
-          return json(workflowJob());
-        }
+    if (url.pathname === "/api/v1/workflows/create" && request.method === "POST") {
+      const body = await request.clone().json() as { action?: string };
+      if (body.action === "separate") {
+        separationRequested = true;
+        return json(workflowJob());
       }
+    }
 
-      if (url.pathname === `/api/v1/jobs/${LAYER_JOB_ID}` && request.method === "GET") {
-        const failed = fail;
-        return json({
-          id: LAYER_JOB_ID,
-          workflow_id: LAYER_WORKFLOW_ID,
-          capability: "separate",
-          stage: failed ? "failed" : "succeeded",
-          progress: 1,
-          message: failed ? "Layer separation failed in the browser fixture." : "Layers ready",
-          error: failed ? "Mock layer separation failure" : null,
-          input_version_ids: ["mock-version-1"],
-          output_version_ids: failed ? [] : LAYER_ROLES.map((role) => `mock-stem-${role}`),
-        });
-      }
+    if (url.pathname === `/api/v1/jobs/${layerJobId}` && request.method === "GET") {
+      return json({
+        id: layerJobId,
+        workflow_id: layerWorkflowId,
+        capability: "separate",
+        stage: fail ? "failed" : "succeeded",
+        progress: 1,
+        message: fail ? "Layer separation failed in the browser fixture." : "Layers ready",
+        error: fail ? "Mock layer separation failure" : null,
+        input_version_ids: ["mock-version-1"],
+        output_version_ids: fail ? [] : layerRoles.map((role) => `mock-stem-${role}`),
+      });
+    }
 
-      if (
-        separationRequested
-        && !fail
-        && url.pathname === "/api/v1/works/mock-work-1"
-        && request.method === "GET"
-      ) {
-        const response = await nativeFetch(input, init);
-        const bundle = await response.clone().json() as {
-          artifacts: Array<Record<string, unknown>>;
+    if (
+      separationRequested
+      && !fail
+      && url.pathname === "/api/v1/works/mock-work-1"
+      && request.method === "GET"
+    ) {
+      const response = await nativeFetch(input, init);
+      const bundle = await response.clone().json() as {
+        artifacts: Array<Record<string, unknown>>;
+      };
+      const now = new Date().toISOString();
+      const stems = layerRoles.map((role) => {
+        const id = `mock-stem-${role}`;
+        const version = {
+          id,
+          artifact_id: `artifact-${id}`,
+          storage_bucket: "artifacts",
+          storage_key: `mock/${id}.wav`,
+          parent_version_id: "mock-version-1",
+          lineage: [],
+          byte_size: 100,
+          sha256: null,
+          label: `${role}.wav`,
+          metadata: { stem_role: role },
+          created_at: now,
+          created_by: "mock-user-1",
+          produced_by_job_id: layerJobId,
         };
-        const now = new Date().toISOString();
-        const stems = LAYER_ROLES.map((role) => {
-          const id = `mock-stem-${role}`;
-          const version = {
-            id,
-            artifact_id: `artifact-${id}`,
-            storage_bucket: "artifacts",
-            storage_key: `mock/${id}.wav`,
-            parent_version_id: "mock-version-1",
-            lineage: [],
-            byte_size: 100,
-            sha256: null,
-            label: `${role}.wav`,
-            metadata: { stem_role: role },
+        return {
+          artifact: {
+            id: `artifact-${id}`,
+            work_id: "mock-work-1",
+            kind: "stems",
+            mime_type: "audio/wav",
             created_at: now,
-            created_by: "mock-user-1",
-            produced_by_job_id: LAYER_JOB_ID,
-          };
-          return {
-            artifact: {
-              id: `artifact-${id}`,
-              work_id: "mock-work-1",
-              kind: "stems",
-              mime_type: "audio/wav",
-              created_at: now,
-            },
-            versions: [version],
-            latest_version: version,
-            signed_url: "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=",
-          };
-        });
-        return json({ ...bundle, artifacts: [...stems, ...bundle.artifacts] });
-      }
+          },
+          versions: [version],
+          latest_version: version,
+          signed_url: "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=",
+        };
+      });
+      return json({ ...bundle, artifacts: [...stems, ...bundle.artifacts] });
+    }
 
-      return nativeFetch(input, init);
-    };
+    return nativeFetch(input, init);
   };
 }
 
@@ -139,7 +135,7 @@ async function openOrdinaryWork(page: Page, filename: string, failSeparation = f
     projectRef: MOCK_PROJECT_REF,
     session: mockSession,
   });
-  await page.addInitScript(layerFetchFixture(failSeparation), { fail: failSeparation });
+  await page.addInitScript(installLayerFetchFixture, { fail: failSeparation });
   await page.goto("/");
   await page.waitForFunction(
     () => navigator.serviceWorker?.controller !== null,
@@ -172,7 +168,7 @@ async function openOrdinaryWork(page: Page, filename: string, failSeparation = f
   return layers;
 }
 
-function layerRow(layers: ReturnType<Page["getByTestId"]>, label: string) {
+function layerRow(layers: Locator, label: string) {
   return layers.getByText(label, { exact: true }).locator("..");
 }
 
