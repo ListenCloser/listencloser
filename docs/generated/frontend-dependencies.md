@@ -28,6 +28,7 @@ subgraph app["app"]
   app_product_polish_v4_css["product-polish-v4.css"]
   app_readiness_css["readiness.css"]
   app_representation_visuals_css["representation-visuals.css"]
+  app_tokens_css["tokens.css"]
   app_visual_language_css["visual-language.css"]
   app_workspace_interactions_css["workspace-interactions.css"]
   app_workspace_v3_css["workspace-v3.css"]
@@ -107,6 +108,7 @@ app_layout_tsx-->app_mobile_workspace_css
 app_layout_tsx-->app_product_polish_v4_css
 app_layout_tsx-->app_readiness_css
 app_layout_tsx-->app_representation_visuals_css
+app_layout_tsx-->app_tokens_css
 app_layout_tsx-->app_visual_language_css
 app_layout_tsx-->app_workspace_interactions_css
 app_layout_tsx-->app_workspace_v3_css
