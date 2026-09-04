@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from auth_utils import limiter, verify_token
 from domain.api.dependencies import owner_id, supabase_client
 from domain.api_schemas import WorkflowJobResponse
-from domain.models import ArtifactKind, Capability, Job, Workflow, WorkflowKind
+from domain.models import ArtifactKind, Capability, Job, JobStage, Workflow, WorkflowKind
 from domain.repositories import ArtifactRepo, JobRepo, VersionRepo, WorkflowRepo, WorkRepo
 
 router = APIRouter()
@@ -58,6 +58,8 @@ def create_pitch_contour_workflow(
             existing_workflow = WorkflowRepo(sb).get(existing_job.workflow_id, owner)
             if not existing_workflow:
                 raise RuntimeError("idempotent pitch-contour job references a missing workflow")
+            if existing_job.lifecycle.current in {JobStage.failed, JobStage.cancelled}:
+                existing_job = job_repo.retry(existing_job.id, owner)
             return {"workflow": existing_workflow, "job": existing_job}
 
         workflow = Workflow(
