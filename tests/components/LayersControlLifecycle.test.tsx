@@ -130,7 +130,9 @@ beforeEach(() => {
 describe("Experimental Layers product lifecycle", () => {
   it("keeps Original active until the musician explicitly hears each completed layer", async () => {
     const user = userEvent.setup();
-    let finishJob: (() => void) | null = null;
+    let finishJob: () => void = () => {
+      throw new Error("Layer job completion callback was not installed");
+    };
     mocks.waitForJob.mockImplementation(
       () => new Promise((resolve) => {
         finishJob = () => {
@@ -152,7 +154,7 @@ describe("Experimental Layers product lifecycle", () => {
     expect(screen.getByLabelText("Layer playback sources")).toHaveTextContent("Original");
     expect(mocks.setActiveSource).not.toHaveBeenCalled();
 
-    finishJob?.();
+    finishJob();
 
     expect(await screen.findByText("Vocals")).toBeVisible();
     const rows = screen.getByLabelText("Layer playback sources");
