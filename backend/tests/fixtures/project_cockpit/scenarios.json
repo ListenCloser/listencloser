@@ -1,0 +1,98 @@
+{
+  "open_focused_issue_no_pr": {
+    "roadmap": "| Bet | Posture | Focused owner |\n| --- | --- | --- |\n| Alpha | **ACTIVE** | [#10](https://github.test/issues/10) |",
+    "graph": {"schema_version": 1, "contracts": {}},
+    "live": {
+      "repo": "ListenCloser/listencloser",
+      "main": {"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "issues": [{"number": 10, "title": "Alpha", "url": "https://github.test/issues/10", "body": ""}],
+      "open_prs": [], "merged_prs": [], "errors": []
+    }
+  },
+  "exactly_one_active_pr": {
+    "roadmap": "| Bet | Posture | Focused owner |\n| Alpha | **ACTIVE** | [#10](https://github.test/issues/10) |",
+    "graph": {"schema_version": 1, "contracts": {}},
+    "live": {
+      "repo": "ListenCloser/listencloser", "main": {"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "issues": [{"number": 10, "title": "Alpha", "url": "https://github.test/issues/10", "body": ""}],
+      "open_prs": [{"number": 101, "title": "feat: alpha (#10)", "url": "https://github.test/pulls/101", "body": "Refs #10", "isDraft": false, "headRefOid": "1111111111111111111111111111111111111111", "mergeStateStatus": "CLEAN", "statusCheckRollup": [{"name": "Build", "status": "COMPLETED", "conclusion": "SUCCESS"}]}],
+      "merged_prs": [], "errors": []
+    }
+  },
+  "duplicate_active_pr_ownership": {
+    "roadmap": "| Bet | Posture | Focused owner |\n| Alpha | **ACTIVE** | [#10](https://github.test/issues/10) |",
+    "graph": {"schema_version": 1, "contracts": {}},
+    "live": {
+      "repo": "ListenCloser/listencloser", "main": {"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "issues": [{"number": 10, "title": "Alpha", "url": "https://github.test/issues/10", "body": ""}],
+      "open_prs": [
+        {"number": 101, "title": "feat: alpha (#10)", "url": "https://github.test/pulls/101", "body": "Refs #10", "isDraft": false, "headRefOid": "1111111111111111111111111111111111111111", "mergeStateStatus": "CLEAN", "statusCheckRollup": []},
+        {"number": 102, "title": "fix: alpha (#10)", "url": "https://github.test/pulls/102", "body": "Closes #10", "isDraft": true, "headRefOid": "2222222222222222222222222222222222222222", "mergeStateStatus": "UNKNOWN", "statusCheckRollup": []}
+      ],
+      "merged_prs": [], "errors": []
+    }
+  },
+  "draft_vs_ready": {
+    "roadmap": "| Bet | Posture | Focused owner |\n| Alpha | **ACTIVE** | [#10](https://github.test/issues/10) |\n| Beta | **ACTIVE** | [#11](https://github.test/issues/11) |",
+    "graph": {"schema_version": 1, "contracts": {}},
+    "live": {
+      "repo": "ListenCloser/listencloser", "main": {"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "issues": [{"number": 10, "title": "Alpha", "url": "https://github.test/issues/10", "body": ""}, {"number": 11, "title": "Beta", "url": "https://github.test/issues/11", "body": ""}],
+      "open_prs": [
+        {"number": 101, "title": "feat: alpha (#10)", "url": "https://github.test/pulls/101", "body": "Refs #10", "isDraft": true, "headRefOid": "1111111111111111111111111111111111111111", "mergeStateStatus": "CLEAN", "statusCheckRollup": []},
+        {"number": 102, "title": "feat: beta (#11)", "url": "https://github.test/pulls/102", "body": "Refs #11", "isDraft": false, "headRefOid": "2222222222222222222222222222222222222222", "mergeStateStatus": "CLEAN", "statusCheckRollup": []}
+      ],
+      "merged_prs": [], "errors": []
+    }
+  },
+  "green_red_pending_build": {
+    "roadmap": "| Bet | Posture | Focused owner |\n| Alpha | **ACTIVE** | [#10](x) |\n| Beta | **ACTIVE** | [#11](x) |\n| Gamma | **ACTIVE** | [#12](x) |",
+    "graph": {"schema_version": 1, "contracts": {}},
+    "live": {
+      "repo": "ListenCloser/listencloser", "main": {"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "issues": [{"number": 10, "title": "Alpha", "url": "https://github.test/issues/10", "body": ""}, {"number": 11, "title": "Beta", "url": "https://github.test/issues/11", "body": ""}, {"number": 12, "title": "Gamma", "url": "https://github.test/issues/12", "body": ""}],
+      "open_prs": [
+        {"number": 101, "title": "a (#10)", "url": "https://github.test/pulls/101", "body": "Refs #10", "isDraft": false, "headRefOid": "1", "mergeStateStatus": "CLEAN", "statusCheckRollup": [{"name": "Build", "status": "COMPLETED", "conclusion": "SUCCESS"}]},
+        {"number": 102, "title": "b (#11)", "url": "https://github.test/pulls/102", "body": "Refs #11", "isDraft": false, "headRefOid": "2", "mergeStateStatus": "CLEAN", "statusCheckRollup": [{"name": "Build", "status": "COMPLETED", "conclusion": "FAILURE"}]},
+        {"number": 103, "title": "c (#12)", "url": "https://github.test/pulls/103", "body": "Refs #12", "isDraft": false, "headRefOid": "3", "mergeStateStatus": "UNKNOWN", "statusCheckRollup": [{"name": "Build", "status": "IN_PROGRESS", "conclusion": ""}]}
+      ],
+      "merged_prs": [], "errors": []
+    }
+  },
+  "hard_dependency_blocks_delivery": {
+    "roadmap": "| Bet | Posture | Focused owner |\n| Downstream | **ACTIVE** | [#20](x) |",
+    "graph": {"schema_version": 1, "contracts": {"20": {"dependencies": [{"issue": 10, "modes": ["delivery"]}]}}},
+    "live": {
+      "repo": "ListenCloser/listencloser", "main": {"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "issues": [{"number": 10, "title": "Upstream", "url": "https://github.test/issues/10", "body": ""}, {"number": 20, "title": "Downstream", "url": "https://github.test/issues/20", "body": "mode: delivery"}],
+      "open_prs": [], "merged_prs": [], "errors": []
+    }
+  },
+  "recent_merge_transition": {
+    "roadmap": "| Bet | Posture | Focused owner |\n| Alpha | **DONE** | [#10](x) |",
+    "graph": {"schema_version": 1, "contracts": {}},
+    "live": {
+      "repo": "ListenCloser/listencloser", "main": {"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "issues": [], "open_prs": [],
+      "merged_prs": [{"number": 101, "title": "feat: alpha (#10)", "url": "https://github.test/pulls/101", "body": "Closes #10", "mergedAt": "2026-09-03T12:00:00Z", "headRefOid": "1111111111111111111111111111111111111111"}],
+      "errors": []
+    }
+  },
+  "unknown_and_gated_posture": {
+    "roadmap": "| Bet | Posture | Focused owner |\n| Gate | **GATED** | [#30](x) |\n| Ambiguous A | **ACTIVE** | [#31](x) |\n| Ambiguous B | **GATED** | [#31](x) |",
+    "graph": {"schema_version": 1, "contracts": {}},
+    "live": {
+      "repo": "ListenCloser/listencloser", "main": {"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "issues": [{"number": 30, "title": "Gate", "url": "https://github.test/issues/30", "body": ""}, {"number": 31, "title": "Ambiguous", "url": "https://github.test/issues/31", "body": ""}],
+      "open_prs": [], "merged_prs": [], "errors": []
+    }
+  },
+  "api_failure_is_incomplete": {
+    "roadmap": "| Bet | Posture | Focused owner |\n| Alpha | **ACTIVE** | [#10](x) |",
+    "graph": {"schema_version": 1, "contracts": {}},
+    "live": {
+      "repo": "ListenCloser/listencloser", "main": {}, "issues": [], "open_prs": [], "merged_prs": [],
+      "errors": ["issues: simulated API failure"]
+    }
+  }
+}
