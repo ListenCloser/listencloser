@@ -27,6 +27,7 @@ import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
 import { understandStageLabel, presentableTitle } from "@/lib/format";
 import { buildPlaybackSources } from "@/lib/playback-sources";
+import { retainRepresentationsConfirmedByVersion } from "@/lib/representation-continuity";
 import { hasReusableScoreArtifacts, selectScoreArtifacts } from "@/lib/score-artifacts";
 import { qualifySymbolicSourceLabel } from "@/lib/transcription-qualification";
 import {
@@ -80,6 +81,8 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   // different Work before that Work's effect has started its own request.
   const activeWorkIdRef = useRef<string | null>(workspace.activeWorkId);
   activeWorkIdRef.current = workspace.activeWorkId;
+  const representationsRef = useRef(workspace.representations);
+  representationsRef.current = workspace.representations;
 
   const clearProcessingRefresh = useCallback(() => {
     if (refreshTimerRef.current !== null) {
@@ -173,7 +176,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         score: renderedScore?.latest_version && renderedScore.signed_url ? { id: renderedScore.latest_version.id, url: renderedScore.signed_url } : null,
       });
 
-      const representations: RepresentationEntry[] = [];
+      let representations: RepresentationEntry[] = [];
       if (original?.signed_url) {
         representations.push({
           kind: "waveform",
@@ -185,6 +188,16 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
           audioUrl: original.signed_url,
           versionId: original.latest_version?.id,
         });
+      }
+      if (preserveWorkspace) {
+        representations = retainRepresentationsConfirmedByVersion(
+          representationsRef.current,
+          representations,
+          {
+            pianoRollVersionId: midi?.latest_version?.id,
+            scoreVersionId: score?.latest_version?.id,
+          },
+        );
       }
       // The durable source is the first usable workspace state. Processing may
       // still be running, but it must not hold playback behind a job modal.
