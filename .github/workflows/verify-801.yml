@@ -1,0 +1,318 @@
+name: Verify 801
+
+on:
+  push:
+    branches:
+      - tmp-invalid
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Materialize current-main test and production edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main refactor/801-explicit-progress-reporter
+          base="$(git rev-parse origin/main)"
+          echo "BASE_SHA=$base" >> "$GITHUB_ENV"
+          git switch --detach "$base"
+          git show origin/refactor/801-explicit-progress-reporter:backend/tests/test_capability_progress.py > backend/tests/test_capability_progress.py
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          test_path = Path("backend/tests/test_real_pipeline_contracts.py")
+          test_text = test_path.read_text()
+          old_import = "from domain.capabilities import _ProgressClient, register_all_capabilities\n"
+          assert test_text.count(old_import) == 1
+          test_text = test_text.replace(
+              old_import,
+              "from domain.capabilities import register_all_capabilities\n",
+          )
+
+          start = test_text.index("\ndef test_child_progress_is_mapped_into_parent_interval():")
+          end = test_text.index("\ndef test_progress_boundary_stops_a_job_that_is_no_longer_running():", start)
+          test_text = test_text[:start] + test_text[end:]
+
+          old = '''    progress_ranges = []
+
+              def transcribe(_job, derived_client):
+                  progress_ranges.append(("transcribe", derived_client._base, derived_client._scale))
+                  return [str(midi_id), str(audio_id)]
+          '''
+          new = '''    received_clients = []
+              client = MagicMock()
+
+              def transcribe(_job, derived_client, _progress):
+                  received_clients.append(derived_client)
+                  return [str(midi_id), str(audio_id)]
+          '''
+          assert test_text.count(old) == 1
+          test_text = test_text.replace(old, new)
+
+          old = '''    def analyze(derived_job, derived_client):
+                  analyzed_inputs.extend(derived_job.input_version_ids)
+                  derived_capabilities.append(derived_job.capability.name)
+                  progress_ranges.append(("analyze", derived_client._base, derived_client._scale))
+                  return []
+
+              def score(derived_job, derived_client):
+                  derived_capabilities.append(derived_job.capability.name)
+                  progress_ranges.append(("score", derived_client._base, derived_client._scale))
+                  return [str(score_id)]
+          '''
+          new = '''    def analyze(derived_job, derived_client, _progress):
+                  analyzed_inputs.extend(derived_job.input_version_ids)
+                  derived_capabilities.append(derived_job.capability.name)
+                  received_clients.append(derived_client)
+                  return []
+
+              def score(derived_job, derived_client, _progress):
+                  derived_capabilities.append(derived_job.capability.name)
+                  received_clients.append(derived_client)
+                  return [str(score_id)]
+          '''
+          assert test_text.count(old) == 1
+          test_text = test_text.replace(old, new)
+
+          old = '''    outputs = capabilities.handle_understand(job, MagicMock())
+
+              assert outputs == [str(midi_id), str(audio_id), str(score_id)]
+              assert analyzed_inputs == [midi_id, original_audio_id]
+              assert derived_capabilities == ["analyze", "score"]
+              assert progress_ranges == [
+                  ("transcribe", 0.0, 0.65),
+                  ("analyze", 0.65, 0.20),
+                  ("score", 0.85, 0.15),
+              ]
+          '''
+          new = '''    outputs = capabilities.handle_understand(job, client)
+
+              assert outputs == [str(midi_id), str(audio_id), str(score_id)]
+              assert analyzed_inputs == [midi_id, original_audio_id]
+              assert derived_capabilities == ["analyze", "score"]
+              assert all(received_client is client for received_client in received_clients)
+          '''
+          assert test_text.count(old) == 1
+          test_text = test_text.replace(old, new)
+          test_path.write_text(test_text)
+
+          path = Path("backend/domain/capabilities.py")
+          text = path.read_text()
+
+          start = text.index("class _ProgressTable:")
+          end = text.index("def _resolve_owner_id", start)
+          reporter = '''class ProgressReporter:
+              """Map local capability progress onto a real running Job."""
+
+              def __init__(
+                  self,
+                  client,
+                  job_id: UUID,
+                  *,
+                  base: float = 0.0,
+                  scale: float = 1.0,
+              ):
+                  self._client = client
+                  self._job_id = job_id
+                  self._base = base
+                  self._scale = scale
+
+              def report(self, progress: float, message: str = "") -> None:
+                  local = max(0.0, min(1.0, float(progress)))
+                  _update_progress(
+                      self._client,
+                      self._job_id,
+                      self._base + self._scale * local,
+                      message,
+                  )
+
+
+          '''
+          text = text[:start] + reporter + text[end:]
+
+          old = '''    transcribe_client = _ProgressClient(client, 0.0, 0.65)
+              output_ids = handle_transcribe(job, transcribe_client)
+          '''
+          new = '''    output_ids = handle_transcribe(
+                  job,
+                  client,
+                  ProgressReporter(client, job.id, base=0.0, scale=0.65),
+              )
+          '''
+          assert text.count(old) == 1
+          text = text.replace(old, new)
+
+          old = '    handle_analyze(analyze_job, _ProgressClient(client, 0.65, 0.20))\n'
+          new = '''    handle_analyze(
+                  analyze_job,
+                  client,
+                  ProgressReporter(client, job.id, base=0.65, scale=0.20),
+              )
+          '''
+          assert text.count(old) == 1
+          text = text.replace(old, new)
+
+          old = '    score_ids = handle_score(score_job, _ProgressClient(client, 0.85, 0.15))\n'
+          new = '''    score_ids = handle_score(
+                  score_job,
+                  client,
+                  ProgressReporter(client, job.id, base=0.85, scale=0.15),
+              )
+          '''
+          assert text.count(old) == 1
+          text = text.replace(old, new)
+
+          def rewrite_handler(
+              text: str,
+              name: str,
+              next_name: str,
+              expected_calls: int,
+              error: str,
+          ) -> str:
+              start = text.index(f"def {name}(")
+              end = text.index(f"\ndef {next_name}(", start)
+              section = text[start:end]
+              old_signature = f"def {name}(job: Job, client) -> list[str]:"
+              new_signature = (
+                  f"def {name}(job: Job, client, progress: ProgressReporter | None = None) -> list[str]:"
+              )
+              assert section.count(old_signature) == 1
+              section = section.replace(old_signature, new_signature)
+              validation = (
+                  "    if not job.input_version_ids:\n"
+                  f"        raise ValueError(\"{error}\")\n\n"
+              )
+              assert section.count(validation) == 1
+              section = section.replace(
+                  validation,
+                  validation + "    reporter = progress or ProgressReporter(client, job.id)\n\n",
+                  1,
+              )
+              progress_prefix = "_update_progress(client, job.id, "
+              assert section.count(progress_prefix) == expected_calls, (
+                  name,
+                  section.count(progress_prefix),
+              )
+              section = section.replace(progress_prefix, "reporter.report(")
+              return text[:start] + section + text[end:]
+
+          text = rewrite_handler(
+              text,
+              "handle_transcribe",
+              "_transcription_defaults_pulse",
+              8,
+              "transcribe requires at least one input version",
+          )
+          text = rewrite_handler(
+              text,
+              "handle_analyze",
+              "handle_score",
+              8,
+              "analyze requires at least one input version",
+          )
+          text = rewrite_handler(
+              text,
+              "handle_score",
+              "handle_enhance",
+              5,
+              "score requires a MIDI input version",
+          )
+
+          path.write_text(text)
+          PY
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - run: npm ci
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.6'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+      - name: Install system dependencies for backend unit tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Format touched tests
+        run: >-
+          uv run --project backend --locked ruff format
+          backend/tests/test_capability_progress.py
+          backend/tests/test_real_pipeline_contracts.py
+
+      - name: Diff acceptance check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile backend/domain/capabilities.py
+          git diff --check "$BASE_SHA" -- \
+            backend/domain/capabilities.py \
+            backend/tests/test_capability_progress.py \
+            backend/tests/test_real_pipeline_contracts.py
+          changed="$(git diff --name-only "$BASE_SHA" | sort)"
+          test "$changed" = $'backend/domain/capabilities.py\nbackend/tests/test_capability_progress.py\nbackend/tests/test_real_pipeline_contracts.py'
+          test "$(git diff --numstat "$BASE_SHA" -- backend/domain/capabilities.py)" = $'64\t55\tbackend/domain/capabilities.py'
+          ! grep -q '_ProgressClient' backend/tests/test_real_pipeline_contracts.py
+          cp backend/domain/capabilities.py /tmp/capabilities-801.py
+          cp backend/tests/test_capability_progress.py /tmp/test-capability-progress-801.py
+          cp backend/tests/test_real_pipeline_contracts.py /tmp/test-real-pipeline-contracts-801.py
+          git diff --stat "$BASE_SHA" -- \
+            backend/domain/capabilities.py \
+            backend/tests/test_capability_progress.py \
+            backend/tests/test_real_pipeline_contracts.py
+
+      - name: Run focused #801 tests
+        run: >-
+          uv run --project backend --locked python -m pytest
+          backend/tests/test_capability_progress.py
+          backend/tests/test_real_pipeline_contracts.py
+          backend/tests/test_capability_registration.py
+          backend/tests/test_job_worker.py::TestJobExecutionSuccess::test_handler_receives_domain_job_and_client
+          -q
+
+      - name: Run canonical fast verification
+        run: npm run check:fast
+
+      - name: Publish clean #801 history
+        shell: bash
+        run: |
+          set -euo pipefail
+          old_branch="$(git rev-parse origin/refactor/801-explicit-progress-reporter)"
+          git fetch origin main refactor/801-explicit-progress-reporter
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse origin/refactor/801-explicit-progress-reporter)" = "$old_branch"
+          git switch -C publish "$BASE_SHA"
+          cp /tmp/test-capability-progress-801.py backend/tests/test_capability_progress.py
+          cp /tmp/test-real-pipeline-contracts-801.py backend/tests/test_real_pipeline_contracts.py
+          git diff --check
+          test "$(git diff --name-only | sort)" = $'backend/tests/test_capability_progress.py\nbackend/tests/test_real_pipeline_contracts.py'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/tests/test_capability_progress.py backend/tests/test_real_pipeline_contracts.py
+          git commit -m "test(worker): define explicit capability progress contract"
+          cp /tmp/capabilities-801.py backend/domain/capabilities.py
+          git diff --check
+          test "$(git diff --name-only)" = "backend/domain/capabilities.py"
+          test "$(git diff --numstat -- backend/domain/capabilities.py)" = $'64\t55\tbackend/domain/capabilities.py'
+          git add backend/domain/capabilities.py
+          git commit -m "refactor(worker): make capability progress explicit"
+          git push --force-with-lease=refactor/801-explicit-progress-reporter:"$old_branch" \
+            origin HEAD:refactor/801-explicit-progress-reporter
