@@ -83,6 +83,7 @@ subgraph lib["lib"]
   lib_representations_ts["representations.ts"]
   lib_score_artifacts_ts["score-artifacts.ts"]
   lib_score_measure_geometry_ts["score-measure-geometry.ts"]
+  lib_score_note_playback_ts["score-note-playback.ts"]
   lib_score_renderer_ts["score-renderer.ts"]
   lib_selection_ts["selection.ts"]
   lib_server_state_ts["server-state.ts"]
@@ -126,6 +127,7 @@ components_QueryProvider_tsx-->lib_query_client_ts
 components_SheetMusic_tsx-->lib_analysis_annotations_ts
 components_SheetMusic_tsx-->lib_measure_ts
 components_SheetMusic_tsx-->lib_score_measure_geometry_ts
+components_SheetMusic_tsx-->lib_score_note_playback_ts
 components_workspace_-->components_AuthProvider_tsx
 components_workspace_-->lib_api_client_ts
 components_workspace_-->lib_format_ts
