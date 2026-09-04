@@ -3,6 +3,9 @@ name: Production Verify
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      SUPABASE_SERVICE_ROLE_KEY:
+        required: true
 
 permissions:
   contents: read
@@ -27,6 +30,7 @@ jobs:
       - name: Verify deployed production stack
         env:
           RUN_PRODUCTION_VERIFY: "true"
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx playwright test tests/e2e/production-verify.spec.ts
       - name: Upload Playwright failure diagnostics
         if: failure()
