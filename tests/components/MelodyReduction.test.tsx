@@ -37,11 +37,8 @@ function renderObject(overrides: Partial<ComponentProps<typeof MelodyReductionOb
     insight,
     projection,
     pieceEndSeconds: 10,
-    playbackRole: "original",
-    canHear: true,
+    playheadSeconds: 0,
     selectedNoteId: null,
-    onFocus: vi.fn(),
-    onHear: vi.fn(),
     onSelectNote: vi.fn(),
     ...overrides,
   };
@@ -50,49 +47,41 @@ function renderObject(overrides: Partial<ComponentProps<typeof MelodyReductionOb
 }
 
 describe("MelodyReductionObject", () => {
-  it("renders a compact full-timeline lane and keeps technical detail secondary", () => {
+  it("renders a compact musical lane with maturity and provenance kept secondary", () => {
     renderObject({ selectedNoteId: "note-c5" });
 
     expect(screen.getByRole("region", { name: "Experimental melody reduction" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: /full Piano Roll timeline with 2 exact source notes/ })).toBeInTheDocument();
+    expect(screen.getByText("Melody")).toBeInTheDocument();
+    expect(screen.getByText("2 notes")).toBeInTheDocument();
     expect(screen.getByText("Experimental")).toBeInTheDocument();
-    expect(screen.getByText("2 proposed notes")).toBeInTheDocument();
-    expect(screen.queryByText(/A method-specific proposed melodic line/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/proposed notes/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show C5 at 0:01 in Piano Roll" })).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(screen.getByText("Details"));
-    expect(screen.getByText("12345678-aaaa-bbbb-cccc-123456789012")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "About" }));
+    expect(screen.getByText(/Version 12345678-aaaa-bbbb-cccc-123456789012/)).toBeInTheDocument();
     expect(screen.getByText("2/2 exact Piano Roll notes")).toBeInTheDocument();
     expect(screen.getByText(/not a verified melody label or top-voice rule/)).toBeInTheDocument();
   });
 
-  it("lets each proposed note select its exact source note and lets the lane collapse", () => {
+  it("lets each melody note locate its exact source note", () => {
     const onSelectNote = vi.fn();
     renderObject({ onSelectNote });
 
     fireEvent.click(screen.getByRole("button", { name: "Show C5 at 0:01 in Piano Roll" }));
     expect(onSelectNote).toHaveBeenCalledWith(projection.notes[0]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Hide" }));
-    expect(screen.queryByRole("group", { name: /Proposed melody reduction/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show" }));
-    expect(screen.getByRole("group", { name: /Proposed melody reduction/ })).toBeInTheDocument();
   });
 
-  it("keeps Focus and current-source hearing as short secondary actions", () => {
-    const onFocus = vi.fn();
-    const onHear = vi.fn();
-    renderObject({ playbackRole: "transcription", onFocus, onHear });
+  it("shares performance playback position without introducing another playback control", () => {
+    const { container } = renderObject({ playheadSeconds: 1.25 });
 
-    fireEvent.click(screen.getByRole("button", { name: "Focus" }));
-    fireEvent.click(screen.getByRole("button", { name: "Hear transcription" }));
-
-    expect(onFocus).toHaveBeenCalledOnce();
-    expect(onHear).toHaveBeenCalledOnce();
+    expect(container.querySelector("[data-melody-playhead='true']")).toBeInTheDocument();
+    expect(container.querySelector("[data-melody-note-id='note-c5']")).toHaveAttribute("data-playing", "true");
+    expect(screen.queryByRole("button", { name: /Hear|Focus|Hide|Show$/ })).not.toBeInTheDocument();
   });
 
-  it("disables Hear when there is no active playback source", () => {
-    renderObject({ playbackRole: null, canHear: false });
-    expect(screen.getByRole("button", { name: "Hear" })).toBeDisabled();
+  it("withholds a performance-time playhead when the caller has no compatible timeline", () => {
+    const { container } = renderObject({ playheadSeconds: null });
+    expect(container.querySelector("[data-melody-playhead='true']")).not.toBeInTheDocument();
   });
 });
