@@ -62,35 +62,32 @@ jobs:
           mkdir -p closeout-artifacts
           uv run --project backend --locked python - <<'PY'
           import json
-          import urllib.parse
           import urllib.request
           from uuid import uuid4
 
           from perceptual_evidence import extract_perceptual_evidence_from_bytes
           from domain.measured_changes import discover_measured_changes
 
-          API = "https://commons.wikimedia.org/w/api.php"
           FILES = [
-              ("Maple Leaf Rag", "Maple Leaf Rag.ogg"),
-              ("El Choclo", "El Choclo-Villoldo.ogg"),
-              ("How Long, How Long Blues", "How Long, How Long Blues.ogg"),
+              (
+                  "Maple Leaf Rag",
+                  "Maple Leaf Rag.ogg",
+                  "https://upload.wikimedia.org/wikipedia/commons/f/fe/Maple_Leaf_Rag.ogg",
+              ),
+              (
+                  "El Choclo",
+                  "El Choclo-Villoldo.ogg",
+                  "https://upload.wikimedia.org/wikipedia/commons/1/12/El_Choclo-Villoldo.ogg",
+              ),
+              (
+                  "How Long, How Long Blues",
+                  "How Long, How Long Blues.ogg",
+                  "https://upload.wikimedia.org/wikipedia/commons/e/e8/How_Long%2C_How_Long_Blues.ogg",
+              ),
           ]
           headers = {"User-Agent": "ListenCloser/848-experimental-closeout"}
           output = []
-          for title, file_title in FILES:
-              params = urllib.parse.urlencode({
-                  "action": "query",
-                  "format": "json",
-                  "prop": "imageinfo",
-                  "iiprop": "url",
-                  "titles": f"File:{file_title}",
-              })
-              with urllib.request.urlopen(
-                  urllib.request.Request(f"{API}?{params}", headers=headers), timeout=30
-              ) as response:
-                  payload = json.load(response)
-              page = next(iter(payload["query"]["pages"].values()))
-              media_url = page["imageinfo"][0]["url"]
+          for title, file_title, media_url in FILES:
               with urllib.request.urlopen(
                   urllib.request.Request(media_url, headers=headers), timeout=60
               ) as response:
