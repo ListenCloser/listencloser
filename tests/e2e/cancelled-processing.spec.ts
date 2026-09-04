@@ -85,7 +85,11 @@ test("cancelling understanding remains a successful stop after reload", async ({
   await expect(importButton).toBeEnabled({ timeout: 10_000 });
   await importButton.click();
   await page.getByRole("menuitem", { name: /Upload recording/ }).click();
-  await page.locator('input[type="file"]').setInputFiles({
+  await expect(page.getByRole("dialog", { name: "Process recording" })).toBeVisible();
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Choose audio" }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
     name: "cancel-fixture.m4a",
     mimeType: "audio/mp4",
     buffer: Buffer.from("mock cancellation m4a payload"),
