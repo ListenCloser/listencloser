@@ -69,10 +69,11 @@ export function MelodyReductionObject({
   const timelineEnd = Math.max(pieceEndSeconds, projection.endSeconds, 0.001);
   const x = (seconds: number) => 10 + (Math.max(0, seconds) / timelineEnd) * 460;
   const y = (pitch: number) => 58 - ((pitch - minPitch) / pitchSpan) * 42;
-  const showPlayhead = playheadSeconds !== null
-    && playheadSeconds !== undefined
+  const activePlayhead = typeof playheadSeconds === "number"
     && playheadSeconds >= 0
-    && playheadSeconds <= timelineEnd;
+    && playheadSeconds <= timelineEnd
+    ? playheadSeconds
+    : null;
 
   return (
     <section className={styles.reduction} aria-label="Experimental melody reduction">
@@ -103,12 +104,12 @@ export function MelodyReductionObject({
           <text x={470} y={84} textAnchor="end" className={styles.timeLabel}>
             {formatClock(timelineEnd)}
           </text>
-          {showPlayhead && (
+          {activePlayhead !== null && (
             <line
               className={styles.playhead}
               data-melody-playhead="true"
-              x1={x(playheadSeconds)}
-              x2={x(playheadSeconds)}
+              x1={x(activePlayhead)}
+              x2={x(activePlayhead)}
               y1={8}
               y2={75}
             />
@@ -117,9 +118,9 @@ export function MelodyReductionObject({
             const startX = x(note.startSeconds);
             const endX = x(note.endSeconds);
             const selected = selectedNoteId === note.id;
-            const playing = showPlayhead
-              && playheadSeconds >= note.startSeconds
-              && playheadSeconds <= note.endSeconds;
+            const playing = activePlayhead !== null
+              && activePlayhead >= note.startSeconds
+              && activePlayhead <= note.endSeconds;
             const label = `${pitchName(note.pitch)} at ${formatClock(note.startSeconds)}`;
             return (
               <rect
