@@ -8,16 +8,16 @@ source Work or its normal playback path.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
 import os
-from pathlib import Path
 import signal
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+from collections.abc import Callable
+from pathlib import Path
 from uuid import UUID
 
 from domain.capabilities import (
