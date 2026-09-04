@@ -32,6 +32,7 @@ class PM2SNotationEngine:
     ENGINE = "pm2s"
     SOURCE_COMMIT = "9586f91cd16aaa50dbb82f720f6a34a3e0186f47"
     MODEL_RECORD = "zenodo:10520196"
+    COMPATIBILITY_PATCH = "midi_tempo_uint24_bound_v1"
 
     def __init__(
         self,
@@ -51,6 +52,7 @@ class PM2SNotationEngine:
             model="CRNNJointPM2S",
             parameters={
                 "model_record": self.MODEL_RECORD,
+                "source_compatibility_patch": self.COMPATIBILITY_PATCH,
                 "input_representation": "performance_midi",
                 "output_representation": "score_midi",
                 "score_midi_engine": "pm2s",
@@ -177,6 +179,7 @@ class PM2SNotationEngine:
                 "musicxml_stage": "musescore_midi_import",
                 "source_commit": self.SOURCE_COMMIT,
                 "model_record": self.MODEL_RECORD,
+                "source_compatibility_patch": self.COMPATIBILITY_PATCH,
                 "beat_grid_available": bool(beat_times),
                 "beat_grid_consumed": False,
                 "beat_count": len(beat_times),
