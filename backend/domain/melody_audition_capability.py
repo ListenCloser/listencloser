@@ -82,9 +82,7 @@ def match_melody_note_entities(insight: Insight, entities: list[Entity]) -> list
         raise ValueError("melody_audition requires melody evidence")
 
     source_notes = [
-        entity
-        for entity in entities
-        if entity.kind == EntityKind.note and entity.note is not None
+        entity for entity in entities if entity.kind == EntityKind.note and entity.note is not None
     ]
     used_ids: set[UUID] = set()
     matched: list[Entity] = []
