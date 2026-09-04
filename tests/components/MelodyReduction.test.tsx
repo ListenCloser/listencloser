@@ -42,8 +42,7 @@ function renderObject(overrides: Partial<ComponentProps<typeof MelodyReductionOb
     onSelectNote: vi.fn(),
     ...overrides,
   };
-  render(<MelodyReductionObject {...props} />);
-  return props;
+  return render(<MelodyReductionObject {...props} />);
 }
 
 describe("MelodyReductionObject", () => {
