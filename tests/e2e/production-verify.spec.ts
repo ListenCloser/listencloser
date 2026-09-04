@@ -178,8 +178,7 @@ test("C: import real audio, wait for durable understand, verify representations 
 
   await expect(page.locator(".ask-turn-assistant")).toBeVisible({ timeout: 10_000 });
   // Next.js mounts an empty route-announcer with role=alert outside the app.
-  // Assert the product Ask failure state is absent rather than banning all ARIA alerts.
-  await expect(
-    page.getByText("Ask is temporarily unavailable. Please try again in a moment."),
-  ).toHaveCount(0);
+  // Assert the actual ListenCloser Ask error surface is absent rather than
+  // banning all ARIA alerts or matching one specific error message.
+  await expect(page.locator(".ask-error")).toHaveCount(0);
 });
