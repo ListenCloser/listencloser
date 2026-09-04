@@ -28,6 +28,12 @@ import { useTransport } from "@/lib/stores/transport";
 import { understandStageLabel, presentableTitle } from "@/lib/format";
 import { buildPlaybackSources } from "@/lib/playback-sources";
 import { hasReusableScoreArtifacts, selectScoreArtifacts } from "@/lib/score-artifacts";
+import {
+  defaultScoreSourceVersionId,
+  scoreSourceOptions,
+  selectScoreSource,
+  type ScoreDisplaySelection,
+} from "@/lib/score-sources";
 import { qualifySymbolicSourceLabel } from "@/lib/transcription-qualification";
 import {
   useWorkspace,
@@ -35,6 +41,8 @@ import {
 } from "@/lib/stores/workspace";
 
 const ACCEPT = ".wav,.mp3,.m4a,.flac,.ogg,.aac,audio/*";
+const SCORE_ACCEPT = ".musicxml,.xml,application/vnd.recordare.musicxml+xml,application/xml,text/xml";
+const SCORE_EXTENSIONS = new Set(["musicxml", "xml"]);
 const ALLOWED_EXTENSIONS = new Set(["wav", "mp3", "m4a", "flac", "ogg", "aac"]);
 const ACTIVE_JOB_STATES = new Set(["queued", "claimed", "running"]);
 const PROCESSING_REFRESH_MS = 1200;
@@ -48,6 +56,8 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     setAnalysisState,
     setInsights,
     setLoadingWork,
+    setScoreDisplaySelection,
+    setScoreSources,
     setStudioOperation,
     workspace,
   } = useWorkspace();
@@ -69,7 +79,10 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   const [processingWorkId, setProcessingWorkId] = useState<string | null>(null);
   const [pendingSourceVersionId, setPendingSourceVersionId] = useState<string | null>(null);
   const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
+  const [scoreAttachState, setScoreAttachState] = useState<"idle" | "uploading" | "error">("idle");
+  const [scoreAttachError, setScoreAttachError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scoreFileInputRef = useRef<HTMLInputElement>(null);
   const loadSequenceRef = useRef(0);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedWorkRef = useRef<string | null>(null);
@@ -148,11 +161,42 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       const performanceMidiVersionId = baseMidi?.latest_version?.id ?? null;
       performanceMidiVersionRef.current = { workId, versionId: performanceMidiVersionId };
       const midi = baseMidi ?? latestByKind.get("midi_corrected");
-      const { score, renderedScore } = selectScoreArtifacts(
+
+      const scoreSources = scoreSourceOptions(bundle);
+      setScoreSources(scoreSources);
+      let scoreSelection: ScoreDisplaySelection = workspace.scoreDisplaySelection;
+      if (scoreSelection?.kind === "source") {
+        const selectedSourceVersionId = scoreSelection.versionId;
+        if (!scoreSources.some((source) => source.versionId === selectedSourceVersionId)) {
+          scoreSelection = null;
+        }
+      }
+      const selectedEngine = scoreSelection?.kind === "engine" ? scoreSelection.engine : scoreEngine;
+      const generatedScore = selectScoreArtifacts(
         bundle,
         performanceMidiVersionId,
-        scoreEngine,
+        selectedEngine,
       );
+      if (!scoreSelection) {
+        const defaultSourceId = defaultScoreSourceVersionId(scoreSources);
+        if (defaultSourceId) scoreSelection = { kind: "source", versionId: defaultSourceId };
+        else if (generatedScore.score) scoreSelection = { kind: "engine", engine: selectedEngine };
+      }
+      const currentSelection = workspace.scoreDisplaySelection;
+      const selectionChanged = scoreSelection?.kind !== currentSelection?.kind
+        || (scoreSelection?.kind === "source"
+          && currentSelection?.kind === "source"
+          && scoreSelection.versionId !== currentSelection.versionId)
+        || (scoreSelection?.kind === "engine"
+          && currentSelection?.kind === "engine"
+          && scoreSelection.engine !== currentSelection.engine);
+      if (selectionChanged) setScoreDisplaySelection(scoreSelection);
+
+      const sourceScore = scoreSelection?.kind === "source"
+        ? selectScoreSource(bundle, scoreSelection.versionId)
+        : undefined;
+      const score = sourceScore ?? generatedScore.score;
+      const renderedScore = sourceScore ? undefined : generatedScore.renderedScore;
       const transcriptionMetadata = baseMidi?.latest_version?.metadata ?? midi?.latest_version?.metadata;
 
       const renderedArtifacts = bundle.artifacts.filter((item) =>
@@ -238,18 +282,29 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       };
       const scoreRepresentation = (musicxml: string | null): RepresentationEntry | null => {
         if (!score?.signed_url || !musicxml) return null;
-        const measureStarts = (renderedScore?.latest_version?.metadata?.measure_starts_seconds as number[] | undefined) ?? [];
+        const sourceScoreSelected = score.latest_version?.metadata?.representation === "score_source";
+        const measureStarts = sourceScoreSelected
+          ? []
+          : (renderedScore?.latest_version?.metadata?.measure_starts_seconds as number[] | undefined) ?? [];
         const scoreEngineMetadata = score.latest_version?.metadata?.score_engine_requested;
-        const scoreProvenance = scoreEngineMetadata === "pm2s"
-          ? "PM2S · MuseScore import"
-          : scoreEngineMetadata === "musescore"
-            ? "MuseScore"
-            : "score interpretation";
+        const sourceFilename = score.latest_version?.metadata?.original_filename;
+        const attachedLabel = typeof sourceFilename === "string" && sourceFilename.trim()
+          ? `Attached score · ${sourceFilename.trim()}`
+          : "Attached score";
+        const scoreProvenance = sourceScoreSelected
+          ? "Attached score"
+          : scoreEngineMetadata === "pm2s"
+            ? "PM2S · MuseScore import"
+            : scoreEngineMetadata === "musescore"
+              ? "MuseScore"
+              : "score interpretation";
         return {
           kind: "score",
           label: "Score",
           sourceUrl: score.signed_url,
-          sourceLabel: qualifySymbolicSourceLabel("Notation draft", transcriptionMetadata),
+          sourceLabel: sourceScoreSelected
+            ? attachedLabel
+            : qualifySymbolicSourceLabel("Notation draft", transcriptionMetadata),
           confidence: null,
           provenance: scoreProvenance,
           musicxml,
@@ -386,7 +441,22 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     } finally {
       if (isCurrentLoad()) setLoadingWork(false);
     }
-  }, [clearProcessingRefresh, queryClient, replaceRepresentations, replaceSources, resetTimeline, scoreEngine, setAnalysisState, setBpm, setInsights, setLoadingWork, setTimeSignature]);
+  }, [
+    clearProcessingRefresh,
+    queryClient,
+    replaceRepresentations,
+    replaceSources,
+    resetTimeline,
+    scoreEngine,
+    setAnalysisState,
+    setBpm,
+    setInsights,
+    setLoadingWork,
+    setScoreDisplaySelection,
+    setScoreSources,
+    setTimeSignature,
+    workspace.scoreDisplaySelection,
+  ]);
 
   useEffect(() => () => {
     clearProcessingRefresh();
@@ -439,55 +509,55 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   }, [loadWork, projectId, setStudioOperation, workspace.activeWorkId, workspace.studioAction]);
 
   useEffect(() => {
-  const action = workspace.scoreEngineAction;
-  const workId = workspace.activeWorkId;
-  if (!action || action.id === handledScoreEngineAction.current || !projectId || !workId) return;
-  handledScoreEngineAction.current = action.id;
-  const isCurrentScoreWork = () => activeWorkIdRef.current === workId;
+    const action = workspace.scoreEngineAction;
+    const workId = workspace.activeWorkId;
+    if (!action || action.id === handledScoreEngineAction.current || !projectId || !workId) return;
+    handledScoreEngineAction.current = action.id;
+    const isCurrentScoreWork = () => activeWorkIdRef.current === workId;
 
-  const bundle = loadedBundleRef.current?.work.id === workId ? loadedBundleRef.current : null;
-  const performanceMidi = performanceMidiVersionRef.current;
-  const performanceMidiVersionId = performanceMidi?.workId === workId
-    ? performanceMidi.versionId
-    : null;
-  if (bundle && hasReusableScoreArtifacts(bundle, performanceMidiVersionId, action.engine)) {
-    return;
-  }
-
-  if (!performanceMidiVersionId) {
-    if (!isCurrentScoreWork()) return;
-    setError("Score reinterpretation requires the canonical performance transcription.");
-    setStage("error");
-    return;
-  }
-
-  void (async () => {
-    if (!isCurrentScoreWork()) return;
-    setError(null);
-    setProgress(0);
-    setProcessingWorkId(workId);
-    setStage("processing");
-    setMessage(`Rebuilding Score with ${action.engine === "pm2s" ? "PM2S" : "MuseScore"}…`);
-    try {
-      const { job } = await startScoreWorkflow(performanceMidiVersionId, projectId, action.engine);
-      if (!isCurrentScoreWork()) return;
-      setActiveJobId(job.id);
-      await waitForJob(job.id, (current) => {
-        if (!isCurrentScoreWork()) return;
-        setMessage(current.message || "Rebuilding Score…");
-        setProgress(Math.round(current.progress * 100));
-      });
-      if (!isCurrentScoreWork()) return;
-      await loadWork(workId);
-    } catch (cause) {
-      if (!isCurrentScoreWork()) return;
-      setActiveJobId(null);
-      const disconnected = cause instanceof JobObservationError;
-      setError(cause instanceof Error ? cause.message : "Could not rebuild Score");
-      setStage(disconnected ? "disconnected" : "error");
+    const bundle = loadedBundleRef.current?.work.id === workId ? loadedBundleRef.current : null;
+    const performanceMidi = performanceMidiVersionRef.current;
+    const performanceMidiVersionId = performanceMidi?.workId === workId
+      ? performanceMidi.versionId
+      : null;
+    if (bundle && hasReusableScoreArtifacts(bundle, performanceMidiVersionId, action.engine)) {
+      return;
     }
-  })();
-}, [loadWork, projectId, workspace.activeWorkId, workspace.scoreEngineAction]);
+
+    if (!performanceMidiVersionId) {
+      if (!isCurrentScoreWork()) return;
+      setError("Score reinterpretation requires the canonical performance transcription.");
+      setStage("error");
+      return;
+    }
+
+    void (async () => {
+      if (!isCurrentScoreWork()) return;
+      setError(null);
+      setProgress(0);
+      setProcessingWorkId(workId);
+      setStage("processing");
+      setMessage(`Rebuilding Score with ${action.engine === "pm2s" ? "PM2S" : "MuseScore"}…`);
+      try {
+        const { job } = await startScoreWorkflow(performanceMidiVersionId, projectId, action.engine);
+        if (!isCurrentScoreWork()) return;
+        setActiveJobId(job.id);
+        await waitForJob(job.id, (current) => {
+          if (!isCurrentScoreWork()) return;
+          setMessage(current.message || "Rebuilding Score…");
+          setProgress(Math.round(current.progress * 100));
+        });
+        if (!isCurrentScoreWork()) return;
+        await loadWork(workId);
+      } catch (cause) {
+        if (!isCurrentScoreWork()) return;
+        setActiveJobId(null);
+        const disconnected = cause instanceof JobObservationError;
+        setError(cause instanceof Error ? cause.message : "Could not rebuild Score");
+        setStage(disconnected ? "disconnected" : "error");
+      }
+    })();
+  }, [loadWork, projectId, workspace.activeWorkId, workspace.scoreEngineAction]);
 
   useEffect(() => {
     if (projectQuery.isError || worksQuery.isError) {
@@ -547,6 +617,44 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   useEffect(() => {
     if (workspace.importRequestId > 0) fileInputRef.current?.click();
   }, [workspace.importRequestId]);
+
+  const handledAttachScoreRequest = useRef(0);
+  useEffect(() => {
+    if (workspace.attachScoreRequestId <= handledAttachScoreRequest.current) return;
+    handledAttachScoreRequest.current = workspace.attachScoreRequestId;
+    scoreFileInputRef.current?.click();
+  }, [workspace.attachScoreRequestId]);
+
+  const handleScoreFile = useCallback(async (file: File) => {
+    const workId = workspace.activeWorkId;
+    if (!projectId || !workId) {
+      setScoreAttachError("Open a saved recording before attaching a score.");
+      setScoreAttachState("error");
+      return;
+    }
+    if (serviceStatus === "unavailable") {
+      setScoreAttachError("Score attachment is temporarily unavailable.");
+      setScoreAttachState("error");
+      return;
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!SCORE_EXTENSIONS.has(extension)) {
+      setScoreAttachError("Choose a MusicXML (.musicxml or .xml) score file.");
+      setScoreAttachState("error");
+      return;
+    }
+    setScoreAttachError(null);
+    setScoreAttachState("uploading");
+    try {
+      const { version } = await uploadArtifact(projectId, file, workId);
+      setScoreDisplaySelection({ kind: "source", versionId: version.id });
+      await refreshProjectWorks(queryClient, projectId);
+      setScoreAttachState("idle");
+    } catch (cause) {
+      setScoreAttachError(cause instanceof Error ? cause.message : "Could not attach this score");
+      setScoreAttachState("error");
+    }
+  }, [projectId, queryClient, serviceStatus, setScoreDisplaySelection, workspace.activeWorkId]);
 
   const handleFile = useCallback(async (file: File) => {
     setProcessingWorkId(null);
@@ -675,6 +783,18 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   return (
     <>
       <input
+        id="score-source-input"
+        ref={scoreFileInputRef}
+        type="file"
+        accept={SCORE_ACCEPT}
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void handleScoreFile(file);
+        }}
+      />
+      <input
         id="audio-import-input"
         ref={fileInputRef}
         type="file"
@@ -686,6 +806,17 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
           if (file) void handleFile(file);
         }}
       />
+      {scoreAttachState === "uploading" && (
+        <div className="workspace-notice" role="status">
+          <span><strong>Attaching score…</strong> The recording stays available while the MusicXML is checked.</span>
+        </div>
+      )}
+      {scoreAttachState === "error" && scoreAttachError && (
+        <div className="workspace-notice" role="alert">
+          <span><strong>Couldn’t attach score.</strong> {scoreAttachError}</span>
+          <button type="button" className="icon-btn" aria-label="Dismiss score attachment error" onClick={() => { setScoreAttachState("idle"); setScoreAttachError(null); }}>×</button>
+        </div>
+      )}
       {showBlockingOverlay && (
         <div className="operation-layer">
           <div className="operation-layer-inner">
