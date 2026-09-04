@@ -199,9 +199,7 @@ def handle_melody_audition(job: Job, client) -> list[str]:
     wav_bytes = music_features.midi_to_wav(melody_midi, sr=22050)
 
     _update_progress(client, job.id, 0.82, "storing melody playback")
-    storage_key = (
-        f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/melody-playback.wav"
-    )
+    storage_key = f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/melody-playback.wav"
     client.storage.from_(_STORAGE_BUCKET).upload(
         storage_key,
         wav_bytes,
