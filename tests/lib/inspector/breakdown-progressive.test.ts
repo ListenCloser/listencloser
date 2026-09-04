@@ -27,11 +27,11 @@ describe("progressive Breakdown copy", () => {
     expect(valley.evidenceSummary).toBe("");
   });
 
-  it("keeps measured magnitude but leaves methodology out of the default card", () => {
+  it("keeps measured magnitude and necessary interpretation boundaries", () => {
     const [rest] = rankBreakdownFindings([finding("rest", { duration: 2.4 })]);
     const [harmony] = rankBreakdownFindings([finding("harmonic_activity", { chordDensity: 1.8 })]);
 
     expect(rest.evidenceSummary).toContain("2.4s");
-    expect(harmony.evidenceSummary).toBe("");
+    expect(harmony.evidenceSummary).toContain("not harmonic tension");
   });
 });
