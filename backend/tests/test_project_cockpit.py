@@ -68,6 +68,16 @@ def test_green_red_pending_build_states(scenarios: dict) -> None:
     assert not any(number == 101 and reason.startswith("Build") for number, reason in reasons)
 
 
+def test_protected_build_name_is_case_insensitive() -> None:
+    assert project_cockpit.build_state(
+        {
+            "statusCheckRollup": [
+                {"name": "build", "status": "COMPLETED", "conclusion": "SUCCESS"}
+            ]
+        }
+    ) == "green"
+
+
 def test_hard_dependency_blocks_delivery(scenarios: dict) -> None:
     cockpit = compile_scenario(scenarios, "hard_dependency_blocks_delivery")
     assert cockpit["eligible_next"] == []
