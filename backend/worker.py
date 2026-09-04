@@ -8,6 +8,7 @@ from domain.correction_entity_sync import register_corrected_midi_entity_sync
 from domain.perceptual_capability import register_perceptual_capability
 from domain.performance_instrumentation import install_understand_instrumentation
 from domain.pgmq_job_worker import PgmqJobWorker
+from domain.pitch_contour_capability import register_pitch_contour_capability
 from domain.worker_warmup import (
     prewarm_basic_pitch_inference,
     prewarm_beat_this_inference,
@@ -42,13 +43,14 @@ def main() -> None:
     try:
         prewarm_librosa_beat_tracking()
     except Exception:
-        logger.exception("librosa_beat_prewarm_failed")
+        logger.exception("librosa_prewarm_failed")
 
     worker = PgmqJobWorker(max_workers=settings.concurrency)
     install_understand_instrumentation(capability_module)
     capability_module.register_all_capabilities(worker)
     register_corrected_midi_entity_sync(worker)
     register_perceptual_capability(worker)
+    register_pitch_contour_capability(worker)
 
     def stop(_signum, _frame) -> None:
         worker.stop()
