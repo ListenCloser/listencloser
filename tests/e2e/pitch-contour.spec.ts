@@ -202,12 +202,21 @@ test("Pitch contour stays an optional synchronized result instead of a fifth pri
 
   const position = page.getByRole("slider", { name: "Playback position" });
   const beforeSeek = Number(await position.inputValue());
-  await lane.getByTestId("pitch-contour-plot").click({ position: { x: 500, y: 80 } });
+  await lane.getByTestId("pitch-contour-plot").click();
   await expect.poll(async () => Number(await position.inputValue())).toBeGreaterThan(beforeSeek);
 
   await lane.getByRole("button", { name: "Hide" }).click();
   await expect(lane).not.toBeVisible();
   await pitch.getByRole("button", { name: "Open" }).click();
   await expect(page.getByTestId("pitch-contour-lane")).toBeVisible();
+  await expect(representationTabs.getByRole("tab")).toHaveCount(4);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrowLane = page.getByTestId("pitch-contour-lane");
+  await expect(narrowLane).toBeVisible();
+  const laneBox = await narrowLane.boundingBox();
+  expect(laneBox).not.toBeNull();
+  expect(laneBox!.x).toBeGreaterThanOrEqual(0);
+  expect(laneBox!.x + laneBox!.width).toBeLessThanOrEqual(390);
   await expect(representationTabs.getByRole("tab")).toHaveCount(4);
 });
