@@ -3,10 +3,12 @@
 :root {
   --representation-playback-on-dark: #a8afa7;
   --representation-playback-on-paper: #595e58;
+  --representation-playback-active-on-paper: #315f50;
   --representation-playback-soft-on-dark: rgba(168, 175, 167, 0.12);
   --representation-playback-soft-on-paper: rgba(89, 94, 88, 0.12);
   --score-playback: var(--representation-playback-on-dark);
   --score-playback-soft: var(--representation-playback-soft-on-dark);
+  --score-playback-active: var(--representation-playback-on-dark);
   --piano-note: #c5c9c2;
   --piano-note-stroke: rgba(230, 233, 224, 0.34);
 }
@@ -14,6 +16,7 @@
 .sheet-music-container {
   --score-playback: var(--representation-playback-on-paper);
   --score-playback-soft: var(--representation-playback-soft-on-paper);
+  --score-playback-active: var(--representation-playback-active-on-paper);
 }
 
 /* Piano roll: notes and downbeats carry hierarchy; graph paper recedes. */
@@ -106,6 +109,15 @@
   stroke: var(--representation-playback-on-dark) !important;
   fill: var(--representation-playback-on-dark) !important;
   opacity: 0.72 !important;
+}
+
+/* Score playback: actual sounding noteheads carry the strongest transient state. */
+.sheet-music-container [data-score-playback-active="true"] {
+  fill: var(--score-playback-active) !important;
+  stroke: var(--score-playback-active) !important;
+  stroke-width: 0.85px !important;
+  paint-order: stroke fill;
+  filter: drop-shadow(0 0 1.4px rgba(49, 95, 80, 0.28));
 }
 
 /* Keep OSMD output on a calm paper stage without changing notation semantics. */
