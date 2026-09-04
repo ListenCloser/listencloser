@@ -1,126 +1,84 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import importlib.util
+import copy
 import unittest
-from pathlib import Path
 
-MODULE_PATH = Path(__file__).with_name("contract_dependencies.py")
-SPEC = importlib.util.spec_from_file_location("contract_dependencies", MODULE_PATH)
-assert SPEC and SPEC.loader
-contract_dependencies = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(contract_dependencies)
+from contract_dependencies import ContractGraphError, validate_graph
 
-ContractGraphError = contract_dependencies.ContractGraphError
-validate_graph = contract_dependencies.validate_graph
-
-
-def graph(*, contracts):
-    return {"schema_version": 1, "contracts": contracts}
+VALID = {
+    "schema_version": 1,
+    "contracts": {
+        "1086": {
+            "dependencies": [{"issue": 1083, "modes": ["delivery"]}],
+        }
+    },
+}
 
 
 class ContractDependenciesTest(unittest.TestCase):
+    def invalid(self, data, message: str | None = None) -> None:
+        with self.assertRaisesRegex(ContractGraphError, message or ".*"):
+            validate_graph(data)
+
     def test_valid_mode_scoped_edge(self) -> None:
-        validate_graph(
-            graph(
-                contracts={
-                    "1086": {
-                        "dependencies": [{"issue": 1083, "modes": ["delivery"]}],
-                    }
-                }
-            )
-        )
+        validate_graph(VALID)
 
     def test_invalid_mode_fails(self) -> None:
-        with self.assertRaisesRegex(ContractGraphError, "invalid mode"):
-            validate_graph(
-                graph(
-                    contracts={
-                        "1086": {
-                            "dependencies": [{"issue": 1083, "modes": ["cleanup"]}],
-                        }
-                    }
-                )
-            )
+        data = copy.deepcopy(VALID)
+        data["contracts"]["1086"]["dependencies"][0]["modes"] = ["cleanup"]
+        self.invalid(data, "invalid mode")
 
     def test_self_dependency_fails(self) -> None:
-        with self.assertRaisesRegex(ContractGraphError, "cannot depend on itself"):
-            validate_graph(
-                graph(
-                    contracts={
-                        "1086": {
-                            "dependencies": [{"issue": 1086, "modes": ["delivery"]}],
-                        }
-                    }
-                )
-            )
+        data = copy.deepcopy(VALID)
+        data["contracts"]["1086"]["dependencies"][0]["issue"] = 1086
+        self.invalid(data, "cannot depend on itself")
 
-    def test_malformed_issue_identifier_fails(self) -> None:
-        for contracts in (
-            {"issue-1086": {"dependencies": [{"issue": 1083, "modes": ["delivery"]}]}},
-            {"1086": {"dependencies": [{"issue": 0, "modes": ["delivery"]}]}},
-        ):
-            with self.subTest(contracts=contracts):
-                with self.assertRaises(ContractGraphError):
-                    validate_graph(graph(contracts=contracts))
+    def test_malformed_issue_identifiers_fail(self) -> None:
+        bad_source = copy.deepcopy(VALID)
+        bad_source["contracts"]["issue-1086"] = bad_source["contracts"].pop("1086")
+        self.invalid(bad_source, "invalid contract issue id")
 
-    def test_duplicate_target_fails_instead_of_splitting_modes(self) -> None:
-        with self.assertRaisesRegex(ContractGraphError, "repeats dependency target"):
-            validate_graph(
-                graph(
-                    contracts={
-                        "1086": {
-                            "dependencies": [
-                                {"issue": 1083, "modes": ["evaluation"]},
-                                {"issue": 1083, "modes": ["delivery"]},
-                            ],
-                        }
-                    }
-                )
-            )
+        bad_target = copy.deepcopy(VALID)
+        bad_target["contracts"]["1086"]["dependencies"][0]["issue"] = 0
+        self.invalid(bad_target, "positive integer")
+
+    def test_duplicate_target_fails(self) -> None:
+        data = copy.deepcopy(VALID)
+        data["contracts"]["1086"]["dependencies"].append(
+            {"issue": 1083, "modes": ["evaluation"]}
+        )
+        self.invalid(data, "repeats target")
 
     def test_same_mode_cycle_fails(self) -> None:
-        with self.assertRaisesRegex(ContractGraphError, "delivery dependency cycle"):
-            validate_graph(
-                graph(
-                    contracts={
-                        "1083": {
-                            "dependencies": [{"issue": 1086, "modes": ["delivery"]}],
-                        },
-                        "1086": {
-                            "dependencies": [{"issue": 1083, "modes": ["delivery"]}],
-                        },
-                    }
-                )
-            )
+        data = {
+            "schema_version": 1,
+            "contracts": {
+                "1083": {"dependencies": [{"issue": 1086, "modes": ["delivery"]}]},
+                "1086": {"dependencies": [{"issue": 1083, "modes": ["delivery"]}]},
+            },
+        }
+        self.invalid(data, "delivery dependency cycle")
 
     def test_cross_mode_back_edge_is_not_a_cycle(self) -> None:
         validate_graph(
-            graph(
-                contracts={
+            {
+                "schema_version": 1,
+                "contracts": {
                     "1083": {
-                        "dependencies": [{"issue": 1086, "modes": ["evaluation"]}],
+                        "dependencies": [{"issue": 1086, "modes": ["evaluation"]}]
                     },
                     "1086": {
-                        "dependencies": [{"issue": 1083, "modes": ["delivery"]}],
+                        "dependencies": [{"issue": 1083, "modes": ["delivery"]}]
                     },
-                }
-            )
+                },
+            }
         )
 
     def test_extra_metadata_is_rejected(self) -> None:
-        with self.assertRaisesRegex(ContractGraphError, "extra"):
-            validate_graph(
-                {
-                    "schema_version": 1,
-                    "contracts": {
-                        "1086": {
-                            "dependencies": [{"issue": 1083, "modes": ["delivery"]}],
-                            "owner": "someone",
-                        }
-                    },
-                }
-            )
+        data = copy.deepcopy(VALID)
+        data["contracts"]["1086"]["owner"] = "someone"
+        self.invalid(data, "keys must be exactly")
 
 
 if __name__ == "__main__":
