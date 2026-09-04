@@ -11,6 +11,7 @@ There is intentionally no universal specification. Each durable fact has one aut
 | What engineering rules must an agent follow? | root [`AGENTS.md`](../AGENTS.md) |
 | What code/config is shipped on `main`? | runtime code, migrations, dependency manifests, deployment config |
 | What analysis capability may the product expose? | `backend/config/capabilities.json` + its policy/tests |
+| How do music capabilities, engines, persisted outputs, and product result surfaces fit together? | [`analysis/capability-architecture.md`](analysis/capability-architecture.md) as a derived orientation; its linked runtime/product authorities remain canonical |
 | What architecture is currently shipped? | [`ARCHITECTURE.md`](ARCHITECTURE.md), verified against code |
 | What accepted architecture decision constrains future changes? | relevant accepted ADR in [`adr/`](adr/) |
 | What is Listen Closer, who is it for, and what durable product principles constrain it? | [`product/PRODUCT.md`](product/PRODUCT.md) |
@@ -43,6 +44,8 @@ Root `contract-dependencies.json` is intentionally narrower than those authoriti
 4. the focused issue plus relevant ADR/code;
 5. root [`contract-dependencies.json`](../contract-dependencies.json) when work-mode eligibility may depend on another focused contract;
 6. `backend/config/capabilities.json` when analysis/product exposure changes.
+
+For music-capability integration, [`analysis/capability-architecture.md`](analysis/capability-architecture.md) is the short derived field guide for choosing the execution/persistence/result seam; it does not replace the focused issue, roadmap, capability registry, or shipped architecture.
 
 Do not read a broad roadmap or historical program merely because it mentions the subsystem. Start with the focused responsibility and follow only its canonical dependency/context references.
 
