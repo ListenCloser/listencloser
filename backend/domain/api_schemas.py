@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from domain.models import Artifact, Job, Version, Work, Workflow
 from domain.relation_findings import GroundedRelationFinding
+from domain.similar_moments import SimilarMomentsObservation
 
 
 class WorkArtifactBundleResponse(BaseModel):
@@ -50,4 +51,11 @@ class PerceptualSpanComparisonResponse(BaseModel):
     status: Literal["supported", "unavailable", "withheld", "failed"]
     evidence_report_version_id: UUID | None = None
     finding: GroundedRelationFinding | None = None
+    reasons: list[str] = Field(default_factory=list)
+
+
+class SimilarMomentsResponse(BaseModel):
+    status: Literal["supported", "unavailable", "withheld", "failed"]
+    evidence_report_version_id: UUID | None = None
+    observation: SimilarMomentsObservation | None = None
     reasons: list[str] = Field(default_factory=list)
