@@ -12,7 +12,6 @@ type FractionLike = { RealValue?: number } | null | undefined;
 
 type SourceNoteLike = {
   Length?: FractionLike;
-  Pitch?: unknown;
   isRest?: () => boolean;
 };
 
@@ -106,7 +105,7 @@ export function buildScoreNotePlaybackEvents(
         for (const voiceEntry of staffEntry.graphicalVoiceEntries ?? []) {
           for (const graphicalNote of voiceEntry.notes ?? []) {
             const sourceNote = graphicalNote.sourceNote;
-            if (!sourceNote || sourceNote.isRest?.() === true || sourceNote.Pitch == null) continue;
+            if (!sourceNote || sourceNote.isRest?.() === true) continue;
 
             const noteLength = realValue(sourceNote.Length);
             if (noteLength == null || noteLength <= 0) continue;
