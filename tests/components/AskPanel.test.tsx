@@ -141,13 +141,12 @@ describe("AskPanel work-switch lifecycle", () => {
 });
 
 describe("AskPanel scope visibility", () => {
-  it("shows Work-level scope explicitly when no passage is selected", () => {
+  it("uses Work-level request semantics without duplicating the shared selection UI", () => {
     render(<Probe />, { wrapper });
 
     act(() => store!.setActiveWorkId("work-a"));
 
-    const liveScope = screen.getByLabelText("Question context: Whole piece");
-    expect(liveScope.closest("form")).toHaveClass("ask-composer");
+    expect(screen.queryByLabelText("Question context: Whole piece")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear question context" })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Ask about the music" })).toHaveAttribute(
       "placeholder",
@@ -168,8 +167,11 @@ describe("AskPanel scope visibility", () => {
       });
     });
 
-    const liveScope = screen.getByLabelText("Question context: 0:04–0:08");
-    expect(liveScope.closest("form")).toHaveClass("ask-composer");
+    expect(screen.queryByLabelText("Question context: 0:04–0:08")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ask about the music" })).toHaveAttribute(
+      "placeholder",
+      "Ask a question about this selection…",
+    );
 
     await user.type(screen.getByRole("textbox", { name: "Ask about the music" }), "What changes here?");
     await user.click(screen.getByRole("button", { name: "Send question" }));
@@ -183,8 +185,10 @@ describe("AskPanel scope visibility", () => {
 
     act(() => store!.clearSelection());
 
-    expect(screen.queryByLabelText("Question context: 0:04–0:08")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Question context: Whole piece")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ask about the music" })).toHaveAttribute(
+      "placeholder",
+      "Ask a question about this recording…",
+    );
     expect(screen.getByText("0:04–0:08")).toBeInTheDocument();
   });
 });
