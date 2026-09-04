@@ -12,16 +12,17 @@ not assert a section boundary, drop, climax, transition importance, or emotion.
 from __future__ import annotations
 
 import math
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 
-import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
-from scipy.signal import find_peaks
 
 from domain.perceptual_report import PerceptualEvidenceReport, PerceptualSeriesEvidence
 from domain.relation_findings import GroundedRelationFinding, compose_grounded_relation_finding
 from domain.relation_observations import SecondsSpanLocator, compare_perceptual_spans
+
+if TYPE_CHECKING:
+    import numpy as np
 
 _METHOD = "robust_top_peaks_v1"
 _BAND_ORDER = ("low", "low_mid", "mid", "high")
@@ -77,6 +78,8 @@ def _series_values(
     *,
     expected_width: int,
 ) -> np.ndarray | None:
+    import numpy as np
+
     values = np.asarray(series.values, dtype=float)
     if expected_width == 1:
         if values.ndim != 1:
@@ -93,6 +96,8 @@ def _validated_matrix(
     report: PerceptualEvidenceReport,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Reuse #883's valid evidence-matrix contract without its rejected threshold."""
+
+    import numpy as np
 
     reasons: list[str] = []
     onset = report.series.get("onset_strength")
@@ -154,6 +159,8 @@ def _validated_matrix(
 
 
 def _robust_standardize(matrix: np.ndarray) -> np.ndarray:
+    import numpy as np
+
     center = np.median(matrix, axis=0)
     mad = np.median(np.abs(matrix - center), axis=0)
     scale = 1.4826 * mad
@@ -169,6 +176,8 @@ def _score_boundaries(
     *,
     window_seconds: float,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    import numpy as np
+
     boundary_times: list[float] = []
     scores: list[float] = []
     component_changes: list[np.ndarray] = []
@@ -194,6 +203,8 @@ def _score_boundaries(
 
 def _feature_changes(component_changes: np.ndarray) -> dict[str, float]:
     """Collapse four band components into one declared feature-group change."""
+
+    import numpy as np
 
     return {
         "onset_strength": float(component_changes[0]),
@@ -231,6 +242,9 @@ def discover_measured_changes(
     importance, semantic-boundary probability, or cross-Work comparable.
     """
 
+    import numpy as np
+    from scipy.signal import find_peaks
+
     parameters: dict[str, float | int] = {
         "window_seconds": window_seconds,
         "min_separation_seconds": min_separation_seconds,
@@ -257,7 +271,10 @@ def discover_measured_changes(
             reasons=reasons,
         )
     if times.size < 3 or report.duration_seconds < 2 * window_seconds:
-        return _withheld("evidence is too short for the requested before/after windows", **parameters)
+        return _withheld(
+            "evidence is too short for the requested before/after windows",
+            **parameters,
+        )
 
     normalized = _robust_standardize(matrix)
     boundary_times, scores, component_changes = _score_boundaries(
