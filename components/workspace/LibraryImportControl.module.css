@@ -252,6 +252,120 @@
   text-align: center;
 }
 
+.processingDialog {
+  width: min(430px, 100%);
+  grid-template-rows: auto auto auto;
+}
+
+.processingBody {
+  display: grid;
+  gap: 14px;
+  padding: 8px 18px 18px;
+}
+
+.processingGroup {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.processingLabel {
+  color: #92988f;
+  font-size: var(--fs-xs);
+  font-weight: 560;
+}
+
+.segmented {
+  display: flex;
+  min-width: 0;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgba(239, 239, 232, 0.12);
+  border-radius: 4px;
+  background: #0d100e;
+}
+
+.segment {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #858c84;
+  font: var(--fs-xs) var(--font-sans);
+  font-weight: 560;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.segment:hover {
+  color: #d9dcd3;
+}
+
+.segment[data-selected] {
+  background: rgba(223, 244, 90, 0.075);
+  color: #edf1d5;
+  box-shadow: inset 0 0 0 1px rgba(223, 244, 90, 0.28);
+}
+
+.processingHint {
+  margin: 0;
+  color: #666d65;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.processingBody .error {
+  margin: 0;
+}
+
+.processingFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid rgba(239, 239, 232, 0.08);
+}
+
+.secondaryButton,
+.primaryButton {
+  min-height: 34px;
+  padding: 0 13px;
+  border-radius: 4px;
+  font: var(--fs-xs) var(--font-sans);
+  font-weight: 620;
+  cursor: pointer;
+}
+
+.secondaryButton {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #858c84;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  color: #d9dcd3;
+}
+
+.primaryButton {
+  border: 1px solid #dff45a;
+  background: #dff45a;
+  color: #12150f;
+}
+
+.primaryButton:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.secondaryButton:disabled,
+.primaryButton:disabled {
+  opacity: 0.45;
+  cursor: progress;
+}
+
 @media (max-width: 640px) {
   .dialogWrap {
     align-items: end;
@@ -270,5 +384,10 @@
 
   .importButton {
     justify-self: start;
+  }
+
+  .processingGroup {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 }
