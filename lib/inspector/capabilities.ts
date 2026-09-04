@@ -37,6 +37,7 @@ const INSPECTOR_ALLOWED = new Set([
   "melody_contour_descending",
   "melody_activity_dense",
   "melody_activity_sparse",
+  "measured_change",
 ]);
 
 /** Kinds the backend capability registry allows Ask to consume. */
@@ -62,6 +63,7 @@ const ASK_ALLOWED = new Set([
 /** Kinds that are experimental (UI should show experimental badge). */
 const EXPERIMENTAL = new Set([
   "melody",
+  "measured_change",
 ]);
 
 /** Whether a capability kind is allowed in the Inspector. */

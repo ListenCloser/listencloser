@@ -13,6 +13,7 @@ import TabStrip from "@/components/ui/TabStrip";
 import AskPanel from "./AskPanel";
 import BreakdownFindingCard from "./BreakdownFindingCard";
 import HarmonyEvidence, { harmonyEvidenceRowCount, harmonyEvidenceSummary } from "./HarmonyEvidence";
+import MeasuredChanges from "./MeasuredChanges";
 import PassageCompare from "./PassageCompare";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
@@ -402,6 +403,7 @@ function BreakdownContent({
           <strong>{emptyState.title}</strong>
           <p>{emptyState.body}</p>
         </div>
+        <MeasuredChanges />
         <PassageCompare />
       </div>
     );
@@ -415,6 +417,7 @@ function BreakdownContent({
         analysisState={workspace.analysisState}
       />
 
+      <MeasuredChanges />
       <PassageCompare />
 
       {overviewCount > 0 && <OverviewSection insights={overviewInsights} />}

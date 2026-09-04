@@ -26,3 +26,23 @@ export async function comparePerceptualSpans(
   );
   return requireOpenApiData(result);
 }
+
+/** Discover a bounded experimental top set for one immutable source Version. */
+export async function getMeasuredChanges(
+  workId: string,
+  sourceVersionId: string,
+) {
+  const result = await openapiClient.GET(
+    "/api/v1/works/{work_id}/relations/measured-changes",
+    {
+      params: {
+        path: { work_id: workId },
+        query: { source_version_id: sourceVersionId },
+      },
+    },
+  );
+  return requireOpenApiData(result);
+}
+
+export type MeasuredChangeQueryResponse = Awaited<ReturnType<typeof getMeasuredChanges>>;
+export type MeasuredChangeCandidate = NonNullable<MeasuredChangeQueryResponse["candidates"]>[number];
