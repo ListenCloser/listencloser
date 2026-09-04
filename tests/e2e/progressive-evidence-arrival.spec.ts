@@ -158,7 +158,11 @@ test("a durable recording stays usable while understand artifacts and the first 
   await expect(importButton).toBeEnabled({ timeout: 10_000 });
   await importButton.click();
   await page.getByRole("menuitem", { name: /Upload recording/ }).click();
-  await page.locator('input[type="file"]').setInputFiles({
+  await expect(page.getByRole("dialog", { name: "Process recording" })).toBeVisible();
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Choose audio" }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
     name: "progressive-fixture.m4a",
     mimeType: "audio/mp4",
     buffer: Buffer.from("mock progressive m4a payload"),
