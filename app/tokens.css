@@ -1,0 +1,179 @@
+/*
+ * ListenCloser canonical UI token contract.
+ *
+ * DESIGN.md owns the human-readable design intent. This file owns the
+ * executable values for ordinary application chrome. Product-specific music
+ * renderers may define specialized palettes where the data itself requires it.
+ *
+ * Compatibility aliases below exist only while #1211 / #523 migrate older
+ * consumers. New code should use the canonical semantic names first.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --surface-canvas: #0d100e;
+  --surface-chrome: #111411;
+  --surface-panel: #151815;
+  --surface-raised: #1b1f1b;
+  --surface-hover: #202520;
+  --surface-strong: #262b26;
+  --surface-music: #0b0e0c;
+  --surface-music-deep: #080b09;
+  --surface-paper: #efeee8;
+  --surface-paper-edge: #deddd5;
+
+  /* Text and lines */
+  --text-primary: #eceee6;
+  --text-secondary: #b5bab1;
+  --text-tertiary: #767d75;
+  --line-subtle: rgba(239, 241, 233, 0.075);
+  --line-strong: rgba(239, 241, 233, 0.14);
+
+  /* Interaction and semantic roles */
+  --action-primary: #dff45a;
+  --action-primary-hover: #efff86;
+  --action-primary-soft: rgba(223, 244, 90, 0.08);
+  --relation: #829d9d;
+  --relation-soft: rgba(130, 157, 157, 0.1);
+  --time: #a8afa7;
+  --time-soft: rgba(168, 175, 167, 0.12);
+  --intent-danger: #cf7770;
+  --intent-danger-soft: rgba(207, 119, 112, 0.09);
+  --intent-success: #28745b;
+  --intent-success-soft: rgba(40, 116, 91, 0.1);
+
+  /* Music / measured representation roles */
+  --waveform-trace: #d6dad2;
+  --waveform-axis: rgba(220, 224, 216, 0.1);
+  --color-theory: var(--relation);
+  --color-harmony: var(--relation);
+  --color-harmony-soft: rgba(130, 157, 157, 0.09);
+  --color-rhythm: #979e98;
+  --color-rhythm-soft: rgba(151, 158, 152, 0.08);
+  --color-melody: #a8ada6;
+  --color-melody-soft: rgba(168, 173, 166, 0.08);
+  --color-structure: #758d8f;
+  --color-structure-soft: rgba(117, 141, 143, 0.09);
+  --representation-playback-on-dark: var(--time);
+  --representation-playback-soft-on-dark: var(--time-soft);
+  --score-playback: var(--time);
+  --score-playback-soft: var(--time-soft);
+
+  /* Geometry */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: Iowan Old Style, Baskerville, "Times New Roman", serif;
+  --font-mono: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", Menlo, monospace;
+  --type-xs: 11px;
+  --type-sm: 12px;
+  --type-base: 13px;
+  --type-md: 15px;
+  --type-lg: 18px;
+  --type-xl: 24px;
+  --type-2xl: 32px;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --measurement-font-size: 10px;
+  --measurement-font-weight: 500;
+
+  /* Motion */
+  --motion-duration-fast: 150ms;
+  --motion-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Stable shell dimensions */
+  --layout-sidebar: 260px;
+  --layout-inspector: 340px;
+  --layout-transport-height: 52px;
+
+  /* Temporary migration aliases: retire as #1211 / #523 move consumers. */
+  --ui-canvas: var(--surface-canvas);
+  --ui-chrome: var(--surface-chrome);
+  --ui-panel: var(--surface-panel);
+  --ui-raised: var(--surface-raised);
+  --ui-hover: var(--surface-hover);
+  --ui-line: var(--line-subtle);
+  --ui-line-strong: var(--line-strong);
+  --ui-text: var(--text-primary);
+  --ui-text-2: var(--text-secondary);
+  --ui-text-3: var(--text-tertiary);
+  --ui-action: var(--action-primary);
+  --ui-action-soft: var(--action-primary-soft);
+  --ui-relation: var(--relation);
+  --ui-time: var(--time);
+  --ui-time-soft: var(--time-soft);
+
+  --bg: var(--surface-canvas);
+  --bg-subtle: var(--surface-chrome);
+  --panel: var(--surface-panel);
+  --panel-2: var(--surface-raised);
+  --panel-3: var(--surface-hover);
+  --panel-4: var(--surface-strong);
+  --text: var(--text-primary);
+  --muted: var(--text-tertiary);
+  --accent: var(--action-primary);
+  --accent-strong: var(--action-primary-hover);
+  --accent-soft: var(--action-primary-soft);
+  --accent-2: var(--relation);
+  --accent-soft-2: var(--relation-soft);
+  --border: var(--line-subtle);
+  --border-strong: var(--line-strong);
+  --danger: var(--intent-danger);
+  --danger-soft: var(--intent-danger-soft);
+  --success: var(--intent-success);
+  --success-soft: var(--intent-success-soft);
+
+  --surface-tool: var(--surface-chrome);
+  --surface-tool-raised: var(--surface-raised);
+  --ink-subtle: var(--text-tertiary);
+  --ink-secondary: var(--text-secondary);
+  --line-soft: var(--line-subtle);
+  --line-medium: var(--line-strong);
+
+  --r-sm: var(--radius-sm);
+  --r-md: var(--radius-md);
+  --r-lg: var(--radius-lg);
+  --r-xl: var(--radius-lg);
+  --r-full: var(--radius-pill);
+  --s-1: var(--space-1);
+  --s-2: var(--space-2);
+  --s-3: var(--space-3);
+  --s-4: var(--space-4);
+  --s-5: var(--space-5);
+  --s-6: var(--space-6);
+  --s-7: var(--space-7);
+  --s-8: var(--space-8);
+  --fs-xs: var(--type-xs);
+  --fs-sm: var(--type-sm);
+  --fs-base: var(--type-base);
+  --fs-md: var(--type-md);
+  --fs-lg: var(--type-lg);
+  --fs-xl: var(--type-xl);
+  --fs-2xl: var(--type-2xl);
+  --fw-normal: var(--weight-normal);
+  --fw-medium: var(--weight-medium);
+  --fw-semibold: var(--weight-semibold);
+  --fw-bold: var(--weight-bold);
+  --ease: var(--motion-ease-standard);
+  --dur: var(--motion-duration-fast);
+  --shell-sidebar: var(--layout-sidebar);
+  --shell-chat: var(--layout-inspector);
+  --transport-height: var(--layout-transport-height);
+}
