@@ -49,8 +49,12 @@ test("import starts one durable understand job and reloads the persisted work", 
 
   await importButton.click();
   await page.getByRole("menuitem", { name: /Upload recording/ }).click();
+  await expect(page.getByRole("dialog", { name: "Process recording" })).toBeVisible();
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Choose audio" }).click();
+  const fileChooser = await fileChooserPromise;
   const realAudio = process.env.REAL_AUDIO_FILE;
-  await page.locator('input[type="file"]').setInputFiles(
+  await fileChooser.setFiles(
     realAudio && existsSync(realAudio)
       ? realAudio
       : { name: "fixture.m4a", mimeType: "audio/mp4", buffer: Buffer.from("mock m4a payload") },
