@@ -195,7 +195,7 @@ def build_state(pr: dict[str, Any]) -> str:
     builds = [
         check
         for check in checks
-        if str(check.get("name") or check.get("context") or "") == "Build"
+        if str(check.get("name") or check.get("context") or "").lower() == "build"
     ]
     if not builds:
         return "unknown"
