@@ -8,7 +8,7 @@ This document is the canonical authority for **current product portfolio state a
 
 Roadmap posture is deliberately small:
 
-- **ACTIVE** — the named product/enabling outcome is authorized now.
+- **ACTIVE** — the named product/enabling outcome is authorized now. `ACTIVE` may mean an explicitly experimental product path; it does **not** imply canonical/default/trusted-for-all-domains.
 - **NEXT_PROBE** — only the bounded decision-changing probe is authorized; production implementation is not.
 - **GATED** — do not activate the downstream product work until the named gate clears.
 - **REVISIT** — no current work; reopen only on the focused owner's named trigger.
@@ -17,77 +17,139 @@ Roadmap posture is deliberately small:
 
 ## Current wedge
 
-**Understand** is the current wedge: help a person move from hearing something they care about to a supported musical understanding they can locate, inspect, and verify.
+**Understand** remains the current wedge: help a person move from hearing something they care about to a supported musical understanding they can locate, inspect, verify, relate, and eventually act on.
 
-The current portfolio has two simultaneous responsibilities:
+The current portfolio has three simultaneous responsibilities:
 
-1. finish the trust/representation prerequisites that make supported musical objects reliable enough to use; and
-2. test whether those objects actually create more coherent understanding before broadening the product with more representations or automated relationships.
+1. keep improving the trust/representation substrate so product claims remain bound to exact evidence and Versions;
+2. **increase evidence and relationship breadth quickly enough that the product can become musically useful across materially different Works**; and
+3. learn from real product use which experimental capabilities deserve canonization, default routing, broader trust, or deletion.
 
-The closest adjacent expansion is **explicit user-chosen comparison**. Automatic recurrence/retrieval and broader corpus intelligence remain downstream until explicit A/B proves the relationship job is valuable.
+The product-owner judgment as of 2026-09-04 is that the current evidence substrate is **too sparse for the dream Understand experience**. #1089 reached `INSUFFICIENT_EVIDENCE`; do not spend the next phase trying to rescue presentation with the same thin facts.
+
+## Portfolio policy — breadth now, provenance always, defaults later
+
+For reversible music-analysis capabilities, separate two decisions:
+
+1. **Can this create a useful experimental product behavior now?**
+2. **Should this become canonical/default/authoritative later?**
+
+The first bar is intentionally much cheaper than the second.
+
+### Experimental integration bar
+
+A maintained OSS-backed capability may ship experimentally before broad benchmark/canonization work when:
+
+- it unlocks a concrete musician-facing behavior;
+- integration is bounded and operationally feasible;
+- exact engine/package/model/version provenance is retained;
+- its result remains isolated as its own immutable evidence/Version/artifact where appropriate;
+- failure is explicit and does not contaminate stronger evidence;
+- the UI/API communicates experimental/qualified status honestly;
+- licensing permits the intended deployment mode;
+- it does not weaken Version/provenance/auth/privacy contracts.
+
+A capability does **not** need a broad held-out benchmark, canonical-winner decision, or default-routing decision before a user can try it experimentally.
+
+### Canonization bar
+
+Defaults, authoritative claims, broad trust domains, automatic routing, expensive always-on processing, and retirement of alternatives still require stronger evidence. Use real product usage plus focused evaluation to decide what should be promoted, narrowed, replaced, or deleted.
+
+Preferred loop:
+
+```text
+think big
+→ map broadly
+→ integrate feasible capabilities quickly
+→ expose honestly as experimental
+→ learn from real use
+→ evaluate only where a durable decision matters
+→ canonize / delete later
+```
+
+Do not convert this into `run every model on every import`. Optional expensive analyses should normally remain user-triggered, independently runnable, independently fail-safe, and progressively disclosed.
 
 ## Opportunity hierarchy
 
-1. **O1 — trustworthy inspectable musical objects.** The user must be able to connect what they hear to the right representation/evidence with exact authority and truthful projection. This is a blocking prerequisite, not the product end state.
-2. **O2 — coherent grounded understanding.** The largest current product-value uncertainty is whether admitted evidence can become an understanding that is materially more useful than today's compact findings plus playback/inspection.
-3. **O3 — explicit relationships / Compare.** Test user-chosen A/B before assuming automatic recurrence, retrieval, or corpus similarity is valuable.
-4. **O4 — the right abstraction for the question.** Test whether a simpler task-shaped representation creates progress before investing in another automatic representation pipeline.
-5. **O5 — act on understood musical ideas.** Creative/practice/transform workflows remain later options until the understand → verify → relate loop earns expansion.
+1. **O1 — trustworthy inspectable musical objects.** Evidence/projection/Version authority remains non-negotiable.
+2. **O1.5 — sufficient musical evidence and relationships.** The next major product bottleneck is not only correctness; it is whether the product knows enough useful things about real music to support deep understanding.
+3. **O2 — coherent grounded understanding.** Revisit presentation once representative Works contain enough useful relations to sustain it honestly.
+4. **O3 — explicit and discovered relationships.** User-chosen Compare remains valuable, but experimental recurrence/change/structure discovery no longer needs to wait for Compare if it can ship as a reversible qualified interpretation.
+5. **O4 — the right abstraction for the question.** Compact task-shaped views remain useful candidates, especially when existing evidence can already support them.
+6. **O5 — act on understood musical ideas.** Practice, performance, arrangement, transformation, and teaching interactions become more plausible as the evidence substrate expands.
 
 ## Portfolio
 
 Horizons describe current investment posture, not a calendar.
 
-### H1 — core: make Understand trustworthy and valuable
+### H1 — core: make Understand trustworthy **and musically sufficient**
 
-#### Product bets
+#### Product / evidence programs
 
-| Bet | Posture | Why now | Weakest important assumption | Hard gate | Next decision | Focused owner |
-| --- | --- | --- | --- | --- | --- | --- |
-| Grounded contextual Breakdown | **ACTIVE** | A normal supported contextual finding is the smallest shipped bridge from evidence to useful understanding and a prerequisite for richer explanation. | Does the grounded finding create useful progress when it reaches ordinary Breakdown with hear/focus/evidence intact? | Exact Version/support truth and existing Breakdown admission semantics must remain intact. | Ship the bounded grounded finding or fail closed; do not create another finding/ranking system. | [#588](https://github.com/ListenCloser/listencloser/issues/588) |
-| Understanding-presentation probe | **NEXT_PROBE** | This is the highest-information-value test of the core wedge: whether the evidence already available can produce better understanding before adding more evidence surfaces. | Does staged presentation improve comprehension, and is the winning shape narrative, guided listening/reveal, or the current compact Breakdown? | Production implementation remains gated on usable grounded findings, representation-native focus, exact representation authority, and preserved playback/selection/Ask context. | Choose `NARRATIVE`, `GUIDED_INTERACTION`, `CURRENT_BREAKDOWN`, or `INSUFFICIENT_EVIDENCE` from one bounded manual round. | [#1089](https://github.com/ListenCloser/listencloser/issues/1089) |
+| Bet | Posture | Why now | Current decision / next action | Focused owner |
+| --- | --- | --- | --- | --- |
+| Deep musical-understanding frontier + rapid OSS integration queue | **ACTIVE** | The product now needs a much richer evidence/relationship substrate, not another presentation-only experiment. | Define the dream Lens × Product Mode frontier, map current gaps, maintain a broad OSS/method inventory, and activate 5–10 bounded experimental product capabilities. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
+| Experimental-capability product/UX architecture | **ACTIVE** | Rapid breadth will create cognitive load unless capability discovery, processing, result placement, trust status, and alternate interpretations have a coherent product model. | Design `many capabilities; few concepts`: Processing/Add analysis as the likely control home, results placed by musician task, and experimental status/provenance progressively disclosed. | [#1173](https://github.com/ListenCloser/listencloser/issues/1173) |
+| Grounded contextual Breakdown | **ACTIVE** | Supported grounded findings remain an important product primitive and proof layer. | Continue shipping useful supported observations through existing ranking/focus/evidence seams; low-value truth need not occupy primary UI. | [#588](https://github.com/ListenCloser/listencloser/issues/588) |
+| Understanding-presentation probe | **DONE** — `INSUFFICIENT_EVIDENCE` | Current evidence density was too weak to distinguish narrative/guided presentation honestly across representative Works. | Do not implement another narrative/guided surface now. Revisit after the evidence/relationship substrate is materially richer. | [#1089](https://github.com/ListenCloser/listencloser/issues/1089) |
 
-#### Enabling prerequisites
+#### First experimental breadth lanes
 
-These are authorized because they are required for the current product outcome; they are not independent product bets.
+These lanes are authorized for **bounded experimental product integration**, not automatic canonization. Focused owners must refresh their issue bodies to remove stale evaluation-before-exposure gates where they conflict with this roadmap, while preserving provenance and exact existing dependencies.
+
+| Capability / relationship | Posture | Product value | Experimental direction | Focused owner |
+| --- | --- | --- | --- | --- |
+| Continuous pitch / expressive F0 | **ACTIVE** | Makes singing, bends, vibrato, fretless/expressive monophonic motion inspectable instead of forcing it into discrete MIDI. | Ship one maintained F0 path (e.g. PESTO/torchcrepe) as an experimental synchronized result; canonize later. | [#1087](https://github.com/ListenCloser/listencloser/issues/1087) |
+| Measured change moments | **ACTIVE** | Gives a direct `where should I listen next?` interaction from evidence already in production. | Productize bounded change candidates from current perceptual evidence; no semantic `section/drop/climax` inflation. | [#848](https://github.com/ListenCloser/listencloser/issues/848) |
+| Within-Work recurrence / similar moments | **ACTIVE** | Enables `where does something like this come back?`, one of the most general deep-dive relationships. | Start with transparent existing-stack recurrence/cross-similarity; label returned candidates as method-specific similarity, not motif/chorus truth. | [#812](https://github.com/ListenCloser/listencloser/issues/812) |
+| Experimental structure map | **ACTIVE** | Functional/segment maps can immediately orient the listener and provide a new analysis lens even when imperfect. | Under #1172, create a focused owner for a current maintained structure candidate/control (including current All-In-One successor/port if viable); expose as an alternate interpretation with exact provenance. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
+| Source/layer isolation + arrangement evidence | **ACTIVE** | Popular-music understanding repeatedly depends on vocals/drums/bass/layer entry/exit and isolation. Isolation itself is useful even before downstream claims are canonical. | Under #1172, create a focused owner for a maintained separator ecosystem; make stems optional/user-triggered and preserve source-model provenance. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
+| Vocal/lead melody alternate interpretation | **ACTIVE** | General mixed-music understanding is weak when the product cannot trace the salient sung/played line. | Under #1172/#931 boundaries, integrate one production-eligible vocal/lead path as an alternate experimental interpretation without replacing canonical `auto` by default. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
+| Symbolic deep-analysis enrichment | **ACTIVE** | Source-score/MIDI-bearing Works can become much deeper immediately using maintained symbolic-analysis libraries. | Reuse music21/Partitura and evaluate thin adapters such as musif/jSymbolic only where they produce a clear product behavior. Do not wait for audio-only parity. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
+| Lyrics/voice alignment | **ACTIVE** | User-supplied lyrics aligned to audio unlock synced text, vocal navigation, and later flow/text↔music relations. | Find one lawful maintained aligner and ship only for user-supplied/licensed text; no implicit copyrighted lyric acquisition. | [#1172](https://github.com/ListenCloser/listencloser/issues/1172) |
+
+#### Trust / representation enablers
+
+These remain active because rapid breadth must not destroy source/provenance correctness.
 
 | Enabler | Posture | Product reason / gate | Focused owner |
 | --- | --- | --- | --- |
 | Representation fidelity across Piano Roll / Score | **ACTIVE** | Core inspectable objects must preserve the right musical evidence rather than hide upstream errors. | [#498](https://github.com/ListenCloser/listencloser/issues/498) |
-| Exact representation / Version authority | **ACTIVE** | Downstream evidence, projection, comparison, and alignment must bind to the exact semantic representation instead of kind/recency guesses. | [#613](https://github.com/ListenCloser/listencloser/issues/613) |
-| Representation-native evidence focus/projection | **ACTIVE** | A supported claim must remain inspectable in the representation where its evidence can be shown truthfully. | [#807](https://github.com/ListenCloser/listencloser/issues/807) |
-| Product-shaped theory truth | **ACTIVE** | Do not let oracle/theoretical quality substitute for detected-input evidence; withheld theory remains withheld until valid evidence changes the decision. | [#1020](https://github.com/ListenCloser/listencloser/issues/1020) |
-| Existing MusicXML as source-score evidence | **ACTIVE** | Use authoritative written evidence the musician already has instead of forcing unnecessary reconstruction; this also creates a trustworthy score-side input for later relations. | [#1082](https://github.com/ListenCloser/listencloser/issues/1082) |
-| Score ↔ performance relation publication / first product proof | **GATED** | The maintained alignment method and normalized relation have been adopted, but product publication must not bypass exact source/role authority or shared focus semantics. | [#1083](https://github.com/ListenCloser/listencloser/issues/1083) |
+| Exact representation / Version authority | **ACTIVE** | New experimental outputs must coexist without kind/recency ambiguity or silently stealing authority from canonical evidence. | [#613](https://github.com/ListenCloser/listencloser/issues/613) |
+| Representation-native evidence focus/projection | **ACTIVE** | A result should remain locatable/inspectable in its natural representation without inventing a second selection/focus model. | [#807](https://github.com/ListenCloser/listencloser/issues/807) |
+| Product-shaped theory truth | **ACTIVE** | Framework-qualified theory remains useful, but experimental breadth must not silently promote oracle/theoretical output into universal fact. | [#1020](https://github.com/ListenCloser/listencloser/issues/1020) |
+| Existing MusicXML as source-score evidence | **ACTIVE** | Authoritative written evidence immediately expands what the product can analyze and enables score/performance relations. | [#1082](https://github.com/ListenCloser/listencloser/issues/1082) |
+| Score ↔ performance relation publication / first product proof | **GATED** | Alignment is already a strong maintained-OSS direction, but publication still depends on exact source/role authority and shared focus semantics. | [#1083](https://github.com/ListenCloser/listencloser/issues/1083) |
 
-### H2 — adjacent: test relationships and abstraction with cheap evidence
+### H2 — adjacent jobs that can advance alongside breadth
 
-| Bet | Posture | Why now | Weakest important assumption | Hard gate | Next decision | Focused owner |
-| --- | --- | --- | --- | --- | --- | --- |
-| Explicit A/B Compare | **NEXT_PROBE** | It is the closest adjacent job and removes the assumptions of automatic candidate discovery. | Do musicians repeatedly benefit from an explicit A/B loop, and do measured relations add value beyond precise alternating playback? | Production cross-Work claims require dimension-specific comparable-evidence contracts; the current probe must stay manual/prototype-first. | Choose `PLAYBACK_ONLY`, `A_B_INTERACTION`, `A_B_PLUS_RELATION`, `CROSS_WORK_DEMAND`, or `NO_STRONG_JOB`. | [#1088](https://github.com/ListenCloser/listencloser/issues/1088) |
-| Minimum useful abstraction (chord map vs lead sheet) | **NEXT_PROBE** | Compact actionable representations have strong proxy evidence, but ListenCloser still needs to learn which level of detail actually helps its target jobs. | Does a compact abstraction beat Score/Piano Roll, and does melody add enough value over chords alone? | Discovery uses trusted/manual content; automatic production remains gated on bounded melody/chord truth and exact compatible lineage. | Choose `CURRENT_VIEWS`, `CHORD_MAP`, `LEAD_SHEET`, `NICHE_ONLY`, or `INSUFFICIENT_EVIDENCE`. | [#1091](https://github.com/ListenCloser/listencloser/issues/1091) |
-| Performance-expression evidence | **GATED** | Aligned timing/dynamics/articulation could make the difference between written and performed music inspectable. | Does aligned expression evidence create meaningful progress over existing Score/Piano Roll for a real performance task? | #1083 must first complete a trustworthy exact-Version product alignment path and proof. | After the alignment gate clears, run one bounded audible task before widening the product surface. | [#1086](https://github.com/ListenCloser/listencloser/issues/1086) |
-| Continuous pitch representation | **REVISIT** | Technical feasibility is not the current uncertainty; its value to the chosen understand/verify wedge is still weakly evidenced. | Is there a concrete voice/expressive-monophonic task where continuous pitch materially beats current representations? | Reopen only with decision-changing desirability/task evidence, then evaluate the smallest maintained OSS path. | Keep unimplemented unless a concrete task clears the reopening trigger. | [#1087](https://github.com/ListenCloser/listencloser/issues/1087) |
-| Within-Work recurrence | **REVISIT** | The real-musical probe did not establish reliable boundaries or honest `no useful return` behavior. Explicit A/B carries fewer assumptions. | Can recurrence retrieve independently grounded positives, abstain on negatives, and be audibly useful? | Reopen only with a lawful independently annotated positive/negative corpus plus human audible judgments. | Do not add matching/retrieval infrastructure from current evidence. | [#812](https://github.com/ListenCloser/listencloser/issues/812) |
-| Measured-change navigation | **REVISIT** | Promoted evidence exists, but no real product-usefulness result justifies a new navigation/change-point surface. | Does measured-change navigation answer a concrete “where should I listen next?” job better than existing Breakdown/navigation? | A predeclared multi-Work listening probe with exact evidence coverage and a bounded stop condition. | Keep inactive unless that product problem becomes concrete. | [#848](https://github.com/ListenCloser/listencloser/issues/848) |
+| Bet | Posture | Why now | Next decision | Focused owner |
+| --- | --- | --- | --- | --- |
+| Explicit A/B Compare | **NEXT_PROBE** | Precise user-chosen comparison remains an important job independent of automatic discovery. | Test whether A/B interaction and bounded relations create value; experimental recurrence does not need to wait for this result. | [#1088](https://github.com/ListenCloser/listencloser/issues/1088) |
+| Minimum useful abstraction (chord map vs lead sheet) | **NEXT_PROBE** | Compact actionable representations may outperform Score/Piano Roll for song-oriented jobs. | Continue the abstraction decision, but do not let a full evaluation program block low-risk experimental views once evidence is available. | [#1091](https://github.com/ListenCloser/listencloser/issues/1091) |
+| Performance-expression evidence | **GATED** | Aligned timing/dynamics/articulation could make performance itself explainable. | #1083 must first provide a trustworthy exact-Version alignment path; then an experimental expression lane may ship before broad canonization. | [#1086](https://github.com/ListenCloser/listencloser/issues/1086) |
 
-### H3 — options: preserve cheaply, do not build speculative programs
+### H3 — later defaults / larger systems, but experimental slices may be allowed
 
-- **GATED — personal corpus / cross-Work retrieval:** only after explicit Compare demonstrates recurring cross-Work demand and a truthful comparison/retrieval contract exists.
-- **GATED — multi-performance comparison / practice:** only after Score↔performance alignment is product-proven and one-performance expression evidence is useful.
-- **GATED — source-score OMR:** only after attaching existing source scores proves enough value to justify harder ingestion.
-- **REVISIT — creative proposal / transformation loop:** first prove a user wants to act on an understood selection through inspect → compare → accept/reject semantics; do not begin with a generative model.
-- **REVISIT — broader instrument-native representations / publishing:** shape only when a concrete target job is blocked by the current core loop.
+The following remain gated as **large canonical systems/defaults**, while #1172 may still authorize small reversible experiments if they have a concrete product behavior and lawful provenance:
+
+- **personal corpus / cross-Work retrieval:** no default embedding/vector-search architecture yet; a thin experimental text→passage or passage→passage interaction may be tested if it does not force a permanent storage/index choice;
+- **multi-performance comparison / practice:** broad product mode waits on score↔performance alignment, though bounded alignment/following experiments may proceed through focused owners;
+- **source-score OMR:** still gated until attached source scores prove enough value;
+- **creative proposal / transformation loop:** still later as a broad product program; local counterfactual/isolation experiments may be useful proof actions;
+- **broader publishing/corpus intelligence:** do not build a large platform before the Understand evidence substrate earns it.
 
 ## Portfolio dependency / sequencing notes
 
-Only decision dependencies belong here; detailed implementation ordering stays in focused issues.
+Only real decision dependencies belong here; experimental breadth should not be serialized by historical product-order assumptions.
 
-- **Core understanding before breadth:** run the #1089 understanding-presentation probe while #588/#613/#807 continue making grounded objects trustworthy. A positive desirability result raises priority but does not waive those implementation gates.
-- **Explicit Compare before automatic discovery:** test #1088 before reactivating #812 recurrence, cross-Work retrieval, embeddings, clustering, or corpus intelligence.
-- **Source/authority before downstream performance claims:** attach trustworthy score evidence (#1082), preserve exact representation authority (#613), and complete the product-safe #1083 relation/focus path before activating #1086 expression claims.
-- **Choose the abstraction before automating it:** run #1091 with trusted/manual material before starting new melody/chord model work or an automatic lead-sheet pipeline for this product bet.
-- **Runtime capability maturity is not portfolio authorization:** `capabilities.json` may make a probe possible or block a claim, but a working model/engine does not promote a product bet by itself.
+- **Breadth and trust run in parallel.** #1172/#1173 and independent experimental capability lanes may advance while #588/#613/#807/#498 continue improving authority and fidelity.
+- **Experimental exposure is not canonization.** A working experimental engine may be visible to users while still excluded from default routing or authoritative Breakdown claims.
+- **Compare no longer blocks reversible discovery experiments.** #1088 still owns explicit A/B desirability, but #812/#848/experimental structure may proceed independently because their outputs remain qualified and reversible.
+- **Source/authority dependencies remain hard where semantically real.** #1082/#613/#807 still gate product-safe score↔performance publication and downstream #1086 expression work.
+- **Do not auto-run the model zoo.** Expensive or domain-specific analyses should generally be opt-in and separately fail-safe.
+- **Many capabilities, few concepts.** #1173 owns the UX pressure created by breadth; do not add one permanent top-level tab, card taxonomy, or settings concept per engine.
+- **Runtime capability maturity is not product authority.** `capabilities.json` describes runtime exposure/maturity; the roadmap decides whether a product path is active, and provenance/trust UI must remain honest.
 
 ## How roadmap changes
 
