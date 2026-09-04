@@ -41,6 +41,31 @@ RUN /app/.venv/bin/python -c "from beat_this.inference import load_checkpoint; l
     && sha256sum /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt \
     && echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
 
+# Experimental Layers uses the exact HTDemucs candidate already measured by
+# #507. Keep Demucs out of the ordinary dev/CI environment, but install it into
+# the production worker image against the existing pinned Torch/NumPy stack.
+# Linux ARM may build sphn from source, whose documented CMake-4 incompatibility
+# is avoided by the same CMake 3.x pin proven in #507. Remove the build tool after
+# installation. Then acquire the author-hosted checkpoint at image build time,
+# verify the exact safetensors digest, and fail if Demucs disturbed the worker's
+# critical NumPy/Torch pins. Runtime inference is forced offline below.
+RUN uv pip install --python /app/.venv/bin/python 'cmake==3.31.10' \
+    && CMAKE=/app/.venv/bin/cmake uv pip install --python /app/.venv/bin/python 'demucs==4.1.0' \
+    && uv pip uninstall --python /app/.venv/bin/python cmake
+
+RUN HF_HOME=/app/.cache/huggingface /app/.venv/bin/python -c "import hashlib, importlib.metadata as md; from pathlib import Path; import numpy, torch; from demucs.pretrained import get_model; assert md.version('demucs') == '4.1.0'; assert numpy.__version__ == '1.26.4'; assert torch.__version__.split('+')[0] == '2.6.0'; model=get_model('htdemucs'); assert tuple(model.sources) == ('drums','bass','other','vocals'); matches=list(Path('/app/.cache/huggingface').rglob('955717e8.safetensors')); assert matches, 'verified HTDemucs checkpoint not found'; assert hashlib.sha256(matches[0].read_bytes()).hexdigest() == 'd9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd'"
+
+RUN printf '%s\n' \
+      "Demucs package 4.1.0" \
+      "Wrapper code license: MIT" \
+      "Wrapper source: https://github.com/adefossez/demucs" \
+      "Model: htdemucs / signature 955717e8" \
+      "Checkpoint: adefossez/HTDemucs/955717e8.safetensors" \
+      "Checkpoint SHA256: d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd" \
+      "Checkpoint license: MIT (author-hosted adefossez/HTDemucs repository)" \
+      "Inference parameters: CPU, shifts=0" \
+      > /app/.cache/HTDEMUCS_LISTENCLOSER_PROVENANCE.txt
+
 
 # PM2S is an MIT-licensed learned performance-MIDI -> score-MIDI codebase. It
 # is not packaged on PyPI, so bake an exact source commit plus the public model
@@ -152,6 +177,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/opt/pm2s" \
     PM2S_MODEL_DIR=/opt/pm2s-models \
     TORCH_HOME=/app/.cache/torch \
+    HF_HOME=/app/.cache/huggingface \
+    HF_HUB_OFFLINE=1 \
     MUSESCORE_BIN=/opt/musescore/AppRun
 
 # Fail image construction if the pinned PM2S source cannot import against the
