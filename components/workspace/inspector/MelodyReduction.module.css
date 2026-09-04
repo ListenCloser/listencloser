@@ -1,7 +1,7 @@
 .reduction {
   display: grid;
-  gap: 0.55rem;
-  padding: 0.55rem 0.1rem 0.7rem;
+  gap: 0.45rem;
+  padding: 0.5rem 0.1rem 0.6rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -10,27 +10,20 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  min-height: 28px;
 }
 
 .heading {
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.5rem;
   min-width: 0;
 }
 
 .heading strong {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 650;
-}
-
-.qualifier {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
+  letter-spacing: -0.01em;
 }
 
 .count {
@@ -38,45 +31,44 @@
   font-size: 0.68rem;
 }
 
-.toggle {
-  flex: none;
-  padding: 0.2rem 0.35rem;
-  border: 0;
-  background: transparent;
+.qualifier {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0.12rem 0.42rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2);
   color: var(--muted);
-  font: inherit;
-  font-size: 0.68rem;
-  cursor: pointer;
+  font-size: 0.64rem;
+  line-height: 1;
+  cursor: help;
 }
 
-.toggle:hover,
-.toggle:focus-visible {
-  color: var(--text);
-}
-
-.body {
-  display: grid;
-  gap: 0.5rem;
+.qualifier:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .object {
   overflow: hidden;
-  border-radius: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   background: var(--panel-2);
 }
 
 .object svg {
   display: block;
   width: 100%;
-  height: 132px;
+  height: 104px;
 }
 
 .melodyNote {
   fill: var(--accent);
-  fill-opacity: 0.78;
+  fill-opacity: 0.72;
   stroke: var(--accent);
-  stroke-width: 0.8px;
-  stroke-opacity: 0.42;
+  stroke-width: 0.7px;
+  stroke-opacity: 0.38;
   cursor: pointer;
   transition: fill-opacity 120ms ease, stroke-width 120ms ease, stroke-opacity 120ms ease;
 }
@@ -85,109 +77,101 @@
 .melodyNote:focus-visible,
 .melodyNote[data-selected="true"] {
   fill-opacity: 1;
-  stroke-width: 2px;
-  stroke-opacity: 0.95;
+  stroke-width: 1.8px;
+  stroke-opacity: 0.92;
   outline: none;
+}
+
+.melodyNote[data-playing="true"] {
+  fill: var(--score-playback);
+  fill-opacity: 1;
+  stroke: var(--score-playback);
+  stroke-width: 1.5px;
+  stroke-opacity: 0.95;
+}
+
+.playhead {
+  stroke: var(--score-playback);
+  stroke-width: 0.9px;
+  stroke-opacity: 0.72;
+  pointer-events: none;
 }
 
 .timeLabel {
   fill: var(--muted);
   font-family: var(--font-mono);
   font-size: 7px;
-  opacity: 0.65;
+  opacity: 0.58;
   pointer-events: none;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.actions button,
-.details summary {
-  font: inherit;
-  font-size: 0.7rem;
-}
-
-.actions button {
-  min-height: 30px;
-  padding: 0.3rem 0.55rem;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.actions button:hover:not(:disabled),
-.actions button:focus-visible:not(:disabled) {
-  border-color: var(--accent);
-}
-
-.actions button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.primaryAction {
-  background: var(--panel-2) !important;
-}
-
-.details {
-  font-size: 0.7rem;
-}
-
-.details summary {
+.aboutButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
   width: fit-content;
-  cursor: pointer;
+  padding: 0.15rem 0;
+  border: 0;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
+  font-size: 0.66rem;
+  cursor: pointer;
 }
 
-.details dl {
+.aboutButton:hover,
+.aboutButton:focus-visible {
+  color: var(--text);
+}
+
+.aboutButton:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.chevron,
+.chevronOpen {
+  width: 14px;
+  height: 14px;
+  transition: transform 120ms ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.detailsPanel {
+  padding: 0.15rem 0 0.1rem;
+  font-size: 0.68rem;
+}
+
+.detailsPanel dl {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
-  gap: 0.3rem 0.65rem;
-  margin: 0.5rem 0 0;
+  gap: 0.28rem 0.65rem;
+  margin: 0;
 }
 
-.details dt {
+.detailsPanel dt {
   color: var(--muted);
 }
 
-.details dd {
+.detailsPanel dd {
   margin: 0;
   overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {
-  .header {
-    align-items: flex-start;
-  }
-
-  .heading {
-    gap: 0.3rem 0.4rem;
-  }
-
   .object svg {
-    height: 116px;
+    height: 92px;
   }
 
-  .actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .actions button {
-    width: 100%;
-  }
-
-  .details dl {
+  .detailsPanel dl {
     grid-template-columns: 1fr;
-    gap: 0.1rem;
+    gap: 0.08rem;
   }
 
-  .details dd + dt {
-    margin-top: 0.4rem;
+  .detailsPanel dd + dt {
+    margin-top: 0.35rem;
   }
 }
