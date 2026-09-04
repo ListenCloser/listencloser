@@ -1,9 +1,8 @@
 name: Agent 848 format
 
 on:
-  push:
-    branches:
-      - feat/848-experimental-measured-changes
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -14,6 +13,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feat/848-experimental-measured-changes
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
@@ -29,4 +30,4 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add backend/domain/measured_changes.py backend/tests/test_measured_changes.py
           git commit -m 'style(change): apply canonical Ruff formatting'
-          git push
+          git push origin HEAD:feat/848-experimental-measured-changes
