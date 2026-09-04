@@ -13,8 +13,6 @@ import {
 import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
 
-const ACTIVE_JOB_STATES = new Set(["queued", "claimed", "running"]);
-
 type LayerState = "idle" | "loading" | "separating" | "ready" | "error";
 
 export default function LayersControl({
@@ -175,7 +173,7 @@ export default function LayersControl({
         <button
           type="button"
           className="btn btn-sm"
-          disabled={separating || !canProcess}
+          disabled={separating || !canProcess || !projectId}
           onClick={() => void separate()}
         >
           {separating ? "Separating layers…" : state === "error" ? "Retry separate layers" : "Separate layers"}
