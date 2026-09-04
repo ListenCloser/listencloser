@@ -43,7 +43,7 @@ def _update_progress(client, job_id: UUID, progress: float, message: str) -> Non
 
 
 def _finite_number(value: object) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     number = float(value)
     return number if math.isfinite(number) else None
