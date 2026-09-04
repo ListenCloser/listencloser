@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MelodyReductionObject } from "@/components/workspace/inspector/MelodyReduction";
@@ -31,8 +32,8 @@ const projection: Extract<MelodyReductionProjection, { status: "supported" }> = 
   ],
 };
 
-function renderObject(overrides: Partial<React.ComponentProps<typeof MelodyReductionObject>> = {}) {
-  const props: React.ComponentProps<typeof MelodyReductionObject> = {
+function renderObject(overrides: Partial<ComponentProps<typeof MelodyReductionObject>> = {}) {
+  const props: ComponentProps<typeof MelodyReductionObject> = {
     insight,
     projection,
     pieceEndSeconds: 10,
