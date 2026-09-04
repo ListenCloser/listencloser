@@ -123,7 +123,13 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       if (!isCurrentLoad()) return;
       loadedBundleRef.current = bundle;
 
-      const latestJob = bundle.jobs[0];
+      // Optional analyses own their own execution/failure UI. Do not let one
+      // replace Work-level Understand/Score state just because it is the newest
+      // job in the immutable Work history.
+      const latestJob = bundle.jobs.find((job) => (
+        job.capability.name !== "structure_map"
+        && job.capability.name !== "melody_audition"
+      ));
       const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
       const failedJob = latestJob?.lifecycle.current === "failed" ? latestJob : undefined;
       const cancelledJob = latestJob?.lifecycle.current === "cancelled" ? latestJob : undefined;
