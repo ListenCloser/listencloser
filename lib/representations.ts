@@ -1,7 +1,7 @@
 import type { RepresentationAvailability } from "@/lib/representation-availability";
 
 /** Stable representation identifiers shared by workspace state and Ask actions. */
-export type RepresentationId = "listen" | "piano_roll" | "score" | "spectrogram";
+export type RepresentationId = "listen" | "piano_roll" | "score" | "spectrogram" | "pitch_contour";
 
 /**
  * Pure product metadata for one representation.
@@ -45,6 +45,13 @@ export const REPRESENTATION_CATALOG: readonly RepresentationMetadata[] = [
     id: "spectrogram",
     title: "Spectrogram",
     description: "Frequency over performance time with shared playback and selection.",
+    temporal: true,
+    available: (availability) => availability.originalAudio,
+  },
+  {
+    id: "pitch_contour",
+    title: "Pitch contour",
+    description: "Experimental continuous F0 for voice and expressive monophonic material.",
     temporal: true,
     available: (availability) => availability.originalAudio,
   },
