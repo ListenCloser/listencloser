@@ -31,11 +31,14 @@ export function findMelodyAuditionJob(
   sourceMidiVersionId: string,
   sourceInsightId: string,
 ): Job | null {
-  return bundle.jobs.find((job) => (
-    job.capability.name === "melody_audition"
-    && job.input_version_ids.includes(sourceMidiVersionId)
-    && job.parameters?.insight_id === sourceInsightId
-  )) ?? null;
+  const jobs = bundle.jobs
+    .filter((job) => (
+      job.capability.name === "melody_audition"
+      && job.input_version_ids.includes(sourceMidiVersionId)
+      && job.parameters?.insight_id === sourceInsightId
+    ))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return jobs[0] ?? null;
 }
 
 export async function startMelodyAuditionWorkflow(
