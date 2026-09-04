@@ -81,7 +81,7 @@ def estimate_pitch_contour(wav_bytes: bytes) -> dict[str, Any]:
             "name": "librosa",
             "version": librosa.__version__,
             "method": "pyin",
-            "model": None,
+            "model": "algorithmic pYIN; no learned checkpoint",
             "license": "ISC",
         },
         "preprocessing": {
