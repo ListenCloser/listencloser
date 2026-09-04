@@ -20,7 +20,6 @@ const mocks = vi.hoisted(() => ({
   },
   setSelection: vi.fn(),
   setActiveRepresentation: vi.fn(),
-  setInspectorMode: vi.fn(),
   play: vi.fn(),
   seek: vi.fn(),
   setLoop: vi.fn(),
@@ -32,7 +31,6 @@ vi.mock("@/lib/stores/workspace", () => ({
     workspace: mocks.workspace,
     setSelection: mocks.setSelection,
     setActiveRepresentation: mocks.setActiveRepresentation,
-    setInspectorMode: mocks.setInspectorMode,
   }),
 }));
 
@@ -76,7 +74,7 @@ beforeEach(() => {
   mocks.transport.loopEnabled = false;
 });
 
-describe("BreakdownFindingCard live actions", () => {
+describe("BreakdownFindingCard musician-facing actions", () => {
   it("uses the finding row as Focus and requests destination orientation", async () => {
     const user = userEvent.setup();
     const orientationListener = vi.fn();
@@ -94,13 +92,11 @@ describe("BreakdownFindingCard live actions", () => {
     window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
   });
 
-  it("auditions Loop immediately while preserving the shared selection", async () => {
+  it("uses Hear as the direct musical audition action", async () => {
     const user = userEvent.setup();
-    const orientationListener = vi.fn();
-    window.addEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
     render(<BreakdownFindingCard finding={finding()} />);
 
-    await user.click(screen.getByRole("button", { name: /^Loop / }));
+    await user.click(screen.getByRole("button", { name: /^Hear / }));
 
     expect(mocks.seek).toHaveBeenCalledWith(0.2);
     expect(mocks.setLoop).toHaveBeenCalledWith(0.2, 0.5);
@@ -110,26 +106,20 @@ describe("BreakdownFindingCard live actions", () => {
       timeRange: { start: 0.2, end: 0.5, domain: "performance" },
       provenance: { origin: null, timeExact: false, measureApproximate: true },
     });
-    expect(orientationListener).not.toHaveBeenCalled();
-    window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
   });
 
-  it("wires Show and Ask only for capabilities the live workspace can execute", async () => {
+  it("offers one Inspect action without duplicating the stable Ask mode", async () => {
     const user = userEvent.setup();
     const orientationListener = vi.fn();
     window.addEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
     render(<BreakdownFindingCard finding={finding()} />);
 
-    expect(screen.queryByRole("button", { name: /Compare/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ask about this finding" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Inspect piano roll" }));
 
-    await user.click(screen.getByRole("button", { name: "Show piano roll" }));
     expect(mocks.setActiveRepresentation).toHaveBeenCalledWith("piano_roll");
     expect(mocks.seek).toHaveBeenCalledWith(0.2);
-    expect(orientationListener).toHaveBeenCalledTimes(1);
-
-    await user.click(screen.getByRole("button", { name: "Ask about this finding" }));
-    expect(mocks.setInspectorMode).toHaveBeenCalledWith("ask");
-    expect(mocks.setSelection).toHaveBeenLastCalledWith({
+    expect(mocks.setSelection).toHaveBeenCalledWith({
       timeRange: { start: 0.2, end: 0.5, domain: "performance" },
       provenance: { origin: null, timeExact: false, measureApproximate: true },
     });
@@ -137,7 +127,7 @@ describe("BreakdownFindingCard live actions", () => {
     window.removeEventListener(WORKSPACE_ORIENTATION_EVENT, orientationListener);
   });
 
-  it("withholds Show and Ask when the finding is already visible and its source is ask:false", () => {
+  it("does not add a redundant Inspect action when the preferred view is already visible", () => {
     mocks.workspace.insights = [{ id: "source-insight", kind: "rhythm_density" }];
     mocks.workspace.activeRepresentation = "listen";
     const density = finding({
@@ -150,28 +140,8 @@ describe("BreakdownFindingCard live actions", () => {
 
     render(<BreakdownFindingCard finding={density} />);
 
-    expect(screen.getByRole("button", { name: /^Loop / })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Show waveform" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ask about this finding" })).not.toBeInTheDocument();
-  });
-
-  it("withholds Ask when any required supporting evidence is unavailable to Ask", () => {
-    mocks.workspace.insights = [
-      { id: "chord-1", kind: "chord" },
-      { id: "density-1", kind: "rhythm_density" },
-    ];
-    const harmonic = finding({
-      id: "harmonic-activity",
-      sourceInsightId: "chord-1",
-      supportInsightIds: ["chord-1", "density-1"],
-      kind: "harmonic_activity",
-      category: "harmony",
-      label: "Harmonic changes become more frequent",
-      evidence: { chordDensity: 2 },
-    });
-
-    render(<BreakdownFindingCard finding={harmonic} />);
-
+    expect(screen.getByRole("button", { name: /^Hear / })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Inspect waveform" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ask about this finding" })).not.toBeInTheDocument();
   });
 });

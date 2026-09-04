@@ -8,8 +8,10 @@ import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
 import styles from "./BreakdownFindingCard.module.css";
 
-function showLabel(action: Extract<LiveBreakdownAction, { type: "show" }>): string {
-  return action.representationId === "listen" ? "Show waveform" : "Show piano roll";
+type VisibleFindingAction = Exclude<LiveBreakdownAction, { type: "ask" }>;
+
+function inspectLabel(action: Extract<VisibleFindingAction, { type: "show" }>): string {
+  return action.representationId === "listen" ? "Inspect waveform" : "Inspect piano roll";
 }
 
 export default function BreakdownFindingCard({ finding }: { finding: BreakdownFinding }) {
@@ -17,7 +19,6 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
     workspace,
     setSelection,
     setActiveRepresentation,
-    setInspectorMode,
   } = useWorkspace();
   const { transport, play, seek, setLoop, toggleLoop } = useTransport();
   const supportInsightKinds = finding.supportInsightIds.map(
@@ -31,6 +32,12 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
     activeWorkId: workspace.activeWorkId,
     supportInsightKinds,
   });
+  // Ask already consumes the shared workspace selection. Repeating Ask on every
+  // finding turns a concise musical observation into a toolbar. Select/focus the
+  // passage here; the stable Inspector Ask tab is the single path into Ask.
+  const visibleActions = actions.filter(
+    (action): action is VisibleFindingAction => action.type !== "ask",
+  );
 
   const selectFinding = () => {
     setSelection({
@@ -45,7 +52,7 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
     requestWorkspaceOrientation();
   };
 
-  const handleAction = (action: LiveBreakdownAction) => {
+  const handleAction = (action: VisibleFindingAction) => {
     switch (action.type) {
       case "loop":
         seek(finding.startSeconds);
@@ -57,10 +64,6 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
       case "show":
         focusFinding();
         setActiveRepresentation(action.representationId);
-        break;
-      case "ask":
-        selectFinding();
-        setInspectorMode("ask");
         break;
     }
   };
@@ -83,19 +86,13 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
         )}
       </button>
 
-      {actions.length > 0 && (
+      {visibleActions.length > 0 && (
         <div className="inspector-breakdown-actions" aria-label="Finding actions">
-          {actions.map((action) => {
-            const label = action.type === "loop"
-              ? "Loop"
-              : action.type === "show"
-                ? "Show"
-                : "Ask";
+          {visibleActions.map((action) => {
+            const label = action.type === "loop" ? "Hear" : "Inspect";
             const ariaLabel = action.type === "loop"
-              ? `Loop ${formatTime(finding.startSeconds)} to ${formatTime(finding.endSeconds)}`
-              : action.type === "show"
-                ? showLabel(action)
-                : "Ask about this finding";
+              ? `Hear ${formatTime(finding.startSeconds)} to ${formatTime(finding.endSeconds)}`
+              : inspectLabel(action);
             return (
               <button
                 type="button"

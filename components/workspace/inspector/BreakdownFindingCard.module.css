@@ -1,42 +1,61 @@
-.finding:first-child {
-  border-color: rgba(214, 181, 109, 0.16);
-  background: rgba(214, 181, 109, 0.045);
+.finding {
+  border: 0 !important;
+  border-top: 1px solid rgba(241, 239, 232, 0.07) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-.finding:first-child :global(.inspector-breakdown-focus) {
-  padding-top: 14px;
-  padding-bottom: 12px;
+.finding:first-child {
+  border-top: 0 !important;
+}
+
+.finding :global(.inspector-breakdown-focus) {
+  padding: 12px 0 8px;
+}
+
+.finding :global(.inspector-breakdown-headline) {
+  color: #d7d2c8;
+  font-size: 13px;
+  font-weight: 580;
+  line-height: 1.42;
+  letter-spacing: -0.006em;
 }
 
 .finding:first-child :global(.inspector-breakdown-headline) {
   color: #eee9df;
   font-size: 14px;
   font-weight: 650;
-  line-height: 1.38;
-  letter-spacing: -0.009em;
 }
 
-.finding:first-child :global(.inspector-breakdown-support) {
-  color: #8d877d;
-  line-height: 1.55;
+.finding :global(.inspector-breakdown-support) {
+  color: #827c72;
+  line-height: 1.45;
 }
 
-.finding:not(:first-child) {
-  border-color: rgba(241, 239, 232, 0.045);
-  background: transparent;
+.finding :global(.inspector-breakdown-actions) {
+  gap: 14px;
+  padding: 0 0 12px;
 }
 
-.finding:not(:first-child) :global(.inspector-breakdown-headline) {
-  color: #c5c0b6;
-  font-weight: 560;
+.finding :global(.inspector-breakdown-action) {
+  min-height: 28px;
+  padding: 2px 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #aaa398;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
 }
 
-.finding:not(:first-child) :global(.inspector-breakdown-support) {
-  color: #777269;
+.finding :global(.inspector-breakdown-action:hover) {
+  color: var(--text);
+  background: transparent !important;
 }
 
 @media (max-width: 820px) {
-  .finding:first-child :global(.inspector-breakdown-focus) {
-    padding: 14px 12px;
+  .finding :global(.inspector-breakdown-focus) {
+    padding: 12px 0 8px;
   }
 }

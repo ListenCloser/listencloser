@@ -27,7 +27,7 @@ describe("progressive Breakdown copy", () => {
     expect(valley.evidenceSummary).toBe("");
   });
 
-  it("keeps support copy when it adds magnitude or an interpretation boundary", () => {
+  it("keeps measured magnitude and necessary interpretation boundaries", () => {
     const [rest] = rankBreakdownFindings([finding("rest", { duration: 2.4 })]);
     const [harmony] = rankBreakdownFindings([finding("harmonic_activity", { chordDensity: 1.8 })]);
 
