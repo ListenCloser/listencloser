@@ -203,17 +203,28 @@ export default function MelodyReduction({ insight }: { insight: Insight }) {
     ? workspace.selection.noteIds[0]
     : null;
 
-  const selectNotes = (notes: MelodyReductionNote[]) => {
+  const focusReduction = () => {
     setSelection({
       timeRange: {
-        start: Math.min(...notes.map((note) => note.startSeconds)),
-        end: Math.max(...notes.map((note) => note.endSeconds)),
+        start: projection.startSeconds,
+        end: projection.endSeconds,
         domain: "performance",
       },
-      noteIds: notes.map((note) => note.id),
+      noteIds: projection.notes.map((note) => note.id),
       provenance: { origin: null, timeExact: true, measureApproximate: false },
     });
     setActiveRepresentation("piano_roll");
+  };
+
+  const selectSingleNote = (note: MelodyReductionNote) => {
+    setSelection({
+      noteIds: [note.id],
+      provenance: { origin: null, timeExact: true, measureApproximate: false },
+    });
+    setActiveRepresentation("piano_roll");
+    if (transport.activeSource?.role !== "score") {
+      seek(note.startSeconds);
+    }
   };
 
   return (
@@ -224,8 +235,8 @@ export default function MelodyReduction({ insight }: { insight: Insight }) {
       playbackRole={transport.activeSource?.role ?? null}
       canHear={Boolean(transport.activeSource)}
       selectedNoteId={selectedNoteId}
-      onFocus={() => selectNotes(projection.notes)}
-      onSelectNote={(note) => selectNotes([note])}
+      onFocus={focusReduction}
+      onSelectNote={selectSingleNote}
       onHear={() => {
         seek(projection.startSeconds);
         play();
