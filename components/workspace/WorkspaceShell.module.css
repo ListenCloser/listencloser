@@ -37,10 +37,10 @@
   display: grid;
 }
 
-/* Processing is a workspace state, not a toast. Reserve a real shelf directly
- * above transport so progress never covers the music or inspector. */
+/* Processing is a workspace state, not a toast. Keep one quiet shelf directly
+ * above transport so progress stays visible without reading as an alert. */
 .shell:has(:global(.workspace-processing-notice)) {
-  --active-workspace-status-height: 42px;
+  --active-workspace-status-height: 40px;
 }
 
 .shell :global(.workspace-processing-notice) {
@@ -61,7 +61,7 @@
   border: 0 !important;
   border-top: 1px solid var(--border) !important;
   border-radius: 0 !important;
-  background: #1d1c18 !important;
+  background: var(--panel) !important;
   box-shadow: none !important;
   z-index: 35;
 }
@@ -71,7 +71,26 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--muted);
   font-size: 10.5px;
+}
+
+.shell :global(.workspace-processing-notice strong) {
+  margin-right: 5px;
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+.shell :global(.workspace-processing-notice strong::before) {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 1px;
+  opacity: 0.8;
 }
 
 .shell :global(.workspace-processing-notice .operation-card-actions) {
@@ -81,8 +100,18 @@
 
 .shell :global(.workspace-processing-notice .btn) {
   min-height: 28px;
-  padding: 0 9px;
+  padding: 0 4px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
   font-size: 10px;
+}
+
+.shell :global(.workspace-processing-notice .btn:hover:not(:disabled)) {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
 }
 
 /* Non-processing warnings remain lightweight notices; without a permanent
@@ -101,7 +130,7 @@
   }
 
   .shell:has(:global(.workspace-processing-notice)) {
-    --active-workspace-status-height: 52px;
+    --active-workspace-status-height: 46px;
   }
 
   .shell :global(.workspace-processing-notice) {
