@@ -39,10 +39,11 @@ function renderObject(overrides: Partial<ComponentProps<typeof MelodyReductionOb
     pieceEndSeconds: 10,
     playheadSeconds: 0,
     selectedNoteId: null,
+    onPlayMelody: vi.fn(),
     onSelectNote: vi.fn(),
     ...overrides,
   };
-  return render(<MelodyReductionObject {...props} />);
+  return { ...render(<MelodyReductionObject {...props} />), props };
 }
 
 describe("MelodyReductionObject", () => {
@@ -60,6 +61,7 @@ describe("MelodyReductionObject", () => {
     fireEvent.click(screen.getByRole("button", { name: "About" }));
     expect(screen.getByText(/Version 12345678-aaaa-bbbb-cccc-123456789012/)).toBeInTheDocument();
     expect(screen.getByText("2/2 exact Piano Roll notes")).toBeInTheDocument();
+    expect(screen.getByText(/Synthesized from these proposed notes, not isolated/)).toBeInTheDocument();
     expect(screen.getByText(/not a verified melody label or top-voice rule/)).toBeInTheDocument();
   });
 
@@ -71,12 +73,22 @@ describe("MelodyReductionObject", () => {
     expect(onSelectNote).toHaveBeenCalledWith(projection.notes[0]);
   });
 
-  it("shares performance playback position without introducing another playback control", () => {
-    const { container } = renderObject({ playheadSeconds: 1.25 });
+  it("uses one explicit Play melody action instead of generic focus/source controls", () => {
+    const onPlayMelody = vi.fn();
+    const { container } = renderObject({ playheadSeconds: 1.25, onPlayMelody });
 
+    fireEvent.click(screen.getByRole("button", { name: "Play melody" }));
+    expect(onPlayMelody).toHaveBeenCalledOnce();
     expect(container.querySelector("[data-melody-playhead='true']")).toBeInTheDocument();
     expect(container.querySelector("[data-melody-note-id='note-c5']")).toHaveAttribute("data-playing", "true");
     expect(screen.queryByRole("button", { name: /Hear|Focus|Hide|Show$/ })).not.toBeInTheDocument();
+  });
+
+  it("shows truthful preparation state and disables duplicate playback requests", () => {
+    renderObject({ auditionState: "preparing" });
+    const button = screen.getByRole("button", { name: "Preparing melody…" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
   });
 
   it("withholds a performance-time playhead when the caller has no compatible timeline", () => {
