@@ -233,6 +233,7 @@
       "status": "withheld",
       "input": "derived",
       "engine": "analysis_v2",
+      "requires": ["trusted_chord"],
       "exposure": {"inspector": false, "annotations": false, "ask": false},
       "reason": "Depends on unreliable chord stream for change-point detection."
     },
@@ -240,6 +241,7 @@
       "status": "withheld",
       "input": "derived",
       "engine": "analysis_v2",
+      "requires": ["trusted_chord"],
       "exposure": {"inspector": false, "annotations": false, "ask": false},
       "reason": "Depends on unreliable chord stream for voice tracking."
     },
@@ -255,6 +257,15 @@
       },
       "validated_domain": "within-work measured comparison under identical mono 22.05 kHz preprocessing",
       "notes": "Measured evidence only. RMS is an amplitude proxy, not calibrated loudness. Do not infer semantic timbre adjectives, source identity, section labels, cross-song rankings, or population norms."
+    },
+    "measured_change": {
+      "status": "experimental",
+      "input": "derived",
+      "engine": "robust_top_peaks_v1",
+      "requires": ["perceptual_series"],
+      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "validated_domain": "within-work candidate navigation over exact promoted perceptual_series evidence",
+      "notes": "A candidate means only that multiple declared measured feature groups changed around this time under robust_top_peaks_v1. Ranking is within-Work proposal ordering, not confidence, significance, importance, a section boundary, a chorus/drop/climax, transition importance, or emotion."
     }
   }
 }
