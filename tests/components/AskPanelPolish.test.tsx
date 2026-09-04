@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import AskPanel, { askErrorMessage } from "@/components/workspace/inspector/AskPanel";
@@ -40,13 +40,14 @@ describe("AskPanel polish", () => {
     expect(send.querySelector("svg")).toHaveAttribute("height", "14");
   });
 
-  it("lets a selected Ask scope be dismissed directly", async () => {
+  it("consumes shared selection without duplicating its clear control", () => {
     render(<AskPanelWithSelection />, { wrapper });
 
-    const clear = await screen.findByRole("button", { name: "Clear question context" });
-    fireEvent.click(clear);
-
     expect(screen.queryByRole("button", { name: "Clear question context" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ask about the music" })).toHaveAttribute(
+      "placeholder",
+      "Ask a question about this selection…",
+    );
   });
 
   it("keeps known Ask failures concise and specific", () => {
