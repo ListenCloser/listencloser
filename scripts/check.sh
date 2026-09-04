@@ -13,9 +13,9 @@ usage() {
   cat <<'EOF'
 Usage: scripts/check.sh [full|fast|frontend|backend|e2e]
 
-  full      Canonical local gate: build, lint, typecheck, shell/import architecture/API contracts,
+  full      Canonical local gate: build, lint, typecheck, contract/import architecture/API contracts,
             backend/frontend tests, optional backend health, and Playwright.
-  fast      Inner loop: lint, typecheck, shell/import architecture/API contracts, backend/frontend tests.
+  fast      Inner loop: lint, typecheck, contract/import architecture/API contracts, backend/frontend tests.
             Skips production build, live health checks, and Playwright.
   frontend  Frontend lint, typecheck, import architecture, and Vitest.
   backend   Locked backend sync, Ruff, import architecture, API contract, and backend unit tests.
@@ -148,6 +148,18 @@ run_shell_static() {
   fi
 }
 
+run_contract_dependencies() {
+  echo ""
+  echo "── Focused contract dependencies ──"
+  local started=$SECONDS
+  if python3 scripts/test_contract_dependencies.py && \
+     python3 scripts/contract_dependencies.py contract-dependencies.json; then
+    pass "contract dependencies ($((SECONDS - started))s)"
+  else
+    fail "contract dependencies ($((SECONDS - started))s)"
+  fi
+}
+
 run_backend_sync() {
   echo ""
   echo "── Locked backend environment ──"
@@ -243,6 +255,7 @@ case "$MODE" in
   full)
     run_backend_sync
     run_shell_static
+    run_contract_dependencies
     run_frontend_build
     run_frontend_static
     run_frontend_architecture
@@ -254,6 +267,7 @@ case "$MODE" in
     ;;
   fast)
     run_shell_static
+    run_contract_dependencies
     run_frontend_static
     run_frontend_architecture
     run_backend_static

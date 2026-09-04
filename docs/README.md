@@ -17,6 +17,7 @@ There is intentionally no universal specification. Each durable fact has one aut
 | What product bets / portfolio posture are current? | [`product/ROADMAP.md`](product/ROADMAP.md) |
 | What technical simplification / rearchitecture work is currently sequenced where? | [GitHub #634](https://github.com/ListenCloser/listencloser/issues/634) |
 | What agent/work-control authority migration is current? | [GitHub #1139](https://github.com/ListenCloser/listencloser/issues/1139) |
+| Which durable focused-contract dependency gates a particular work mode? | root [`contract-dependencies.json`](../contract-dependencies.json); the focused issue owns why the dependency exists |
 | How should an evaluation be designed? | [`EVALUATION_METHODOLOGY.md`](EVALUATION_METHODOLOGY.md) |
 | What did current evaluation tracks conclude? | [`EVALUATION_DECISIONS.md`](EVALUATION_DECISIONS.md) + owning result/report |
 | What evidence is sufficient for a downstream claim? | [`evaluation/evidence-sufficiency.md`](evaluation/evidence-sufficiency.md) + executable claim-sufficiency contract |
@@ -30,6 +31,8 @@ For production claims, the deployed release SHA and live configuration matter. A
 
 `product/PRODUCT.md` owns durable product constitution; `product/ROADMAP.md` owns current product portfolio/posture/sequencing; #634 owns technical simplification/rearchitecture sequencing; #1139 owns the bounded agent/work-control authority migration. Historical #458 preserves product-strategy rationale but no longer authorizes current work or defines portfolio posture. Live focused issues, pull requests, checks, and merge state own active execution.
 
+Root `contract-dependencies.json` is intentionally narrower than those authorities. It is canonical only for the mechanical existence and mode scope of durable dependencies between focused issue contracts. The focused issue owns the human explanation; ROADMAP owns product sequencing; `backend/config/capabilities.json` owns runtime capability prerequisites; live GitHub owns current execution. Offline repository validation checks graph structure and invariants without calling GitHub. Focused-issue existence is verified when an edge is introduced and may be revalidated by later read-only live tooling; it is not copied into a second contract catalog.
+
 ## Minimal read paths
 
 ### Normal implementation
@@ -38,7 +41,8 @@ For production claims, the deployed release SHA and live configuration matter. A
 2. this documentation map;
 3. [`ARCHITECTURE.md`](ARCHITECTURE.md) for current boundaries;
 4. the focused issue plus relevant ADR/code;
-5. `backend/config/capabilities.json` when analysis/product exposure changes.
+5. root [`contract-dependencies.json`](../contract-dependencies.json) when work-mode eligibility may depend on another focused contract;
+6. `backend/config/capabilities.json` when analysis/product exposure changes.
 
 Do not read a broad roadmap or historical program merely because it mentions the subsystem. Start with the focused responsibility and follow only its canonical dependency/context references.
 
@@ -99,8 +103,9 @@ When sources disagree, resolve the disagreement according to the kind of fact in
 6. **Current roadmap/portfolio:** `product/ROADMAP.md`.
 7. **Technical simplification/rearchitecture sequencing:** #634.
 8. **Agent/work-control governance migration:** #1139.
-9. **Focused execution scope/acceptance:** the focused issue body; comments are evidence/history unless incorporated into current authority.
-10. **Active execution state:** live issues, pull requests, checks, and merge state.
+9. **Mode-scoped focused-contract dependency:** root `contract-dependencies.json` for the mechanical edge; the focused issue for its rationale.
+10. **Focused execution scope/acceptance:** the focused issue body; comments are evidence/history unless incorporated into current authority.
+11. **Active execution state:** live issues, pull requests, checks, and merge state.
 
 Do not use a future-looking plan to claim a capability is implemented. Do not use stale runtime prose to veto a newer accepted decision.
 
@@ -109,6 +114,7 @@ Do not use a future-looking plan to claim a capability is implemented. Do not us
 ### Canonical / maintained
 
 - `../AGENTS.md` — engineering guardrails and autonomous-agent contract.
+- `../contract-dependencies.json` — only durable mode-scoped dependencies between focused issue contracts; no product, owner, capability, or live-execution metadata.
 - `product/PRODUCT.md` — durable product constitution: identity, target circumstances, JTBD, strategic arena, mental model, and product principles.
 - `product/ROADMAP.md` — current product portfolio posture, gates, horizons, and decision-relevant sequencing.
 - `ARCHITECTURE.md` — current runtime architecture and canonical architecture views.
