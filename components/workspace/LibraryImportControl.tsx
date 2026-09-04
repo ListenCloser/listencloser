@@ -16,15 +16,29 @@ import {
   filterPublicRecordings,
   type PublicRecording,
 } from "@/lib/public-recordings";
+import type { ScoreEngine, TranscriptionProfile } from "@/lib/stores/workspace";
 
 import styles from "./LibraryImportControl.module.css";
+
+export type ImportProcessingConfig = {
+  transcriptionProfile: TranscriptionProfile;
+  scoreEngine: ScoreEngine;
+};
+
+type ImportIntent =
+  | { kind: "upload" }
+  | { kind: "public"; recording: PublicRecording };
 
 type LibraryImportControlProps = {
   disabled: boolean;
   busy?: boolean;
   statusId?: string;
+  transcriptionProfile: TranscriptionProfile;
+  scoreEngine: ScoreEngine;
+  onTranscriptionProfileChange: (profile: TranscriptionProfile) => void;
+  onScoreEngineChange: (engine: ScoreEngine) => void;
   onUpload: () => void;
-  onImport: (recording: PublicRecording) => Promise<void>;
+  onImport: (recording: PublicRecording, processing: ImportProcessingConfig) => Promise<void>;
 };
 
 function formatDuration(seconds: number): string {
@@ -43,11 +57,18 @@ export default function LibraryImportControl({
   disabled,
   busy = false,
   statusId,
+  transcriptionProfile,
+  scoreEngine,
+  onTranscriptionProfileChange,
+  onScoreEngineChange,
   onUpload,
   onImport,
 }: LibraryImportControlProps) {
   const [publicOpen, setPublicOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [importIntent, setImportIntent] = useState<ImportIntent | null>(null);
+  const [draftTranscriptionProfile, setDraftTranscriptionProfile] = useState(transcriptionProfile);
+  const [draftScoreEngine, setDraftScoreEngine] = useState(scoreEngine);
   const [importingId, setImportingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const recordings = useMemo(() => filterPublicRecordings(query), [query]);
@@ -58,19 +79,49 @@ export default function LibraryImportControl({
     setPublicOpen(true);
   }
 
-  async function importRecording(recording: PublicRecording) {
+  function openProcessing(intent: ImportIntent) {
+    setError(null);
+    setDraftTranscriptionProfile(transcriptionProfile);
+    setDraftScoreEngine(scoreEngine);
+    setImportIntent(intent);
+  }
+
+  function closeProcessing() {
     if (importingId) return;
+    setError(null);
+    setImportIntent(null);
+  }
+
+  async function confirmProcessing() {
+    if (!importIntent || importingId) return;
+
+    const processing: ImportProcessingConfig = {
+      transcriptionProfile: draftTranscriptionProfile,
+      scoreEngine: draftScoreEngine,
+    };
+    onTranscriptionProfileChange(processing.transcriptionProfile);
+    onScoreEngineChange(processing.scoreEngine);
+
+    if (importIntent.kind === "upload") {
+      setImportIntent(null);
+      onUpload();
+      return;
+    }
+
+    const { recording } = importIntent;
     setImportingId(recording.id);
     setError(null);
     try {
-      await onImport(recording);
-      setPublicOpen(false);
+      await onImport(recording, processing);
+      setImportIntent(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not import this recording.");
     } finally {
       setImportingId(null);
     }
   }
+
+  const processingBusy = importIntent?.kind === "public" && importingId === importIntent.recording.id;
 
   return (
     <div className={styles.root}>
@@ -89,7 +140,7 @@ export default function LibraryImportControl({
         </MenuButton>
         <MenuItems className={styles.menuItems}>
           <MenuItem>
-            <button type="button" className={styles.menuItem} onClick={onUpload}>
+            <button type="button" className={styles.menuItem} onClick={() => openProcessing({ kind: "upload" })}>
               Upload recording
             </button>
           </MenuItem>
@@ -143,34 +194,123 @@ export default function LibraryImportControl({
               {error && <div className={styles.error} role="alert">{error}</div>}
               {recordings.length === 0 ? (
                 <div className={styles.empty}>No recordings match that search.</div>
-              ) : recordings.map((recording) => {
-                const importing = importingId === recording.id;
-                return (
-                  <article className={styles.recording} key={recording.id}>
-                    <div className={styles.recordingCopy}>
-                      <div className={styles.recordingHeading}>
-                        <span className={styles.recordingTitle}>{recording.title}</span>
-                        <span className={styles.recordingStyle}>{recording.style}</span>
-                      </div>
-                      <div className={styles.recordingCreator}>{recording.creator}</div>
-                      <div className={styles.recordingMeta}>
-                        <span>{formatDuration(recording.durationSeconds)}</span>
-                        <span>~{formatBytes(recording.estimatedBytes)}</span>
-                        <a href={recording.licenseUrl} target="_blank" rel="noreferrer">{recording.licenseLabel}</a>
-                        <a href={recording.sourcePageUrl} target="_blank" rel="noreferrer">Source</a>
-                      </div>
+              ) : recordings.map((recording) => (
+                <article className={styles.recording} key={recording.id}>
+                  <div className={styles.recordingCopy}>
+                    <div className={styles.recordingHeading}>
+                      <span className={styles.recordingTitle}>{recording.title}</span>
+                      <span className={styles.recordingStyle}>{recording.style}</span>
                     </div>
-                    <button
-                      type="button"
-                      className={styles.importButton}
-                      disabled={Boolean(importingId)}
-                      onClick={() => void importRecording(recording)}
-                    >
-                      {importing ? "Importing…" : "Import"}
-                    </button>
-                  </article>
-                );
-              })}
+                    <div className={styles.recordingCreator}>{recording.creator}</div>
+                    <div className={styles.recordingMeta}>
+                      <span>{formatDuration(recording.durationSeconds)}</span>
+                      <span>~{formatBytes(recording.estimatedBytes)}</span>
+                      <a href={recording.licenseUrl} target="_blank" rel="noreferrer">{recording.licenseLabel}</a>
+                      <a href={recording.sourcePageUrl} target="_blank" rel="noreferrer">Source</a>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.importButton}
+                    disabled={Boolean(importingId)}
+                    onClick={() => {
+                      setPublicOpen(false);
+                      openProcessing({ kind: "public", recording });
+                    }}
+                  >
+                    Import
+                  </button>
+                </article>
+              ))}
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      <Dialog open={Boolean(importIntent)} onClose={closeProcessing} className={styles.dialogWrap}>
+        <DialogBackdrop className={styles.backdrop} />
+        <div className={styles.dialogWrap}>
+          <DialogPanel className={`${styles.dialog} ${styles.processingDialog}`}>
+            <div className={styles.dialogHeader}>
+              <div>
+                <DialogTitle className={styles.dialogTitle}>Process recording</DialogTitle>
+                <p className={styles.dialogDescription}>Choose how this recording should be transcribed and scored.</p>
+              </div>
+              <button
+                type="button"
+                className={styles.closeButton}
+                onClick={closeProcessing}
+                disabled={processingBusy}
+                aria-label="Close processing options"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className={styles.processingBody}>
+              <div className={styles.processingGroup}>
+                <span className={styles.processingLabel}>Transcription</span>
+                <div className={styles.segmented} role="group" aria-label="Transcription mode">
+                  <button
+                    type="button"
+                    className={styles.segment}
+                    aria-pressed={draftTranscriptionProfile === "auto"}
+                    data-selected={draftTranscriptionProfile === "auto" || undefined}
+                    onClick={() => setDraftTranscriptionProfile("auto")}
+                  >
+                    Auto
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.segment}
+                    aria-pressed={draftTranscriptionProfile === "solo_piano"}
+                    data-selected={draftTranscriptionProfile === "solo_piano" || undefined}
+                    onClick={() => setDraftTranscriptionProfile("solo_piano")}
+                  >
+                    Solo piano
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.processingGroup}>
+                <span className={styles.processingLabel}>Score</span>
+                <div className={styles.segmented} role="group" aria-label="Score reconstruction engine">
+                  <button
+                    type="button"
+                    className={styles.segment}
+                    aria-pressed={draftScoreEngine === "musescore"}
+                    data-selected={draftScoreEngine === "musescore" || undefined}
+                    onClick={() => setDraftScoreEngine("musescore")}
+                  >
+                    MuseScore
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.segment}
+                    aria-pressed={draftScoreEngine === "pm2s"}
+                    data-selected={draftScoreEngine === "pm2s" || undefined}
+                    onClick={() => setDraftScoreEngine("pm2s")}
+                  >
+                    PM2S
+                  </button>
+                </div>
+              </div>
+
+              <p className={styles.processingHint}>These choices apply to this import.</p>
+              {error && <div className={styles.error} role="alert">{error}</div>}
+            </div>
+
+            <div className={styles.processingFooter}>
+              <button type="button" className={styles.secondaryButton} onClick={closeProcessing} disabled={processingBusy}>
+                Cancel
+              </button>
+              <button type="button" className={styles.primaryButton} onClick={() => void confirmProcessing()} disabled={processingBusy}>
+                {processingBusy
+                  ? "Importing…"
+                  : importIntent?.kind === "public"
+                    ? "Import recording"
+                    : "Choose audio"}
+              </button>
             </div>
           </DialogPanel>
         </div>

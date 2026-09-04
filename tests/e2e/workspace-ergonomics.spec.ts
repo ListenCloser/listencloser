@@ -130,20 +130,31 @@ test.describe("workspace ergonomics (MSW)", () => {
     const library = page.locator("aside.studio-library");
     await expect(library).toBeVisible();
     await expect(library.getByRole("heading", { name: "Library" })).toBeVisible();
-    await expect(library.getByRole("button", { name: "Import audio", exact: true })).toBeVisible();
+    const importButton = library.getByRole("button", { name: "Import audio", exact: true });
+    await expect(importButton).toBeVisible();
     await expect(library.locator('button[title="Collapse library"]')).toHaveCount(0);
 
-    const processing = library.locator("details.library-import-settings");
-    await expect(processing).not.toHaveAttribute("open");
-    await expect(processing.getByText("Processing", { exact: true })).toBeVisible();
+    // Processing choices are intentionally absent from the permanent sidebar.
+    await expect(library.locator("details.library-import-settings")).toHaveCount(0);
+    await expect(library.getByText("Processing", { exact: true })).toHaveCount(0);
 
-    await processing.getByText("Processing", { exact: true }).click();
-    await expect(processing).toHaveAttribute("open");
-    await expect(processing.getByRole("button", { name: "Auto" })).toHaveAttribute("aria-pressed", "true");
+    await expect(importButton).toBeEnabled();
+    await importButton.click();
+    await page.getByRole("menuitem", { name: /Upload recording/ }).click();
 
-    await processing.getByRole("button", { name: "Solo piano" }).click();
-    await expect(processing.getByRole("button", { name: "Solo piano" })).toHaveAttribute("aria-pressed", "true");
-    await expect(library.getByRole("button", { name: "Import audio", exact: true })).toBeVisible();
+    const processing = page.getByRole("dialog", { name: "Process recording" });
+    await expect(processing).toBeVisible();
+    await expect(processing.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(processing.getByRole("button", { name: "MuseScore", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+    await processing.getByRole("button", { name: "Solo piano", exact: true }).click();
+    await processing.getByRole("button", { name: "PM2S", exact: true }).click();
+    await expect(processing.getByRole("button", { name: "Solo piano", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(processing.getByRole("button", { name: "PM2S", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+    await processing.getByRole("button", { name: "Close processing options" }).click();
+    await expect(processing).not.toBeVisible();
+    await expect(importButton).toBeVisible();
 
     await expect(page.locator("header.studio-header").getByRole("button", { name: /library/i })).not.toBeVisible();
   });

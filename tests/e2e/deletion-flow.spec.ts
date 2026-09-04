@@ -33,21 +33,22 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await expect(page.getByTestId("empty-workspace-signal")).toBeHidden();
   await expect(page.getByText("Move through waveform, notes, notation, and evidence without losing your place.", { exact: true })).toBeHidden();
 
-  // Processing is import policy, so the Library owns both transcription and
-  // score reconstruction choices even when the main workspace is empty.
+  // Processing policy stays out of the persistent Library surface. The choices
+  // are progressively disclosed only when a new import actually begins.
   const library = page.locator("aside.studio-library");
-  await library.getByText("Processing", { exact: true }).click();
-  const autoMode = library.getByRole("button", { name: "Auto", exact: true });
-  await expect(autoMode).not.toHaveAttribute("title");
-  await autoMode.hover();
-  await expect(page.getByRole("tooltip", { name: "General and mixed recordings" })).toBeVisible();
-  await expect(autoMode).toHaveAttribute("aria-describedby");
+  await expect(library.getByText("Processing", { exact: true })).toHaveCount(0);
+  const importButton = library.getByRole("button", { name: "Import audio", exact: true });
+  await expect(importButton).toBeEnabled();
+  await importButton.click();
+  await page.getByRole("menuitem", { name: /Upload recording/ }).click();
 
-  const pm2sMode = library.getByRole("button", { name: "PM2S", exact: true });
-  await expect(pm2sMode).not.toHaveAttribute("title");
-  await pm2sMode.hover();
-  await expect(page.getByRole("tooltip", { name: "Experimental learned piano score reconstruction" })).toBeVisible();
-  await expect(pm2sMode).toHaveAttribute("aria-describedby");
+  const processingDialog = page.getByRole("dialog", { name: "Process recording" });
+  const closeProcessing = processingDialog.getByRole("button", { name: "Close processing options" });
+  await expect(closeProcessing).toBeVisible();
+  await expect(processingDialog.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(processingDialog.getByRole("button", { name: "MuseScore", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await closeProcessing.click();
+  await expect(closeProcessing).not.toBeVisible();
 
   await expect(page.getByRole("slider", { name: "Playback position" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Playback source:/ })).toHaveCount(0);
