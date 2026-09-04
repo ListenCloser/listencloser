@@ -14,6 +14,7 @@ import AskPanel from "./AskPanel";
 import BreakdownFindingCard from "./BreakdownFindingCard";
 import HarmonyEvidence, { harmonyEvidenceRowCount, harmonyEvidenceSummary } from "./HarmonyEvidence";
 import MeasuredChanges from "./MeasuredChanges";
+import ProductionSpatial from "./ProductionSpatial";
 import PassageCompare from "./PassageCompare";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
@@ -404,6 +405,7 @@ function BreakdownContent({
           <p>{emptyState.body}</p>
         </div>
         <MeasuredChanges />
+        <ProductionSpatial />
         <PassageCompare />
       </div>
     );
@@ -418,6 +420,7 @@ function BreakdownContent({
       />
 
       <MeasuredChanges />
+        <ProductionSpatial />
       <PassageCompare />
 
       {overviewCount > 0 && <OverviewSection insights={overviewInsights} />}

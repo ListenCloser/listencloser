@@ -8,6 +8,7 @@ from domain.correction_entity_sync import register_corrected_midi_entity_sync
 from domain.perceptual_capability import register_perceptual_capability
 from domain.performance_instrumentation import install_understand_instrumentation
 from domain.pgmq_job_worker import PgmqJobWorker
+from domain.production_spatial_capability import register_production_spatial_capability
 from domain.structure_map_capability import register_structure_map_capability
 from domain.worker_warmup import (
     prewarm_basic_pitch_inference,
@@ -51,6 +52,7 @@ def main() -> None:
     register_corrected_midi_entity_sync(worker)
     register_perceptual_capability(worker)
     register_structure_map_capability(worker)
+    register_production_spatial_capability(worker)
 
     def stop(_signum, _frame) -> None:
         worker.stop()
