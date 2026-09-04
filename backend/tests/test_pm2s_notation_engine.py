@@ -43,7 +43,12 @@ class _Importer:
         self.inputs: list[bytes] = []
         self.kwargs: list[dict[str, Any]] = []
 
-    def convert(self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any) -> NotationResult:
+    def convert(
+        self,
+        midi_bytes: bytes,
+        beat_times: list[float],
+        **kwargs: Any,
+    ) -> NotationResult:
         self.inputs.append(midi_bytes)
         self.kwargs.append(kwargs)
         return NotationResult(
