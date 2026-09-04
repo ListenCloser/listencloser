@@ -1,41 +1,42 @@
+import type { ComponentProps } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import LibraryImportControl from "@/components/workspace/LibraryImportControl";
 
-function renderImportControl({
-  onUpload = vi.fn(),
-  onImport = vi.fn().mockResolvedValue(undefined),
-  onTranscriptionProfileChange = vi.fn(),
-  onScoreEngineChange = vi.fn(),
-  disabled = false,
-}: {
-  onUpload?: ReturnType<typeof vi.fn>;
-  onImport?: ReturnType<typeof vi.fn>;
-  onTranscriptionProfileChange?: ReturnType<typeof vi.fn>;
-  onScoreEngineChange?: ReturnType<typeof vi.fn>;
-  disabled?: boolean;
-} = {}) {
-  render(
-    <LibraryImportControl
-      disabled={disabled}
-      transcriptionProfile="auto"
-      scoreEngine="musescore"
-      onTranscriptionProfileChange={onTranscriptionProfileChange}
-      onScoreEngineChange={onScoreEngineChange}
-      onUpload={onUpload}
-      onImport={onImport}
-    />,
-  );
+type ImportControlOverrides = Partial<
+  Pick<
+    ComponentProps<typeof LibraryImportControl>,
+    | "onUpload"
+    | "onImport"
+    | "onTranscriptionProfileChange"
+    | "onScoreEngineChange"
+    | "disabled"
+  >
+>;
+
+function renderImportControl(overrides: ImportControlOverrides = {}) {
+  const props: ComponentProps<typeof LibraryImportControl> = {
+    disabled: false,
+    transcriptionProfile: "auto",
+    scoreEngine: "musescore",
+    onTranscriptionProfileChange: () => undefined,
+    onScoreEngineChange: () => undefined,
+    onUpload: () => undefined,
+    onImport: async () => undefined,
+    ...overrides,
+  };
+
+  render(<LibraryImportControl {...props} />);
 }
 
 describe("LibraryImportControl", () => {
   it("asks for compact processing choices before opening a local file", async () => {
     const user = userEvent.setup();
-    const onUpload = vi.fn();
-    const onTranscriptionProfileChange = vi.fn();
-    const onScoreEngineChange = vi.fn();
+    const onUpload = vi.fn(() => undefined);
+    const onTranscriptionProfileChange = vi.fn(() => undefined);
+    const onScoreEngineChange = vi.fn(() => undefined);
     renderImportControl({ onUpload, onTranscriptionProfileChange, onScoreEngineChange });
 
     await user.click(screen.getByRole("button", { name: "Import audio" }));
@@ -57,7 +58,7 @@ describe("LibraryImportControl", () => {
 
   it("keeps the public catalog and applies processing choices only after a recording is selected", async () => {
     const user = userEvent.setup();
-    const onImport = vi.fn().mockResolvedValue(undefined);
+    const onImport = vi.fn(async () => undefined);
     renderImportControl({ onImport });
 
     await user.click(screen.getByRole("button", { name: "Import audio" }));
