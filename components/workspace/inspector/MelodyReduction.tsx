@@ -1,7 +1,7 @@
 "use client";
 
 import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import type { Insight } from "@/lib/domain.types";
 import { JobObservationError, waitForJob } from "@/lib/job-tracking";
@@ -226,7 +226,10 @@ export default function MelodyReduction({ insight }: { insight: Insight }) {
   const actionInFlightRef = useRef(false);
   const pianoRoll = workspace.representations.find((item) => item.kind === "piano_roll");
   const activeWorkId = workspace.activeWorkId;
-  const projection = pianoRoll ? projectMelodyReduction(insight, pianoRoll) : null;
+  const projection = useMemo(
+    () => pianoRoll ? projectMelodyReduction(insight, pianoRoll) : null,
+    [insight, pianoRoll],
+  );
 
   const resolveDurableSource = useCallback(async (fresh = false) => {
     if (!activeWorkId || !projection || projection.status !== "supported") return null;
