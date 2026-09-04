@@ -33,41 +33,47 @@ jobs:
         run: |
           from pathlib import Path
 
-          def replace_once(path: str, old: str, new: str) -> None:
+          def replace_exact(path: str, old: str, new: str, *, expected: int = 1) -> None:
               file = Path(path)
               text = file.read_text()
-              if new in text:
+              if new in text and old not in text:
                   return
               count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"{path}: expected one patch anchor, found {count}")
-              file.write_text(text.replace(old, new, 1))
+              if count != expected:
+                  raise SystemExit(f"{path}: expected {expected} patch anchor(s), found {count}")
+              file.write_text(text.replace(old, new))
 
-          replace_once(
+          replace_exact(
               "backend/pyproject.toml",
-              '    "librosa>=0.10.0",\n',
-              '    "librosa>=0.10.0",\n    "pyloudnorm==0.2.0",\n',
+              '  "librosa>=0.10.0",\n',
+              '  "librosa>=0.10.0",\n  "pyloudnorm==0.2.0",\n',
           )
-          replace_once(
+          replace_exact(
               "backend/domain/api/workflows_jobs.py",
               '_PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset({"perceptual_series", "structure_map", "transform"})',
               '_PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset(\n    {"perceptual_series", "production_spatial", "structure_map", "transform"}\n)',
           )
-          replace_once(
+          replace_exact(
               "backend/tests/test_public_workflow_dispatch.py",
               '@pytest.mark.parametrize("action", ["transform", "perceptual_series"])',
               '@pytest.mark.parametrize(\n    "action", ["transform", "perceptual_series", "structure_map", "production_spatial"]\n)',
           )
-          replace_once(
+          replace_exact(
               "components/workspace/inspector/Inspector.tsx",
               'import MeasuredChanges from "./MeasuredChanges";\nimport PassageCompare from "./PassageCompare";',
               'import MeasuredChanges from "./MeasuredChanges";\nimport ProductionSpatial from "./ProductionSpatial";\nimport PassageCompare from "./PassageCompare";',
           )
-          replace_once(
-              "components/workspace/inspector/Inspector.tsx",
-              '          <MeasuredChanges\n            insights={validInsights}\n            sourceVersionId={workspace.sourceAudioVersionId}\n          />\n          <PassageCompare insights={validInsights} />',
-              '          <MeasuredChanges\n            insights={validInsights}\n            sourceVersionId={workspace.sourceAudioVersionId}\n          />\n          <ProductionSpatial />\n          <PassageCompare insights={validInsights} />',
-          )
+
+          inspector = Path("components/workspace/inspector/Inspector.tsx")
+          text = inspector.read_text()
+          if "<ProductionSpatial />" not in text:
+              anchor = "<MeasuredChanges />"
+              if text.count(anchor) != 2:
+                  raise SystemExit(
+                      f"Inspector.tsx: expected two MeasuredChanges mounts, found {text.count(anchor)}"
+                  )
+              text = text.replace(anchor, f"{anchor}\n        <ProductionSpatial />")
+              inspector.write_text(text)
 
           registry = Path("backend/config/capabilities.json")
           text = registry.read_text()
@@ -75,7 +81,7 @@ jobs:
               suffix = '\n    }\n  }\n}\n'
               if not text.endswith(suffix):
                   raise SystemExit("capabilities.json: unexpected terminal shape")
-              entry = '''\n    },\n    "production_spatial": {\n      "status": "experimental",\n      "input": "audio",\n      "engine": "pyloudnorm_librosa_mid_side_v1",\n      "exposure": {"inspector": true, "annotations": false, "ask": false},\n      "evaluation": {\n        "dataset": "synthetic stereo/mono fixtures + targeted real-stack source audio",\n        "metric": "experimental_product_integration",\n        "details": "#1179: BS.1770 loudness, exact two-channel mid/side energy share, spectral centroid, and onset-strength changes are exposed only as method-qualified within-recording adjacent-window relations."\n      },\n      "validated_domain": "within-recording adjacent fixed-window measurement comparison",\n      "notes": "Experimental opt-in Inspector lens only. Literal measurements and relations; no semantic timbre, mix-quality, width-quality, section, cause, importance, or cross-recording claims. Mid/side relation is unavailable unless the source is exactly stereo."\n    }\n  }\n}\n'''
+              entry = '''\n    },\n    "production_spatial": {\n      "status": "experimental",\n      "input": "audio",\n      "engine": "pyloudnorm_librosa_mid_side_v1",\n      "exposure": {"inspector": true, "annotations": false, "ask": false},\n      "evaluation": {\n        "dataset": "synthetic stereo/mono fixtures",\n        "metric": "experimental_product_integration",\n        "details": "#1179: BS.1770 loudness, exact two-channel mid/side energy share, spectral centroid, and onset-strength changes are exposed only as method-qualified within-recording adjacent-window relations."\n      },\n      "validated_domain": "within-recording adjacent fixed-window measurement comparison",\n      "notes": "Experimental opt-in Inspector lens only. Literal measurements and relations; no semantic timbre, mix-quality, width-quality, section, cause, importance, or cross-recording claims. Mid/side relation is unavailable unless the source is exactly stereo."\n    }\n  }\n}\n'''
               registry.write_text(text[:-len(suffix)] + entry)
       - name: Regenerate backend lock
         run: uv lock --project backend
