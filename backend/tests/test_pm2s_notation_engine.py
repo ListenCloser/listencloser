@@ -43,12 +43,7 @@ class _Importer:
         self.inputs: list[bytes] = []
         self.kwargs: list[dict[str, Any]] = []
 
-    def convert(
-        self,
-        midi_bytes: bytes,
-        beat_times: list[float],
-        **kwargs: Any,
-    ) -> NotationResult:
+    def convert(self, midi_bytes: bytes, beat_times: list[float], **kwargs: Any) -> NotationResult:
         self.inputs.append(midi_bytes)
         self.kwargs.append(kwargs)
         return NotationResult(
@@ -95,10 +90,7 @@ def test_pm2s_preserves_score_midi_and_feeds_only_it_to_musescore() -> None:
     )
     assert result.quantization_report["score_midi_engine"] == "pm2s"
     assert result.quantization_report["musicxml_stage"] == "musescore_midi_import"
-    assert (
-        result.quantization_report["source_compatibility_patch"]
-        == "midi_tempo_uint24_bound_v1"
-    )
+    assert result.quantization_report["source_compatibility_patch"] == "midi_tempo_uint24_bound_v1"
     assert result.quantization_report["musescore_report"] == {
         "engine": "musescore",
         "stage": "midi_import",
