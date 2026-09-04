@@ -1,0 +1,101 @@
+name: Issue 1179 branch integration
+
+on:
+  push:
+    branches:
+      - agent/1179-production-spatial-lens
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.9'
+      - name: Apply bounded integration edits
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              if new in text:
+                  return
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one patch anchor, found {count}")
+              file.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "backend/pyproject.toml",
+              '    "librosa>=0.10.0",\n',
+              '    "librosa>=0.10.0",\n    "pyloudnorm==0.2.0",\n',
+          )
+          replace_once(
+              "backend/domain/api/workflows_jobs.py",
+              '_PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset({"perceptual_series", "structure_map", "transform"})',
+              '_PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset(\n    {"perceptual_series", "production_spatial", "structure_map", "transform"}\n)',
+          )
+          replace_once(
+              "backend/tests/test_public_workflow_dispatch.py",
+              '@pytest.mark.parametrize("action", ["transform", "perceptual_series"])',
+              '@pytest.mark.parametrize(\n    "action", ["transform", "perceptual_series", "structure_map", "production_spatial"]\n)',
+          )
+          replace_once(
+              "components/workspace/inspector/Inspector.tsx",
+              'import MeasuredChanges from "./MeasuredChanges";\nimport PassageCompare from "./PassageCompare";',
+              'import MeasuredChanges from "./MeasuredChanges";\nimport ProductionSpatial from "./ProductionSpatial";\nimport PassageCompare from "./PassageCompare";',
+          )
+          replace_once(
+              "components/workspace/inspector/Inspector.tsx",
+              '          <MeasuredChanges\n            insights={validInsights}\n            sourceVersionId={workspace.sourceAudioVersionId}\n          />\n          <PassageCompare insights={validInsights} />',
+              '          <MeasuredChanges\n            insights={validInsights}\n            sourceVersionId={workspace.sourceAudioVersionId}\n          />\n          <ProductionSpatial />\n          <PassageCompare insights={validInsights} />',
+          )
+
+          registry = Path("backend/config/capabilities.json")
+          text = registry.read_text()
+          if '"production_spatial"' not in text:
+              suffix = '\n    }\n  }\n}\n'
+              if not text.endswith(suffix):
+                  raise SystemExit("capabilities.json: unexpected terminal shape")
+              entry = '''\n    },\n    "production_spatial": {\n      "status": "experimental",\n      "input": "audio",\n      "engine": "pyloudnorm_librosa_mid_side_v1",\n      "exposure": {"inspector": true, "annotations": false, "ask": false},\n      "evaluation": {\n        "dataset": "synthetic stereo/mono fixtures + targeted real-stack source audio",\n        "metric": "experimental_product_integration",\n        "details": "#1179: BS.1770 loudness, exact two-channel mid/side energy share, spectral centroid, and onset-strength changes are exposed only as method-qualified within-recording adjacent-window relations."\n      },\n      "validated_domain": "within-recording adjacent fixed-window measurement comparison",\n      "notes": "Experimental opt-in Inspector lens only. Literal measurements and relations; no semantic timbre, mix-quality, width-quality, section, cause, importance, or cross-recording claims. Mid/side relation is unavailable unless the source is exactly stereo."\n    }\n  }\n}\n'''
+              registry.write_text(text[:-len(suffix)] + entry)
+      - name: Regenerate backend lock
+        run: uv lock --project backend
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+      - name: Install audio decoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Run focused backend verification
+        run: >-
+          uv run --project backend pytest -q
+          backend/tests/test_production_spatial_product.py
+          backend/tests/test_public_workflow_dispatch.py
+          backend/tests/test_capability_registration.py
+      - name: Commit integration patch
+        run: |
+          if git diff --quiet; then
+            echo "No integration changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/pyproject.toml backend/uv.lock backend/config/capabilities.json \
+            backend/domain/api/workflows_jobs.py backend/tests/test_public_workflow_dispatch.py \
+            components/workspace/inspector/Inspector.tsx
+          git commit -m "feat: integrate production spatial capability"
+          git push origin HEAD:agent/1179-production-spatial-lens
