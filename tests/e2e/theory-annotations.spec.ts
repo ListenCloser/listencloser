@@ -4,8 +4,8 @@ import { expect, test, type Page } from "@playwright/test";
  * Theory annotation E2E regression tests (MSW).
  *
  * Validates the Breakdown Inspector hierarchy:
- *   - Context shows interpretable Key, Tempo, Meter as quiet inline metadata
- *   - Evidence details can be expanded to one aligned harmonic timeline
+ *   - Overview shows interpretable Key, Tempo, Meter as quiet inline metadata
+ *   - Analysis opens once to one flat aligned harmonic timeline
  *   - Clicking chord / degree evidence sets a selection
  *   - Withheld capabilities (cadence, key_region) never appear
  */
@@ -50,23 +50,13 @@ test.describe("theory annotations (MSW)", () => {
     );
   });
 
-  async function openHarmonyEvidence(page: Page) {
-    const evidenceRoot = page.locator("details.inspector-breakdown-evidence-root");
-    await expect(evidenceRoot).toBeVisible();
-    if ((await evidenceRoot.getAttribute("open")) === null) {
-      await evidenceRoot.locator(":scope > summary").click();
-    }
-    await expect(evidenceRoot).toHaveAttribute("open", "");
+  async function openHarmonyAnalysis(page: Page) {
+    const analysisSummary = page.getByText("Analysis", { exact: true });
+    await expect(analysisSummary).toBeVisible();
+    await analysisSummary.click();
 
-    const harmony = evidenceRoot
-      .locator("details.inspector-evidence-group")
-      .filter({ hasText: /^Harmony/ })
-      .first();
+    const harmony = page.getByRole("region", { name: "Harmony analysis" });
     await expect(harmony).toBeVisible();
-    if ((await harmony.getAttribute("open")) === null) {
-      await harmony.locator(":scope > summary").click();
-    }
-    await expect(harmony).toHaveAttribute("open", "");
     return harmony;
   }
 
@@ -78,7 +68,7 @@ test.describe("theory annotations (MSW)", () => {
     ).toBeVisible({ timeout: 20_000 });
 
     await expect(page.getByRole("tab", { name: "Breakdown", selected: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Context" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 
     const metadata = page.getByRole("definition");
     await expect(page.getByText("Key", { exact: true })).toBeVisible();
@@ -89,6 +79,7 @@ test.describe("theory annotations (MSW)", () => {
     await expect(page.getByText("112 BPM", { exact: true })).toBeVisible();
     await expect(page.getByText("4/4", { exact: true })).toBeVisible();
     await expect(metadata).toHaveCount(3);
+    await expect(page.getByRole("heading", { name: "Context" })).toHaveCount(0);
   });
 
   test("Inspector shows one aligned harmony timeline", async ({ page }) => {
@@ -96,8 +87,8 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    const harmony = await openHarmonyEvidence(page);
-    const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
+    const harmony = await openHarmonyAnalysis(page);
+    const table = harmony.getByRole("table", { name: "Harmonic analysis timeline" });
 
     await expect(table).toBeVisible();
     await expect(table.getByRole("columnheader")).toHaveText(["Time", "Harmony"]);
@@ -113,8 +104,8 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    const harmony = await openHarmonyEvidence(page);
-    const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
+    const harmony = await openHarmonyAnalysis(page);
+    const table = harmony.getByRole("table", { name: "Harmonic analysis timeline" });
 
     await expect(table.getByRole("button", { name: "C maj", exact: true })).toHaveCount(3);
     await expect(table.getByRole("button", { name: "G min", exact: true })).toHaveCount(1);
@@ -127,18 +118,15 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    const harmony = await openHarmonyEvidence(page);
-    const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
+    const harmony = await openHarmonyAnalysis(page);
+    const table = harmony.getByRole("table", { name: "Harmonic analysis timeline" });
 
     await expect(table.getByRole("button", { name: "I", exact: true })).toHaveCount(3);
     await expect(table.getByRole("button", { name: "v", exact: true })).toHaveCount(1);
     await expect(table.getByRole("button", { name: "iv", exact: true })).toHaveCount(1);
     await expect(table.getByRole("button", { name: "V7", exact: true })).toHaveCount(1);
     await expect(table.getByRole("button").filter({ hasText: "(A minor)" })).toHaveCount(0);
-
-    const firstDetails = table.getByText("Evidence details", { exact: true }).first();
-    await firstDetails.click();
-    await expect(table.getByText("I (A minor)", { exact: true }).first()).toBeVisible();
+    await expect(table.getByText("Evidence details", { exact: true })).toHaveCount(0);
   });
 
   test("Clicking a chord in Inspector sets selection", async ({ page }) => {
@@ -146,8 +134,8 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    const harmony = await openHarmonyEvidence(page);
-    const table = harmony.getByRole("table", { name: "Harmonic evidence timeline" });
+    const harmony = await openHarmonyAnalysis(page);
+    const table = harmony.getByRole("table", { name: "Harmonic analysis timeline" });
 
     await table.getByRole("button", { name: "C maj", exact: true }).first().click();
 
@@ -160,7 +148,7 @@ test.describe("theory annotations (MSW)", () => {
       page.getByRole("button", { name: /^Test Work\b/ }),
     ).toBeVisible({ timeout: 20_000 });
 
-    await openHarmonyEvidence(page);
+    await openHarmonyAnalysis(page);
     await expect(page.getByRole("heading", { name: "Cadences" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Key Regions" })).toHaveCount(0);
   });

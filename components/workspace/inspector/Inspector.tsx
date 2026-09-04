@@ -18,6 +18,15 @@ import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
 import styles from "./Inspector.module.css";
 
+const MELODY_TEMPORAL_KINDS = new Set([
+  "melody_register_peak",
+  "melody_register_low",
+  "melody_contour_ascending",
+  "melody_contour_descending",
+  "melody_activity_dense",
+  "melody_activity_sparse",
+]);
+
 function describeSelection(selection: MusicalSelection): string {
   if (selection.measureRange) {
     const { start, end } = selection.measureRange;
@@ -62,14 +71,14 @@ function overviewItems(insights: Insight[]): OverviewItem[] {
   ].filter((item): item is OverviewItem => item !== null);
 }
 
-function ContextSection({ insights }: { insights: Insight[] }) {
+function OverviewSection({ insights }: { insights: Insight[] }) {
   const items = overviewItems(insights);
   if (items.length === 0) return null;
 
   return (
     <section className="inspector-section inspector-breakdown-context">
-      <div className="inspector-section-heading"><h3>Context</h3></div>
-      <dl className="inspector-meta-line" aria-label="Musical context">
+      <div className="inspector-section-heading"><h3>Overview</h3></div>
+      <dl className="inspector-meta-line" aria-label="Musical overview">
         {items.map((item) => (
           <div className="inspector-meta-item" key={item.label}>
             <dt>{item.label}</dt>
@@ -144,15 +153,7 @@ function MelodyEvidence({ insights, onSeek, setSelection }: {
 
   const summaries = insights.filter((item) => item.kind === "melody");
   const intervalSummary = insights.find((item) => item.kind === "melody_interval_summary");
-  const temporalKinds = new Set([
-    "melody_register_peak",
-    "melody_register_low",
-    "melody_contour_ascending",
-    "melody_contour_descending",
-    "melody_activity_dense",
-    "melody_activity_sparse",
-  ]);
-  const temporal = insights.filter((item) => temporalKinds.has(item.kind) && item.span.start_seconds != null);
+  const temporal = insights.filter((item) => MELODY_TEMPORAL_KINDS.has(item.kind) && item.span.start_seconds != null);
 
   if (summaries.length === 0 && !intervalSummary && temporal.length === 0) return null;
 
@@ -161,7 +162,7 @@ function MelodyEvidence({ insights, onSeek, setSelection }: {
       {[...summaries.slice(0, 2), ...(intervalSummary ? [intervalSummary] : [])].map((item) => (
         <p className="inspector-evidence-copy" key={item.id}>{normalizeMusicText(item.claim)}</p>
       ))}
-      {temporal.slice(0, 6).map((item) => (
+      {temporal.map((item) => (
         <button
           key={item.id}
           type="button"
@@ -198,19 +199,20 @@ function melodyEvidenceSummary(insights: Insight[]): string | null {
   const labels: string[] = [];
   if (insights.some((item) => item.kind === "melody")) labels.push("melodic summary");
   if (insights.some((item) => item.kind === "melody_interval_summary")) labels.push("interval profile");
+  if (insights.some((item) => MELODY_TEMPORAL_KINDS.has(item.kind))) labels.push("time-linked observations");
   return labels.length > 0 ? labels.join(" · ") : null;
 }
 
-function EvidenceDisclosure({ title, summary, children }: { title: string; summary: string | null; children: ReactNode }) {
+function AnalysisGroup({ title, summary, children }: { title: string; summary: string | null; children: ReactNode }) {
   if (!summary || !children) return null;
   return (
-    <details className="inspector-evidence-group">
-      <summary>
-        <span>{title}</span>
-        <span className={styles.evidenceSummary}>{summary}</span>
-      </summary>
+    <section className={styles.analysisGroup} aria-label={`${title} analysis`}>
+      <header className={styles.analysisGroupHeader}>
+        <h4>{title}</h4>
+        <span>{summary}</span>
+      </header>
       {children}
-    </details>
+    </section>
   );
 }
 
@@ -232,20 +234,20 @@ function BreakdownSection({
   const emptyCopy = analysisState === "analyzing"
     ? {
         title: "Still looking for a strong time-linked finding",
-        body: "Supported context and evidence that has arrived is available below while analysis continues.",
+        body: "Supported overview and analysis that has arrived is available below while analysis continues.",
       }
     : analysisState === "completed"
       ? {
           title: "No supported time-linked finding",
           body: selection
-            ? "Analysis completed without a reliable localized claim for this selection. Try a wider passage or Ask about the available evidence."
-            : "Analysis completed without a reliable time-linked summary. Available context and source evidence remain below.",
+            ? "Analysis completed without a reliable localized claim for this selection. Try a wider passage or Ask about the available analysis."
+            : "Analysis completed without a reliable time-linked summary. Available overview and analysis remain below.",
         }
       : {
           title: "No strong time-linked finding here yet",
           body: selection
-            ? "The current evidence does not support a reliable localized claim for this selection. Try a wider passage or Ask about what is available."
-            : "The current evidence does not support a reliable time-linked summary yet. Available context and source evidence remain below.",
+            ? "The current analysis does not support a reliable localized claim for this selection. Try a wider passage or Ask about what is available."
+            : "The current analysis does not support a reliable time-linked summary yet. Available overview and analysis remain below.",
         };
   const primaryFindings = findings.slice(0, 3);
   const moreFindings = findings.slice(3);
@@ -351,45 +353,47 @@ function BreakdownContent({
   const scopedInsights = workspace.selection
     ? exposed([...selectionInsights, ...wholeWorkInsights])
     : exposedAll;
-  const contextInsights = exposed(wholeWorkInsights);
-  const hasKeyContext = overviewItems(contextInsights).some((item) => item.label === "Key");
-  const evidenceInsights = scopedInsights
+  const overviewInsights = exposed(wholeWorkInsights);
+  const hasKeyContext = overviewItems(overviewInsights).some((item) => item.label === "Key");
+  const analysisInsights = scopedInsights
     .filter((item) => item.confidence == null || item.confidence >= 0.65)
-    .filter((item) => {
-      if (["roman_numeral", "harmonic_function"].includes(item.kind)) return hasKeyContext;
-      if (item.kind.startsWith("melody_") && item.kind !== "melody_interval_summary") return false;
-      return true;
-    });
+    .filter((item) => !["key", "tempo", "audio_tempo", "time_signature"].includes(item.kind))
+    .filter((item) => !["roman_numeral", "harmonic_function"].includes(item.kind) || hasKeyContext);
 
-  const harmonyCount = harmonyEvidenceRowCount(evidenceInsights, bpm);
-  const rhythmCount = evidenceInsights.filter((item) => ["rhythm", "rhythm_density", "rhythm_rests"].includes(item.kind)).length;
-  const melodyCount = evidenceInsights.filter((item) => item.kind === "melody" || item.kind === "melody_interval_summary").length;
-  const totalEvidenceCount = harmonyCount + rhythmCount + melodyCount;
-  const harmonySummary = harmonyEvidenceSummary(evidenceInsights, bpm);
-  const rhythmSummary = rhythmEvidenceSummary(evidenceInsights);
-  const melodySummary = melodyEvidenceSummary(evidenceInsights);
-  const contextCount = overviewItems(contextInsights).length;
+  const harmonyCount = harmonyEvidenceRowCount(analysisInsights, bpm);
+  const rhythmCount = analysisInsights.filter((item) => ["rhythm", "rhythm_density", "rhythm_rests"].includes(item.kind)).length;
+  const melodyCount = analysisInsights.filter((item) => item.kind === "melody" || item.kind.startsWith("melody_")).length;
+  const totalAnalysisCount = harmonyCount + rhythmCount + melodyCount;
+  const harmonySummary = harmonyEvidenceSummary(analysisInsights, bpm);
+  const rhythmSummary = rhythmEvidenceSummary(analysisInsights);
+  const melodySummary = melodyEvidenceSummary(analysisInsights);
+  const analysisDomains = [
+    harmonySummary ? "Harmony" : null,
+    rhythmSummary ? "Rhythm" : null,
+    melodySummary ? "Melody" : null,
+  ].filter((item): item is string => item !== null).join(" · ");
+  const overviewCount = overviewItems(overviewInsights).length;
 
   if (exposedAll.length === 0 && rankedFindings.length === 0) {
     const emptyState = workspace.analysisState === "analyzing"
       ? {
           title: "Analysis is still in progress",
           body: workspace.selection
-            ? "Supported findings will appear here as evidence becomes available for this selection."
-            : "Breakdown will fill in as supported musical evidence becomes available. You can keep listening or move between views while processing continues.",
+            ? "Supported findings will appear here as analysis becomes available for this selection."
+            : "Breakdown will fill in as supported musical analysis becomes available. You can keep listening or move between views while processing continues.",
         }
       : workspace.analysisState === "completed"
         ? {
             title: "Analysis complete — no supported findings",
             body: workspace.selection
-              ? "Processing finished, but the available evidence did not support a confident finding for this selection. Try a wider passage or Ask about the recording."
-              : "Processing finished, but the available evidence did not support a confident Breakdown. You can still Ask about the recording or inspect the available representations.",
+              ? "Processing finished, but the available analysis did not support a confident finding for this selection. Try a wider passage or Ask about the recording."
+              : "Processing finished, but the available analysis did not support a confident Breakdown. You can still Ask about the recording or inspect the available representations.",
           }
         : {
             title: "No confident findings yet",
             body: workspace.selection
               ? "Try a wider selection or Ask about what is available."
-              : "Breakdown will appear here when there is enough musical evidence.",
+              : "Breakdown will appear here when there is enough musical analysis.",
           };
 
     return (
@@ -413,24 +417,25 @@ function BreakdownContent({
 
       <PassageCompare />
 
-      {contextCount > 0 && <ContextSection insights={contextInsights} />}
+      {overviewCount > 0 && <OverviewSection insights={overviewInsights} />}
 
-      {totalEvidenceCount > 0 && (
+      {totalAnalysisCount > 0 && (
         <section className="inspector-section inspector-evidence-section inspector-breakdown-evidence-section">
-          <details className="inspector-breakdown-evidence-root">
-            <summary className={styles.evidenceRootSummary}>
-              <span>Evidence details</span>
+          <details className={styles.analysisDisclosure}>
+            <summary className={styles.analysisRootSummary}>
+              <span>Analysis</span>
+              <span className={styles.analysisRootMeta}>{analysisDomains}</span>
             </summary>
-            <div className="inspector-evidence-groups">
-              <EvidenceDisclosure title="Harmony" summary={harmonySummary}>
-                <HarmonyEvidence insights={evidenceInsights} bpm={bpm} onSeek={seek} setSelection={setSelection} />
-              </EvidenceDisclosure>
-              <EvidenceDisclosure title="Rhythm" summary={rhythmSummary}>
-                <RhythmEvidence insights={evidenceInsights} onSeek={seek} />
-              </EvidenceDisclosure>
-              <EvidenceDisclosure title="Melody" summary={melodySummary}>
-                <MelodyEvidence insights={evidenceInsights} onSeek={seek} setSelection={setSelection} />
-              </EvidenceDisclosure>
+            <div className={styles.analysisGroups}>
+              <AnalysisGroup title="Harmony" summary={harmonySummary}>
+                <HarmonyEvidence insights={analysisInsights} bpm={bpm} onSeek={seek} setSelection={setSelection} />
+              </AnalysisGroup>
+              <AnalysisGroup title="Rhythm" summary={rhythmSummary}>
+                <RhythmEvidence insights={analysisInsights} onSeek={seek} />
+              </AnalysisGroup>
+              <AnalysisGroup title="Melody" summary={melodySummary}>
+                <MelodyEvidence insights={analysisInsights} onSeek={seek} setSelection={setSelection} />
+              </AnalysisGroup>
             </div>
           </details>
         </section>

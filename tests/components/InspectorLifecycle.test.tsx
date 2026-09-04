@@ -106,4 +106,20 @@ describe("Breakdown lifecycle semantics", () => {
     expect(screen.getByText("Note-onset activity is densest in this passage.")).toBeVisible();
     expect(screen.queryByText("Analysis complete — no supported findings")).not.toBeInTheDocument();
   });
+
+  it("keeps the complete supported inventory behind one Analysis disclosure", async () => {
+    const user = userEvent.setup();
+    renderInspector();
+
+    await user.click(screen.getByRole("button", { name: "Evidence arrives" }));
+
+    expect(screen.getByText("Analysis", { exact: true })).toBeVisible();
+    expect(screen.queryByText("Evidence details")).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Analysis", { exact: true }));
+
+    expect(screen.getByRole("region", { name: "Rhythm analysis" })).toBeVisible();
+    expect(screen.getByText("Peak note density at 0:02", { exact: true })).toBeVisible();
+    expect(screen.queryByText("Evidence details")).not.toBeInTheDocument();
+  });
 });
