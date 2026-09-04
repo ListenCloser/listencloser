@@ -1,5 +1,7 @@
 import { withCurrentSupabaseAuth } from "@/lib/openapi-client";
 
+export const PITCH_CONTOUR_READY_EVENT = "listencloser:pitch-contour-ready";
+
 export type PitchContourWorkflowResponse = {
   workflow: { id: string };
   job: { id: string };
