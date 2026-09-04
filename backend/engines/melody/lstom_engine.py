@@ -173,7 +173,7 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
 
         notes.sort(key=lambda n: (n.start, -n.pitch))
 
-        # Convert to feature representation
+        # Convert to feature representation.
         note_dicts = []
         for note in notes:
             note_dicts.append(
@@ -185,51 +185,62 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
             )
 
         features = _extract_features(note_dicts)
-        if features.shape[1] < _SEGMENT_SIZE:
-            return None
 
-        # Pad to multiple of segment_size
-        modulo = features.shape[1] % _SEGMENT_SIZE
-        if modulo > 0:
-            features = features[:, :-modulo]
-
-        # Scale features (z-score normalization)
+        # Scale the complete candidate sequence (z-score normalization). The
+        # previous adapter truncated the sequence to a multiple of 50 before
+        # normalization and inference, silently dropping the final 1-49 notes
+        # and refusing every 2-49-note input.
         mean = np.mean(features, axis=1, keepdims=True)
         std = np.std(features, axis=1, keepdims=True)
         std[std == 0] = 1.0
         features_scaled = (features - mean) / std
 
-        # Predict in segments
+        # LStoM's recurrent model accepts variable sequence lengths. Keep the
+        # historical 50-note chunk size for bounded inference, but run the final
+        # partial chunk rather than discarding it. reshape(-1) is intentional:
+        # squeeze() turns a one-note tail into a scalar and breaks concatenate.
         model = _get_model()
-        all_preds = []
+        all_preds: list[np.ndarray] = []
+        segment_lengths: list[int] = []
 
-        for seg_idx in range(features_scaled.shape[1] // _SEGMENT_SIZE):
-            seg = features_scaled[:, seg_idx * _SEGMENT_SIZE : (seg_idx + 1) * _SEGMENT_SIZE]
+        for start in range(0, features_scaled.shape[1], _SEGMENT_SIZE):
+            seg = features_scaled[:, start : start + _SEGMENT_SIZE]
+            segment_lengths.append(seg.shape[1])
             x = torch.tensor(seg.T.astype(np.float32)).unsqueeze(1)
             with torch.no_grad():
-                pred = model(x).squeeze().numpy()
+                pred = model(x).detach().cpu().numpy().reshape(-1)
             all_preds.append(pred)
 
-        all_preds = np.concatenate(all_preds)
-        pred_binary = (all_preds > _THRESHOLD).astype(int)
+        predictions = np.concatenate(all_preds)
+        pred_binary = (predictions > _THRESHOLD).astype(int)
 
-        # Collect melody notes
-        melody_notes = [
-            notes[i] for i in range(len(notes)) if i < len(pred_binary) and pred_binary[i] == 1
+        if len(pred_binary) != len(notes):
+            raise RuntimeError(
+                "LStoM prediction count does not match candidate note count: "
+                f"{len(pred_binary)} predictions for {len(notes)} notes"
+            )
+
+        # Collect melody notes while retaining the method-specific model score.
+        selected = [
+            (notes[i], float(predictions[i]))
+            for i in range(len(notes))
+            if pred_binary[i] == 1
         ]
 
-        if len(melody_notes) < 2:
+        if len(selected) < 2:
             return None
 
+        melody_notes = [note for note, _score in selected]
         pitches = [n.pitch for n in melody_notes]
         intervals = [abs(pitches[i + 1] - pitches[i]) for i in range(len(pitches) - 1)]
         nonzero = [iv for iv in intervals if iv > 0]
         low, high = min(pitches), max(pitches)
 
-        # Quality: fraction of predicted notes (confidence proxy)
+        # Historical selection ratio retained for compatibility. This is not a
+        # calibrated correctness confidence.
         quality_score = round(len(melody_notes) / len(notes), 3)
 
-        # Return summary + note list for downstream interpretation
+        # Return summary + exact selected-note evidence for downstream interpretation.
         return {
             "low_pitch": low,
             "high_pitch": high,
@@ -244,17 +255,26 @@ def _lstom_melody(midi_input: str | bytes) -> dict[str, Any] | None:
             "quality_score": quality_score,
             "heuristic": "lstom_biLSTM",
             "model_version": _MODEL_VERSION,
+            "candidate_note_count": len(notes),
+            "evaluated_note_count": len(predictions),
+            "selected_note_count": len(selected),
+            "segment_count": len(segment_lengths),
+            "segment_lengths": segment_lengths,
+            "evaluated_start_seconds": round(notes[0].start, 4),
+            "evaluated_end_seconds": round(max(note.end for note in notes), 4),
             "notes": [
                 {
-                    "pitch": n.pitch,
-                    "start_seconds": round(n.start, 4),
-                    "end_seconds": round(n.end, 4),
-                    "velocity": n.velocity,
+                    "pitch": note.pitch,
+                    "start_seconds": round(note.start, 4),
+                    "end_seconds": round(note.end, 4),
+                    "velocity": note.velocity,
+                    "model_score": round(score, 4),
                 }
-                for n in melody_notes
+                for note, score in selected
             ],
         }
     except Exception:
+        logger.exception("lstom_melody_inference_failed")
         return None
 
 
@@ -280,6 +300,7 @@ class LStoMMelodyEngine(MelodyEngine):
             parameters={
                 "threshold": _THRESHOLD,
                 "segment_size": _SEGMENT_SIZE,
+                "tail_policy": "variable_length",
                 "hidden_size": _HIDDEN_SIZE,
                 "num_layers": _NUM_LAYERS,
                 "training_dataset": "POP909",
