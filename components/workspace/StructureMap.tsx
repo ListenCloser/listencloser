@@ -49,12 +49,14 @@ export default function StructureMap() {
   const [chooserOpen, setChooserOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "generating">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [observationLost, setObservationLost] = useState(false);
   const sequenceRef = useRef(0);
 
   const load = useCallback(async (workId: string, fresh = false) => {
     const sequence = ++sequenceRef.current;
     setStatus("loading");
     setError(null);
+    setObservationLost(false);
     try {
       if (fresh) clearWorkDataCache();
       const bundle = await getWorkBundle(workId);
@@ -112,6 +114,7 @@ export default function StructureMap() {
     setSourceVersionId(null);
     setProjectId(null);
     setError(null);
+    setObservationLost(false);
     if (workId) void load(workId);
   }, [load, workspace.activeWorkId]);
 
@@ -132,11 +135,15 @@ export default function StructureMap() {
 
         // The Work bundle is durable authority for terminal state. In
         // particular, JobObservationError means only that this browser lost
-        // contact or timed out; it must not fabricate a server-side failure.
+        // contact or timed out; it must not fabricate a server-side failure or
+        // restart the durable Job.
         await load(workId, true);
         if (controller.signal.aborted) return;
         if (cause instanceof JobObservationError) {
+          setActiveJobId(null);
+          setStatus("idle");
           setChooserOpen(true);
+          setObservationLost(true);
           setError(cause.message);
         }
       });
@@ -154,6 +161,7 @@ export default function StructureMap() {
     ) return;
     setStatus("generating");
     setError(null);
+    setObservationLost(false);
     setChooserOpen(true);
     try {
       const jobId = await startStructureMapWorkflow(sourceVersionId, projectId);
@@ -163,6 +171,11 @@ export default function StructureMap() {
       setError(cause instanceof Error ? cause.message : "Structure Map processing failed");
     }
   }, [projectId, sourceVersionId, status, workspace.activeWorkId]);
+
+  const checkStatus = useCallback(() => {
+    if (!workspace.activeWorkId || status !== "idle") return;
+    void load(workspace.activeWorkId, true);
+  }, [load, status, workspace.activeWorkId]);
 
   const focusSpan = useCallback((span: StructureMapSpan, shouldPlay: boolean) => {
     const focus = () => {
@@ -207,18 +220,20 @@ export default function StructureMap() {
           title: "Structure Map",
           description: "Find rough candidate spans so you can jump through the recording's shape.",
           maturity: "Experimental",
-          actionLabel: status === "generating"
-            ? "Finding shape…"
-            : status === "loading"
-              ? "Checking…"
-              : error
-                ? "Retry"
-                : "Add",
-          onAction: () => void generate(),
+          actionLabel: observationLost
+            ? "Check status"
+            : status === "generating"
+              ? "Finding shape…"
+              : status === "loading"
+                ? "Checking…"
+                : error
+                  ? "Retry"
+                  : "Add",
+          onAction: observationLost ? checkStatus : () => void generate(),
           busy,
         }]}
         notice={error}
-        noticeRole={busy ? "status" : "alert"}
+        noticeRole={busy || observationLost ? "status" : "alert"}
       />
     );
   }
