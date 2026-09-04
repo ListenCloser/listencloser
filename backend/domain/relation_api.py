@@ -16,7 +16,7 @@ from domain.relation_query import (
     compare_persisted_perceptual_spans,
 )
 from domain.repositories import get_supabase
-from domain.similar_moments_query import SimilarMomentsQuery, find_persisted_similar_moments
+from domain.similar_moments_contract import MAX_MATCHES
 from domain.storage_locator_policy import classify_version_storage_locator
 from domain.work_bundle_repository import WorkBundleRepository, WorkBundleSnapshot
 
@@ -39,7 +39,7 @@ class SimilarMomentsBody(BaseModel):
     source_version_id: UUID
     query_start_seconds: float
     query_end_seconds: float
-    max_matches: int = Field(default=3, ge=1, le=5)
+    max_matches: int = Field(default=3, ge=1, le=MAX_MATCHES)
 
 
 def _owner_id(auth) -> str:
@@ -154,6 +154,13 @@ def similar_moments(
     auth=Depends(verify_token),
 ):
     """Propose inspectable same-Work passages under one declared experimental method."""
+
+    # Keep NumPy/perceptual matcher imports behind the on-demand endpoint so
+    # importing the HTTP application does not require worker/DSP dependencies.
+    from domain.similar_moments_query import (
+        SimilarMomentsQuery,
+        find_persisted_similar_moments,
+    )
 
     sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
     source_version = _source_version(snapshot, body.source_version_id)
