@@ -352,6 +352,33 @@ test("real audio golden path", async ({ page }, testInfo) => {
     await expect(inspector.getByRole("button", { name: "Clear selection" })).toBeVisible({ timeout: 10_000 });
   });
 
+  // ── Experimental Symbolic Detail ─────────────────────────────────────
+  await test.step("experimental symbolic detail", async () => {
+    await page.getByRole("tab", { name: "Breakdown" }).click();
+    const inspector = page.locator("aside.inspector");
+    const addAnalysis = inspector.getByRole("region", { name: "Add analysis" });
+    await expect(addAnalysis.getByRole("button", { name: "+ Add analysis", exact: true })).toBeVisible();
+    await addAnalysis.getByRole("button", { name: "+ Add analysis", exact: true }).click();
+    await expect(addAnalysis.getByText("Symbolic detail", { exact: true })).toBeVisible();
+    await expect(addAnalysis.getByText("Experimental", { exact: true })).toBeVisible();
+    await addAnalysis.getByRole("button", { name: "Add", exact: true }).click();
+
+    // This proves the real production image parses the exact trusted MIDI
+    // Version with Partitura/music21, persists the report, and reloads it into
+    // the native Inspector result surface without becoming canonical theory.
+    const detail = inspector.getByRole("region", { name: "Experimental symbolic detail" });
+    await expect(detail).toBeVisible({ timeout: 180_000 });
+    await expect(detail.getByText("Register", { exact: true })).toBeVisible();
+    await expect(detail.getByText("Contour", { exact: true })).toBeVisible();
+    await expect(detail.getByText("Interval motion", { exact: true })).toBeVisible();
+    await expect(detail.getByText("Density", { exact: true })).toBeVisible();
+    await expect(detail.getByText("Texture", { exact: true })).toBeVisible();
+    await expect(detail.getByText("Voice motion", { exact: true })).toBeVisible();
+    await detail.getByText("Method and provenance", { exact: true }).click();
+    await expect(detail.getByText(/Partitura score-MIDI note-array measurements/)).toBeVisible();
+    await expect(detail.getByText(/Source: midi_performance Version/)).toBeVisible();
+  });
+
   // ── Annotations and Inspector ────────────────────────────────────────
   await test.step("annotations and inspector", async () => {
     // Score measure click owns two contracts: it seeks the active score
@@ -476,6 +503,8 @@ test("real audio golden path", async ({ page }, testInfo) => {
     await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Breakdown" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Experimental Structure Map" })).toBeVisible({ timeout: 30_000 });
+    const inspector = page.locator("aside.inspector");
+    await expect(inspector.getByRole("region", { name: "Experimental symbolic detail" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: /Playback source:/ })).toBeVisible();
     await page.getByRole("button", { name: /Playback source:/ }).click();
     await expect(page.getByRole("option", { name: "Original", exact: true })).toBeVisible();

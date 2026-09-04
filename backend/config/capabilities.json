@@ -277,6 +277,19 @@
       },
       "validated_domain": "within-recording experimental navigation only",
       "notes": "Map/navigation surface only. Letter labels are descriptor-similarity hints, not verse/chorus/motif/canonical form. Inspector/annotation/Ask exposure remains false until separately earned."
+    },
+    "symbolic_detail": {
+      "status": "experimental",
+      "input": "midi",
+      "engine": "partitura_note_array_v1",
+      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "evaluation": {
+        "dataset": "deterministic synthetic MIDI fixtures + repository real-stack transcription path",
+        "metric": "experimental_product_integration",
+        "details": "#1178: register, onset-centroid contour, inferred-voice interval motion, onset density, symbolic texture, and qualified inter-voice motion are computed from the exact source MIDI Version."
+      },
+      "validated_domain": "within-Version symbolic note-event measurement for midi_performance and midi_corrected sources",
+      "notes": "Experimental Inspector detail only. Partitura may infer score voices during MIDI import; contour is an onset pitch-centroid proxy. Results are not canonical melody, counterpoint, voice-leading, form, audio texture, or theory truth, and are not admitted to Ask/annotations."
     }
   }
 }
