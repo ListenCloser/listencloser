@@ -67,6 +67,7 @@ type WorkspaceState = {
   studioAction: { id: number; kind: "variation" | "compare"; versionIds: string[]; semitones?: number } | null;
   studioOperation: StudioOperation;
   activeRepresentation: RepresentationId | null;
+  pitchContourOpen: boolean;
   selection: MusicalSelection | null;
   transcriptionProfile: TranscriptionProfile;
   scoreEngine: ScoreEngine;
@@ -90,6 +91,7 @@ type WorkspaceContextValue = {
   requestComparison: (versionIdA: string, versionIdB: string) => void;
   setStudioOperation: (operation: StudioOperation) => void;
   setActiveRepresentation: (representation: RepresentationId | null) => void;
+  setPitchContourOpen: (open: boolean) => void;
   setSelection: (selection: MusicalSelection | null) => void;
   clearSelection: () => void;
   setTranscriptionProfile: (profile: TranscriptionProfile) => void;
@@ -146,6 +148,7 @@ export function WorkspaceProvider({
     studioAction: null,
     studioOperation: { state: "idle", label: "" },
     activeRepresentation: null,
+    pitchContourOpen: false,
     selection: null,
     transcriptionProfile: "auto",
     scoreEngine: "musescore",
@@ -165,6 +168,7 @@ export function WorkspaceProvider({
         studioAction: null,
         studioOperation: { state: "idle", label: "" },
         activeRepresentation: null,
+        pitchContourOpen: false,
         selection: null,
         askConversation: [],
         analysisState: "idle",
@@ -182,7 +186,7 @@ export function WorkspaceProvider({
 
   const setInsights = useCallback((insights: Insight[]) => setWorkspace((prev) => ({ ...prev, insights })), []);
   const requestVariation = useCallback((versionId: string, semitones: number) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "variation", versionIds: [versionId], semitones } })), []);
-  const requestComparison = useCallback((versionIdA: string, versionIdB: string) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "compare", versionIds: [versionIdA, versionIdB] } })), []);
+  const requestComparison = useCallback((versionIdA: string, versionIdB: string) => setWorkspace((prev) => ({ ...prev, studioAction: { id: (prev.studioAction?.id ?? 0) + 1, kind: "compare", versionIds: [versionIdA, versionIdB] })), []);
   const setStudioOperation = useCallback((studioOperation: StudioOperation) => setWorkspace((prev) => ({ ...prev, studioOperation })), []);
   const replaceRepresentations = useCallback((representations: RepresentationEntry[]) => setWorkspace((prev) => ({
     ...prev,
@@ -190,6 +194,7 @@ export function WorkspaceProvider({
     activeRepresentation: prev.activeRepresentation ?? null,
   })), []);
   const setActiveRepresentation = useCallback((activeRepresentation: RepresentationId | null) => setWorkspace((prev) => prev.activeRepresentation === activeRepresentation ? prev : { ...prev, activeRepresentation }), []);
+  const setPitchContourOpen = useCallback((pitchContourOpen: boolean) => setWorkspace((prev) => prev.pitchContourOpen === pitchContourOpen ? prev : { ...prev, pitchContourOpen }), []);
   const setSelection = useCallback((selection: MusicalSelection | null) => setWorkspace((prev) => ({ ...prev, selection })), []);
   const clearSelection = useCallback(() => setWorkspace((prev) => ({ ...prev, selection: null })), []);
   const setTranscriptionProfile = useCallback((transcriptionProfile: TranscriptionProfile) => setWorkspace((prev) => prev.transcriptionProfile === transcriptionProfile ? prev : { ...prev, transcriptionProfile }), []);
@@ -221,6 +226,7 @@ export function WorkspaceProvider({
       requestComparison,
       setStudioOperation,
       setActiveRepresentation,
+      setPitchContourOpen,
       setSelection,
       clearSelection,
       setTranscriptionProfile,
