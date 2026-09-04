@@ -32,7 +32,7 @@
     "check": "bash scripts/check.sh",
     "check:full": "bash scripts/check.sh full",
     "check:fast": "bash scripts/check.sh fast",
-    "check:preflight": "bash scripts/check.sh preflight",
+    "check:preflight": "uv run --project backend --locked ruff format backend/domain/melody_audition_capability.py --diff || true; bash scripts/check.sh preflight",
     "check:frontend": "bash scripts/check.sh frontend",
     "check:backend": "bash scripts/check.sh backend",
     "check:database": "bash scripts/check-database.sh",
