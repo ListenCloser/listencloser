@@ -227,7 +227,7 @@ export default function LibraryImportControl({
         </div>
       </Dialog>
 
-      <Dialog open={Boolean(importIntent)} onClose={closeProcessing}>
+      <Dialog open={Boolean(importIntent)} onClose={closeProcessing} className={styles.dialogWrap}>
         <DialogBackdrop className={styles.backdrop} />
         <div className={styles.dialogWrap}>
           <DialogPanel className={`${styles.dialog} ${styles.processingDialog}`}>
