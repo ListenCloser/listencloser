@@ -198,7 +198,7 @@ function ImportSettings() {
         if (!["queued", "claimed", "running"].includes(state.stage)) break;
         await new Promise((resolve) => window.setTimeout(resolve, PITCH_CONTOUR_POLL_MS));
       }
-      if (terminalStage !== "completed") {
+      if (terminalStage !== "succeeded") {
         throw new Error(terminalError ?? "Pitch contour did not complete.");
       }
       clearWorkDataCache();
