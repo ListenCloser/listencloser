@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import AddAnalysis from "@/components/workspace/AddAnalysis";
+import { useLayerAnalysis } from "@/components/workspace/useLayerAnalysis";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import { formatTime } from "@/lib/format";
 import { JobObservationError, waitForJob } from "@/lib/job-tracking";
@@ -39,9 +40,10 @@ function sourceAndMapState(bundle: Awaited<ReturnType<typeof getWorkBundle>>) {
   return { sourceVersionId, report, job };
 }
 
-export default function StructureMap() {
+export default function StructureMap({ canProcess = false }: { canProcess?: boolean }) {
   const { workspace, setSelection } = useWorkspace();
   const { transport, seek, play, setActiveSource, audioRef } = useTransport();
+  const layerAnalysis = useLayerAnalysis(canProcess);
   const [report, setReport] = useState<StructureMapReport | null>(null);
   const [sourceVersionId, setSourceVersionId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -117,6 +119,13 @@ export default function StructureMap() {
     setObservationLost(false);
     if (workId) void load(workId);
   }, [load, workspace.activeWorkId]);
+
+  // A running/disconnected/failed Layers job must remain visible after reload,
+  // but discovery still has one shared chooser rather than a second capability
+  // button elsewhere in the workspace.
+  useEffect(() => {
+    if (layerAnalysis.option?.busy || layerAnalysis.notice) setChooserOpen(true);
+  }, [layerAnalysis.notice, layerAnalysis.option?.busy]);
 
   useEffect(() => {
     const workId = workspace.activeWorkId;
@@ -208,32 +217,38 @@ export default function StructureMap() {
 
   if (!workspace.activeWorkId || !sourceVersionId) return null;
 
+  const mapBusy = status === "loading" || status === "generating";
+  const mapOption = {
+    id: "structure-map",
+    title: "Structure Map",
+    description: "Find rough candidate spans so you can jump through the recording's shape.",
+    maturity: "Experimental" as const,
+    actionLabel: observationLost
+      ? "Check status"
+      : status === "generating"
+        ? "Finding shape…"
+        : status === "loading"
+          ? "Checking…"
+          : error
+            ? "Retry"
+            : "Add",
+    onAction: observationLost ? checkStatus : () => void generate(),
+    busy: mapBusy,
+  };
+  const chooserNotice = error ?? layerAnalysis.notice;
+  const chooserNoticeRole = error
+    ? (mapBusy || observationLost ? "status" as const : "alert" as const)
+    : layerAnalysis.noticeRole;
+
   if (!report) {
-    if (status === "loading" && !chooserOpen) return null;
-    const busy = status === "loading" || status === "generating";
+    if (status === "loading" && !chooserOpen && !layerAnalysis.option) return null;
     return (
       <AddAnalysis
         open={chooserOpen}
         onOpenChange={setChooserOpen}
-        options={[{
-          id: "structure-map",
-          title: "Structure Map",
-          description: "Find rough candidate spans so you can jump through the recording's shape.",
-          maturity: "Experimental",
-          actionLabel: observationLost
-            ? "Check status"
-            : status === "generating"
-              ? "Finding shape…"
-              : status === "loading"
-                ? "Checking…"
-                : error
-                  ? "Retry"
-                  : "Add",
-          onAction: observationLost ? checkStatus : () => void generate(),
-          busy,
-        }]}
-        notice={error}
-        noticeRole={busy || observationLost ? "status" : "alert"}
+        options={[mapOption, ...(layerAnalysis.option ? [layerAnalysis.option] : [])]}
+        notice={chooserNotice}
+        noticeRole={chooserNoticeRole}
       />
     );
   }
@@ -241,45 +256,56 @@ export default function StructureMap() {
   const hearingRequiresOriginal = transport.activeSource?.role === "score";
 
   return (
-    <section className={styles.map} aria-label="Experimental Structure Map">
-      <header className={styles.header}>
-        <div>
-          <div className={styles.titleLine}>
-            <h2>Map</h2>
-            <span className={styles.experimental}>Experimental</span>
-          </div>
-          <p>Rough candidate spans for jumping through the recording.</p>
-        </div>
-      </header>
-
-      <div className={styles.rows}>
-        {report.candidate_spans.map((span, index) => {
-          const active = transport.position >= span.start_seconds && transport.position < span.end_seconds;
-          const hearLabel = hearingRequiresOriginal ? "Hear original" : "Hear";
-          return (
-            <div className={`${styles.row}${active ? ` ${styles.active}` : ""}`} key={`${span.start_seconds}-${index}`}>
-              <button type="button" className={styles.jump} onClick={() => focusSpan(span, false)} aria-current={active ? "true" : undefined}>
-                <strong>{span.label}</strong>
-                <span>{formatTime(span.start_seconds)}–{formatTime(span.end_seconds)}</span>
-              </button>
-              <button
-                type="button"
-                className={styles.hear}
-                onClick={() => focusSpan(span, true)}
-                aria-label={`${hearLabel} ${span.label} from ${formatTime(span.start_seconds)}`}
-              >
-                {hearLabel}
-              </button>
+    <>
+      <section className={styles.map} aria-label="Experimental Structure Map">
+        <header className={styles.header}>
+          <div>
+            <div className={styles.titleLine}>
+              <h2>Map</h2>
+              <span className={styles.experimental}>Experimental</span>
             </div>
-          );
-        })}
-      </div>
-      <details className={styles.method}>
-        <summary>How this map was made</summary>
-        <p>{report.interpretation}</p>
-        <p><strong>Method:</strong> {report.method.label}</p>
-        <p><strong>Source Version:</strong> <span className={styles.versionId}>{report.source_version_id}</span></p>
-      </details>
-    </section>
+            <p>Rough candidate spans for jumping through the recording.</p>
+          </div>
+        </header>
+
+        <div className={styles.rows}>
+          {report.candidate_spans.map((span, index) => {
+            const active = transport.position >= span.start_seconds && transport.position < span.end_seconds;
+            const hearLabel = hearingRequiresOriginal ? "Hear original" : "Hear";
+            return (
+              <div className={`${styles.row}${active ? ` ${styles.active}` : ""}`} key={`${span.start_seconds}-${index}`}>
+                <button type="button" className={styles.jump} onClick={() => focusSpan(span, false)} aria-current={active ? "true" : undefined}>
+                  <strong>{span.label}</strong>
+                  <span>{formatTime(span.start_seconds)}–{formatTime(span.end_seconds)}</span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.hear}
+                  onClick={() => focusSpan(span, true)}
+                  aria-label={`${hearLabel} ${span.label} from ${formatTime(span.start_seconds)}`}
+                >
+                  {hearLabel}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <details className={styles.method}>
+          <summary>How this map was made</summary>
+          <p>{report.interpretation}</p>
+          <p><strong>Method:</strong> {report.method.label}</p>
+          <p><strong>Source Version:</strong> <span className={styles.versionId}>{report.source_version_id}</span></p>
+        </details>
+      </section>
+      {layerAnalysis.option && (
+        <AddAnalysis
+          open={chooserOpen}
+          onOpenChange={setChooserOpen}
+          options={[layerAnalysis.option]}
+          notice={layerAnalysis.notice}
+          noticeRole={layerAnalysis.noticeRole}
+        />
+      )}
+    </>
   );
 }
