@@ -31,6 +31,9 @@ def test_local_worker_consumes_worker_dependency_group() -> None:
     backend = _service_block(compose, "backend", "worker")
     worker = _service_block(compose, "worker")
     worker_sync = "uv sync --project /workspace/backend --locked --group worker"
+    worker_run = "uv run --project /workspace/backend --group worker"
 
     assert worker_sync not in backend
+    assert worker_run not in backend
     assert worker_sync in worker
+    assert worker_run in worker
