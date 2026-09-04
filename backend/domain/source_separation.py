@@ -8,13 +8,16 @@ source Work or its normal playback path.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 from uuid import UUID
 
 from domain.capabilities import (
@@ -47,9 +50,12 @@ STEM_ROLES = ("vocals", "drums", "bass", "other")
 _STORAGE_BUCKET = "artifacts"
 _ALLOWED_INPUT_FORMATS = {"wav", "mp3", "m4a", "flac", "ogg", "aac"}
 _SEPARATION_TIMEOUT_SECONDS = 30 * 60
+_SEPARATION_POLL_SECONDS = 0.5
+_SEPARATION_TERMINATE_GRACE_SECONDS = 5.0
 # Historical #507 measured ~1.6-1.8 GB peak RSS per CPU inference. Keep one
 # separator child active per worker process until real production concurrency is
-# measured; other worker threads remain available when configured concurrency >1.
+# measured; this semaphore lives only inside this capability and therefore does
+# not serialize unrelated worker handlers when WORKER_CONCURRENCY > 1.
 _SEPARATION_SLOT = threading.Semaphore(1)
 
 
@@ -67,13 +73,69 @@ def _validate_stem_bytes(role: str, data: bytes) -> None:
         raise RuntimeError(f"HTDemucs did not produce a valid {role} WAV")
 
 
+def _job_cancelled(client, job_id: UUID) -> bool:
+    """Read the durable cancellation bit without creating a second job system."""
+    try:
+        result = client.table("jobs").select("stage").eq("id", str(job_id)).limit(1).execute()
+    except Exception:
+        # The worker's own heartbeat independently observes cancellation and
+        # lease state. A transient cancellation-read failure must not turn into
+        # an invented cancellation or silently abandon a running child.
+        logger.exception("source_separation_cancel_check_failed", extra={"job_id": str(job_id)})
+        return False
+    return bool(result.data and result.data[0].get("stage") == "cancelled")
+
+
+def _terminate_process(process: subprocess.Popen) -> None:
+    """Terminate the dedicated Demucs process group, escalating after a short grace."""
+    if process.poll() is not None:
+        return
+
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    except OSError:
+        # Production is Linux and uses start_new_session=True. Keep a narrow
+        # fallback for test/dev environments where process groups are unavailable.
+        process.terminate()
+
+    try:
+        process.wait(timeout=_SEPARATION_TERMINATE_GRACE_SECONDS)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    except OSError:
+        process.kill()
+    process.wait(timeout=_SEPARATION_TERMINATE_GRACE_SECONDS)
+
+
 def run_htdemucs(
     audio_bytes: bytes,
     fmt: str,
     *,
     runtime_python: str | None = None,
+    is_cancelled: Callable[[], bool] | None = None,
+    timeout_seconds: float = _SEPARATION_TIMEOUT_SECONDS,
+    poll_seconds: float = _SEPARATION_POLL_SECONDS,
 ) -> dict[str, bytes]:
-    """Run the exact pinned 4-stem model and return validated WAV bytes."""
+    """Run the exact pinned four-stem model and return validated WAV bytes.
+
+    HTDemucs receives its own process group. Cancellation, timeout, or any
+    exception while supervising it terminates that group before control returns
+    to the durable worker thread, so a failed optional capability cannot leave a
+    runaway separator consuming worker memory/CPU.
+    """
+    if timeout_seconds <= 0:
+        raise ValueError("source-separation timeout must be positive")
+    if poll_seconds <= 0:
+        raise ValueError("source-separation poll interval must be positive")
+
     python = runtime_python or sys.executable
     source_format = _input_format(fmt)
 
@@ -81,6 +143,7 @@ def run_htdemucs(
         root = Path(tmp)
         input_path = root / f"source.{source_format}"
         output_root = root / "separated"
+        log_path = root / "demucs.log"
         input_path.write_bytes(audio_bytes)
 
         command = [
@@ -101,29 +164,48 @@ def run_htdemucs(
         # The production image acquires and verifies the checkpoint at build
         # time. Runtime inference must never turn a user's click into an
         # unpinned network model download.
-        env.setdefault("HF_HUB_OFFLINE", "1")
-        env.setdefault("OMP_NUM_THREADS", "2")
-        env.setdefault("MKL_NUM_THREADS", "2")
-        env.setdefault("OPENBLAS_NUM_THREADS", "2")
+        env["HF_HUB_OFFLINE"] = "1"
+        env["OMP_NUM_THREADS"] = "2"
+        env["MKL_NUM_THREADS"] = "2"
+        env["OPENBLAS_NUM_THREADS"] = "2"
 
-        try:
-            completed = subprocess.run(
+        deadline = time.monotonic() + timeout_seconds
+        with log_path.open("w", encoding="utf-8") as log_handle:
+            process = subprocess.Popen(
                 command,
-                check=False,
-                capture_output=True,
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
                 text=True,
                 env=env,
-                timeout=_SEPARATION_TIMEOUT_SECONDS,
+                start_new_session=True,
             )
-        except subprocess.TimeoutExpired as error:
-            raise RuntimeError("HTDemucs source separation timed out") from error
+            try:
+                while True:
+                    returncode = process.poll()
+                    if returncode is not None:
+                        break
+                    if is_cancelled is not None and is_cancelled():
+                        _terminate_process(process)
+                        raise RuntimeError("HTDemucs source separation was cancelled")
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        _terminate_process(process)
+                        raise RuntimeError("HTDemucs source separation timed out")
+                    time.sleep(min(poll_seconds, remaining))
+            except BaseException:
+                _terminate_process(process)
+                raise
 
-        if completed.returncode != 0:
+        if returncode != 0:
+            try:
+                log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-2000:]
+            except OSError:
+                log_tail = ""
             logger.error(
                 "htdemucs_failed",
                 extra={
-                    "returncode": completed.returncode,
-                    "stderr_tail": completed.stderr[-2000:],
+                    "returncode": returncode,
+                    "log_tail": log_tail,
                 },
             )
             raise RuntimeError("HTDemucs source separation failed")
@@ -141,14 +223,17 @@ def run_htdemucs(
 
 
 def stem_metadata(source_version_id: UUID, role: str, job: Job) -> dict:
-    """Provenance persisted on each independent stem Version."""
+    """Capability-specific provenance persisted on each independent stem Version.
+
+    The Version already structurally owns parent_version_id, produced_by_job_id,
+    immutable storage/hash fields, and lineage. Metadata below records only the
+    separator-specific role/model/parameter facts needed to interpret the stem.
+    """
     if role not in STEM_ROLES:
         raise ValueError(f"unsupported stem role: {role}")
     return {
         "representation": "source_stem",
         "experimental": True,
-        "source_version_id": str(source_version_id),
-        "separation_job_id": str(job.id),
         "stem_role": role,
         "separator": {
             "wrapper": "demucs",
@@ -172,6 +257,13 @@ def stem_metadata(source_version_id: UUID, role: str, job: Job) -> dict:
             "importance, or instrumentation beyond the emitted role."
         ),
     }
+
+
+def _acquire_separation_slot(client, job_id: UUID) -> None:
+    """Serialize only Demucs execution while remaining responsive to cancellation."""
+    while not _SEPARATION_SLOT.acquire(timeout=_SEPARATION_POLL_SECONDS):
+        if _job_cancelled(client, job_id):
+            raise RuntimeError("HTDemucs source separation was cancelled")
 
 
 def handle_separate(job: Job, client) -> list[str]:
@@ -203,8 +295,15 @@ def handle_separate(job: Job, client) -> list[str]:
         raise ValueError("Original audio is empty")
 
     _update_progress(client, job.id, 0.12, "Separating vocals, drums, bass, and other")
-    with _SEPARATION_SLOT:
-        stems = run_htdemucs(audio_bytes, fmt)
+    _acquire_separation_slot(client, job.id)
+    try:
+        stems = run_htdemucs(
+            audio_bytes,
+            fmt,
+            is_cancelled=lambda: _job_cancelled(client, job.id),
+        )
+    finally:
+        _SEPARATION_SLOT.release()
     _update_progress(client, job.id, 0.72, "Saving isolated layers")
 
     output_ids: list[str] = []
@@ -232,7 +331,7 @@ def handle_separate(job: Job, client) -> list[str]:
             # If row persistence for the current stem fails, remove the just-
             # uploaded object. Earlier successful partial Versions remain tied
             # to this failed Job and are removed by the normal retry cleanup;
-            # the UI exposes only complete four-role sets.
+            # the UI exposes only complete four-role sets owned by one succeeded Job.
             if uploaded:
                 try:
                     client.storage.from_(_STORAGE_BUCKET).remove([storage_key])
