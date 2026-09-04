@@ -3,6 +3,8 @@ set -euo pipefail
 
 FAIL=0
 WARN=0
+NODE_ENGINE_RANGE=""
+NODE_MAJOR_REQUIRED=""
 
 ok() { printf '  [ok] %s\n' "$1"; }
 warn() { WARN=$((WARN + 1)); printf '  [warn] %s\n' "$1"; }
@@ -30,16 +32,33 @@ printf 'ListenCloser development environment\n'
 printf '====================================\n'
 
 require_command git "source control"
-require_command node "frontend runtime; repository requires Node 22.x"
+if command -v node >/dev/null 2>&1; then
+  ok "node available (frontend runtime; repository version is declared by package.json + .nvmrc)"
+else
+  fail "node missing (frontend runtime); with nvm, run 'nvm install && nvm use' from the repository root to install/select the .nvmrc runtime"
+fi
 require_command npm "frontend package manager; repository requires npm 10.x"
 require_command uv "locked Python environment; backend requires uv 0.12.6"
 
 if command -v node >/dev/null 2>&1; then
-  NODE_VERSION="$(node --version | sed 's/^v//')"
-  case "$NODE_VERSION" in
-    22.*) ok "Node $NODE_VERSION matches 22.x" ;;
-    *) fail "Node $NODE_VERSION does not match required 22.x; with nvm, run 'nvm install' then 'nvm use' from the repository root" ;;
-  esac
+  NODE_ENGINE_RANGE="$(node -p "require('./package.json').engines.node")"
+  NODE_DEV_RANGE="$(node -p "require('./package.json').devEngines.runtime.version")"
+  if [[ "$NODE_ENGINE_RANGE" =~ ^([0-9]+)\.x$ ]]; then
+    NODE_MAJOR_REQUIRED="${BASH_REMATCH[1]}"
+    if [ "$NODE_DEV_RANGE" = "$NODE_ENGINE_RANGE" ]; then
+      ok "package.json Node contracts agree on $NODE_ENGINE_RANGE"
+    else
+      fail "package.json Node contracts drifted: engines.node=$NODE_ENGINE_RANGE, devEngines.runtime.version=$NODE_DEV_RANGE"
+    fi
+
+    NODE_VERSION="$(node --version | sed 's/^v//')"
+    case "$NODE_VERSION" in
+      "$NODE_MAJOR_REQUIRED".*) ok "Node $NODE_VERSION matches package.json $NODE_ENGINE_RANGE" ;;
+      *) fail "Node $NODE_VERSION does not match required $NODE_ENGINE_RANGE; with nvm, run 'nvm install' then 'nvm use' from the repository root" ;;
+    esac
+  else
+    fail "package.json engines.node must declare one major as N.x; found ${NODE_ENGINE_RANGE:-missing}"
+  fi
 fi
 
 if command -v npm >/dev/null 2>&1; then
@@ -121,10 +140,21 @@ else
   fail "backend locked dependency authority is incomplete"
 fi
 
-if [ -f .nvmrc ] && [ "$(tr -d '[:space:]' < .nvmrc)" = "22" ]; then
-  ok ".nvmrc pins Node 22"
+if [ -f .nvmrc ]; then
+  NVM_NODE_MAJOR="$(tr -d '[:space:]' < .nvmrc)"
+  if [ -n "$NODE_MAJOR_REQUIRED" ]; then
+    if [ "$NVM_NODE_MAJOR" = "$NODE_MAJOR_REQUIRED" ]; then
+      ok ".nvmrc Node $NVM_NODE_MAJOR matches package.json $NODE_ENGINE_RANGE"
+    else
+      fail ".nvmrc pins Node ${NVM_NODE_MAJOR:-empty}, but package.json requires $NODE_ENGINE_RANGE"
+    fi
+  elif [[ "$NVM_NODE_MAJOR" =~ ^[0-9]+$ ]]; then
+    ok ".nvmrc pins Node $NVM_NODE_MAJOR; package comparison requires node on PATH"
+  else
+    fail ".nvmrc does not contain a Node major"
+  fi
 else
-  fail ".nvmrc is missing or does not pin Node 22"
+  fail ".nvmrc is missing; add the Node major declared by package.json"
 fi
 
 if [ -f .python-version ] && [ "$(tr -d '[:space:]' < .python-version)" = "3.11" ]; then
