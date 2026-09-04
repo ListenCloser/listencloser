@@ -52,7 +52,9 @@ def handle_symbolic_detail(job: Job, client) -> list[str]:
         raise ValueError("symbolic_detail requires a performance or corrected MIDI Version")
 
     _update_progress(client, job.id, 0.3, "downloading source MIDI")
-    midi_bytes = client.storage.from_(input_version.storage_bucket).download(input_version.storage_key)
+    midi_bytes = client.storage.from_(input_version.storage_bucket).download(
+        input_version.storage_key
+    )
 
     _update_progress(client, job.id, 0.5, "measuring symbolic detail")
     report = build_symbolic_detail(
