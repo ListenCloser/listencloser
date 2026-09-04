@@ -29,9 +29,7 @@ function unavailableCopy(status: MeasuredChangeQueryResponse["status"]): string 
 export default function MeasuredChanges() {
   const { workspace, setSelection } = useWorkspace();
   const { transport, audioRef, play, seek, setActiveSource } = useTransport();
-
-  if (!isInspectorExposed("measured_change")) return null;
-
+  const exposed = isInspectorExposed("measured_change");
   const workId = workspace.activeWorkId;
   const sourceVersionId = workspace.representations.find(
     (representation) => representation.kind === "waveform" && representation.versionId,
@@ -40,11 +38,11 @@ export default function MeasuredChanges() {
   const query = useQuery({
     queryKey: ["measured-changes", workId, sourceVersionId],
     queryFn: () => getMeasuredChanges(workId!, sourceVersionId!),
-    enabled: Boolean(workId && sourceVersionId),
+    enabled: exposed && Boolean(workId && sourceVersionId),
     staleTime: 60_000,
   });
 
-  if (!workId || !sourceVersionId) return null;
+  if (!exposed || !workId || !sourceVersionId) return null;
 
   const result = query.data;
   const statusCopy = result ? unavailableCopy(result.status) : null;
