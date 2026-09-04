@@ -112,7 +112,7 @@ export function MelodyReductionObject({
           <div className={styles.object}>
             <svg
               viewBox="0 0 480 112"
-              role="img"
+              role="group"
               aria-label={`Proposed melody reduction across the full Piano Roll timeline with ${projection.notes.length} exact source notes`}
             >
               <line
