@@ -1,0 +1,128 @@
+.reduction {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.header strong {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.qualifier {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.copy,
+.note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.object {
+  overflow-x: auto;
+  border-block: 1px solid var(--border);
+  padding-block: 0.45rem;
+}
+
+.object svg {
+  display: block;
+  min-width: 280px;
+  width: 100%;
+  height: 96px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.actions button,
+.details summary {
+  font: inherit;
+  font-size: 0.7rem;
+}
+
+.actions button {
+  min-height: 30px;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.actions button:hover,
+.actions button:focus-visible {
+  border-color: var(--accent);
+}
+
+.details {
+  font-size: 0.7rem;
+}
+
+.details summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.details dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 0.65rem;
+  margin: 0.55rem 0 0;
+}
+
+.details dt {
+  color: var(--muted);
+}
+
+.details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .actions button {
+    width: 100%;
+  }
+
+  .details dl {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+
+  .details dd + dt {
+    margin-top: 0.4rem;
+  }
+}
