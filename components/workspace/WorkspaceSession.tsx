@@ -123,10 +123,12 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       if (!isCurrentLoad()) return;
       loadedBundleRef.current = bundle;
 
-      // Optional analyses own their own execution/failure UI. Do not let a
-      // Structure Map job replace the Work-level Understand/Score state just
-      // because it is the newest job in the immutable Work history.
-      const latestJob = bundle.jobs.find((job) => job.capability.name !== "structure_map");
+      // Optional analyses own their own execution/failure UI. Do not let
+      // Structure Map or Layers replace the Work-level Understand/Score state
+      // just because an optional Job is newest in immutable Work history.
+      const latestJob = bundle.jobs.find((job) => (
+        job.capability.name !== "structure_map" && job.capability.name !== "separate"
+      ));
       const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
       const failedJob = latestJob?.lifecycle.current === "failed" ? latestJob : undefined;
       const cancelledJob = latestJob?.lifecycle.current === "cancelled" ? latestJob : undefined;
