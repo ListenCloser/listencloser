@@ -30,6 +30,8 @@ There is intentionally no universal specification. Each durable fact has one aut
 
 For production claims, the deployed release SHA and live configuration matter. A document describing intended `main` behavior cannot prove what is currently deployed.
 
+Run `python3 scripts/project_cockpit.py` (or add `--format json`) for a read-only, on-demand compilation of current project execution state. The cockpit is a view over the authorities above, never a second source of truth or committed status snapshot.
+
 `product/PRODUCT.md` owns durable product constitution; `product/ROADMAP.md` owns current product portfolio/posture/sequencing; #634 owns technical simplification/rearchitecture sequencing; #1139 owns the bounded agent/work-control authority migration. Historical #458 preserves product-strategy rationale but no longer authorizes current work or defines portfolio posture. Live focused issues, pull requests, checks, and merge state own active execution.
 
 Root `contract-dependencies.json` is intentionally narrower than those authorities. It is canonical only for the mechanical existence and mode scope of durable dependencies between focused issue contracts. The focused issue owns the human explanation; ROADMAP owns product sequencing; `backend/config/capabilities.json` owns runtime capability prerequisites; live GitHub owns current execution. Offline repository validation checks graph structure and invariants without calling GitHub. Focused-issue existence is verified when an edge is introduced and may be revalidated by later read-only live tooling; it is not copied into a second contract catalog.
