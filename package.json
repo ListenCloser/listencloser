@@ -32,6 +32,7 @@
     "check": "bash scripts/check.sh",
     "check:full": "bash scripts/check.sh full",
     "check:fast": "bash scripts/check.sh fast",
+    "check:preflight": "bash scripts/check.sh preflight",
     "check:frontend": "bash scripts/check.sh frontend",
     "check:backend": "bash scripts/check.sh backend",
     "check:database": "bash scripts/check-database.sh",

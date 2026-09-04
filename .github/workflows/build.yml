@@ -98,9 +98,39 @@ jobs:
               - 'scripts/deploy.sh'
               - '.github/workflows/build.yml'
 
+  preflight:
+    name: preflight
+    if: github.event_name != 'push' && needs.classify.outputs.ci == 'true'
+    needs: classify
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - run: npm ci
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.9'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+      - name: Run fail-fast repository preflight
+        run: npm run check:preflight
+
   compile:
     name: compile
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'push' || (needs.classify.result == 'success' && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped'))) }}
+    needs:
+      - classify
+      - preflight
     timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
@@ -146,7 +176,9 @@ jobs:
 
   ci:
     if: github.event_name != 'push' && needs.classify.outputs.ci == 'true'
-    needs: classify
+    needs:
+      - classify
+      - preflight
     uses: ./.github/workflows/ci.yml
 
   docs:
@@ -175,7 +207,9 @@ jobs:
 
   e2e:
     if: github.event_name != 'push' && needs.classify.outputs.e2e == 'true'
-    needs: classify
+    needs:
+      - classify
+      - preflight
     uses: ./.github/workflows/e2e.yml
     secrets:
       NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
@@ -183,17 +217,23 @@ jobs:
 
   real-stack:
     if: github.event_name != 'push' && needs.classify.outputs.real_stack == 'true'
-    needs: classify
+    needs:
+      - classify
+      - preflight
     uses: ./.github/workflows/real-stack-e2e.yml
 
   database:
     if: github.event_name != 'push' && needs.classify.outputs.database == 'true'
-    needs: classify
+    needs:
+      - classify
+      - preflight
     uses: ./.github/workflows/database-integration.yml
 
   backend-image:
     if: github.event_name != 'push' && needs.classify.outputs.backend_image == 'true'
-    needs: classify
+    needs:
+      - classify
+      - preflight
     uses: ./.github/workflows/backend-image.yml
 
   codeql:
@@ -223,6 +263,7 @@ jobs:
     if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     needs:
       - classify
+      - preflight
       - compile
       - ci
       - docs
@@ -240,6 +281,7 @@ jobs:
       - name: Require the complete risk-relevant gate
         env:
           CLASSIFY: ${{ needs.classify.result }}
+          PREFLIGHT: ${{ needs.preflight.result }}
           COMPILE: ${{ needs.compile.result }}
           CI: ${{ needs.ci.result }}
           DOCS: ${{ needs.docs.result }}
@@ -260,6 +302,7 @@ jobs:
               *) echo "$1 did not pass: $2" >&2; exit 1 ;;
             esac
           }
+          require_success_or_skip PREFLIGHT "$PREFLIGHT"
           test "$COMPILE" = success
           if [ "${{ github.event_name }}" != push ]; then
             test "$CLASSIFY" = success
