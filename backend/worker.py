@@ -43,7 +43,7 @@ def main() -> None:
     try:
         prewarm_librosa_beat_tracking()
     except Exception:
-        logger.exception("librosa_prewarm_failed")
+        logger.exception("librosa_beat_prewarm_failed")
 
     worker = PgmqJobWorker(max_workers=settings.concurrency)
     install_understand_instrumentation(capability_module)
