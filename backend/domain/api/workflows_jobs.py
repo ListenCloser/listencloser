@@ -14,7 +14,9 @@ from domain.models import ArtifactKind, Capability, Job, JobStage, Version, Work
 from domain.repositories import ArtifactRepo, JobRepo, VersionRepo, WorkflowRepo, WorkRepo
 
 router = APIRouter()
-_PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset({"perceptual_series", "pitch_contour", "transform"})
+_PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset(
+    {"perceptual_series", "pitch_contour", "transform"}
+)
 
 
 class UnderstandWorkflowBody(BaseModel):
