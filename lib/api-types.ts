@@ -383,6 +383,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/works/{work_id}/relations/similar-moments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Similar Moments
+         * @description Propose inspectable same-Work passages under one declared experimental method.
+         */
+        post: operations["similar_moments_api_v1_works__work_id__relations_similar_moments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1320,6 +1340,146 @@ export interface components {
             source_artifact_version_id: string;
             /** Start Seconds */
             start_seconds: number;
+        };
+        /**
+         * SimilarMomentMatch
+         * @description One inspectable candidate under the declared descriptor-shape method.
+         */
+        SimilarMomentMatch: {
+            /** Component Distances */
+            component_distances: {
+                [key: string]: number;
+            };
+            /** Distance */
+            distance: number;
+            /** End Seconds */
+            end_seconds: number;
+            /** Start Seconds */
+            start_seconds: number;
+        };
+        /**
+         * SimilarMomentsBody
+         * @description Find bounded experimental neighbors for one exact selected passage.
+         */
+        SimilarMomentsBody: {
+            /**
+             * Max Matches
+             * @default 3
+             */
+            max_matches: number;
+            /** Query End Seconds */
+            query_end_seconds: number;
+            /** Query Start Seconds */
+            query_start_seconds: number;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+        };
+        /**
+         * SimilarMomentsMethod
+         * @description Stable declaration of what the experimental distance does and does not mean.
+         */
+        SimilarMomentsMethod: {
+            /**
+             * Candidate Window
+             * @default same_evidence_frame_count_as_query
+             * @constant
+             */
+            candidate_window: "same_evidence_frame_count_as_query";
+            /** Dimensions */
+            dimensions?: string[];
+            /**
+             * Distance
+             * @default mean_length_normalized_z_euclidean
+             * @constant
+             */
+            distance: "mean_length_normalized_z_euclidean";
+            /**
+             * Id
+             * @default perceptual_descriptor_shape
+             * @constant
+             */
+            id: "perceptual_descriptor_shape";
+            /**
+             * Overlap Exclusion
+             * @default exclude_query_overlap_and_mutually_overlapping_returned_windows
+             * @constant
+             */
+            overlap_exclusion: "exclude_query_overlap_and_mutually_overlapping_returned_windows";
+            /** Parameters */
+            parameters?: {
+                [key: string]: number;
+            };
+            /**
+             * Score Semantics
+             * @default lower_is_closer_under_this_method_not_confidence
+             * @constant
+             */
+            score_semantics: "lower_is_closer_under_this_method_not_confidence";
+            /**
+             * Semantic Claims
+             * @default none
+             * @constant
+             */
+            semantic_claims: "none";
+            /**
+             * Version
+             * @default 1.0
+             * @constant
+             */
+            version: "1.0";
+        };
+        /**
+         * SimilarMomentsObservation
+         * @description Experimental result tied to one exact source/evidence Version pair.
+         */
+        SimilarMomentsObservation: {
+            /**
+             * Evidence Report Type
+             * @default perceptual_series
+             * @constant
+             */
+            evidence_report_type: "perceptual_series";
+            /**
+             * Evidence Report Version Id
+             * Format: uuid
+             */
+            evidence_report_version_id: string;
+            /** Matches */
+            matches?: components["schemas"]["SimilarMomentMatch"][];
+            /** Max Matches */
+            max_matches: number;
+            method: components["schemas"]["SimilarMomentsMethod"];
+            /** No Match Reason */
+            no_match_reason?: string | null;
+            /** Preprocessing Version */
+            preprocessing_version: string;
+            /** Query End Seconds */
+            query_end_seconds: number;
+            /** Query Start Seconds */
+            query_start_seconds: number;
+            /** Sample Rate */
+            sample_rate: number;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+        };
+        /** SimilarMomentsResponse */
+        SimilarMomentsResponse: {
+            /** Evidence Report Version Id */
+            evidence_report_version_id?: string | null;
+            observation?: components["schemas"]["SimilarMomentsObservation"] | null;
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "supported" | "unavailable" | "withheld" | "failed";
         };
         /** Span */
         Span: {
@@ -2277,6 +2437,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PerceptualSpanComparisonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    similar_moments_api_v1_works__work_id__relations_similar_moments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimilarMomentsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimilarMomentsResponse"];
                 };
             };
             /** @description Validation Error */

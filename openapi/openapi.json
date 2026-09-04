@@ -2203,6 +2203,269 @@
         "title": "SecondsSpanLocator",
         "type": "object"
       },
+      "SimilarMomentMatch": {
+        "description": "One inspectable candidate under the declared descriptor-shape method.",
+        "properties": {
+          "component_distances": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Component Distances",
+            "type": "object"
+          },
+          "distance": {
+            "minimum": 0.0,
+            "title": "Distance",
+            "type": "number"
+          },
+          "end_seconds": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Seconds",
+            "type": "number"
+          },
+          "start_seconds": {
+            "minimum": 0.0,
+            "title": "Start Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "start_seconds",
+          "end_seconds",
+          "distance",
+          "component_distances"
+        ],
+        "title": "SimilarMomentMatch",
+        "type": "object"
+      },
+      "SimilarMomentsBody": {
+        "description": "Find bounded experimental neighbors for one exact selected passage.",
+        "properties": {
+          "max_matches": {
+            "default": 3,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Max Matches",
+            "type": "integer"
+          },
+          "query_end_seconds": {
+            "title": "Query End Seconds",
+            "type": "number"
+          },
+          "query_start_seconds": {
+            "title": "Query Start Seconds",
+            "type": "number"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "query_start_seconds",
+          "query_end_seconds"
+        ],
+        "title": "SimilarMomentsBody",
+        "type": "object"
+      },
+      "SimilarMomentsMethod": {
+        "description": "Stable declaration of what the experimental distance does and does not mean.",
+        "properties": {
+          "candidate_window": {
+            "const": "same_evidence_frame_count_as_query",
+            "default": "same_evidence_frame_count_as_query",
+            "title": "Candidate Window",
+            "type": "string"
+          },
+          "dimensions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dimensions",
+            "type": "array"
+          },
+          "distance": {
+            "const": "mean_length_normalized_z_euclidean",
+            "default": "mean_length_normalized_z_euclidean",
+            "title": "Distance",
+            "type": "string"
+          },
+          "id": {
+            "const": "perceptual_descriptor_shape",
+            "default": "perceptual_descriptor_shape",
+            "title": "Id",
+            "type": "string"
+          },
+          "overlap_exclusion": {
+            "const": "exclude_query_overlap_and_mutually_overlapping_returned_windows",
+            "default": "exclude_query_overlap_and_mutually_overlapping_returned_windows",
+            "title": "Overlap Exclusion",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Parameters",
+            "type": "object"
+          },
+          "score_semantics": {
+            "const": "lower_is_closer_under_this_method_not_confidence",
+            "default": "lower_is_closer_under_this_method_not_confidence",
+            "title": "Score Semantics",
+            "type": "string"
+          },
+          "semantic_claims": {
+            "const": "none",
+            "default": "none",
+            "title": "Semantic Claims",
+            "type": "string"
+          },
+          "version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "title": "SimilarMomentsMethod",
+        "type": "object"
+      },
+      "SimilarMomentsObservation": {
+        "description": "Experimental result tied to one exact source/evidence Version pair.",
+        "properties": {
+          "evidence_report_type": {
+            "const": "perceptual_series",
+            "default": "perceptual_series",
+            "title": "Evidence Report Type",
+            "type": "string"
+          },
+          "evidence_report_version_id": {
+            "format": "uuid",
+            "title": "Evidence Report Version Id",
+            "type": "string"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarMomentMatch"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "max_matches": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Max Matches",
+            "type": "integer"
+          },
+          "method": {
+            "$ref": "#/components/schemas/SimilarMomentsMethod"
+          },
+          "no_match_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Match Reason"
+          },
+          "preprocessing_version": {
+            "title": "Preprocessing Version",
+            "type": "string"
+          },
+          "query_end_seconds": {
+            "exclusiveMinimum": 0.0,
+            "title": "Query End Seconds",
+            "type": "number"
+          },
+          "query_start_seconds": {
+            "minimum": 0.0,
+            "title": "Query Start Seconds",
+            "type": "number"
+          },
+          "sample_rate": {
+            "title": "Sample Rate",
+            "type": "integer"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "evidence_report_version_id",
+          "preprocessing_version",
+          "sample_rate",
+          "query_start_seconds",
+          "query_end_seconds",
+          "max_matches",
+          "method"
+        ],
+        "title": "SimilarMomentsObservation",
+        "type": "object"
+      },
+      "SimilarMomentsResponse": {
+        "properties": {
+          "evidence_report_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Report Version Id"
+          },
+          "observation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SimilarMomentsObservation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "unavailable",
+              "withheld",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SimilarMomentsResponse",
+        "type": "object"
+      },
       "Span": {
         "properties": {
           "end_beat": {
@@ -3859,6 +4122,62 @@
           }
         ],
         "summary": "Compare Perceptual Spans"
+      }
+    },
+    "/api/v1/works/{work_id}/relations/similar-moments": {
+      "post": {
+        "description": "Propose inspectable same-Work passages under one declared experimental method.",
+        "operationId": "similar_moments_api_v1_works__work_id__relations_similar_moments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimilarMomentsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimilarMomentsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Similar Moments"
       }
     },
     "/health": {
