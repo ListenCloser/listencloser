@@ -149,7 +149,7 @@ describe("LibraryPanel processing disclosure", () => {
     mocks.activeWorkId = "work-1";
     render(<LibraryPanel signedIn canImport />);
 
-    expect(screen.queryByRole("combobox", { name: "Score source" })).not.toBeVisible();
+    expect(screen.queryByRole("combobox", { name: "Score source" })).not.toBeInTheDocument();
     await user.click(screen.getByText("Processing"));
 
     const source = screen.getByRole("combobox", { name: "Score source" });
