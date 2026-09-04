@@ -40,7 +40,9 @@ class MeasuredChangeCandidate(BaseModel):
     before_span_seconds: tuple[float, float]
     after_span_seconds: tuple[float, float]
     ranking_score: float
+    changed_feature_count: int = Field(ge=2, le=3)
     changed_component_count: int = Field(ge=2, le=6)
+    normalized_feature_changes: dict[str, float] = Field(default_factory=dict)
     normalized_component_changes: dict[str, float] = Field(default_factory=dict)
     finding: GroundedRelationFinding
 
@@ -185,14 +187,26 @@ def _score_boundaries(
     return np.asarray(boundary_times), np.asarray(scores), np.vstack(component_changes)
 
 
+def _feature_changes(component_changes: np.ndarray) -> dict[str, float]:
+    """Collapse four band components into one declared feature-group change."""
+
+    return {
+        "onset_strength": float(component_changes[0]),
+        "spectral_centroid": float(component_changes[1]),
+        "relative_band_energy": float(
+            np.sqrt(np.mean(np.square(component_changes[2:])))
+        ),
+    }
+
+
 def discover_measured_changes(
     report: PerceptualEvidenceReport,
     *,
     evidence_report_version_id: UUID,
     window_seconds: float = 4.0,
     min_separation_seconds: float = 8.0,
-    component_change_floor: float = 0.5,
-    min_changed_components: int = 2,
+    feature_change_floor: float = 0.5,
+    min_changed_features: int = 2,
     max_candidates: int = 5,
 ) -> MeasuredChangeDiscovery:
     """Return a small, deterministic top set of measured before/after changes.
@@ -200,10 +214,10 @@ def discover_measured_changes(
     #883 showed that the previous robust-threshold local-peak control could miss
     obvious changes and that PELT could become an overcomplete proposal stream.
     This experimental method keeps the valid robust before/after score, removes
-    the brittle global threshold, requires more than one declared component to
+    the brittle global threshold, requires multiple declared feature groups to
     move, then applies deterministic local-peak separation and a hard top-set cap.
 
-    ``ranking_score`` and normalized component changes are method-internal,
+    ``ranking_score`` and normalized change magnitudes are method-internal,
     within-Work ranking values. They are not confidence, significance,
     importance, semantic-boundary probability, or cross-Work comparable.
     """
@@ -211,18 +225,18 @@ def discover_measured_changes(
     parameters: dict[str, float | int] = {
         "window_seconds": window_seconds,
         "min_separation_seconds": min_separation_seconds,
-        "component_change_floor": component_change_floor,
-        "min_changed_components": min_changed_components,
+        "feature_change_floor": feature_change_floor,
+        "min_changed_features": min_changed_features,
         "max_candidates": max_candidates,
     }
     if not math.isfinite(window_seconds) or window_seconds <= 0:
         return _withheld("window_seconds must be positive and finite", **parameters)
     if not math.isfinite(min_separation_seconds) or min_separation_seconds <= 0:
         return _withheld("min_separation_seconds must be positive and finite", **parameters)
-    if not math.isfinite(component_change_floor) or component_change_floor <= 0:
-        return _withheld("component_change_floor must be positive and finite", **parameters)
-    if not 2 <= min_changed_components <= 6:
-        return _withheld("min_changed_components must be between 2 and 6", **parameters)
+    if not math.isfinite(feature_change_floor) or feature_change_floor <= 0:
+        return _withheld("feature_change_floor must be positive and finite", **parameters)
+    if not 2 <= min_changed_features <= 3:
+        return _withheld("min_changed_features must be between 2 and 3", **parameters)
     if max_candidates <= 0:
         return _withheld("max_candidates must be positive", **parameters)
 
@@ -251,11 +265,17 @@ def discover_measured_changes(
         candidate_step = min_separation_seconds
     peak_distance = max(1, int(math.ceil(min_separation_seconds / candidate_step)))
     peaks, _ = find_peaks(scores, distance=peak_distance)
+    feature_changes_by_index = {
+        index: _feature_changes(component_changes[index]) for index in peaks.tolist()
+    }
     eligible = [
         index
         for index in peaks.tolist()
-        if int(np.count_nonzero(component_changes[index] >= component_change_floor))
-        >= min_changed_components
+        if sum(
+            value >= feature_change_floor
+            for value in feature_changes_by_index[index].values()
+        )
+        >= min_changed_features
     ]
     ordered = sorted(
         eligible,
@@ -263,7 +283,7 @@ def discover_measured_changes(
     )[:max_candidates]
 
     candidates: list[MeasuredChangeCandidate] = []
-    for rank, index in enumerate(ordered, start=1):
+    for index in ordered:
         boundary = float(boundary_times[index])
         before_span = (boundary - window_seconds, boundary)
         after_span = (boundary, boundary + window_seconds)
@@ -290,15 +310,21 @@ def discover_measured_changes(
         if finding is None:
             continue
         changes = component_changes[index]
-        changed_count = int(np.count_nonzero(changes >= component_change_floor))
+        feature_changes = feature_changes_by_index[index]
+        changed_feature_count = sum(
+            value >= feature_change_floor for value in feature_changes.values()
+        )
+        changed_component_count = int(np.count_nonzero(changes >= feature_change_floor))
         candidates.append(
             MeasuredChangeCandidate(
-                rank=rank,
+                rank=len(candidates) + 1,
                 boundary_seconds=boundary,
                 before_span_seconds=before_span,
                 after_span_seconds=after_span,
                 ranking_score=float(scores[index]),
-                changed_component_count=changed_count,
+                changed_feature_count=changed_feature_count,
+                changed_component_count=changed_component_count,
+                normalized_feature_changes=feature_changes,
                 normalized_component_changes={
                     name: float(value)
                     for name, value in zip(_COMPONENT_NAMES, changes, strict=True)
