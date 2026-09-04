@@ -31,11 +31,12 @@ export default function MeasuredChanges() {
   if (!exposed || !workId || !sourceVersionId) return null;
 
   const result = query.data;
+  const candidates = result?.candidates ?? [];
   if (
     query.isPending
     || query.isError
     || result?.status !== "supported"
-    || result.candidates.length === 0
+    || candidates.length === 0
   ) {
     return null;
   }
@@ -72,7 +73,7 @@ export default function MeasuredChanges() {
       </div>
 
       <div aria-live="polite">
-        {result.candidates.map((candidate) => (
+        {candidates.map((candidate) => (
           <article
             key={`${sourceVersionId}:${candidate.boundary_seconds}`}
             className="inspector-breakdown-finding"
