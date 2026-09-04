@@ -58,45 +58,45 @@ jobs:
         continue-on-error: true
         env:
           PYTHONPATH: backend
+        shell: bash
         run: |
-          mkdir -p closeout-artifacts
+          set -euo pipefail
+          mkdir -p closeout-artifacts closeout-audio
+
+          # Reuse the exact Special:Redirect fetch path that succeeded in the
+          # historical #883 probe for these same curated public-domain files.
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 3 \
+            -A 'ListenCloser/848-experimental-closeout' \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Maple_Leaf_Rag.ogg' \
+            --output closeout-audio/maple.ogg
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 3 \
+            -A 'ListenCloser/848-experimental-closeout' \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/El_Choclo-Villoldo.ogg' \
+            --output closeout-audio/el-choclo.ogg
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 3 \
+            -A 'ListenCloser/848-experimental-closeout' \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/How_Long%2C_How_Long_Blues.ogg' \
+            --output closeout-audio/how-long.ogg
+
           uv run --project backend --locked python - <<'PY'
           import json
-          import urllib.request
+          from pathlib import Path
           from uuid import uuid4
 
           from perceptual_evidence import extract_perceptual_evidence_from_bytes
           from domain.measured_changes import discover_measured_changes
 
           FILES = [
-              (
-                  "Maple Leaf Rag",
-                  "Maple Leaf Rag.ogg",
-                  "https://upload.wikimedia.org/wikipedia/commons/f/fe/Maple_Leaf_Rag.ogg",
-              ),
-              (
-                  "El Choclo",
-                  "El Choclo-Villoldo.ogg",
-                  "https://upload.wikimedia.org/wikipedia/commons/1/12/El_Choclo-Villoldo.ogg",
-              ),
-              (
-                  "How Long, How Long Blues",
-                  "How Long, How Long Blues.ogg",
-                  "https://upload.wikimedia.org/wikipedia/commons/e/e8/How_Long%2C_How_Long_Blues.ogg",
-              ),
+              ("Maple Leaf Rag", "Maple Leaf Rag.ogg", Path("closeout-audio/maple.ogg")),
+              ("El Choclo", "El Choclo-Villoldo.ogg", Path("closeout-audio/el-choclo.ogg")),
+              ("How Long, How Long Blues", "How Long, How Long Blues.ogg", Path("closeout-audio/how-long.ogg")),
           ]
-          headers = {"User-Agent": "ListenCloser/848-experimental-closeout"}
           output = []
-          for title, file_title, media_url in FILES:
-              with urllib.request.urlopen(
-                  urllib.request.Request(media_url, headers=headers), timeout=60
-              ) as response:
-                  audio_bytes = response.read()
-
+          for title, file_title, path in FILES:
               source_version_id = uuid4()
               report_version_id = uuid4()
               report = extract_perceptual_evidence_from_bytes(
-                  audio_bytes,
+                  path.read_bytes(),
                   source_version_id=source_version_id,
                   fmt="ogg",
               )
