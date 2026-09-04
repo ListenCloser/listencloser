@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/AuthProvider";
 import Tooltip from "@/components/ui/Tooltip";
 import LibraryImportControl from "@/components/workspace/LibraryImportControl";
+import ScoreSourceControl from "@/components/workspace/ScoreSourceControl";
 import { getWorkBundle, startUnderstandWorkflow, uploadArtifact } from "@/lib/api-client";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
@@ -109,10 +110,12 @@ export function WorkRow({
   );
 }
 
-function ImportSettings() {
+function ImportSettings({ canAttachScore }: { canAttachScore: boolean }) {
   const {
     workspace,
+    requestAttachScore,
     requestScoreEngine,
+    selectScoreSource,
     setScoreEngine,
     setTranscriptionProfile,
   } = useWorkspace();
@@ -123,7 +126,7 @@ function ImportSettings() {
     activeScore && (
       workspace.scoreEngine === "pm2s"
         ? activeScore.provenance.startsWith("PM2S")
-        : !activeScore.provenance.startsWith("PM2S")
+        : !activeScore.provenance.startsWith("PM2S") && activeScore.provenance !== "Attached score"
     ),
   );
   const canGenerateScore = Boolean(
@@ -191,9 +194,18 @@ function ImportSettings() {
 
         {workspace.activeWorkId && (
           <div style={{ display: "grid", gap: "6px" }}>
-            <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>Current score source</span>
+            <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>Score source</span>
+            <ScoreSourceControl
+              selection={workspace.scoreDisplaySelection}
+              sources={workspace.scoreSources}
+              disabled={workspace.isLoadingWork}
+              attachDisabled={!canAttachScore || workspace.isLoadingWork}
+              onSelectEngine={requestScoreEngine}
+              onSelectSource={selectScoreSource}
+              onAttach={requestAttachScore}
+            />
             <span style={{ fontSize: "var(--fs-xs)" }}>
-              {activeScore?.provenance ?? `No ${selectedEngineLabel} score generated yet`}
+              {activeScore?.sourceLabel ?? `No ${selectedEngineLabel} score generated yet`}
             </span>
             <button
               type="button"
@@ -204,9 +216,11 @@ function ImportSettings() {
               {activeScoreMatchesSelection ? `${selectedEngineLabel} score ready` : `Generate ${selectedEngineLabel} score`}
             </button>
             <span className="muted" style={{ fontSize: "var(--fs-xs)", lineHeight: 1.35 }}>
-              {activeScoreMatchesSelection
-                ? "Select another engine to generate an alternate Score from the same performance MIDI."
-                : "Generation reuses this recording's performance MIDI; transcription is not rerun."}
+              {workspace.scoreDisplaySelection?.kind === "source"
+                ? "Attached MusicXML is source evidence. It does not create score-to-audio timing or replace the performance transcription."
+                : activeScoreMatchesSelection
+                  ? "Select another engine to generate an alternate Score from the same performance MIDI."
+                  : "Generation reuses this recording's performance MIDI; transcription is not rerun."}
             </span>
           </div>
         )}
@@ -324,7 +338,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               onImport={handlePublicImport}
             />
             {importStatus && <span id="library-import-status" className="library-import-status" role="status">{importStatus}</span>}
-            <ImportSettings />
+            <ImportSettings canAttachScore={canImport} />
           </>
         )}
       </div>
