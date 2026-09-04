@@ -23,6 +23,7 @@ type Props = {
   playheadTime?: number;
   isPlaying?: boolean;
   isScoreActive?: boolean;
+  isScorePlaybackActive?: boolean;
   hasScorePlayback?: boolean;
   measureStarts?: number[];
   scoreDuration?: number | null;
@@ -96,6 +97,7 @@ export default function SheetMusic({
   className,
   playheadTime = 0,
   isScoreActive = false,
+  isScorePlaybackActive = false,
   measureStarts,
   scoreDuration,
   selectedMeasures,
@@ -181,8 +183,11 @@ export default function SheetMusic({
     noteEventsRef.current = buildScoreNotePlaybackEvents(osmdRef.current, measureStarts, scoreDuration);
   }, [measureStarts, osmdReady, scoreDuration]);
 
+  // Direct notehead state is stronger than the approximate orientation cursor,
+  // so only expose it when the notation-derived Score source owns the shared
+  // transport clock. Other sources may still use the quiet measure cursor.
   useEffect(() => {
-    if (!osmdReady || !isScoreActive) {
+    if (!osmdReady || !isScoreActive || !isScorePlaybackActive) {
       clearScoreActiveNoteheads(activeNoteheadsRef.current);
       return;
     }
@@ -191,7 +196,7 @@ export default function SheetMusic({
       playheadTime,
       activeNoteheadsRef.current,
     );
-  }, [isScoreActive, osmdReady, playheadTime]);
+  }, [isScoreActive, isScorePlaybackActive, osmdReady, playheadTime]);
 
   // Playback follows the score using structural VexFlow stave geometry. Ties,
   // slurs, lyrics, and other descendants can extend the enclosing vf-measure
