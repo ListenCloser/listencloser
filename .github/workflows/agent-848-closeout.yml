@@ -1,0 +1,133 @@
+name: Agent 848 closeout
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-848-closeout-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  closeout:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.9'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+      - run: npm ci
+      - name: Sync locked backend environment
+        run: uv sync --project backend --locked
+      - name: Install audio decoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Generate exact API artifacts
+        run: npm run api:generate
+      - name: Run focused measured-change tests
+        run: uv run --project backend --locked python -m pytest backend/tests/test_measured_changes.py -v
+      - name: Inspect branch method on public-domain recordings
+        env:
+          PYTHONPATH: backend
+        run: |
+          mkdir -p closeout-artifacts
+          uv run --project backend --locked python - <<'PY'
+          import json
+          import urllib.parse
+          import urllib.request
+          from uuid import uuid4
+
+          from perceptual_evidence import extract_perceptual_evidence_from_bytes
+          from domain.measured_changes import discover_measured_changes
+
+          API = "https://commons.wikimedia.org/w/api.php"
+          FILES = [
+              ("Maple Leaf Rag", "Maple Leaf Rag.ogg"),
+              ("El Choclo", "El Choclo-Villoldo.ogg"),
+              ("How Long, How Long Blues", "How Long, How Long Blues.ogg"),
+          ]
+          headers = {"User-Agent": "ListenCloser/848-experimental-closeout"}
+          output = []
+          for title, file_title in FILES:
+              params = urllib.parse.urlencode({
+                  "action": "query",
+                  "format": "json",
+                  "prop": "imageinfo",
+                  "iiprop": "url",
+                  "titles": f"File:{file_title}",
+              })
+              with urllib.request.urlopen(
+                  urllib.request.Request(f"{API}?{params}", headers=headers), timeout=30
+              ) as response:
+                  payload = json.load(response)
+              page = next(iter(payload["query"]["pages"].values()))
+              media_url = page["imageinfo"][0]["url"]
+              with urllib.request.urlopen(
+                  urllib.request.Request(media_url, headers=headers), timeout=60
+              ) as response:
+                  audio_bytes = response.read()
+
+              source_version_id = uuid4()
+              report_version_id = uuid4()
+              report = extract_perceptual_evidence_from_bytes(
+                  audio_bytes,
+                  source_version_id=source_version_id,
+                  fmt="ogg",
+              )
+              discovery = discover_measured_changes(
+                  report,
+                  evidence_report_version_id=report_version_id,
+              )
+              output.append({
+                  "title": title,
+                  "file_title": file_title,
+                  "duration_seconds": report.duration_seconds,
+                  "status": discovery.status,
+                  "method": discovery.method,
+                  "method_parameters": discovery.method_parameters,
+                  "candidate_count": len(discovery.candidates),
+                  "candidates": [
+                      {
+                          "rank": candidate.rank,
+                          "boundary_seconds": candidate.boundary_seconds,
+                          "ranking_score": candidate.ranking_score,
+                          "changed_feature_count": candidate.changed_feature_count,
+                          "normalized_feature_changes": candidate.normalized_feature_changes,
+                          "measurement_summaries": [
+                              measurement.summary
+                              for measurement in candidate.finding.measurements
+                          ],
+                      }
+                      for candidate in discovery.candidates
+                  ],
+              })
+
+          with open("closeout-artifacts/real-recordings.json", "w", encoding="utf-8") as handle:
+              json.dump(output, handle, indent=2, sort_keys=True)
+          PY
+      - name: Stage generated contracts
+        run: |
+          cp openapi/openapi.json closeout-artifacts/openapi.json
+          cp lib/api-types.ts closeout-artifacts/api-types.ts
+      - name: Upload closeout artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: agent-848-closeout-${{ github.run_attempt }}
+          path: closeout-artifacts/
+          if-no-files-found: error
+          retention-days: 1
