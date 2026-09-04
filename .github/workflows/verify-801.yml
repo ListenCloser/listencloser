@@ -26,6 +26,7 @@ jobs:
           echo "BASE_SHA=$base" >> "$GITHUB_ENV"
           git switch --detach "$base"
           git show origin/refactor/801-explicit-progress-reporter:backend/tests/test_capability_progress.py > backend/tests/test_capability_progress.py
+          git add -N backend/tests/test_capability_progress.py
 
           python3 - <<'PY'
           from pathlib import Path
@@ -302,6 +303,7 @@ jobs:
           git switch -C publish "$BASE_SHA"
           cp /tmp/test-capability-progress-801.py backend/tests/test_capability_progress.py
           cp /tmp/test-real-pipeline-contracts-801.py backend/tests/test_real_pipeline_contracts.py
+          git add -N backend/tests/test_capability_progress.py
           git diff --check
           test "$(git diff --name-only | sort)" = $'backend/tests/test_capability_progress.py\nbackend/tests/test_real_pipeline_contracts.py'
           git config user.name "github-actions[bot]"
