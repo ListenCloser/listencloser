@@ -1,4 +1,5 @@
 import { delay, http, HttpResponse, passthrough } from "msw";
+import { sampleWavBase64 } from "@/app/_test-support/msw/fixtures/sample-wav";
 
 const JOB_ID = "mock-production-spatial-job";
 const WORKFLOW_ID = "mock-production-spatial-workflow";
@@ -47,6 +48,36 @@ export function productionSpatialReportArtifact(now: string, sourceVersionId: st
     versions: [version],
     latest_version: version,
     signed_url: "/__test/production-spatial-report",
+  };
+}
+
+function sourceArtifact(now: string) {
+  const version = {
+    id: "mock-version-1",
+    artifact_id: "mock-artifact-1",
+    storage_bucket: "artifacts",
+    storage_key: "test/mock-version-1.wav",
+    parent_version_id: null,
+    lineage: [],
+    byte_size: 44000,
+    sha256: null,
+    label: "test.wav",
+    metadata: {},
+    created_at: now,
+    created_by: "mock-user-1",
+    produced_by_job_id: null,
+  };
+  return {
+    artifact: {
+      id: "mock-artifact-1",
+      work_id: "mock-work-1",
+      kind: "audio_original",
+      mime_type: "audio/wav",
+      created_at: now,
+    },
+    versions: [version],
+    latest_version: version,
+    signed_url: `data:audio/wav;base64,${sampleWavBase64}`,
   };
 }
 
@@ -192,6 +223,25 @@ export const productionSpatialHandlers = [
       error: null,
       input_version_ids: ["mock-version-1"],
       output_version_ids: [REPORT_VERSION_ID],
+    });
+  }),
+  http.get("/api/v1/works/:workId", () => {
+    if (!reportReady) return passthrough();
+    const now = new Date().toISOString();
+    return HttpResponse.json({
+      work: {
+        id: "mock-work-1",
+        project_id: "mock-project-1",
+        title: "Test Work",
+        composer: null,
+        created_at: now,
+        updated_at: now,
+      },
+      jobs: [],
+      artifacts: [
+        sourceArtifact(now),
+        productionSpatialReportArtifact(now, "mock-version-1"),
+      ],
     });
   }),
   http.get("/__test/production-spatial-report", () => HttpResponse.json(report)),
