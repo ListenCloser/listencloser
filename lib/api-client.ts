@@ -597,6 +597,23 @@ export async function startCompareWorkflow(
   });
 }
 
+export async function startPitchContourWorkflow(
+  versionId: string,
+  projectId: string,
+): Promise<{ workflow: Workflow; job: Job }> {
+  return mutateVersionWorks([versionId], async () => {
+    const result = await openapiClient.POST("/api/v1/workflows/create", {
+      body: {
+        version_id: versionId,
+        project_id: projectId,
+        action: "pitch_contour",
+        parameters: {},
+      },
+    });
+    return normalizeWorkflowJob(requireOpenApiData(result));
+  });
+}
+
 export async function getJob(jobId: string): Promise<JobStatus> {
   const result = await openapiClient.GET("/api/v1/jobs/{job_id}", {
     params: { path: { job_id: jobId } },
