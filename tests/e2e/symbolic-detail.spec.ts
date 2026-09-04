@@ -13,7 +13,7 @@ async function openWorkspace(page: Page) {
     { timeout: 15_000 },
   );
   await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("button", { name: "Piano Roll" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible();
 }
 
 test("symbolic detail is an opt-in experimental Inspector analysis", async ({ page }) => {
