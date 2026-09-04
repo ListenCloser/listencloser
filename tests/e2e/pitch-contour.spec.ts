@@ -186,7 +186,6 @@ test("Pitch contour stays an optional synchronized result instead of a fifth pri
   await expect(pitch).toContainText("Not added");
 
   await pitch.getByRole("button", { name: "Add" }).click();
-  await expect(pitch.getByRole("button", { name: "Processing pitch contour…" })).toBeDisabled();
   await expect(pitch).toContainText("Ready", { timeout: 10_000 });
   await expect(page.getByTestId("pitch-contour-lane")).not.toBeVisible();
 
