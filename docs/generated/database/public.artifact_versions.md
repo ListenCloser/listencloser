@@ -35,6 +35,12 @@
 | idx_versions_job | CREATE INDEX idx_versions_job ON public.artifact_versions USING btree (produced_by_job_id) |
 | idx_versions_parent | CREATE INDEX idx_versions_parent ON public.artifact_versions USING btree (parent_version_id) |
 
+## Triggers
+
+| Name | Definition |
+| ---- | ---------- |
+| artifact_versions_storage_locator_rehome_fence | CREATE TRIGGER artifact_versions_storage_locator_rehome_fence BEFORE INSERT ON public.artifact_versions FOR EACH ROW EXECUTE FUNCTION enforce_storage_locator_rehome_fence() |
+
 ## Relations
 
 ```mermaid
