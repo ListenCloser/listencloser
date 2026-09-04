@@ -28,36 +28,6 @@
   opacity: 0.72;
 }
 
-.context {
-  grid-column: 1 / -1;
-  justify-self: start;
-  max-width: 100%;
-  gap: 4px;
-  padding-right: 3px !important;
-}
-
-.contextClear {
-  width: 20px;
-  height: 20px;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.contextClear:hover {
-  background: rgba(255, 255, 255, 0.055);
-  color: var(--text);
-}
-
 .turnScope {
   display: block;
   margin-top: 4px;

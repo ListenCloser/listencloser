@@ -6,7 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import Tooltip from "@/components/ui/Tooltip";
 import LibraryImportControl from "@/components/workspace/LibraryImportControl";
 import { getWorkBundle, startUnderstandWorkflow, uploadArtifact } from "@/lib/api-client";
-import { useWorkspace, type TranscriptionProfile } from "@/lib/stores/workspace";
+import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
@@ -109,23 +109,107 @@ export function WorkRow({
   );
 }
 
-function ImportSettings({
-  profile,
-  onChange,
-}: {
-  profile: TranscriptionProfile;
-  onChange: (profile: TranscriptionProfile) => void;
-}) {
+function ImportSettings() {
+  const {
+    workspace,
+    requestScoreEngine,
+    setScoreEngine,
+    setTranscriptionProfile,
+  } = useWorkspace();
+  const activeScore = workspace.representations.find((representation) => representation.kind === "score");
+  const hasPerformanceMidi = workspace.representations.some((representation) => representation.kind === "piano_roll");
+  const selectedEngineLabel = workspace.scoreEngine === "pm2s" ? "PM2S" : "MuseScore";
+  const activeScoreMatchesSelection = Boolean(
+    activeScore && (
+      workspace.scoreEngine === "pm2s"
+        ? activeScore.provenance.startsWith("PM2S")
+        : !activeScore.provenance.startsWith("PM2S")
+    ),
+  );
+  const canGenerateScore = Boolean(
+    workspace.activeWorkId
+    && !workspace.isLoadingWork
+    && (hasPerformanceMidi || activeScore)
+    && !activeScoreMatchesSelection,
+  );
+
   return (
     <details className="library-import-settings">
       <summary>Processing</summary>
-      <div className="library-import-settings-body" role="group" aria-label="Transcription mode">
-        <Tooltip stretch content="General and mixed recordings">
-          <button type="button" className={profile === "auto" ? "active" : ""} aria-pressed={profile === "auto"} onClick={() => onChange("auto")}>Auto</button>
-        </Tooltip>
-        <Tooltip stretch content="Best measured transcription for known solo piano">
-          <button type="button" className={profile === "solo_piano" ? "active" : ""} aria-pressed={profile === "solo_piano"} onClick={() => onChange("solo_piano")}>Solo piano</button>
-        </Tooltip>
+      <div style={{ display: "grid", gap: "var(--s-3)", paddingTop: "var(--s-2)" }}>
+        <div style={{ display: "grid", gap: "6px" }}>
+          <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>Transcription</span>
+          <div className="library-import-settings-body" role="group" aria-label="Transcription mode">
+            <Tooltip stretch content="General and mixed recordings">
+              <button
+                type="button"
+                className={workspace.transcriptionProfile === "auto" ? "active" : ""}
+                aria-pressed={workspace.transcriptionProfile === "auto"}
+                onClick={() => setTranscriptionProfile("auto")}
+              >
+                Auto
+              </button>
+            </Tooltip>
+            <Tooltip stretch content="Best measured transcription for known solo piano">
+              <button
+                type="button"
+                className={workspace.transcriptionProfile === "solo_piano" ? "active" : ""}
+                aria-pressed={workspace.transcriptionProfile === "solo_piano"}
+                onClick={() => setTranscriptionProfile("solo_piano")}
+              >
+                Solo piano
+              </button>
+            </Tooltip>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: "6px" }}>
+          <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>Score reconstruction</span>
+          <div className="library-import-settings-body" role="group" aria-label="Score reconstruction engine">
+            <Tooltip stretch content="Current notation baseline">
+              <button
+                type="button"
+                className={workspace.scoreEngine === "musescore" ? "active" : ""}
+                aria-pressed={workspace.scoreEngine === "musescore"}
+                onClick={() => setScoreEngine("musescore")}
+              >
+                MuseScore
+              </button>
+            </Tooltip>
+            <Tooltip stretch content="Experimental learned piano score reconstruction">
+              <button
+                type="button"
+                className={workspace.scoreEngine === "pm2s" ? "active" : ""}
+                aria-pressed={workspace.scoreEngine === "pm2s"}
+                onClick={() => setScoreEngine("pm2s")}
+              >
+                PM2S
+              </button>
+            </Tooltip>
+          </div>
+        </div>
+
+        {workspace.activeWorkId && (
+          <div style={{ display: "grid", gap: "6px" }}>
+            <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>Current score source</span>
+            <span style={{ fontSize: "var(--fs-xs)" }}>
+              {activeScore?.provenance ?? `No ${selectedEngineLabel} score generated yet`}
+            </span>
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={!canGenerateScore}
+              onClick={() => requestScoreEngine(workspace.scoreEngine)}
+            >
+              {activeScoreMatchesSelection ? `${selectedEngineLabel} score ready` : `Generate ${selectedEngineLabel} score`}
+            </button>
+            <span className="muted" style={{ fontSize: "var(--fs-xs)", lineHeight: 1.35 }}>
+              {activeScoreMatchesSelection
+                ? "Select another engine to generate an alternate Score from the same performance MIDI."
+                : "Generation reuses this recording's performance MIDI; transcription is not rerun."}
+            </span>
+          </div>
+        )}
       </div>
     </details>
   );
@@ -138,7 +222,6 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     requestImport,
     setActiveWorkId,
     clearSelection,
-    setTranscriptionProfile,
   } = useWorkspace();
   const { clearActiveSource } = useTransport();
   const { resetTimeline } = useTimeline();
@@ -178,7 +261,12 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
     await refreshProjectWorks(queryClient, project.id);
 
     try {
-      await startUnderstandWorkflow(version.id, project.id, workspace.transcriptionProfile);
+      await startUnderstandWorkflow(
+        version.id,
+        project.id,
+        workspace.transcriptionProfile,
+        workspace.scoreEngine,
+      );
     } catch (cause) {
       // Upload durability still wins if enrichment dispatch fails. Open the
       // saved Work so the user can see/retry it through the normal product path.
@@ -236,7 +324,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               onImport={handlePublicImport}
             />
             {importStatus && <span id="library-import-status" className="library-import-status" role="status">{importStatus}</span>}
-            <ImportSettings profile={workspace.transcriptionProfile} onChange={setTranscriptionProfile} />
+            <ImportSettings />
           </>
         )}
       </div>

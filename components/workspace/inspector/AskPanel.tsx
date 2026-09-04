@@ -54,7 +54,7 @@ function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; b
 }
 
 export default function AskPanel() {
-  const { workspace, appendAskMessage, setActiveRepresentation, setSelection, clearSelection } = useWorkspace();
+  const { workspace, appendAskMessage, setActiveRepresentation, setSelection } = useWorkspace();
   const { transport, seek, setLoop, toggleLoop } = useTransport();
   const { timeline } = useTimeline();
   const [draft, setDraft] = useState("");
@@ -184,9 +184,7 @@ export default function AskPanel() {
     }
   }, [activeSource, seek, setActiveRepresentation, setLoop, setSelection, toggleLoop, transport.loopEnabled]);
 
-  const scope = describeAskContext(workspace.selection);
   const hasSelectedScope = Boolean(workspace.selection);
-  const showScope = Boolean(activeWorkId || hasSelectedScope);
   const starterContext = deriveAskContext(
     activeWorkId,
     workspace.activeRepresentation,
@@ -258,21 +256,6 @@ export default function AskPanel() {
       )}
 
       <form className="ask-composer" onSubmit={(event) => { event.preventDefault(); void handleAsk(draft); }}>
-        {showScope && (
-          <div className={`ask-context ${styles.context}`} aria-label={`Question context: ${scope}`}>
-            <span>{scope}</span>
-            {hasSelectedScope && (
-              <button
-                type="button"
-                className={styles.contextClear}
-                onClick={clearSelection}
-                aria-label="Clear question context"
-              >
-                ×
-              </button>
-            )}
-          </div>
-        )}
         <textarea
           ref={inputRef}
           className="ask-input"

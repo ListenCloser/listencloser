@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import TabStrip, { type TabIntentSource } from "@/components/ui/TabStrip";
-import Tooltip from "@/components/ui/Tooltip";
 import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
 import {
   REPRESENTATIONS,
@@ -10,64 +9,12 @@ import {
   type RepresentationId,
 } from "./representations/registry";
 import { preloadScoreRenderer } from "@/lib/score-renderer";
-import { useWorkspace, type ScoreEngine, type TranscriptionProfile } from "@/lib/stores/workspace";
+import { useWorkspace } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
 
 const ORIENTATION_CUE_MS = 560;
 const SCORE_POINTER_INTENT_MS = 120;
-
-function TranscriptionModeToggle() {
-  const { workspace, setTranscriptionProfile } = useWorkspace();
-  const options: { id: TranscriptionProfile; label: string; description: string }[] = [
-    { id: "auto", label: "Auto", description: "Best default for most recordings" },
-    { id: "solo_piano", label: "Solo piano", description: "Prefer piano-specific transcription" },
-  ];
-  return (
-    <div className="transcription-mode" role="group" aria-label="Transcription mode">
-      {options.map((option) => (
-        <Tooltip key={option.id} content={option.description}>
-          <button
-            type="button"
-            aria-pressed={workspace.transcriptionProfile === option.id}
-            className={workspace.transcriptionProfile === option.id ? "active" : ""}
-            onClick={() => setTranscriptionProfile(option.id)}
-          >
-            {option.label}
-          </button>
-        </Tooltip>
-      ))}
-    </div>
-  );
-}
-
-function ScoreEngineToggle({ loaded = false }: { loaded?: boolean }) {
-  const { workspace, requestScoreEngine, setScoreEngine } = useWorkspace();
-  const options: { id: ScoreEngine; label: string; description: string }[] = [
-    { id: "musescore", label: "MuseScore", description: "Current notation baseline" },
-    {
-      id: "pm2s",
-      label: "PM2S",
-      description: "Experimental learned piano score reconstruction",
-    },
-  ];
-  return (
-    <div className="transcription-mode" role="group" aria-label="Score interpretation">
-      {options.map((option) => (
-        <Tooltip key={option.id} content={option.description}>
-          <button
-            type="button"
-            aria-pressed={workspace.scoreEngine === option.id}
-            className={workspace.scoreEngine === option.id ? "active" : ""}
-            onClick={() => loaded ? requestScoreEngine(option.id) : setScoreEngine(option.id)}
-          >
-            {option.label}
-          </button>
-        </Tooltip>
-      ))}
-    </div>
-  );
-}
 
 function WorkspaceLoadingSkeleton() {
   return (
@@ -276,15 +223,6 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
           onIntentStart={handleRepresentationIntentStart}
           onIntentEnd={handleRepresentationIntentEnd}
         />
-        {activeView === "score" && (
-          <div
-            aria-label="Score controls"
-            style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-2)" }}
-          >
-            <span className="muted" style={{ fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}>Score interpretation</span>
-            <ScoreEngineToggle loaded />
-          </div>
-        )}
       </div>
 
       {activeSymbolicSourceLabel && (
@@ -329,13 +267,7 @@ function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canIm
         <button className="btn btn-primary empty-import-primary" onClick={onImport} disabled={!signedIn || !canImport}>
           Import audio
         </button>
-        <details className="transcription-settings">
-          <summary>Processing</summary>
-          <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>Transcription</span>
-          <TranscriptionModeToggle />
-          <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>Score interpretation</span>
-          <ScoreEngineToggle />
-        </details>
+        <small>Configure processing in the Library before import.</small>
         <small>WAV, MP3, M4A, FLAC, OGG, AAC</small>
       </div>
     </main>

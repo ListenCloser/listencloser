@@ -303,7 +303,7 @@ export default function InspectorPanel() {
           value={mode}
           onChange={setInspectorMode}
         />
-        {mode === "analysis" && workspace.selection && (
+        {workspace.selection && (
           <div className="inspector-scope">
             <span className="inspector-scope-label">Selected</span>
             <span className="inspector-scope-value">{describeSelection(workspace.selection)}</span>

@@ -42,11 +42,13 @@ test.describe("contextual Ask inspector (MSW)", () => {
   }
 
   async function currentQuestionScope(page: import("@playwright/test").Page): Promise<string> {
-    const scope = page.locator('.ask-composer [aria-label^="Question context: "]');
+    const scope = page.locator(".inspector-scope");
     await expect(scope).toBeVisible();
-    const label = await scope.getAttribute("aria-label");
-    if (!label) throw new Error("Ask question context label is missing");
-    return label.replace(/^Question context: /, "");
+    const value = scope.locator(".inspector-scope-value");
+    await expect(value).toBeVisible();
+    const label = (await value.textContent())?.trim();
+    if (!label) throw new Error("Shared Inspector selection label is missing");
+    return label;
   }
 
   async function clickScoreMeasure(page: import("@playwright/test").Page, index: number) {
@@ -146,8 +148,8 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(firstTurn).toContainText("What changes in this passage?");
     await expect(firstTurn).toContainText(firstScope);
 
-    // Explicitly choose a different passage. The live composer must move to
-    // that new scope, while the already-sent turn remains frozen to its scope.
+    // Explicitly choose a different passage. The shared Inspector scope must
+    // move to that new selection while the already-sent turn remains frozen.
     await clickScoreMeasure(page, 2);
     const secondScope = await currentQuestionScope(page);
     expect(secondScope).not.toBe("Whole piece");
@@ -164,12 +166,12 @@ test.describe("contextual Ask inspector (MSW)", () => {
     await expect(secondTurn).toContainText(secondScope);
     await expect(firstTurn).toContainText(firstScope);
 
-    // Clear is an explicit scope change back to Work-level Ask. It must remove
-    // the live selected-passage state without rewriting either prior turn.
-    await page.getByRole("button", { name: "Clear question context" }).click();
-    await expect(page.getByLabel("Question context: Whole piece")).toBeVisible();
+    // Clear is a single global selection change back to Work-level Ask. It must
+    // remove the shared passage scope without rewriting either prior turn.
+    await page.getByRole("button", { name: "Clear selection" }).click();
+    await expect(page.locator(".inspector-scope")).toHaveCount(0);
     await expect(composer).toHaveAttribute("placeholder", "Ask a question about this recording…");
-    await expect(page.getByRole("button", { name: "Clear question context" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Clear selection" })).toHaveCount(0);
     await expect(firstTurn).toContainText(firstScope);
     await expect(secondTurn).toContainText(secondScope);
   });

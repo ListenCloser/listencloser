@@ -6,7 +6,10 @@ import LibraryPanel from "@/components/workspace/LibraryPanel";
 
 const mocks = vi.hoisted(() => ({
   profile: "auto" as "auto" | "solo_piano",
+  scoreEngine: "musescore" as "musescore" | "pm2s",
   requestImport: vi.fn(),
+  requestScoreEngine: vi.fn(),
+  setScoreEngine: vi.fn(),
   setTranscriptionProfile: vi.fn(),
 }));
 
@@ -56,11 +59,15 @@ vi.mock("@/lib/stores/workspace", () => ({
       activeWorkId: null,
       isLoadingWork: false,
       libraryCollapsed: false,
+      representations: [],
+      scoreEngine: mocks.scoreEngine,
       transcriptionProfile: mocks.profile,
     },
     requestImport: mocks.requestImport,
+    requestScoreEngine: mocks.requestScoreEngine,
     setActiveWorkId: vi.fn(),
     clearSelection: vi.fn(),
+    setScoreEngine: mocks.setScoreEngine,
     setTranscriptionProfile: mocks.setTranscriptionProfile,
   }),
 }));
@@ -77,7 +84,10 @@ vi.mock("@/lib/server-state", () => ({
 
 beforeEach(() => {
   mocks.profile = "auto";
+  mocks.scoreEngine = "musescore";
   mocks.requestImport.mockReset();
+  mocks.requestScoreEngine.mockReset();
+  mocks.setScoreEngine.mockReset();
   mocks.setTranscriptionProfile.mockReset();
 });
 
@@ -91,7 +101,7 @@ describe("LibraryPanel processing disclosure", () => {
     expect(processing).not.toHaveAttribute("open");
   });
 
-  it("keeps explicit transcription profile selection available on demand", async () => {
+  it("keeps explicit transcription and score reconstruction choices available on demand", async () => {
     const user = userEvent.setup();
     render(<LibraryPanel signedIn canImport />);
 
@@ -100,18 +110,25 @@ describe("LibraryPanel processing disclosure", () => {
     const processing = screen.getByText("Processing").closest("details");
     expect(processing).toHaveAttribute("open");
     expect(screen.getByRole("button", { name: "Auto" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "MuseScore" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "PM2S" })).toHaveAttribute("aria-pressed", "false");
 
     await user.click(screen.getByRole("button", { name: "Solo piano" }));
     expect(mocks.setTranscriptionProfile).toHaveBeenCalledWith("solo_piano");
+
+    await user.click(screen.getByRole("button", { name: "PM2S" }));
+    expect(mocks.setScoreEngine).toHaveBeenCalledWith("pm2s");
   });
 
-  it("shows a previously selected non-default profile when Processing is opened", async () => {
+  it("shows previously selected non-default processing choices when Processing is opened", async () => {
     const user = userEvent.setup();
     mocks.profile = "solo_piano";
+    mocks.scoreEngine = "pm2s";
     render(<LibraryPanel signedIn canImport />);
 
     await user.click(screen.getByText("Processing"));
 
     expect(screen.getByRole("button", { name: "Solo piano" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "PM2S" })).toHaveAttribute("aria-pressed", "true");
   });
 });
