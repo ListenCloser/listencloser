@@ -42,19 +42,17 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await expect(page.getByText("Move through waveform, notes, notation, and evidence without losing your place.", { exact: true })).toBeVisible();
   await expect(page.locator(".empty-note, .empty-staff-line")).toHaveCount(0);
 
-  // Processing groups the explicit transcription and Score-model choices in
-  // the empty-workspace main surface. The Library owns a separate Processing
-  // disclosure for the next import, so keep this assertion scoped to the
-  // surface whose model controls this test is exercising.
-  const main = page.getByRole("main");
-  await main.getByText("Processing", { exact: true }).click();
-  const autoMode = main.getByRole("button", { name: "Auto", exact: true });
+  // Processing is import policy, so the Library owns both transcription and
+  // score reconstruction choices even when the main workspace is empty.
+  const library = page.locator("aside.studio-library");
+  await library.getByText("Processing", { exact: true }).click();
+  const autoMode = library.getByRole("button", { name: "Auto", exact: true });
   await expect(autoMode).not.toHaveAttribute("title");
   await autoMode.hover();
-  await expect(page.getByRole("tooltip", { name: "Best default for most recordings" })).toBeVisible();
+  await expect(page.getByRole("tooltip", { name: "General and mixed recordings" })).toBeVisible();
   await expect(autoMode).toHaveAttribute("aria-describedby");
 
-  const pm2sMode = main.getByRole("button", { name: "PM2S", exact: true });
+  const pm2sMode = library.getByRole("button", { name: "PM2S", exact: true });
   await expect(pm2sMode).not.toHaveAttribute("title");
   await pm2sMode.hover();
   await expect(page.getByRole("tooltip", { name: "Experimental learned piano score reconstruction" })).toBeVisible();
