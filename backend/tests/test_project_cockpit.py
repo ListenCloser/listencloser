@@ -91,7 +91,7 @@ def test_unknown_or_gated_posture_is_not_guessed(scenarios: dict) -> None:
         for item in cockpit["blocked"]
     )
     assert any(
-        "issue #31 eligibility: requires judgment" == warning for warning in cockpit["warnings"]
+        warning == "issue #31 eligibility: requires judgment" for warning in cockpit["warnings"]
     )
     assert "requires judgment" in project_cockpit.render_markdown(cockpit)
 
