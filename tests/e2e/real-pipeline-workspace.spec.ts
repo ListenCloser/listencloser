@@ -68,7 +68,7 @@ test("import starts one durable understand job and reloads the persisted work", 
   });
 });
 
-test("score appears as a playback source and follows the transport", async ({
+test("score playback exposes exact note state without conflating other sources", async ({
   page,
 }) => {
   await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
@@ -89,6 +89,19 @@ test("score appears as a playback source and follows the transport", async ({
   await page.getByRole("button", { name: /Playback source:/ }).click();
   await page.getByRole("option", { name: "Score", exact: true }).click();
   await expect(page.getByRole("button", { name: "Playback source: Score", exact: true })).toBeVisible();
+
+  // The fixture begins with one whole note at notation time 0. Direct notehead
+  // state is therefore available immediately when Score owns the shared clock.
+  const activeScoreNotes = page.locator('.sheet-music-container [data-score-playback-active="true"]');
+  await expect(activeScoreNotes).toHaveCount(1);
+
+  // Switching what we hear must clear the exact note claim while preserving the
+  // Score representation and its quieter cross-source orientation cursor.
+  await page.getByRole("button", { name: /Playback source:/ }).click();
+  await page.getByRole("option", { name: "Original", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible();
+  await expect(activeScoreNotes).toHaveCount(0);
+  await expect(page.locator('.sheet-music-container [data-score-cursor="true"]')).toBeVisible();
 });
 
 test("the representation changes independently of the playback source", async ({
