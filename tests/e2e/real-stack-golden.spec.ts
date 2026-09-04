@@ -319,6 +319,39 @@ test("real audio golden path", async ({ page }, testInfo) => {
     await expect(page.getByRole("heading", { name: "What stands out" })).toBeVisible({ timeout: 30_000 });
   });
 
+  // ── Experimental Structure Map ───────────────────────────────────────
+  await test.step("experimental structure map", async () => {
+    // Discovery stays under the shared musician-facing concept from #1173.
+    const addAnalysis = page.getByRole("region", { name: "Add analysis" });
+    await expect(addAnalysis.getByRole("button", { name: "+ Add analysis", exact: true })).toBeVisible();
+    await addAnalysis.getByRole("button", { name: "+ Add analysis", exact: true }).click();
+    await expect(addAnalysis.getByText("Structure Map", { exact: true })).toBeVisible();
+    await expect(addAnalysis.getByText("Experimental", { exact: true })).toBeVisible();
+    await addAnalysis.getByRole("button", { name: "Add", exact: true }).click();
+
+    // The worker must persist a report before the result surface appears.
+    const map = page.getByRole("region", { name: "Experimental Structure Map" });
+    await expect(map).toBeVisible({ timeout: 180_000 });
+    await expect(map.getByText("Experimental", { exact: true })).toBeVisible();
+    const hearButtons = map.getByRole("button", { name: /^Hear / });
+    await expect(hearButtons.first()).toBeVisible();
+
+    // The preceding representation test leaves Score as the active source.
+    // Map locators are source-audio performance seconds, so Hear must switch
+    // back to Original rather than applying those seconds to notation time.
+    await expect(await listeningTo(page, "Score")).toBeVisible();
+    await hearButtons.first().click();
+    await expect(await listeningTo(page, "Original")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Pause Original", exact: true }).click();
+
+    // Provenance is inspectable and selection uses the existing shared model.
+    await map.getByText("How this map was made", { exact: true }).click();
+    await expect(map.getByText(/Source Version:/)).toBeVisible();
+    const inspector = page.locator("aside.inspector");
+    await expect(inspector.getByRole("button", { name: "Clear selection" })).toBeVisible({ timeout: 10_000 });
+  });
+
   // ── Annotations and Inspector ────────────────────────────────────────
   await test.step("annotations and inspector", async () => {
     // Score measure click owns two contracts: it seeks the active score
@@ -442,6 +475,7 @@ test("real audio golden path", async ({ page }, testInfo) => {
     await expect(page.getByRole("tab", { name: "Piano Roll" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Score" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Breakdown" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Experimental Structure Map" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: /Playback source:/ })).toBeVisible();
     await page.getByRole("button", { name: /Playback source:/ }).click();
     await expect(page.getByRole("option", { name: "Original", exact: true })).toBeVisible();

@@ -91,6 +91,7 @@ subgraph lib["lib"]
   subgraph lib_stores["stores"]
     lib_stores_[" "]
   end
+  lib_structure_map_client_ts["structure-map-client.ts"]
   lib_supabase_ts["supabase.ts"]
   lib_transcription_qualification_ts["transcription-qualification.ts"]
   lib_work_selection_ts["work-selection.ts"]
@@ -158,6 +159,7 @@ components_workspace_-->lib_spectrogram_ts
 components_workspace_-->lib_spectrogram_data_ts
 components_workspace_-->lib_audio_buffer_cache_ts
 components_workspace_-->lib_melody_reduction_ts
+components_workspace_-->lib_structure_map_client_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
 lib_analysis_annotations_ts-->lib_inspector_
 lib_api_client_ts-->lib_openapi_client_ts
@@ -179,4 +181,6 @@ lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts
 lib_spectrogram_data_ts-->lib_query_client_ts
 lib_spectrogram_data_ts-->lib_spectrogram_ts
+lib_structure_map_client_ts-->lib_api_client_ts
+lib_structure_map_client_ts-->lib_openapi_client_ts
 ```

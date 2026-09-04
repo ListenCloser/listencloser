@@ -264,6 +264,19 @@
       "exposure": {"inspector": true, "annotations": false, "ask": false},
       "validated_domain": "within-work candidate navigation over exact promoted perceptual_series evidence",
       "notes": "A candidate means only that multiple declared measured feature groups changed around this time under robust_top_peaks_v1. Ranking is within-Work proposal ordering, not confidence, significance, importance, a section boundary, a chorus/drop/climax, transition importance, or emotion."
+    },
+    "structure_map": {
+      "status": "experimental",
+      "input": "audio",
+      "engine": "librosa_recurrence_novelty_v1",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "evaluation": {
+        "dataset": "synthetic A-B-A control + real-stack repository audio path",
+        "metric": "experimental_product_integration",
+        "details": "#1175 / PR #1190: method-specific candidate spans are exposed as synchronized Map navigation with exact source Version provenance; corpus quality/canonization remains intentionally unclaimed."
+      },
+      "validated_domain": "within-recording experimental navigation only",
+      "notes": "Map/navigation surface only. Letter labels are descriptor-similarity hints, not verse/chorus/motif/canonical form. Inspector/annotation/Ask exposure remains false until separately earned."
     }
   }
 }
