@@ -78,8 +78,9 @@ test("app studio — empty workspace", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openDesktopWorkspace(page);
   await page.getByRole("button", { name: "Delete Test Work" }).click();
-  await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Import audio" })).toBeVisible();
+  const emptyWorkspace = page.locator(".piece-empty-v3");
+  await expect(emptyWorkspace.getByRole("heading", { name: "Import a recording" })).toBeVisible();
+  await expect(emptyWorkspace.getByRole("button", { name: "Import audio" })).toBeVisible();
   await expect(page.getByTestId("empty-workspace-signal")).toBeHidden();
   await argosScreenshot(page, "app-studio-empty-desktop", { fullPage: true });
 });
