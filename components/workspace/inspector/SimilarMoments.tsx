@@ -61,8 +61,8 @@ export default function SimilarMoments() {
   if (!activeQuery) return null;
 
   const runSearch = async () => {
-    if (!selectedRange) return;
-    const captured = selectedRange;
+    const captured = queryRange ?? selectedRange;
+    if (!captured) return;
     const requestGeneration = generation.current + 1;
     generation.current = requestGeneration;
     setQueryRange(captured);
@@ -145,7 +145,7 @@ export default function SimilarMoments() {
           <button
             type="button"
             className="inspector-breakdown-action"
-            disabled={!selectedRange || requestState === "loading"}
+            disabled={requestState === "loading"}
             onClick={runSearch}
           >
             {requestState === "loading" ? "Finding similar moments…" : "Find similar moments"}
