@@ -13,11 +13,10 @@ from domain.api_schemas import PerceptualSpanComparisonResponse, SimilarMomentsR
 from domain.models import Version
 from domain.relation_query import (
     PerceptualSpanComparisonQuery,
-    SimilarMomentsQuery,
     compare_persisted_perceptual_spans,
-    find_persisted_similar_moments,
 )
 from domain.repositories import get_supabase
+from domain.similar_moments_query import SimilarMomentsQuery, find_persisted_similar_moments
 from domain.storage_locator_policy import classify_version_storage_locator
 from domain.work_bundle_repository import WorkBundleRepository, WorkBundleSnapshot
 
@@ -98,7 +97,7 @@ def _authorized_report_loader(
     return load_report
 
 
-def _authorized_snapshot(work_id: UUID, auth):
+def _authorized_work_snapshot(work_id: UUID, auth):
     sb = get_supabase()
     if not sb:
         raise HTTPException(status_code=500, detail="Supabase not configured")
@@ -121,7 +120,12 @@ def compare_perceptual_spans(
 ):
     """Compare two user-selected spans using persisted, lineage-checked evidence."""
 
-    sb, owner_id, snapshot = _authorized_snapshot(work_id, auth)
+    # WorkBundleRepository already uses the owned Work as its authorization
+    # root and returns None when that Work is unavailable to this owner. Do not
+    # reinterpret generic ValueError/validation failures as client-facing 404s:
+    # descendant model-validation or repository bugs are internal failures and
+    # must reach the normal server-error boundary without leaking their detail.
+    sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
     source_version = _source_version(snapshot, body.source_version_id)
     if source_version is None:
         raise HTTPException(status_code=404, detail="Source version not found in work")
@@ -151,7 +155,7 @@ def similar_moments(
 ):
     """Propose inspectable same-Work passages under one declared experimental method."""
 
-    sb, owner_id, snapshot = _authorized_snapshot(work_id, auth)
+    sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
     source_version = _source_version(snapshot, body.source_version_id)
     if source_version is None:
         raise HTTPException(status_code=404, detail="Source version not found in work")
