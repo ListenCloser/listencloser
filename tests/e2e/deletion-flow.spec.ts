@@ -43,11 +43,12 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await page.getByRole("menuitem", { name: /Upload recording/ }).click();
 
   const processingDialog = page.getByRole("dialog", { name: "Process recording" });
-  await expect(processingDialog).toBeVisible();
+  const closeProcessing = processingDialog.getByRole("button", { name: "Close processing options" });
+  await expect(closeProcessing).toBeVisible();
   await expect(processingDialog.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(processingDialog.getByRole("button", { name: "MuseScore", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await processingDialog.getByRole("button", { name: "Close processing options" }).click();
-  await expect(processingDialog).not.toBeVisible();
+  await closeProcessing.click();
+  await expect(closeProcessing).not.toBeVisible();
 
   await expect(page.getByRole("slider", { name: "Playback position" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Playback source:/ })).toHaveCount(0);
