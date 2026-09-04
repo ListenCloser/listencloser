@@ -1,20 +1,33 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkBundle } from "../lib/domain.types";
-import { originalPlaybackSource, selectLayerSources } from "../lib/layers";
+import {
+  completeLayerJobIds,
+  originalPlaybackSource,
+  selectLayerSources,
+} from "../lib/layers";
 
 function artifact(
   id: string,
   kind: string,
   versionId: string,
-  metadata: Record<string, unknown> = {},
+  {
+    parentVersionId = null,
+    producedByJobId = null,
+    metadata = {},
+  }: {
+    parentVersionId?: string | null;
+    producedByJobId?: string | null;
+    metadata?: Record<string, unknown>;
+  } = {},
 ) {
   return {
     artifact: { id, work_id: "work", kind },
     latest_version: {
       id: versionId,
       artifact_id: id,
-      parent_version_id: null,
+      parent_version_id: parentVersionId,
+      produced_by_job_id: producedByJobId,
       metadata,
     },
     versions: [],
@@ -27,12 +40,16 @@ function stem(
   versionId: string,
   sourceVersionId = "original-v1",
   separationJobId = "job-1",
+  metadata: Record<string, unknown> = {},
 ) {
   return artifact(`artifact-${versionId}`, "stems", versionId, {
-    representation: "source_stem",
-    source_version_id: sourceVersionId,
-    separation_job_id: separationJobId,
-    stem_role: role,
+    parentVersionId: sourceVersionId,
+    producedByJobId: separationJobId,
+    metadata: {
+      representation: "source_stem",
+      stem_role: role,
+      ...metadata,
+    },
   });
 }
 
@@ -60,7 +77,7 @@ describe("experimental layer source authority", () => {
     });
   });
 
-  it("exposes exactly vocals, drums, bass, other when one job produced a complete set", () => {
+  it("exposes exactly vocals, drums, bass, other for one succeeded complete job", () => {
     const work = bundle([
       artifact("original", "audio_original", "original-v1"),
       stem("vocals", "vocals-v1"),
@@ -69,23 +86,37 @@ describe("experimental layer source authority", () => {
       stem("other", "other-v1"),
     ]);
 
-    const layers = selectLayerSources(work, "original-v1");
+    expect(completeLayerJobIds(work, "original-v1")).toEqual(["job-1"]);
+    const layers = selectLayerSources(work, "original-v1", new Set(["job-1"]));
     expect(layers.map((layer) => layer.label)).toEqual(["Vocals", "Drums", "Bass", "Other"]);
     expect(layers.every((layer) => layer.role === "derived")).toBe(true);
     expect(layers.every((layer) => layer.sourceVersionId === "original-v1")).toBe(true);
+    expect(layers.every((layer) => layer.separationJobId === "job-1")).toBe(true);
   });
 
-  it("hides partial output from a failed separation job", () => {
+  it("does not expose a complete artifact set unless its exact Job succeeded", () => {
     const work = bundle([
-      artifact("original", "audio_original", "original-v1"),
-      stem("vocals", "vocals-partial", "original-v1", "failed-job"),
-      stem("drums", "drums-partial", "original-v1", "failed-job"),
+      stem("vocals", "vocals-failed", "original-v1", "failed-job"),
+      stem("drums", "drums-failed", "original-v1", "failed-job"),
+      stem("bass", "bass-failed", "original-v1", "failed-job"),
+      stem("other", "other-failed", "original-v1", "failed-job"),
     ]);
 
-    expect(selectLayerSources(work, "original-v1")).toEqual([]);
+    expect(completeLayerJobIds(work, "original-v1")).toEqual(["failed-job"]);
+    expect(selectLayerSources(work, "original-v1", new Set())).toEqual([]);
   });
 
-  it("never mixes roles across jobs or source Versions to manufacture a complete result", () => {
+  it("hides partial output even when its producing Job later has a succeeded state", () => {
+    const work = bundle([
+      stem("vocals", "vocals-partial", "original-v1", "job-1"),
+      stem("drums", "drums-partial", "original-v1", "job-1"),
+    ]);
+
+    expect(completeLayerJobIds(work, "original-v1")).toEqual([]);
+    expect(selectLayerSources(work, "original-v1", new Set(["job-1"]))).toEqual([]);
+  });
+
+  it("never mixes roles across Jobs or source Versions to manufacture a complete result", () => {
     const work = bundle([
       artifact("original", "audio_original", "original-v2"),
       stem("vocals", "vocals-a", "original-v2", "job-a"),
@@ -96,6 +127,27 @@ describe("experimental layer source authority", () => {
       stem("other", "other-old", "original-v1", "job-a"),
     ]);
 
-    expect(selectLayerSources(work, "original-v2")).toEqual([]);
+    expect(completeLayerJobIds(work, "original-v2")).toEqual([]);
+    expect(
+      selectLayerSources(work, "original-v2", new Set(["job-a", "job-b"])),
+    ).toEqual([]);
+  });
+
+  it("uses structural Version lineage instead of duplicate metadata claims", () => {
+    const misleading = {
+      source_version_id: "wrong-source",
+      separation_job_id: "wrong-job",
+    };
+    const work = bundle([
+      stem("vocals", "vocals-v1", "original-v1", "job-1", misleading),
+      stem("drums", "drums-v1", "original-v1", "job-1", misleading),
+      stem("bass", "bass-v1", "original-v1", "job-1", misleading),
+      stem("other", "other-v1", "original-v1", "job-1", misleading),
+    ]);
+
+    const layers = selectLayerSources(work, "original-v1", new Set(["job-1"]));
+    expect(layers).toHaveLength(4);
+    expect(layers.every((layer) => layer.sourceVersionId === "original-v1")).toBe(true);
+    expect(layers.every((layer) => layer.separationJobId === "job-1")).toBe(true);
   });
 });
