@@ -176,6 +176,11 @@ Escalate only for genuine blockers such as:
 
 Parallel implementation and validation are the default. Unrelated autonomous agents should not wait for each other merely because another PR is open.
 
+- One active implementation owner per focused responsibility is the default. Additional agents may work concurrently only when the responsibility is explicitly partitioned into independent slices or when they are validating/reviewing rather than creating competing implementation WIP.
+- Discovery and evaluation may parallelize more freely when they do not create competing production/integration WIP. Shared semantic authority still serializes even when files are disjoint.
+- Before substantial implementation, refresh live pull-request ownership for the focused responsibility and any shared authority it changes. File-level disjointness does not by itself prove semantic independence.
+- Do not start new production work merely because an agent is idle. If review, merge integration, or a shared authority seam is saturated, help verify or drain existing WIP instead of spawning another competing implementation.
+- Do not impose a repository-wide numeric WIP limit without measured evidence; bounded ownership and explicit independence are the control.
 - Multiple production PRs may be non-draft and run CI concurrently when they own bounded, independent changes.
 - Prefer small PRs with clear ownership domains. Direct same-file edits are an obvious overlap; shared contracts such as `lib/`, API/state layers, backend runtime/database surfaces, dependency/config files, CI, and cross-cutting tests are broader integration surfaces and should be treated more conservatively.
 - Do not reserve broad areas of the repository preemptively. Two leaf UI components, two independent evaluation experiments, or other demonstrably disjoint changes may proceed in parallel.
