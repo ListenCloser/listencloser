@@ -50,7 +50,9 @@ RUN /app/.venv/bin/python -c "from beat_this.inference import load_checkpoint; l
 # PM2S's historical 2022 dependency pins: the adapter exercises it against the
 # maintained worker Torch/NumPy/pretty-midi/mido stack. Upstream pm2s.py has an
 # unused pandas import; remove only that import rather than adding an unrelated
-# runtime dependency.
+# runtime dependency. Upstream also rejects tempo values >= 8,000,000 us/quarter
+# even though MIDI set_tempo is a 24-bit value. Relax only that serialization
+# guard to the actual MIDI maximum; do not clamp or otherwise alter PM2S timing.
 FROM python:3.11-slim AS pm2s
 
 ARG PM2S_COMMIT=9586f91cd16aaa50dbb82f720f6a34a3e0186f47
@@ -68,6 +70,8 @@ RUN set -eux; \
     tar -xzf /tmp/pm2s.tar.gz --strip-components=1 -C /opt/pm2s; \
     rm /tmp/pm2s.tar.gz; \
     sed -i '/^import pandas as pd$/d' /opt/pm2s/pm2s/pm2s.py; \
+    sed -i 's/tempo > 0 and tempo < 8 \* 1e+6/tempo > 0 and tempo <= 0xFFFFFF/' /opt/pm2s/pm2s/pm2s.py; \
+    grep -Fq 'assert tempo > 0 and tempo <= 0xFFFFFF' /opt/pm2s/pm2s/pm2s.py; \
     for model_spec in \
       "RNNJointBeatModel.pth:939e0181f119a473200aece6307906e3dee69d4e2c44abcc878755bf6a18beb6" \
       "RNNHandPartModel.pth:35d0b768fc68f9ec23f77b512ce3cada9b4e9dd816e3ab1c2a1714fa05bc5805" \
@@ -85,6 +89,7 @@ RUN set -eux; \
       "Code license: MIT" \
       "Source: https://github.com/cheriell/PM2S/tree/${PM2S_COMMIT}" \
       "Model record: https://zenodo.org/records/${PM2S_MODEL_RECORD}" \
+      "ListenCloser compatibility patch: midi_tempo_uint24_bound_v1" \
       > /opt/pm2s/LISTENCLOSER_PROVENANCE.txt
 
 
@@ -156,10 +161,14 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 # Fail image construction if the pinned PM2S source cannot import against the
 # maintained production Python stack or if any required baked model disappeared.
+# Reproduce the exact production tempo that tripped upstream's 8,000,000 guard
+# and require it to survive PM2S message generation plus actual MIDI writing.
 # Model loading/inference is exercised by the production-shaped score test rather
 # than silently allowing first-request network downloads.
 RUN set -eux; \
     python -c "from pm2s.pm2s import CRNNJointPM2S; assert CRNNJointPM2S"; \
+    python -c "import mido, numpy as np; from pm2s.pm2s import CRNNJointPM2S; from pm2s.io.midi_write import write_midi_score; converter=CRNNJointPM2S.__new__(CRNNJointPM2S); converter.ticks_per_beat=480; messages=converter.get_mido_messages(np.empty((0, 4)), [], [], [], {62125000: 19740, 62498958: 19760}, include_time_signature=False, include_key_signature=False); assert messages['tempo_changes'][-1]['tempo'] == 8974992; write_midi_score(messages, '/tmp/pm2s-tempo-smoke.mid', ticks_per_beat=480); parsed=mido.MidiFile('/tmp/pm2s-tempo-smoke.mid'); assert any(getattr(message, 'tempo', None) == 8974992 for track in parsed.tracks for message in track)"; \
+    rm -f /tmp/pm2s-tempo-smoke.mid; \
     for model in \
       RNNJointBeatModel.pth \
       RNNHandPartModel.pth \
