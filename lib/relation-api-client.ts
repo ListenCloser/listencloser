@@ -5,10 +5,6 @@ export type PerceptualSpanComparisonBody =
   components["schemas"]["PerceptualSpanComparisonBody"];
 export type PerceptualSpanComparisonResponse =
   components["schemas"]["PerceptualSpanComparisonResponse"];
-export type MeasuredChangeCandidate =
-  components["schemas"]["MeasuredChangeCandidate"];
-export type MeasuredChangeQueryResponse =
-  components["schemas"]["MeasuredChangeQueryResult"];
 
 /**
  * Query a same-work A/B perceptual comparison without mutating Work state.
@@ -35,7 +31,7 @@ export async function comparePerceptualSpans(
 export async function getMeasuredChanges(
   workId: string,
   sourceVersionId: string,
-): Promise<MeasuredChangeQueryResponse> {
+) {
   const result = await openapiClient.GET(
     "/api/v1/works/{work_id}/relations/measured-changes",
     {
@@ -47,3 +43,6 @@ export async function getMeasuredChanges(
   );
   return requireOpenApiData(result);
 }
+
+export type MeasuredChangeQueryResponse = Awaited<ReturnType<typeof getMeasuredChanges>>;
+export type MeasuredChangeCandidate = NonNullable<MeasuredChangeQueryResponse["candidates"]>[number];
