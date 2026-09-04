@@ -56,23 +56,36 @@ def test_note_entities_from_midi_bytes_materializes_every_instrument() -> None:
     assert all(entity.version_id == version_id for entity in entities)
 
 
-def test_correction_sync_replaces_partial_entities_from_persisted_midi(
+def test_correction_sync_replaces_partial_entities_renders_playback_and_publishes_authority(
     monkeypatch,
 ) -> None:
+    source_version_id = uuid4()
     output_version_id = uuid4()
+    audio_version_id = uuid4()
     workflow_id = uuid4()
     artifact_id = uuid4()
     captured_entities: list[Entity] = []
+    synthesis_jobs: list[Job] = []
+    updates: dict[str, dict] = {}
 
     output_version = Version(
         id=output_version_id,
         artifact_id=artifact_id,
         storage_key="corrected.mid",
         storage_bucket="artifacts",
+        metadata={"legacy": True},
     )
     job = Job(
         workflow_id=workflow_id,
         capability=Capability(name="correct", version="1.0"),
+        input_version_ids=[source_version_id],
+        parameters={
+            "selection_start": 1.0,
+            "selection_end": 1.5,
+            "corrected_notes": [
+                {"pitch": 73, "start": 1.1, "end": 1.45, "velocity": 90}
+            ],
+        },
     )
 
     monkeypatch.setattr(
@@ -84,6 +97,12 @@ def test_correction_sync_replaces_partial_entities_from_persisted_midi(
     monkeypatch.setattr(capabilities, "_resolve_owner_id", lambda *_: "owner")
     monkeypatch.setattr(capabilities, "download_version_bytes", lambda *_: _midi_bytes())
 
+    def _capture_synthesis(synthesis_job: Job, _client) -> list[str]:
+        synthesis_jobs.append(synthesis_job)
+        return [str(audio_version_id)]
+
+    monkeypatch.setattr(capabilities, "handle_synthesize", _capture_synthesis)
+
     class CapturingEntityRepo:
         def __init__(self, _client):
             pass
@@ -94,14 +113,20 @@ def test_correction_sync_replaces_partial_entities_from_persisted_midi(
 
     monkeypatch.setattr(correction_sync, "EntityRepo", CapturingEntityRepo)
 
-    class DeleteQuery:
-        def __init__(self):
+    class Query:
+        def __init__(self, table_name: str):
+            self.table_name = table_name
             self.filters: list[tuple[str, str]] = []
             self.deleted = False
-            self.executed = False
+            self.payload: dict | None = None
 
         def delete(self):
             self.deleted = True
+            return self
+
+        def update(self, payload: dict):
+            self.payload = payload
+            updates[self.table_name] = payload
             return self
 
         def eq(self, column: str, value: str):
@@ -109,24 +134,41 @@ def test_correction_sync_replaces_partial_entities_from_persisted_midi(
             return self
 
         def execute(self):
-            self.executed = True
             return SimpleNamespace(data=[])
 
-    query = DeleteQuery()
+    queries: dict[str, Query] = {}
 
     class Client:
         def table(self, name: str):
-            assert name == "entities"
+            query = Query(name)
+            queries[name] = query
             return query
 
     result = correction_sync.handle_correct_with_entity_sync(job, Client())
 
-    assert result == [str(output_version_id)]
-    assert query.deleted is True
-    assert query.executed is True
-    assert query.filters == [
+    assert result == [str(output_version_id), str(audio_version_id)]
+    assert queries["entities"].deleted is True
+    assert queries["entities"].filters == [
         ("version_id", str(output_version_id)),
         ("kind", "note"),
     ]
     assert [note[0] for note in _note_world(captured_entities)] == [48, 60, 72]
     assert all(entity.version_id == output_version_id for entity in captured_entities)
+
+    assert len(synthesis_jobs) == 1
+    assert synthesis_jobs[0].capability == Capability(name="synthesize", version="1.0")
+    assert synthesis_jobs[0].input_version_ids == [output_version_id]
+    assert synthesis_jobs[0].parameters["label"] == "Corrected transcription playback"
+
+    assert updates["artifacts"] == {"kind": "midi_performance"}
+    version_update = updates["artifact_versions"]
+    assert version_update["label"] == "Corrected transcription"
+    metadata = version_update["metadata"]
+    assert metadata["legacy"] is True
+    assert metadata["representation_role"] == "edited_performance"
+    assert metadata["source_performance_version_id"] == str(source_version_id)
+    assert metadata["correction_workflow_id"] == str(workflow_id)
+    assert metadata["correction_job_id"] == str(job.id)
+    assert metadata["correction"]["selection_start"] == 1.0
+    assert metadata["correction"]["selection_end"] == 1.5
+    assert metadata["correction"]["replacement_notes"][0]["pitch"] == 73
