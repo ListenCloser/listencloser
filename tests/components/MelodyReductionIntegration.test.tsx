@@ -9,11 +9,13 @@ const mocks = vi.hoisted(() => ({
   seek: vi.fn(),
   play: vi.fn(),
   setActiveSource: vi.fn(),
+  activeSourceRole: "original" as "original" | "score",
 }));
 
 vi.mock("@/lib/stores/workspace", () => ({
   useWorkspace: () => ({
     workspace: {
+      selection: null,
       representations: [{
         kind: "piano_roll",
         label: "Piano Roll",
@@ -25,6 +27,7 @@ vi.mock("@/lib/stores/workspace", () => ({
         notes: [
           { id: "source-note-1", pitch: 72, start: 1, end: 1.5, velocity: 80 },
           { id: "source-note-2", pitch: 74, start: 1.5, end: 2, velocity: 82 },
+          { id: "later-note", pitch: 60, start: 9, end: 10, velocity: 70 },
         ],
       }],
     },
@@ -37,11 +40,11 @@ vi.mock("@/lib/stores/transport", () => ({
   useTransport: () => ({
     transport: {
       activeSource: {
-        id: "original-v1",
-        label: "Original",
-        url: "/original.ogg",
+        id: "source-v1",
+        label: mocks.activeSourceRole === "score" ? "Score" : "Original",
+        url: "/source.ogg",
         kind: "audio",
-        role: "original",
+        role: mocks.activeSourceRole,
       },
     },
     seek: mocks.seek,
@@ -70,11 +73,12 @@ const insight = {
 describe("MelodyReduction shared workspace integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.activeSourceRole = "original";
   });
 
-  it("Focus uses exact source note IDs and the existing Piano Roll representation", () => {
+  it("Focus uses all exact source note IDs and the existing Piano Roll representation", () => {
     render(<MelodyReduction insight={insight} />);
-    fireEvent.click(screen.getByRole("button", { name: "Focus in Piano Roll" }));
+    fireEvent.click(screen.getByRole("button", { name: "Focus" }));
 
     expect(mocks.setSelection).toHaveBeenCalledWith({
       timeRange: { start: 1, end: 2, domain: "performance" },
@@ -84,9 +88,34 @@ describe("MelodyReduction shared workspace integration", () => {
     expect(mocks.setActiveRepresentation).toHaveBeenCalledWith("piano_roll");
   });
 
+  it("clicking one reduced note selects only the exact persisted Piano Roll note and navigates there", () => {
+    render(<MelodyReduction insight={insight} />);
+    fireEvent.click(screen.getByRole("button", { name: "Show C5 at 0:01 in Piano Roll" }));
+
+    expect(mocks.setSelection).toHaveBeenCalledWith({
+      noteIds: ["source-note-1"],
+      provenance: { origin: null, timeExact: true, measureApproximate: false },
+    });
+    expect(mocks.setActiveRepresentation).toHaveBeenCalledWith("piano_roll");
+    expect(mocks.seek).toHaveBeenCalledWith(1);
+  });
+
+  it("does not apply performance seconds to Score playback when locating an exact note", () => {
+    mocks.activeSourceRole = "score";
+    render(<MelodyReduction insight={insight} />);
+    fireEvent.click(screen.getByRole("button", { name: "Show C5 at 0:01 in Piano Roll" }));
+
+    expect(mocks.setSelection).toHaveBeenCalledWith({
+      noteIds: ["source-note-1"],
+      provenance: { origin: null, timeExact: true, measureApproximate: false },
+    });
+    expect(mocks.setActiveRepresentation).toHaveBeenCalledWith("piano_roll");
+    expect(mocks.seek).not.toHaveBeenCalled();
+  });
+
   it("Hear seeks and plays the current Original without implicitly changing playback source", () => {
     render(<MelodyReduction insight={insight} />);
-    fireEvent.click(screen.getByRole("button", { name: "Hear original audio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hear recording" }));
 
     expect(mocks.seek).toHaveBeenCalledWith(1);
     expect(mocks.play).toHaveBeenCalledOnce();
