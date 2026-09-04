@@ -27,6 +27,10 @@ export default function AddAnalysis({
   noticeRole?: "alert" | "status";
 }) {
   const busy = options.some((option) => option.busy);
+  const sharedMaturity =
+    options.length > 1 && options.every((option) => option.maturity === options[0]?.maturity)
+      ? options[0]?.maturity
+      : null;
 
   return (
     <section className={styles.discovery} aria-label="Add analysis">
@@ -37,7 +41,10 @@ export default function AddAnalysis({
       ) : (
         <div className={styles.chooser}>
           <div className={styles.chooserHeader}>
-            <strong>Add analysis</strong>
+            <div className={styles.titleLine}>
+              <strong>Add analysis</strong>
+              {sharedMaturity && <span className={styles.experimental}>{sharedMaturity}</span>}
+            </div>
             {!busy && (
               <button
                 type="button"
@@ -54,7 +61,7 @@ export default function AddAnalysis({
               <div>
                 <div className={styles.titleLine}>
                   <strong>{option.title}</strong>
-                  <span className={styles.experimental}>{option.maturity}</span>
+                  {!sharedMaturity && <span className={styles.experimental}>{option.maturity}</span>}
                 </div>
                 <p>{option.description}</p>
               </div>
