@@ -200,7 +200,12 @@ def _density(rows: list[_NoteRow]) -> DensityDetail:
     for index in range(window_count):
         start = index * window
         end = min(duration, (index + 1) * window)
-        notes = [row for row in rows if start <= row.onset < end or (index == window_count - 1 and math.isclose(row.onset, end))]
+        notes = [
+            row
+            for row in rows
+            if start <= row.onset < end
+            or (index == window_count - 1 and math.isclose(row.onset, end))
+        ]
         onset_count = len({round(row.onset, 6) for row in notes})
         windows.append(
             DensityWindow(
@@ -284,7 +289,10 @@ def _voice_motion(rows: list[_NoteRow]) -> VoiceMotionDetail:
     if total == 0:
         return VoiceMotionDetail(
             status="unavailable",
-            reason="Inferred voices do not share enough consecutive onset coordinates for motion comparison.",
+            reason=(
+                "Inferred voices do not share enough consecutive onset coordinates for "
+                "motion comparison."
+            ),
         )
     return VoiceMotionDetail(
         status="supported",
