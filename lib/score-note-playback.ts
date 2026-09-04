@@ -111,7 +111,12 @@ export function buildScoreNotePlaybackEvents(
             const noteLength = realValue(sourceNote.Length);
             if (noteLength == null || noteLength <= 0) continue;
 
-            const noteheads = graphicalNote.getNoteheadSVGs?.().filter(Boolean) ?? [];
+            let noteheads: Element[];
+            try {
+              noteheads = (graphicalNote.getNoteheadSVGs?.() ?? []).filter(Boolean);
+            } catch {
+              continue;
+            }
             if (noteheads.length === 0) continue;
 
             const startSeconds = measureStart + (relativeStart / sourceDuration) * measureSpanSeconds;
