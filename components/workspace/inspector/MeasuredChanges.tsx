@@ -12,23 +12,19 @@ import {
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
 
-export default function MeasuredChanges() {
-  const { workspace, setSelection } = useWorkspace();
-  const { play, seek } = useTransport();
-  const exposed = isInspectorExposed("measured_change");
-  const workId = workspace.activeWorkId;
-  const sourceVersionId = workspace.representations.find(
-    (representation) => representation.kind === "waveform" && representation.versionId,
-  )?.versionId ?? null;
+type MeasuredChangesResultsProps = {
+  workId: string;
+  sourceVersionId: string;
+};
 
+function MeasuredChangesResults({ workId, sourceVersionId }: MeasuredChangesResultsProps) {
+  const { setSelection } = useWorkspace();
+  const { play, seek } = useTransport();
   const query = useQuery({
     queryKey: ["measured-changes", workId, sourceVersionId],
-    queryFn: () => getMeasuredChanges(workId!, sourceVersionId!),
-    enabled: exposed && Boolean(workId && sourceVersionId),
+    queryFn: () => getMeasuredChanges(workId, sourceVersionId),
     staleTime: 60_000,
   });
-
-  if (!exposed || !workId || !sourceVersionId) return null;
 
   const result = query.data;
   const candidates = result?.candidates ?? [];
@@ -131,4 +127,17 @@ export default function MeasuredChanges() {
       </div>
     </section>
   );
+}
+
+export default function MeasuredChanges() {
+  const { workspace } = useWorkspace();
+  const exposed = isInspectorExposed("measured_change");
+  const workId = workspace.activeWorkId;
+  const sourceVersionId = workspace.representations.find(
+    (representation) => representation.kind === "waveform" && representation.versionId,
+  )?.versionId ?? null;
+
+  if (!exposed || !workId || !sourceVersionId) return null;
+
+  return <MeasuredChangesResults workId={workId} sourceVersionId={sourceVersionId} />;
 }
