@@ -113,29 +113,40 @@ export function TransportProvider({ children }: { children: ReactNode }) {
   const setActiveSource = useCallback((source: PlaybackSource) => {
     if (!audioRef.current) return;
     const audio = audioRef.current;
-    const currentPosition = audio.currentTime;
+    const currentPosition = positionRef.current;
     const shouldResume = !audio.paused && !audio.ended;
-    audio.pause();
-    audio.src = source.url;
-    audio.load();
-    audio.addEventListener("loadedmetadata", () => {
-      audio.currentTime = Math.min(currentPosition, audio.duration || currentPosition);
+
+    const restorePosition = () => {
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      const restoredPosition = Math.min(currentPosition, duration || currentPosition);
+      audio.currentTime = restoredPosition;
+      positionRef.current = restoredPosition;
+      setTransport((prev) => ({ ...prev, position: restoredPosition, duration }));
       if (shouldResume) {
         void audio.play()
           .then(() => setTransport((prev) => ({ ...prev, isPlaying: true })))
           .catch(() => setTransport((prev) => ({ ...prev, isPlaying: false })));
       }
-    }, { once: true });
+    };
+
+    // Install the restore listener before assigning/loading the new source.
+    // Cached/data media can emit loadedmetadata during load(), and registering
+    // afterward loses the exact position we promised to preserve.
+    audio.addEventListener("loadedmetadata", restorePosition, { once: true });
+    audio.pause();
     activeSourceIdRef.current = source.id;
+    positionRef.current = currentPosition;
     setTransport((prev) => ({
       ...prev,
       activeSource: source,
       sources: prev.sources.some((item) => item.id === source.id)
         ? prev.sources
         : [...prev.sources, source],
-      position: Math.min(currentPosition, audio.duration || currentPosition),
+      position: currentPosition,
       isPlaying: shouldResume,
     }));
+    audio.src = source.url;
+    audio.load();
   }, []);
 
   const replaceSources = useCallback((sources: PlaybackSource[], activeId?: string, preservePosition = false) => {
