@@ -82,6 +82,7 @@ subgraph lib["lib"]
   lib_score_artifacts_ts["score-artifacts.ts"]
   lib_score_measure_geometry_ts["score-measure-geometry.ts"]
   lib_score_renderer_ts["score-renderer.ts"]
+  lib_score_sources_ts["score-sources.ts"]
   lib_selection_ts["selection.ts"]
   lib_server_state_ts["server-state.ts"]
   lib_spectrogram_data_ts["spectrogram-data.ts"]
@@ -130,6 +131,7 @@ components_workspace_-->lib_job_tracking_ts
 components_workspace_-->lib_musicxml_cache_ts
 components_workspace_-->lib_playback_sources_ts
 components_workspace_-->lib_score_artifacts_ts
+components_workspace_-->lib_score_sources_ts
 components_workspace_-->lib_server_state_ts
 components_workspace_-->lib_stores_
 components_workspace_-->lib_transcription_qualification_ts
