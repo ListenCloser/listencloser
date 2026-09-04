@@ -113,24 +113,20 @@ function headlineFor(finding: TemporalFinding): string {
 
 function evidenceSummaryFor(finding: TemporalFinding): string {
   switch (finding.kind) {
-    // The ranking itself already establishes peak/valley status. Repeating
-    // "highest/lowest density" under a headline that says the same thing adds
-    // no new information, so keep these cards claim-first and compact.
+    // A Breakdown card earns a second line only when it adds a concrete fact.
+    // Method/trust prose remains available in the analysis/evidence layer.
     case "density_peak":
     case "density_valley":
+    case "harmonic_activity":
       return "";
     case "rest": {
       const duration = finding.evidence.duration;
       return typeof duration === "number"
         ? `Observed ${duration.toFixed(1)}s gap between note attacks.`
-        : "Observed gap between note attacks.";
+        : "";
     }
-    case "harmonic_activity":
-      return "Derived from the timing of trusted chord boundaries; this describes change rate, not harmonic tension.";
     default:
-      return isMelodyFinding(finding)
-        ? "Derived from experimental melody extraction; inspect the piano roll before treating the line as authoritative."
-        : stripClaimPrefix(finding.label);
+      return isMelodyFinding(finding) ? "" : stripClaimPrefix(finding.label);
   }
 }
 

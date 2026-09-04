@@ -199,7 +199,7 @@ test("a durable recording stays usable while understand artifacts and the first 
   await expect(firstFinding).toBeVisible({ timeout: 10_000 });
   await expect(processingNotice).toBeVisible();
   const findingCard = page.locator(".inspector-breakdown-finding").filter({ hasText: "Note-onset activity is densest in this passage." });
-  await expect(findingCard.getByRole("button", { name: /^Loop / })).toBeVisible();
+  await expect(findingCard.getByRole("button", { name: /^Hear / })).toBeVisible();
   await expect(pianoRollTab).toBeEnabled();
   await expect(scoreTab).toBeDisabled();
 
