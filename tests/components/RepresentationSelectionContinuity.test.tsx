@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import RepresentationStack from "@/components/workspace/RepresentationStack";
+import { retainRepresentationsConfirmedByVersion } from "@/lib/representation-continuity";
 import {
   WorkspaceProvider,
   useWorkspace,
@@ -61,7 +62,26 @@ function RefreshControls() {
     <>
       <button type="button" onClick={() => replaceRepresentations([waveform])}>Waveform ready</button>
       <button type="button" onClick={() => replaceRepresentations([waveform, pianoRoll])}>Both ready</button>
-      <button type="button" onClick={() => replaceRepresentations([waveform])}>Transient waveform only</button>
+      <button
+        type="button"
+        onClick={() => replaceRepresentations(retainRepresentationsConfirmedByVersion(
+          workspace.representations,
+          [waveform],
+          { pianoRollVersionId: "midi-v1" },
+        ))}
+      >
+        Confirmed same-version refresh
+      </button>
+      <button
+        type="button"
+        onClick={() => replaceRepresentations(retainRepresentationsConfirmedByVersion(
+          workspace.representations,
+          [waveform],
+          { pianoRollVersionId: "midi-v2" },
+        ))}
+      >
+        New MIDI version
+      </button>
       <output data-testid="shared-selection">{workspace.activeRepresentation ?? "none"}</output>
     </>
   );
@@ -107,7 +127,7 @@ describe("representation selection continuity", () => {
     expect(screen.getByTestId("shared-selection")).toHaveTextContent("listen");
   });
 
-  it("restores the user's Piano Roll choice after a transient processing poll omits it", async () => {
+  it("keeps Piano Roll mounted when the refreshed bundle confirms the same MIDI Version", async () => {
     const user = userEvent.setup();
     render(
       <WorkspaceProvider>
@@ -117,24 +137,18 @@ describe("representation selection continuity", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Both ready" }));
-    expect(await screen.findByRole("tab", { name: "Waveform" })).toHaveAttribute("aria-selected", "true");
-
     await user.click(screen.getByRole("tab", { name: "Piano Roll" }));
-    expect(screen.getByTestId("shared-selection")).toHaveTextContent("piano_roll");
     expect(screen.getByTestId("piano-roll-view")).toBeVisible();
-
-    await user.click(screen.getByRole("button", { name: "Transient waveform only" }));
-    expect(screen.getByTestId("waveform-view")).toBeVisible();
     expect(screen.getByTestId("shared-selection")).toHaveTextContent("piano_roll");
 
-    // user-event already runs interactions inside React's act boundary. A
-    // second explicit async act() around this click caused React to report the
-    // test environment itself as unsupported even though the user interaction
-    // was correctly awaited.
-    await user.click(screen.getByRole("button", { name: "Both ready" }));
+    await user.click(screen.getByRole("button", { name: "Confirmed same-version refresh" }));
     expect(screen.getByRole("tab", { name: "Piano Roll" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("piano-roll-view")).toBeVisible();
     expect(screen.getByTestId("shared-selection")).toHaveTextContent("piano_roll");
+
+    await user.click(screen.getByRole("button", { name: "New MIDI version" }));
+    expect(screen.queryByRole("tab", { name: "Piano Roll" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("waveform-view")).toBeVisible();
   });
 
   it("clears the shared passage with Escape", async () => {
