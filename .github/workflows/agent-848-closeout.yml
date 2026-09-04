@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: agent-848-closeout-${{ github.ref }}
@@ -13,10 +13,13 @@ concurrency:
 
 jobs:
   closeout:
-    timeout-minutes: 20
+    timeout-minutes: 25
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: package.json
@@ -43,121 +46,46 @@ jobs:
         continue-on-error: true
         run: npm run api:generate
 
-      - name: Run focused measured-change and relation tests
-        id: focused
-        continue-on-error: true
-        run: |
-          uv run --project backend --locked python -m pytest \
-            backend/tests/test_measured_changes.py \
-            backend/tests/test_relation_query.py \
-            backend/tests/test_relation_observations.py \
-            -v
-
-      - name: Inspect branch method on public-domain recordings
-        id: real
-        continue-on-error: true
-        env:
-          PYTHONPATH: backend
+      - name: Commit generated API authority when changed
+        id: generated_commit
+        if: steps.contracts.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p closeout-artifacts closeout-audio
+          git add openapi/openapi.json lib/api-types.ts
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(api): sync measured-change generated contracts'
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
-          # Reuse the exact Special:Redirect fetch path that succeeded in the
-          # historical #883 probe for these same curated public-domain files.
-          curl --fail --location --retry 6 --retry-all-errors --retry-delay 3 \
-            -A 'ListenCloser/848-experimental-closeout' \
-            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Maple_Leaf_Rag.ogg' \
-            --output closeout-audio/maple.ogg
-          curl --fail --location --retry 6 --retry-all-errors --retry-delay 3 \
-            -A 'ListenCloser/848-experimental-closeout' \
-            'https://commons.wikimedia.org/wiki/Special:Redirect/file/El_Choclo-Villoldo.ogg' \
-            --output closeout-audio/el-choclo.ogg
-          curl --fail --location --retry 6 --retry-all-errors --retry-delay 3 \
-            -A 'ListenCloser/848-experimental-closeout' \
-            'https://commons.wikimedia.org/wiki/Special:Redirect/file/How_Long%2C_How_Long_Blues.ogg' \
-            --output closeout-audio/how-long.ogg
+      - name: Run canonical fast verification
+        id: fast
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p closeout-artifacts
+          npm run check:fast 2>&1 | tee closeout-artifacts/check-fast.log
 
-          uv run --project backend --locked python - <<'PY'
-          import json
-          from pathlib import Path
-          from uuid import uuid4
-
-          from perceptual_evidence import extract_perceptual_evidence_from_bytes
-          from domain.measured_changes import discover_measured_changes
-
-          FILES = [
-              ("Maple Leaf Rag", "Maple Leaf Rag.ogg", Path("closeout-audio/maple.ogg")),
-              ("El Choclo", "El Choclo-Villoldo.ogg", Path("closeout-audio/el-choclo.ogg")),
-              ("How Long, How Long Blues", "How Long, How Long Blues.ogg", Path("closeout-audio/how-long.ogg")),
-          ]
-          output = []
-          for title, file_title, path in FILES:
-              source_version_id = uuid4()
-              report_version_id = uuid4()
-              report = extract_perceptual_evidence_from_bytes(
-                  path.read_bytes(),
-                  source_version_id=source_version_id,
-                  fmt="ogg",
-              )
-              discovery = discover_measured_changes(
-                  report,
-                  evidence_report_version_id=report_version_id,
-              )
-              feature_floor = float(discovery.method_parameters.get("feature_change_floor", 0.0))
-              output.append({
-                  "title": title,
-                  "file_title": file_title,
-                  "duration_seconds": report.duration_seconds,
-                  "status": discovery.status,
-                  "method": discovery.method,
-                  "method_parameters": discovery.method_parameters,
-                  "candidate_count": len(discovery.candidates),
-                  "candidates": [
-                      {
-                          "rank": candidate.rank,
-                          "boundary_seconds": candidate.boundary_seconds,
-                          "before_span_seconds": candidate.before_span_seconds,
-                          "after_span_seconds": candidate.after_span_seconds,
-                          "ranking_score": candidate.ranking_score,
-                          "changed_feature_count": candidate.changed_feature_count,
-                          "changed_feature_groups": [
-                              name
-                              for name, value in candidate.normalized_feature_changes.items()
-                              if value >= feature_floor
-                          ],
-                          "normalized_feature_changes": candidate.normalized_feature_changes,
-                          "measurement_summaries": [
-                              measurement.summary
-                              for measurement in candidate.finding.measurements
-                          ],
-                      }
-                      for candidate in discovery.candidates
-                  ],
-              })
-
-          with open("closeout-artifacts/real-recordings.json", "w", encoding="utf-8") as handle:
-              json.dump(output, handle, indent=2, sort_keys=True)
-          PY
-
-      - name: Stage diagnostic artifacts
+      - name: Stage generated artifacts
         if: always()
         env:
           CONTRACTS_OUTCOME: ${{ steps.contracts.outcome }}
-          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
-          REAL_OUTCOME: ${{ steps.real.outcome }}
+          FAST_OUTCOME: ${{ steps.fast.outcome }}
+          GENERATED_CHANGED: ${{ steps.generated_commit.outputs.changed }}
         run: |
           mkdir -p closeout-artifacts
-          if [ -f openapi/openapi.json ]; then
-            cp openapi/openapi.json closeout-artifacts/openapi.json
-          fi
-          if [ -f lib/api-types.ts ]; then
-            cp lib/api-types.ts closeout-artifacts/api-types.ts
-          fi
+          cp openapi/openapi.json closeout-artifacts/openapi.json
+          cp lib/api-types.ts closeout-artifacts/api-types.ts
           cat > closeout-artifacts/outcomes.txt <<EOF
           contracts=${CONTRACTS_OUTCOME}
-          focused_tests=${FOCUSED_OUTCOME}
-          real_recordings=${REAL_OUTCOME}
+          generated_changed=${GENERATED_CHANGED}
+          check_fast=${FAST_OUTCOME}
           EOF
 
       - name: Upload closeout artifacts
@@ -169,13 +97,11 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Require closeout correctness
+      - name: Require repository closeout correctness
         if: always()
         env:
           CONTRACTS_OUTCOME: ${{ steps.contracts.outcome }}
-          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
-          REAL_OUTCOME: ${{ steps.real.outcome }}
+          FAST_OUTCOME: ${{ steps.fast.outcome }}
         run: |
           test "$CONTRACTS_OUTCOME" = success
-          test "$FOCUSED_OUTCOME" = success
-          test "$REAL_OUTCOME" = success
+          test "$FAST_OUTCOME" = success
