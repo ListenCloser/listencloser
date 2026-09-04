@@ -1,4 +1,4 @@
-import { delay, http, HttpResponse, passthrough } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { sampleWavBase64 } from "@/app/_test-support/msw/fixtures/sample-wav";
 
 const JOB_ID = "mock-production-spatial-job";
@@ -165,7 +165,7 @@ const report = {
 export const productionSpatialHandlers = [
   http.post("/api/v1/workflows/create", async ({ request }) => {
     const body = await request.json() as { action?: string; version_id?: string };
-    if (body.action !== "production_spatial") return passthrough();
+    if (body.action !== "production_spatial") return undefined;
     reportReady = true;
     await delay(50);
     return HttpResponse.json({
@@ -226,7 +226,7 @@ export const productionSpatialHandlers = [
     });
   }),
   http.get("/api/v1/works/:workId", () => {
-    if (!reportReady) return passthrough();
+    if (!reportReady) return undefined;
     const now = new Date().toISOString();
     return HttpResponse.json({
       work: {
