@@ -21,7 +21,7 @@ describe("LibraryImportControl", () => {
     expect(onUpload).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", { name: "Import audio" }));
-    await user.click(screen.getByRole("menuitem", { name: /Explore public library/ }));
+    await user.click(screen.getByRole("menuitem", { name: /Public recordings/ }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Für Elise")).toBeInTheDocument();
     expect(screen.getByText("Jazz Ride Pattern")).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe("LibraryImportControl", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Import audio" }));
-    await user.click(screen.getByRole("menuitem", { name: /Explore public library/ }));
+    await user.click(screen.getByRole("menuitem", { name: /Public recordings/ }));
     await user.type(
       screen.getByRole("searchbox", { name: "Search public recordings" }),
       "jazz",

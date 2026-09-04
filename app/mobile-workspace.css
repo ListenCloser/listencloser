@@ -12,7 +12,7 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #756f67;
+  color: var(--muted);
   cursor: pointer;
   opacity: 0.52;
   transition: opacity 120ms ease-out, color 120ms ease-out, background 120ms ease-out;
@@ -26,8 +26,8 @@
 
 .library-row-delete:hover:not(:disabled),
 .library-row-delete:focus-visible {
-  color: #df8c84;
-  background: rgba(213, 123, 114, 0.09);
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .library-row-delete:disabled {
@@ -96,7 +96,7 @@
 
   .studio-mobile-action.active,
   .studio-mobile-action[aria-pressed="true"] {
-    border-color: rgba(241, 237, 228, 0.08);
+    border-color: var(--border);
   }
 
   /* Library remains an explicit edge destination; it is almost full-screen on
@@ -124,7 +124,7 @@
     width: 44px;
     height: 44px;
     opacity: 1;
-    color: #8a8379;
+    color: var(--muted);
   }
 
   /* Analysis / Ask becomes a bottom sheet on phones. It reads vertically and
@@ -141,7 +141,7 @@
     height: min(72dvh, 620px) !important;
     max-height: min(72dvh, 620px) !important;
     border-left: 0 !important;
-    border-top: 1px solid var(--v5-line-strong, rgba(241, 237, 228, 0.13));
+    border-top: 1px solid var(--border-strong);
     border-radius: 14px 14px 0 0;
     transform: translateY(calc(100% + var(--transport-height)));
     box-shadow: 0 -22px 56px rgba(0, 0, 0, 0.42);
@@ -208,11 +208,13 @@
     overflow: visible;
   }
 
+  /* Structural touch targets are a hard invariant and intentionally outrank
+   * disposable experiment-layer desktop density rules. */
   .piece-source-trigger,
   .transport-compare-trigger,
   .transport-compare-exit,
   .transport-compare-side-label {
-    min-height: 44px;
+    min-height: 44px !important;
   }
 
   .piece-source-trigger {

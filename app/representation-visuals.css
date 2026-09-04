@@ -1,25 +1,137 @@
-/* Shared visual-state grammar for musical representations.
- *
- * Playback is a neutral time-position signal, not a brand accent.
- * Selection remains a user-action state and evidence keeps its category colors.
- *
- * `--score-playback` is retained as a compatibility alias while renderer
- * callsites are migrated away from the historical score-specific name.
- */
+/* Shared visual-state grammar for musical representations. */
 
 :root {
-  --representation-playback-on-dark: #ddd5c8;
-  --representation-playback-on-paper: #59544c;
-  --representation-playback-soft-on-dark: rgba(221, 213, 200, 0.12);
-  --representation-playback-soft-on-paper: rgba(89, 84, 76, 0.12);
-
-  /* Legacy compatibility for Waveform, Spectrogram, Piano Roll, and score. */
+  --representation-playback-on-dark: #a8afa7;
+  --representation-playback-on-paper: #595e58;
+  --representation-playback-soft-on-dark: rgba(168, 175, 167, 0.12);
+  --representation-playback-soft-on-paper: rgba(89, 94, 88, 0.12);
   --score-playback: var(--representation-playback-on-dark);
   --score-playback-soft: var(--representation-playback-soft-on-dark);
+  --piano-note: #c5c9c2;
+  --piano-note-stroke: rgba(230, 233, 224, 0.34);
 }
 
-/* Score sits on a light paper surface, so playback inverts to a dark warm neutral. */
 .sheet-music-container {
   --score-playback: var(--representation-playback-on-paper);
   --score-playback-soft: var(--representation-playback-soft-on-paper);
+}
+
+/* Piano roll: notes and downbeats carry hierarchy; graph paper recedes. */
+.piano-roll-container [data-piano-roll-layer="static-notes"] rect {
+  fill: var(--piano-note) !important;
+  stroke: var(--piano-note-stroke) !important;
+  stroke-width: 0.4px !important;
+  stroke-opacity: 0.48 !important;
+  rx: 0.75px !important;
+}
+
+.piano-roll-container [data-piano-roll-layer="static-notes"] text,
+.piano-roll-container [data-ruler-kind="elapsed-time"] text {
+  fill: #727970 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 8px !important;
+  font-weight: 500 !important;
+}
+
+.piano-roll-container [data-piano-roll-layer="static-notes"] text { opacity: 0.48 !important; }
+.piano-roll-container [data-ruler-kind="elapsed-time"] text { opacity: 0.72 !important; }
+
+.piano-roll-container [data-note-state="selected"] {
+  fill: var(--accent) !important;
+  fill-opacity: 0.82 !important;
+  stroke: var(--accent) !important;
+  stroke-opacity: 0.76 !important;
+}
+
+.piano-roll-container [data-note-state="active"] {
+  fill: var(--representation-playback-on-dark) !important;
+  fill-opacity: 0.82 !important;
+  stroke: var(--representation-playback-on-dark) !important;
+  stroke-opacity: 0.72 !important;
+}
+
+.piano-roll-container [data-pitch-lane="black-key"] {
+  fill: #0e110f !important;
+  fill-opacity: 1 !important;
+}
+
+.piano-roll-container [data-pitch-lane="natural"] {
+  fill: #0b0d0c !important;
+  fill-opacity: 1 !important;
+}
+
+.piano-roll-container [data-pitch-lane="octave-anchor"] {
+  fill: #121512 !important;
+  fill-opacity: 1 !important;
+}
+
+.piano-roll-container svg > line:not([data-grid-kind]) {
+  stroke: rgba(236, 238, 230, 0.05) !important;
+  stroke-opacity: 1 !important;
+  stroke-width: 0.35px !important;
+}
+
+.piano-roll-container [data-grid-kind="observed-beat"],
+.piano-roll-container [data-grid-kind="tempo-beat"] {
+  stroke: rgba(236, 238, 230, 0.045) !important;
+  stroke-opacity: 1 !important;
+  stroke-width: 0.45px !important;
+}
+
+.piano-roll-container [data-grid-kind="observed-downbeat"] {
+  stroke: rgba(236, 238, 230, 0.15) !important;
+  stroke-opacity: 1 !important;
+  stroke-width: 0.7px !important;
+}
+
+.piano-roll-container [data-ruler-kind="elapsed-time"] line {
+  stroke: rgba(236, 238, 230, 0.14) !important;
+}
+
+.piano-roll-container [data-selection-range="true"] {
+  fill: var(--accent) !important;
+  fill-opacity: 0.045 !important;
+  stroke: var(--accent) !important;
+  stroke-opacity: 0.42 !important;
+  stroke-width: 0.7px !important;
+}
+
+.piano-roll-container [data-selection-range="true"][data-selection-emphasized="true"] {
+  fill-opacity: 0.075 !important;
+  stroke-opacity: 0.68 !important;
+}
+
+.piano-roll-container [data-playhead="true"] line,
+.piano-roll-container [data-playhead="true"] rect {
+  stroke: var(--representation-playback-on-dark) !important;
+  fill: var(--representation-playback-on-dark) !important;
+  opacity: 0.72 !important;
+}
+
+/* Keep OSMD output on a calm paper stage without changing notation semantics. */
+.sheet-music-wrap {
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: auto;
+  padding: 14px 18px 30px;
+}
+
+.sheet-music-container {
+  width: min(100%, 980px) !important;
+  margin: 0 auto;
+  padding: 12px 16px 22px;
+  border-radius: 2px !important;
+}
+
+.sheet-music-container svg {
+  display: block;
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+@media (max-width: 820px) {
+  .sheet-music-wrap { padding: 10px 10px 24px; }
+  .sheet-music-container { padding: 8px 9px 18px; }
 }

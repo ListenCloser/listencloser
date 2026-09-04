@@ -90,20 +90,12 @@ export default function LibraryImportControl({
         <MenuItems className={styles.menuItems}>
           <MenuItem>
             <button type="button" className={styles.menuItem} onClick={onUpload}>
-              <span className={styles.menuIcon} aria-hidden="true">↑</span>
-              <span className={styles.menuCopy}>
-                <span className={styles.menuTitle}>Upload recording</span>
-                <span className={styles.menuHint}>Choose audio from this device</span>
-              </span>
+              Upload recording
             </button>
           </MenuItem>
           <MenuItem>
             <button type="button" className={styles.menuItem} onClick={openPublicLibrary}>
-              <span className={styles.menuIcon} aria-hidden="true">♫</span>
-              <span className={styles.menuCopy}>
-                <span className={styles.menuTitle}>Explore public library</span>
-                <span className={styles.menuHint}>Try a freely reusable recording</span>
-              </span>
+              Public recordings
             </button>
           </MenuItem>
         </MenuItems>
@@ -120,10 +112,8 @@ export default function LibraryImportControl({
           <DialogPanel className={styles.dialog}>
             <div className={styles.dialogHeader}>
               <div>
-                <DialogTitle className={styles.dialogTitle}>Explore public recordings</DialogTitle>
-                <p className={styles.dialogDescription}>
-                  Curated from Wikimedia Commons. Import one to analyze it like any other recording in your library.
-                </p>
+                <DialogTitle className={styles.dialogTitle}>Public recordings</DialogTitle>
+                <p className={styles.dialogDescription}>Freely reusable recordings from Wikimedia Commons.</p>
               </div>
               <button
                 type="button"
@@ -144,7 +134,7 @@ export default function LibraryImportControl({
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search title, style, creator…"
+                placeholder="Search recordings"
                 autoComplete="off"
               />
             </div>
@@ -152,7 +142,7 @@ export default function LibraryImportControl({
             <div className={styles.list} aria-live="polite">
               {error && <div className={styles.error} role="alert">{error}</div>}
               {recordings.length === 0 ? (
-                <div className={styles.empty}>No curated recordings match that search.</div>
+                <div className={styles.empty}>No recordings match that search.</div>
               ) : recordings.map((recording) => {
                 const importing = importingId === recording.id;
                 return (
@@ -163,12 +153,11 @@ export default function LibraryImportControl({
                         <span className={styles.recordingStyle}>{recording.style}</span>
                       </div>
                       <div className={styles.recordingCreator}>{recording.creator}</div>
-                      <div className={styles.recordingDescription}>{recording.description}</div>
                       <div className={styles.recordingMeta}>
                         <span>{formatDuration(recording.durationSeconds)}</span>
                         <span>~{formatBytes(recording.estimatedBytes)}</span>
                         <a href={recording.licenseUrl} target="_blank" rel="noreferrer">{recording.licenseLabel}</a>
-                        <a href={recording.sourcePageUrl} target="_blank" rel="noreferrer">Wikimedia source</a>
+                        <a href={recording.sourcePageUrl} target="_blank" rel="noreferrer">Source</a>
                       </div>
                     </div>
                     <button
