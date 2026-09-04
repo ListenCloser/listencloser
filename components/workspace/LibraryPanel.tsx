@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/AuthProvider";
 import Tooltip from "@/components/ui/Tooltip";
 import LibraryImportControl from "@/components/workspace/LibraryImportControl";
+import LayersControl from "@/components/workspace/LayersControl";
 import { getWorkBundle, startUnderstandWorkflow, uploadArtifact } from "@/lib/api-client";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
@@ -109,7 +110,7 @@ export function WorkRow({
   );
 }
 
-function ImportSettings() {
+function ImportSettings({ projectId, canProcess }: { projectId: string; canProcess: boolean }) {
   const {
     workspace,
     requestScoreEngine,
@@ -210,6 +211,8 @@ function ImportSettings() {
             </span>
           </div>
         )}
+
+        <LayersControl projectId={projectId} canProcess={canProcess} />
       </div>
     </details>
   );
@@ -324,7 +327,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
               onImport={handlePublicImport}
             />
             {importStatus && <span id="library-import-status" className="library-import-status" role="status">{importStatus}</span>}
-            <ImportSettings />
+            <ImportSettings projectId={project?.id ?? ""} canProcess={canImport} />
           </>
         )}
       </div>
