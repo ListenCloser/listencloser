@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from domain.api.workflows_jobs import _require_public_create_action
 
 
-@pytest.mark.parametrize("action", ["transform", "perceptual_series"])
+@pytest.mark.parametrize("action", ["transform", "perceptual_series", "pitch_contour"])
 def test_public_create_workflow_actions_are_explicit(action: str) -> None:
     assert _require_public_create_action(action) == action
 
