@@ -5,7 +5,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/AuthProvider";
 import Tooltip from "@/components/ui/Tooltip";
 import LibraryImportControl from "@/components/workspace/LibraryImportControl";
-import { getWorkBundle, startUnderstandWorkflow, uploadArtifact } from "@/lib/api-client";
+import {
+  clearWorkDataCache,
+  getJob,
+  getWorkBundle,
+  startUnderstandWorkflow,
+  uploadArtifact,
+} from "@/lib/api-client";
+import {
+  PITCH_CONTOUR_READY_EVENT,
+  startPitchContourWorkflow,
+} from "@/lib/pitch-contour-api";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { supabase } from "@/lib/supabase";
 import { useTransport } from "@/lib/stores/transport";
@@ -21,6 +31,8 @@ import { presentableTitle } from "@/lib/format";
 import { successorAfterDelete } from "@/lib/work-selection";
 
 const POINTER_PREFETCH_DELAY_MS = 120;
+const PITCH_CONTOUR_POLL_MS = 750;
+const PITCH_CONTOUR_POLL_LIMIT = 160;
 
 export function WorkRow({
   work,
@@ -116,7 +128,10 @@ function ImportSettings() {
     setScoreEngine,
     setTranscriptionProfile,
   } = useWorkspace();
+  const [pitchStatus, setPitchStatus] = useState<"idle" | "checking" | "running" | "ready" | "error">("idle");
+  const [pitchError, setPitchError] = useState<string | null>(null);
   const activeScore = workspace.representations.find((representation) => representation.kind === "score");
+  const sourceAudio = workspace.representations.find((representation) => representation.kind === "waveform");
   const hasPerformanceMidi = workspace.representations.some((representation) => representation.kind === "piano_roll");
   const selectedEngineLabel = workspace.scoreEngine === "pm2s" ? "PM2S" : "MuseScore";
   const activeScoreMatchesSelection = Boolean(
@@ -132,6 +147,68 @@ function ImportSettings() {
     && (hasPerformanceMidi || activeScore)
     && !activeScoreMatchesSelection,
   );
+  const canGeneratePitch = Boolean(
+    workspace.activeWorkId
+    && sourceAudio?.versionId
+    && !workspace.isLoadingWork
+    && pitchStatus !== "running"
+    && pitchStatus !== "checking"
+    && pitchStatus !== "ready",
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const workId = workspace.activeWorkId;
+    setPitchError(null);
+    if (!workId) {
+      setPitchStatus("idle");
+      return () => { cancelled = true; };
+    }
+    setPitchStatus("checking");
+    void getWorkBundle(workId)
+      .then((bundle) => {
+        if (cancelled) return;
+        const ready = bundle.artifacts.some((item) => (
+          item.artifact.kind === "analysis_report"
+          && item.latest_version?.metadata?.representation_type === "pitch_contour"
+        ));
+        setPitchStatus(ready ? "ready" : "idle");
+      })
+      .catch(() => {
+        if (!cancelled) setPitchStatus("idle");
+      });
+    return () => { cancelled = true; };
+  }, [workspace.activeWorkId]);
+
+  async function generatePitchContour() {
+    const sourceVersionId = sourceAudio?.versionId;
+    const workId = workspace.activeWorkId;
+    if (!sourceVersionId || !workId || !canGeneratePitch) return;
+
+    setPitchStatus("running");
+    setPitchError(null);
+    try {
+      const { job } = await startPitchContourWorkflow(sourceVersionId);
+      let terminalStage: string | null = null;
+      let terminalError: string | null = null;
+      for (let attempt = 0; attempt < PITCH_CONTOUR_POLL_LIMIT; attempt += 1) {
+        const state = await getJob(job.id);
+        terminalStage = state.stage;
+        terminalError = state.error ?? null;
+        if (!["queued", "claimed", "running"].includes(state.stage)) break;
+        await new Promise((resolve) => window.setTimeout(resolve, PITCH_CONTOUR_POLL_MS));
+      }
+      if (terminalStage !== "completed") {
+        throw new Error(terminalError ?? "Pitch contour did not complete.");
+      }
+      clearWorkDataCache();
+      setPitchStatus("ready");
+      window.dispatchEvent(new CustomEvent(PITCH_CONTOUR_READY_EVENT, { detail: { workId } }));
+    } catch (cause) {
+      setPitchStatus("error");
+      setPitchError(cause instanceof Error ? cause.message : "Pitch contour could not be generated.");
+    }
+  }
 
   return (
     <details className="library-import-settings">
@@ -208,6 +285,33 @@ function ImportSettings() {
                 ? "Select another engine to generate an alternate Score from the same performance MIDI."
                 : "Generation reuses this recording's performance MIDI; transcription is not rerun."}
             </span>
+          </div>
+        )}
+
+        {workspace.activeWorkId && (
+          <div style={{ display: "grid", gap: "6px", paddingTop: "var(--s-1)", borderTop: "1px solid var(--border-subtle)" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "var(--fs-xs)" }}>
+              <span className="muted">Pitch contour</span>
+              <span style={{ border: "1px solid currentColor", borderRadius: 999, padding: "1px 6px", fontSize: "10px" }}>Experimental</span>
+            </span>
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={!canGeneratePitch}
+              onClick={() => void generatePitchContour()}
+            >
+              {pitchStatus === "checking"
+                ? "Checking pitch contour…"
+                : pitchStatus === "running"
+                  ? "Generating pitch contour…"
+                  : pitchStatus === "ready"
+                    ? "Pitch contour ready"
+                    : "Generate pitch contour"}
+            </button>
+            <span className="muted" style={{ fontSize: "var(--fs-xs)", lineHeight: 1.35 }}>
+              Continuous F0 for voice and expressive monophonic material. Runs only when requested and does not replace MIDI transcription.
+            </span>
+            {pitchError && <span role="alert" style={{ fontSize: "var(--fs-xs)" }}>{pitchError}</span>}
           </div>
         )}
       </div>
