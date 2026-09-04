@@ -363,6 +363,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/works/{work_id}/relations/measured-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Measured Changes
+         * @description Return a bounded experimental top set from exact persisted evidence.
+         */
+        get: operations["measured_changes_api_v1_works__work_id__relations_measured_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/works/{work_id}/relations/perceptual-span-comparison": {
         parameters: {
             query?: never;
@@ -1174,6 +1194,64 @@ export interface components {
             stage: components["schemas"]["JobStage"];
             /** Workflow Id */
             workflow_id: string;
+        };
+        /**
+         * MeasuredChangeCandidate
+         * @description One bounded experimental candidate with production-owned literal evidence.
+         */
+        MeasuredChangeCandidate: {
+            /** After Span Seconds */
+            after_span_seconds: [
+                number,
+                number
+            ];
+            /** Before Span Seconds */
+            before_span_seconds: [
+                number,
+                number
+            ];
+            /** Boundary Seconds */
+            boundary_seconds: number;
+            /** Changed Component Count */
+            changed_component_count: number;
+            /** Changed Feature Count */
+            changed_feature_count: number;
+            finding: components["schemas"]["GroundedRelationFinding"];
+            /** Normalized Component Changes */
+            normalized_component_changes?: {
+                [key: string]: number;
+            };
+            /** Normalized Feature Changes */
+            normalized_feature_changes?: {
+                [key: string]: number;
+            };
+            /** Rank */
+            rank: number;
+            /** Ranking Score */
+            ranking_score: number;
+        };
+        /**
+         * MeasuredChangeQueryResult
+         * @description Truthful availability/result state for experimental measured changes.
+         */
+        MeasuredChangeQueryResult: {
+            /** Candidates */
+            candidates?: components["schemas"]["MeasuredChangeCandidate"][];
+            /** Evidence Report Version Id */
+            evidence_report_version_id?: string | null;
+            /** Method */
+            method?: string | null;
+            /** Method Parameters */
+            method_parameters?: {
+                [key: string]: number;
+            };
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "supported" | "unavailable" | "withheld" | "failed";
         };
         /** NoteEntity */
         NoteEntity: {
@@ -2242,6 +2320,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeletedWorkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    measured_changes_api_v1_works__work_id__relations_measured_changes_get: {
+        parameters: {
+            query: {
+                source_version_id: string;
+            };
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasuredChangeQueryResult"];
                 };
             };
             /** @description Validation Error */

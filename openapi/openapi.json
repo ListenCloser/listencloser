@@ -1879,6 +1879,164 @@
         "title": "JobStateResponse",
         "type": "object"
       },
+      "MeasuredChangeCandidate": {
+        "description": "One bounded experimental candidate with production-owned literal evidence.",
+        "properties": {
+          "after_span_seconds": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "After Span Seconds",
+            "type": "array"
+          },
+          "before_span_seconds": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Before Span Seconds",
+            "type": "array"
+          },
+          "boundary_seconds": {
+            "title": "Boundary Seconds",
+            "type": "number"
+          },
+          "changed_component_count": {
+            "maximum": 6.0,
+            "minimum": 2.0,
+            "title": "Changed Component Count",
+            "type": "integer"
+          },
+          "changed_feature_count": {
+            "maximum": 3.0,
+            "minimum": 2.0,
+            "title": "Changed Feature Count",
+            "type": "integer"
+          },
+          "finding": {
+            "$ref": "#/components/schemas/GroundedRelationFinding"
+          },
+          "normalized_component_changes": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Normalized Component Changes",
+            "type": "object"
+          },
+          "normalized_feature_changes": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Normalized Feature Changes",
+            "type": "object"
+          },
+          "rank": {
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "ranking_score": {
+            "title": "Ranking Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rank",
+          "boundary_seconds",
+          "before_span_seconds",
+          "after_span_seconds",
+          "ranking_score",
+          "changed_feature_count",
+          "changed_component_count",
+          "finding"
+        ],
+        "title": "MeasuredChangeCandidate",
+        "type": "object"
+      },
+      "MeasuredChangeQueryResult": {
+        "description": "Truthful availability/result state for experimental measured changes.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/MeasuredChangeCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "evidence_report_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Report Version Id"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "method_parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Method Parameters",
+            "type": "object"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "unavailable",
+              "withheld",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "MeasuredChangeQueryResult",
+        "type": "object"
+      },
       "NoteEntity": {
         "properties": {
           "amplitude": {
@@ -3803,6 +3961,62 @@
           }
         ],
         "summary": "Get Work Bundle"
+      }
+    },
+    "/api/v1/works/{work_id}/relations/measured-changes": {
+      "get": {
+        "description": "Return a bounded experimental top set from exact persisted evidence.",
+        "operationId": "measured_changes_api_v1_works__work_id__relations_measured_changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Work Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasuredChangeQueryResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Measured Changes"
       }
     },
     "/api/v1/works/{work_id}/relations/perceptual-span-comparison": {
