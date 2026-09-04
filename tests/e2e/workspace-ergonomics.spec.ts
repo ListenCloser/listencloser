@@ -66,9 +66,9 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(inspector).toBeVisible();
     await expect(inspector.getByRole("tab", { name: "Breakdown", selected: true })).toBeVisible();
     await expect(inspector.getByRole("heading", { name: "What stands out" })).toBeVisible();
-    await expect(inspector.getByRole("heading", { name: "Context" })).toBeVisible();
+    await expect(inspector.getByRole("heading", { name: "Overview" })).toBeVisible();
     await expect(inspector.getByText("A minor", { exact: true })).toBeVisible();
-    await expect(inspector.getByRole("heading", { name: "Overview" })).toHaveCount(0);
+    await expect(inspector.getByRole("heading", { name: "Context" })).toHaveCount(0);
   });
 
   test("loop and playback controls expose their current action", async ({ page }) => {

@@ -99,24 +99,6 @@ function chordLabel(insight: Insight): string {
   return normalizeMusicText(insight.claim);
 }
 
-function confidenceLabel(item: Insight): string | null {
-  return typeof item.confidence === "number" ? `${Math.round(item.confidence * 100)}% confidence` : null;
-}
-
-function methodLabel(item: Insight): string | null {
-  return evidenceString(item, "method");
-}
-
-function DetailItem({ item }: { item: Insight }) {
-  const meta = [item.kind.replaceAll("_", " "), methodLabel(item), confidenceLabel(item)].filter(Boolean).join(" · ");
-  return (
-    <li className={styles.detailItem}>
-      <span>{normalizeMusicText(item.claim)}</span>
-      {meta && <span className={styles.detailMeta}>{meta}</span>}
-    </li>
-  );
-}
-
 export default function HarmonyEvidence({
   insights,
   bpm,
@@ -143,7 +125,7 @@ export default function HarmonyEvidence({
   };
 
   return (
-    <div className={`inspector-evidence-body ${styles.timeline}`} role="table" aria-label="Harmonic evidence timeline">
+    <div className={`inspector-evidence-body ${styles.timeline}`} role="table" aria-label="Harmonic analysis timeline">
       <div className={`${styles.row} ${styles.header}`} role="row">
         <span role="columnheader">Time</span>
         <span role="columnheader">Harmony</span>
@@ -151,7 +133,6 @@ export default function HarmonyEvidence({
       {rows.map((row) => {
         const primary = row.chord ?? row.romanNumeral ?? row.harmonicFunction;
         if (!primary) return null;
-        const detailItems = [row.chord, row.romanNumeral, row.harmonicFunction].filter((item): item is Insight => Boolean(item));
         return (
           <div
             className={styles.row}
@@ -189,13 +170,6 @@ export default function HarmonyEvidence({
                   )}
                 </div>
               )}
-
-              <details className={styles.details}>
-                <summary>Evidence details</summary>
-                <ul className={styles.detailList}>
-                  {detailItems.map((item) => <DetailItem item={item} key={item.id} />)}
-                </ul>
-              </details>
             </div>
           </div>
         );

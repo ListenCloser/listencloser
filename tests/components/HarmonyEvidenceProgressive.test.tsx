@@ -14,7 +14,7 @@ function insight(id: string, kind: string, claim: string, evidence: Record<strin
   } as unknown as Insight;
 }
 
-describe("HarmonyEvidence progressive disclosure", () => {
+describe("HarmonyEvidence flat analysis presentation", () => {
   it("uses one primary Harmony column and only shows supported secondary theory labels", () => {
     const insights = [
       insight("chord", "chord", "C major"),
@@ -37,9 +37,10 @@ describe("HarmonyEvidence progressive disclosure", () => {
     expect(screen.getByText("Degree", { exact: true })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^I$/ })).toBeInTheDocument();
     expect(screen.queryByText("—")).not.toBeInTheDocument();
+    expect(screen.queryByText("Evidence details")).not.toBeInTheDocument();
   });
 
-  it("describes the available evidence instead of surfacing a raw row count", () => {
+  it("describes the available analysis instead of surfacing a raw row count", () => {
     const chordOnly = [insight("chord", "chord", "C major")];
     const enriched = [
       ...chordOnly,

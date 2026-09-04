@@ -13,25 +13,25 @@ async function openWorkspace(page: Page) {
   await expect(page.getByText("A minor", { exact: true })).toBeVisible();
 }
 
-async function openHarmonyEvidence(page: Page) {
-  const evidenceRoot = page.locator(".inspector-breakdown-evidence-root");
-  await evidenceRoot.locator(":scope > summary").click();
-  const harmonyDisclosure = page.locator(".inspector-evidence-group").filter({ hasText: "Harmony" });
-  await expect(harmonyDisclosure).toBeVisible();
-  await expect(harmonyDisclosure.locator(":scope > summary")).toContainText("Chord timeline");
-  await harmonyDisclosure.locator(":scope > summary").click();
-  return page.getByRole("table", { name: "Harmonic evidence timeline" });
+async function openHarmonyAnalysis(page: Page) {
+  const analysisSummary = page.getByText("Analysis", { exact: true });
+  await expect(analysisSummary).toBeVisible();
+  await analysisSummary.click();
+
+  const harmony = page.getByRole("region", { name: "Harmony analysis" });
+  await expect(harmony).toBeVisible();
+  return harmony.getByRole("table", { name: "Harmonic analysis timeline" });
 }
 
-test("harmony evidence keeps chord primary and discloses theory context progressively", async ({ page }) => {
+test("harmony analysis keeps chord primary with flat theory context", async ({ page }) => {
   await openWorkspace(page);
-  const table = await openHarmonyEvidence(page);
+  const table = await openHarmonyAnalysis(page);
 
   await expect(table).toBeVisible();
   await expect(table.getByRole("columnheader")).toHaveText(["Time", "Harmony"]);
   await expect(table.getByRole("row")).toHaveCount(7);
 
-  // Key remains promoted once in Context. Degree/function are secondary labels
+  // Key remains promoted once in Overview. Degree/function are secondary labels
   // inside the single Harmony column instead of permanent empty columns.
   await expect(table.getByText("Degree", { exact: true }).first()).toBeVisible();
   await expect(table.getByRole("button", { name: "I", exact: true }).first()).toBeVisible();
@@ -39,14 +39,12 @@ test("harmony evidence keeps chord primary and discloses theory context progress
   await expect(table.getByRole("columnheader", { name: "Degree" })).toHaveCount(0);
   await expect(table.getByRole("columnheader", { name: "Function" })).toHaveCount(0);
 
-  // Full claims/provenance are still available one level deeper rather than
-  // being repeated in the default scan path.
-  const firstRowDetails = table.getByText("Evidence details", { exact: true }).first();
-  await firstRowDetails.click();
-  await expect(table.getByText(/I \(A minor\)/).first()).toBeVisible();
+  // Provenance stays in the underlying evidence contract; the default timeline
+  // does not repeat a nested Evidence details disclosure on every row.
+  await expect(table.getByText("Evidence details", { exact: true })).toHaveCount(0);
 });
 
-test("breakdown remains prioritized and evidence fits a constrained inspector", async ({ page }) => {
+test("breakdown remains prioritized and analysis fits a constrained inspector", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 760 });
   await openWorkspace(page);
 
@@ -65,7 +63,7 @@ test("breakdown remains prioritized and evidence fits a constrained inspector", 
     await expect(hiddenFindings.first()).toBeVisible();
   }
 
-  const table = await openHarmonyEvidence(page);
+  const table = await openHarmonyAnalysis(page);
   await expect(table).toBeVisible();
   const fitsInspector = await table.evaluate((element) => element.scrollWidth <= element.clientWidth + 1);
   expect(fitsInspector).toBe(true);
