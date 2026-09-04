@@ -161,17 +161,25 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       const renderedArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && item.artifact.kind === "audio_rendered",
       );
-      const primaryRendered = renderedArtifacts.find(
+      const melodyRendered = renderedArtifacts.find((item) => (
+        item.latest_version?.metadata?.representation === "melody_playback"
+        && item.latest_version.metadata.source_midi_version_id === midi?.latest_version?.id
+      ));
+      const ordinaryRendered = renderedArtifacts.filter((item) => (
+        item.latest_version?.metadata?.representation !== "melody_playback"
+      ));
+      const primaryRendered = ordinaryRendered.find(
         (item) => item.latest_version?.parent_version_id === baseMidi?.latest_version?.id,
-      ) ?? renderedArtifacts.find(
+      ) ?? ordinaryRendered.find(
         (item) => item.latest_version?.parent_version_id === midi?.latest_version?.id,
-      ) ?? renderedArtifacts[0];
-      const extraRendered = renderedArtifacts.filter(
+      ) ?? ordinaryRendered[0];
+      const extraRendered = ordinaryRendered.filter(
         (item) => item.latest_version && item.signed_url && item.latest_version.id !== primaryRendered?.latest_version?.id,
       );
       const { sources, activeId } = buildPlaybackSources({
         original: original?.latest_version && original.signed_url ? { id: original.latest_version.id, url: original.signed_url } : null,
         transcription: primaryRendered?.latest_version && primaryRendered.signed_url ? { id: primaryRendered.latest_version.id, url: primaryRendered.signed_url } : null,
+        melody: melodyRendered?.latest_version && melodyRendered.signed_url ? { id: melodyRendered.latest_version.id, url: melodyRendered.signed_url } : null,
         extraTakes: extraRendered.map((item) => ({ id: item.latest_version!.id, url: item.signed_url! })),
         score: renderedScore?.latest_version && renderedScore.signed_url ? { id: renderedScore.latest_version.id, url: renderedScore.signed_url } : null,
       });
