@@ -149,10 +149,11 @@ describe("LibraryPanel processing disclosure", () => {
     mocks.activeWorkId = "work-1";
     render(<LibraryPanel signedIn canImport />);
 
-    expect(screen.queryByRole("combobox", { name: "Score source" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Score source" })).not.toBeVisible();
     await user.click(screen.getByText("Processing"));
 
     const source = screen.getByRole("combobox", { name: "Score source" });
+    expect(source).toBeVisible();
     expect(source).toHaveValue("engine:musescore");
     expect(screen.getByRole("option", { name: "Attached · source.musicxml" })).toBeInTheDocument();
 
