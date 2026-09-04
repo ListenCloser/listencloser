@@ -5,6 +5,12 @@ import { measureIndexAt, measureGroupsForIndex } from "@/lib/measure";
 import { annotationToMeasureRange, ANNOTATION_COLORS } from "@/lib/analysis-annotations";
 import type { AnalysisAnnotation } from "@/lib/analysis-annotations";
 import {
+  buildScoreNotePlaybackEvents,
+  clearScoreActiveNoteheads,
+  syncScoreActiveNoteheads,
+  type ScoreNotePlaybackEvent,
+} from "@/lib/score-note-playback";
+import {
   measureInteractionClientRect,
   measureStructuralBox,
   measureStructuralClientRect,
@@ -106,6 +112,8 @@ export default function SheetMusic({
   const osmdRef = useRef<any>(null);
   const cursorLineRef = useRef<SVGLineElement | null>(null);
   const playbackMeasureRef = useRef(-1);
+  const noteEventsRef = useRef<ScoreNotePlaybackEvent[]>([]);
+  const activeNoteheadsRef = useRef<Set<Element>>(new Set());
   const anchorMeasureRef = useRef<number | null>(null);
   const [osmdReady, setOsmdReady] = useState(false);
 
@@ -115,6 +123,8 @@ export default function SheetMusic({
     let cancelled = false;
     setOsmdReady(false);
     anchorMeasureRef.current = null;
+    clearScoreActiveNoteheads(activeNoteheadsRef.current);
+    noteEventsRef.current = [];
 
     async function render() {
       const { OpenSheetMusicDisplay } = await import("opensheetmusicdisplay");
@@ -154,12 +164,39 @@ export default function SheetMusic({
     }
 
     void render();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearScoreActiveNoteheads(activeNoteheadsRef.current);
+      noteEventsRef.current = [];
+    };
   }, [musicXml]);
+
+  // Build the note identity/timing map only when the rendered score or its
+  // notation-time measure map changes. Transport ticks only diff active SVG
+  // noteheads below; they never advance/reset OSMD's stateful cursor iterator.
+  useEffect(() => {
+    clearScoreActiveNoteheads(activeNoteheadsRef.current);
+    noteEventsRef.current = [];
+    if (!osmdReady || !measureStarts?.length || !osmdRef.current) return;
+    noteEventsRef.current = buildScoreNotePlaybackEvents(osmdRef.current, measureStarts, scoreDuration);
+  }, [measureStarts, osmdReady, scoreDuration]);
+
+  useEffect(() => {
+    if (!osmdReady || !isScoreActive) {
+      clearScoreActiveNoteheads(activeNoteheadsRef.current);
+      return;
+    }
+    activeNoteheadsRef.current = syncScoreActiveNoteheads(
+      noteEventsRef.current,
+      playheadTime,
+      activeNoteheadsRef.current,
+    );
+  }, [isScoreActive, osmdReady, playheadTime]);
 
   // Playback follows the score using structural VexFlow stave geometry. Ties,
   // slurs, lyrics, and other descendants can extend the enclosing vf-measure
-  // box, but they must not change measure progress or cursor height.
+  // box, but they must not change measure progress or cursor height. The line
+  // remains a quiet orientation cue; direct sounding-note state is primary.
   useEffect(() => {
     const container = containerRef.current;
     if (!osmdReady || !container || !measureStarts?.length || !isScoreActive) {
@@ -193,7 +230,7 @@ export default function SheetMusic({
       const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
       line.setAttribute("data-score-cursor", "true");
       line.setAttribute("stroke", "var(--score-playback)");
-      line.setAttribute("stroke-width", "1.7");
+      line.setAttribute("stroke-width", "1.35");
       line.setAttribute("stroke-linecap", "round");
       line.setAttribute("pointer-events", "none");
       svg.appendChild(line);
@@ -209,7 +246,7 @@ export default function SheetMusic({
     if (playbackMeasureRef.current !== measureIdx) {
       container.querySelectorAll("[data-playback-highlight]").forEach((node) => node.remove());
       for (const group of groups) {
-        insertHighlightRect(group, "data-playback-highlight", "var(--score-playback)", "0.045", "var(--score-playback)", "0.6", "none");
+        insertHighlightRect(group, "data-playback-highlight", "var(--score-playback)", "0.025", "var(--score-playback)", "0.45", "none");
       }
       const previousMeasure = playbackMeasureRef.current;
       playbackMeasureRef.current = measureIdx;
