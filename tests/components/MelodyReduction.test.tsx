@@ -54,7 +54,7 @@ describe("MelodyReductionObject", () => {
     renderObject({ selectedNoteId: "note-c5" });
 
     expect(screen.getByRole("region", { name: "Experimental melody reduction" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /full Piano Roll timeline with 2 exact source notes/ })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /full Piano Roll timeline with 2 exact source notes/ })).toBeInTheDocument();
     expect(screen.getByText("Experimental")).toBeInTheDocument();
     expect(screen.getByText("2 proposed notes")).toBeInTheDocument();
     expect(screen.queryByText(/A method-specific proposed melodic line/)).not.toBeInTheDocument();
@@ -74,9 +74,9 @@ describe("MelodyReductionObject", () => {
     expect(onSelectNote).toHaveBeenCalledWith(projection.notes[0]);
 
     fireEvent.click(screen.getByRole("button", { name: "Hide" }));
-    expect(screen.queryByRole("img", { name: /Proposed melody reduction/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /Proposed melody reduction/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show" }));
-    expect(screen.getByRole("img", { name: /Proposed melody reduction/ })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /Proposed melody reduction/ })).toBeInTheDocument();
   });
 
   it("keeps Focus and current-source hearing as short secondary actions", () => {
