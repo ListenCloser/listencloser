@@ -179,9 +179,14 @@ export function useLayerAnalysis(canProcess: boolean): LayerAnalysisState {
     setObservationLost(false);
     try {
       const result = await startLayerSeparation(original.id, bundle.work.project_id);
-      let jobId = result.job.id;
-      const stage = result.job.lifecycle.current;
-      if (stage === "failed" || stage === "cancelled") {
+      const dispatchedJobId = result.job.id;
+      const dispatchedStage = result.job.lifecycle?.current;
+      if (!dispatchedJobId || !dispatchedStage) {
+        throw new Error("Layer separation returned an incomplete Job response.");
+      }
+
+      let jobId = dispatchedJobId;
+      if (dispatchedStage === "failed" || dispatchedStage === "cancelled") {
         const retried = await retryJob(jobId);
         jobId = retried.id;
         if (retried.stage === "succeeded") {
@@ -189,7 +194,7 @@ export function useLayerAnalysis(canProcess: boolean): LayerAnalysisState {
           await load(workId, true);
           return;
         }
-      } else if (stage === "succeeded") {
+      } else if (dispatchedStage === "succeeded") {
         invalidateLayerWork();
         await load(workId, true);
         return;
@@ -218,7 +223,7 @@ export function useLayerAnalysis(canProcess: boolean): LayerAnalysisState {
   return {
     option: {
       id: "layers",
-      title: "Layers",
+      title: "Separate layers",
       description: "Separate vocals, drums, bass, and other so you can hear each part.",
       maturity: "Experimental",
       actionLabel: observationLost
