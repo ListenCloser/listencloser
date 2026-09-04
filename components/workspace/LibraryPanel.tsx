@@ -132,7 +132,7 @@ function ImportSettings({ canAttachScore }: { canAttachScore: boolean }) {
   const canGenerateScore = Boolean(
     workspace.activeWorkId
     && !workspace.isLoadingWork
-    && (hasPerformanceMidi || activeScore)
+    && hasPerformanceMidi
     && !activeScoreMatchesSelection,
   );
 
