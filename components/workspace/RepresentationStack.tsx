@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import TabStrip, { type TabIntentSource } from "@/components/ui/TabStrip";
 import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
+import PitchContourLane from "@/components/workspace/PitchContourLane";
 import {
   REPRESENTATIONS,
   availableRepresentations,
@@ -12,6 +13,7 @@ import { preloadScoreRenderer } from "@/lib/score-renderer";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
+import { PITCH_CONTOUR_OPEN_EVENT, type PitchContourOpenDetail } from "@/lib/pitch-contour";
 
 const ORIENTATION_CUE_MS = 560;
 const SCORE_POINTER_INTENT_MS = 120;
@@ -51,6 +53,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   const { workspace, requestImport, setActiveRepresentation, clearSelection } = useWorkspace();
   const [mountedViews, setMountedViews] = useState<Set<RepresentationId>>(() => new Set());
   const [orientationCue, setOrientationCue] = useState(false);
+  const [pitchContourOpen, setPitchContourOpen] = useState(false);
   const orientationFrame = useRef<number | null>(null);
   const orientationTimeout = useRef<number | null>(null);
   const scoreIntentTimeout = useRef<number | null>(null);
@@ -126,6 +129,15 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [clearSelection]);
 
+  useEffect(() => {
+    const handlePitchOpen = (event: Event) => {
+      const detail = (event as CustomEvent<PitchContourOpenDetail>).detail;
+      if (detail?.workId === workspace.activeWorkId) setPitchContourOpen(true);
+    };
+    window.addEventListener(PITCH_CONTOUR_OPEN_EVENT, handlePitchOpen);
+    return () => window.removeEventListener(PITCH_CONTOUR_OPEN_EVENT, handlePitchOpen);
+  }, [workspace.activeWorkId]);
+
   // The shared selection is authoritative. This local cue only strengthens the
   // actual selected destination after Focus/Show and then returns it to quiet.
   useEffect(() => {
@@ -176,6 +188,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     }
     setMountedViews(new Set());
     setOrientationCue(false);
+    setPitchContourOpen(false);
   }, [workspace.activeWorkId]);
 
   useEffect(() => {
@@ -224,6 +237,8 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
           onIntentEnd={handleRepresentationIntentEnd}
         />
       </div>
+
+      {pitchContourOpen && <PitchContourLane onClose={() => setPitchContourOpen(false)} />}
 
       {activeSymbolicSourceLabel && (
         <div
