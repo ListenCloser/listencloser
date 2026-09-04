@@ -1,36 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  clearWorkDataCache,
-  getJob,
   getWorkBundle,
   retryJob,
   startPitchContourWorkflow,
 } from "@/lib/api-client";
-import { PITCH_CONTOUR_OPEN_EVENT, type PitchContourOpenDetail } from "@/lib/pitch-contour";
+import { waitForJob } from "@/lib/job-tracking";
 import { useWorkspace } from "@/lib/stores/workspace";
 
 type PitchExecution = "checking" | "add" | "processing" | "ready" | "failed" | "unavailable";
 
 const ACTIVE_STAGES = new Set(["queued", "claimed", "running"]);
-const POLL_MS = 750;
-
-function openPitchContour(workId: string) {
-  window.dispatchEvent(new CustomEvent<PitchContourOpenDetail>(PITCH_CONTOUR_OPEN_EVENT, {
-    detail: { workId },
-  }));
-}
 
 export default function PitchContourProcessing() {
-  const { workspace } = useWorkspace();
+  const { workspace, setPitchContourOpen } = useWorkspace();
   const workId = workspace.activeWorkId;
   const sourceVersionId = workspace.representations.find((item) => item.kind === "waveform")?.versionId ?? null;
   const [execution, setExecution] = useState<PitchExecution>("checking");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const openWhenReadyRef = useRef(false);
 
   const syncFromServer = useCallback(async () => {
     if (!workId) {
@@ -86,55 +76,32 @@ export default function PitchContourProcessing() {
   }, [syncFromServer, sourceVersionId]);
 
   useEffect(() => {
-    if (execution !== "processing" || !jobId || !workId) return;
-    let cancelled = false;
-    let timer: number | null = null;
+    if (execution !== "processing" || !jobId) return;
+    const controller = new AbortController();
 
-    const poll = async () => {
-      try {
-        const state = await getJob(jobId);
-        if (cancelled) return;
-        if (ACTIVE_STAGES.has(state.stage)) {
-          timer = window.setTimeout(() => void poll(), POLL_MS);
-          return;
-        }
-        if (state.stage === "succeeded") {
-          clearWorkDataCache();
-          setExecution("ready");
-          setJobId(null);
-          setError(null);
-          if (openWhenReadyRef.current) openPitchContour(workId);
-          openWhenReadyRef.current = false;
-          return;
-        }
-        setExecution("failed");
-        setError(state.error ?? "Pitch contour did not complete.");
-        openWhenReadyRef.current = false;
-      } catch (cause) {
-        if (cancelled) return;
+    void waitForJob(jobId, () => undefined, { signal: controller.signal })
+      .then(async () => {
+        if (controller.signal.aborted) return;
+        await syncFromServer();
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted) return;
         setExecution("failed");
         setError(cause instanceof Error ? cause.message : "Pitch contour status could not be loaded.");
-        openWhenReadyRef.current = false;
-      }
-    };
+      });
 
-    void poll();
-    return () => {
-      cancelled = true;
-      if (timer !== null) window.clearTimeout(timer);
-    };
-  }, [execution, jobId, workId]);
+    return () => controller.abort();
+  }, [execution, jobId, syncFromServer]);
 
   async function handleAction() {
     if (!workId) return;
     if (execution === "ready") {
-      openPitchContour(workId);
+      setPitchContourOpen(true);
       return;
     }
     if (!sourceVersionId || !projectId || execution === "processing" || execution === "checking") return;
 
     setError(null);
-    openWhenReadyRef.current = true;
     try {
       if (execution === "failed" && jobId) {
         const retried = await retryJob(jobId);
@@ -147,7 +114,6 @@ export default function PitchContourProcessing() {
     } catch (cause) {
       setExecution("failed");
       setError(cause instanceof Error ? cause.message : "Pitch contour could not be started.");
-      openWhenReadyRef.current = false;
     }
   }
 
