@@ -5,6 +5,7 @@ import signal
 
 import domain.capabilities as capability_module
 from domain.correction_entity_sync import register_corrected_midi_entity_sync
+from domain.melody_audition_capability import register_melody_audition_capability
 from domain.perceptual_capability import register_perceptual_capability
 from domain.performance_instrumentation import install_understand_instrumentation
 from domain.pgmq_job_worker import PgmqJobWorker
@@ -51,6 +52,7 @@ def main() -> None:
     register_corrected_midi_entity_sync(worker)
     register_perceptual_capability(worker)
     register_structure_map_capability(worker)
+    register_melody_audition_capability(worker)
 
     def stop(_signum, _frame) -> None:
         worker.stop()

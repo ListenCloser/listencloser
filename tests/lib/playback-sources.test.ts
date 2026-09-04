@@ -15,6 +15,29 @@ describe("buildPlaybackSources", () => {
     expect(sources.map((s) => s.label)).toEqual(["Original", "Transcription", "Score"]);
   });
 
+  it("keeps synthesized melody playback named rather than presenting it as a generic take", () => {
+    const { sources, activeId } = buildPlaybackSources({
+      original: ref("orig"),
+      transcription: ref("trans"),
+      melody: ref("melody"),
+      extraTakes: [ref("take")],
+      score: ref("score"),
+    });
+
+    expect(sources.map((s) => s.label)).toEqual([
+      "Original",
+      "Transcription",
+      "Melody",
+      "Take 1",
+      "Score",
+    ]);
+    expect(sources.find((source) => source.label === "Melody")).toMatchObject({
+      id: "melody",
+      role: "derived",
+    });
+    expect(activeId).toBe("orig");
+  });
+
   it("derives the Score source from the score artifact, not the transcription", () => {
     const { sources } = buildPlaybackSources({
       original: null,
@@ -48,19 +71,22 @@ describe("buildPlaybackSources", () => {
     expect(sources.find((s) => s.role === "transcription")?.url).toBe("https://example.com/trans");
   });
 
-  it("defaults a new Work to Original, then falls back to available derived audio", () => {
+  it("defaults to canonical sources before optional Melody playback", () => {
     expect(
-      buildPlaybackSources({ original: ref("o"), transcription: ref("t"), extraTakes: [], score: ref("s") }).activeId,
+      buildPlaybackSources({ original: ref("o"), transcription: ref("t"), melody: ref("m"), extraTakes: [], score: ref("s") }).activeId,
     ).toBe("o");
     expect(
-      buildPlaybackSources({ original: null, transcription: ref("t"), extraTakes: [], score: ref("s") }).activeId,
+      buildPlaybackSources({ original: null, transcription: ref("t"), melody: ref("m"), extraTakes: [], score: ref("s") }).activeId,
     ).toBe("t");
     expect(
-      buildPlaybackSources({ original: null, transcription: null, extraTakes: [], score: ref("s") }).activeId,
+      buildPlaybackSources({ original: null, transcription: null, melody: ref("m"), extraTakes: [], score: ref("s") }).activeId,
     ).toBe("s");
     expect(
-      buildPlaybackSources({ original: null, transcription: null, extraTakes: [ref("take")], score: null }).activeId,
+      buildPlaybackSources({ original: null, transcription: null, melody: ref("m"), extraTakes: [ref("take")], score: null }).activeId,
     ).toBe("take");
+    expect(
+      buildPlaybackSources({ original: null, transcription: null, melody: ref("m"), extraTakes: [], score: null }).activeId,
+    ).toBe("m");
     expect(
       buildPlaybackSources({ original: null, transcription: null, extraTakes: [], score: null }).activeId,
     ).toBeNull();
