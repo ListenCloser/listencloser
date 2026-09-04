@@ -1,7 +1,6 @@
 "use client";
 
 import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/react";
-import Tooltip from "@/components/ui/Tooltip";
 import type { Insight } from "@/lib/domain.types";
 import {
   projectMelodyReduction,
@@ -82,9 +81,7 @@ export function MelodyReductionObject({
           <strong>Melody</strong>
           <span className={styles.count}>{projection.notes.length} notes</span>
         </div>
-        <Tooltip content="Model-specific melody proposal. Click any note to locate its exact source note in the Piano Roll.">
-          <span className={styles.qualifier} tabIndex={0}>Experimental</span>
-        </Tooltip>
+        <span className={styles.qualifier}>Experimental</span>
       </div>
 
       <div className={styles.object}>
