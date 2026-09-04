@@ -2,28 +2,39 @@
 set -euo pipefail
 
 MODE="${1:-full}"
+FAIL_FAST=false
 PASS=0
 FAIL=0
 TOTAL_START=$SECONDS
 
 pass() { PASS=$((PASS + 1)); echo "  ✅ $1"; }
-fail() { FAIL=$((FAIL + 1)); echo "  ❌ $1"; }
+fail() {
+  FAIL=$((FAIL + 1))
+  echo "  ❌ $1"
+  if "$FAIL_FAST"; then
+    echo "  ↳ fail-fast preflight stopped after the first failure"
+    exit 1
+  fi
+}
 
 usage() {
   cat <<'EOF'
-Usage: scripts/check.sh [full|fast|frontend|backend|e2e]
+Usage: scripts/check.sh [full|fast|preflight|frontend|backend|e2e]
 
-  full      Canonical local gate: build, lint, typecheck, contract/import architecture/API contracts,
-            backend/frontend tests, optional backend health, and Playwright.
-  fast      Inner loop: lint, typecheck, contract/import architecture/API contracts, backend/frontend tests.
-            Skips production build, live health checks, and Playwright.
-  frontend  Frontend lint, typecheck, import architecture, and Vitest.
-  backend   Locked backend sync, Ruff, import architecture, API contract, and backend unit tests.
-  e2e       Production frontend build and Playwright only.
+  full       Canonical local gate: build, lint, typecheck, contract/import architecture/API contracts,
+             backend/frontend tests, optional backend health, and Playwright.
+  fast       Inner loop: lint, typecheck, contract/import architecture/API contracts, backend/frontend tests.
+             Skips production build, live health checks, and Playwright.
+  preflight  Hosted-CI static preflight: the same lint/typecheck/contract/architecture procedures as fast,
+             but fail immediately and skip backend/frontend test suites.
+  frontend   Frontend lint, typecheck, import architecture, and Vitest.
+  backend    Locked backend sync, Ruff, import architecture, API contract, and backend unit tests.
+  e2e        Production frontend build and Playwright only.
 EOF
 }
 
 case "$MODE" in
+  preflight) FAIL_FAST=true ;;
   full|fast|frontend|backend|e2e) ;;
   -h|--help|help)
     usage
@@ -38,7 +49,7 @@ esac
 
 needs_backend=false
 case "$MODE" in
-  full|fast|backend) needs_backend=true ;;
+  full|fast|preflight|backend) needs_backend=true ;;
 esac
 
 if "$needs_backend" && ! command -v uv >/dev/null 2>&1; then
@@ -273,6 +284,13 @@ case "$MODE" in
     run_backend_static
     run_backend_tests
     run_frontend_tests
+    ;;
+  preflight)
+    run_shell_static
+    run_contract_dependencies
+    run_frontend_static
+    run_frontend_architecture
+    run_backend_static
     ;;
   frontend)
     run_frontend_static
