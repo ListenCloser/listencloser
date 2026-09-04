@@ -107,7 +107,7 @@ services:
     user: "501:501"
     command: >
       sh -c "uv sync --project /workspace/backend --locked --group worker &&
-             uv run --project /workspace/backend python /workspace/backend/worker.py"
+             uv run --project /workspace/backend --group worker python /workspace/backend/worker.py"
     volumes:
       - .:/workspace
     environment:
