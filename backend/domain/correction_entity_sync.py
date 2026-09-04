@@ -1,9 +1,12 @@
-"""Keep corrected-MIDI note entities identical to the persisted MIDI Version.
+"""Keep corrected-MIDI evidence complete and publish its performance authority.
 
 The legacy correction handler writes a complete MIDI file but only persists the
-replacement notes as Entities. Until representation roles are separated (see
-#613), register this adapter for the correction capability so entity-backed
-Piano Roll / comparison consumers cannot observe a partial note world.
+replacement notes as Entities and classifies the result as generic
+``midi_corrected``. Until representation roles are first-class schema columns
+(see #613), this adapter completes the note world and atomically publishes the
+result as the edited performance interpretation. That lets exact-Version
+consumers use the correction without treating unrelated notation MIDI as a
+performance source.
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ import io
 from uuid import UUID
 
 import domain.capabilities as capabilities
-from domain.models import Entity, EntityKind, Job, NoteEntity, Span
+from domain.models import ArtifactKind, Entity, EntityKind, Job, NoteEntity, Span
 from domain.repositories import EntityRepo
 
 
@@ -40,8 +43,46 @@ def note_entities_from_midi_bytes(data: bytes, version_id: UUID) -> list[Entity]
     return entities
 
 
+def _publish_edited_performance(job: Job, output_version, client) -> None:
+    """Classify the correction before the job can expose it as current evidence."""
+    source_version_id = job.input_version_ids[0]
+    metadata = dict(output_version.metadata or {})
+    metadata.update(
+        {
+            "representation_role": "edited_performance",
+            "source_performance_version_id": str(source_version_id),
+            "correction_workflow_id": str(job.workflow_id),
+            "correction_job_id": str(job.id),
+            "correction": {
+                "selection_start": job.parameters.get("selection_start"),
+                "selection_end": job.parameters.get("selection_end"),
+                # This is the exact replacement payload used to create the MIDI.
+                # A semantic add/remove/pitch delta can be reconstructed against
+                # source_performance_version_id without guessing.
+                "replacement_notes": job.parameters.get("corrected_notes", []),
+            },
+        }
+    )
+
+    # The legacy handler has just created these rows inside this same worker
+    # attempt. Reclassification happens before the worker marks the job
+    # succeeded, so clients never need to mutate an already-published Version.
+    (
+        client.table("artifacts")
+        .update({"kind": ArtifactKind.midi_performance.value})
+        .eq("id", str(output_version.artifact_id))
+        .execute()
+    )
+    (
+        client.table("versions")
+        .update({"label": "Corrected transcription", "metadata": metadata})
+        .eq("id", str(output_version.id))
+        .execute()
+    )
+
+
 def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
-    """Run correction, then replace partial note Entities from its stored MIDI."""
+    """Run correction, complete Entities, then publish edited-performance truth."""
     output_ids = capabilities.handle_correct(job, client)
     if len(output_ids) != 1:
         raise ValueError("correct must produce exactly one MIDI version")
@@ -65,6 +106,7 @@ def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
     if full_note_world:
         EntityRepo(client).create_many(full_note_world, owner_id)
 
+    _publish_edited_performance(job, output_version, client)
     return output_ids
 
 
