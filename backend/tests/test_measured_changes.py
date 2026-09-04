@@ -41,11 +41,18 @@ def test_discovers_bounded_multi_feature_change_with_literal_evidence():
         "spectral_centroid",
         "relative_band_energy",
     }
-    assert candidate.finding.source_artifact_version_id == report.source_version_id
-    assert candidate.finding.evidence_refs
+    assert (
+        candidate.finding.subject_locator.source_artifact_version_id
+        == report.source_version_id
+    )
+    assert (
+        candidate.finding.comparison_locator.source_artifact_version_id
+        == report.source_version_id
+    )
+    assert candidate.finding.support_refs
     assert all(
         ref.evidence_report_version_id == report_version_id
-        for ref in candidate.finding.evidence_refs
+        for ref in candidate.finding.support_refs
     )
     assert {measurement.feature for measurement in candidate.finding.measurements} == {
         "onset_strength",
