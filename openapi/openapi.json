@@ -2337,6 +2337,9 @@
             "type": "string"
           }
         },
+        "required": [
+          "dimensions"
+        ],
         "title": "SimilarMomentsMethod",
         "type": "object"
       },
@@ -2413,7 +2416,8 @@
           "query_start_seconds",
           "query_end_seconds",
           "max_matches",
-          "method"
+          "method",
+          "matches"
         ],
         "title": "SimilarMomentsObservation",
         "type": "object"

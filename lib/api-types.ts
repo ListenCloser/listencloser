@@ -1389,7 +1389,7 @@ export interface components {
              */
             candidate_window: "same_evidence_frame_count_as_query";
             /** Dimensions */
-            dimensions?: string[];
+            dimensions: string[];
             /**
              * Distance
              * @default mean_length_normalized_z_euclidean
@@ -1448,7 +1448,7 @@ export interface components {
              */
             evidence_report_version_id: string;
             /** Matches */
-            matches?: components["schemas"]["SimilarMomentMatch"][];
+            matches: components["schemas"]["SimilarMomentMatch"][];
             /** Max Matches */
             max_matches: number;
             method: components["schemas"]["SimilarMomentsMethod"];
