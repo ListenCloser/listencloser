@@ -114,11 +114,14 @@ function headlineFor(finding: TemporalFinding): string {
 function evidenceSummaryFor(finding: TemporalFinding): string {
   switch (finding.kind) {
     // A Breakdown card earns a second line only when it adds a concrete fact.
-    // Method/trust prose remains available in the analysis/evidence layer.
+    // Method/trust prose remains available in the analysis/evidence layer, but
+    // harmonic activity needs an interpretation boundary: a measured change
+    // rate must not read as harmonic tension.
     case "density_peak":
     case "density_valley":
-    case "harmonic_activity":
       return "";
+    case "harmonic_activity":
+      return "Derived from the timing of trusted chord boundaries; this describes change rate, not harmonic tension.";
     case "rest": {
       const duration = finding.evidence.duration;
       return typeof duration === "number"
