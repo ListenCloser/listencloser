@@ -1,35 +1,66 @@
 import { expect, test } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 import { existsSync } from "node:fs";
 
 const PROD_URL = "https://listen-closer.vercel.app";
 const SUPABASE_PROJECT_REF = "cijhpddqvvzyzfzmkdnn";
+const SUPABASE_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co`;
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-FLJWytAadJmjJfzasSQow_Dw9wnm6o";
 const REAL_AUDIO = "tests/fixtures/piano-simple.m4a";
 
-let session: {
+type VerifierSession = {
   access_token: string;
   refresh_token: string;
-  user: { id: string; email: string };
-} | null = null;
+  user: { id: string; email?: string };
+};
 
-async function createSession() {
+let session: VerifierSession | null = null;
+
+async function createSession(): Promise<VerifierSession> {
   if (session) return session;
 
-  const res = await fetch(
-    `https://${SUPABASE_PROJECT_REF}.supabase.co/auth/v1/signup`,
-    {
-      method: "POST",
-      headers: {
-        apikey: "sb_publishable_-FLJWytAadJmjJfzasSQow_Dw9wnm6o",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: `e2e-${Date.now()}@verify.test`,
-        password: "verify123456",
-      }),
-    }
-  );
-  const data = await res.json();
-  session = data;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for Production Verify auth setup.");
+  }
+
+  // Product authentication is Google-only. Production verification needs an
+  // authenticated hosted user without re-enabling a public email/password
+  // provider, so create a one-time email link through the server-only Admin API
+  // and exchange its token for an ordinary user session before the browser starts.
+  const admin = createClient(SUPABASE_URL, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+  const verifier = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+  const email = `e2e-prod-${Date.now()}-${crypto.randomUUID()}@verify.listencloser.test`;
+
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+  if (linkError || !linkData.properties?.hashed_token) {
+    throw new Error(`Production Verify auth link setup failed: ${linkError?.message ?? "missing token"}`);
+  }
+
+  const { data: verified, error: verifyError } = await verifier.auth.verifyOtp({
+    token_hash: linkData.properties.hashed_token,
+    type: linkData.properties.verification_type,
+  });
+  if (verifyError || !verified.session) {
+    throw new Error(`Production Verify auth exchange failed: ${verifyError?.message ?? "missing session"}`);
+  }
+
+  session = verified.session;
   return session;
 }
 
@@ -39,17 +70,17 @@ function injectSession() {
     sessionData,
   }: {
     projectRef: string;
-    sessionData: typeof session;
+    sessionData: VerifierSession;
   }) => {
     window.localStorage.setItem(
       `sb-${projectRef}-auth-token`,
       JSON.stringify({
-        access_token: sessionData?.access_token,
+        access_token: sessionData.access_token,
         token_type: "bearer",
         expires_in: 3600,
         expires_at: Math.floor(Date.now() / 1000) + 3600,
-        refresh_token: sessionData?.refresh_token,
-        user: sessionData?.user,
+        refresh_token: sessionData.refresh_token,
+        user: sessionData.user,
       })
     );
   };
