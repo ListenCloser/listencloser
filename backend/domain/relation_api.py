@@ -1,4 +1,4 @@
-"""HTTP exposure for on-demand same-work perceptual span comparisons."""
+"""HTTP exposure for on-demand same-work perceptual relations."""
 
 from __future__ import annotations
 
@@ -6,14 +6,16 @@ from collections.abc import Callable
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from auth_utils import verify_token
-from domain.api_schemas import PerceptualSpanComparisonResponse
+from domain.api_schemas import PerceptualSpanComparisonResponse, SimilarMomentsResponse
 from domain.models import Version
 from domain.relation_query import (
     PerceptualSpanComparisonQuery,
+    SimilarMomentsQuery,
     compare_persisted_perceptual_spans,
+    find_persisted_similar_moments,
 )
 from domain.repositories import get_supabase
 from domain.storage_locator_policy import classify_version_storage_locator
@@ -30,6 +32,15 @@ class PerceptualSpanComparisonBody(BaseModel):
     subject_end_seconds: float
     comparison_start_seconds: float
     comparison_end_seconds: float
+
+
+class SimilarMomentsBody(BaseModel):
+    """Find bounded experimental neighbors for one exact selected passage."""
+
+    source_version_id: UUID
+    query_start_seconds: float
+    query_end_seconds: float
+    max_matches: int = Field(default=3, ge=1, le=5)
 
 
 def _owner_id(auth) -> str:
@@ -87,6 +98,18 @@ def _authorized_report_loader(
     return load_report
 
 
+def _authorized_snapshot(work_id: UUID, auth):
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    owner_id = _owner_id(auth)
+    snapshot = WorkBundleRepository(sb).load(work_id, owner_id)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Work not found")
+    return sb, owner_id, snapshot
+
+
 @router.post(
     "/works/{work_id}/relations/perceptual-span-comparison",
     response_model=PerceptualSpanComparisonResponse,
@@ -98,20 +121,7 @@ def compare_perceptual_spans(
 ):
     """Compare two user-selected spans using persisted, lineage-checked evidence."""
 
-    sb = get_supabase()
-    if not sb:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
-
-    # WorkBundleRepository already uses the owned Work as its authorization
-    # root and returns None when that Work is unavailable to this owner. Do not
-    # reinterpret generic ValueError/validation failures as client-facing 404s:
-    # descendant model-validation or repository bugs are internal failures and
-    # must reach the normal server-error boundary without leaking their detail.
-    owner_id = _owner_id(auth)
-    snapshot = WorkBundleRepository(sb).load(work_id, owner_id)
-    if not snapshot:
-        raise HTTPException(status_code=404, detail="Work not found")
-
+    sb, owner_id, snapshot = _authorized_snapshot(work_id, auth)
     source_version = _source_version(snapshot, body.source_version_id)
     if source_version is None:
         raise HTTPException(status_code=404, detail="Source version not found in work")
@@ -128,3 +138,32 @@ def compare_perceptual_spans(
         load_report=_authorized_report_loader(snapshot, sb, owner_id),
     )
     return PerceptualSpanComparisonResponse.model_validate(result.model_dump())
+
+
+@router.post(
+    "/works/{work_id}/relations/similar-moments",
+    response_model=SimilarMomentsResponse,
+)
+def similar_moments(
+    work_id: UUID,
+    body: SimilarMomentsBody,
+    auth=Depends(verify_token),
+):
+    """Propose inspectable same-Work passages under one declared experimental method."""
+
+    sb, owner_id, snapshot = _authorized_snapshot(work_id, auth)
+    source_version = _source_version(snapshot, body.source_version_id)
+    if source_version is None:
+        raise HTTPException(status_code=404, detail="Source version not found in work")
+
+    result = find_persisted_similar_moments(
+        snapshot,
+        source_version=source_version,
+        query=SimilarMomentsQuery(
+            query_start_seconds=body.query_start_seconds,
+            query_end_seconds=body.query_end_seconds,
+            max_matches=body.max_matches,
+        ),
+        load_report=_authorized_report_loader(snapshot, sb, owner_id),
+    )
+    return SimilarMomentsResponse.model_validate(result.model_dump())
