@@ -7,8 +7,11 @@ import LibraryPanel from "@/components/workspace/LibraryPanel";
 const mocks = vi.hoisted(() => ({
   profile: "auto" as "auto" | "solo_piano",
   scoreEngine: "musescore" as "musescore" | "pm2s",
+  activeWorkId: null as string | null,
+  requestAttachScore: vi.fn(),
   requestImport: vi.fn(),
   requestScoreEngine: vi.fn(),
+  selectScoreSource: vi.fn(),
   setScoreEngine: vi.fn(),
   setTranscriptionProfile: vi.fn(),
 }));
@@ -56,15 +59,21 @@ vi.mock("@/lib/stores/timeline", () => ({
 vi.mock("@/lib/stores/workspace", () => ({
   useWorkspace: () => ({
     workspace: {
-      activeWorkId: null,
+      activeWorkId: mocks.activeWorkId,
       isLoadingWork: false,
       libraryCollapsed: false,
       representations: [],
+      scoreDisplaySelection: mocks.activeWorkId ? { kind: "engine", engine: mocks.scoreEngine } : null,
+      scoreSources: mocks.activeWorkId
+        ? [{ versionId: "source-v1", label: "Attached · source.musicxml" }]
+        : [],
       scoreEngine: mocks.scoreEngine,
       transcriptionProfile: mocks.profile,
     },
+    requestAttachScore: mocks.requestAttachScore,
     requestImport: mocks.requestImport,
     requestScoreEngine: mocks.requestScoreEngine,
+    selectScoreSource: mocks.selectScoreSource,
     setActiveWorkId: vi.fn(),
     clearSelection: vi.fn(),
     setScoreEngine: mocks.setScoreEngine,
@@ -85,8 +94,11 @@ vi.mock("@/lib/server-state", () => ({
 beforeEach(() => {
   mocks.profile = "auto";
   mocks.scoreEngine = "musescore";
+  mocks.activeWorkId = null;
+  mocks.requestAttachScore.mockReset();
   mocks.requestImport.mockReset();
   mocks.requestScoreEngine.mockReset();
+  mocks.selectScoreSource.mockReset();
   mocks.setScoreEngine.mockReset();
   mocks.setTranscriptionProfile.mockReset();
 });
@@ -130,5 +142,24 @@ describe("LibraryPanel processing disclosure", () => {
 
     expect(screen.getByRole("button", { name: "Solo piano" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "PM2S" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("owns attached source selection and attachment inside Processing", async () => {
+    const user = userEvent.setup();
+    mocks.activeWorkId = "work-1";
+    render(<LibraryPanel signedIn canImport />);
+
+    expect(screen.queryByRole("combobox", { name: "Score source" })).not.toBeVisible();
+    await user.click(screen.getByText("Processing"));
+
+    const source = screen.getByRole("combobox", { name: "Score source" });
+    expect(source).toHaveValue("engine:musescore");
+    expect(screen.getByRole("option", { name: "Attached · source.musicxml" })).toBeInTheDocument();
+
+    await user.selectOptions(source, "source:source-v1");
+    expect(mocks.selectScoreSource).toHaveBeenCalledWith("source-v1");
+
+    await user.click(screen.getByRole("button", { name: "Attach score" }));
+    expect(mocks.requestAttachScore).toHaveBeenCalledTimes(1);
   });
 });
