@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
+import { PITCH_CONTOUR_READY_EVENT } from "@/lib/pitch-contour-api";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
-
-export const PITCH_CONTOUR_READY_EVENT = "listencloser:pitch-contour-ready";
 
 type PitchFrame = {
   frame: number;
