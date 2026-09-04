@@ -27,19 +27,14 @@ export default function ScoreSourceControl({
   onAttach: () => void;
 }) {
   return (
-    <div
-      aria-label="Score controls"
-      style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-2)" }}
-    >
-      <label
-        className="muted"
-        style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", fontSize: "var(--fs-xs)" }}
-      >
-        <span style={{ whiteSpace: "nowrap" }}>Score source</span>
+    <div aria-label="Score controls" style={{ display: "grid", gap: "6px" }}>
+      <label className="muted" style={{ display: "grid", gap: "4px", fontSize: "var(--fs-xs)" }}>
+        <span>Choose what the Score view shows</span>
         <select
           aria-label="Score source"
           value={selectionValue(selection)}
           disabled={disabled}
+          style={{ width: "100%" }}
           onChange={(event) => {
             const value = event.target.value;
             if (value === "engine:musescore") onSelectEngine("musescore");
@@ -63,7 +58,7 @@ export default function ScoreSourceControl({
           </optgroup>
         </select>
       </label>
-      <button type="button" className="btn" disabled={attachDisabled} onClick={onAttach}>
+      <button type="button" className="btn btn-sm" disabled={attachDisabled} onClick={onAttach}>
         Attach score
       </button>
     </div>
