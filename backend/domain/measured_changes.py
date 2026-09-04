@@ -36,7 +36,12 @@ class MeasuredChangeCandidate(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rank: int = Field(ge=1)
-    boundary_seconds: float
+    boundary_seconds: float = Field(
+        description=(
+            "Shared edge between the candidate's before/after comparison windows; "
+            "a listening-navigation anchor, not an estimate of the physical transition instant."
+        )
+    )
     before_span_seconds: tuple[float, float]
     after_span_seconds: tuple[float, float]
     ranking_score: float
@@ -216,6 +221,10 @@ def discover_measured_changes(
     This experimental method keeps the valid robust before/after score, removes
     the brittle global threshold, requires multiple declared feature groups to
     move, then applies deterministic local-peak separation and a hard top-set cap.
+
+    ``boundary_seconds`` is the shared edge between the adjacent before/after
+    median windows. It is a navigation/comparison anchor on the promoted frame
+    grid, not an estimator of an underlying physical transition instant.
 
     ``ranking_score`` and normalized change magnitudes are method-internal,
     within-Work ranking values. They are not confidence, significance,
