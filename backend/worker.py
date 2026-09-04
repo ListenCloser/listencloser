@@ -8,6 +8,7 @@ from domain.correction_entity_sync import register_corrected_midi_entity_sync
 from domain.perceptual_capability import register_perceptual_capability
 from domain.performance_instrumentation import install_understand_instrumentation
 from domain.pgmq_job_worker import PgmqJobWorker
+from domain.source_separation import register_source_separation
 from domain.worker_warmup import (
     prewarm_basic_pitch_inference,
     prewarm_beat_this_inference,
@@ -49,6 +50,7 @@ def main() -> None:
     capability_module.register_all_capabilities(worker)
     register_corrected_midi_entity_sync(worker)
     register_perceptual_capability(worker)
+    register_source_separation(worker)
 
     def stop(_signum, _frame) -> None:
         worker.stop()
