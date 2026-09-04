@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from domain.models import Artifact, Job, Version, Work, Workflow
 from domain.relation_findings import GroundedRelationFinding
-from domain.similar_moments import SimilarMomentsObservation
+from domain.similar_moments_contract import SimilarMomentsObservation
 
 
 class WorkArtifactBundleResponse(BaseModel):
