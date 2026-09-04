@@ -68,6 +68,7 @@ subgraph lib["lib"]
     lib_inspector_[" "]
   end
   lib_job_tracking_ts["job-tracking.ts"]
+  lib_layers_ts["layers.ts"]
   lib_measure_ts["measure.ts"]
   lib_melody_reduction_ts["melody-reduction.ts"]
   lib_midi_ts["midi.ts"]
@@ -162,6 +163,7 @@ components_workspace_-->lib_spectrogram_data_ts
 components_workspace_-->lib_audio_buffer_cache_ts
 components_workspace_-->lib_melody_reduction_ts
 components_workspace_-->lib_structure_map_client_ts
+components_workspace_-->lib_layers_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
 lib_analysis_annotations_ts-->lib_inspector_
 lib_api_client_ts-->lib_openapi_client_ts
@@ -176,6 +178,8 @@ lib_ask_-->lib_selection_ts
 lib_inspector_-->lib_format_ts
 lib_job_tracking_ts-->lib_api_client_ts
 lib_job_tracking_ts-->lib_query_client_ts
+lib_layers_ts-->lib_api_client_ts
+lib_layers_ts-->lib_openapi_client_ts
 lib_musicxml_cache_ts-->lib_query_client_ts
 lib_openapi_client_ts-->lib_supabase_ts
 lib_relation_api_client_ts-->lib_openapi_client_ts

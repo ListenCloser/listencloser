@@ -277,6 +277,22 @@
       },
       "validated_domain": "within-recording experimental navigation only",
       "notes": "Map/navigation surface only. Letter labels are descriptor-similarity hints, not verse/chorus/motif/canonical form. Inspector/annotation/Ask exposure remains false until separately earned."
+    },
+    "source_separation": {
+      "status": "experimental",
+      "input": "audio",
+      "engine": "demucs_4.1.0_htdemucs_955717e8",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "model": {
+        "name": "htdemucs",
+        "version": "955717e8",
+        "checkpoint": "adefossez/HTDemucs/955717e8.safetensors",
+        "checkpoint_sha256": "d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd",
+        "code_license": "MIT",
+        "checkpoint_license": "MIT"
+      },
+      "validated_domain": "optional within-recording four-stem isolation and playback only",
+      "notes": "User-triggered only; never universal preprocessing. Produces exactly vocals/drums/bass/other with CPU shifts=0, preserves exact source Version + producing Job lineage, and exposes complete succeeded sets only through the existing playback-source selector. Partial, failed, cancelled, or mixed-job outputs remain hidden."
     }
   }
 }
