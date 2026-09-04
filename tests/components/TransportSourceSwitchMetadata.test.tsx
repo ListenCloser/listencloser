@@ -35,7 +35,7 @@ describe("TransportProvider source metadata timing", () => {
       get: () => 30,
     });
 
-    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(function loadNow() {
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(function loadNow(this: HTMLMediaElement) {
       this.currentTime = 0;
       this.dispatchEvent(new Event("loadedmetadata"));
     });
