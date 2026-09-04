@@ -79,6 +79,7 @@ subgraph lib["lib"]
   lib_query_client_ts["query-client.ts"]
   lib_relation_api_client_ts["relation-api-client.ts"]
   lib_representation_availability_ts["representation-availability.ts"]
+  lib_representation_continuity_ts["representation-continuity.ts"]
   lib_representations_ts["representations.ts"]
   lib_score_artifacts_ts["score-artifacts.ts"]
   lib_score_measure_geometry_ts["score-measure-geometry.ts"]
@@ -130,6 +131,7 @@ components_workspace_-->lib_format_ts
 components_workspace_-->lib_job_tracking_ts
 components_workspace_-->lib_musicxml_cache_ts
 components_workspace_-->lib_playback_sources_ts
+components_workspace_-->lib_representation_continuity_ts
 components_workspace_-->lib_score_artifacts_ts
 components_workspace_-->lib_server_state_ts
 components_workspace_-->lib_stores_
