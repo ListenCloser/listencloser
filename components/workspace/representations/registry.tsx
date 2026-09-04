@@ -259,6 +259,7 @@ function ScoreView({ active, orientationCue = false }: RepresentationViewProps) 
         playheadTime={active ? transport.position : 0}
         isPlaying={active && transport.isPlaying}
         isScoreActive={active}
+        isScorePlaybackActive={active && transport.activeSource?.role === "score"}
         measureStarts={measureStarts}
         scoreDuration={scoreDuration}
         selectedMeasures={selectedMeasures}
