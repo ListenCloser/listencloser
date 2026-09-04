@@ -88,6 +88,14 @@
       "validated_domain": "pop/arranged symbolic MIDI",
       "notes": "Historical POP909 evidence supports pop/arranged symbolic MIDI, but exact holdout membership and committed-checkpoint seed/epoch were not retained; #1026 records this reproducibility limit. Classical piano and general performance MIDI are not formally validated. Model is deterministic, CPU-only (~390ms/song), 9.66MB."
     },
+    "pitch_contour": {
+      "status": "experimental",
+      "input": "audio",
+      "engine": "librosa.pyin",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "validated_domain": "voice and expressive monophonic material; manual integration probes only",
+      "notes": "Opt-in continuous F0 representation added under #1087. Persist exact source Version, Hz/cents, pYIN voiced flag + voiced probability, frame coordinates, and preprocessing. Not MIDI and not a transcription replacement. Dense polyphony/noise can produce octave or subharmonic errors; current synthetic dyad+noise probe collapsed 220+329.63 Hz toward ~110 Hz. Experimental integration is not canonization."
+    },
     "melody_register_peak": {
       "status": "experimental",
       "input": "derived",
