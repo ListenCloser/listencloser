@@ -20,6 +20,7 @@ const REAL_AUDIO = process.env.REAL_AUDIO_FILE;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SOURCE_SCORE = "tests/fixtures/source-score.musicxml";
 
 type ImportUiMilestones = {
   original_source_ready_ms: number;
@@ -89,6 +90,33 @@ async function waitForProjectReady(page: import("@playwright/test").Page) {
   await expect(
     page.getByRole("complementary").getByRole("button", { name: "Import audio" }),
   ).toBeEnabled({ timeout: 30_000 });
+}
+
+async function openScoreSourceDialog(page: import("@playwright/test").Page) {
+  const importButton = page
+    .getByRole("complementary")
+    .getByRole("button", { name: "Import audio" });
+  await importButton.click();
+  await page.getByRole("menuitem", { name: "Choose score source", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Score source" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+async function attachSourceScore(page: import("@playwright/test").Page) {
+  // Keep audio and notation inputs explicitly addressable. This is the
+  // regression boundary for #1117's strict-locator collision.
+  await expect(page.locator("#audio-import-input")).toHaveCount(1);
+  await expect(page.locator("#score-source-input")).toHaveCount(1);
+
+  const importButton = page
+    .getByRole("complementary")
+    .getByRole("button", { name: "Import audio" });
+  await importButton.click();
+  const chooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: "Attach MusicXML score", exact: true }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles(SOURCE_SCORE);
 }
 
 async function importWithRetry(
@@ -309,6 +337,78 @@ test("real audio golden path", async ({ page }, testInfo) => {
     await page.getByRole("button", { name: "Play Score", exact: true }).click();
     await expect(page.getByRole("button", { name: "Pause Score", exact: true })).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Pause Score", exact: true }).click();
+  });
+
+  // ── First-class attached score source ────────────────────────────────
+  await test.step("attached MusicXML source", async () => {
+    await page.getByRole("tab", { name: "Score" }).click();
+    await selectSource(page, "Original");
+    const positionBeforeSourceScore = await transportPosition(page);
+
+    await attachSourceScore(page);
+    let scoreDialog = await openScoreSourceDialog(page);
+    let scoreSource = scoreDialog.getByRole("combobox", { name: "Score source" });
+    await expect(scoreSource).toHaveValue(/^source:/, { timeout: 30_000 });
+    await expect(scoreSource.locator("option:checked")).toHaveText("Attached · source-score.musicxml");
+    await scoreDialog.getByRole("button", { name: "Close score source options" }).click();
+
+    await expect(page.getByRole("note", { name: "Symbolic representation source" })).toContainText(
+      "Attached score · source-score.musicxml",
+    );
+    await expect(page.locator(".sheet-music-container g.vf-measure").first()).toBeVisible({ timeout: 30_000 });
+
+    // No score↔audio mapping exists for an attached source. Clicking notation
+    // must not seek, and generated Score playback must disappear for this view.
+    const firstMeasure = page.locator(".sheet-music-container g.vf-measure").first();
+    const box = await firstMeasure.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await expectPositionPreserved(page, positionBeforeSourceScore, 0.02);
+
+    await openSourceSelector(page);
+    await expect(page.getByRole("option", { name: "Score", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("option", { name: "Original", exact: true })).toBeVisible();
+    await expect(page.getByRole("option", { name: "Transcription", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await page.getByRole("tab", { name: "Piano Roll" }).click();
+    await expect(page.getByTestId("piano-roll")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("piano-roll").getByText(/\d+ notes/)).toBeVisible();
+
+    // One attached source is unambiguous and restores as itself.
+    await page.reload();
+    await dismissWorkspaceNotice(page);
+    await page.getByRole("tab", { name: "Score" }).click();
+    scoreDialog = await openScoreSourceDialog(page);
+    scoreSource = scoreDialog.getByRole("combobox", { name: "Score source" });
+    await expect(scoreSource).toHaveValue(/^source:/, { timeout: 30_000 });
+    await expect(scoreSource.locator("option:checked")).toHaveText("Attached · source-score.musicxml");
+    await scoreDialog.getByRole("button", { name: "Close score source options" }).click();
+    await expect(page.getByRole("note", { name: "Symbolic representation source" })).toContainText(
+      "Attached score · source-score.musicxml",
+    );
+
+    // A second immutable source coexists. On reload, no attached source wins by
+    // recency; generated MuseScore remains the safe existing display baseline.
+    await attachSourceScore(page);
+    scoreDialog = await openScoreSourceDialog(page);
+    scoreSource = scoreDialog.getByRole("combobox", { name: "Score source" });
+    await expect(scoreSource).toHaveValue(/^source:/, { timeout: 30_000 });
+    await scoreDialog.getByRole("button", { name: "Close score source options" }).click();
+
+    await page.reload();
+    await dismissWorkspaceNotice(page);
+    await page.getByRole("tab", { name: "Score" }).click();
+    scoreDialog = await openScoreSourceDialog(page);
+    scoreSource = scoreDialog.getByRole("combobox", { name: "Score source" });
+    await expect(scoreSource).toHaveValue("engine:musescore", { timeout: 30_000 });
+    await expect(scoreSource.getByRole("option", { name: "Attached · source-score.musicxml (1)", exact: true })).toHaveCount(1);
+    await expect(scoreSource.getByRole("option", { name: "Attached · source-score.musicxml (2)", exact: true })).toHaveCount(1);
+    await scoreDialog.getByRole("button", { name: "Close score source options" }).click();
+    await expect(page.getByRole("note", { name: "Symbolic representation source" })).toContainText("Notation draft");
+
+    await selectSource(page, "Score");
+    await expect(await listeningTo(page, "Score")).toBeVisible();
   });
 
   // ── Breakdown ────────────────────────────────────────────────────────
