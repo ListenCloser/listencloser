@@ -19,7 +19,7 @@ jobs:
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.113.0
-      - uses: k1LoW/setup-tbls@f25e3d013a596865b2db90dac7ee19e9f15b5780 # v1.4.0
+      - uses: k1LoW/setup-tbls@5e8e69748c0bb15fdb5e51a0ecdb84f1ecd0e3a1 # v1.4.1
         with:
           version: v1.95.0
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
