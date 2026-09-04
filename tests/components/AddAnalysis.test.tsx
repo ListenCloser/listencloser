@@ -43,7 +43,7 @@ describe("AddAnalysis", () => {
           description: "Find rough candidate spans.",
           maturity: "Experimental",
           actionLabel: "Finding shape…",
-          onAction={() => undefined},
+          onAction: () => undefined,
           busy: true,
         }]}
       />,
