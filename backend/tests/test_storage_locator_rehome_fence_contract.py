@@ -24,7 +24,8 @@ def test_rehome_fence_serializes_every_version_insert_before_latest_check() -> N
     assert "before insert on public.artifact_versions" in sql
 
 
-def test_rehome_fence_keeps_authority_and_storage_checks_inside_database_boundary() -> None:
+def test_rehome_fence_keeps_authority_and_storage_checks_inside_database_boundary(
+) -> None:
     sql = MIGRATION.read_text()
 
     assert "new.parent_version_id" in sql
