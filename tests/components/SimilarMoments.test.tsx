@@ -104,7 +104,7 @@ function supportedResponse() {
           },
         },
       ],
-      no_match_reason: null,
+      no_match_reason: null as string | null,
     },
     reasons: [],
   };
@@ -152,8 +152,27 @@ describe("SimilarMoments", () => {
 
     expect(mocks.seek).toHaveBeenCalledWith(30);
     expect(mocks.play).toHaveBeenCalledTimes(1);
+    expect(mocks.setActiveSource).not.toHaveBeenCalled();
     expect(mocks.setSelection).not.toHaveBeenCalled();
     expect(screen.getByText("Selected 0:10–0:14")).toBeVisible();
+  });
+
+  it("makes the Original source choice explicit when auditioning from Score", async () => {
+    const user = userEvent.setup();
+    mocks.transport.activeSource = { role: "score" };
+    mocks.getSimilarMoments.mockResolvedValue(supportedResponse());
+    render(<SimilarMoments />);
+
+    await user.click(screen.getByRole("button", { name: "Find similar moments" }));
+    await screen.findByText("0:30–0:34");
+
+    const hearOriginal = screen.getByRole("button", { name: "Hear original" });
+    expect(hearOriginal).toBeVisible();
+    await user.click(hearOriginal);
+
+    expect(mocks.setActiveSource).toHaveBeenCalledWith({ id: "original", role: "original" });
+    expect(mocks.seek).toHaveBeenCalledWith(30);
+    expect(mocks.play).toHaveBeenCalledTimes(1);
   });
 
   it("focuses a candidate through shared selection while retaining the original subject", async () => {
