@@ -1,295 +1,303 @@
-# Music Workspace — Product UI Design System
+# Listen Closer — Product UI Design System
+
+## Authority
+
+This file is the human-readable source of truth for Listen Closer's product UI.
+
+- `DESIGN.md` owns intent, semantic roles, interaction conventions, and design constraints.
+- `app/tokens.css` owns the executable values for ordinary application chrome.
+- `docs/adr/0012-oss-first-frontend-primitives.md` owns the generic frontend primitive strategy.
+- Product-specific music renderers may use specialized palettes or geometry when the measured data requires it, but their surrounding controls and chrome follow this system.
+
+When implementation and this document disagree, update one deliberately. Do not resolve drift by adding another late override stylesheet.
+
+Temporary aliases in `app/tokens.css` (`--ui-*`, older `--bg` / `--panel` / `--accent`, abbreviated spacing/type tokens, etc.) are migration compatibility for #1211 / #523, not a second permanent vocabulary. New code should prefer the canonical semantic token names.
 
 ## Design intent
 
-Listen Closer is an **operate-mode music analysis workspace**, not a marketing dashboard and not a toy DAW. The interface should feel like a focused instrument for listening, comparing, inspecting, and understanding a piece of music.
+Listen Closer is an **operate-mode music analysis workspace**, not a marketing dashboard and not a toy DAW. It should feel like a focused instrument for listening, comparing, inspecting, and understanding a recording.
 
 The product should read as:
-- precise rather than flashy
-- calm rather than futuristic
-- editorial rather than card-heavy
-- musical rather than generic SaaS
-- dense enough for serious work, but never visually noisy
 
-The UI must privilege the music itself: waveform, piano roll, score, temporal evidence, and analysis are the visual center. Chrome is secondary.
+- precise rather than flashy;
+- calm rather than futuristic;
+- work-first rather than dashboard-like;
+- musical rather than generic SaaS;
+- dense enough for serious use without becoming visually noisy;
+- expressive where identity matters, restrained where the user is working.
 
-## Anti-references
+The music itself—waveform, piano roll, score, temporal evidence, structure, and analysis—is the visual center. Chrome is secondary.
+
+## Anti-patterns
 
 Do not introduce:
-- purple gradients
-- glassmorphism
-- neon-on-black cyber aesthetics
-- card grids inside cards
-- oversized dashboard KPI tiles
-- generic AI sparkle iconography
-- excessive pills/chips
-- decorative gradients without semantic meaning
-- rounded containers around every region
-- large marketing-style headings inside the workspace
-- hidden critical controls that appear only on hover
 
-## Visual direction
+- purple/neon gradients or cyber aesthetics;
+- glassmorphism;
+- card grids inside cards;
+- oversized dashboard/KPI tiles;
+- generic AI sparkle iconography;
+- excessive pills/chips;
+- decorative gradients without semantic meaning;
+- rounded containers around every region;
+- large marketing-style headings inside the workspace;
+- critical controls that exist only on hover;
+- versioned visual generations such as `*-v7.css`, `*-polish-vN.css`, or V7/V8 class families;
+- `transition: all`;
+- feature-local reimplementations of commodity menu/dialog/select/tab/tooltip/focus behavior.
 
-Use a warm-neutral dark workspace with quiet contrast and one restrained accent.
+Prefer **delete → consolidate → group → progressively disclose** over adding another surface.
 
-The closest product archetype is a modern creative tool: compact navigation, a broad central canvas, stable transport, subtle separators, and an inspector that feels integrated rather than modal.
+## Visual language
 
-### Palette
+The current accepted direction is **graphite + lime action + mineral relation + neutral time**.
 
-Core surfaces:
-- canvas: `#11110f`
-- shell: `#171714`
-- raised: `#1d1d19`
-- hover: `#25241f`
-- strong surface: `#2b2a24`
+Color is semantic. Lime is not decoration: it identifies the primary action/focus state. Mineral tones describe relationships and analysis. Time/playback is intentionally neutral so transport state does not read as an alarm or call to action.
 
-Text:
-- primary: `#f1efe8`
-- secondary: `#b6b2a7`
-- tertiary: `#817d73`
+### Surfaces
 
-Borders:
-- subtle: `rgba(241,239,232,0.07)`
-- standard: `rgba(241,239,232,0.12)`
-- strong: `rgba(241,239,232,0.20)`
+Canonical executable tokens:
 
-Accent:
-- primary: `#d6b56d` — warm brass / manuscript tone
-- primary hover: `#e2c27e`
-- soft: `rgba(214,181,109,0.12)`
+- canvas: `--surface-canvas` = `#0d100e`;
+- chrome: `--surface-chrome` = `#111411`;
+- panel: `--surface-panel` = `#151815`;
+- raised: `--surface-raised` = `#1b1f1b`;
+- hover: `--surface-hover` = `#202520`;
+- strong surface: `--surface-strong` = `#262b26`;
+- music canvas: `--surface-music` = `#0b0e0c`;
+- deep music canvas: `--surface-music-deep` = `#080b09`;
+- score paper: `--surface-paper` = `#efeee8`.
 
-Semantic:
-- success: `#8fb58a`
-- warning: `#d0a65f`
-- danger: `#c9786f`
+Prefer spacing and hairlines over nesting bordered cards. Raised surfaces are for menus, transient status, and genuine overlays—not every section.
 
-Do not use gradients for primary UI surfaces.
+### Text and lines
+
+- primary text: `--text-primary` = `#eceee6`;
+- secondary text: `--text-secondary` = `#b5bab1`;
+- tertiary text: `--text-tertiary` = `#767d75`;
+- subtle line: `--line-subtle` = `rgba(239, 241, 233, 0.075)`;
+- strong line: `--line-strong` = `rgba(239, 241, 233, 0.14)`.
+
+Typography, whitespace, and contrast should carry hierarchy before extra boxes or decoration do.
+
+### Semantic color
+
+- primary action/focus: `--action-primary` = `#dff45a`;
+- primary hover: `--action-primary-hover` = `#efff86`;
+- relationship/analysis: `--relation` = `#829d9d`;
+- playback/time: `--time` = `#a8afa7`;
+- destructive: `--intent-danger` = `#cf7770`;
+- success: `--intent-success` = `#28745b`.
+
+Never encode status, confidence, or availability through color alone.
+
+Representation-specific data color is allowed when it improves legibility or carries measured meaning. It must not silently become a second application-chrome palette.
+
+Do not use gradients for primary workspace surfaces or controls.
 
 ## Typography
 
-Use the application sans stack unless a high-quality variable font is deliberately introduced. The hierarchy should come from weight, spacing, and density rather than extreme size changes.
+Use the application sans face for workspace chrome and controls. The display serif may appear in intentionally editorial/identity-bearing surfaces such as landing composition; it is not the default application UI typeface.
 
-- workspace title: 18–20px, 600
-- section title: 13–14px, 600
-- controls/body: 13px, 400–500
-- metadata: 11–12px, 400–500
-- monospace only for timestamps, numeric music metadata, and debug/evidence values
+Canonical type scale:
 
-Avoid all-caps except tiny metadata labels where it materially improves scanability.
+- `--type-xs`: 11px;
+- `--type-sm`: 12px;
+- `--type-base`: 13px;
+- `--type-md`: 15px;
+- `--type-lg`: 18px;
+- `--type-xl`: 24px;
+- `--type-2xl`: 32px.
 
-## Geometry
+Use restrained weight differences rather than extreme size changes. Monospace is for timestamps, measured numeric values, and other genuinely tabular/debug-like data—not ordinary prose.
 
-Creative-tool geometry should be compact.
+Avoid all-caps except tiny metadata labels where it materially improves scanning.
 
-- global radius: 7px
-- small controls: 5px
-- large floating panels only: 10px
-- do not use pill radius unless the content is genuinely a chip/status
+## Geometry and spacing
 
-Primary spacing scale:
-- 4, 6, 8, 12, 16, 20, 24, 32px
+Creative-tool geometry is compact and mostly rectangular.
 
-Borders and negative space should define regions more often than cards.
+Canonical radius scale:
+
+- `--radius-sm`: 2px;
+- `--radius-md`: 3px;
+- `--radius-lg`: 4px;
+- `--radius-pill`: only for content that is genuinely a chip/status.
+
+Canonical spacing scale:
+
+- 4, 8, 12, 16, 24, 32, 48, 64px (`--space-1` through `--space-8`).
+
+Use arbitrary geometry only when a renderer, canvas measurement, or one-off composition has a concrete reason. Generic controls should consume system tokens.
 
 ## Workspace architecture
 
-Desktop target:
+The stable information architecture is:
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────┐
-│ compact top bar: product / piece title                    analysis · user │
-├───────────────┬───────────────────────────────────────────┬────────────────┤
-│ Library       │ representation nav                        │ Inspector      │
-│               ├───────────────────────────────────────────┤                │
-│ pieces        │                                           │ findings       │
-│ import        │            MUSIC CANVAS                   │ evidence       │
-│               │                                           │ ask            │
-│               │                                           │                │
-├───────────────┴───────────────────────────────────────────┴────────────────┤
-│ playback source        waveform / scrub       transport       time         │
-└────────────────────────────────────────────────────────────────────────────┘
+Library | music canvas | Inspector
+              |
+          Transport
 ```
 
-### Top bar
-
-Height: ~48px.
-
-The left side should contain a small product mark and current piece. Do not display internal repo/product names such as `listencloser`.
-
-The right side should contain only global actions. `Analysis` should behave as a panel toggle when results exist; analysis progress should appear as restrained inline state, not as a large button.
+Desktop should privilege the central music canvas. Library and Inspector are supporting surfaces. On compact layouts, the canvas remains primary and support panels stage rather than shrinking all three columns together.
 
 ### Library
 
-The library is a navigator, not a dashboard card collection.
+The Library is a navigator, not a dashboard collection.
 
-- desktop width: 220–248px
-- separated from canvas by a 1px border
-- compact rows (~42–48px)
-- selected piece indicated primarily by surface + text contrast, not a glowing outline
-- import action at top or bottom, visually stable
-- destructive actions visible on selection/focus with an adequate click target
-- track status should be terse and secondary
+- compact rows;
+- selected recording signaled by surface/text hierarchy rather than glow;
+- import remains stable and easy to find;
+- status is terse and secondary;
+- destructive actions have adequate targets and require confirmation or a safe Undo path;
+- destructive controls must remain keyboard/focus discoverable, not hover-only.
 
-### Canvas
+### Music canvas
 
-The canvas is the largest uninterrupted region.
+Do not wrap each representation in ornamental cards. Let its natural surface carry the visual weight:
 
-Do not repeat the piece title in global chrome. Use a compact representation switcher for `Waveform`, `Piano roll`, `Score`, and `Spectrogram` inside the canvas.
+- waveform: quiet dark field and neutral measured trace;
+- piano roll: editor grid with restrained note semantics;
+- score: warm light paper inside dark workspace is intentional;
+- spectrogram: scientifically legible data palette, not decorative heatmap styling;
+- structure/experimental maps: visually subordinate to the listening/selection model unless the user explicitly promotes them.
 
-The representation should not itself be wrapped in an ornamental card. Its natural surface can define the visual language:
-- waveform: quiet charcoal background, warm-neutral waveform
-- piano roll: editor grid, restrained note colors
-- score: paper-like warm light surface inside dark workspace is acceptable
-- spectrogram: scientifically legible palette, not decorative
-
-### Representation navigation
-
-Use a low-profile tab strip with 36–40px height. Active state should rely on text contrast and a small underline/indicator. Avoid large rounded tab pills.
-
-`Compare` belongs in transport because it changes what the user hears; representation tabs change what the user sees.
+Representation navigation should remain low-profile. `Compare` belongs with hearing/transport because it changes what the user hears; representation tabs change what the user sees.
 
 ### Inspector
 
-Desktop inspector width: 300–340px.
+The Inspector is a reading/action surface, not a detector dashboard.
 
-It should be a persistent docked region rather than visually feeling like a modal overlay. Organize it as a scrollable reading surface with stable sections.
+Default hierarchy:
 
-Analysis hierarchy:
-1. concise interpretation / key findings
-2. time-linked findings
-3. evidence and confidence
-4. deeper detail
+1. one to a few musician-useful observations;
+2. direct musical actions such as Hear / Loop / Focus / Compare where valid;
+3. one proof/evidence disclosure level;
+4. deeper provenance only when it adds genuinely new information.
 
-Avoid repeating every value as a separate bordered card. Prefer grouped sections and rows. Confidence should be visually quiet unless it is low or disputed.
+Do not repeat a fact across cards, Details, Evidence, and domain sections. #1161 owns the detailed Inspector product contract.
 
-### Ask / AI
+### Ask
 
-Ask should feel like a capability of the inspector, not a separate product. Prefer a collapsible section or inspector mode. Keep the conversation narrow, evidence-linked, and tied to the current piece/time range.
+Ask is a capability of the Inspector, not a separate generic chatbot product. It shares the visible musical context/selection and should not duplicate workspace scope UI.
 
 ### Transport
 
-Transport is a stable bottom bar, ~56px high. It is the strongest persistent control surface besides the canvas.
+Transport is the strongest persistent control surface besides the canvas. It must answer clearly:
 
-It should answer four things clearly:
-- what source am I hearing?
-- am I playing?
-- where am I?
-- can I switch/compare representations without losing position?
+- what am I hearing?;
+- am I playing?;
+- where am I?;
+- what passage is selected/looped?;
+- can I compare sources without losing position?.
 
-Use one primary play/pause control and compact adjacent controls. Tempo is not globally important enough to occupy persistent chrome unless relevant to the active task.
+Use one obvious play/pause action and compact adjacent controls. Playback/time state uses the neutral time role, not the primary-action accent by default.
+
+## Primitive ownership
+
+Follow accepted ADR 0012: **own the product; borrow the primitives**.
+
+For new generic application controls, the default is:
+
+- local shadcn-style component ownership in `components/ui`;
+- Base UI as the default underlying accessible primitive layer;
+- existing Tailwind CSS v4 + CSS variables/tokens for styling.
+
+Existing Radix usage may remain where already appropriate; Radix or React Aria may be used for a concrete better-fit requirement. Do not mix primitive bases casually or migrate a working control solely for aesthetic consistency.
+
+Feature/product code should consume generic app-level controls from `components/ui` rather than importing vendor primitives directly unless a documented capability exception requires it.
+
+Generic primitive names/styles are feature-neutral. Avoid `piece-*`, `library-*`, `ask-*`, etc. inside reusable primitive anatomy.
+
+Prefer established iconography for ordinary interface icons. Brand marks and genuinely music-specific symbols remain custom.
+
+Do **not** create a generic `Card` primitive and apply it everywhere.
 
 ## Interaction and motion
 
-Motion should clarify spatial changes, never decorate them.
+Motion clarifies state/spatial changes; it does not decorate them.
 
-- panel open/close: 160–220ms ease-out
-- menus/popovers: subtle opacity + 4–6px translation
-- hover transitions: 100–150ms
-- do not animate layout continuously during playback
-- respect `prefers-reduced-motion`
+- default fast transition: `--motion-duration-fast` = 150ms;
+- use explicit transition properties, never `transition: all`;
+- panel/menu movement should be short and restrained;
+- do not continuously animate application layout during playback;
+- respect `prefers-reduced-motion`;
+- avoid scale-on-hover for ordinary buttons.
 
-Buttons should use slight surface/contrast changes. Avoid scaling buttons on hover.
+Dialogs, menus, tabs, selects, tooltips, disclosures, drawers/sheets, and focus management should inherit keyboard/pointer semantics from maintained primitives rather than feature-local browser logic.
 
-## Empty/loading/error states
+## Content conventions
 
-Empty states should orient the user to the music workflow, not fill space with illustration.
+UI copy is part of the system.
 
-Good empty-state structure:
-- one sentence explaining the outcome
-- one primary import action
-- transcription mode as a secondary control
-- supported formats in tertiary text
+- use the Unicode ellipsis `…`, not three periods `...`, when an ellipsis is semantically intended;
+- use `…` for active loading/processing labels (`Importing…`) and for commands whose conventional label indicates a follow-up step;
+- use CSS `text-overflow: ellipsis` for visual truncation; do not mutate the underlying content to fake truncation;
+- buttons use clear verb/action labels;
+- icon-only controls require an accessible name and should be reserved for familiar actions;
+- errors live next to the affected action/surface and preserve access to successfully available work;
+- loading and empty states are concise and spatially stable;
+- implementation names, repo names, and engine jargon do not enter primary UI unless they are intentionally exposed configuration.
 
-Loading existing music should preserve the workspace frame and show skeleton/progress inside the canvas instead of replacing the entire product with a floating status box.
+## Empty, loading, and error states
 
-Errors should appear next to the affected action/representation and preserve access to successfully created artifacts.
+Empty states should orient, not decorate:
+
+- one clear outcome/orientation statement;
+- one obvious primary action;
+- secondary configuration only when it affects the next operation.
+
+Opening existing work should preserve the workspace frame. Progressive capability availability is preferable to replacing the whole product with a global loading surface.
+
+Errors should be scoped to the failed operation/representation. A failed enrichment step must not hide successfully created durable artifacts.
 
 ## Responsive behavior
 
-Desktop is primary because the task is analysis-heavy.
+Desktop is primary because the task is analysis-heavy, but compact layouts must remain first-class.
 
-- >= 1180px: library + canvas + inspector
-- 820–1179px: library collapsible; inspector overlays/docks as needed
-- < 820px: canvas primary; library and inspector become sheets; transport remains fixed and usable
+- wide desktop: Library + canvas + Inspector;
+- constrained desktop/tablet: support panels collapse/stage before the canvas becomes unusably narrow;
+- phone: canvas first; Library and Inspector become temporary support surfaces; transport remains usable.
 
 Do not simply shrink three desktop columns onto mobile.
 
+Primary mobile controls should aim for ~44px touch geometry. All pointer targets must meet WCAG 2.2 AA target-size requirements or a valid exception.
+
 ## Accessibility
 
-- WCAG AA text contrast
-- 40px minimum pointer target for primary controls
-- visible focus ring using accent color at restrained opacity
-- keyboard navigation for tabs, library, source picker, menus
-- active representation and active playback source announced distinctly
-- never encode confidence/status through color alone
+Accessibility is a component contract, not a later polish pass.
 
-## Component rules
-
-Prefer reusable primitives for:
-- `IconButton`
-- `SegmentedControl` only where mutually-exclusive modes genuinely benefit from it
-- `MenuButton`
-- `PanelHeader`
-- `Section`
-- `EmptyState`
-- `StatusText`
-- `Tooltip`
-
-Do not create a generic `Card` primitive and apply it to every region.
+- WCAG AA text/control contrast;
+- visible, unobscured `:focus-visible` state;
+- keyboard-operable menus/dialogs/tabs/selects and other controls;
+- explicit accessible names for icon-only controls;
+- active representation and active playback source are distinct programmatic states;
+- meaningful loading/error/status announcements;
+- reduced-motion support;
+- no critical primary action hidden exclusively behind pointer hover.
 
 ## Design QA gate
 
-Before a UI PR is mergeable, review screenshots at 1440×900 and 390×844 and check:
-1. Can the user identify the current piece, active representation, active playback source, and play state in <2 seconds?
-2. Is the central music representation visually dominant?
-3. Are there unnecessary cards, pills, gradients, or borders?
+For a material UI change, review rendered evidence at representative desktop and phone widths plus any affected intermediate width. Screenshots belong in PR evidence, not committed product assets unless they are intentional fixtures.
+
+Ask:
+
+1. Can the user identify the active recording, representation, playback source, and play state quickly?
+2. Is musical material visually dominant over chrome?
+3. Are there unnecessary cards, pills, gradients, borders, or duplicate labels?
 4. Does every persistent control earn its space?
 5. Do loading/error/empty states preserve spatial stability?
-6. Can Analysis and Library be opened/closed without losing playhead state?
-7. Does the UI remain useful at the narrow viewport?
+6. Are focus, keyboard, touch, and reduced-motion states valid?
+7. Is this using the canonical token/primitive owner, or adding another local styling dialect?
+8. Did the change delete or consolidate superseded UI rather than leaving two permanent paths?
 
+## Migration rule
 
-## V5 visual language — editorial instrument
+#1211 and #523 are responsible for converging historical UI onto this contract. During migration:
 
-V5 is a craft pass, not a new information architecture. The stable model remains **Library | music canvas | Inspector | Transport**. The visual goal is a professional editorial instrument: quiet chrome, highly legible state, and musical material that carries more visual weight than the application shell.
-
-Reference synthesis for implementation agents:
-- **Mobbin:** use mature creative/editor patterns for panel density, menus, loading, empty states, and persistent transport. Borrow interaction logic, not visual branding.
-- **21st.dev:** prefer a small repeatable primitive vocabulary (tabs, menu/popover, tooltip, icon button, status, skeleton) over one-off controls.
-- **Taste / Impeccable:** audit before decorating; remove generic AI-dashboard habits such as card grids, KPI tiles, gratuitous pills, gradients, glass, and decorative AI glyphs.
-- **Emil Kowalski:** interaction quality comes from hover/press/focus behavior, menu geometry, state transitions, and restrained motion rather than ornamental animation.
-- **awesome-design-md:** this file is authoritative for visual decisions. When implementation and this document disagree, update one deliberately rather than allowing silent drift.
-
-### V5 surface hierarchy
-
-1. **Music is brightest.** Score paper, waveform trace, notes, selections, and the active playhead carry contrast.
-2. **Chrome is quiet.** Library, Inspector, toolbar, and transport use closely related warm graphite surfaces separated mostly by spacing and hairlines.
-3. **Raised surfaces are rare.** Reserve elevation for menus, transient status, and true overlays. A section is not a card by default.
-4. **Brass is interaction, not decoration.** Use the accent for active state, focus, selection, and primary actions; never as a background wash.
-5. **Typography carries hierarchy.** Prefer size, weight, spacing, and muted text over borders and filled boxes.
-
-### Analysis hierarchy
-
-Analysis is an interpretation surface, not a detector dump:
-1. a concise high-level summary grounded only in available evidence;
-2. quiet inline metadata (key / tempo / meter) only when values exist;
-3. notable time-linked moments;
-4. collapsed supporting evidence.
-
-Never render empty metadata boxes. Never show `—` as a KPI. Roman numerals and harmonic function require interpretable key context. Local melody events already promoted to Notable moments should not be duplicated as raw evidence merely because a detector emitted them.
-
-### Ask hierarchy
-
-Ask has no decorative AI logo. It is a contextual explanation/comparison tool. Starter prompts should change with selection state and teach the user what the capability is good at. The current recording, playhead, selection, and trusted analysis are implicit context.
-
-### Playback and score
-
-Playback source and representation are distinct, but their relationship must be obvious. The Score surface exposes a direct **Hear score** action when notation-derived audio exists. The score cursor follows shared transport time measure-by-measure: left-to-right within the active measure, then jumps to the next measure and follows the next system when notation wraps.
-
-### Loading and availability
-
-Progressive availability is preferred over a global blocking state. The workspace frame appears immediately; audio can become playable before analysis/score finishes. Controls must not imply readiness for data that is not loaded. Import is independent from opening an existing recording once the Library project itself is ready. Progress UI must stay within viewport bounds.
-
-### Primitive discipline
-
-Before adding a new control, reuse or extend an existing interaction pattern. Icon-only controls are acceptable only for universally recognized actions; otherwise add a visible label at desktop sizes and retain a tooltip/accessible name at compact sizes. Focus, hover, disabled, and selected states are part of the component contract, not optional polish.
+- preserve working behavior while moving ownership;
+- temporary aliases must name their retirement issue;
+- delete superseded styles/components in the same slice when safe;
+- do not add a new compatibility layer to avoid removing an old one;
+- specialized renderer overrides are allowed only where ordinary application tokens cannot own the integration cleanly.
