@@ -3,15 +3,15 @@ import "./globals.css";
 import "./workspace-v3.css";
 import "./product-polish-v4.css";
 import "./workspace-interactions.css";
-// Keep visual-language rules after structural chrome so product craft wins the cascade.
 import "./visual-language.css";
-// Musical representations own a small semantic visual-state contract independent of renderer implementation.
 import "./representation-visuals.css";
-import "./mobile-workspace.css";
 import "./readiness.css";
 import "./breakdown.css";
-// Signed-out only: product-native landing story without changing workspace chrome.
 import "./landing-product-story.css";
+// Permanent interface normalization follows older product-polish layers while
+// those owners are consolidated. Structural phone/touch invariants load last.
+import "./interface-foundation.css";
+import "./mobile-workspace.css";
 import { Geist } from "next/font/google";
 import MSWInit from "@/components/MSWInit";
 import AuthProvider from "@/components/AuthProvider";
@@ -34,11 +34,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`font-sans ${geist.variable}`}>
       <body>

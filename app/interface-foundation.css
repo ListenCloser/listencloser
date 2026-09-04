@@ -1,0 +1,411 @@
+/*
+ * ListenCloser interface foundation.
+ *
+ * Generic application chrome uses one restrained token contract. Product-
+ * specific renderers remain responsible for measured musical data and shared
+ * time/selection semantics; the shell should not invent a second visual system.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --ui-canvas: #0d100e;
+  --ui-chrome: #111411;
+  --ui-panel: #151815;
+  --ui-raised: #1b1f1b;
+  --ui-hover: #202520;
+  --ui-line: rgba(239, 241, 233, 0.075);
+  --ui-line-strong: rgba(239, 241, 233, 0.14);
+
+  --ui-text: #eceee6;
+  --ui-text-2: #b5bab1;
+  --ui-text-3: #767d75;
+  --measurement-font-size: 10px;
+  --measurement-font-weight: 500;
+
+  --ui-action: #dff45a;
+  --ui-action-soft: rgba(223, 244, 90, 0.08);
+  --ui-relation: #829d9d;
+  --ui-time: #a8afa7;
+  --ui-time-soft: rgba(168, 175, 167, 0.12);
+
+  /* Keep legacy component owners coherent until #523 consolidates them. */
+  --bg: var(--ui-canvas);
+  --bg-subtle: var(--ui-chrome);
+  --panel: var(--ui-panel);
+  --panel-2: var(--ui-raised);
+  --panel-3: var(--ui-hover);
+  --panel-4: #262b26;
+  --text: var(--ui-text);
+  --muted: var(--ui-text-3);
+  --accent: var(--ui-action);
+  --accent-strong: #efff86;
+  --accent-soft: var(--ui-action-soft);
+  --accent-2: var(--ui-relation);
+  --accent-soft-2: rgba(130, 157, 157, 0.1);
+  --border: var(--ui-line);
+  --border-strong: var(--ui-line-strong);
+  --danger: #cf7770;
+  --danger-soft: rgba(207, 119, 112, 0.09);
+
+  --surface-canvas: var(--ui-canvas);
+  --surface-tool: var(--ui-chrome);
+  --surface-tool-raised: var(--ui-raised);
+  --surface-music: #0b0e0c;
+  --surface-music-deep: #080b09;
+  --surface-paper: #efeee8;
+  --surface-paper-edge: #deddd5;
+  --ink-subtle: var(--ui-text-3);
+  --ink-secondary: var(--ui-text-2);
+  --line-soft: var(--ui-line);
+  --line-medium: var(--ui-line-strong);
+  --waveform-trace: #d6dad2;
+  --waveform-axis: rgba(220, 224, 216, 0.1);
+
+  --color-theory: var(--ui-relation);
+  --color-harmony: var(--ui-relation);
+  --color-harmony-soft: rgba(130, 157, 157, 0.09);
+  --color-rhythm: #979e98;
+  --color-rhythm-soft: rgba(151, 158, 152, 0.08);
+  --color-melody: #a8ada6;
+  --color-melody-soft: rgba(168, 173, 166, 0.08);
+  --color-structure: #758d8f;
+  --color-structure-soft: rgba(117, 141, 143, 0.09);
+
+  --representation-playback-on-dark: var(--ui-time);
+  --representation-playback-soft-on-dark: var(--ui-time-soft);
+  --score-playback: var(--ui-time);
+  --score-playback-soft: var(--ui-time-soft);
+}
+
+html,
+body,
+.studio-shell-v3,
+.studio-canvas-area-v3,
+.piece-desk-v3,
+.piece-loading-shell,
+.piece-empty-v3,
+.piece-active-view-v3 {
+  background-color: var(--ui-canvas) !important;
+  background-image: none !important;
+}
+
+.studio-header-v3,
+.representation-toolbar,
+.transport-bar-v3 {
+  background: var(--ui-chrome) !important;
+  border-color: var(--ui-line) !important;
+  box-shadow: none !important;
+}
+
+.studio-library-v3,
+.studio-inspector-v3,
+.inspector,
+.inspector-v4,
+.inspector-analysis-content,
+.ask-panel-v4,
+.ask-content,
+.ask-shell,
+.ask-body {
+  background: var(--ui-panel) !important;
+  border-color: var(--ui-line) !important;
+}
+
+/* Generic chrome ---------------------------------------------------------- */
+
+.library-heading-row h2,
+.library-work-title {
+  color: var(--ui-text-2) !important;
+}
+
+.library-count,
+.library-note-glyph {
+  display: none !important;
+}
+
+.library-work-btn:not(:has(.library-row-spinner)) {
+  grid-template-columns: minmax(0, 1fr) !important;
+  padding-left: 12px !important;
+}
+
+.library-work-btn:not(:has(.library-row-spinner)) .library-work-leading {
+  display: none !important;
+}
+
+.library-work-row.selected {
+  background: rgba(223, 244, 90, 0.045) !important;
+  box-shadow: inset 2px 0 0 rgba(223, 244, 90, 0.72) !important;
+}
+
+.library-work-row.selected .library-work-btn {
+  background: transparent !important;
+}
+
+.library-work-row.selected .library-work-title {
+  color: var(--ui-text) !important;
+}
+
+.library-work-status,
+.library-account-action,
+.library-import-settings summary,
+.library-import-status,
+.studio-service-state {
+  color: var(--ui-text-3) !important;
+}
+
+.library-import-btn {
+  border-color: rgba(223, 244, 90, 0.22) !important;
+  background: rgba(223, 244, 90, 0.045) !important;
+  color: #dfe99b !important;
+  border-radius: 4px !important;
+}
+
+.library-import-btn:hover:not(:disabled) {
+  border-color: rgba(223, 244, 90, 0.36) !important;
+  background: rgba(223, 244, 90, 0.075) !important;
+}
+
+.library-empty-v3 p {
+  display: none !important;
+}
+
+.piece-source-menu,
+.repr-more-menu,
+.library-row-menu-popover {
+  border-color: var(--ui-line-strong) !important;
+  background: var(--ui-raised) !important;
+}
+
+.piece-view-tabs-v3 > button,
+.ui-tab {
+  color: var(--ui-text-3) !important;
+}
+
+.piece-view-tabs-v3 > button.active,
+.ui-tab[data-state="active"],
+.ui-tab.active {
+  color: var(--ui-text) !important;
+}
+
+/* First run --------------------------------------------------------------- */
+
+.piece-empty-v3 {
+  display: grid !important;
+  place-items: center !important;
+  padding: clamp(24px, 6vw, 72px) !important;
+}
+
+.piece-empty-v3 .empty-desk-art,
+.piece-empty-v3 .empty-desk-copy > p,
+.piece-empty-v3 .empty-desk-copy > small {
+  display: none !important;
+}
+
+.piece-empty-v3 .empty-desk-copy {
+  width: min(320px, 100%);
+  max-width: 320px !important;
+  display: grid !important;
+  justify-items: center !important;
+  gap: 17px !important;
+  text-align: center !important;
+}
+
+.piece-empty-v3 .empty-desk-copy h1 {
+  margin: 0 !important;
+  color: var(--ui-text) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 18px !important;
+  font-weight: 620 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.piece-empty-v3 .empty-import-primary {
+  min-height: 34px !important;
+  padding-inline: 14px !important;
+  border: 1px solid rgba(223, 244, 90, 0.34) !important;
+  border-radius: 4px !important;
+  background: var(--ui-action) !important;
+  color: #12150f !important;
+  box-shadow: none !important;
+}
+
+/* Upload / processing ----------------------------------------------------- */
+
+.operation-layer,
+.operation-layer-inner {
+  background: transparent !important;
+}
+
+.piece-processing-card {
+  position: fixed !important;
+  inset: auto 16px calc(var(--transport-height) + 12px) auto !important;
+  width: min(320px, calc(100vw - 32px)) !important;
+  padding: 11px 12px !important;
+  display: grid !important;
+  gap: 7px !important;
+  border: 1px solid var(--ui-line-strong) !important;
+  border-radius: 5px !important;
+  background: var(--ui-raised) !important;
+  color: var(--ui-text) !important;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.34) !important;
+  backdrop-filter: none !important;
+}
+
+.piece-processing-filename {
+  color: var(--ui-text) !important;
+  font-size: 10.5px !important;
+  font-weight: 570 !important;
+}
+
+.piece-processing-stage,
+.piece-processing-hint {
+  color: var(--ui-text-3) !important;
+  font-size: 9.5px !important;
+}
+
+.piece-processing-card progress {
+  width: 100%;
+  height: 2px !important;
+  border: 0;
+  border-radius: 0 !important;
+  background: var(--ui-line) !important;
+  accent-color: var(--ui-action) !important;
+}
+
+.piece-processing-card progress::-webkit-progress-bar { background: var(--ui-line) !important; }
+.piece-processing-card progress::-webkit-progress-value,
+.piece-processing-card progress::-moz-progress-bar { background: var(--ui-action) !important; }
+
+.workspace-notice,
+.workspace-processing-notice {
+  border-color: var(--ui-line) !important;
+  background: var(--ui-chrome) !important;
+  color: var(--ui-text-2) !important;
+  box-shadow: none !important;
+}
+
+/* Musical surfaces -------------------------------------------------------- */
+
+.representation-body,
+.waveform-wrap,
+.spectrogram-wrap,
+.piano-roll-container,
+.piano-roll-scroll {
+  background: var(--surface-music) !important;
+}
+
+.waveform-wrap,
+.spectrogram-wrap,
+.piano-roll-container {
+  border-color: var(--ui-line) !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+.waveform-ruler {
+  display: block;
+  width: 100%;
+  background: var(--surface-music-deep) !important;
+  border-bottom-color: var(--ui-line) !important;
+  opacity: 1 !important;
+}
+
+.waveform,
+.spectrogram-canvas {
+  border-color: var(--ui-line) !important;
+  background: var(--surface-music-deep) !important;
+}
+
+.waveform-wrap > .muted,
+.spectrogram-status,
+.piano-roll-footer .muted {
+  color: var(--ui-text-3) !important;
+  font-family: var(--font-sans) !important;
+}
+
+.sheet-music-wrap,
+.score-viewer,
+.score-container {
+  background: var(--surface-music) !important;
+}
+
+.sheet-music-container {
+  border-color: rgba(15, 18, 16, 0.24) !important;
+  background: var(--surface-paper) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* Inspector normalization only; content hierarchy remains independently owned. */
+.inspector-header,
+.ask-header,
+.ask-composer {
+  background: var(--ui-chrome) !important;
+  border-color: var(--ui-line) !important;
+}
+
+.ask-empty,
+.ask-empty-state,
+.ask-thread,
+.ask-composer,
+.ask-prompt-list,
+.ask-starter-list {
+  background-color: transparent !important;
+}
+
+/* Transport --------------------------------------------------------------- */
+
+.transport-bar-v3 {
+  border-top-color: var(--ui-line) !important;
+}
+
+.transport-play-btn {
+  border-color: rgba(223, 244, 90, 0.3) !important;
+  background: var(--ui-action) !important;
+  color: #12150f !important;
+  box-shadow: none !important;
+}
+
+.transport-time,
+.piece-source-trigger {
+  color: var(--ui-text-2) !important;
+}
+
+.transport-time-muted,
+.transport-ctrl,
+.transport-ctrl-labeled,
+.transport-compare-trigger {
+  color: var(--ui-text-3) !important;
+}
+
+@media (max-width: 600px) {
+  .piece-empty-v3 {
+    padding: 28px 20px calc(var(--transport-height) + 28px) !important;
+  }
+
+  .piece-empty-v3 .empty-import-primary {
+    width: 100%;
+    min-height: 44px !important;
+    justify-content: center;
+  }
+
+  .piece-processing-card {
+    right: 10px !important;
+    left: 10px !important;
+    width: auto !important;
+    bottom: calc(var(--transport-height) + 10px) !important;
+  }
+
+  .waveform-wrap,
+  .spectrogram-wrap {
+    padding-inline: 8px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piece-processing-card,
+  .workspace-notice,
+  .workspace-processing-notice {
+    transition: none !important;
+  }
+}

@@ -15,6 +15,35 @@ import {
 } from "@/lib/spectrogram";
 
 type Range = { start: number; end: number };
+type Rgb = readonly [number, number, number];
+type ColorStop = readonly [number, Rgb];
+
+const SPECTROGRAM_HEIGHT = 420;
+const FALLBACK_WIDTH = 900;
+
+const SPECTROGRAM_STOPS: readonly ColorStop[] = [
+  [0, [7, 9, 9]],
+  [0.28, [19, 24, 25]],
+  [0.56, [49, 59, 61]],
+  [0.8, [112, 122, 121]],
+  [1, [225, 224, 213]],
+] as const;
+
+function interpolateColor(value: number): Rgb {
+  const normalized = Math.max(0, Math.min(1, value));
+  let upperIndex = 1;
+  while (upperIndex < SPECTROGRAM_STOPS.length - 1 && normalized > SPECTROGRAM_STOPS[upperIndex][0]) {
+    upperIndex += 1;
+  }
+  const [startAt, start] = SPECTROGRAM_STOPS[upperIndex - 1];
+  const [endAt, end] = SPECTROGRAM_STOPS[upperIndex];
+  const mix = endAt > startAt ? (normalized - startAt) / (endAt - startAt) : 0;
+  return [
+    Math.round(start[0] + (end[0] - start[0]) * mix),
+    Math.round(start[1] + (end[1] - start[1]) * mix),
+    Math.round(start[2] + (end[2] - start[2]) * mix),
+  ];
+}
 
 function formatFrequency(value: number): string {
   return value >= 1000 ? `${value / 1000} kHz` : `${value} Hz`;
@@ -48,11 +77,32 @@ export default function Spectrogram({
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState<Range | null>(null);
+  const [canvasWidth, setCanvasWidth] = useState(FALLBACK_WIDTH);
+  const [devicePixelRatio, setDevicePixelRatio] = useState(1);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const measure = () => {
+      const width = canvas.getBoundingClientRect().width;
+      if (width > 0) setCanvasWidth(Math.round(width));
+      setDevicePixelRatio(Math.max(1, window.devicePixelRatio || 1));
+    };
+
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    // A new source must never inherit pixels, duration, or drag state from the
-    // prior recording. Keep a neutral canvas until this exact source resolves.
     dataRef.current = null;
     draggingRef.current = null;
     setDuration(0);
@@ -87,15 +137,22 @@ export default function Spectrogram({
     const context = canvas.getContext("2d");
     if (!context) return;
     const styles = getComputedStyle(document.documentElement);
-    const panel = styles.getPropertyValue("--panel").trim() || "#f4f1eb";
-    const muted = styles.getPropertyValue("--muted").trim() || "#575a5e";
-    const accent = styles.getPropertyValue("--accent").trim() || "#bd513a";
-    const playhead = styles.getPropertyValue("--score-playback").trim() || "#5a89a8";
-    const rhythm = styles.getPropertyValue("--color-rhythm").trim() || "#b8963e";
-    const harmony = styles.getPropertyValue("--color-harmony").trim() || "#4a7c59";
-    const theory = styles.getPropertyValue("--color-theory").trim() || "#8b5cf6";
-    const width = canvas.width;
-    const height = canvas.height;
+    const panel = styles.getPropertyValue("--panel").trim() || "#0b0d0c";
+    const muted = styles.getPropertyValue("--muted").trim() || "#737a72";
+    const accent = styles.getPropertyValue("--accent").trim() || "#dff45a";
+    const playhead = styles.getPropertyValue("--score-playback").trim() || "#ff745d";
+    const rhythm = styles.getPropertyValue("--color-rhythm").trim() || "#929b96";
+    const harmony = styles.getPropertyValue("--color-harmony").trim() || "#819b9b";
+    const theory = styles.getPropertyValue("--color-theory").trim() || "#819b9b";
+    const width = canvasWidth;
+    const height = SPECTROGRAM_HEIGHT;
+
+    // Field UI and waveform-playlist both keep CSS geometry separate from the
+    // backing store. Draw in CSS pixels after scaling the canvas for the actual
+    // device pixel ratio so FFT content and measurement labels stay sharp.
+    context.resetTransform();
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.scale(devicePixelRatio, devicePixelRatio);
     context.fillStyle = panel;
     context.fillRect(0, 0, width, height);
 
@@ -108,11 +165,13 @@ export default function Spectrogram({
         const strength = data.values[column * data.bins + row];
         const targetRow = data.bins - row - 1;
         const index = (targetRow * data.columns + column) * 4;
-        // Warm restrained sequential map, deliberately avoiding rainbow hue jumps.
-        image.data[index] = Math.round(42 + strength * 0.62);
-        image.data[index + 1] = Math.round(38 + strength * 0.49);
-        image.data[index + 2] = Math.round(33 + strength * 0.35);
-        image.data[index + 3] = Math.round(strength * 0.94);
+        const normalized = Math.max(0, Math.min(1, strength / 255));
+        const lifted = Math.pow(normalized, 0.68);
+        const [red, green, blue] = interpolateColor(lifted);
+        image.data[index] = red;
+        image.data[index + 1] = green;
+        image.data[index + 2] = blue;
+        image.data[index + 3] = 255;
       }
     }
     const raster = document.createElement("canvas");
@@ -128,11 +187,15 @@ export default function Spectrogram({
       const x2 = timeToX(annotation.endSeconds, duration, width);
       const color = annotation.category === "rhythm" ? rhythm : annotation.category === "theory" ? theory : harmony;
       const focused = annotation.id === focusedAnnotationId;
-      context.fillStyle = withAlpha(color, focused ? 0.16 : 0.045);
-      context.fillRect(x1, 0, Math.max(1, x2 - x1), height);
+      const rangeWidth = Math.max(1, x2 - x1);
+      context.fillStyle = withAlpha(color, focused ? 0.075 : 0.018);
+      context.fillRect(x1, 0, rangeWidth, height);
+      context.fillStyle = withAlpha(color, focused ? 0.72 : 0.38);
+      context.fillRect(x1, 0, rangeWidth, focused ? 2 : 1);
       if (focused) {
-        context.strokeStyle = withAlpha(color, 0.45);
-        context.strokeRect(x1, 0, Math.max(1, x2 - x1), height);
+        context.strokeStyle = withAlpha(color, 0.34);
+        context.lineWidth = 1;
+        context.strokeRect(x1 + 0.5, 0.5, Math.max(1, rangeWidth - 1), height - 1);
       }
     }
 
@@ -140,41 +203,52 @@ export default function Spectrogram({
     if (range) {
       const x1 = timeToX(range.start, duration, width);
       const x2 = timeToX(range.end, duration, width);
-      context.fillStyle = withAlpha(accent, 0.16);
-      context.fillRect(x1, 0, Math.max(1, x2 - x1), height);
-      context.strokeStyle = withAlpha(accent, 0.62);
-      context.strokeRect(x1, 0, Math.max(1, x2 - x1), height);
+      const rangeWidth = Math.max(1, x2 - x1);
+      context.fillStyle = withAlpha(accent, 0.065);
+      context.fillRect(x1, 0, rangeWidth, height);
+      context.strokeStyle = withAlpha(accent, 0.46);
+      context.lineWidth = 0.75;
+      context.strokeRect(x1 + 0.5, 0.5, Math.max(1, rangeWidth - 1), height - 1);
     }
     if (position >= 0 && duration > 0) {
       const x = timeToX(position, duration, width);
-      context.strokeStyle = playhead;
-      context.lineWidth = 2;
+      context.strokeStyle = withAlpha(playhead, 0.72);
+      context.lineWidth = 0.75;
       context.beginPath();
       context.moveTo(x, 0);
       context.lineTo(x, height);
       context.stroke();
+      context.fillStyle = withAlpha(playhead, 0.82);
+      context.fillRect(x - 1.5, 0, 3, 3);
     }
 
-    // Scientific/logarithmic ruler: conventional 1-2-5 ticks give the eye a
-    // stable scale without changing or obscuring the measured raster itself.
     context.font = canvasMeasurementFont(styles);
     context.textAlign = "left";
     context.textBaseline = "middle";
     for (const frequency of logarithmicFrequencyTicks(data.minFrequency, data.maxFrequency)) {
       const y = frequencyToY(frequency, data.minFrequency, data.maxFrequency, height);
-      const labelY = Math.min(height - 7, Math.max(7, y));
-      context.fillStyle = withAlpha(muted, 0.1);
+      const labelY = Math.min(height - 8, Math.max(8, y));
+      const label = formatFrequency(frequency);
+      const labelWidth = context.measureText(label).width;
+      context.fillStyle = "rgba(7, 9, 9, 0.74)";
+      context.fillRect(5, labelY - 7, labelWidth + 9, 14);
+      context.fillStyle = withAlpha(muted, 0.12);
       context.fillRect(0, Math.round(y), width, 1);
-      context.fillStyle = withAlpha(muted, 0.5);
-      context.fillRect(0, Math.round(y), 7, 1);
-      context.strokeStyle = withAlpha(panel, 0.9);
-      context.lineWidth = 3;
-      context.lineJoin = "round";
-      context.strokeText(formatFrequency(frequency), 10, labelY);
-      context.fillStyle = withAlpha(muted, 0.64);
-      context.fillText(formatFrequency(frequency), 10, labelY);
+      context.fillStyle = withAlpha(muted, 0.62);
+      context.fillRect(0, Math.round(y), 5, 1);
+      context.fillStyle = "rgba(222, 224, 216, 0.72)";
+      context.fillText(label, 9, labelY);
     }
-  }, [annotations, duration, focusedAnnotationId, position, preview, selection]);
+  }, [
+    annotations,
+    canvasWidth,
+    devicePixelRatio,
+    duration,
+    focusedAnnotationId,
+    position,
+    preview,
+    selection,
+  ]);
 
   const eventTime = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -209,9 +283,6 @@ export default function Spectrogram({
       setPreview(null);
       return;
     }
-    // Annotation overlays are deliberately non-interactive: a simple click
-    // always preserves this view's primary transport affordance and leaves any
-    // previously selected passage before moving the playhead.
     onClearSelection?.();
     onSeek?.(eventTime(event));
   };
@@ -223,8 +294,9 @@ export default function Spectrogram({
         className="spectrogram-canvas"
         data-testid="spectrogram-canvas"
         data-spectrogram-state={status}
-        width={900}
-        height={420}
+        width={Math.round(canvasWidth * devicePixelRatio)}
+        height={Math.round(SPECTROGRAM_HEIGHT * devicePixelRatio)}
+        style={{ width: "100%", height: SPECTROGRAM_HEIGHT }}
         role="slider"
         aria-label="Spectrogram selection"
         aria-busy={status === "loading"}

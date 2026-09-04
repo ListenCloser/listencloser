@@ -34,9 +34,7 @@ export default function AuthConfirm() {
     }
   }, [router]);
 
-  return (
-    <div className="page" style={{ alignItems: "center", justifyContent: "center" }}>
-      <div className="spinner" />
-    </div>
-  );
+  // Session handoff is intentionally visually inert. The app root already owns
+  // the page background, so this route does not introduce a spinner or shell.
+  return <main aria-busy="true" aria-label="Completing sign in" />;
 }

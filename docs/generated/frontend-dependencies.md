@@ -20,6 +20,7 @@ subgraph app["app"]
   app_breakdown_css["breakdown.css"]
   app_global_error_tsx["global-error.tsx"]
   app_globals_css["globals.css"]
+  app_interface_foundation_css["interface-foundation.css"]
   app_landing_product_story_css["landing-product-story.css"]
   app_layout_tsx["layout.tsx"]
   app_mobile_workspace_css["mobile-workspace.css"]
@@ -37,6 +38,9 @@ subgraph components["components"]
   components_MSWInit_tsx["MSWInit.tsx"]
   components_QueryProvider_tsx["QueryProvider.tsx"]
   components_SheetMusic_tsx["SheetMusic.tsx"]
+  subgraph components_design["design"]
+    components_design_[" "]
+  end
   subgraph components_ui["ui"]
     components_ui_[" "]
   end
@@ -94,6 +98,7 @@ app_api_-->lib_backend_ts
 app_auth_-->lib_supabase_ts
 app_layout_tsx-->app_breakdown_css
 app_layout_tsx-->app_globals_css
+app_layout_tsx-->app_interface_foundation_css
 app_layout_tsx-->app_landing_product_story_css
 app_layout_tsx-->app_mobile_workspace_css
 app_layout_tsx-->app_product_polish_v4_css
@@ -106,7 +111,7 @@ app_layout_tsx-->components_AuthProvider_tsx
 app_layout_tsx-->components_MSWInit_tsx
 app_layout_tsx-->components_QueryProvider_tsx
 app_page_tsx-->components_AuthProvider_tsx
-app_page_tsx-->components_BrandMark_tsx
+app_page_tsx-->components_design_
 app_page_tsx-->components_workspace_
 app_page_tsx-->lib_server_state_ts
 app_page_tsx-->lib_supabase_ts

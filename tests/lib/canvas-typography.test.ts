@@ -8,16 +8,17 @@ function styles(values: Record<string, string>): CSSStyleDeclaration {
 }
 
 describe("canvasMeasurementFont", () => {
-  it("uses the same sans-serif family and xs size tokens as the application UI", () => {
+  it("uses the shared measurement size, weight, and UI family tokens", () => {
     expect(canvasMeasurementFont(styles({
-      "--fs-xs": "12px",
+      "--measurement-font-size": "10px",
+      "--measurement-font-weight": "500",
       "--font-sans": 'Inter, "Segoe UI", sans-serif',
-    }))).toBe('12px Inter, "Segoe UI", sans-serif');
+    }))).toBe('500 10px Inter, "Segoe UI", sans-serif');
   });
 
-  it("falls back to a UI font instead of monospace when CSS tokens are unavailable", () => {
+  it("falls back to the shared measurement contract instead of monospace", () => {
     const font = canvasMeasurementFont(styles({}));
-    expect(font).toBe("11px system-ui, sans-serif");
+    expect(font).toBe("500 10px system-ui, sans-serif");
     expect(font).not.toContain("monospace");
   });
 });

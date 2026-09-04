@@ -27,7 +27,9 @@ function decoded(duration: number) {
 }
 
 const canvasContext = {
+  resetTransform: vi.fn(),
   clearRect: vi.fn(),
+  scale: vi.fn(),
   fillRect: vi.fn(),
   fillText: vi.fn(),
   strokeRect: vi.fn(),
@@ -35,10 +37,12 @@ const canvasContext = {
   closePath: vi.fn(),
   moveTo: vi.fn(),
   lineTo: vi.fn(),
+  roundRect: vi.fn(),
   fill: vi.fn(),
   stroke: vi.fn(),
   save: vi.fn(),
   restore: vi.fn(),
+  setLineDash: vi.fn(),
   fillStyle: "",
   strokeStyle: "",
   globalAlpha: 1,
@@ -71,7 +75,7 @@ describe("Waveform source continuity", () => {
 
     expect(canvas).toHaveAttribute("data-waveform-state", "loading");
     expect(canvas).toHaveAttribute("data-waveform-segments", "0");
-    expect(canvas).toHaveAttribute("data-waveform-renderer", "min-max-envelope");
+    expect(canvas).toHaveAttribute("data-waveform-renderer", "min-max-bars");
     expect(canvas).toHaveAttribute("aria-busy", "true");
     expect(screen.getByText("Decoding recording…")).toBeInTheDocument();
 

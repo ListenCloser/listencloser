@@ -3,10 +3,7 @@ import { argosScreenshot } from "@argos-ci/playwright";
 import { mockSession, persistSessionScript, MOCK_PROJECT_REF } from "../fixtures/mockSession";
 
 async function installMockSession(page: Page) {
-  await page.addInitScript(persistSessionScript(), {
-    projectRef: MOCK_PROJECT_REF,
-    session: mockSession,
-  });
+  await page.addInitScript(persistSessionScript(), { projectRef: MOCK_PROJECT_REF, session: mockSession });
   await page.goto("/");
   await page.waitForFunction(
     () => navigator.serviceWorker?.controller !== null,
@@ -29,7 +26,6 @@ async function openCompactWorkspace(page: Page) {
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
 }
 
-// Actual built app — signed-out landing at the design review baseline.
 test("app landing — desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
@@ -50,19 +46,20 @@ test("app landing — phone", async ({ page }) => {
   await argosScreenshot(page, "app-landing-phone", { fullPage: true });
 });
 
-test("app landing — reduced motion removes the product-object entrance", async ({ page }) => {
+test("app landing — reduced motion freezes the live signal", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Listen closer." })).toBeVisible();
-  const animationName = await page.locator(".welcome-hero-v4").evaluate((element) => (
-    getComputedStyle(element, "::after").animationName
-  ));
-  expect(animationName).toBe("none");
+  const signal = page.locator(".aesthetic-live-signal canvas");
+  await expect(signal).toBeVisible();
+  await page.waitForTimeout(100);
+  const firstFrame = await signal.evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL());
+  await page.waitForTimeout(160);
+  const secondFrame = await signal.evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL());
+  expect(secondFrame).toBe(firstFrame);
 });
 
-// The visual gate covers the actual authenticated creative workspace rather
-// than merely screenshotting the auth gate.
 test("app studio — desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openDesktopWorkspace(page);
@@ -77,15 +74,13 @@ test("app studio — desktop", async ({ page }) => {
   }
 });
 
-// First-use identity is now a product surface in its own right. Capture the
-// real deletion -> empty-workspace state so generic clip-art/fake-data drift is
-// visible in review instead of hiding outside the visual regression suite.
 test("app studio — empty workspace", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openDesktopWorkspace(page);
   await page.getByRole("button", { name: "Delete Test Work" }).click();
-  await expect(page.getByTestId("empty-workspace-signal")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Import a recording" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import audio" })).toBeVisible();
+  await expect(page.getByTestId("empty-workspace-signal")).toBeHidden();
   await argosScreenshot(page, "app-studio-empty-desktop", { fullPage: true });
 });
 
