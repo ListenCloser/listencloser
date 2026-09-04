@@ -104,9 +104,11 @@ def _validated_matrix(
     centroid = report.series.get("spectral_centroid")
     bands = report.series.get("relative_band_energy")
     if onset is None or centroid is None or bands is None:
-        return np.array([]), np.empty((0, 6)), [
-            "required gain-independent perceptual evidence is missing"
-        ]
+        return (
+            np.array([]),
+            np.empty((0, 6)),
+            ["required gain-independent perceptual evidence is missing"],
+        )
 
     series_items = (
         ("onset_strength", onset),
@@ -152,9 +154,11 @@ def _validated_matrix(
 
     matrix = np.concatenate([onset_values, centroid_values, band_values], axis=1)
     if matrix.shape[0] != len(reference_times):
-        return np.array([]), np.empty((0, 6)), [
-            "promoted perceptual evidence lengths are inconsistent"
-        ]
+        return (
+            np.array([]),
+            np.empty((0, 6)),
+            ["promoted perceptual evidence lengths are inconsistent"],
+        )
     return np.asarray(reference_times, dtype=float), matrix, []
 
 
@@ -209,9 +213,7 @@ def _feature_changes(component_changes: np.ndarray) -> dict[str, float]:
     return {
         "onset_strength": float(component_changes[0]),
         "spectral_centroid": float(component_changes[1]),
-        "relative_band_energy": float(
-            np.sqrt(np.mean(np.square(component_changes[2:])))
-        ),
+        "relative_band_energy": float(np.sqrt(np.mean(np.square(component_changes[2:])))),
     }
 
 
@@ -297,10 +299,7 @@ def discover_measured_changes(
     eligible = [
         index
         for index in peaks.tolist()
-        if sum(
-            value >= feature_change_floor
-            for value in feature_changes_by_index[index].values()
-        )
+        if sum(value >= feature_change_floor for value in feature_changes_by_index[index].values())
         >= min_changed_features
     ]
     ordered = sorted(

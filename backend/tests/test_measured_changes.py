@@ -12,9 +12,7 @@ from perceptual_evidence import CANONICAL_SAMPLE_RATE, build_perceptual_evidence
 
 _BAND_ORDER = ["low", "low_mid", "mid", "high"]
 _CONTROL_FRAME_STEP_SECONDS = 0.5
-_CONTROL_FRAME_TIMES = [
-    index * _CONTROL_FRAME_STEP_SECONDS for index in range(29)
-]
+_CONTROL_FRAME_TIMES = [index * _CONTROL_FRAME_STEP_SECONDS for index in range(29)]
 _CONTROL_HOP_LENGTH = int(CANONICAL_SAMPLE_RATE * _CONTROL_FRAME_STEP_SECONDS)
 
 
@@ -63,8 +61,7 @@ def _controlled_report(
     source_version_id = uuid4()
     midpoint = 7.0
     onset_values = [
-        0.0 if not onset_step or time < midpoint else 10.0
-        for time in _CONTROL_FRAME_TIMES
+        0.0 if not onset_step or time < midpoint else 10.0 for time in _CONTROL_FRAME_TIMES
     ]
     centroid_values = [500.0 for _ in _CONTROL_FRAME_TIMES]
     low_bands = [0.70, 0.20, 0.08, 0.02]
@@ -110,9 +107,7 @@ def test_discovers_bounded_multi_feature_change_with_literal_evidence():
     transition_seconds = 7.0
     window_seconds = 3.0
     report = _report(
-        np.concatenate(
-            [_tone(180.0, transition_seconds), _tone(4_500.0, transition_seconds)]
-        )
+        np.concatenate([_tone(180.0, transition_seconds), _tone(4_500.0, transition_seconds)])
     )
     report_version_id = uuid4()
 
@@ -139,10 +134,7 @@ def test_discovers_bounded_multi_feature_change_with_literal_evidence():
     onset_times = report.series["onset_strength"].frame_times_seconds
     evidence_hop_seconds = float(np.median(np.diff(onset_times)))
     localization_tolerance_seconds = window_seconds / 2.0 + evidence_hop_seconds
-    assert (
-        abs(candidate.boundary_seconds - transition_seconds)
-        <= localization_tolerance_seconds
-    )
+    assert abs(candidate.boundary_seconds - transition_seconds) <= localization_tolerance_seconds
     assert candidate.before_span_seconds[1] == candidate.boundary_seconds
     assert candidate.after_span_seconds[0] == candidate.boundary_seconds
 
@@ -152,18 +144,13 @@ def test_discovers_bounded_multi_feature_change_with_literal_evidence():
         "spectral_centroid",
         "relative_band_energy",
     }
+    assert candidate.finding.subject_locator.source_artifact_version_id == report.source_version_id
     assert (
-        candidate.finding.subject_locator.source_artifact_version_id
-        == report.source_version_id
-    )
-    assert (
-        candidate.finding.comparison_locator.source_artifact_version_id
-        == report.source_version_id
+        candidate.finding.comparison_locator.source_artifact_version_id == report.source_version_id
     )
     assert candidate.finding.support_refs
     assert all(
-        ref.namespace == "perceptual_series"
-        and ref.id.startswith(f"{report_version_id}:")
+        ref.namespace == "perceptual_series" and ref.id.startswith(f"{report_version_id}:")
         for ref in candidate.finding.support_refs
     )
     assert {measurement.feature for measurement in candidate.finding.measurements} == {
@@ -213,11 +200,7 @@ def test_misaligned_promoted_evidence_fails_closed():
     report = _report(_tone(440.0, 12.0))
     centroid = report.series["spectral_centroid"]
     shifted = centroid.model_copy(
-        update={
-            "frame_times_seconds": [
-                value + 0.01 for value in centroid.frame_times_seconds
-            ]
-        }
+        update={"frame_times_seconds": [value + 0.01 for value in centroid.frame_times_seconds]}
     )
     incompatible = report.model_copy(
         update={"series": {**report.series, "spectral_centroid": shifted}}
