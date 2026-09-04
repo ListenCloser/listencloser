@@ -5,9 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import LibraryImportControl from "@/components/workspace/LibraryImportControl";
 
+type ImportControlProps = ComponentProps<typeof LibraryImportControl>;
 type ImportControlOverrides = Partial<
   Pick<
-    ComponentProps<typeof LibraryImportControl>,
+    ImportControlProps,
     | "onUpload"
     | "onImport"
     | "onTranscriptionProfileChange"
@@ -15,9 +16,10 @@ type ImportControlOverrides = Partial<
     | "disabled"
   >
 >;
+type PublicImportArgs = Parameters<ImportControlProps["onImport"]>;
 
 function renderImportControl(overrides: ImportControlOverrides = {}) {
-  const props: ComponentProps<typeof LibraryImportControl> = {
+  const props: ImportControlProps = {
     disabled: false,
     transcriptionProfile: "auto",
     scoreEngine: "musescore",
@@ -58,7 +60,9 @@ describe("LibraryImportControl", () => {
 
   it("keeps the public catalog and applies processing choices only after a recording is selected", async () => {
     const user = userEvent.setup();
-    const onImport = vi.fn(async () => undefined);
+    const onImport = vi.fn(
+      async (_recording: PublicImportArgs[0], _processing: PublicImportArgs[1]) => undefined,
+    );
     renderImportControl({ onImport });
 
     await user.click(screen.getByRole("button", { name: "Import audio" }));
