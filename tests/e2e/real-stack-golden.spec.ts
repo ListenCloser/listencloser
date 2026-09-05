@@ -349,7 +349,9 @@ test("real audio golden path", async ({ page }, testInfo) => {
   // ── First-class attached score source ────────────────────────────────
   await test.step("attached MusicXML source", async () => {
     await page.getByRole("tab", { name: "Score" }).click();
+    const positionBeforeOriginalSourceSwap = await transportPosition(page);
     await selectSource(page, "Original");
+    await expectPositionPreserved(page, positionBeforeOriginalSourceSwap);
     const positionBeforeSourceScore = await transportPosition(page);
 
     await attachSourceScore(page);
