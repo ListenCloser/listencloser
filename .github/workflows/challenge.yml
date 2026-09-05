@@ -89,7 +89,7 @@ jobs:
           retention-days: 14
 
   mutation-js:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.probe == 'mutation-js' || inputs.probe == 'all'))
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.probe == 'mutation-js' || inputs.probe == 'all'))
     timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
