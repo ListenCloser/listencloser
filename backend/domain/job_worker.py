@@ -1,25 +1,10 @@
-"""
-Postgres-backed durable job worker loop for listencloser.
+"""Transport-neutral durable job execution for listencloser.
 
-Uses the Supabase ``jobs`` table as the backing store with durable leases.
-Queue execution is at-least-once across worker crashes/recovery, so handlers must
-remain replay-safe/idempotent. No Redis, no Celery — just Postgres and threads.
-
-Lifecycle::
-
-    queued → claimed → running → succeeded
-       │        │                    │
-       │        └─ (expired) → queued (orphan recovery)
-       │                             │
-       └─ failed → queued (retry w/ exponential backoff)
-                     │
-                     └─ failed (retries exhausted)
-
-Usage::
-
-    worker = JobWorker()
-    worker.register("transcribe", "1.0", handle_transcribe)
-    worker.run()   # blocks until stop()
+The queue transport is intentionally outside this module. Production delivery is
+owned by :class:`domain.pgmq_job_worker.PgmqJobWorker`; this class owns only the
+product lifecycle that remains useful regardless of queue implementation:
+handler dispatch, cancellation, progress, cache idempotency, retry policy, and
+worker liveness.
 """
 
 from __future__ import annotations
@@ -31,14 +16,14 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
 from opentelemetry.trace import Status, StatusCode
 
-from observability import get_tracer, record_job_execution, record_orphans_recovered
+from observability import get_tracer, record_job_execution
 
 from .models import Capability, Job, JobLifecycle
 
@@ -83,11 +68,11 @@ def _parse_uuid_list(val: Any) -> list[UUID]:
         return []
     if isinstance(val, list):
         out: list[UUID] = []
-        for v in val:
-            if v is None:
+        for value in val:
+            if value is None:
                 continue
             try:
-                out.append(UUID(str(v)))
+                out.append(UUID(str(value)))
             except (ValueError, AttributeError):
                 continue
         return out
@@ -95,34 +80,21 @@ def _parse_uuid_list(val: Any) -> list[UUID]:
 
 
 class JobWorker:
-    """Durable Postgres-backed job worker.
+    """Execute durable Jobs delivered by a concrete queue transport.
 
-    Claims the oldest ``queued`` row through one Postgres RPC backed by
-    ``FOR UPDATE SKIP LOCKED``, then executes the matching capability handler
-    in a thread pool. Specific-id claims remain conditional and lease-protected.
-
-    Parameters
-    ----------
-    lease_duration_sec:
-        How long a claimed lease lives before it is considered stale.
-    heartbeat_interval_sec:
-        How often the lease is renewed for a running job.
-    poll_interval_sec:
-        How long to sleep between queue polls.
-    max_workers:
-        Maximum number of concurrent handler threads.
+    Subclasses provide ``_receive_next_job`` and ``_heartbeat_delivery``. The
+    base class never claims Jobs, scans for abandoned queue ownership, or renews
+    a Jobs-table transport lease.
     """
 
     def __init__(
         self,
-        lease_duration_sec: float = 30.0,
         heartbeat_interval_sec: float = 10.0,
         poll_interval_sec: float = 1.0,
         max_workers: int = 4,
     ) -> None:
         self._worker_id = str(uuid4())
         self._started_at = datetime.now(UTC)
-        self._lease_duration = lease_duration_sec
         self._heartbeat_interval = heartbeat_interval_sec
         self._poll_interval = poll_interval_sec
         self._max_workers = max_workers
@@ -165,17 +137,9 @@ class JobWorker:
                 extra={"worker_id": self._worker_id, "status": status},
             )
 
-    # ------------------------------------------------------------------
-    # Supabase client (lazy, threadsafe)
-    # ------------------------------------------------------------------
-
     @property
     def client(self) -> Any:
-        """Lazily create and cache the Supabase client (service-role key).
-
-        Reads ``SUPABASE_URL`` and ``SUPABASE_SERVICE_ROLE_KEY`` from the
-        environment, matching the pattern used in ``backend/main.py``.
-        """
+        """Lazily create and cache the Supabase service-role client."""
         if self._client is not None:
             return self._client
         with self._client_lock:
@@ -190,113 +154,29 @@ class JobWorker:
             self._client = create_client(url, key)
             return self._client
 
-    # ------------------------------------------------------------------
-    # Capability registry
-    # ------------------------------------------------------------------
-
     def register(self, name: str, version: str, handler: Callable[..., list[str]]) -> None:
-        """Register a handler for a capability (name + version).
-
-        ``handler(job: Job, client) -> list[str]``
-            Receives the domain ``Job`` and the Supabase client.
-            Must return a list of output version UUID strings.
-        """
+        """Register a capability handler by name and version."""
         key = _capability_key(name, version)
         self._capabilities[key] = handler
         logger.info("capability_registered", extra={"capability": key})
 
     # ------------------------------------------------------------------
-    # Orphan recovery
+    # Queue transport hooks
     # ------------------------------------------------------------------
 
-    def _recover_orphans(self) -> int:
-        """Reset expired claimed/running jobs back to ``queued``.
+    def _receive_next_job(self) -> dict[str, Any] | None:
+        """Return one transport-owned Job delivery, or ``None`` when empty."""
+        raise NotImplementedError
 
-        Finds jobs whose ``lease_expires_at`` is in the past and whose stage is
-        ``claimed`` or ``running``. While this process still has in-flight
-        handlers, its own worker ID is excluded so a transient heartbeat/DB
-        stall cannot make the live process dispatch a second execution of the
-        same job. Once the process drains, normal recovery may reclaim a local
-        row that was genuinely abandoned by a finished handler.
-        """
-        now = datetime.now(UTC).isoformat()
-        with self._in_flight_lock:
-            protect_current_worker = bool(self._in_flight)
-        try:
-            query = (
-                self.client.table("jobs")
-                .update(
-                    {
-                        "stage": "queued",
-                        "worker_id": None,
-                        "lease_expires_at": None,
-                        "status_message": "recovered from orphaned worker",
-                    }
-                )
-                .lt("lease_expires_at", now)
-                .in_("stage", ["claimed", "running"])
-            )
-            if protect_current_worker:
-                query = query.neq("worker_id", self._worker_id)
-            result = query.execute()
-            count = len(result.data) if result.data else 0
-            if count:
-                logger.warning("orphan_recovery", extra={"count": count})
-                record_orphans_recovered(count)
-            return count
-        except Exception:
-            logger.exception("orphan_recovery_failed")
-            return 0
+    def _heartbeat_delivery(self, job_id: str) -> None:
+        """Keep the concrete queue delivery alive while a handler runs."""
+        raise NotImplementedError
 
     # ------------------------------------------------------------------
-    # Lease & lifecycle helpers
+    # Product lifecycle helpers
     # ------------------------------------------------------------------
-
-    def _claim_job(self, job_id: str) -> bool:
-        """Atomically claim a job with ``UPDATE … WHERE stage='queued'``.
-
-        Returns ``True`` if exactly one row was updated (meaning this
-        worker won the race for the job).
-        """
-        expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
-        result = (
-            self.client.table("jobs")
-            .update(
-                {
-                    "stage": "claimed",
-                    "worker_id": self._worker_id,
-                    "lease_expires_at": expires,
-                }
-            )
-            .eq("id", job_id)
-            .eq("stage", "queued")
-            .execute()
-        )
-        return bool(result.data) if result.data is not None else False
-
-    def _claim_next_job(self) -> dict | None:
-        """Atomically claim and return the oldest queued job, if one exists.
-
-        The database function selects and updates one row under
-        ``FOR UPDATE SKIP LOCKED`` so concurrent workers do not all contend for
-        the same queue head.
-        """
-        try:
-            result = self.client.rpc(
-                "claim_next_job",
-                {
-                    "p_worker_id": self._worker_id,
-                    "p_lease_seconds": self._lease_duration,
-                },
-            ).execute()
-            if result.data:
-                return result.data[0]
-        except Exception:
-            logger.exception("claim_next_job_failed", extra={"worker_id": self._worker_id})
-        return None
 
     def _mark_running(self, job_id: str) -> bool:
-        """Transition a claimed job into ``running`` state."""
         now = datetime.now(UTC).isoformat()
         result = (
             self.client.table("jobs")
@@ -308,15 +188,7 @@ class JobWorker:
         )
         return bool(result.data) if result.data is not None else False
 
-    def _renew_lease(self, job_id: str) -> None:
-        """Extend the lease on a running job (heartbeat)."""
-        expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
-        self.client.table("jobs").update({"lease_expires_at": expires}).eq("id", job_id).eq(
-            "worker_id", self._worker_id
-        ).eq("stage", "running").execute()
-
     def _mark_succeeded(self, job_id: str, output_version_ids: list[str]) -> None:
-        """Mark a job as successfully completed."""
         now = datetime.now(UTC).isoformat()
         self.client.table("jobs").update(
             {
@@ -325,7 +197,6 @@ class JobWorker:
                 "status_message": "completed",
                 "output_version_ids": output_version_ids,
                 "completed_at": now,
-                "lease_expires_at": None,
             }
         ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "running").execute()
 
@@ -336,7 +207,6 @@ class JobWorker:
         error_message: str,
         error_details: dict,
     ) -> None:
-        """Send a failed job back to ``queued`` for retry."""
         self.client.table("jobs").update(
             {
                 "stage": "queued",
@@ -344,14 +214,12 @@ class JobWorker:
                 "error_message": error_message,
                 "error_details": error_details,
                 "worker_id": None,
-                "lease_expires_at": None,
                 "progress": 0.0,
                 "status_message": f"retry {retry_count}",
             }
         ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "running").execute()
 
     def _mark_failed(self, job_id: str, error_message: str, error_details: dict) -> None:
-        """Mark a job as permanently failed (retries exhausted)."""
         now = datetime.now(UTC).isoformat()
         self.client.table("jobs").update(
             {
@@ -359,16 +227,11 @@ class JobWorker:
                 "error_message": error_message,
                 "error_details": error_details,
                 "completed_at": now,
-                "lease_expires_at": None,
             }
         ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "running").execute()
 
-    # ------------------------------------------------------------------
-    # Cancellation check
-    # ------------------------------------------------------------------
-
     def _check_cancelled(self, job_id: str) -> bool:
-        """Return ``True`` if the job has been externally set to ``cancelled``."""
+        """Return whether product policy has externally cancelled the Job."""
         try:
             result = self.client.table("jobs").select("stage").eq("id", job_id).execute()
             if result.data:
@@ -377,12 +240,7 @@ class JobWorker:
             logger.exception("cancel_check_failed", extra={"job_id": job_id})
         return False
 
-    # ------------------------------------------------------------------
-    # Idempotency
-    # ------------------------------------------------------------------
-
     def _check_cache_hit(self, job_row: dict) -> bool:
-        """Return whether a succeeded job already owns this cache key."""
         cache_key = job_row.get("cache_key")
         if not cache_key:
             return False
@@ -400,13 +258,6 @@ class JobWorker:
             return False
 
     def _cached_output_version_ids(self, job_row: dict) -> list[str] | None:
-        """Return outputs from the canonical succeeded job for this cache key.
-
-        The oldest succeeded Job is the original computation rather than a
-        later duplicate that may itself have been completed through the cache
-        path. ``None`` means the confirmed cache result disappeared before the
-        output lookup; an empty list is a valid cached result.
-        """
         cache_key = job_row.get("cache_key")
         if not cache_key:
             return None
@@ -427,16 +278,8 @@ class JobWorker:
             logger.exception("cache_output_lookup_failed")
             return None
 
-    # ------------------------------------------------------------------
-    # Progress updates (public — called by handlers)
-    # ------------------------------------------------------------------
-
     def update_progress(self, job_id: str, progress: float, message: str = "") -> None:
-        """Update the progress and status message of a running job.
-
-        Safe to call from capability handlers during long-running work.
-        ``progress`` is clamped to **[0.0, 1.0]**.
-        """
+        """Update product-visible progress for a running Job."""
         clamped = max(0.0, min(1.0, float(progress)))
         try:
             self.client.table("jobs").update({"progress": clamped, "status_message": message}).eq(
@@ -445,12 +288,7 @@ class JobWorker:
         except Exception:
             logger.exception("update_progress_failed", extra={"job_id": job_id})
 
-    # ------------------------------------------------------------------
-    # DB row → domain model
-    # ------------------------------------------------------------------
-
     def _row_to_job(self, row: dict) -> Job:
-        """Map a raw ``jobs`` table row dict to a ``Job`` domain model."""
         lifecycle = JobLifecycle(
             current=row.get("stage", "queued"),
             progress=float(row.get("progress", 0.0)),
@@ -461,12 +299,10 @@ class JobWorker:
             started_at=_parse_datetime(row.get("started_at")),
             completed_at=_parse_datetime(row.get("completed_at")),
         )
-
         capability = Capability(
             name=row.get("capability_name", ""),
             version=row.get("capability_version", ""),
         )
-
         return Job(
             id=UUID(str(row["id"])),
             workflow_id=UUID(str(row["workflow_id"])),
@@ -483,68 +319,23 @@ class JobWorker:
             created_by=row.get("created_by"),
         )
 
-    # ------------------------------------------------------------------
-    # Polling
-    # ------------------------------------------------------------------
-
-    def _poll_jobs(self) -> dict | None:
-        """Return the oldest ``queued`` job row, or ``None`` if the queue
-        is empty."""
-        try:
-            result = (
-                self.client.table("jobs")
-                .select("*")
-                .eq("stage", "queued")
-                .order("created_at", desc=False)
-                .limit(1)
-                .execute()
-            )
-            if result.data:
-                return result.data[0]
-        except Exception:
-            logger.exception("poll_failed")
-        return None
-
-    # ------------------------------------------------------------------
-    # Single-job execution (runs in a thread-pool worker)
-    # ------------------------------------------------------------------
-
-    def _execute_job(self, job_row: dict, *, already_claimed: bool = False) -> None:
-        """Claim, validate, and run a single job inside the current thread."""
-        job_id: str = str(job_row["id"])
+    def _execute_job(self, job_row: dict) -> None:
+        """Validate and execute one Job already owned by the queue transport."""
+        job_id = str(job_row["id"])
         cap_name = job_row.get("capability_name", "")
         cap_version = job_row.get("capability_version", "")
         cap_key = _capability_key(cap_name, cap_version)
 
-        # --- Atomic claim ---
-        with _tracer.start_as_current_span(
-            "job.claim",
-            attributes={
-                "job_id": job_id,
-                "job_kind": cap_key,
-            },
-        ) as claim_span:
-            if not already_claimed and not self._claim_job(job_id):
-                claim_span.set_attribute("claim.success", False)
-                logger.debug("claim_lost", extra={"job_id": job_id})
-                return
-            claim_span.set_attribute("claim.success", True)
-
-        # --- Defensive cancellation check ---
         if self._check_cancelled(job_id):
-            logger.info("job_cancelled_after_claim", extra={"job_id": job_id})
+            logger.info("job_cancelled_after_receive", extra={"job_id": job_id})
             return
 
-        # --- Idempotency check (only after this worker owns the lease) ---
         if self._check_cache_hit(job_row):
             cached_output_version_ids = self._cached_output_version_ids(job_row)
             if cached_output_version_ids is not None:
                 logger.info(
                     "cache_hit_skip",
-                    extra={
-                        "job_id": job_id,
-                        "cache_key": job_row.get("cache_key"),
-                    },
+                    extra={"job_id": job_id, "cache_key": job_row.get("cache_key")},
                 )
                 now = datetime.now(UTC).isoformat()
                 self.client.table("jobs").update(
@@ -554,7 +345,6 @@ class JobWorker:
                         "status_message": "cache hit: duplicate job skipped",
                         "output_version_ids": cached_output_version_ids,
                         "completed_at": now,
-                        "lease_expires_at": None,
                     }
                 ).eq("id", job_id).eq("worker_id", self._worker_id).eq("stage", "claimed").execute()
                 return
@@ -563,33 +353,16 @@ class JobWorker:
                 extra={"job_id": job_id, "cache_key": job_row.get("cache_key")},
             )
 
-        # --- Transition to running ---
         if not self._mark_running(job_id):
-            logger.info(
-                "job_state_changed_before_run",
-                extra={"job_id": job_id},
-            )
+            logger.info("job_state_changed_before_run", extra={"job_id": job_id})
             return
 
-        # --- Resolve handler ---
-        cap_name = job_row.get("capability_name", "")
-        cap_version = job_row.get("capability_version", "")
-        cap_key = _capability_key(cap_name, cap_version)
         handler = self._capabilities.get(cap_key)
-
         if handler is None:
-            self._mark_failed(
-                job_id,
-                f"No handler registered for capability '{cap_key}'",
-                {},
-            )
-            logger.error(
-                "handler_not_found",
-                extra={"job_id": job_id, "capability": cap_key},
-            )
+            self._mark_failed(job_id, f"No handler registered for capability '{cap_key}'", {})
+            logger.error("handler_not_found", extra={"job_id": job_id, "capability": cap_key})
             return
 
-        # --- Build domain Job object ---
         try:
             job_obj = self._row_to_job(job_row)
         except Exception as exc:
@@ -597,7 +370,6 @@ class JobWorker:
             self._mark_failed(job_id, f"Failed to parse job row into Job model: {exc}", {})
             return
 
-        # --- Heartbeat thread ---
         heartbeat_stop = threading.Event()
 
         def _heartbeat_loop() -> None:
@@ -607,14 +379,13 @@ class JobWorker:
                         logger.info("cancelled_during_run", extra={"job_id": job_id})
                         heartbeat_stop.set()
                         return
-                    self._renew_lease(job_id)
+                    self._heartbeat_delivery(job_id)
                 except Exception:
-                    logger.exception("heartbeat_failed", extra={"job_id": job_id})
+                    logger.exception("delivery_heartbeat_failed", extra={"job_id": job_id})
 
         heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
         heartbeat_thread.start()
 
-        # --- Execute handler ---
         execution_started = time.perf_counter()
         with _tracer.start_as_current_span(
             "job.execute",
@@ -627,17 +398,12 @@ class JobWorker:
         ) as execute_span:
             try:
                 output_vals = handler(job_obj, self.client)
-
                 if not isinstance(output_vals, list):
                     output_vals = list(output_vals) if output_vals else []
-
                 output_version_ids = [str(oid) for oid in output_vals]
                 if self._check_cancelled(job_id):
                     execute_span.set_attribute("job.cancelled", True)
-                    logger.info(
-                        "job_cancelled_before_completion",
-                        extra={"job_id": job_id},
-                    )
+                    logger.info("job_cancelled_before_completion", extra={"job_id": job_id})
                     return
                 self._mark_succeeded(job_id, output_version_ids)
                 record_job_execution(
@@ -648,26 +414,16 @@ class JobWorker:
                 execute_span.set_attribute("job.success", True)
                 execute_span.set_attribute("output_version_count", len(output_version_ids))
                 logger.info("job_succeeded", extra={"job_id": job_id})
-
             except Exception as exc:
                 execute_span.set_attribute("job.success", False)
                 execute_span.record_exception(exc)
                 execute_span.set_status(Status(StatusCode.ERROR, str(exc)))
                 logger.exception("job_handler_failed", extra={"job_id": job_id})
 
-                # User-facing error text must never leak raw database exceptions
-                # (e.g. Postgres constraint details). The full traceback is already
-                # in the logs and the raw exception is preserved in error_details
-                # for diagnostics.
                 error_message = "Processing could not be completed. Retry processing."
-                error_details = {
-                    "exception": str(exc),
-                    "type": type(exc).__name__,
-                }
-
+                error_details = {"exception": str(exc), "type": type(exc).__name__}
                 retry_count = int(job_row.get("retry_count", 0)) + 1
                 max_retries = int(job_row.get("max_retries", 3))
-
                 cancelled = self._check_cancelled(job_id)
                 outcome = (
                     "cancelled"
@@ -683,10 +439,7 @@ class JobWorker:
                 )
 
                 if cancelled:
-                    logger.info(
-                        "job_cancelled_after_handler_error",
-                        extra={"job_id": job_id},
-                    )
+                    logger.info("job_cancelled_after_handler_error", extra={"job_id": job_id})
                 elif retry_count <= max_retries:
                     delay = 2**retry_count
                     logger.info(
@@ -703,30 +456,12 @@ class JobWorker:
                 else:
                     self._mark_failed(job_id, error_message, error_details)
                     logger.info("job_exhausted_retries", extra={"job_id": job_id})
-
             finally:
                 heartbeat_stop.set()
                 heartbeat_thread.join(timeout=5.0)
 
-    # ------------------------------------------------------------------
-    # Main loop
-    # ------------------------------------------------------------------
-
     def run(self) -> None:
-        """Start the worker loop.  Blocks until :meth:`stop` is called.
-
-        Performs orphan recovery on startup and once per lease duration, then
-        polls for queued jobs every ``poll_interval_sec`` and dispatches them
-        to a thread pool. Periodic recovery prevents a later worker crash from
-        leaving queue health degraded until the next deploy or restart.
-        Drains in-flight jobs on shutdown.
-
-        Raises
-        ------
-        RuntimeError
-            If ``SUPABASE_URL`` or ``SUPABASE_SERVICE_ROLE_KEY`` are not set.
-        """
-        self._recover_orphans()
+        """Run the transport-backed worker until :meth:`stop` is called."""
         self._running = True
         self._heartbeat_worker()
         logger.info(
@@ -740,7 +475,6 @@ class JobWorker:
 
         executor = ThreadPoolExecutor(max_workers=self._max_workers)
         last_heartbeat = time.monotonic()
-        last_orphan_recovery = time.monotonic()
         try:
             while self._running:
                 if self._stop_event.is_set():
@@ -749,12 +483,12 @@ class JobWorker:
 
                 with self._in_flight_lock:
                     has_capacity = len(self._in_flight) < self._max_workers
-                job_row = self._claim_next_job() if has_capacity else None
+                job_row = self._receive_next_job() if has_capacity else None
                 if job_row is not None:
                     job_id = str(job_row["id"])
                     with self._in_flight_lock:
                         self._in_flight.add(job_id)
-                    future = executor.submit(self._execute_job, job_row, already_claimed=True)
+                    future = executor.submit(self._execute_job, job_row)
 
                     def release_slot(_future, completed_job_id=job_id) -> None:
                         with self._in_flight_lock:
@@ -766,9 +500,6 @@ class JobWorker:
                 if now - last_heartbeat >= 10.0:
                     self._heartbeat_worker()
                     last_heartbeat = now
-                if now - last_orphan_recovery >= self._lease_duration:
-                    self._recover_orphans()
-                    last_orphan_recovery = now
 
                 self._stop_event.wait(self._poll_interval)
 
@@ -784,20 +515,9 @@ class JobWorker:
             raise
 
     def stop(self) -> None:
-        """Signal the worker to finish the current job and exit gracefully.
-
-        Safe to call from any thread.  The main loop will complete the
-        in-progress job, drain the thread pool, and return.
-        """
         logger.info("worker_stop_requested", extra={"worker_id": self._worker_id})
         self._stop_event.set()
 
 
-# ------------------------------------------------------------------
-# Internal helpers
-# ------------------------------------------------------------------
-
-
 def _capability_key(name: str, version: str) -> str:
-    """Build the registry key for a capability name + version pair."""
     return f"{name}:{version}"
