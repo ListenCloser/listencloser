@@ -63,6 +63,7 @@ describe("AddAnalysis", () => {
 
     expect(screen.getByText("Structure Map")).toBeInTheDocument();
     expect(screen.getByText("Changes")).toBeInTheDocument();
+    expect(screen.getAllByRole("region", { name: "Add analysis" })).toHaveLength(1);
     expect(screen.getAllByText("Experimental")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
