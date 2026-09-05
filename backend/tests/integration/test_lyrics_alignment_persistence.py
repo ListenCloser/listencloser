@@ -21,7 +21,14 @@ from domain.models import (
     Workflow,
     WorkflowKind,
 )
-from domain.repositories import ArtifactRepo, JobRepo, ProjectRepo, VersionRepo, WorkflowRepo, WorkRepo
+from domain.repositories import (
+    ArtifactRepo,
+    JobRepo,
+    ProjectRepo,
+    VersionRepo,
+    WorkflowRepo,
+    WorkRepo,
+)
 
 OWNER_ID = "00000000-0000-4000-8000-000000000181"
 pytestmark = pytest.mark.real_stack
