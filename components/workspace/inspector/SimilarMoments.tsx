@@ -97,6 +97,7 @@ export default function SimilarMoments() {
     const requestGeneration = generation.current + 1;
     generation.current = requestGeneration;
     const isCurrentRequest = () => generation.current === requestGeneration;
+    let preparingDependency = false;
     setQueryRange(captured);
     setResult(null);
     setErrorMessage(null);
@@ -110,6 +111,7 @@ export default function SimilarMoments() {
       // implementation dependency rather than a product concept. Prepare it on
       // demand instead of asking the user to discover and run an internal job.
       if (response.status === "unavailable") {
+        preparingDependency = true;
         setRequestState("preparing");
         const bundle = await getWorkBundle(workId);
         if (!isCurrentRequest()) return;
@@ -131,7 +133,7 @@ export default function SimilarMoments() {
       if (!isCurrentRequest()) return;
       setRequestState("error");
       setErrorMessage(
-        requestState === "preparing"
+        preparingDependency
           ? "Similarity analysis could not be prepared. Try again."
           : "Similar moments could not be loaded. Try again.",
       );
