@@ -55,7 +55,7 @@ jobs:
             exit 1
           fi
 
-          npm run api:check
           git add openapi/openapi.json lib/api-types.ts .github/workflows/repair-1227-api-contract.yml
           git commit -m "chore(api): regenerate queue health contract"
+          npm run api:check
           git push origin HEAD:fix/651-pgmq-telemetry-cleanup
