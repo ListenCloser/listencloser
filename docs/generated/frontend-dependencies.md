@@ -130,10 +130,7 @@ components_AuthProvider_tsx-->lib_musicxml_cache_ts
 components_AuthProvider_tsx-->lib_supabase_ts
 components_MSWInit_tsx-->app__test_support_
 components_QueryProvider_tsx-->lib_query_client_ts
-components_SheetMusic_tsx-->lib_analysis_annotations_ts
-components_SheetMusic_tsx-->lib_measure_ts
-components_SheetMusic_tsx-->lib_score_measure_geometry_ts
-components_SheetMusic_tsx-->lib_score_note_playback_ts
+components_SheetMusic_tsx-->components_workspace_
 components_workspace_-->components_AuthProvider_tsx
 components_workspace_-->lib_api_client_ts
 components_workspace_-->lib_format_ts
@@ -168,6 +165,9 @@ components_workspace_-->lib_color_ts
 components_workspace_-->lib_spectrogram_ts
 components_workspace_-->lib_spectrogram_data_ts
 components_workspace_-->lib_audio_buffer_cache_ts
+components_workspace_-->lib_measure_ts
+components_workspace_-->lib_score_measure_geometry_ts
+components_workspace_-->lib_score_note_playback_ts
 components_workspace_-->lib_melody_playback_client_ts
 components_workspace_-->lib_melody_reduction_ts
 components_workspace_-->lib_structure_map_client_ts

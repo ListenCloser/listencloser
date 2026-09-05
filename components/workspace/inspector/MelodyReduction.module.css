@@ -1,54 +1,42 @@
 .reduction {
   display: grid;
-  gap: 0.45rem;
-  padding: 0.5rem 0.1rem 0.6rem;
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-3);
+  border-bottom: 1px solid var(--line-subtle);
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  min-height: 28px;
+  gap: var(--space-3);
+  min-height: var(--control-height-compact);
 }
 
 .heading {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .heading strong {
-  font-size: 0.84rem;
-  font-weight: 650;
+  color: var(--text-primary);
+  font-size: var(--type-base);
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
 }
 
 .count {
-  color: var(--muted);
-  font-size: 0.68rem;
-}
-
-.qualifier {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 0.12rem 0.42rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--panel-2);
-  color: var(--muted);
-  font-size: 0.64rem;
-  line-height: 1;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
 }
 
 .object {
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel-2);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
 }
 
 .object svg {
@@ -58,13 +46,16 @@
 }
 
 .melodyNote {
-  fill: var(--accent);
+  fill: var(--action-primary);
   fill-opacity: 0.72;
-  stroke: var(--accent);
+  stroke: var(--action-primary);
   stroke-width: 0.7px;
   stroke-opacity: 0.38;
   cursor: pointer;
-  transition: fill-opacity 120ms ease, stroke-width 120ms ease, stroke-opacity 120ms ease;
+  transition:
+    fill-opacity var(--motion-duration-fast) var(--motion-ease-standard),
+    stroke-width var(--motion-duration-fast) var(--motion-ease-standard),
+    stroke-opacity var(--motion-duration-fast) var(--motion-ease-standard);
 }
 
 .melodyNote:hover,
@@ -92,10 +83,10 @@
 }
 
 .timeLabel {
-  fill: var(--muted);
+  fill: var(--text-tertiary);
   font-family: var(--font-mono);
   font-size: 7px;
-  opacity: 0.58;
+  opacity: 0.72;
   pointer-events: none;
 }
 
@@ -103,105 +94,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  min-height: 28px;
-}
-
-.playAction,
-.aboutButton {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-.playAction {
-  gap: 0.32rem;
-  min-height: 28px;
-  margin-left: -0.35rem;
-  padding: 0.2rem 0.35rem;
-  border-radius: 5px;
-  color: var(--text);
-  font-size: 0.7rem;
-  font-weight: 560;
-}
-
-.playAction svg {
-  width: 13px;
-  height: 13px;
-}
-
-.playAction:hover:not(:disabled),
-.playAction:focus-visible:not(:disabled) {
-  background: var(--panel-2);
-}
-
-.playAction:focus-visible,
-.aboutButton:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.playAction:disabled {
-  color: var(--muted);
-  cursor: default;
+  gap: var(--space-3);
+  min-height: var(--control-height-compact);
 }
 
 .about {
-  position: relative;
-}
-
-.aboutButton {
-  gap: 0.2rem;
-  padding: 0.15rem 0;
-  color: var(--muted);
-  font-size: 0.66rem;
-}
-
-.aboutButton:hover,
-.aboutButton:focus-visible {
-  color: var(--text);
-}
-
-.chevron,
-.chevronOpen {
-  width: 14px;
-  height: 14px;
-  transition: transform 120ms ease;
-}
-
-.chevronOpen {
-  transform: rotate(180deg);
-}
-
-.detailsPanel {
-  padding: 0.15rem 0 0.1rem;
-  font-size: 0.68rem;
+  margin-left: auto;
 }
 
 .detailsPanel dl {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
-  gap: 0.28rem 0.65rem;
+  gap: var(--space-1) var(--space-3);
   margin: 0;
 }
 
 .detailsPanel dt {
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 
 .detailsPanel dd {
   margin: 0;
   overflow-wrap: anywhere;
-}
-
-.auditionError {
-  margin: -0.1rem 0 0;
-  color: var(--muted);
-  font-size: 0.66rem;
 }
 
 @media (max-width: 720px) {
@@ -211,10 +125,15 @@
 
   .detailsPanel dl {
     grid-template-columns: 1fr;
-    gap: 0.08rem;
   }
 
   .detailsPanel dd + dt {
-    margin-top: 0.35rem;
+    margin-top: var(--space-1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .melodyNote {
+    transition: none;
   }
 }

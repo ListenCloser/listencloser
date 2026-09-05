@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import Button, { IconButton } from "@/components/ui/Button";
+import { CloseIcon, LoopIcon, PauseIcon, PlayIcon } from "@/components/ui/Icons";
 import ListboxMenu from "@/components/ui/ListboxMenu";
 import Tooltip from "@/components/ui/Tooltip";
 import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
@@ -43,9 +45,9 @@ function CompareTransportControl() {
       : "A second playback source is required";
     return (
       <Tooltip content={help}>
-        <button
-          type="button"
-          className="transport-compare-trigger"
+        <Button
+          variant="ghost"
+          size="compact"
           disabled={!original || !defaultB}
           aria-label={!original || !defaultB ? "Compare unavailable: a second playback source is required" : undefined}
           onClick={() => {
@@ -53,7 +55,7 @@ function CompareTransportControl() {
           }}
         >
           Compare
-        </button>
+        </Button>
       </Tooltip>
     );
   }
@@ -66,14 +68,14 @@ function CompareTransportControl() {
         return (
           <div key={side} className={`transport-compare-side${activeSide === side ? " active" : ""}`}>
             <Tooltip content={`Listen to compare side ${side}`}>
-              <button
-                type="button"
-                className="transport-compare-side-label"
+              <Button
+                variant="ghost"
+                size="compact"
                 aria-pressed={activeSide === side}
                 onClick={() => setCompareSide(side)}
               >
                 {side}
-              </button>
+              </Button>
             </Tooltip>
             <ListboxMenu
               compact
@@ -92,11 +94,9 @@ function CompareTransportControl() {
         );
       })}
       <Tooltip content="Exit compare mode">
-        <button type="button" className="transport-compare-exit" onClick={exitCompare} aria-label="Exit compare">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-            <path d="M2 2l8 8M10 2l-8 8" />
-          </svg>
-        </button>
+        <IconButton compact variant="ghost" onClick={exitCompare} aria-label="Exit compare">
+          <CloseIcon />
+        </IconButton>
       </Tooltip>
     </div>
   );
@@ -182,19 +182,14 @@ export default function TransportBar() {
 
       <div className="transport-playback-zone">
         <Tooltip content={playbackActionLabel}>
-          <button
-            type="button"
-            className="transport-play-btn"
+          <IconButton
+            variant="secondary"
             onClick={toggle}
             aria-label={playbackActionLabel}
             disabled={!hasSource}
           >
-            {isPlaying ? (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="4" height="12" rx="1" /><rect x="9" y="1" width="4" height="12" rx="1" /></svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M2.5 1.5v11l10-5.5z" /></svg>
-            )}
-          </button>
+            {isPlaying ? <PauseIcon /> : <PlayIcon />}
+          </IconButton>
         </Tooltip>
         <span className="transport-time">{formatTime(position)}</span>
         <input
@@ -210,9 +205,8 @@ export default function TransportBar() {
         />
         <span className="transport-time transport-time-muted">{formatTime(duration)}</span>
         <Tooltip content={loopHelp}>
-          <button
-            type="button"
-            className={`transport-ctrl transport-ctrl-labeled${loopEnabled ? " active" : ""}`}
+          <Button
+            variant="ghost"
             onClick={() => {
               if (!selectionTimeRange || !domainMatches) return;
               if (loopEnabled) {
@@ -226,11 +220,9 @@ export default function TransportBar() {
             aria-pressed={loopEnabled}
             disabled={!hasSource || !selectionTimeRange || !domainMatches}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M11 3h3v3" /><path d="M14 3l-3.25 3.25" /><path d="M5 13H2v-3" /><path d="M2 13l3.25-3.25" /><path d="M13.5 6A5.5 5.5 0 0 0 4 3.75" /><path d="M2.5 10A5.5 5.5 0 0 0 12 12.25" />
-            </svg>
+            <LoopIcon />
             <span className="transport-ctrl-text">Loop</span>
-          </button>
+          </Button>
         </Tooltip>
       </div>
 

@@ -1,6 +1,9 @@
 "use client";
 
+import Button from "@/components/ui/Button";
+import SelectField from "@/components/ui/SelectField";
 import type { ScoreDisplaySelection, ScoreSourceOption } from "@/lib/score-sources";
+import styles from "./ScoreSourceControl.module.css";
 
 function selectionValue(selection: ScoreDisplaySelection): string {
   if (!selection) return "";
@@ -27,16 +30,10 @@ export default function ScoreSourceControl({
   onAttach: () => void;
 }) {
   return (
-    <div
-      aria-label="Score controls"
-      style={{ display: "grid", gap: "var(--s-2)" }}
-    >
-      <label
-        className="muted"
-        style={{ display: "grid", gap: "6px", fontSize: "var(--fs-xs)" }}
-      >
+    <div aria-label="Score controls" className={styles.root}>
+      <label className={styles.field}>
         <span>Score source</span>
-        <select
+        <SelectField
           aria-label="Score source"
           value={selectionValue(selection)}
           disabled={disabled}
@@ -61,11 +58,9 @@ export default function ScoreSourceControl({
             <option value="engine:musescore">MuseScore</option>
             <option value="engine:pm2s">PM2S · MuseScore import</option>
           </optgroup>
-        </select>
+        </SelectField>
       </label>
-      <button type="button" className="btn" disabled={attachDisabled} onClick={onAttach}>
-        Attach score
-      </button>
+      <Button fullWidth disabled={attachDisabled} onClick={onAttach}>Attach score</Button>
     </div>
   );
 }

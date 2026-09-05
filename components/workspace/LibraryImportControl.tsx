@@ -1,24 +1,24 @@
 "use client";
 
-import {
-  Dialog,
-  DialogBackdrop,
-  DialogPanel,
-  DialogTitle,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuItems,
-} from "@headlessui/react";
 import { useMemo, useState } from "react";
-
+import Button, { IconButton } from "@/components/ui/Button";
+import Dialog, {
+  DialogBody,
+  DialogFooter,
+  DialogHeader,
+  DialogHeading,
+} from "@/components/ui/Dialog";
+import { CloseIcon, PlusIcon } from "@/components/ui/Icons";
+import InlineNotice from "@/components/ui/InlineNotice";
+import { Menu, MenuButton, MenuItem, MenuItems } from "@/components/ui/Menu";
+import SegmentedControl from "@/components/ui/SegmentedControl";
+import TextField from "@/components/ui/TextField";
 import ScoreSourceControl from "@/components/workspace/ScoreSourceControl";
 import {
   filterPublicRecordings,
   type PublicRecording,
 } from "@/lib/public-recordings";
 import { useWorkspace, type ScoreEngine, type TranscriptionProfile } from "@/lib/stores/workspace";
-
 import styles from "./LibraryImportControl.module.css";
 
 export type ImportProcessingConfig = {
@@ -134,51 +134,26 @@ export default function LibraryImportControl({
 
   return (
     <div className={styles.root}>
-      <Menu as="div" className={styles.menu}>
+      <Menu>
         <MenuButton
-          className="library-import-btn"
           disabled={disabled}
           aria-label="Import audio"
           aria-busy={busy || undefined}
           aria-describedby={statusId}
         >
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-            <path d="M7.5 2v11M2 7.5h11" />
-          </svg>
+          <PlusIcon />
           <span>Import</span>
         </MenuButton>
-        <MenuItems className={styles.menuItems}>
-          <MenuItem>
-            <button type="button" className={styles.menuItem} onClick={() => openProcessing({ kind: "upload" })}>
-              Upload recording
-            </button>
-          </MenuItem>
-          <MenuItem>
-            <button type="button" className={styles.menuItem} onClick={openPublicLibrary}>
-              Public recordings
-            </button>
-          </MenuItem>
+        <MenuItems>
+          <MenuItem onClick={() => openProcessing({ kind: "upload" })}>Upload recording</MenuItem>
+          <MenuItem onClick={openPublicLibrary}>Public recordings</MenuItem>
           {workspace.activeWorkId && (
             <>
-              <MenuItem>
-                <button
-                  type="button"
-                  className={styles.menuItem}
-                  disabled={!canManageScoreSources || disabled}
-                  onClick={requestAttachScore}
-                >
-                  Attach MusicXML score
-                </button>
+              <MenuItem disabled={!canManageScoreSources || disabled} onClick={requestAttachScore}>
+                Attach MusicXML score
               </MenuItem>
-              <MenuItem>
-                <button
-                  type="button"
-                  className={styles.menuItem}
-                  disabled={!canManageScoreSources}
-                  onClick={() => setScoreSourcesOpen(true)}
-                >
-                  Choose score source
-                </button>
+              <MenuItem disabled={!canManageScoreSources} onClick={() => setScoreSourcesOpen(true)}>
+                Choose score source
               </MenuItem>
             </>
           )}
@@ -191,198 +166,121 @@ export default function LibraryImportControl({
           if (!importingId) setPublicOpen(false);
         }}
       >
-        <DialogBackdrop className={styles.backdrop} />
-        <div className={styles.dialogWrap}>
-          <DialogPanel className={styles.dialog}>
-            <div className={styles.dialogHeader}>
-              <div>
-                <DialogTitle className={styles.dialogTitle}>Public recordings</DialogTitle>
-                <p className={styles.dialogDescription}>Freely reusable recordings from Wikimedia Commons.</p>
-              </div>
-              <button
-                type="button"
-                className={styles.closeButton}
-                onClick={() => setPublicOpen(false)}
-                disabled={Boolean(importingId)}
-                aria-label="Close public recordings"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className={styles.searchWrap}>
-              <label className="sr-only" htmlFor="public-recording-search">Search public recordings</label>
-              <input
-                id="public-recording-search"
-                className={styles.search}
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search recordings"
-                autoComplete="off"
-              />
-            </div>
-
-            <div className={styles.list} aria-live="polite">
-              {error && <div className={styles.error} role="alert">{error}</div>}
-              {recordings.length === 0 ? (
-                <div className={styles.empty}>No recordings match that search.</div>
-              ) : recordings.map((recording) => (
-                <article className={styles.recording} key={recording.id}>
-                  <div className={styles.recordingCopy}>
-                    <div className={styles.recordingHeading}>
-                      <span className={styles.recordingTitle}>{recording.title}</span>
-                      <span className={styles.recordingStyle}>{recording.style}</span>
-                    </div>
-                    <div className={styles.recordingCreator}>{recording.creator}</div>
-                    <div className={styles.recordingMeta}>
-                      <span>{formatDuration(recording.durationSeconds)}</span>
-                      <span>~{formatBytes(recording.estimatedBytes)}</span>
-                      <a href={recording.licenseUrl} target="_blank" rel="noreferrer">{recording.licenseLabel}</a>
-                      <a href={recording.sourcePageUrl} target="_blank" rel="noreferrer">Source</a>
-                    </div>
+        <DialogHeader>
+          <DialogHeading title="Public recordings" description="Freely reusable recordings from Wikimedia Commons." />
+          <IconButton variant="ghost" onClick={() => setPublicOpen(false)} disabled={Boolean(importingId)} aria-label="Close public recordings">
+            <CloseIcon />
+          </IconButton>
+        </DialogHeader>
+        <DialogBody className={styles.publicBody}>
+          <label className="sr-only" htmlFor="public-recording-search">Search public recordings</label>
+          <TextField
+            id="public-recording-search"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search recordings"
+            autoComplete="off"
+          />
+          <div className={styles.list} aria-live="polite">
+            {error && <InlineNotice tone="danger" role="alert">{error}</InlineNotice>}
+            {recordings.length === 0 ? (
+              <div className={styles.empty}>No recordings match that search.</div>
+            ) : recordings.map((recording) => (
+              <article className={styles.recording} key={recording.id}>
+                <div className={styles.recordingCopy}>
+                  <div className={styles.recordingHeading}>
+                    <span className={styles.recordingTitle}>{recording.title}</span>
+                    <span className={styles.recordingStyle}>{recording.style}</span>
                   </div>
-                  <button
-                    type="button"
-                    className={styles.importButton}
-                    disabled={Boolean(importingId)}
-                    onClick={() => {
-                      setPublicOpen(false);
-                      openProcessing({ kind: "public", recording });
-                    }}
-                  >
-                    Import
-                  </button>
-                </article>
-              ))}
-            </div>
-          </DialogPanel>
-        </div>
+                  <div className={styles.recordingCreator}>{recording.creator}</div>
+                  <div className={styles.recordingMeta}>
+                    <span>{formatDuration(recording.durationSeconds)}</span>
+                    <span>~{formatBytes(recording.estimatedBytes)}</span>
+                    <a href={recording.licenseUrl} target="_blank" rel="noreferrer">{recording.licenseLabel}</a>
+                    <a href={recording.sourcePageUrl} target="_blank" rel="noreferrer">Source</a>
+                  </div>
+                </div>
+                <Button
+                  size="compact"
+                  disabled={Boolean(importingId)}
+                  onClick={() => {
+                    setPublicOpen(false);
+                    openProcessing({ kind: "public", recording });
+                  }}
+                >
+                  Import
+                </Button>
+              </article>
+            ))}
+          </div>
+        </DialogBody>
       </Dialog>
 
-      <Dialog open={Boolean(importIntent)} onClose={closeProcessing} className={styles.dialogWrap}>
-        <DialogBackdrop className={styles.backdrop} />
-        <div className={styles.dialogWrap}>
-          <DialogPanel className={`${styles.dialog} ${styles.processingDialog}`}>
-            <div className={styles.dialogHeader}>
-              <div>
-                <DialogTitle className={styles.dialogTitle}>Process recording</DialogTitle>
-                <p className={styles.dialogDescription}>Choose how this recording should be transcribed and scored.</p>
-              </div>
-              <button
-                type="button"
-                className={styles.closeButton}
-                onClick={closeProcessing}
-                disabled={processingBusy}
-                aria-label="Close processing options"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className={styles.processingBody}>
-              <div className={styles.processingGroup}>
-                <span className={styles.processingLabel}>Transcription</span>
-                <div className={styles.segmented} role="group" aria-label="Transcription mode">
-                  <button
-                    type="button"
-                    className={styles.segment}
-                    aria-pressed={draftTranscriptionProfile === "auto"}
-                    data-selected={draftTranscriptionProfile === "auto" || undefined}
-                    onClick={() => setDraftTranscriptionProfile("auto")}
-                  >
-                    Auto
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.segment}
-                    aria-pressed={draftTranscriptionProfile === "solo_piano"}
-                    data-selected={draftTranscriptionProfile === "solo_piano" || undefined}
-                    onClick={() => setDraftTranscriptionProfile("solo_piano")}
-                  >
-                    Solo piano
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.processingGroup}>
-                <span className={styles.processingLabel}>Score</span>
-                <div className={styles.segmented} role="group" aria-label="Score reconstruction engine">
-                  <button
-                    type="button"
-                    className={styles.segment}
-                    aria-pressed={draftScoreEngine === "musescore"}
-                    data-selected={draftScoreEngine === "musescore" || undefined}
-                    onClick={() => setDraftScoreEngine("musescore")}
-                  >
-                    MuseScore
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.segment}
-                    aria-pressed={draftScoreEngine === "pm2s"}
-                    data-selected={draftScoreEngine === "pm2s" || undefined}
-                    onClick={() => setDraftScoreEngine("pm2s")}
-                  >
-                    PM2S
-                  </button>
-                </div>
-              </div>
-
-              <p className={styles.processingHint}>These choices apply to this import.</p>
-              {error && <div className={styles.error} role="alert">{error}</div>}
-            </div>
-
-            <div className={styles.processingFooter}>
-              <button type="button" className={styles.secondaryButton} onClick={closeProcessing} disabled={processingBusy}>
-                Cancel
-              </button>
-              <button type="button" className={styles.primaryButton} onClick={() => void confirmProcessing()} disabled={processingBusy}>
-                {processingBusy
-                  ? "Importing…"
-                  : importIntent?.kind === "public"
-                    ? "Import recording"
-                    : "Choose audio"}
-              </button>
-            </div>
-          </DialogPanel>
-        </div>
+      <Dialog open={Boolean(importIntent)} onClose={closeProcessing} compact>
+        <DialogHeader>
+          <DialogHeading title="Process recording" description="Choose how this recording should be transcribed and scored." />
+          <IconButton variant="ghost" onClick={closeProcessing} disabled={processingBusy} aria-label="Close processing options">
+            <CloseIcon />
+          </IconButton>
+        </DialogHeader>
+        <DialogBody className={styles.processingBody}>
+          <div className={styles.processingGroup}>
+            <span className={styles.processingLabel}>Transcription</span>
+            <SegmentedControl
+              label="Transcription mode"
+              value={draftTranscriptionProfile}
+              options={[
+                { value: "auto", label: "Auto" },
+                { value: "solo_piano", label: "Solo piano" },
+              ]}
+              onChange={setDraftTranscriptionProfile}
+            />
+          </div>
+          <div className={styles.processingGroup}>
+            <span className={styles.processingLabel}>Score</span>
+            <SegmentedControl
+              label="Score reconstruction engine"
+              value={draftScoreEngine}
+              options={[
+                { value: "musescore", label: "MuseScore" },
+                { value: "pm2s", label: "PM2S" },
+              ]}
+              onChange={setDraftScoreEngine}
+            />
+          </div>
+          <InlineNotice tone="quiet">These choices apply to this import.</InlineNotice>
+          {error && <InlineNotice tone="danger" role="alert">{error}</InlineNotice>}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={closeProcessing} disabled={processingBusy}>Cancel</Button>
+          <Button variant="primary" onClick={() => void confirmProcessing()} disabled={processingBusy}>
+            {processingBusy ? "Importing…" : importIntent?.kind === "public" ? "Import recording" : "Choose audio"}
+          </Button>
+        </DialogFooter>
       </Dialog>
 
-      <Dialog open={scoreSourcesOpen} onClose={setScoreSourcesOpen} className={styles.dialogWrap}>
-        <DialogBackdrop className={styles.backdrop} />
-        <div className={styles.dialogWrap}>
-          <DialogPanel className={`${styles.dialog} ${styles.processingDialog}`}>
-            <div className={styles.dialogHeader}>
-              <div>
-                <DialogTitle className={styles.dialogTitle}>Score source</DialogTitle>
-                <p className={styles.dialogDescription}>Choose the notation evidence shown for this recording.</p>
-              </div>
-              <button
-                type="button"
-                className={styles.closeButton}
-                onClick={() => setScoreSourcesOpen(false)}
-                aria-label="Close score source options"
-              >
-                ×
-              </button>
-            </div>
-            <div className={styles.processingBody}>
-              <ScoreSourceControl
-                selection={workspace.scoreDisplaySelection}
-                sources={workspace.scoreSources}
-                disabled={workspace.isLoadingWork}
-                attachDisabled={disabled || workspace.isLoadingWork}
-                onSelectEngine={requestScoreEngine}
-                onSelectSource={selectScoreSource}
-                onAttach={requestAttachScore}
-              />
-              <p className={styles.processingHint}>
-                Attached MusicXML is independent source evidence. It does not replace the performance transcription or imply score-to-audio timing.
-              </p>
-            </div>
-          </DialogPanel>
-        </div>
+      <Dialog open={scoreSourcesOpen} onClose={() => setScoreSourcesOpen(false)} compact>
+        <DialogHeader>
+          <DialogHeading title="Score source" description="Choose the notation evidence shown for this recording." />
+          <IconButton variant="ghost" onClick={() => setScoreSourcesOpen(false)} aria-label="Close score source options">
+            <CloseIcon />
+          </IconButton>
+        </DialogHeader>
+        <DialogBody className={styles.processingBody}>
+          <ScoreSourceControl
+            selection={workspace.scoreDisplaySelection}
+            sources={workspace.scoreSources}
+            disabled={workspace.isLoadingWork}
+            attachDisabled={disabled || workspace.isLoadingWork}
+            onSelectEngine={requestScoreEngine}
+            onSelectSource={selectScoreSource}
+            onAttach={requestAttachScore}
+          />
+          <InlineNotice tone="quiet">
+            Attached MusicXML is independent source evidence. It does not replace the performance transcription or imply score-to-audio timing.
+          </InlineNotice>
+        </DialogBody>
       </Dialog>
     </div>
   );

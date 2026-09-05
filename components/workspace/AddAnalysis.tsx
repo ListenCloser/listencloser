@@ -1,5 +1,9 @@
 "use client";
 
+import Button, { IconButton } from "@/components/ui/Button";
+import { CloseIcon, PlusIcon } from "@/components/ui/Icons";
+import InlineNotice from "@/components/ui/InlineNotice";
+import Qualifier from "@/components/ui/Qualifier";
 import styles from "./AddAnalysis.module.css";
 
 export type AddAnalysisOption = {
@@ -33,35 +37,23 @@ export default function AddAnalysis({
       : null;
 
   return (
-    <section
-      className={`${styles.discovery}${open ? ` ${styles.open}` : ""}`}
-      aria-label="Add analysis"
-    >
+    <section className={`${styles.discovery}${open ? ` ${styles.open}` : ""}`} aria-label="Add analysis">
       {!open ? (
-        <button
-          type="button"
-          className={styles.addAnalysis}
-          onClick={() => onOpenChange(true)}
-          aria-expanded="false"
-        >
-          + Add analysis
-        </button>
+        <Button variant="ghost" size="compact" onClick={() => onOpenChange(true)} aria-expanded="false">
+          <PlusIcon />
+          <span>Add analysis</span>
+        </Button>
       ) : (
         <div className={styles.chooser}>
           <div className={styles.chooserHeader}>
             <div className={styles.titleLine}>
               <strong>Add analysis</strong>
-              {sharedMaturity && <span className={styles.experimental}>{sharedMaturity}</span>}
+              {sharedMaturity && <Qualifier>{sharedMaturity}</Qualifier>}
             </div>
             {!busy && (
-              <button
-                type="button"
-                className={styles.closeChooser}
-                onClick={() => onOpenChange(false)}
-                aria-label="Close analysis chooser"
-              >
-                ×
-              </button>
+              <IconButton compact variant="ghost" onClick={() => onOpenChange(false)} aria-label="Close analysis chooser">
+                <CloseIcon />
+              </IconButton>
             )}
           </div>
           {options.map((option) => (
@@ -69,24 +61,21 @@ export default function AddAnalysis({
               <div>
                 <div className={styles.titleLine}>
                   <strong>{option.title}</strong>
-                  {!sharedMaturity && <span className={styles.experimental}>{option.maturity}</span>}
+                  {!sharedMaturity && <Qualifier>{option.maturity}</Qualifier>}
                 </div>
                 <p>{option.description}</p>
               </div>
-              <button
-                type="button"
-                className={styles.action}
-                onClick={option.onAction}
-                disabled={option.disabled || option.busy}
-              >
+              <Button size="compact" onClick={option.onAction} disabled={option.disabled || option.busy}>
                 {option.actionLabel}
-              </button>
+              </Button>
             </div>
           ))}
           {notice && (
-            <p className={styles.notice} role={noticeRole}>
-              {notice}
-            </p>
+            <div className={styles.notice}>
+              <InlineNotice tone={noticeRole === "alert" ? "danger" : "quiet"} role={noticeRole}>
+                {notice}
+              </InlineNotice>
+            </div>
           )}
         </div>
       )}
