@@ -1,0 +1,61 @@
+name: Repair PR 1227 generated API contract
+
+on:
+  push:
+    branches:
+      - fix/651-pgmq-telemetry-cleanup
+    paths:
+      - .github/workflows/repair-1227-api-contract.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/651-pgmq-telemetry-cleanup
+          fetch-depth: 1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: .python-version
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: 0.12.9
+
+      - name: Regenerate exact committed API artifacts and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          npm ci
+          uv sync --project backend --locked
+          npm run api:generate
+          rm .github/workflows/repair-1227-api-contract.yml
+
+          mapfile -t changed < <(git status --short | awk '{print $2}' | sort)
+          printf 'Changed files after generation:\n'
+          printf '  %s\n' "${changed[@]}"
+          expected=$(printf '%s\n' '.github/workflows/repair-1227-api-contract.yml' 'lib/api-types.ts' 'openapi/openapi.json' | sort)
+          actual=$(printf '%s\n' "${changed[@]}")
+          if [[ "$actual" != "$expected" ]]; then
+            echo "Unexpected generated-artifact diff"
+            exit 1
+          fi
+
+          npm run api:check
+          git add openapi/openapi.json lib/api-types.ts .github/workflows/repair-1227-api-contract.yml
+          git commit -m "chore(api): regenerate queue health contract"
+          git push origin HEAD:fix/651-pgmq-telemetry-cleanup
