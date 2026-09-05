@@ -195,7 +195,7 @@ class MuScriptorEngine(TranscriptionEngine):
             cleanup_report={
                 "instrument_labels": "derived from MuScriptor-exported MIDI programs",
                 "velocity_semantics": "MIDI exporter value; MuScriptor does not recover velocity",
-                "timing_semantics": "MIDI export; real-fixture source-audio alignment not yet proven",
+                "timing_semantics": "MIDI export; audio alignment not yet proven",
                 "runtime": "isolated",
             },
             provenance=self.provenance,
