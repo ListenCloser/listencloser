@@ -1,15 +1,26 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import HarmonyEvidence, { harmonyEvidenceSummary } from "@/components/workspace/inspector/HarmonyEvidence";
+import HarmonyEvidence, {
+  buildExactHarmonyProjection,
+  harmonyEvidenceSummary,
+} from "@/components/workspace/inspector/HarmonyEvidence";
 import type { Insight } from "@/lib/domain.types";
 
-function insight(id: string, kind: string, claim: string, evidence: Record<string, unknown> = {}): Insight {
+function insight(
+  id: string,
+  kind: string,
+  claim: string,
+  evidence: Record<string, unknown> = {},
+  versionId = "midi-v1",
+): Insight {
   return {
     id,
     kind,
     claim,
     confidence: 0.9,
     evidence,
+    version_id: versionId,
+    provenance: { engine: "test" },
     span: { start_seconds: 4, end_seconds: 6 },
   } as unknown as Insight;
 }
@@ -50,5 +61,48 @@ describe("HarmonyEvidence flat analysis presentation", () => {
 
     expect(harmonyEvidenceSummary(chordOnly, 120)).toBe("Chord timeline");
     expect(harmonyEvidenceSummary(enriched, 120)).toContain("degree and function context");
+  });
+
+  it("projects only explicit seconds from the exact Piano Roll Version", () => {
+    const exact = [
+      insight("chord", "chord", "C major"),
+      insight("degree", "roman_numeral", "I (C major)", { numeral: "I" }),
+      insight("function", "harmonic_function", "Tonic", { function: "tonic" }),
+      insight("other-version", "chord", "G major", {}, "midi-v2"),
+    ];
+
+    const projection = buildExactHarmonyProjection(exact, "midi-v1", 120);
+
+    expect(projection).toEqual([
+      expect.objectContaining({
+        id: "chord",
+        versionId: "midi-v1",
+        start: 4,
+        end: 6,
+        chord: "C major",
+        romanNumeral: "I",
+        harmonicFunction: "Tonic",
+        provenance: { engine: "test" },
+      }),
+    ]);
+  });
+
+  it("fails closed when a chord only has beat-relative timing", () => {
+    const beatOnly = insight("beat-chord", "chord", "A minor");
+    beatOnly.span = {
+      ...beatOnly.span,
+      start_seconds: null,
+      end_seconds: null,
+      start_beat: 8,
+      end_beat: 12,
+    };
+
+    expect(buildExactHarmonyProjection([beatOnly], "midi-v1", 120)).toEqual([]);
+  });
+
+  it("treats an explicit no-chord marker as local abstention", () => {
+    const noChord = insight("no-chord", "chord", "N", { root: "N", quality: "N" });
+
+    expect(buildExactHarmonyProjection([noChord], "midi-v1", 120)).toEqual([]);
   });
 });

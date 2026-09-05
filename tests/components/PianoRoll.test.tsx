@@ -1,10 +1,24 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { vi } from 'vitest'
 import PianoRoll from '@/components/workspace/representations/PianoRoll'
 
 const mockNotes = [
   { id: 'c4', pitch: 60, start: 0, end: 0.5, velocity: 80 },
   { id: 'e4', pitch: 64, start: 0.5, end: 1.0, velocity: 80 },
   { id: 'g4', pitch: 67, start: 1.0, end: 1.5, velocity: 80 },
+]
+
+const harmonySpans = [
+  {
+    id: 'chord-c',
+    versionId: 'midi-v1',
+    start: 0,
+    end: 1,
+    chord: 'C major',
+    romanNumeral: 'I',
+    harmonicFunction: 'Tonic',
+    provenance: { engine: 'lv-chordia' },
+  },
 ]
 
 describe('PianoRoll', () => {
@@ -81,5 +95,65 @@ describe('PianoRoll', () => {
     expect(container.querySelectorAll('[data-note-state="active"]')).toHaveLength(1)
     expect(container.querySelectorAll('[data-note-state="selected"]')).toHaveLength(1)
     expect(container.querySelector('[data-playhead="true"]')).toBeInTheDocument()
+  })
+
+  it('renders literal harmony spans with optional theory context on the same timeline', () => {
+    const { container } = render(
+      <PianoRoll notes={mockNotes} bpm={120} harmonySpans={harmonySpans} playheadTime={0.25} />,
+    )
+
+    expect(screen.getByTestId('piano-roll-harmony')).toBeInTheDocument()
+    expect(screen.getByText('C major')).toBeInTheDocument()
+    expect(screen.getByText('I')).toBeInTheDocument()
+    expect(container.querySelector('[data-harmony-playhead="true"]')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /C major, I, Tonic, 0\.00 to 1\.00 seconds/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('activates a harmony span by pointer or keyboard without inventing another interaction model', () => {
+    const onHarmonySpanSelect = vi.fn()
+    render(
+      <PianoRoll
+        notes={mockNotes}
+        bpm={120}
+        harmonySpans={harmonySpans}
+        onHarmonySpanSelect={onHarmonySpanSelect}
+      />,
+    )
+    const chord = screen.getByRole('button', { name: /C major, I, Tonic/ })
+
+    fireEvent.click(chord)
+    fireEvent.keyDown(chord, { key: 'Enter' })
+
+    expect(onHarmonySpanSelect).toHaveBeenCalledTimes(2)
+    expect(onHarmonySpanSelect).toHaveBeenLastCalledWith(harmonySpans[0])
+  })
+
+  it('uses shared selected time as temporal note context for a harmony span', () => {
+    const { container } = render(
+      <PianoRoll
+        notes={mockNotes}
+        bpm={120}
+        playheadTime={2}
+        harmonySpans={harmonySpans}
+        selectionTimeRange={{ start: 0, end: 1 }}
+      />,
+    )
+
+    expect(container.querySelector('[data-harmony-selected="true"]')).toBeInTheDocument()
+    expect(container.querySelectorAll('[data-note-state="selected"]')).toHaveLength(2)
+  })
+
+  it('fails closed instead of drawing malformed harmony geometry', () => {
+    render(
+      <PianoRoll
+        notes={mockNotes}
+        bpm={120}
+        harmonySpans={[{ ...harmonySpans[0], start: 2, end: 1 }]}
+      />,
+    )
+
+    expect(screen.queryByTestId('piano-roll-harmony')).not.toBeInTheDocument()
   })
 })

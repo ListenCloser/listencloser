@@ -6,12 +6,23 @@ import { insightStartSeconds } from "@/lib/inspector/insights";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import styles from "./HarmonyEvidence.module.css";
 
-type HarmonyEvidenceRow = {
+export type HarmonyEvidenceRow = {
   startSeconds: number;
   endSeconds: number | null;
   chord?: Insight;
   romanNumeral?: Insight;
   harmonicFunction?: Insight;
+};
+
+export type ExactHarmonyProjectionSpan = {
+  id: string;
+  versionId: string;
+  start: number;
+  end: number;
+  chord: string;
+  romanNumeral?: string;
+  harmonicFunction?: string;
+  provenance: Record<string, unknown>;
 };
 
 type HarmonyKind = "chord" | "roman_numeral" | "harmonic_function";
@@ -43,6 +54,36 @@ function spansMatch(row: HarmonyEvidenceRow, startSeconds: number, endSeconds: n
   if (Math.abs(row.startSeconds - startSeconds) > SPAN_TOLERANCE_SECONDS) return false;
   if (row.endSeconds === null || endSeconds === null) return true;
   return Math.abs(row.endSeconds - endSeconds) <= SPAN_TOLERANCE_SECONDS;
+}
+
+function exactSecondsSpan(insight: Insight): { start: number; end: number } | null {
+  const start = insight.span.start_seconds;
+  const end = insight.span.end_seconds;
+  if (
+    typeof start !== "number"
+    || typeof end !== "number"
+    || !Number.isFinite(start)
+    || !Number.isFinite(end)
+    || start < 0
+    || end <= start
+  ) {
+    return null;
+  }
+  return { start, end };
+}
+
+function exactSpanMatches(insight: Insight, start: number, end: number): boolean {
+  const span = exactSecondsSpan(insight);
+  return Boolean(
+    span
+    && Math.abs(span.start - start) <= SPAN_TOLERANCE_SECONDS
+    && Math.abs(span.end - end) <= SPAN_TOLERANCE_SECONDS,
+  );
+}
+
+function isNoChordInsight(insight: Insight): boolean {
+  const root = evidenceString(insight, "root");
+  return root?.toUpperCase() === "N" || normalizeMusicText(insight.claim).toUpperCase() === "N";
 }
 
 export function buildHarmonyEvidenceRows(insights: Insight[], bpm: number): HarmonyEvidenceRow[] {
@@ -81,7 +122,7 @@ export function harmonyEvidenceSummary(insights: Insight[], bpm: number): string
   return "Chord timeline";
 }
 
-function romanNumeralLabel(insight: Insight): string {
+export function romanNumeralLabel(insight: Insight): string {
   const numeral = evidenceString(insight, "numeral");
   if (numeral) return normalizeMusicText(numeral);
   return normalizeMusicText(
@@ -89,14 +130,54 @@ function romanNumeralLabel(insight: Insight): string {
   );
 }
 
-function harmonicFunctionLabel(insight: Insight): string {
+export function harmonicFunctionLabel(insight: Insight): string {
   const raw = evidenceString(insight, "function") ?? insight.claim.replace(/\s+\([^()]*\)\s*$/, "");
   const normalized = normalizeMusicText(raw).toLowerCase();
   return normalized.replace(/(^|\s)\p{L}/gu, (match) => match.toUpperCase());
 }
 
-function chordLabel(insight: Insight): string {
+export function chordLabel(insight: Insight): string {
   return normalizeMusicText(insight.claim);
+}
+
+/**
+ * Build the Piano Roll harmony projection from exactly one Version's admitted
+ * evidence. The Inspector may use beat-relative timing for navigation, but the
+ * synchronized lane intentionally requires persisted seconds on the literal
+ * chord span. Missing or malformed exact timing fails closed.
+ */
+export function buildExactHarmonyProjection(
+  insights: Insight[],
+  versionId: string | null | undefined,
+  bpm: number,
+): ExactHarmonyProjectionSpan[] {
+  if (!versionId) return [];
+
+  const rows = buildHarmonyEvidenceRows(
+    insights.filter((item) => item.version_id === versionId),
+    bpm,
+  );
+
+  return rows.flatMap((row) => {
+    if (!row.chord || isNoChordInsight(row.chord)) return [];
+    const span = exactSecondsSpan(row.chord);
+    if (!span) return [];
+
+    return [{
+      id: row.chord.id,
+      versionId,
+      start: span.start,
+      end: span.end,
+      chord: chordLabel(row.chord),
+      ...(row.romanNumeral && exactSpanMatches(row.romanNumeral, span.start, span.end)
+        ? { romanNumeral: romanNumeralLabel(row.romanNumeral) }
+        : {}),
+      ...(row.harmonicFunction && exactSpanMatches(row.harmonicFunction, span.start, span.end)
+        ? { harmonicFunction: harmonicFunctionLabel(row.harmonicFunction) }
+        : {}),
+      provenance: (row.chord.provenance ?? {}) as Record<string, unknown>,
+    }];
+  });
 }
 
 export default function HarmonyEvidence({

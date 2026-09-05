@@ -4,6 +4,7 @@
  * Visual language:
  * - Quiet chromatic lanes with stronger octave/C anchors for pitch orientation
  * - Observed beat/downbeat coordinates only when exact pulse evidence exists
+ * - Literal exact-time harmony spans may sit in a compact synchronized lane
  * - Real note events dominate the grid, with velocity preserved through opacity
  * - Shared playback/selection tokens for active time and user-selected evidence
  * - Sparse wall-clock labels for orientation without implying musical structure
@@ -30,9 +31,22 @@ type NoteGeometry = {
   velocityOpacity: number;
 };
 
+export type HarmonySpan = {
+  id: string;
+  versionId: string;
+  start: number;
+  end: number;
+  chord: string;
+  romanNumeral?: string;
+  harmonicFunction?: string;
+  provenance: Record<string, unknown>;
+};
+
 const PPQ = 16;
 const LABEL_W = 36;
 const TOP_PAD = 18;
+const HARMONY_LANE_H = 38;
+const HARMONY_SELECTION_TOLERANCE_SECONDS = 0.05;
 
 function validSecondsGrid(values: number[] | undefined, minimumPoints = 1): number[] {
   if (!values || values.length < minimumPoints) return [];
@@ -43,6 +57,16 @@ function validSecondsGrid(values: number[] | undefined, minimumPoints = 1): numb
     result.push(value);
   }
   return result;
+}
+
+function validHarmonySpan(span: HarmonySpan): boolean {
+  return (
+    Number.isFinite(span.start)
+    && Number.isFinite(span.end)
+    && span.start >= 0
+    && span.end > span.start
+    && Boolean(span.chord.trim())
+  );
 }
 
 const StaticNoteLayer = memo(function StaticNoteLayer({
@@ -143,6 +167,7 @@ export default function PianoRoll({
   bpm = 120,
   beatTimes,
   downbeatTimes,
+  harmonySpans,
   playheadTime = 0,
   annotations,
   focusedAnnotationId,
@@ -151,12 +176,14 @@ export default function PianoRoll({
   selectedNoteIds,
   emphasizeSelection = false,
   onSelectRange,
+  onHarmonySpanSelect,
   onAnnotationClick,
 }: {
   notes: Note[];
   bpm?: number;
   beatTimes?: number[];
   downbeatTimes?: number[];
+  harmonySpans?: HarmonySpan[];
   playheadTime?: number;
   annotations?: AnalysisAnnotation[];
   focusedAnnotationId?: string | null;
@@ -166,6 +193,7 @@ export default function PianoRoll({
   emphasizeSelection?: boolean;
   onSelectRange?: (start: number, end: number) => void;
   onSelectNotes?: (ids: string[]) => void;
+  onHarmonySpanSelect?: (span: HarmonySpan) => void;
   onAnnotationClick?: (annotation: AnalysisAnnotation) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -182,10 +210,15 @@ export default function PianoRoll({
   const observedDownbeats = observedBeats.length > 0
     ? validSecondsGrid(downbeatTimes)
     : [];
+  const visibleHarmonySpans = (harmonySpans ?? [])
+    .filter(validHarmonySpan)
+    .sort((a, b) => a.start - b.start || a.end - b.end || a.id.localeCompare(b.id));
   const sorted = [...notes].sort((a, b) => a.start - b.start);
   const endTime = sorted.reduce((t, n) => Math.max(t, n.end), 0);
+  const harmonyEndTime = visibleHarmonySpans.reduce((t, span) => Math.max(t, span.end), 0);
   const displayEndTime = Math.max(
     endTime,
+    harmonyEndTime,
     observedBeats.length > 0 ? observedBeats[observedBeats.length - 1] : 0,
   );
   const totalBeats = (displayEndTime / 60) * bpm;
@@ -332,6 +365,131 @@ export default function PianoRoll({
   return (
     <div className="piano-roll-container" data-testid="piano-roll">
       <div className="piano-roll-scroll" ref={scrollRef}>
+        {visibleHarmonySpans.length > 0 && (
+          <svg
+            data-testid="piano-roll-harmony"
+            data-piano-roll-layer="harmony"
+            viewBox={`0 0 ${W} ${HARMONY_LANE_H}`}
+            preserveAspectRatio="xMinYMin meet"
+            width={W}
+            height={HARMONY_LANE_H}
+            style={{ display: "block" }}
+            role="group"
+            aria-label="Harmony timeline"
+          >
+            <rect x={0} y={0} width={LABEL_W} height={HARMONY_LANE_H} fill="var(--panel)" />
+            <text
+              x={4}
+              y={22}
+              fill="var(--muted)"
+              fontSize={8.5}
+              fontFamily="var(--font-mono)"
+              opacity={0.72}
+            >
+              Harm.
+            </text>
+            <line
+              x1={LABEL_W}
+              y1={HARMONY_LANE_H - 0.5}
+              x2={W}
+              y2={HARMONY_LANE_H - 0.5}
+              stroke="var(--border)"
+              strokeWidth={0.75}
+            />
+            <defs>
+              {visibleHarmonySpans.map((span, index) => {
+                const x1 = timeToX(span.start);
+                const x2 = timeToX(span.end);
+                return (
+                  <clipPath key={`harmony-clip-${span.id}-${index}`} id={`harmony-clip-${index}`}>
+                    <rect x={x1 + 2} y={2} width={Math.max(x2 - x1 - 4, 1)} height={HARMONY_LANE_H - 4} />
+                  </clipPath>
+                );
+              })}
+            </defs>
+            {visibleHarmonySpans.map((span, index) => {
+              const x1 = timeToX(span.start);
+              const x2 = timeToX(span.end);
+              const isSelected = Boolean(
+                selectionTimeRange
+                && Math.abs(selectionTimeRange.start - span.start) <= HARMONY_SELECTION_TOLERANCE_SECONDS
+                && Math.abs(selectionTimeRange.end - span.end) <= HARMONY_SELECTION_TOLERANCE_SECONDS,
+              );
+              const secondary = span.romanNumeral ?? span.harmonicFunction;
+              const theoryContext = [span.romanNumeral, span.harmonicFunction].filter(Boolean).join(", ");
+              const label = `${span.chord}${theoryContext ? `, ${theoryContext}` : ""}, ${span.start.toFixed(2)} to ${span.end.toFixed(2)} seconds`;
+              const activate = () => onHarmonySpanSelect?.(span);
+              return (
+                <g
+                  key={`${span.id}-${span.start}-${span.end}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={label}
+                  data-harmony-span={span.id}
+                  data-harmony-selected={isSelected ? "true" : undefined}
+                  onClick={activate}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      activate();
+                    }
+                  }}
+                  style={{ cursor: onHarmonySpanSelect ? "pointer" : "default" }}
+                >
+                  <rect
+                    x={x1}
+                    y={2}
+                    width={Math.max(x2 - x1, 2)}
+                    height={HARMONY_LANE_H - 4}
+                    rx={1.5}
+                    fill="var(--color-harmony)"
+                    fillOpacity={isSelected ? 0.18 : 0.075}
+                    stroke="var(--color-harmony)"
+                    strokeWidth={isSelected ? 1.1 : 0.55}
+                    strokeOpacity={isSelected ? 0.72 : 0.3}
+                  />
+                  <g clipPath={`url(#harmony-clip-${index})`}>
+                    <text
+                      x={x1 + 5}
+                      y={16}
+                      fill="var(--text)"
+                      fontSize={10}
+                      fontWeight={600}
+                    >
+                      {span.chord}
+                    </text>
+                    {secondary && (
+                      <text
+                        x={x1 + 5}
+                        y={29}
+                        fill="var(--muted)"
+                        fontSize={8.5}
+                        fontFamily="var(--font-mono)"
+                        opacity={0.82}
+                      >
+                        {secondary}
+                      </text>
+                    )}
+                  </g>
+                  <title>{label}</title>
+                </g>
+              );
+            })}
+            {playheadTime > 0 && playheadX <= W && (
+              <line
+                data-harmony-playhead="true"
+                x1={playheadX}
+                y1={0}
+                x2={playheadX}
+                y2={HARMONY_LANE_H}
+                stroke="var(--score-playback)"
+                strokeWidth={1.25}
+                strokeOpacity={0.92}
+                pointerEvents="none"
+              />
+            )}
+          </svg>
+        )}
         <svg
           ref={svgRef}
           viewBox={`0 0 ${W} ${h}`}

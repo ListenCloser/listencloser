@@ -714,8 +714,8 @@ def handle_analyze(job: Job, client) -> list[str]:
         # Collapse consecutive identical chords into merged spans
         merged_chords = _merge_adjacent_identical_chords(harmonic_chords)
 
-        # Persist as chord insights (max 20 to avoid overwhelming the UI)
-        for ch in merged_chords[:20]:
+        # Persist the complete admitted chord timeline. UI density is a rendering concern.
+        for ch in merged_chords:
             root = ch.get("root", "?")
             quality = ch.get("quality", "")
             label = f"{root} {quality}".strip()
@@ -750,7 +750,7 @@ def handle_analyze(job: Job, client) -> list[str]:
                 "raw_count": len(chords),
                 "harmonic_count": len(harmonic_chords),
                 "merged_count": len(merged_chords),
-                "persisted_count": min(len(merged_chords), 20),
+                "persisted_count": len(merged_chords),
                 "engine": chord_engine,
             },
         )
@@ -778,8 +778,8 @@ def handle_analyze(job: Job, client) -> list[str]:
     rns_theory = analysis.get("roman_numerals_theory", []) or []
     theory_provenance = analysis.get("theory_provenance")
     if chord_engine_trusted and rns_theory:
-        # Persist as RN insights (max 30 to avoid overwhelming the UI)
-        for rn in rns_theory[:30]:
+        # Persist complete admitted RN context for the chord timeline.
+        for rn in rns_theory:
             numeral = rn.get("numeral", "")
             if not numeral:
                 continue
@@ -823,7 +823,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             "roman_numerals_persisted",
             extra={
                 "count": len(rns_theory),
-                "persisted_count": min(len(rns_theory), 30),
+                "persisted_count": len(rns_theory),
                 "engine": "theory_interpreter",
             },
         )
@@ -836,8 +836,8 @@ def handle_analyze(job: Job, client) -> list[str]:
     # Harmonic functions (from TheoryInterpreter)
     functions = analysis.get("harmonic_functions", []) or []
     if chord_engine_trusted and functions:
-        # Persist as function insights (max 30)
-        for func in functions[:30]:
+        # Persist complete admitted harmonic-function context for the chord timeline.
+        for func in functions:
             function_name = func.get("function", "")
             numeral = func.get("numeral", "")
             if not function_name or function_name == "AMBIGUOUS":
@@ -877,7 +877,7 @@ def handle_analyze(job: Job, client) -> list[str]:
             "harmonic_functions_persisted",
             extra={
                 "count": len(functions),
-                "persisted_count": min(len(functions), 30),
+                "persisted_count": len(functions),
                 "engine": "theory_interpreter",
             },
         )
