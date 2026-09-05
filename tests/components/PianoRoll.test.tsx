@@ -135,6 +135,7 @@ describe('PianoRoll', () => {
       <PianoRoll
         notes={mockNotes}
         bpm={120}
+        playheadTime={2}
         harmonySpans={harmonySpans}
         selectionTimeRange={{ start: 0, end: 1 }}
       />,
