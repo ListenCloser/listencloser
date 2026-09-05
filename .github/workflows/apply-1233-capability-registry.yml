@@ -1,0 +1,54 @@
+name: Apply 1233 capability registry
+
+on:
+  push:
+    branches:
+      - agent/1233-midibert-runtime
+    paths:
+      - .github/workflows/apply-1233-capability-registry.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/1233-midibert-runtime
+      - name: Update capability authority
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('backend/config/capabilities.json')
+          text = path.read_text()
+          start = text.index('    "melody": {')
+          end = text.index('    "melody_register_peak": {', start)
+          block = '''    "melody": {
+            "status": "experimental",
+            "input": "midi",
+            "engine": "midibert",
+            "exposure": {"inspector": true, "annotations": false, "ask": true},
+            "model": {
+              "name": "MidiBERT-Piano CP melody_default",
+              "source_revision": "0b935584f641d3d59a8e6aff2f334b425ce1542d",
+              "representation": "CP",
+              "training_dataset": "POP909"
+            },
+            "validated_domain": "POP909-style pop/arranged symbolic piano MIDI",
+            "notes": "Default experimental symbolic Melody interpretation. Upstream provides the full MIDI-to-melody CP inference path; exact checkpoint identity/checksum must be pinned before production image admission. Classical and general performance MIDI remain unvalidated."
+          },
+'''
+          text = text[:start] + block + text[end:]
+          text = text.replace('"engine": "lstom_interpretation"', '"engine": "melody_interpretation"')
+          text = text.replace('Deterministic from LStoM output.', 'Deterministic from admitted Melody note evidence.')
+          text = text.replace('Use lstom for all production melody extraction.', 'Do not use as the product default; MidiBERT is the experimental Melody route.')
+          path.write_text(text)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/config/capabilities.json
+          git diff --cached --check
+          git commit -m 'feat(melody): make MidiBERT capability authority' || exit 0
+          git push origin HEAD:agent/1233-midibert-runtime
