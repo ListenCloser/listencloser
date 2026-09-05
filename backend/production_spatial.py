@@ -259,16 +259,18 @@ def build_production_spatial_report(
     relations = [
         relation
         for spec in relation_specs
-        if (relation := _largest_adjacent_relation(
-            windows,
-            kind=spec[0],
-            field=spec[1],
-            label=spec[2],
-            method=spec[3],
-            unit=spec[4],
-            precision=spec[5],
-            scale=100.0 if spec[0] == "mid_side_change" else 1.0,
-        ))
+        if (
+            relation := _largest_adjacent_relation(
+                windows,
+                kind=spec[0],
+                field=spec[1],
+                label=spec[2],
+                method=spec[3],
+                unit=spec[4],
+                precision=spec[5],
+                scale=100.0 if spec[0] == "mid_side_change" else 1.0,
+            )
+        )
         is not None
     ]
 
