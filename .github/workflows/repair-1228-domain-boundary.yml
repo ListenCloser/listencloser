@@ -1,0 +1,41 @@
+name: Repair 1228 domain boundary
+
+on:
+  push:
+    branches:
+      - feat/588-rhythm-density-breakdown-context
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove NumPy from rhythm-density relation domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          target='backend/domain/rhythm_density_relations.py'
+          grep -Fxq 'import numpy as np' "$target"
+          grep -Fxq 'from collections.abc import Sequence' "$target"
+          sed -i '/^import numpy as np$/d' "$target"
+          sed -i '/^from collections\.abc import Sequence$/a from statistics import median' "$target"
+          sed -i 's/tuple\[np\.ndarray | None, str | None\]/tuple[list[float] | None, str | None]/' "$target"
+          sed -i 's/return np\.asarray(\[window\["density"\] for window in selected\], dtype=float), None/return [float(window["density"]) for window in selected], None/' "$target"
+          sed -i 's/float(np\.median(subject_values))/float(median(subject_values))/' "$target"
+          sed -i 's/float(np\.median(comparison_values))/float(median(comparison_values))/' "$target"
+          ! grep -q 'np\.' "$target"
+          grep -Fxq 'from statistics import median' "$target"
+          grep -Fq 'tuple[list[float] | None, str | None]' "$target"
+          rm .github/workflows/repair-1228-domain-boundary.yml
+          test "$(git diff --name-only | sort)" = $'.github/workflows/repair-1228-domain-boundary.yml\nbackend/domain/rhythm_density_relations.py'
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$target" .github/workflows/repair-1228-domain-boundary.yml
+          git commit -m 'refactor(relations): remove unnecessary numpy dependency'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
