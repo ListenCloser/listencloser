@@ -1,0 +1,85 @@
+name: Repair PR 1228 API contract
+
+on:
+  push:
+    branches:
+      - feat/588-rhythm-density-breakdown-context
+    paths:
+      - .github/workflows/repair-1228-api-contract.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: feat/588-rhythm-density-breakdown-context
+          fetch-depth: 1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: .python-version
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: 0.12.9
+
+      - name: Commit generated API artifacts and remove diagnostic trap
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          npm ci
+          uv sync --project backend --locked
+          npm run api:generate
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/check.sh")
+          text = path.read_text()
+          old = '''if [ "$MODE" = "preflight" ]; then
+  npm run api:generate
+  echo "__OPENAPI_B64_BEGIN__"
+  base64 -w 120 openapi/openapi.json
+  echo "__OPENAPI_B64_END__"
+  echo "__API_TYPES_B64_BEGIN__"
+  base64 -w 120 lib/api-types.ts
+  echo "__API_TYPES_B64_END__"
+  exit 1
+fi
+
+'''
+          if text.count(old) != 1:
+              raise SystemExit(f"expected one diagnostic preflight block, found {text.count(old)}")
+          path.write_text(text.replace(old, ""))
+          PY
+
+          rm .github/workflows/repair-1228-api-contract.yml
+
+          mapfile -t changed < <(git status --short | awk '{print $2}' | sort)
+          printf 'Changed files after repair:\n'
+          printf '  %s\n' "${changed[@]}"
+          expected=$(printf '%s\n' '.github/workflows/repair-1228-api-contract.yml' 'lib/api-types.ts' 'openapi/openapi.json' 'scripts/check.sh' | sort)
+          actual=$(printf '%s\n' "${changed[@]}")
+          if [[ "$actual" != "$expected" ]]; then
+            echo "Unexpected repair diff"
+            exit 1
+          fi
+
+          git diff --check
+          git add openapi/openapi.json lib/api-types.ts scripts/check.sh .github/workflows/repair-1228-api-contract.yml
+          git commit -m "chore(api): sync rhythm-density relation contract"
+          npm run api:check
+          git push origin HEAD:feat/588-rhythm-density-breakdown-context
