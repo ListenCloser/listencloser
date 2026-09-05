@@ -82,7 +82,7 @@ def test_supplied_text_alignment_persists_exact_lineage_and_qualified_states(sb,
             "text_source_kind": "user_supplied",
             "model_name": "base",
             "match_threshold": 55.0,
-            "trusted_score": 85.0,
+            "trusted_score": 100.0,
         },
         created_by=OWNER_ID,
     )
@@ -106,7 +106,7 @@ def test_supplied_text_alignment_persists_exact_lineage_and_qualified_states(sb,
             normalize=_normalize,
             model_name="base",
             match_threshold=55.0,
-            trusted_score=85.0,
+            trusted_score=100.0,
         )
 
     monkeypatch.setattr(capability, "align_supplied_text", _fake_alignment)
