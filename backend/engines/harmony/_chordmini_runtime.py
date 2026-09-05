@@ -73,7 +73,20 @@ def validate_checkpoint(path: str | Path) -> tuple[bytes, str]:
 
 
 def _idx_to_chord() -> dict[int, str]:
-    pitch_classes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+    pitch_classes = [
+        "C",
+        "C#",
+        "D",
+        "D#",
+        "E",
+        "F",
+        "F#",
+        "G",
+        "G#",
+        "A",
+        "A#",
+        "B",
+    ]
     qualities = [
         "min",
         "maj",
@@ -176,6 +189,14 @@ def _architecture(state_dict: dict[str, Any], checkpoint: dict[str, Any]) -> dic
         for key in params:
             if key in checkpoint_config:
                 params[key] = checkpoint_config[key]
+
+    feature_dim = int(params["n_freq"]) // int(params["n_group"])
+    requested_f_head = int(params["f_head"])
+    if feature_dim % requested_f_head != 0:
+        for candidate in range(requested_f_head, 0, -1):
+            if feature_dim % candidate == 0:
+                params["f_head"] = candidate
+                break
     return params
 
 
@@ -297,7 +318,7 @@ def _build_model(state_dict: dict[str, Any], checkpoint: dict[str, Any], torch: 
             super().__init__()
             self.r1 = 1.0
             self.r2 = 1.0
-            self.wr = 1.0
+            self.wr = 0.2
             self.pr = 0.01
             self.attn_layer1 = nn.ModuleList(
                 [nn.MultiheadAttention(d_model, n_head, batch_first=True) for _ in range(n_layer)]
@@ -452,10 +473,8 @@ def _predict_frames(model: Any, features: Any, mean: float, std: float) -> Any:
     padded = np.pad(features, ((0, num_pad), (0, 0)), mode="constant")
     stride = max(1, int(SEQ_LEN * (1.0 - OVERLAP_RATIO)))
     padded_frames = int(padded.shape[0])
-    starts = list(range(0, max(1, padded_frames - SEQ_LEN + 1), stride))
-    final_start = max(0, padded_frames - SEQ_LEN)
-    if final_start not in starts:
-        starts.append(final_start)
+    num_instances = max(1, ((padded_frames - SEQ_LEN) // stride) + 1)
+    starts = [stride * idx for idx in range(num_instances)]
 
     votes = np.zeros((original_frames, N_CLASSES), dtype=np.float32)
     counts = np.zeros(original_frames, dtype=np.int32)
@@ -487,7 +506,9 @@ def _predict_frames(model: Any, features: Any, mean: float, std: float) -> Any:
     return result
 
 
-def _segments(predictions: Any, frame_duration: float, song_duration: float) -> list[tuple[float, float, str]]:
+def _segments(
+    predictions: Any, frame_duration: float, song_duration: float
+) -> list[tuple[float, float, str]]:
     if len(predictions) == 0:
         return []
     vocabulary = _idx_to_chord()
@@ -509,7 +530,9 @@ def _segments(predictions: Any, frame_duration: float, song_duration: float) -> 
     return segments
 
 
-def infer_chords(audio_path: str | Path, checkpoint_path: str | Path) -> ChordMiniInferenceResult:
+def infer_chords(
+    audio_path: str | Path, checkpoint_path: str | Path
+) -> ChordMiniInferenceResult:
     """Run pinned ChordMini 2E1D inference on one local audio file."""
     _, checkpoint_sha256 = validate_checkpoint(checkpoint_path)
 
