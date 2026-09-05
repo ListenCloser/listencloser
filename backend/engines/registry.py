@@ -73,6 +73,12 @@ def get_transcription_engine(
             onset_threshold=onset_threshold,
             frame_threshold=frame_threshold,
         )
+    if name == "muscriptor":
+        from engines.transcription.muscriptor import MuScriptorEngine
+
+        # MuScriptor is an explicit internal/evaluation challenger. The adapter
+        # reads its isolated-runtime/checkpoint settings only when selected.
+        return MuScriptorEngine()
     raise ValueError(f"Unknown transcription engine: {name}")
 
 
