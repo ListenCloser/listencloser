@@ -1,5 +1,10 @@
 import type { TemporalFinding } from "@/lib/inspector/findings";
+import type {
+  RhythmDensityContextCandidate,
+  RhythmDensityContextEvidence,
+} from "@/lib/inspector/rhythm-density-context";
 
+export type BreakdownCandidate = TemporalFinding | RhythmDensityContextCandidate;
 export type BreakdownLens = "pulse" | "pitch";
 export type BreakdownAction = "focus" | "loop" | "show" | "ask";
 export type BreakdownRepresentation = "waveform" | "piano_roll";
@@ -8,13 +13,15 @@ export interface BreakdownFinding {
   id: string;
   sourceInsightId: string;
   supportInsightIds: string[];
-  kind: TemporalFinding["kind"];
+  kind: BreakdownCandidate["kind"];
   lens: BreakdownLens;
   startSeconds: number;
   endSeconds: number;
   headline: string;
   /** Optional second-order context. Empty when it would only restate headline. */
   evidenceSummary: string;
+  /** Present only for the server-authored within-Work context candidate. */
+  contextEvidence?: RhythmDensityContextEvidence;
   trustClass: "deterministic_derived";
   maturity: "production" | "experimental";
   primaryRepresentation: BreakdownRepresentation;
@@ -25,13 +32,14 @@ export interface BreakdownFinding {
 
 export type BreakdownTimeRange = { start: number; end: number } | null;
 
-const KIND_PRIORITY: Record<TemporalFinding["kind"], number> = {
+const KIND_PRIORITY: Record<BreakdownCandidate["kind"], number> = {
   melody_register_peak: 46,
   melody_register_low: 42,
   harmonic_activity: 40,
   melody_contour_ascending: 38,
   melody_contour_descending: 38,
   density_peak: 36,
+  rhythm_density_work_context: 33,
   melody_activity_dense: 34,
   melody_activity_sparse: 32,
   rest: 29,
@@ -48,16 +56,16 @@ function stripClaimPrefix(claim: string): string {
   return claim.replace(/^[^:]+:\s*/, "").replace(/\s+/g, " ").trim();
 }
 
-function isMelodyFinding(finding: TemporalFinding): boolean {
+function isMelodyFinding(finding: BreakdownCandidate): boolean {
   return finding.category === "melody";
 }
 
-function overlaps(range: BreakdownTimeRange, finding: TemporalFinding): boolean {
+function overlaps(range: BreakdownTimeRange, finding: BreakdownCandidate): boolean {
   if (!range) return false;
   return finding.startSeconds < range.end && finding.endSeconds > range.start;
 }
 
-function selectionScore(range: BreakdownTimeRange, finding: TemporalFinding): number {
+function selectionScore(range: BreakdownTimeRange, finding: BreakdownCandidate): number {
   if (!range) return 0;
   if (overlaps(range, finding)) return 100;
 
@@ -70,26 +78,45 @@ function selectionScore(range: BreakdownTimeRange, finding: TemporalFinding): nu
   return Math.max(-40, 12 - distance);
 }
 
-function evidenceBreadthScore(finding: TemporalFinding): number {
+function evidenceBreadthScore(finding: BreakdownCandidate): number {
   return Math.min(Object.keys(finding.evidence).length, 4);
 }
 
-function redundancyKey(finding: TemporalFinding): string {
+function redundancyKey(finding: BreakdownCandidate): string {
   // Peak/valley density findings are two views over the same persisted density
   // measurement. Promote at most one from a source insight in the compact
   // Breakdown; the full evidence remains available on disclosure.
   if (finding.kind === "density_peak" || finding.kind === "density_valley") {
     return `density:${finding.sourceInsightId}`;
   }
+
+  if (finding.kind === "rhythm_density_work_context") {
+    // A peak/valley chosen from the same density series is contextual
+    // explanation, not an independent salience signal. Collapse it with the
+    // legacy extrema candidate so percentile/context cannot double-count the
+    // fact that the passage was selected because it was already extreme.
+    if (
+      finding.evidence.selectionConditionedOnRhythmDensity === true
+      || finding.evidence.subjectOrigin === "legacy_density_peak"
+      || finding.evidence.subjectOrigin === "legacy_density_valley"
+    ) {
+      return `density:${finding.sourceInsightId}`;
+    }
+  }
+
   return finding.id;
 }
 
-function headlineFor(finding: TemporalFinding): string {
+function headlineFor(finding: BreakdownCandidate): string {
   switch (finding.kind) {
     case "density_peak":
       return "Note-onset activity is densest in this passage.";
     case "density_valley":
       return "Note-onset activity is comparatively sparse here.";
+    case "rhythm_density_work_context":
+      // This copy is composed and validated on the server. Do not reinterpret
+      // percentile/context as significance or objective musical importance.
+      return finding.label;
     case "rest":
       return "A pronounced gap in note attacks occurs here.";
     case "harmonic_activity":
@@ -106,12 +133,10 @@ function headlineFor(finding: TemporalFinding): string {
       return "The detected melody becomes more active here.";
     case "melody_activity_sparse":
       return "The detected melody becomes sparser here.";
-    default:
-      return stripClaimPrefix(finding.label);
   }
 }
 
-function evidenceSummaryFor(finding: TemporalFinding): string {
+function evidenceSummaryFor(finding: BreakdownCandidate): string {
   switch (finding.kind) {
     // A Breakdown card earns a second line only when it adds a concrete fact.
     // Method/trust prose remains available in the analysis/evidence layer, but
@@ -120,6 +145,8 @@ function evidenceSummaryFor(finding: TemporalFinding): string {
     case "density_peak":
     case "density_valley":
       return "";
+    case "rhythm_density_work_context":
+      return finding.evidence.evidenceSummary;
     case "harmonic_activity":
       return "Derived from the timing of trusted chord boundaries; this describes change rate, not harmonic tension.";
     case "rest": {
@@ -134,7 +161,7 @@ function evidenceSummaryFor(finding: TemporalFinding): string {
 }
 
 function toBreakdownFinding(
-  finding: TemporalFinding,
+  finding: BreakdownCandidate,
   range: BreakdownTimeRange,
 ): BreakdownFinding {
   const melody = isMelodyFinding(finding);
@@ -153,6 +180,9 @@ function toBreakdownFinding(
     endSeconds: finding.endSeconds,
     headline: headlineFor(finding),
     evidenceSummary: evidenceSummaryFor(finding),
+    ...(finding.kind === "rhythm_density_work_context"
+      ? { contextEvidence: finding.evidence }
+      : {}),
     trustClass: "deterministic_derived",
     maturity: melody ? "experimental" : "production",
     primaryRepresentation: melody || finding.category === "harmony" ? "piano_roll" : "waveform",
@@ -170,13 +200,13 @@ function toBreakdownFinding(
  *
  * This is presentation policy, not a new analysis engine. It never invents a
  * finding, confidence, or capability; it only promotes existing deterministic
- * findings. Selection overlap strongly outranks whole-work salience,
- * experimental melody remains eligible without displacing same-scope
- * production evidence, and duplicate views over the same source measurement
- * are collapsed.
+ * findings plus the single server-authored grounded context candidate.
+ * Selection overlap strongly outranks whole-work salience, experimental melody
+ * remains eligible without displacing same-scope production evidence, and
+ * duplicate views over the same source measurement are collapsed.
  */
 export function rankBreakdownFindings(
-  findings: TemporalFinding[],
+  findings: BreakdownCandidate[],
   range: BreakdownTimeRange = null,
   limit = 5,
 ): BreakdownFinding[] {
