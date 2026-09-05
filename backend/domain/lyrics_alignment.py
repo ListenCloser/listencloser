@@ -22,7 +22,7 @@ SYNCALONG_VERSION = "2.0.1"
 OPENAI_WHISPER_VERSION = "20250625"
 DEFAULT_MODEL = "base"
 DEFAULT_MATCH_THRESHOLD = 55.0
-DEFAULT_TRUSTED_SCORE = 85.0
+DEFAULT_TRUSTED_SCORE = 100.0
 
 
 @dataclass(frozen=True)
@@ -139,7 +139,7 @@ def build_report_from_evidence(
                 start_seconds=float(observed.start_seconds),
                 end_seconds=float(observed.end_seconds),
                 match_score=score,
-                reason=None if status == "aligned" else "direct_match_below_trusted_score",
+                reason=None if status == "aligned" else "direct_fuzzy_match",
             )
         )
 
@@ -201,7 +201,7 @@ def build_report_from_evidence(
             model_name=model_name,
             parameters={
                 "match_threshold": match_threshold,
-                "trusted_score": trusted_score,
+                "unambiguous_match_score": trusted_score,
                 "use_lyrics_prompt": False,
                 "interpolate_unmatched": False,
                 "separate_vocals": False,
@@ -229,7 +229,7 @@ def align_supplied_text(
     if not source_text.strip():
         raise ValueError("supplied text must not be empty")
     if trusted_score < match_threshold:
-        raise ValueError("trusted score must be greater than or equal to match threshold")
+        raise ValueError("unambiguous score must be greater than or equal to match threshold")
 
     # Heavy/vendor imports remain behind this adapter boundary.
     from syncalong.align import _dp_align, _word_score
