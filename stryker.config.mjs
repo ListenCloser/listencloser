@@ -4,6 +4,7 @@ export default {
   vitest: {
     related: true,
   },
+  ignoreStatic: true,
   reporters: ["clear-text", "progress"],
   thresholds: {
     high: 80,
