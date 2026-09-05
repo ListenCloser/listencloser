@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import TabStrip, { type TabIntentSource } from "@/components/ui/TabStrip";
-import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
 import {
   REPRESENTATIONS,
   availableRepresentations,
@@ -245,12 +244,8 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canImport: boolean; onImport: () => void }) {
   return (
     <main className="piece-desk piece-empty piece-empty-v3">
-      <div className="empty-desk-art">
-        <EmptyWorkspaceSignal />
-      </div>
       <div className="empty-desk-copy">
         <h1>Import a recording</h1>
-        <p>Move through waveform, notes, notation, and evidence without losing your place.</p>
         <Button variant="primary" onClick={onImport} disabled={!signedIn || !canImport}>
           Import audio
         </Button>
