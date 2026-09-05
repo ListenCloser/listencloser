@@ -180,6 +180,7 @@ def compare_perceptual_spans(
     )
     return PerceptualSpanComparisonResponse.model_validate(result.model_dump())
 
+
 @router.post(
     "/works/{work_id}/relations/similar-moments",
     response_model=SimilarMomentsResponse,
