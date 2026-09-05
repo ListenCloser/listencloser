@@ -135,5 +135,5 @@ class SymbolicDetailReport(BaseModel):
             "Step/leap fractions summarize adjacent inferred-voice onset centroids, not motifs.",
             "Density and texture are symbolic note-event measurements, not audio "
             "loudness or timbre.",
-        ]
+        ],
     )
