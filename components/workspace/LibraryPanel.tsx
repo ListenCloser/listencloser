@@ -91,6 +91,7 @@ export function WorkRow({
 
       <Tooltip content="Delete recording" placement="left">
         <IconButton
+          compact
           variant="ghost"
           aria-label={`Delete ${title}`}
           onClick={onDelete}
