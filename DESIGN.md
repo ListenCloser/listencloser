@@ -6,12 +6,46 @@ This file is the human-readable source of truth for Listen Closer's product UI.
 
 - `DESIGN.md` owns intent, semantic roles, interaction conventions, and design constraints.
 - `app/tokens.css` owns the executable values for ordinary application chrome.
+- `components/ui` owns generic application controls and the adapters around maintained browser/UI primitives.
 - `docs/adr/0012-oss-first-frontend-primitives.md` owns the generic frontend primitive strategy.
 - Product-specific music renderers may use specialized palettes or geometry when the measured data requires it, but their surrounding controls and chrome follow this system.
 
 When implementation and this document disagree, update one deliberately. Do not resolve drift by adding another late override stylesheet.
 
 Temporary aliases in `app/tokens.css` (`--ui-*`, older `--bg` / `--panel` / `--accent`, abbreviated spacing/type tokens, etc.) are migration compatibility for #1211 / #523, not a second permanent vocabulary. New code should prefer the canonical semantic token names.
+
+## Frontend ownership map
+
+Frontend code should be findable by responsibility rather than by the history of the feature that introduced it.
+
+```text
+components/ui/
+  Generic application controls and maintained primitive adapters.
+  No music/workspace/Inspector business semantics.
+
+components/workspace/
+  Product composition and workspace business interactions.
+  Feature CSS owns layout/composition, not commodity control anatomy.
+
+components/workspace/representations/
+  Music-specific renderers, projection geometry, synchronized visual objects.
+
+components/workspace/inspector/
+  Musician-facing analysis composition and evidence interactions.
+  Generic controls still come from components/ui.
+
+components/brand/
+  Identity-bearing and decorative brand-only visuals when needed.
+```
+
+Rules:
+
+- vendor UI primitive imports belong behind `components/ui` unless a documented capability exception is required;
+- `components/ui` must stay feature-neutral: no `library-*`, `piece-*`, `transport-*`, `ask-*`, or analysis-specific anatomy;
+- feature CSS may define product composition and measured/data visualization, but must not redefine the base visual/interaction contract for buttons, menus, dialogs, fields, tabs, disclosures, tooltips, focus rings, or generic loading/status treatment;
+- keep native browser controls where native behavior is sufficient, but style them through the shared application seam;
+- compatibility re-exports may exist temporarily while code is relocated, but the implementation owner must live in the correct folder and the compatibility path must not accumulate new logic;
+- do not create a generic abstraction merely to move code. A shared primitive is earned by commodity interaction or repeated visual anatomy, not by the existence of two similarly shaped product objects.
 
 ## Design intent
 
@@ -74,7 +108,7 @@ Prefer spacing and hairlines over nesting bordered cards. Raised surfaces are fo
 
 - primary text: `--text-primary` = `#eceee6`;
 - secondary text: `--text-secondary` = `#b5bab1`;
-- tertiary text: `--text-tertiary` = `#767d75`;
+- tertiary text: `--text-tertiary` = `#838a82`;
 - subtle line: `--line-subtle` = `rgba(239, 241, 233, 0.075)`;
 - strong line: `--line-strong` = `rgba(239, 241, 233, 0.14)`.
 
@@ -127,6 +161,8 @@ Canonical radius scale:
 Canonical spacing scale:
 
 - 4, 8, 12, 16, 24, 32, 48, 64px (`--space-1` through `--space-8`).
+
+Generic controls use the shared control geometry from `app/tokens.css`: compact 30px, default 34px, and touch 44px. A product renderer may use different hit geometry only when the musical interaction itself requires it.
 
 Use arbitrary geometry only when a renderer, canvas measurement, or one-off composition has a concrete reason. Generic controls should consume system tokens.
 
@@ -198,19 +234,18 @@ Use one obvious play/pause action and compact adjacent controls. Playback/time s
 
 Follow accepted ADR 0012: **own the product; borrow the primitives**.
 
-For new generic application controls, the default is:
+For generic application controls:
 
-- local shadcn-style component ownership in `components/ui`;
-- Base UI as the default underlying accessible primitive layer;
-- existing Tailwind CSS v4 + CSS variables/tokens for styling.
+- local source ownership stays in `components/ui` so ListenCloser owns composition and styling;
+- maintained OSS/browser primitives own commodity interaction semantics whenever they satisfy the product contract;
+- existing proven Radix and Headless UI choices remain valid; do not migrate a working primitive merely to force a single vendor;
+- native HTML remains preferred where it already supplies the required semantics with less adapter code.
 
-Existing Radix usage may remain where already appropriate; Radix or React Aria may be used for a concrete better-fit requirement. Do not mix primitive bases casually or migrate a working control solely for aesthetic consistency.
-
-Feature/product code should consume generic app-level controls from `components/ui` rather than importing vendor primitives directly unless a documented capability exception requires it.
+Do not import a vendor primitive directly into product/feature code merely because it is easy. Wrap the commodity interaction once at the application boundary, then compose it with product behavior.
 
 Generic primitive names/styles are feature-neutral. Avoid `piece-*`, `library-*`, `ask-*`, etc. inside reusable primitive anatomy.
 
-Prefer established iconography for ordinary interface icons. Brand marks and genuinely music-specific symbols remain custom.
+Prefer established, consistent ordinary iconography. Brand marks and genuinely music-specific symbols remain custom. If the ordinary icon vocabulary stays tiny, a centralized source-owned icon module is acceptable; add an icon dependency only when it deletes more maintenance than it adds.
 
 Do **not** create a generic `Card` primitive and apply it everywhere.
 
