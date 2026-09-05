@@ -5,11 +5,13 @@ export type SourceRef = { id: string; url: string };
 export function buildPlaybackSources({
   original,
   transcription,
+  melody = null,
   extraTakes,
   score,
 }: {
   original: SourceRef | null;
   transcription: SourceRef | null;
+  melody?: SourceRef | null;
   extraTakes: SourceRef[];
   score: SourceRef | null;
 }): { sources: PlaybackSource[]; activeId: string | null } {
@@ -20,6 +22,9 @@ export function buildPlaybackSources({
   if (transcription) {
     sources.push({ id: transcription.id, label: "Transcription", role: "transcription", url: transcription.url, kind: "audio" });
   }
+  if (melody) {
+    sources.push({ id: melody.id, label: "Melody", role: "derived", url: melody.url, kind: "audio" });
+  }
   extraTakes.forEach((take, index) => {
     sources.push({ id: take.id, label: `Take ${index + 1}`, role: "derived", url: take.url, kind: "audio" });
   });
@@ -29,10 +34,15 @@ export function buildPlaybackSources({
     sources.push({ id: score.id, label: "Score", role: "score", url: score.url, kind: "audio" });
   }
 
-  // The uploaded recording is the stable product default. Derived sources are
-  // opt-in listening choices and representation tabs never choose them
-  // implicitly. If no Original exists, fall back to the first useful derived
-  // source so older/partial Works remain playable.
-  const activeId = original?.id ?? transcription?.id ?? score?.id ?? extraTakes[0]?.id ?? null;
+  // The uploaded recording is the stable product default. Experimental/derived
+  // sources never become the default merely because they were generated. If no
+  // Original exists, prefer the canonical transcription/score/take before the
+  // optional Melody source so older and partial Works stay predictable.
+  const activeId = original?.id
+    ?? transcription?.id
+    ?? score?.id
+    ?? extraTakes[0]?.id
+    ?? melody?.id
+    ?? null;
   return { sources, activeId };
 }

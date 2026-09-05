@@ -15,7 +15,15 @@ from domain.repositories import ArtifactRepo, JobRepo, VersionRepo, WorkflowRepo
 
 router = APIRouter()
 _PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset(
-    {"perceptual_series", "structure_map", "symbolic_detail", "transform"}
+    {
+        "melody_audition",
+        "perceptual_series",
+        "pitch_contour",
+        "production_spatial",
+        "structure_map",
+        "symbolic_detail",
+        "transform",
+    }
 )
 
 

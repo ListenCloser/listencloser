@@ -1,4 +1,4 @@
-"""Engine registry with environment-variable selection.
+"""Engine registry with typed runtime selection.
 
 Production defaults:
   TRANSCRIPTION_ENGINE=basic_pitch
@@ -13,8 +13,6 @@ analysis, notation, and test paths and must not itself require Torch/TensorFlow.
 
 from __future__ import annotations
 
-import os
-
 from engines.base import (
     BeatTrackingEngine,
     HarmonyEngine,
@@ -26,6 +24,7 @@ from engines.beats.librosa_engine import LibrosaBeatEngine
 from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.musescore_engine import MuseScoreNotationEngine
+from settings import EngineSettings
 
 
 def get_transcription_engine(
@@ -48,7 +47,7 @@ def get_transcription_engine(
         if profile == "solo_piano":
             name = "transkun"
         elif profile in ("general", "auto", None):
-            name = os.environ.get("TRANSCRIPTION_ENGINE", "basic_pitch")
+            name = EngineSettings().transcription
         else:
             raise ValueError(f"Unknown transcription profile: {profile}")
 
@@ -85,7 +84,7 @@ def get_beat_engine(name: str | None = None) -> BeatTrackingEngine:
     canonical pulse evaluation. ``BEAT_ENGINE=librosa`` remains an explicit
     operational rollback, not a silent fallback.
     """
-    name = name or os.environ.get("BEAT_ENGINE", "beat_this")
+    name = name or EngineSettings().beat
     if name == "librosa":
         return LibrosaBeatEngine()
     if name == "beat_this":
@@ -107,7 +106,7 @@ def get_notation_engine(name: str | None = None) -> NotationEngine:
     then the existing MuseScore MIDI-import stage produces MusicXML. Selection
     is explicit; engines never silently catch-and-substitute each other.
     """
-    name = name or os.environ.get("NOTATION_ENGINE", "musescore")
+    name = name or EngineSettings().notation
     if name == "musescore":
         return MuseScoreNotationEngine()
     if name == "pm2s":
@@ -118,7 +117,7 @@ def get_notation_engine(name: str | None = None) -> NotationEngine:
 
 
 def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
-    name = name or os.environ.get("HARMONY_ENGINE", "music21")
+    name = name or EngineSettings().harmony
     if name == "music21":
         return Music21HarmonyEngine()
     if name == "lv_chordia":
@@ -129,6 +128,10 @@ def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
                 "lv-chordia is not installed. Install the backend worker dependency group."
             ) from exc
         return LvChordiaHarmonyEngine()
+    if name == "chordmini":
+        from engines.harmony.chordmini_engine import ChordMiniHarmonyEngine
+
+        return ChordMiniHarmonyEngine()
     raise ValueError(f"Unknown harmony engine: {name}")
 
 
@@ -152,7 +155,7 @@ def get_melody_engine(
             # Do NOT fall back to skyline — it performs substantially worse.
             name = "lstom"
         elif profile in ("auto", None):
-            name = os.environ.get("MELODY_ENGINE", "lstom")
+            name = EngineSettings().melody
         else:
             raise ValueError(f"Unknown melody profile: {profile}")
 
@@ -176,7 +179,7 @@ def get_theory_engine(name: str | None = None):
     This engine takes chord timeline + key context and produces
     Roman numerals and harmonic function.
     """
-    name = name or os.environ.get("THEORY_ENGINE", "theory_interpreter")
+    name = name or EngineSettings().theory
     if name == "theory_interpreter":
         from engines.theory.theory_engine import TheoryEngine
 

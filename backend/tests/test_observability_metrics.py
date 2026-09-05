@@ -86,11 +86,9 @@ def test_record_http_request_clamps_negative_duration(monkeypatch) -> None:
 def test_record_job_execution_uses_bounded_attributes(monkeypatch) -> None:
     counter = _Recorder()
     histogram = _Recorder()
-    orphans = _Recorder()
-    monkeypatch.setattr(observability, "_job_metrics", (counter, histogram, orphans))
+    monkeypatch.setattr(observability, "_job_metrics", (counter, histogram))
 
     observability.record_job_execution("transcribe:1.0", "retry", 2.5)
-    observability.record_orphans_recovered(3)
 
     expected_attributes = {
         "job.capability": "transcribe:1.0",
@@ -98,4 +96,3 @@ def test_record_job_execution_uses_bounded_attributes(monkeypatch) -> None:
     }
     assert counter.calls == [(1, expected_attributes)]
     assert histogram.calls == [(2.5, expected_attributes)]
-    assert orphans.calls == [(3, {})]

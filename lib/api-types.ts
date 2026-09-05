@@ -302,6 +302,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows/supplied-text-alignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Supplied Text Alignment
+         * @description Queue permitted supplied text against one exact source audio Version.
+         */
+        post: operations["create_supplied_text_alignment_api_v1_workflows_supplied_text_alignments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflows/understand": {
         parameters: {
             query?: never;
@@ -397,6 +417,46 @@ export interface paths {
          * @description Compare two user-selected spans using persisted, lineage-checked evidence.
          */
         post: operations["compare_perceptual_spans_api_v1_works__work_id__relations_perceptual_span_comparison_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/works/{work_id}/relations/rhythm-density-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rhythm Density Context
+         * @description Return literal within-Work context for one exact density-owning Version.
+         */
+        post: operations["rhythm_density_context_api_v1_works__work_id__relations_rhythm_density_context_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/works/{work_id}/relations/similar-moments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Similar Moments
+         * @description Propose inspectable same-Work passages under one declared experimental method.
+         */
+        post: operations["similar_moments_api_v1_works__work_id__relations_similar_moments_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -911,6 +971,127 @@ export interface components {
             work_id?: string | null;
         };
         /**
+         * GroundedContextFinding
+         * @description Context relation translated into literal product-facing evidence.
+         */
+        GroundedContextFinding: {
+            /** Available Actions */
+            available_actions: ("focus" | "evidence")[];
+            /** Evidence Summary */
+            evidence_summary: string;
+            /** Headline */
+            headline: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @default rhythm_density_work_context
+             * @constant
+             */
+            kind: "rhythm_density_work_context";
+            /**
+             * Maturity
+             * @default production
+             * @constant
+             */
+            maturity: "production";
+            /** Measurements */
+            measurements: components["schemas"]["GroundedContextFindingMeasurement"][];
+            /** Provenance */
+            provenance?: {
+                [key: string]: unknown;
+            };
+            reference_population: components["schemas"]["RhythmDensityReferencePopulation"];
+            /**
+             * Relation Kind
+             * @default compare
+             * @constant
+             */
+            relation_kind: "compare";
+            /** Selection Conditioned On Rhythm Density */
+            selection_conditioned_on_rhythm_density: boolean | null;
+            /**
+             * Source Relation Id
+             * Format: uuid
+             */
+            source_relation_id: string;
+            subject_locator: components["schemas"]["SecondsSpanLocator"];
+            /**
+             * Subject Origin
+             * @enum {string}
+             */
+            subject_origin: "user_selected" | "legacy_density_peak" | "legacy_density_valley" | "other_grounded_candidate";
+            sufficiency: components["schemas"]["RelationSufficiency"];
+            /** Support Refs */
+            support_refs: components["schemas"]["RhythmDensityEvidenceRef"][];
+            /**
+             * Trust Class
+             * @default deterministic_derived
+             * @constant
+             */
+            trust_class: "deterministic_derived";
+        };
+        /**
+         * GroundedContextFindingMeasurement
+         * @description One literal density-context measurement tied to its exact evidence ref.
+         */
+        GroundedContextFindingMeasurement: {
+            /**
+             * Coordinate Unit
+             * @default beats
+             * @constant
+             */
+            coordinate_unit: "beats";
+            /** Delta From Reference Median */
+            delta_from_reference_median: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "higher" | "lower" | "unchanged";
+            /** Empirical Midrank Percentile */
+            empirical_midrank_percentile: number;
+            /**
+             * Feature
+             * @default rhythm_density
+             * @constant
+             */
+            feature: "rhythm_density";
+            /**
+             * Normalization
+             * @default events_per_beat
+             * @constant
+             */
+            normalization: "events_per_beat";
+            /** Reference Iqr */
+            reference_iqr: number;
+            /** Reference Median */
+            reference_median: number;
+            /** Reference Q1 */
+            reference_q1: number;
+            /** Reference Q3 */
+            reference_q3: number;
+            /** Reference Window Count */
+            reference_window_count: number;
+            /** Step Size */
+            step_size: number;
+            /** Subject Value */
+            subject_value: number;
+            /** Subject Window Count */
+            subject_window_count: number;
+            /** Summary */
+            summary: string;
+            support_ref: components["schemas"]["RhythmDensityEvidenceRef"];
+            /**
+             * Unit
+             * @default events_per_beat
+             * @constant
+             */
+            unit: "events_per_beat";
+            /** Window Size */
+            window_size: number;
+        };
+        /**
          * GroundedFindingMeasurement
          * @description One user-facing literal clause tied to the exact evidence reference.
          */
@@ -1014,19 +1195,25 @@ export interface components {
         HealthQueueResponse: {
             /** Heartbeat Source */
             heartbeat_source?: string | null;
-            /** Queued */
-            queued: number;
+            /** Oldest Age Seconds */
+            oldest_age_seconds?: number | null;
+            /** Queue Depth */
+            queue_depth: number;
+            /** Queue Ready */
+            queue_ready: boolean;
+            /** Queue Visible Depth */
+            queue_visible_depth: number;
             /** Reason */
             reason?: string | null;
-            /** Running */
-            running: number;
-            /** Stale Leases */
-            stale_leases: number;
+            /** Sampled At */
+            sampled_at?: string | null;
             /**
              * Status
              * @enum {string}
              */
             status: "ready" | "degraded";
+            /** Total Messages */
+            total_messages: number;
             /** Workers */
             workers: number;
         };
@@ -1372,6 +1559,95 @@ export interface components {
              */
             status: "supported" | "experimental" | "withhold";
         };
+        /**
+         * RhythmDensityContextBody
+         * @description Contextualize one explicit performance-time span using one exact density owner.
+         */
+        RhythmDensityContextBody: {
+            /**
+             * Density Owner Version Id
+             * Format: uuid
+             */
+            density_owner_version_id: string;
+            /** Subject End Seconds */
+            subject_end_seconds: number;
+            /**
+             * Subject Origin
+             * @enum {string}
+             */
+            subject_origin: "user_selected" | "legacy_density_peak" | "legacy_density_valley" | "other_grounded_candidate";
+            /** Subject Start Seconds */
+            subject_start_seconds: number;
+        };
+        /**
+         * RhythmDensityContextQueryResult
+         * @description Truthful availability/result state for one persisted context query.
+         */
+        RhythmDensityContextQueryResult: {
+            finding?: components["schemas"]["GroundedContextFinding"] | null;
+            /** Reasons */
+            reasons?: string[];
+            /** Rhythm Density Insight Id */
+            rhythm_density_insight_id?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "supported" | "unavailable" | "withheld" | "failed";
+        };
+        /**
+         * RhythmDensityEvidenceRef
+         * @description #371-compatible reference to one persisted rhythm-density Insight.
+         */
+        RhythmDensityEvidenceRef: {
+            /** Id */
+            id: string;
+            /**
+             * Namespace
+             * @default rhythm_density_insight
+             * @constant
+             */
+            namespace: "rhythm_density_insight";
+            /**
+             * Type
+             * @default external
+             * @constant
+             */
+            type: "external";
+        };
+        /**
+         * RhythmDensityReferencePopulation
+         * @description Explicit discontinuous within-Work reference population.
+         */
+        RhythmDensityReferencePopulation: {
+            /** Eligible Coverage Seconds */
+            eligible_coverage_seconds: number;
+            /** Eligible Intervals Seconds */
+            eligible_intervals_seconds?: [
+                number,
+                number
+            ][];
+            /** Eligible Window Count */
+            eligible_window_count: number;
+            /** Excluded Intersecting Window Count */
+            excluded_intersecting_window_count: number;
+            /**
+             * Exclusion Policy
+             * @default exclude_intersecting_subject_windows_v1
+             * @constant
+             */
+            exclusion_policy: "exclude_intersecting_subject_windows_v1";
+            /**
+             * Kind
+             * @default work_excluding_subject
+             * @constant
+             */
+            kind: "work_excluding_subject";
+            /** Source Coverage End Seconds */
+            source_coverage_end_seconds: number;
+            /** Source Coverage Start Seconds */
+            source_coverage_start_seconds: number;
+        };
         /** ScoreWorkflowBody */
         ScoreWorkflowBody: {
             /** Performance Midi Version Id */
@@ -1402,6 +1678,146 @@ export interface components {
             /** Start Seconds */
             start_seconds: number;
         };
+        /**
+         * SimilarMomentMatch
+         * @description One inspectable candidate under the declared descriptor-shape method.
+         */
+        SimilarMomentMatch: {
+            /** Component Distances */
+            component_distances: {
+                [key: string]: number;
+            };
+            /** Distance */
+            distance: number;
+            /** End Seconds */
+            end_seconds: number;
+            /** Start Seconds */
+            start_seconds: number;
+        };
+        /**
+         * SimilarMomentsBody
+         * @description Find bounded experimental neighbors for one exact selected passage.
+         */
+        SimilarMomentsBody: {
+            /**
+             * Max Matches
+             * @default 3
+             */
+            max_matches: number;
+            /** Query End Seconds */
+            query_end_seconds: number;
+            /** Query Start Seconds */
+            query_start_seconds: number;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+        };
+        /**
+         * SimilarMomentsMethod
+         * @description Stable declaration of what the experimental distance does and does not mean.
+         */
+        SimilarMomentsMethod: {
+            /**
+             * Candidate Window
+             * @default same_evidence_frame_count_as_query
+             * @constant
+             */
+            candidate_window: "same_evidence_frame_count_as_query";
+            /** Dimensions */
+            dimensions: string[];
+            /**
+             * Distance
+             * @default mean_length_normalized_z_euclidean
+             * @constant
+             */
+            distance: "mean_length_normalized_z_euclidean";
+            /**
+             * Id
+             * @default perceptual_descriptor_shape
+             * @constant
+             */
+            id: "perceptual_descriptor_shape";
+            /**
+             * Overlap Exclusion
+             * @default exclude_query_overlap_and_mutually_overlapping_returned_windows
+             * @constant
+             */
+            overlap_exclusion: "exclude_query_overlap_and_mutually_overlapping_returned_windows";
+            /** Parameters */
+            parameters?: {
+                [key: string]: number;
+            };
+            /**
+             * Score Semantics
+             * @default lower_is_closer_under_this_method_not_confidence
+             * @constant
+             */
+            score_semantics: "lower_is_closer_under_this_method_not_confidence";
+            /**
+             * Semantic Claims
+             * @default none
+             * @constant
+             */
+            semantic_claims: "none";
+            /**
+             * Version
+             * @default 1.0
+             * @constant
+             */
+            version: "1.0";
+        };
+        /**
+         * SimilarMomentsObservation
+         * @description Experimental result tied to one exact source/evidence Version pair.
+         */
+        SimilarMomentsObservation: {
+            /**
+             * Evidence Report Type
+             * @default perceptual_series
+             * @constant
+             */
+            evidence_report_type: "perceptual_series";
+            /**
+             * Evidence Report Version Id
+             * Format: uuid
+             */
+            evidence_report_version_id: string;
+            /** Matches */
+            matches: components["schemas"]["SimilarMomentMatch"][];
+            /** Max Matches */
+            max_matches: number;
+            method: components["schemas"]["SimilarMomentsMethod"];
+            /** No Match Reason */
+            no_match_reason?: string | null;
+            /** Preprocessing Version */
+            preprocessing_version: string;
+            /** Query End Seconds */
+            query_end_seconds: number;
+            /** Query Start Seconds */
+            query_start_seconds: number;
+            /** Sample Rate */
+            sample_rate: number;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+        };
+        /** SimilarMomentsResponse */
+        SimilarMomentsResponse: {
+            /** Evidence Report Version Id */
+            evidence_report_version_id?: string | null;
+            observation?: components["schemas"]["SimilarMomentsObservation"] | null;
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "supported" | "unavailable" | "withheld" | "failed";
+        };
         /** Span */
         Span: {
             /** End Beat */
@@ -1416,6 +1832,29 @@ export interface components {
             start_measure?: number | null;
             /** Start Seconds */
             start_seconds?: number | null;
+        };
+        /** SuppliedTextAlignmentBody */
+        SuppliedTextAlignmentBody: {
+            /** Language */
+            language?: string | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Text */
+            text: string;
+            /**
+             * Text Source Kind
+             * @default user_supplied
+             * @enum {string}
+             */
+            text_source_kind: "user_supplied" | "licensed" | "public_domain" | "other_permitted";
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
         };
         /** UnderstandWorkflowBody */
         UnderstandWorkflowBody: {
@@ -2208,6 +2647,39 @@ export interface operations {
             };
         };
     };
+    create_supplied_text_alignment_api_v1_workflows_supplied_text_alignments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuppliedTextAlignmentBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_understand_workflow_api_v1_workflows_understand_post: {
         parameters: {
             query?: never;
@@ -2391,6 +2863,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PerceptualSpanComparisonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rhythm_density_context_api_v1_works__work_id__relations_rhythm_density_context_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RhythmDensityContextBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RhythmDensityContextQueryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    similar_moments_api_v1_works__work_id__relations_similar_moments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimilarMomentsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimilarMomentsResponse"];
                 };
             };
             /** @description Validation Error */

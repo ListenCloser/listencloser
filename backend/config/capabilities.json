@@ -88,6 +88,14 @@
       "validated_domain": "pop/arranged symbolic MIDI",
       "notes": "Historical POP909 evidence supports pop/arranged symbolic MIDI, but exact holdout membership and committed-checkpoint seed/epoch were not retained; #1026 records this reproducibility limit. Classical piano and general performance MIDI are not formally validated. Model is deterministic, CPU-only (~390ms/song), 9.66MB."
     },
+    "pitch_contour": {
+      "status": "experimental",
+      "input": "audio",
+      "engine": "librosa.pyin",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "validated_domain": "voice and expressive monophonic material; manual integration probes only",
+      "notes": "Opt-in continuous F0 representation added under #1087. Persist exact source Version, Hz/cents, pYIN voiced flag + voiced probability, frame coordinates, and preprocessing. Not MIDI and not a transcription replacement. Dense polyphony/noise/strong overtones may produce octave or subharmonic errors; current synthetic dyad+noise probe collapsed 220+329.63 Hz toward ~110 Hz. Experimental integration is not canonization."
+    },
     "melody_register_peak": {
       "status": "experimental",
       "input": "derived",
@@ -277,6 +285,27 @@
       },
       "validated_domain": "within-recording experimental navigation only",
       "notes": "Map/navigation surface only. Letter labels are descriptor-similarity hints, not verse/chorus/motif/canonical form. Inspector/annotation/Ask exposure remains false until separately earned."
+    },
+    "supplied_text_alignment": {
+      "status": "experimental",
+      "input": "audio+user_supplied_text",
+      "engine": "syncalong_dp_whisper_v1",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "validated_domain": "user-supplied, licensed, public-domain, or otherwise permitted reference text aligned to one exact audio Version",
+      "notes": "Backend-only #1181 slice. Supplied text remains authoritative; Whisper provides timing evidence only. Direct matches are method-qualified, weak direct matches remain ambiguous, unmatched words remain failed, and no line interpolation/extrapolation, lyrics acquisition, beat/pulse authority, or frontend lane is introduced."
+    },
+    "production_spatial": {
+      "status": "experimental",
+      "input": "audio",
+      "engine": "pyloudnorm_librosa_mid_side_v1",
+      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "evaluation": {
+        "dataset": "synthetic stereo/mono fixtures",
+        "metric": "experimental_product_integration",
+        "details": "#1179: BS.1770 loudness, exact two-channel mid/side energy share, spectral centroid, and onset-strength changes are exposed only as method-qualified within-recording adjacent-window relations."
+      },
+      "validated_domain": "within-recording adjacent fixed-window measurement comparison",
+      "notes": "Experimental opt-in Inspector lens only. Literal measurements and relations; no semantic timbre, mix-quality, width-quality, section, cause, importance, or cross-recording claims. Mid/side relation is unavailable unless the source is exactly stereo."
     },
     "symbolic_detail": {
       "status": "experimental",

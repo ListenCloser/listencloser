@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import type { Insight } from "@/lib/domain.types";
 import type { RepresentationId } from "@/lib/representations";
 import type { AskMessage } from "@/lib/ask/types";
+import type { ScoreDisplaySelection, ScoreSourceOption } from "@/lib/score-sources";
 
 export type RepresentationKind =
   | "piano_roll"
@@ -58,6 +59,7 @@ type WorkspaceState = {
   activeWorkId: string | null;
   isLoadingWork: boolean;
   importRequestId: number;
+  attachScoreRequestId: number;
   libraryCollapsed: boolean;
   inspectorCollapsed: boolean;
   inspectorMode: "analysis" | "ask";
@@ -71,6 +73,8 @@ type WorkspaceState = {
   transcriptionProfile: TranscriptionProfile;
   scoreEngine: ScoreEngine;
   scoreEngineAction: { id: number; engine: ScoreEngine } | null;
+  scoreDisplaySelection: ScoreDisplaySelection;
+  scoreSources: ScoreSourceOption[];
   analysisState: AnalysisState;
 };
 
@@ -79,6 +83,7 @@ type WorkspaceContextValue = {
   setActiveWorkId: (workId: string | null) => void;
   setLoadingWork: (loading: boolean) => void;
   requestImport: () => void;
+  requestAttachScore: () => void;
   toggleLibrary: () => void;
   toggleInspector: () => void;
   setInspectorMode: (mode: "analysis" | "ask") => void;
@@ -95,6 +100,9 @@ type WorkspaceContextValue = {
   setTranscriptionProfile: (profile: TranscriptionProfile) => void;
   setScoreEngine: (engine: ScoreEngine) => void;
   requestScoreEngine: (engine: ScoreEngine) => void;
+  setScoreDisplaySelection: (selection: ScoreDisplaySelection) => void;
+  setScoreSources: (sources: ScoreSourceOption[]) => void;
+  selectScoreSource: (versionId: string) => void;
   setAnalysisState: (state: AnalysisState) => void;
 };
 
@@ -137,6 +145,7 @@ export function WorkspaceProvider({
     // and isolated consumers keep normal work-loading semantics by default.
     isLoadingWork: initialLoading,
     importRequestId: 0,
+    attachScoreRequestId: 0,
     libraryCollapsed: false,
     inspectorCollapsed: false,
     inspectorMode: "analysis",
@@ -150,6 +159,8 @@ export function WorkspaceProvider({
     transcriptionProfile: "auto",
     scoreEngine: "musescore",
     scoreEngineAction: null,
+    scoreDisplaySelection: null,
+    scoreSources: [],
     analysisState: "idle",
   });
 
@@ -166,6 +177,8 @@ export function WorkspaceProvider({
         studioOperation: { state: "idle", label: "" },
         activeRepresentation: null,
         selection: null,
+        scoreDisplaySelection: null,
+        scoreSources: [],
         askConversation: [],
         analysisState: "idle",
       };
@@ -174,6 +187,7 @@ export function WorkspaceProvider({
 
   const setLoadingWork = useCallback((isLoadingWork: boolean) => setWorkspace((prev) => ({ ...prev, isLoadingWork })), []);
   const requestImport = useCallback(() => setWorkspace((prev) => ({ ...prev, importRequestId: prev.importRequestId + 1 })), []);
+  const requestAttachScore = useCallback(() => setWorkspace((prev) => ({ ...prev, attachScoreRequestId: prev.attachScoreRequestId + 1 })), []);
   const toggleLibrary = useCallback(() => setWorkspace((prev) => ({ ...prev, libraryCollapsed: !prev.libraryCollapsed })), []);
   const toggleInspector = useCallback(() => setWorkspace((prev) => ({ ...prev, inspectorCollapsed: !prev.inspectorCollapsed })), []);
   const setInspectorMode = useCallback((inspectorMode: "analysis" | "ask") => setWorkspace((prev) => ({ ...prev, inspectorMode })), []);
@@ -194,9 +208,16 @@ export function WorkspaceProvider({
   const clearSelection = useCallback(() => setWorkspace((prev) => ({ ...prev, selection: null })), []);
   const setTranscriptionProfile = useCallback((transcriptionProfile: TranscriptionProfile) => setWorkspace((prev) => prev.transcriptionProfile === transcriptionProfile ? prev : { ...prev, transcriptionProfile }), []);
   const setScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => prev.scoreEngine === scoreEngine ? prev : { ...prev, scoreEngine }), []);
+  const setScoreDisplaySelection = useCallback((scoreDisplaySelection: ScoreDisplaySelection) => setWorkspace((prev) => ({ ...prev, scoreDisplaySelection })), []);
+  const setScoreSources = useCallback((scoreSources: ScoreSourceOption[]) => setWorkspace((prev) => ({ ...prev, scoreSources })), []);
+  const selectScoreSource = useCallback((versionId: string) => setWorkspace((prev) => ({
+    ...prev,
+    scoreDisplaySelection: { kind: "source", versionId },
+  })), []);
   const requestScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => ({
     ...prev,
     scoreEngine,
+    scoreDisplaySelection: { kind: "engine", engine: scoreEngine },
     scoreEngineAction: {
       id: (prev.scoreEngineAction?.id ?? 0) + 1,
       engine: scoreEngine,
@@ -210,6 +231,7 @@ export function WorkspaceProvider({
       setActiveWorkId,
       setLoadingWork,
       requestImport,
+      requestAttachScore,
       toggleLibrary,
       toggleInspector,
       setInspectorMode,
@@ -226,6 +248,9 @@ export function WorkspaceProvider({
       setTranscriptionProfile,
       setScoreEngine,
       requestScoreEngine,
+      setScoreDisplaySelection,
+      setScoreSources,
+      selectScoreSource,
       setAnalysisState,
     }}>
       {children}

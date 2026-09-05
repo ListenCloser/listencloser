@@ -108,6 +108,17 @@
   opacity: 0.72 !important;
 }
 
+/* Score playback: sounding notes use the same neutral current-time token as
+ * the other representations. Weight + halo, not another semantic color, makes
+ * the note state primary while lime remains reserved for selection/action. */
+.sheet-music-container [data-score-playback-active="true"] {
+  fill: var(--score-playback) !important;
+  stroke: var(--score-playback) !important;
+  stroke-width: 1.15px !important;
+  paint-order: stroke fill;
+  filter: drop-shadow(0 0 2px var(--score-playback-soft));
+}
+
 /* Keep OSMD output on a calm paper stage without changing notation semantics. */
 .sheet-music-wrap {
   min-height: 100%;

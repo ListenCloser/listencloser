@@ -6,14 +6,16 @@ on known inputs, locking the engine behavior for regression detection.
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.worker]
 torch = pytest.importorskip("torch", reason="worker/model dependency group is not installed")
-pytest.importorskip("pretty_midi", reason="pretty_midi not installed")
+pretty_midi = pytest.importorskip("pretty_midi", reason="pretty_midi not installed")
 
+import engines.melody.lstom_engine as lstom_engine  # noqa: E402
 from engines.melody.lstom_engine import LStoMMelodyEngine  # noqa: E402
 from engines.melody.skyline_engine import SkylineMelodyEngine  # noqa: E402
 
@@ -23,6 +25,34 @@ SIMPLE_MELODY_MIDI = FIXTURE_DIR / "music_eval" / "simple_melody.mid"
 
 def _read_bytes(path: Path) -> bytes:
     return path.read_bytes()
+
+
+def _midi_bytes_with_note_count(note_count: int) -> bytes:
+    pm = pretty_midi.PrettyMIDI()
+    inst = pretty_midi.Instrument(program=0)
+    for i in range(note_count):
+        start = i * 0.25
+        inst.notes.append(
+            pretty_midi.Note(
+                velocity=80,
+                pitch=60 + (i % 12),
+                start=start,
+                end=start + 0.1,
+            )
+        )
+    pm.instruments.append(inst)
+    buf = io.BytesIO()
+    pm.write(buf)
+    return buf.getvalue()
+
+
+class _AlwaysMelodyModel:
+    def __init__(self) -> None:
+        self.segment_lengths: list[int] = []
+
+    def __call__(self, x):
+        self.segment_lengths.append(x.shape[0])
+        return torch.full((x.shape[0], 1), 0.9, dtype=torch.float32)
 
 
 def _has_lstom():
@@ -52,6 +82,7 @@ class TestLStoMMelodyEngine:
         assert prov.library_version == "1.0.0"
         assert prov.parameters["training_dataset"] == "POP909"
         assert prov.parameters["threshold"] == 0.40
+        assert prov.parameters["tail_policy"] == "variable_length"
 
     @needs_lstom
     def test_returns_melody_result(self):
@@ -74,6 +105,8 @@ class TestLStoMMelodyEngine:
         assert "quality_score" in melody
         assert "heuristic" in melody
         assert melody["heuristic"] == "lstom_biLSTM"
+        assert melody["candidate_note_count"] == melody["evaluated_note_count"]
+        assert melody["selected_note_count"] == len(melody["notes"])
 
     @needs_lstom
     def test_deterministic(self):
@@ -104,32 +137,44 @@ class TestLStoMMelodyEngine:
         r_lstom = lstom.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
         skyline.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
 
-        # Both should produce output
         assert r_lstom.melody is not None
-
-        # LStoM should have narrower range (less contamination)
         lstom_range = r_lstom.melody["range_semitones"]
         assert lstom_range <= 60, f"LStoM range {lstom_range} semitones seems too wide for melody"
 
     def test_empty_midi(self):
-        """Engine handles empty/short MIDI gracefully."""
-        import io
-
-        import pretty_midi
-
+        """Engine handles one-note MIDI gracefully."""
         engine = LStoMMelodyEngine()
-
-        pm = pretty_midi.PrettyMIDI()
-        inst = pretty_midi.Instrument(program=0)
-        inst.notes.append(pretty_midi.Note(velocity=64, pitch=60, start=0.0, end=0.5))
-        pm.instruments.append(inst)
-
-        buf = io.BytesIO()
-        pm.write(buf)
-        midi_bytes = buf.getvalue()
-
-        result = engine.analyze(midi_bytes)
+        result = engine.analyze(_midi_bytes_with_note_count(1))
         assert result.melody is None
+
+
+@pytest.mark.parametrize(
+    ("note_count", "expected_segments"),
+    [
+        (2, [2]),
+        (49, [49]),
+        (50, [50]),
+        (51, [50, 1]),
+        (99, [50, 49]),
+        (100, [50, 50]),
+        (101, [50, 50, 1]),
+    ],
+)
+def test_complete_candidate_sequence_is_evaluated(monkeypatch, note_count, expected_segments):
+    """Short inputs and the final partial chunk are never silently discarded."""
+    model = _AlwaysMelodyModel()
+    monkeypatch.setattr(lstom_engine, "_get_model", lambda: model)
+
+    melody = lstom_engine._lstom_melody(_midi_bytes_with_note_count(note_count))
+
+    assert melody is not None
+    assert melody["candidate_note_count"] == note_count
+    assert melody["evaluated_note_count"] == note_count
+    assert melody["selected_note_count"] == note_count
+    assert melody["segment_lengths"] == expected_segments
+    assert model.segment_lengths == expected_segments
+    assert len(melody["notes"]) == note_count
+    assert melody["notes"][-1]["model_score"] == pytest.approx(0.9)
 
 
 class TestLStoMRegression:
@@ -155,7 +200,7 @@ class TestLStoMRegression:
 
     @needs_lstom
     def test_quality_score(self, engine):
-        """Lock quality score on simple-melody fixture."""
+        """Lock historical selection-ratio field to its valid numeric range."""
         result = engine.analyze(_read_bytes(SIMPLE_MELODY_MIDI))
         melody = result.melody
         assert 0.0 <= melody["quality_score"] <= 1.0

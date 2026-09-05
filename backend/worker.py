@@ -5,9 +5,13 @@ import signal
 
 import domain.capabilities as capability_module
 from domain.correction_entity_sync import register_corrected_midi_entity_sync
+from domain.lyrics_alignment_capability import register_lyrics_alignment_capability
+from domain.melody_audition_capability import register_melody_audition_capability
 from domain.perceptual_capability import register_perceptual_capability
 from domain.performance_instrumentation import install_understand_instrumentation
 from domain.pgmq_job_worker import PgmqJobWorker
+from domain.production_spatial_capability import register_production_spatial_capability
+from domain.pitch_contour_capability import register_pitch_contour_capability
 from domain.structure_map_capability import register_structure_map_capability
 from domain.symbolic_detail_capability import register_symbolic_detail_capability
 from domain.worker_warmup import (
@@ -16,15 +20,16 @@ from domain.worker_warmup import (
     prewarm_librosa_beat_tracking,
 )
 from observability import configure_logging, init_sentry, init_telemetry
-from settings import WorkerSettings
+from settings import ObservabilitySettings, WorkerSettings
 
 
 def main() -> None:
-    configure_logging("listencloser-worker")
+    worker_settings = WorkerSettings()
+    observability_settings = ObservabilitySettings()
+    configure_logging("listencloser-worker", observability_settings)
     logger = logging.getLogger("worker")
-    init_telemetry("listencloser-worker")
-    init_sentry(logger)
-    settings = WorkerSettings.from_environment()
+    init_telemetry("listencloser-worker", observability_settings)
+    init_sentry(logger, observability_settings)
 
     # Pay expensive process-local cold paths before PgmqJobWorker.run() publishes
     # its first heartbeat or receives a user's job. Warmups are optimization-only:
@@ -46,13 +51,17 @@ def main() -> None:
     except Exception:
         logger.exception("librosa_beat_prewarm_failed")
 
-    worker = PgmqJobWorker(max_workers=settings.concurrency)
+    worker = PgmqJobWorker(max_workers=worker_settings.concurrency)
     install_understand_instrumentation(capability_module)
     capability_module.register_all_capabilities(worker)
     register_corrected_midi_entity_sync(worker)
     register_perceptual_capability(worker)
     register_structure_map_capability(worker)
     register_symbolic_detail_capability(worker)
+    register_production_spatial_capability(worker)
+    register_melody_audition_capability(worker)
+    register_lyrics_alignment_capability(worker)
+    register_pitch_contour_capability(worker)
 
     def stop(_signum, _frame) -> None:
         worker.stop()
