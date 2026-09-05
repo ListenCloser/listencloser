@@ -44,28 +44,8 @@ jobs:
           uv sync --project backend --locked
           npm run api:generate
 
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("scripts/check.sh")
-          text = path.read_text()
-          old = '''if [ "$MODE" = "preflight" ]; then
-  npm run api:generate
-  echo "__OPENAPI_B64_BEGIN__"
-  base64 -w 120 openapi/openapi.json
-  echo "__OPENAPI_B64_END__"
-  echo "__API_TYPES_B64_BEGIN__"
-  base64 -w 120 lib/api-types.ts
-  echo "__API_TYPES_B64_END__"
-  exit 1
-fi
-
-'''
-          if text.count(old) != 1:
-              raise SystemExit(f"expected one diagnostic preflight block, found {text.count(old)}")
-          path.write_text(text.replace(old, ""))
-          PY
-
+          git fetch origin main --depth=1
+          git show origin/main:scripts/check.sh > scripts/check.sh
           rm .github/workflows/repair-1228-api-contract.yml
 
           mapfile -t changed < <(git status --short | awk '{print $2}' | sort)
