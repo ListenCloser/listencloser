@@ -169,10 +169,11 @@ def init_telemetry(
     """Initialize vendor-neutral OTLP traces and metrics when configured.
 
     ``OTEL_EXPORTER_OTLP_ENDPOINT`` and ``OTEL_EXPORTER_OTLP_HEADERS`` remain
-    standard OpenTelemetry deployment inputs. The endpoint is typed here; the
-    exporter keeps ownership of the standard headers format. When the endpoint
-    is absent telemetry stays disabled, keeping local development and CI
-    independent of Grafana.
+    standard OpenTelemetry deployment inputs. Settings owns the endpoint's
+    enable/disable decision and resource identity; the exporter keeps ownership
+    of standard OTLP endpoint/header interpretation. When the endpoint is absent
+    telemetry stays disabled, keeping local development and CI independent of
+    Grafana.
     """
 
     settings = settings or ObservabilitySettings()
@@ -184,12 +185,10 @@ def init_telemetry(
     resource = _telemetry_resource(service_name, settings)
 
     tracer_provider = TracerProvider(resource=resource)
-    tracer_provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
-    )
+    tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
     trace.set_tracer_provider(tracer_provider)
 
-    metric_reader = PeriodicExportingMetricReader(OTLPMetricExporter(endpoint=endpoint))
+    metric_reader = PeriodicExportingMetricReader(OTLPMetricExporter())
     metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[metric_reader]))
 
     # Instrument shared outbound HTTP calls (Supabase/httpx-based providers,
