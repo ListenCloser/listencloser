@@ -177,7 +177,7 @@ export default function StructureMap() {
     void load(workspace.activeWorkId, true);
   }, [load, status, workspace.activeWorkId]);
 
-  const openChanges = useCallback(() => {
+  const openAnalysisInspector = useCallback(() => {
     setInspectorMode("analysis");
     if (workspace.inspectorCollapsed) toggleInspector();
     setChooserOpen(false);
@@ -215,6 +215,16 @@ export default function StructureMap() {
   if (!workspace.activeWorkId || !sourceVersionId) return null;
 
   const busy = status === "loading" || status === "generating";
+  const selectedPassage = workspace.selection?.timeRange;
+  const hasExactSelectedPassage = Boolean(
+    selectedPassage
+    && selectedPassage.domain === "performance"
+    && workspace.selection?.provenance.timeExact === true
+    && Number.isFinite(selectedPassage.start)
+    && Number.isFinite(selectedPassage.end)
+    && selectedPassage.start >= 0
+    && selectedPassage.end > selectedPassage.start,
+  );
   const analysisOptions: AddAnalysisOption[] = [];
   if (!report) {
     analysisOptions.push({
@@ -235,6 +245,16 @@ export default function StructureMap() {
       busy,
     });
   }
+  if (hasExactSelectedPassage) {
+    analysisOptions.push({
+      id: "similar-moments",
+      title: "Similar moments",
+      description: "Find method-qualified candidate passages like this exact selection.",
+      maturity: "Experimental",
+      actionLabel: "Open",
+      onAction: openAnalysisInspector,
+    });
+  }
   if (workspace.analysisState !== "idle") {
     analysisOptions.push({
       id: "measured-changes",
@@ -242,7 +262,7 @@ export default function StructureMap() {
       description: "Open measured change moments in Breakdown without starting another job.",
       maturity: "Experimental",
       actionLabel: "Open",
-      onAction: openChanges,
+      onAction: openAnalysisInspector,
     });
   }
 

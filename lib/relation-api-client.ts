@@ -5,6 +5,11 @@ export type PerceptualSpanComparisonBody =
   components["schemas"]["PerceptualSpanComparisonBody"];
 export type PerceptualSpanComparisonResponse =
   components["schemas"]["PerceptualSpanComparisonResponse"];
+export type SimilarMomentMatch = components["schemas"]["SimilarMomentMatch"];
+export type SimilarMomentsMethod = components["schemas"]["SimilarMomentsMethod"];
+export type SimilarMomentsObservation = components["schemas"]["SimilarMomentsObservation"];
+export type SimilarMomentsBody = components["schemas"]["SimilarMomentsBody"];
+export type SimilarMomentsResponse = components["schemas"]["SimilarMomentsResponse"];
 
 /**
  * Query a same-work A/B perceptual comparison without mutating Work state.
@@ -26,6 +31,22 @@ export async function comparePerceptualSpans(
   );
   return requireOpenApiData(result);
 }
+
+/** Query bounded experimental same-Work neighbors for one exact selected passage. */
+export async function getSimilarMoments(
+  workId: string,
+  body: SimilarMomentsBody,
+): Promise<SimilarMomentsResponse> {
+  const result = await openapiClient.POST(
+    "/api/v1/works/{work_id}/relations/similar-moments",
+    {
+      params: { path: { work_id: workId } },
+      body,
+    },
+  );
+  return requireOpenApiData(result);
+}
+
 
 /** Discover a bounded experimental top set for one immutable source Version. */
 export async function getMeasuredChanges(
