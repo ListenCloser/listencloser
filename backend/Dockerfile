@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    TORCH_HOME=/app/.cache/torch
+    TORCH_HOME=/app/.cache/torch \
+    XDG_CACHE_HOME=/app/.cache
 
 # The production image hosts both the API and durable music worker today, so it
 # explicitly requests the heavy ML/model runtime while ordinary dev/CI can stay
@@ -40,6 +41,31 @@ RUN if [ "$(uname -m)" = "aarch64" ]; then \
 RUN /app/.venv/bin/python -c "from beat_this.inference import load_checkpoint; load_checkpoint('final0')" \
     && sha256sum /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt \
     && echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
+
+# #1181 uses syncalong's monotonic DP matcher over OpenAI Whisper word timestamps.
+# Keep this experimental runtime outside the base/dev set, pin the two engine
+# releases and the fuzzy scorer, and reuse the worker's already-locked CPU
+# Torch/NumPy/Numba/TQDM stack. Whisper's base model URL is content-addressed and
+# load_model verifies its embedded SHA-256 before returning. The model and code
+# are MIT-licensed; syncalong is MIT-licensed. No lyrics are acquired here.
+ARG SYNCALONG_VERSION=2.0.1
+ARG OPENAI_WHISPER_VERSION=20250625
+RUN uv pip install --python /app/.venv/bin/python --no-deps \
+      syncalong==${SYNCALONG_VERSION} \
+      openai-whisper==${OPENAI_WHISPER_VERSION} \
+      rapidfuzz==3.14.1 \
+      tiktoken==0.11.0 \
+      more-itertools==10.7.0 \
+      regex==2025.7.34 \
+      requests==2.32.4 \
+    && /app/.venv/bin/python -c "import syncalong, whisper; from whisper.tokenizer import get_tokenizer; assert get_tokenizer(multilingual=True); whisper.load_model('base', device='cpu')" \
+    && printf '%s\n' \
+      "syncalong ${SYNCALONG_VERSION} (MIT)" \
+      "source: https://github.com/wickeddoc/syncalong/tree/v${SYNCALONG_VERSION}" \
+      "openai-whisper ${OPENAI_WHISPER_VERSION} code + model weights (MIT)" \
+      "source: https://github.com/openai/whisper/tree/v${OPENAI_WHISPER_VERSION}" \
+      "model: base; baked via whisper.load_model with upstream SHA-256 verification" \
+      > /app/.cache/lyrics-alignment-provenance.txt
 
 
 # PM2S is an MIT-licensed learned performance-MIDI -> score-MIDI codebase. It
@@ -157,6 +183,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/opt/pm2s" \
     PM2S_MODEL_DIR=/opt/pm2s-models \
     TORCH_HOME=/app/.cache/torch \
+    XDG_CACHE_HOME=/app/.cache \
     MUSESCORE_BIN=/opt/musescore/AppRun
 
 # Fail image construction if the pinned PM2S source cannot import against the
@@ -202,6 +229,10 @@ COPY . .
 # SoundFont, or renderer failure is caught while building the production image
 # instead of silently changing the user's audio at runtime.
 RUN python -c "import io, pretty_midi, soundfile as sf; from music_features import midi_to_wav; m=pretty_midi.PrettyMIDI(); i=pretty_midi.Instrument(program=0); i.notes.append(pretty_midi.Note(velocity=90,pitch=60,start=0.0,end=0.25)); m.instruments.append(i); b=io.BytesIO(); m.write(b); wav=midi_to_wav(b.getvalue()); audio,sr=sf.read(io.BytesIO(wav)); assert sr == 22050 and audio.size > 0"
+
+# Confirm the copied final runtime can see the exact lyrics-alignment engines
+# and baked base checkpoint after privilege-dropping preparation.
+RUN python -c "import os, syncalong, whisper; assert os.path.exists('/app/.cache/whisper/base.pt'); assert syncalong and whisper"
 
 RUN addgroup --system --gid 1001 appuser \
     && adduser --disabled-password --gecos "" --uid 1001 --gid 1001 appuser \

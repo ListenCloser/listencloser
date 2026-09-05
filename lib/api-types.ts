@@ -302,6 +302,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows/supplied-text-alignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Supplied Text Alignment
+         * @description Queue permitted supplied text against one exact source audio Version.
+         */
+        post: operations["create_supplied_text_alignment_api_v1_workflows_supplied_text_alignments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflows/understand": {
         parameters: {
             query?: never;
@@ -1577,6 +1597,29 @@ export interface components {
             /** Start Seconds */
             start_seconds?: number | null;
         };
+        /** SuppliedTextAlignmentBody */
+        SuppliedTextAlignmentBody: {
+            /** Language */
+            language?: string | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Text */
+            text: string;
+            /**
+             * Text Source Kind
+             * @default user_supplied
+             * @enum {string}
+             */
+            text_source_kind: "user_supplied" | "licensed" | "public_domain" | "other_permitted";
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+        };
         /** UnderstandWorkflowBody */
         UnderstandWorkflowBody: {
             /** Project Id */
@@ -2345,6 +2388,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ScoreWorkflowBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_supplied_text_alignment_api_v1_workflows_supplied_text_alignments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuppliedTextAlignmentBody"];
             };
         };
         responses: {

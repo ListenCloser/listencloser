@@ -277,6 +277,14 @@
       },
       "validated_domain": "within-recording experimental navigation only",
       "notes": "Map/navigation surface only. Letter labels are descriptor-similarity hints, not verse/chorus/motif/canonical form. Inspector/annotation/Ask exposure remains false until separately earned."
+    },
+    "supplied_text_alignment": {
+      "status": "experimental",
+      "input": "audio+user_supplied_text",
+      "engine": "syncalong_dp_whisper_v1",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "validated_domain": "user-supplied, licensed, public-domain, or otherwise permitted reference text aligned to one exact audio Version",
+      "notes": "Backend-only #1181 slice. Supplied text remains authoritative; Whisper provides timing evidence only. Direct matches are method-qualified, weak direct matches remain ambiguous, unmatched words remain failed, and no line interpolation/extrapolation, lyrics acquisition, beat/pulse authority, or frontend lane is introduced."
     }
   }
 }
