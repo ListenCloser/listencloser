@@ -1,6 +1,12 @@
 name: Adversarial Challenge
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/challenge.yml"
+      - "scripts/challenge.sh"
+      - "scripts/challenge-accessibility.cjs"
+      - "stryker.config.mjs"
   workflow_dispatch:
     inputs:
       probe:
@@ -24,7 +30,7 @@ concurrency:
 
 jobs:
   browser:
-    if: github.event_name == 'schedule' || inputs.probe == 'browser' || inputs.probe == 'all'
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule' || inputs.probe == 'browser' || inputs.probe == 'all'
     timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
@@ -81,7 +87,7 @@ jobs:
           retention-days: 14
 
   mutation-js:
-    if: github.event_name == 'workflow_dispatch' && (inputs.probe == 'mutation-js' || inputs.probe == 'all')
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.probe == 'mutation-js' || inputs.probe == 'all'))
     timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
