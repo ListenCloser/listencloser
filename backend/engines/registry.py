@@ -5,7 +5,7 @@ Production defaults:
   BEAT_ENGINE=beat_this
   NOTATION_ENGINE=musescore
   HARMONY_ENGINE=music21
-  MELODY_ENGINE=lstom
+  MELODY_ENGINE=midibert
 
 Keep optional/heavy model engines lazy: importing the registry is part of the API,
 analysis, notation, and test paths and must not itself require Torch/TensorFlow.
@@ -33,16 +33,7 @@ def get_transcription_engine(
     onset_threshold: float = 0.5,
     frame_threshold: float = 0.3,
 ) -> TranscriptionEngine:
-    """Get a transcription engine.
-
-    Args:
-        name: Explicit engine name (overrides profile/env).
-        profile: Transcription profile: "solo_piano" -> transkun, "general" -> basic_pitch.
-                 "auto" retains existing general engine unless trustworthy solo-piano evidence.
-        onset_threshold: Onset threshold for engines that support it.
-        frame_threshold: Frame threshold for engines that support it.
-    """
-    # Profile-based routing (only applies when no explicit name given)
+    """Get a transcription engine."""
     if name is None:
         if profile == "solo_piano":
             name = "transkun"
@@ -58,10 +49,7 @@ def get_transcription_engine(
             raise RuntimeError(
                 "basic-pitch is not installed. Install the backend worker dependency group."
             ) from exc
-        return BasicPitchEngine(
-            onset_threshold=onset_threshold,
-            frame_threshold=frame_threshold,
-        )
+        return BasicPitchEngine(onset_threshold=onset_threshold, frame_threshold=frame_threshold)
     if name == "transkun":
         try:
             from engines.transcription.transkun import TranskunEngine
@@ -69,21 +57,12 @@ def get_transcription_engine(
             raise RuntimeError(
                 "transkun is not installed. Install the backend worker dependency group."
             ) from exc
-        return TranskunEngine(
-            onset_threshold=onset_threshold,
-            frame_threshold=frame_threshold,
-        )
+        return TranskunEngine(onset_threshold=onset_threshold, frame_threshold=frame_threshold)
     raise ValueError(f"Unknown transcription engine: {name}")
 
 
 def get_beat_engine(name: str | None = None) -> BeatTrackingEngine:
-    """Resolve the production beat engine.
-
-    Beat This is the default production tracker because localized beat/downbeat
-    evidence materially outperformed the legacy librosa path in the repository's
-    canonical pulse evaluation. ``BEAT_ENGINE=librosa`` remains an explicit
-    operational rollback, not a silent fallback.
-    """
+    """Resolve the production beat engine."""
     name = name or EngineSettings().beat
     if name == "librosa":
         return LibrosaBeatEngine()
@@ -99,13 +78,7 @@ def get_beat_engine(name: str | None = None) -> BeatTrackingEngine:
 
 
 def get_notation_engine(name: str | None = None) -> NotationEngine:
-    """Resolve an explicitly selected score-interpretation path.
-
-    MuseScore remains the default. PM2S is an experimental learned challenger
-    under #953: it first derives score MIDI from canonical performance MIDI,
-    then the existing MuseScore MIDI-import stage produces MusicXML. Selection
-    is explicit; engines never silently catch-and-substitute each other.
-    """
+    """Resolve an explicitly selected score-interpretation path."""
     name = name or EngineSettings().notation
     if name == "musescore":
         return MuseScoreNotationEngine()
@@ -139,26 +112,28 @@ def get_melody_engine(
     name: str | None = None,
     profile: str | None = None,
 ) -> MelodyEngine:
-    """Get a melody engine.
+    """Get the symbolic Melody engine.
 
-    Args:
-        name: Explicit engine name (overrides profile/env).
-        profile: Melody profile:
-            "pop" -> lstom (validated), "classical" -> lstom (experimental),
-            "auto" -> lstom (default). None uses env var or lstom.
+    MidiBERT-Piano is the default experimental interpretation. ``profile`` does
+    not silently route to a different model: the current checkpoint is
+    POP909/pop-piano bounded, while classical/general inputs remain explicitly
+    experimental rather than falling back to the weaker legacy paths.
     """
     if name is None:
-        if profile == "pop":
-            name = "lstom"
-        elif profile == "classical":
-            # Classical not formally validated; use LStoM with experimental status.
-            # Do NOT fall back to skyline — it performs substantially worse.
-            name = "lstom"
-        elif profile in ("auto", None):
+        if profile in ("pop", "classical", "auto", None):
             name = EngineSettings().melody
         else:
             raise ValueError(f"Unknown melody profile: {profile}")
 
+    if name == "midibert":
+        try:
+            from engines.melody.midibert_engine import MidiBERTMelodyEngine
+        except ImportError as exc:
+            raise RuntimeError(
+                "MidiBERT's worker runtime is not installed. Install the backend worker "
+                "dependency group."
+            ) from exc
+        return MidiBERTMelodyEngine()
     if name == "lstom":
         try:
             from engines.melody.lstom_engine import LStoMMelodyEngine
@@ -174,11 +149,7 @@ def get_melody_engine(
 
 
 def get_theory_engine(name: str | None = None):
-    """Get the theory interpretation engine.
-
-    This engine takes chord timeline + key context and produces
-    Roman numerals and harmonic function.
-    """
+    """Get the theory interpretation engine."""
     name = name or EngineSettings().theory
     if name == "theory_interpreter":
         from engines.theory.theory_engine import TheoryEngine
