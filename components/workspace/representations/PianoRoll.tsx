@@ -3,7 +3,7 @@
  *
  * Visual language:
  * - Quiet chromatic lanes with stronger octave/C anchors for pitch orientation
- * - Observed beat/downbeat coordinates when available; conservative tempo scaffold otherwise
+ * - Observed beat/downbeat coordinates only when exact pulse evidence exists
  * - Real note events dominate the grid, with velocity preserved through opacity
  * - Shared playback/selection tokens for active time and user-selected evidence
  * - Sparse wall-clock labels for orientation without implying musical structure
@@ -384,8 +384,8 @@ export default function PianoRoll({
             );
           })}
 
-          {observedBeats.length > 0 ? (
-            <>
+          {observedBeats.length > 0 && (
+            <g data-piano-roll-layer="observed-pulse" pointerEvents="none">
               {observedBeats.map((seconds, index) => {
                 const x = timeToX(seconds);
                 return (
@@ -420,24 +420,7 @@ export default function PianoRoll({
                   />
                 );
               })}
-            </>
-          ) : (
-            Array.from({ length: Math.floor(totalBeats) + 1 }, (_, index) => {
-              const x = LABEL_W + index * PPQ;
-              return (
-                <line
-                  key={`beat-${index}`}
-                  data-grid-kind="tempo-beat"
-                  x1={x}
-                  y1={TOP_PAD}
-                  x2={x}
-                  y2={h}
-                  stroke="var(--border)"
-                  strokeWidth={0.5}
-                  strokeOpacity={0.38}
-                />
-              );
-            })
+            </g>
           )}
 
           {timeLabels.map((seconds) => {
