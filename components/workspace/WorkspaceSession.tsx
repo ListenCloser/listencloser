@@ -104,7 +104,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     }
   }, []);
 
-  const loadWork = useCallback(async (workId: string) => {
+  const loadWork = useCallback(async (workId: string, scoreSelectionOverride?: ScoreDisplaySelection) => {
     // A background completion for a Work the user already left must not cancel
     // or clear the newly selected Work before its own load starts.
     if (activeWorkIdRef.current !== workId) return;
@@ -170,7 +170,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
 
       const scoreSources = scoreSourceOptions(bundle);
       setScoreSources(scoreSources);
-      let scoreSelection: ScoreDisplaySelection = workspace.scoreDisplaySelection;
+      let scoreSelection: ScoreDisplaySelection = scoreSelectionOverride ?? workspace.scoreDisplaySelection;
       if (scoreSelection?.kind === "source") {
         const selectedSourceVersionId = scoreSelection.versionId;
         if (!scoreSources.some((source) => source.versionId === selectedSourceVersionId)) {
@@ -665,7 +665,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       const { version } = await uploadArtifact(projectId, file, workId);
       setScoreDisplaySelection({ kind: "source", versionId: version.id });
       await refreshProjectWorks(queryClient, projectId);
-      await loadWork(workId);
+      await loadWork(workId, { kind: "source", versionId: version.id });
       setScoreAttachState("idle");
     } catch (cause) {
       setScoreAttachError(cause instanceof Error ? cause.message : "Could not attach this score");
