@@ -174,15 +174,17 @@ def _architecture(state_dict: dict[str, Any], checkpoint: dict[str, Any]) -> dic
                 params["n_group"] = params["n_freq"] // feature_dim
             break
 
-    params["f_layer"] = _collect_layer_count(
-        state_dict, "transformer.encoder_f.", "attn_layer"
-    ) or params["f_layer"]
-    params["t_layer"] = _collect_layer_count(
-        state_dict, "transformer.encoder_t.", "attn_layer"
-    ) or params["t_layer"]
-    params["d_layer"] = _collect_layer_count(
-        state_dict, "transformer.decoder.", "attn_layer1"
-    ) or params["d_layer"]
+    params["f_layer"] = (
+        _collect_layer_count(state_dict, "transformer.encoder_f.", "attn_layer")
+        or params["f_layer"]
+    )
+    params["t_layer"] = (
+        _collect_layer_count(state_dict, "transformer.encoder_t.", "attn_layer")
+        or params["t_layer"]
+    )
+    params["d_layer"] = (
+        _collect_layer_count(state_dict, "transformer.decoder.", "attn_layer1") or params["d_layer"]
+    )
 
     checkpoint_config = checkpoint.get("config")
     if isinstance(checkpoint_config, dict):
@@ -532,9 +534,7 @@ def _segments(
     return segments
 
 
-def infer_chords(
-    audio_path: str | Path, checkpoint_path: str | Path
-) -> ChordMiniInferenceResult:
+def infer_chords(audio_path: str | Path, checkpoint_path: str | Path) -> ChordMiniInferenceResult:
     """Run pinned ChordMini 2E1D inference on one local audio file."""
     _, checkpoint_sha256 = validate_checkpoint(checkpoint_path)
 
