@@ -37,10 +37,9 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await expect(emptyWorkspace.getByRole("heading", { name: "Import a recording" })).toBeVisible();
   await expect(emptyWorkspace.getByRole("button", { name: "Import audio" })).toBeVisible();
 
-  // The old bespoke first-run illustration remains in legacy markup only until
-  // #523 deletes that owner; the accepted interface foundation keeps it inert.
-  await expect(page.getByTestId("empty-workspace-signal")).toBeHidden();
-  await expect(page.getByText("Move through waveform, notes, notation, and evidence without losing your place.", { exact: true })).toBeHidden();
+  // Retired first-run decoration stays deleted rather than merely hidden.
+  await expect(page.getByTestId("empty-workspace-signal")).toHaveCount(0);
+  await expect(page.getByText("Move through waveform, notes, notation, and evidence without losing your place.", { exact: true })).toHaveCount(0);
 
   // Processing policy stays out of the persistent Library surface. The choices
   // are progressively disclosed only when a new import actually begins.
