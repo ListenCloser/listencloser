@@ -67,8 +67,23 @@ if call not in text:
     text = text.replace(anchor, anchor + call)
 worker.write_text(text)
 
+public_dispatch_test = Path("backend/tests/test_public_workflow_dispatch.py")
+text = public_dispatch_test.read_text()
+if '"production_spatial"' not in text:
+    anchor = '        "pitch_contour",\n'
+    if anchor not in text:
+        raise RuntimeError("public dispatch test anchor not found")
+    text = text.replace(anchor, anchor + '        "production_spatial",\n', 1)
+    public_dispatch_test.write_text(text)
+
 run("python3", "-m", "pip", "install", "--disable-pip-version-check", "-q", "ruff==0.15.2")
-run("ruff", "format", "backend/domain/api/workflows_jobs.py", "backend/worker.py")
+run(
+    "ruff",
+    "format",
+    "backend/domain/api/workflows_jobs.py",
+    "backend/worker.py",
+    "backend/tests/test_public_workflow_dispatch.py",
+)
 run("npm", "ci")
 
 with tempfile.TemporaryDirectory() as tmp:
