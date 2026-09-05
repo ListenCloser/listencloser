@@ -352,7 +352,6 @@ test("real audio golden path", async ({ page }, testInfo) => {
     const positionBeforeOriginalSourceSwap = await transportPosition(page);
     await selectSource(page, "Original");
     await expectPositionPreserved(page, positionBeforeOriginalSourceSwap);
-    const positionBeforeSourceScore = await transportPosition(page);
 
     await attachSourceScore(page);
     let scoreDialog = await openScoreSourceDialog(page);
