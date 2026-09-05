@@ -1054,19 +1054,25 @@ export interface components {
         HealthQueueResponse: {
             /** Heartbeat Source */
             heartbeat_source?: string | null;
-            /** Queued */
-            queued: number;
+            /** Oldest Age Seconds */
+            oldest_age_seconds?: number | null;
+            /** Queue Depth */
+            queue_depth: number;
+            /** Queue Ready */
+            queue_ready: boolean;
+            /** Queue Visible Depth */
+            queue_visible_depth: number;
             /** Reason */
             reason?: string | null;
-            /** Running */
-            running: number;
-            /** Stale Leases */
-            stale_leases: number;
+            /** Sampled At */
+            sampled_at?: string | null;
             /**
              * Status
              * @enum {string}
              */
             status: "ready" | "degraded";
+            /** Total Messages */
+            total_messages: number;
             /** Workers */
             workers: number;
         };
