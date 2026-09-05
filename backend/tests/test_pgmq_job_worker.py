@@ -49,7 +49,7 @@ def test_receive_installs_delivery_identity_and_excludes_local_in_flight() -> No
     client.rpc.return_value.execute.return_value = SimpleNamespace(data=row)
     worker._in_flight.add(local_job_id)
 
-    received = worker._claim_next_job()
+    received = worker._receive_next_job()
 
     assert received == row
     client.rpc.assert_called_once_with(
@@ -68,7 +68,7 @@ def test_receive_failure_is_a_retryable_poll_miss() -> None:
     worker, client = _worker()
     client.rpc.return_value.execute.side_effect = RuntimeError("database unavailable")
 
-    assert worker._claim_next_job() is None
+    assert worker._receive_next_job() is None
 
 
 def test_heartbeat_extends_exact_pgmq_delivery() -> None:
@@ -78,7 +78,7 @@ def test_heartbeat_extends_exact_pgmq_delivery() -> None:
     worker._remember_delivery(row["id"], row["_queue_msg_id"])
     client.rpc.return_value.execute.return_value = SimpleNamespace(data=True)
 
-    worker._renew_lease(row["id"])
+    worker._heartbeat_delivery(row["id"])
 
     client.rpc.assert_called_once_with(
         "extend_job_delivery",
@@ -99,12 +99,11 @@ def test_execution_finishes_delivery_only_after_job_execution_returns() -> None:
     client.rpc.return_value.execute.return_value = SimpleNamespace(data="archived")
     calls: list[str] = []
 
-    def execute_job(_self, _row, *, already_claimed=False):
-        assert already_claimed is True
+    def execute_job(_self, _row):
         calls.append("execute")
 
     with patch.object(FencedJobWorker, "_execute_job", autospec=True, side_effect=execute_job):
-        worker._execute_job(row, already_claimed=True)
+        worker._execute_job(row)
         calls.append("finished")
 
     assert calls == ["execute", "finished"]
@@ -120,11 +119,10 @@ def test_execution_finishes_delivery_only_after_job_execution_returns() -> None:
     assert worker._delivery_id(row["id"]) is None
 
 
-def test_transport_does_not_scan_jobs_for_orphans() -> None:
-    worker, client = _worker()
-
-    assert worker._recover_orphans() == 0
-    client.table.assert_not_called()
+def test_execution_rejects_non_pgmq_job_rows() -> None:
+    worker, _client = _worker()
+    with pytest.raises(RuntimeError, match="received delivery identity"):
+        worker._execute_job(_job_row(execution_token=None, _queue_msg_id=None))
 
 
 def test_visibility_timeout_must_exceed_heartbeat_interval() -> None:
