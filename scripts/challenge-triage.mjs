@@ -71,7 +71,8 @@ function axeFindings(resultsDir, ownerMap) {
 }
 
 function stripAnsi(value) {
-  return value.replace(/\u001b\[[0-9;]*m/g, "");
+  const ansiEscape = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+  return value.replace(ansiEscape, "");
 }
 
 function mutationFindings(resultsDir, ownerMap) {
