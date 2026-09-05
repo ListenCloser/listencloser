@@ -5,6 +5,8 @@ from pydantic import ValidationError
 
 from settings import EngineSettings, ObservabilitySettings, SupabaseSettings, WorkerSettings
 
+# Settings are constructed per use, so tests pin environment behavior without
+# resetting a process-global singleton between cases.
 _RUNTIME_ENV = (
     "SUPABASE_URL",
     "SUPABASE_PUBLIC_URL",
