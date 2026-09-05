@@ -1,0 +1,121 @@
+name: Adversarial Challenge
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/challenge.yml"
+      - "scripts/challenge.sh"
+      - "scripts/challenge-accessibility.cjs"
+      - "stryker.config.mjs"
+  workflow_dispatch:
+    inputs:
+      probe:
+        description: "Adversarial probe to run"
+        required: true
+        default: browser
+        type: choice
+        options:
+          - browser
+          - mutation-js
+          - all
+  schedule:
+    - cron: "17 9 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: challenge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule' || inputs.probe == 'browser' || inputs.probe == 'all'
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install chromium --with-deps
+      - name: Build mock frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_MOCK_ENABLED: "true"
+          NEXT_PUBLIC_SUPABASE_URL: "https://cijhpddqvvzyzfzmkdnn.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key"
+      - name: Start mock frontend
+        run: |
+          npm run start > /tmp/listencloser-challenge-next.log 2>&1 &
+          echo $! > /tmp/listencloser-challenge-next.pid
+        env:
+          NODE_ENV: test
+          NEXT_PUBLIC_MOCK_ENABLED: "true"
+          NEXT_PUBLIC_SUPABASE_URL: "https://cijhpddqvvzyzfzmkdnn.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key"
+      - name: Wait for frontend
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/listencloser-challenge-next.log
+          exit 1
+      - name: Run browser adversaries
+        id: challenge
+        continue-on-error: true
+        run: bash scripts/challenge.sh browser
+      - name: Record advisory outcome
+        if: always()
+        run: |
+          {
+            echo "### Browser adversarial audit"
+            echo "Outcome: **${{ steps.challenge.outcome }}**"
+            echo "This workflow is advisory; promote only stable, demonstrated defect classes into protected Build."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload challenge reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-challenge-${{ github.run_attempt }}
+          path: challenge-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  mutation-js:
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.probe == 'mutation-js' || inputs.probe == 'all'))
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - run: npm ci
+      - name: Run bounded mutation adversary
+        id: challenge
+        continue-on-error: true
+        run: bash scripts/challenge.sh mutation-js
+      - name: Record advisory outcome
+        if: always()
+        run: |
+          {
+            echo "### TypeScript mutation audit"
+            echo "Outcome: **${{ steps.challenge.outcome }}**"
+            echo "Target: \`lib/evidence-projections.ts\`. Surviving mutants are review evidence, not an automatic merge failure."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload challenge reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-challenge-${{ github.run_attempt }}
+          path: challenge-results/
+          if-no-files-found: warn
+          retention-days: 14

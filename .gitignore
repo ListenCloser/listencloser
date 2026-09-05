@@ -27,6 +27,11 @@ playwright-report/
 test-results/
 *.argos.json
 
+# Advisory adversarial challenge outputs
+challenge-results/
+.lighthouseci/
+.stryker-tmp/
+
 # Playwright MCP
 .playwright-mcp/
 
