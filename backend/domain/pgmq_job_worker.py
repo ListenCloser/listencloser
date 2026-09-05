@@ -32,7 +32,9 @@ class PgmqJobWorker(FencedJobWorker):
         if heartbeat_interval_sec <= 0:
             raise ValueError("heartbeat_interval_sec must be positive")
         if heartbeat_interval_sec >= visibility_timeout_sec:
-            raise ValueError("heartbeat interval must be shorter than PGMQ visibility timeout")
+            raise ValueError(
+                "heartbeat interval must be shorter than PGMQ visibility timeout"
+            )
 
         super().__init__(
             heartbeat_interval_sec=heartbeat_interval_sec,
@@ -69,14 +71,18 @@ class PgmqJobWorker(FencedJobWorker):
         with self._in_flight_lock:
             in_flight = sorted(self._in_flight)
         try:
-            result = self._raw_client().rpc(
-                "receive_job_delivery",
-                {
-                    "p_worker_id": self._worker_id,
-                    "p_visibility_seconds": self._visibility_timeout,
-                    "p_in_flight_job_ids": in_flight,
-                },
-            ).execute()
+            result = (
+                self._raw_client()
+                .rpc(
+                    "receive_job_delivery",
+                    {
+                        "p_worker_id": self._worker_id,
+                        "p_visibility_seconds": self._visibility_timeout,
+                        "p_in_flight_job_ids": in_flight,
+                    },
+                )
+                .execute()
+            )
             row = self._json_row(result.data)
             if row is None:
                 return None
@@ -104,15 +110,19 @@ class PgmqJobWorker(FencedJobWorker):
             logger.error("job_delivery_missing", extra={"job_id": job_id})
             return
         token = self._execution_token(job_id)
-        result = self._raw_client().rpc(
-            "extend_job_delivery",
-            {
-                "p_job_id": job_id,
-                "p_execution_token": token,
-                "p_msg_id": msg_id,
-                "p_visibility_seconds": self._visibility_timeout,
-            },
-        ).execute()
+        result = (
+            self._raw_client()
+            .rpc(
+                "extend_job_delivery",
+                {
+                    "p_job_id": job_id,
+                    "p_execution_token": token,
+                    "p_msg_id": msg_id,
+                    "p_visibility_seconds": self._visibility_timeout,
+                },
+            )
+            .execute()
+        )
         if result.data is False:
             logger.info(
                 "job_delivery_visibility_not_extended",
@@ -122,15 +132,19 @@ class PgmqJobWorker(FencedJobWorker):
     def _finish_delivery(self, job_id: str, token: str, msg_id: int) -> None:
         """Acknowledge/release only if ``token`` still owns the Job attempt."""
         try:
-            result = self._raw_client().rpc(
-                "finish_job_delivery",
-                {
-                    "p_job_id": job_id,
-                    "p_execution_token": token,
-                    "p_msg_id": msg_id,
-                    "p_retry_delay_seconds": 0,
-                },
-            ).execute()
+            result = (
+                self._raw_client()
+                .rpc(
+                    "finish_job_delivery",
+                    {
+                        "p_job_id": job_id,
+                        "p_execution_token": token,
+                        "p_msg_id": msg_id,
+                        "p_retry_delay_seconds": 0,
+                    },
+                )
+                .execute()
+            )
             logger.info(
                 "job_delivery_finished",
                 extra={
