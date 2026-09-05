@@ -21,9 +21,7 @@ def _runtime_tree(tmp_path):
     (songformer_root / "ckpts" / "MusicFM").mkdir(parents=True)
     (songformer_root / "ckpts" / "SongFormer.safetensors").write_bytes(b"sf")
     (songformer_root / "ckpts" / "MusicFM" / "pretrained_msd.pt").write_bytes(b"mf")
-    (songformer_root / "ckpts" / "MusicFM" / "msd_stats.json").write_text(
-        "{}", encoding="utf-8"
-    )
+    (songformer_root / "ckpts" / "MusicFM" / "msd_stats.json").write_text("{}", encoding="utf-8")
     hf_home = tmp_path / "hf-home"
     hf_home.mkdir()
     return runtime_python, runtime_root, hf_home
