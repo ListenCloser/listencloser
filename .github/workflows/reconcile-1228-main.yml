@@ -26,7 +26,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc
         with:
-          version: "0.12.6"
+          version: "0.12.9"
       - name: Merge current main and resolve generated-only conflicts
         run: |
           git config user.name "github-actions[bot]"
