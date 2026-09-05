@@ -25,7 +25,7 @@ def main() -> None:
     configure_logging("listencloser-worker", observability_settings)
     logger = logging.getLogger("worker")
     init_telemetry("listencloser-worker", observability_settings)
-    init_sentry(logger, settings=observability_settings)
+    init_sentry(logger, observability_settings)
 
     # Pay expensive process-local cold paths before PgmqJobWorker.run() publishes
     # its first heartbeat or receives a user's job. Warmups are optimization-only:
