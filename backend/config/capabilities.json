@@ -69,53 +69,45 @@
     "melody": {
       "status": "experimental",
       "input": "midi",
-      "engine": "lstom",
+      "engine": "midibert",
       "exposure": {"inspector": true, "annotations": false, "ask": true},
-      "evaluation": {
-        "dataset": "POP909",
-        "metric": "f1",
-        "value": 0.768,
-        "details": "Historical fixed-holdout evaluation: cross-training-seed mean F1=0.768, Precision=0.720, Recall=0.839 for seeds 42/123/456 (F1 CV=0.3%). The exact 91 held-out song IDs and committed-checkpoint seed/epoch were not retained, so this is not a newly reproduced metric for the current checkpoint; see #1026."
-      },
       "model": {
-        "name": "lstom_biLSTM_pop909",
-        "version": "1.0.0",
-        "architecture": "6-layer BiLSTM, 140 hidden units, 2.5M params",
-        "training_dataset": "POP909 (MIT)",
-        "training_split": "722/90/91 (seed=42)",
-        "feature_schema": "pitch, duration, pitch_dist_below, pitch_dist_above, pos_in_bar, in_scale"
+        "name": "MidiBERT-Piano CP melody_default",
+        "source_revision": "0b935584f641d3d59a8e6aff2f334b425ce1542d",
+        "representation": "CP",
+        "training_dataset": "POP909"
       },
-      "validated_domain": "pop/arranged symbolic MIDI",
-      "notes": "Historical POP909 evidence supports pop/arranged symbolic MIDI, but exact holdout membership and committed-checkpoint seed/epoch were not retained; #1026 records this reproducibility limit. Classical piano and general performance MIDI are not formally validated. Model is deterministic, CPU-only (~390ms/song), 9.66MB."
+      "validated_domain": "POP909-style pop/arranged symbolic piano MIDI",
+      "notes": "Default experimental symbolic Melody interpretation. Upstream provides the full MIDI-to-melody CP inference path; exact checkpoint identity/checksum must be pinned before production image admission. Classical and general performance MIDI remain unvalidated."
     },
     "melody_register_peak": {
       "status": "experimental",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "notes": "Highest melody note with temporal span. Deterministic from LStoM output."
+      "notes": "Highest melody note with temporal span. Deterministic from admitted Melody note evidence."
     },
     "melody_register_low": {
       "status": "experimental",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "notes": "Lowest melody note with temporal span. Deterministic from LStoM output."
+      "notes": "Lowest melody note with temporal span. Deterministic from admitted Melody note evidence."
     },
     "melody_interval_summary": {
       "status": "experimental",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": true, "annotations": false, "ask": true},
-      "notes": "Stepwise/leap/repeated-note ratio summary. Deterministic from LStoM output."
+      "notes": "Stepwise/leap/repeated-note ratio summary. Deterministic from admitted Melody note evidence."
     },
     "melody_large_leap": {
       "status": "evaluation_only",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": false, "annotations": false, "ask": false},
       "reason": "Threshold-based heuristic (≥8 semitones) without musical validation. Needs corpus evidence."
@@ -123,7 +115,7 @@
     "melody_characteristic_interval": {
       "status": "experimental",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": false, "annotations": false, "ask": false},
       "notes": "Most common interval. Pending jSymbolic consolidation."
@@ -131,7 +123,7 @@
     "melody_contour_ascending": {
       "status": "experimental",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": true, "annotations": true, "ask": true},
       "notes": "Ascending contour span with ≥6 notes and >75% directional ratio. Conservative temporal finding."
@@ -139,7 +131,7 @@
     "melody_contour_descending": {
       "status": "experimental",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": true, "annotations": true, "ask": true},
       "notes": "Descending contour span with ≥6 notes and >75% directional ratio. Conservative temporal finding."
@@ -147,7 +139,7 @@
     "melody_contour_arch": {
       "status": "evaluation_only",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": false, "annotations": false, "ask": false},
       "reason": "Heuristic contour classifier with arbitrary thresholds. Needs validated contour representation."
@@ -163,7 +155,7 @@
     "melody_activity_dense": {
       "status": "experimental",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": true, "annotations": true, "ask": true},
       "notes": "Dense melodic passage detected via sliding-window note density. Deterministic measurement."
@@ -171,7 +163,7 @@
     "melody_activity_sparse": {
       "status": "experimental",
       "input": "derived",
-      "engine": "lstom_interpretation",
+      "engine": "melody_interpretation",
       "requires": ["melody"],
       "exposure": {"inspector": true, "annotations": true, "ask": true},
       "notes": "Sparse melodic passage detected via sliding-window note density. Deterministic measurement."
@@ -187,7 +179,7 @@
         "value": 0.343,
         "details": "Legacy skyline heuristic baseline. Retained for evaluation comparison only."
       },
-      "notes": "DEPRECATED: Do not use for production. Skyline heuristic has 100% contamination rate on classical piano and F1=0.343 on pop/arranged music. Use lstom for all production melody extraction."
+      "notes": "DEPRECATED: Do not use for production. Skyline heuristic has 100% contamination rate on classical piano and F1=0.343 on pop/arranged music. MidiBERT is the experimental product Melody route."
     },
     "time_signature": {
       "status": "production",
