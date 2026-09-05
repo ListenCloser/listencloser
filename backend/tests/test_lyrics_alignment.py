@@ -38,7 +38,7 @@ def test_report_preserves_exact_provenance_and_local_alignment_states():
         normalize=_normalize,
         model_name="base",
         match_threshold=55.0,
-        trusted_score=85.0,
+        trusted_score=100.0,
     )
 
     assert report.source_text == source_text
@@ -47,6 +47,7 @@ def test_report_preserves_exact_provenance_and_local_alignment_states():
     assert len(report.text_provenance.sha256) == 64
     assert report.method.parameters["use_lyrics_prompt"] is False
     assert report.method.parameters["interpolate_unmatched"] is False
+    assert report.method.parameters["unambiguous_match_score"] == 100.0
 
     assert [word.status for word in report.words] == [
         "aligned",
@@ -57,6 +58,7 @@ def test_report_preserves_exact_provenance_and_local_alignment_states():
     assert report.words[0].start_seconds == 1.0
     assert report.words[0].end_seconds == 1.4
     assert report.words[1].match_score == 80.0
+    assert report.words[1].reason == "direct_fuzzy_match"
     assert report.words[3].start_seconds is None
     assert report.words[3].end_seconds is None
     assert report.words[3].reason == "no_direct_match_above_threshold"
@@ -81,7 +83,7 @@ def test_failed_span_never_receives_interpolated_timing():
         normalize=_normalize,
         model_name="base",
         match_threshold=55.0,
-        trusted_score=85.0,
+        trusted_score=100.0,
     )
 
     assert all(word.status == "failed" for word in report.words)
