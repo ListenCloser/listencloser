@@ -128,6 +128,10 @@ def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
                 "lv-chordia is not installed. Install the backend worker dependency group."
             ) from exc
         return LvChordiaHarmonyEngine()
+    if name == "chordmini":
+        from engines.harmony.chordmini_engine import ChordMiniHarmonyEngine
+
+        return ChordMiniHarmonyEngine()
     raise ValueError(f"Unknown harmony engine: {name}")
 
 
