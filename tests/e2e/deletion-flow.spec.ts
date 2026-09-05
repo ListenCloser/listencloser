@@ -13,6 +13,14 @@ async function openWorkspace(page: Page) {
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
 }
 
+async function confirmDelete(page: Page) {
+  const dialog = page.getByRole("dialog", { name: "Delete recording?" });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete recording", exact: true }).click();
+  await expect(dialog).toBeHidden();
+}
+
 test("deleting the active work clears it and leaves no stale transport state", async ({ page }) => {
   await openWorkspace(page);
 
@@ -21,6 +29,7 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await deleteButton.hover();
   await expect(page.getByRole("tooltip", { name: "Delete recording" })).toBeVisible();
   await deleteButton.click();
+  await confirmDelete(page);
 
   await expect(page.getByRole("button", { name: /^Test Work\b/ })).toHaveCount(0);
   await expect(page.getByText("No recordings yet", { exact: true })).toBeVisible();
@@ -72,8 +81,9 @@ test("failed active-work deletion restores the selected workspace and playback",
 
   await openWorkspace(page);
   await page.getByRole("button", { name: "Delete Test Work" }).click();
+  await confirmDelete(page);
 
-  await expect(page.locator(".library-error")).toHaveText("Delete failed. The recording was restored.");
+  await expect(page.getByRole("alert")).toHaveText("Delete failed. The recording was restored.");
   const restoredWork = page.getByRole("button", { name: /^Test Work\b/ });
   await expect(restoredWork).toBeVisible();
   await expect(restoredWork).toHaveAttribute("aria-current", "true");
