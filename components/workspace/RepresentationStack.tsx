@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Button from "@/components/ui/Button";
 import TabStrip, { type TabIntentSource } from "@/components/ui/TabStrip";
 import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
 import {
@@ -98,11 +99,6 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   }
 
   useEffect(() => {
-    // Initialize selection when a Work first exposes representations, but do
-    // not erase an explicit user choice just because one progressive refresh
-    // temporarily omits that representation. `activeView` may fall back for
-    // the transient frame; the shared preference should return when evidence
-    // becomes available again.
     if (workspace.activeRepresentation !== null) return;
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
@@ -126,8 +122,6 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [clearSelection]);
 
-  // The shared selection is authoritative. This local cue only strengthens the
-  // actual selected destination after Focus/Show and then returns it to quiet.
   useEffect(() => {
     const cancelPendingCue = () => {
       if (orientationFrame.current !== null) {
@@ -165,10 +159,6 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     };
   }, []);
 
-  // Representation canvases are expensive client-side objects: OSMD builds a
-  // full score SVG, WaveSurfer owns waveform state, and the spectrogram decodes
-  // audio. Preserve views after their first visit within a work session so a
-  // tab switch is a visibility change rather than a destroy/rebuild cycle.
   useEffect(() => {
     if (scoreIntentTimeout.current !== null) {
       window.clearTimeout(scoreIntentTimeout.current);
@@ -190,9 +180,6 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 
   if (workspace.isLoadingWork) return <WorkspaceLoadingSkeleton />;
   if (!available.length || !activeView) {
-    // A durable selection whose representations are still hydrating is an
-    // existing recording opening, not a first-run workspace. Keep the empty
-    // import CTA reserved for a settled library with no active Work.
     if (signedIn && workspace.activeWorkId) return <WorkspaceLoadingSkeleton />;
     return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
   }
@@ -264,9 +251,9 @@ function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canIm
       <div className="empty-desk-copy">
         <h1>Import a recording</h1>
         <p>Move through waveform, notes, notation, and evidence without losing your place.</p>
-        <button className="btn btn-primary empty-import-primary" onClick={onImport} disabled={!signedIn || !canImport}>
+        <Button variant="primary" onClick={onImport} disabled={!signedIn || !canImport}>
           Import audio
-        </button>
+        </Button>
         <small>Configure processing in the Library before import.</small>
         <small>WAV, MP3, M4A, FLAC, OGG, AAC</small>
       </div>
