@@ -101,7 +101,11 @@ test("score playback exposes exact note state without conflating other sources",
   await page.getByRole("option", { name: "Original", exact: true }).click();
   await expect(page.getByRole("button", { name: "Playback source: Original", exact: true })).toBeVisible();
   await expect(activeScoreNotes).toHaveCount(0);
-  await expect(page.locator('.sheet-music-container [data-score-cursor="true"]')).toBeVisible();
+  await expect(page.locator(".sheet-music-container")).toBeVisible();
+  await expect(page.locator('.sheet-music-container [data-score-cursor="true"]')).toHaveAttribute(
+    "visibility",
+    "visible",
+  );
 });
 
 test("the representation changes independently of the playback source", async ({
