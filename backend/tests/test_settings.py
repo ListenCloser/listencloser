@@ -94,6 +94,15 @@ def test_observability_settings_keep_optional_providers_disabled_by_default():
     assert settings.release is None
 
 
+def test_process_specific_observability_defaults_remain_callsite_owned():
+    settings = ObservabilitySettings()
+
+    assert settings.service_name_or("listencloser-api") == "listencloser-api"
+    assert settings.service_name_or("listencloser-worker") == "listencloser-worker"
+    assert settings.release_or("backend@2.0.0") == "backend@2.0.0"
+    assert settings.release_or("development") == "development"
+
+
 def test_observability_settings_use_canonical_backend_sentry_alias(monkeypatch):
     monkeypatch.setenv("SENTRY_DSN", "https://legacy@example.invalid/1")
     assert ObservabilitySettings().sentry_dsn is None
