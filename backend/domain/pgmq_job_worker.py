@@ -33,7 +33,7 @@ class PgmqJobWorker(FencedJobWorker):
             raise ValueError("heartbeat_interval_sec must be positive")
         if heartbeat_interval_sec >= visibility_timeout_sec:
             raise ValueError(
-                "heartbeat interval must be shorter than PGMQ visibility timeout"
+                "heartbeat interval must be shorter than PGMQ visibility timeout",
             )
 
         super().__init__(
@@ -88,7 +88,7 @@ class PgmqJobWorker(FencedJobWorker):
             msg_id = row.get("_queue_msg_id")
             if not token or msg_id is None:
                 raise RuntimeError(
-                    "PGMQ receive returned incomplete execution identity"
+                    "PGMQ receive returned incomplete execution identity",
                 )
 
             self._remember_execution_token(job_id, str(token))
