@@ -3,8 +3,11 @@ const path = require("node:path");
 const { chromium } = require("playwright");
 const axe = require("axe-core");
 
-const baseURL = (process.env.CHALLENGE_FRONTEND_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
-const resultsDir = process.env.CHALLENGE_RESULTS_DIR || "challenge-results";
+const baseURL = (globalThis.process.env.CHALLENGE_FRONTEND_URL || "http://127.0.0.1:3000").replace(
+  /\/$/,
+  "",
+);
+const resultsDir = globalThis.process.env.CHALLENGE_RESULTS_DIR || "challenge-results";
 
 const projectRef = "cijhpddqvvzyzfzmkdnn";
 const mockSession = {
@@ -36,7 +39,7 @@ async function scan(browser, spec) {
     if (spec.authenticated) {
       await context.addInitScript(
         ({ key, session }) => {
-          window.localStorage.setItem(key, JSON.stringify(session));
+          globalThis.localStorage.setItem(key, JSON.stringify(session));
         },
         { key: `sb-${projectRef}-auth-token`, session: mockSession },
       );
@@ -48,7 +51,7 @@ async function scan(browser, spec) {
     await page.addScriptTag({ content: axe.source });
 
     const result = await page.evaluate(async () => {
-      return globalThis.axe.run(document, {
+      return globalThis.axe.run(globalThis.document, {
         runOnly: {
           type: "tag",
           values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"],
@@ -71,18 +74,20 @@ async function scan(browser, spec) {
 
 function printViolations(result) {
   if (result.violations.length === 0) {
-    console.log(`  ✅ ${result.name}: no automated WCAG violations`);
+    globalThis.console.log(`  ✅ ${result.name}: no automated WCAG violations`);
     return;
   }
 
-  console.log(`  ❌ ${result.name}: ${result.violations.length} violation rule(s)`);
+  globalThis.console.log(`  ❌ ${result.name}: ${result.violations.length} violation rule(s)`);
   for (const violation of result.violations) {
-    console.log(`     ${violation.id} [${violation.impact || "unknown"}] — ${violation.help}`);
+    globalThis.console.log(
+      `     ${violation.id} [${violation.impact || "unknown"}] — ${violation.help}`,
+    );
     for (const node of violation.nodes.slice(0, 5)) {
-      console.log(`       ${node.target.join(" ")}`);
+      globalThis.console.log(`       ${node.target.join(" ")}`);
     }
     if (violation.nodes.length > 5) {
-      console.log(`       … ${violation.nodes.length - 5} more node(s)`);
+      globalThis.console.log(`       … ${violation.nodes.length - 5} more node(s)`);
     }
   }
 }
@@ -116,15 +121,15 @@ async function main() {
       2,
     ),
   );
-  console.log(`  ↳ full report: ${outputPath}`);
+  globalThis.console.log(`  ↳ full report: ${outputPath}`);
 
   const violationCount = results.reduce((total, result) => total + result.violations.length, 0);
   if (violationCount > 0) {
-    process.exitCode = 1;
+    globalThis.process.exitCode = 1;
   }
 }
 
 main().catch((error) => {
-  console.error(error);
-  process.exitCode = 2;
+  globalThis.console.error(error);
+  globalThis.process.exitCode = 2;
 });
