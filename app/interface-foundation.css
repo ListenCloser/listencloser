@@ -79,7 +79,9 @@ body,
 .library-account-action,
 .library-import-settings summary,
 .library-import-status,
-.studio-service-state {
+.studio-service-state,
+.inspector-meta-item dt,
+.inspector-breakdown-sparse p {
   color: var(--ui-text-3) !important;
 }
 
