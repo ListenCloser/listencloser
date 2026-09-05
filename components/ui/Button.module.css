@@ -97,11 +97,21 @@
   min-height: var(--control-height-touch);
 }
 
+.icon,
+.iconCompact {
+  padding: 0;
+}
+
 .icon {
   width: var(--control-height-default);
   min-width: var(--control-height-default);
   min-height: var(--control-height-default);
-  padding: 0;
+}
+
+.iconCompact {
+  width: var(--control-height-compact);
+  min-width: var(--control-height-compact);
+  min-height: var(--control-height-compact);
 }
 
 .fullWidth {
@@ -109,10 +119,16 @@
 }
 
 @media (max-width: 600px) {
-  .icon {
+  .default,
+  .icon,
+  .iconCompact {
+    min-height: var(--control-height-touch);
+  }
+
+  .icon,
+  .iconCompact {
     width: var(--control-height-touch);
     min-width: var(--control-height-touch);
-    min-height: var(--control-height-touch);
   }
 }
 
