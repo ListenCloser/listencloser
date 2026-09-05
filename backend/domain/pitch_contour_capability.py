@@ -18,13 +18,21 @@ from domain.capabilities import (
     download_version_bytes,
 )
 from domain.models import ArtifactKind, Job
-from engines.pitch.pyin import estimate_pitch_contour
+from engines.pitch.registry import estimate_pitch_contour
 
 _ALLOWED_AUDIO_KINDS = {ArtifactKind.audio_original, ArtifactKind.audio_enhanced}
+_ALLOWED_ENGINES = {"pyin", "torchcrepe", "pesto"}
+
+
+def _requested_engine(job: Job) -> str:
+    engine = str(job.parameters.get("pitch_engine") or "pyin")
+    if engine not in _ALLOWED_ENGINES:
+        raise ValueError(f"unsupported pitch contour engine: {engine}")
+    return engine
 
 
 def handle_pitch_contour(job: Job, client) -> list[str]:
-    """Extract pYIN F0 evidence from one immutable audio Version."""
+    """Extract one explicitly selected F0 interpretation from an audio Version."""
     if len(job.input_version_ids) != 1:
         raise ValueError("pitch_contour requires exactly one audio input version")
 
@@ -33,23 +41,25 @@ def handle_pitch_contour(job: Job, client) -> list[str]:
     if input_kind not in _ALLOWED_AUDIO_KINDS:
         raise ValueError("pitch_contour requires an original or enhanced audio version")
 
+    engine_name = _requested_engine(job)
     owner_id = _resolve_owner_id(client, job.workflow_id)
     work_id = _resolve_work_id(client, input_version.id)
     _update_progress(client, job.id, 0.08, "downloading source audio")
     audio_bytes = download_version_bytes(input_version, client)
 
     fmt = Path(input_version.label).suffix.lstrip(".").lower() or "wav"
-    _update_progress(client, job.id, 0.2, "decoding mono analysis audio")
+    _update_progress(client, job.id, 0.2, "decoding pitch-analysis audio")
     decoded_wav = decode_audio_to_wav(audio_bytes, fmt=fmt)
 
-    _update_progress(client, job.id, 0.35, "estimating continuous pitch")
-    result = estimate_pitch_contour(decoded_wav)
+    _update_progress(client, job.id, 0.35, f"estimating continuous pitch · {engine_name}")
+    result = estimate_pitch_contour(decoded_wav, engine_name)
     payload = {
         "schema_version": 1,
         "representation_type": "pitch_contour",
         "status": "experimental",
         "source_audio_version_id": str(input_version.id),
         "source_audio_artifact_kind": input_kind.value,
+        "requested_engine": engine_name,
         **result,
     }
     content = json.dumps(
@@ -77,6 +87,7 @@ def handle_pitch_contour(job: Job, client) -> list[str]:
             "representation_type": "pitch_contour",
             "status": "experimental",
             "source_audio_version_id": str(input_version.id),
+            "requested_engine": engine_name,
             "engine": result["engine"],
             "preprocessing": result["preprocessing"],
             "quality_notice": (
