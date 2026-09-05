@@ -47,7 +47,6 @@ def test_cache_hit_marks_duplicate_succeeded_with_canonical_outputs(outputs):
     }
 
     with (
-        patch.object(worker, "_claim_job", return_value=True),
         patch.object(worker, "_check_cancelled", return_value=False),
         patch.object(worker, "_check_cache_hit", return_value=True),
         patch.object(worker, "_cached_output_version_ids", return_value=outputs),
