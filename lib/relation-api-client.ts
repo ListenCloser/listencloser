@@ -10,6 +10,10 @@ export type SimilarMomentsMethod = components["schemas"]["SimilarMomentsMethod"]
 export type SimilarMomentsObservation = components["schemas"]["SimilarMomentsObservation"];
 export type SimilarMomentsBody = components["schemas"]["SimilarMomentsBody"];
 export type SimilarMomentsResponse = components["schemas"]["SimilarMomentsResponse"];
+export type RhythmDensityContextBody =
+  components["schemas"]["RhythmDensityContextBody"];
+export type RhythmDensityContextResponse =
+  components["schemas"]["RhythmDensityContextQueryResult"];
 
 /**
  * Query a same-work A/B perceptual comparison without mutating Work state.
@@ -47,6 +51,23 @@ export async function getSimilarMoments(
   return requireOpenApiData(result);
 }
 
+/**
+ * Query literal within-Work rhythm-density context for one exact persisted
+ * density-owning Version. The browser receives server-composed facts only.
+ */
+export async function queryRhythmDensityContext(
+  workId: string,
+  body: RhythmDensityContextBody,
+): Promise<RhythmDensityContextResponse> {
+  const result = await openapiClient.POST(
+    "/api/v1/works/{work_id}/relations/rhythm-density-context",
+    {
+      params: { path: { work_id: workId } },
+      body,
+    },
+  );
+  return requireOpenApiData(result);
+}
 
 /** Discover a bounded experimental top set for one immutable source Version. */
 export async function getMeasuredChanges(
