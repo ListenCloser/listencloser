@@ -2,9 +2,9 @@ import { forwardRef, type ButtonHTMLAttributes } from "react";
 import styles from "./Button.module.css";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-export type ButtonSize = "compact" | "default" | "touch" | "icon";
+export type ButtonSize = "compact" | "default" | "touch" | "icon" | "iconCompact";
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
   fullWidth?: boolean;
@@ -39,8 +39,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
 
 export default Button;
 
-export const IconButton = forwardRef<HTMLButtonElement, Omit<ButtonProps, "size">>(
-  function IconButton(props, ref) {
-    return <Button ref={ref} size="icon" {...props} />;
+export const IconButton = forwardRef<HTMLButtonElement, Omit<ButtonProps, "size"> & { compact?: boolean }>(
+  function IconButton({ compact = false, ...props }, ref) {
+    return <Button ref={ref} size={compact ? "iconCompact" : "icon"} {...props} />;
   },
 );
