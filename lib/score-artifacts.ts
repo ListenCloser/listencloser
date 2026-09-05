@@ -93,6 +93,26 @@ export function selectScoreArtifacts(
   };
 }
 
+/**
+ * Choose a persisted Score for display without letting a mutable processing
+ * preference hide durable Work evidence. Prefer the requested engine when it
+ * exists; otherwise keep the other exact-lineage generated Score visible.
+ *
+ * This is deliberately separate from `hasReusableScoreArtifacts`: rebuilding
+ * an explicitly requested engine must never silently reuse a different one.
+ */
+export function selectScoreArtifactsForDisplay(
+  bundle: WorkBundle,
+  performanceMidiVersionId: string | null,
+  preferredEngine: ScoreArtifactEngine,
+): ScoreArtifacts {
+  const preferred = selectScoreArtifacts(bundle, performanceMidiVersionId, preferredEngine);
+  if (preferred.score) return preferred;
+
+  const fallbackEngine: ScoreArtifactEngine = preferredEngine === "musescore" ? "pm2s" : "musescore";
+  return selectScoreArtifacts(bundle, performanceMidiVersionId, fallbackEngine);
+}
+
 export function hasReusableScoreArtifacts(
   bundle: WorkBundle,
   performanceMidiVersionId: string | null,
