@@ -68,9 +68,7 @@ class AnalysisGNNEngine:
             raise ValueError("AnalysisGNN timeout must be positive")
         self._runtime_python = runtime_python or os.getenv("ANALYSISGNN_RUNTIME_PYTHON")
         self._checkpoint_path = checkpoint_path or os.getenv("ANALYSISGNN_CHECKPOINT_PATH")
-        self._checkpoint_sha256 = checkpoint_sha256 or os.getenv(
-            "ANALYSISGNN_CHECKPOINT_SHA256"
-        )
+        self._checkpoint_sha256 = checkpoint_sha256 or os.getenv("ANALYSISGNN_CHECKPOINT_SHA256")
         self._device = device
         self._timeout_seconds = timeout_seconds
         self._verified_checkpoint: tuple[str, int, int] | None = None
