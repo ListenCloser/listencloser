@@ -7,7 +7,7 @@ from settings import SupabaseSettings
 
 def _public_storage_url(value: str) -> str:
     """Expose provider resources through the configured browser-visible origin."""
-    public_url = SupabaseSettings.from_environment().public_url
+    public_url = SupabaseSettings().public_url
     if not public_url:
         return value
 

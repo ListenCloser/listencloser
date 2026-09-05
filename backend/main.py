@@ -19,11 +19,13 @@ from domain.relation_api import router as relation_router
 from domain.upload_api import router as upload_router
 from health_api import router as health_router
 from observability import configure_logging, init_sentry, init_telemetry, record_http_request
+from settings import ObservabilitySettings
 
-configure_logging("listencloser-api")
+_observability_settings = ObservabilitySettings()
+configure_logging("listencloser-api", _observability_settings)
 logger = logging.getLogger("backend")
-init_telemetry("listencloser-api")
-init_sentry(logger, default_release="backend@2.0.0")
+init_telemetry("listencloser-api", _observability_settings)
+init_sentry(logger, _observability_settings, default_release="backend@2.0.0")
 _request_id_ctx = contextvars.ContextVar("request_id", default="none")
 
 

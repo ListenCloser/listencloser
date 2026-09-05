@@ -15,6 +15,7 @@ import BreakdownFindingCard from "./BreakdownFindingCard";
 import HarmonyEvidence, { harmonyEvidenceRowCount, harmonyEvidenceSummary } from "./HarmonyEvidence";
 import MeasuredChanges from "./MeasuredChanges";
 import PassageCompare from "./PassageCompare";
+import SimilarMoments from "./SimilarMoments";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
 import styles from "./Inspector.module.css";
@@ -405,6 +406,7 @@ function BreakdownContent({
         </div>
         <MeasuredChanges />
         <PassageCompare />
+        <SimilarMoments />
       </div>
     );
   }
@@ -419,6 +421,7 @@ function BreakdownContent({
 
       <MeasuredChanges />
       <PassageCompare />
+      <SimilarMoments />
 
       {overviewCount > 0 && <OverviewSection insights={overviewInsights} />}
 

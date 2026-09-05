@@ -15,7 +15,7 @@ def get_supabase() -> Client | None:
     with _sb_lock:
         if _sb_client is not None:
             return _sb_client
-        credentials = SupabaseSettings.from_environment().credentials
+        credentials = SupabaseSettings().credentials
         if credentials is None:
             return None
         url, key = credentials
