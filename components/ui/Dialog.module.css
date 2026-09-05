@@ -1,14 +1,18 @@
-.backdrop {
+.root {
   position: fixed;
   inset: 0;
-  z-index: var(--layer-backdrop);
+  z-index: var(--layer-dialog);
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
   background: var(--overlay-backdrop);
 }
 
 .viewport {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: var(--layer-dialog);
   display: grid;
   place-items: center;
   padding: var(--space-5);
