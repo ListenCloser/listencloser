@@ -64,7 +64,9 @@ def test_worker_settings_reject_invalid_concurrency(monkeypatch, value: str):
         },
     ],
 )
-def test_supabase_settings_preserve_unconfigured_credentials(monkeypatch, environment: dict[str, str]):
+def test_supabase_settings_preserve_unconfigured_credentials(
+    monkeypatch, environment: dict[str, str]
+):
     for name, value in environment.items():
         monkeypatch.setenv(name, value)
     assert SupabaseSettings().credentials is None
