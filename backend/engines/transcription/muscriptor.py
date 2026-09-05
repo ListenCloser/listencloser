@@ -1,15 +1,15 @@
 """Isolated MuScriptor transcription challenger.
 
 MuScriptor's public runtime currently requires a dependency graph that is
-materially different from ListenCloser's normal worker.  Keep it behind an
+materially different from ListenCloser's normal worker. Keep it behind an
 explicit child-Python boundary: the normal worker writes the source audio,
 invokes a separately provisioned/pinned MuScriptor environment, then parses the
 emitted MIDI back into the repository-owned ``TranscriptionResult`` contract.
 
 The released ``muscriptor-small`` checkpoint is CC BY-NC 4.0 and gated on
-Hugging Face.  This adapter is therefore internal/evaluation-only under the
+Hugging Face. This adapter is therefore internal/evaluation-only under the
 current terms and deliberately requires a local checkpoint plus its expected
-SHA-256.  Runtime inference is forced offline; a user's request must never
+SHA-256. Runtime inference is forced offline; a user's request must never
 trigger an unpinned model download.
 """
 
@@ -34,6 +34,7 @@ MUSCRIPTOR_WEIGHT_LICENSE = "CC-BY-NC-4.0"
 
 _DEFAULT_TIMEOUT_SECONDS = 30 * 60
 _ALLOWED_FORMATS = {"wav", "mp3", "m4a", "flac", "ogg", "aac"}
+_MP3_SYNC_HEADERS = {b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"}
 
 
 class MuScriptorEngine(TranscriptionEngine):
@@ -192,8 +193,9 @@ class MuScriptorEngine(TranscriptionEngine):
             notes=notes,
             num_notes=len(notes),
             cleanup_report={
-                "instrument_labels": "model_emitted_program_groups",
+                "instrument_labels": "derived from MuScriptor-exported MIDI programs",
                 "velocity_semantics": "MIDI exporter value; MuScriptor does not recover velocity",
+                "timing_semantics": "MIDI export; real-fixture source-audio alignment not yet proven",
                 "runtime": "isolated",
             },
             provenance=self.provenance,
@@ -210,7 +212,7 @@ def _normalize_format(fmt: str, audio_bytes: bytes) -> str:
         detected = "wav"
     elif audio_bytes[:4] == b"OggS":
         detected = "ogg"
-    elif audio_bytes[:3] == b"ID3" or audio_bytes[:2] in {b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"}:
+    elif audio_bytes[:3] == b"ID3" or audio_bytes[:2] in _MP3_SYNC_HEADERS:
         detected = "mp3"
     elif len(audio_bytes) >= 12 and audio_bytes[4:8] == b"ftyp":
         detected = "m4a"
@@ -228,8 +230,10 @@ def _parse_midi(midi_bytes: bytes) -> tuple[list[dict[str, Any]], list[dict[str,
     notes: list[dict[str, Any]] = []
     model_events: list[dict[str, Any]] = []
     for instrument in midi.instruments:
-        program_name = "Drums" if instrument.is_drum else pretty_midi.program_to_instrument_name(
-            instrument.program
+        program_name = (
+            "Drums"
+            if instrument.is_drum
+            else pretty_midi.program_to_instrument_name(instrument.program)
         )
         for note in instrument.notes:
             normalized = {
