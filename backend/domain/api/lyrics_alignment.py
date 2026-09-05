@@ -16,6 +16,9 @@ from domain.lyrics_alignment import (
     DEFAULT_MATCH_THRESHOLD,
     DEFAULT_MODEL,
     DEFAULT_TRUSTED_SCORE,
+    OPENAI_WHISPER_VERSION,
+    SYNCALONG_RELEASE,
+    SYNCALONG_VERSION,
 )
 from domain.models import ArtifactKind, Capability, Job, Version, Workflow, WorkflowKind
 from domain.repositories import ArtifactRepo, JobRepo, VersionRepo, WorkflowRepo, WorkRepo
@@ -31,8 +34,8 @@ _ALLOWED_INPUT_KINDS = {
 
 
 class SuppliedTextAlignmentBody(BaseModel):
-    version_id: str
-    project_id: str
+    version_id: UUID
+    project_id: UUID
     text: str = Field(min_length=1, max_length=100_000)
     text_source_kind: TextSourceKind = "user_supplied"
     language: str | None = Field(default=None, max_length=16)
@@ -76,8 +79,8 @@ def create_supplied_text_alignment(
     """Queue permitted supplied text against one exact source audio Version."""
     sb = supabase_client()
     owner = owner_id(auth)
-    version_id = UUID(body.version_id)
-    project_id = UUID(body.project_id)
+    version_id = body.version_id
+    project_id = body.project_id
 
     try:
         _require_audio_version_in_project(sb, version_id, project_id, owner)
@@ -158,10 +161,10 @@ def create_supplied_text_alignment(
                 "text_source_kind": body.text_source_kind,
                 "source_version_id": str(version_id),
                 "engine": "syncalong",
-                "engine_version": "2.0.1",
-                "engine_release": "v2.0.1",
+                "engine_version": SYNCALONG_VERSION,
+                "engine_release": SYNCALONG_RELEASE,
                 "transcription_engine": "openai-whisper",
-                "transcription_engine_version": "20250625",
+                "transcription_engine_version": OPENAI_WHISPER_VERSION,
                 "model_name": DEFAULT_MODEL,
             },
             created_by=owner,
