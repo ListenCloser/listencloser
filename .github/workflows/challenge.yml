@@ -59,7 +59,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key"
       - name: Wait for frontend
         run: |
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:3000 >/dev/null; then
               exit 0
             fi
@@ -74,9 +74,11 @@ jobs:
       - name: Record advisory outcome
         if: always()
         run: |
-          echo "### Browser adversarial audit" >> "$GITHUB_STEP_SUMMARY"
-          echo "Outcome: **${{ steps.challenge.outcome }}**" >> "$GITHUB_STEP_SUMMARY"
-          echo "This workflow is advisory; promote only stable, demonstrated defect classes into protected Build." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Browser adversarial audit"
+            echo "Outcome: **${{ steps.challenge.outcome }}**"
+            echo "This workflow is advisory; promote only stable, demonstrated defect classes into protected Build."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload challenge reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -104,9 +106,11 @@ jobs:
       - name: Record advisory outcome
         if: always()
         run: |
-          echo "### TypeScript mutation audit" >> "$GITHUB_STEP_SUMMARY"
-          echo "Outcome: **${{ steps.challenge.outcome }}**" >> "$GITHUB_STEP_SUMMARY"
-          echo "Target: \`lib/evidence-projections.ts\`. Surviving mutants are review evidence, not an automatic merge failure." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### TypeScript mutation audit"
+            echo "Outcome: **${{ steps.challenge.outcome }}**"
+            echo "Target: \`lib/evidence-projections.ts\`. Surviving mutants are review evidence, not an automatic merge failure."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload challenge reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
