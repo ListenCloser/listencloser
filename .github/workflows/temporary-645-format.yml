@@ -1,0 +1,32 @@
+name: Temporary 645 formatter
+
+on:
+  push:
+    branches: [refactor/645-typed-settings-convergence]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refactor/645-typed-settings-convergence
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.9'
+      - name: Apply canonical Ruff formatting and remove helper
+        run: |
+          uv sync --project backend --locked
+          uv run --project backend --locked ruff format backend/tests/test_settings.py
+          git rm .github/workflows/temporary-645-format.yml
+          git add backend/tests/test_settings.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "style(config): format settings tests"
+          git push
