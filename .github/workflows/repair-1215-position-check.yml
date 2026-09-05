@@ -1,0 +1,31 @@
+name: Repair PR 1215 position check
+
+on:
+  push:
+    branches:
+      - integrate/1082-score-source-fresh-main
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Move the no-seek snapshot to the notation click boundary
+        run: |
+          python -c 'from pathlib import Path; p=Path("tests/e2e/real-stack-golden.spec.ts"); s=p.read_text(); a="    expect(box).not.toBeNull();\n    await page.mouse.click"; assert s.count(a)==1, f"anchor count: {s.count(a)}"; s=s.replace(a, "    expect(box).not.toBeNull();\n    const positionBeforeNotationClick = await transportPosition(page);\n    await page.mouse.click", 1); old="    await expectPositionPreserved(page, positionBeforeSourceScore, 0.02);"; assert s.count(old)==1, f"assertion count: {s.count(old)}"; p.write_text(s.replace(old, "    await expectPositionPreserved(page, positionBeforeNotationClick, 0.02);", 1))'
+          rm .github/workflows/repair-1215-position-check.yml
+          git diff --check
+          test "$(git diff --name-only | sort)" = "$(printf '%s\n' '.github/workflows/repair-1215-position-check.yml' 'tests/e2e/real-stack-golden.spec.ts' | sort)"
+      - name: Commit focused repair
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .github/workflows/repair-1215-position-check.yml tests/e2e/real-stack-golden.spec.ts
+          git commit -m "test(score): measure no-seek at click boundary"
+          git push origin HEAD:integrate/1082-score-source-fresh-main
