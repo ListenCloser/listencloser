@@ -32,19 +32,18 @@ jobs:
 
           path = Path('tests/e2e/real-stack-golden.spec.ts')
           text = path.read_text()
-          old = '''  const chooser = await chooserPromise;
-  await chooser.setFiles(SOURCE_SCORE);
-}'''
-          new = '''  const chooser = await chooserPromise;
-  await chooser.setFiles(SOURCE_SCORE);
-
-  // File selection only starts the async attach. Wait for the product's
-  // existing attachment lifecycle to finish before asserting the selected
-  // source elsewhere in the golden path.
-  const attachingScore = page.getByRole("status").filter({ hasText: "Attaching score" });
-  await expect(attachingScore).toBeVisible({ timeout: 10_000 });
-  await expect(attachingScore).toBeHidden({ timeout: 60_000 });
-}'''
+          old = "  const chooser = await chooserPromise;\n  await chooser.setFiles(SOURCE_SCORE);\n}"
+          new = (
+              "  const chooser = await chooserPromise;\n"
+              "  await chooser.setFiles(SOURCE_SCORE);\n\n"
+              "  // File selection only starts the async attach. Wait for the product's\n"
+              "  // existing attachment lifecycle to finish before asserting the selected\n"
+              "  // source elsewhere in the golden path.\n"
+              "  const attachingScore = page.getByRole(\"status\").filter({ hasText: \"Attaching score\" });\n"
+              "  await expect(attachingScore).toBeVisible({ timeout: 10_000 });\n"
+              "  await expect(attachingScore).toBeHidden({ timeout: 60_000 });\n"
+              "}"
+          )
           if text.count(old) != 1:
               raise SystemExit(f'expected one attach helper target, found {text.count(old)}')
           path.write_text(text.replace(old, new))
