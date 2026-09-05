@@ -10,6 +10,8 @@ export type SimilarMomentsMethod = components["schemas"]["SimilarMomentsMethod"]
 export type SimilarMomentsObservation = components["schemas"]["SimilarMomentsObservation"];
 export type SimilarMomentsBody = components["schemas"]["SimilarMomentsBody"];
 export type SimilarMomentsResponse = components["schemas"]["SimilarMomentsResponse"];
+export type RhythmDensityContextBody =
+  components["schemas"]["RhythmDensityContextBody"];
 
 /**
  * Query a same-work A/B perceptual comparison without mutating Work state.
@@ -47,6 +49,29 @@ export async function getSimilarMoments(
   return requireOpenApiData(result);
 }
 
+/**
+ * Query literal within-Work rhythm-density context for one exact persisted
+ * density-owning Version. The browser receives server-composed facts only.
+ */
+export async function queryRhythmDensityContext(
+  workId: string,
+  body: RhythmDensityContextBody,
+) {
+  const result = await openapiClient.POST(
+    "/api/v1/works/{work_id}/relations/rhythm-density-context",
+    {
+      params: { path: { work_id: workId } },
+      body,
+    },
+  );
+  return requireOpenApiData(result);
+}
+
+// Derive the response from the typed client operation itself. openapi-fetch's
+// response helper widens tuple arrays while preserving their wire shape, so a
+// second explicit component annotation would create two incompatible views of
+// the same generated contract.
+export type RhythmDensityContextResponse = Awaited<ReturnType<typeof queryRhythmDensityContext>>;
 
 /** Discover a bounded experimental top set for one immutable source Version. */
 export async function getMeasuredChanges(

@@ -14,6 +14,55 @@ function inspectLabel(action: Extract<VisibleFindingAction, { type: "show" }>): 
   return action.representationId === "listen" ? "Inspect waveform" : "Inspect piano roll";
 }
 
+function ContextEvidence({ finding }: { finding: BreakdownFinding }) {
+  const evidence = finding.contextEvidence;
+  if (finding.kind !== "rhythm_density_work_context" || !evidence) return null;
+
+  const measurement = evidence.measurements[0];
+  const supportRef = evidence.supportRefs[0];
+  if (!measurement || !supportRef) return null;
+
+  const provenanceEngine = typeof evidence.provenance.engine === "string"
+    ? evidence.provenance.engine
+    : "rhythm_density_work_context";
+
+  return (
+    <details className={styles.evidence}>
+      <summary>Evidence</summary>
+      <dl className={styles.evidenceGrid}>
+        <div>
+          <dt>This passage</dt>
+          <dd>{measurement.subject_value.toPrecision(3)} events/beat</dd>
+        </div>
+        <div>
+          <dt>Elsewhere median</dt>
+          <dd>{measurement.reference_median.toPrecision(3)} events/beat</dd>
+        </div>
+        <div>
+          <dt>Descriptive percentile</dt>
+          <dd>{measurement.empirical_midrank_percentile.toFixed(1)}th</dd>
+        </div>
+        <div>
+          <dt>Reference windows</dt>
+          <dd>{evidence.referencePopulation.eligible_window_count}</dd>
+        </div>
+        <div className={styles.evidenceWide}>
+          <dt>Source Version</dt>
+          <dd><code>{evidence.sourceVersionId}</code></dd>
+        </div>
+        <div className={styles.evidenceWide}>
+          <dt>Evidence ref</dt>
+          <dd><code>{supportRef.id}</code></dd>
+        </div>
+        <div className={styles.evidenceWide}>
+          <dt>Method</dt>
+          <dd><code>{provenanceEngine}</code></dd>
+        </div>
+      </dl>
+    </details>
+  );
+}
+
 export default function BreakdownFindingCard({ finding }: { finding: BreakdownFinding }) {
   const {
     workspace,
@@ -108,6 +157,8 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
           })}
         </div>
       )}
+
+      <ContextEvidence finding={finding} />
     </article>
   );
 }
