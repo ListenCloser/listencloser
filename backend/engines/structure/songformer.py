@@ -179,7 +179,9 @@ class SongFormerEngine:
             third_party = songformer_root.parent / "third_party"
             existing_pythonpath = env.get("PYTHONPATH", "")
             env["PYTHONPATH"] = os.pathsep.join(
-                part for part in (str(third_party), str(songformer_root), existing_pythonpath) if part
+                part
+                for part in (str(third_party), str(songformer_root), existing_pythonpath)
+                if part
             )
 
             try:
