@@ -1,24 +1,25 @@
 from __future__ import annotations
 
+import time
 from contextlib import suppress
-from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
 
 from domain.capabilities import _create_output_version
-from domain.fenced_job_worker import FencedJobWorker
 from domain.models import ArtifactKind
+from domain.pgmq_job_worker import PgmqJobWorker
 
 
 @pytest.mark.real_stack
 def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
-    """Prove #539 is fenced through the real worker + output persistence path.
+    """Prove #539 is fenced through real PGMQ redelivery + output persistence.
 
-    Worker A is allowed to compute indefinitely, but after a genuine lease
-    takeover only Worker B's fresh execution token may make product-visible DB
-    state durable. The persistence RPC checks and locks that token in the same
-    transaction as the Artifact/Version insert, so there is no check/write gap.
+    Worker A is allowed to compute past its PGMQ visibility timeout. After the
+    same delivery is genuinely redelivered, only Worker B's fresh execution
+    token may make product-visible state durable. The persistence RPC checks
+    and locks that token in the same transaction as the Artifact/Version insert,
+    so there is no check/write gap.
     """
 
     owner_id = str(uuid4())
@@ -47,13 +48,15 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
             }
         ).execute()
 
-        worker_a = FencedJobWorker(lease_duration_sec=30.0)
-        worker_b = FencedJobWorker(lease_duration_sec=30.0)
+        worker_a = PgmqJobWorker(visibility_timeout_sec=1, heartbeat_interval_sec=0.5)
+        worker_b = PgmqJobWorker(visibility_timeout_sec=1, heartbeat_interval_sec=0.5)
         worker_a._client = sb
         worker_b._client = sb
 
         assert worker_a._worker_id != worker_b._worker_id
-        assert worker_a._claim_job(job_id) is True
+        attempt_a = worker_a._receive_next_job()
+        assert attempt_a is not None
+        assert str(attempt_a["id"]) == job_id
         assert worker_a._mark_running(job_id) is True
 
         running_row = sb.table("jobs").select("*").eq("id", job_id).execute().data[0]
@@ -63,9 +66,9 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         assert stale_token
 
         # Production writes Storage before publishing its Artifact/Version. A may
-        # therefore leave a private orphan object if it loses its lease after the
-        # upload. Use the real Storage API here so the DB publication fence also
-        # proves the exact bucket+key exists in storage.objects.
+        # therefore leave a private orphan object if it loses delivery visibility
+        # after upload. Use the real Storage API here so the DB publication fence
+        # also proves the exact bucket+key exists in storage.objects.
         stale_storage_key = f"jobs/{job_id}/stale-attempt/characterization.json"
         stale_scoped_key = stale_client.scope_storage_key(stale_storage_key)
         stale_client.storage.from_("artifacts").upload(
@@ -75,29 +78,31 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         )
         uploaded_keys.append(stale_scoped_key)
 
-        # Model a genuine loss of lease ownership: A stops renewing, B recovers
-        # the expired row, then claims and starts the same logical Job.
-        expired_at = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
-        (sb.table("jobs").update({"lease_expires_at": expired_at}).eq("id", job_id).execute())
-        assert worker_b._recover_orphans() == 1
-        assert worker_b._claim_job(job_id) is True
+        # Model a genuine PGMQ takeover: A stops extending visibility, the same
+        # message becomes visible again, and B receives a fresh execution token.
+        time.sleep(1.1)
+        attempt_b = worker_b._receive_next_job()
+        assert attempt_b is not None
+        assert str(attempt_b["id"]) == job_id
+        assert int(attempt_b["_queue_msg_id"]) == int(attempt_a["_queue_msg_id"])
+        assert int(attempt_b["_queue_read_ct"]) >= 2
         assert worker_b._mark_running(job_id) is True
 
         after_takeover = sb.table("jobs").select("*").eq("id", job_id).execute().data[0]
         current_token = after_takeover["execution_token"]
-        current_lease = after_takeover["lease_expires_at"]
         assert after_takeover["worker_id"] == worker_b._worker_id
         assert after_takeover["stage"] == "running"
+        assert after_takeover["lease_expires_at"] is None
         assert current_token
         assert current_token != stale_token
 
-        # A heartbeat thread can outlive its lease. It must not extend B's fresh
-        # lease merely because both executions share the same logical Job id.
-        worker_a._renew_lease(job_id)
+        # A heartbeat thread may outlive its PGMQ visibility ownership. The stale
+        # token must not extend or otherwise disturb B's current generation.
+        worker_a._heartbeat_delivery(job_id)
         after_stale_heartbeat = sb.table("jobs").select("*").eq("id", job_id).execute().data[0]
         assert after_stale_heartbeat["worker_id"] == worker_b._worker_id
         assert after_stale_heartbeat["execution_token"] == current_token
-        assert after_stale_heartbeat["lease_expires_at"] == current_lease
+        assert after_stale_heartbeat["stage"] == "running"
 
         # A stale execution may still finish inference, and its object may already
         # exist, but its normal production output helper is fenced at the durable
@@ -138,8 +143,8 @@ def test_stale_attempt_cannot_persist_output_after_genuine_takeover(sb) -> None:
         assert stale_artifacts == []
 
         # The new owner uploads and publishes through the exact same production
-        # path, then completes the Job. This keeps crash recovery at-least-once
-        # rather than turning takeover into a permanent failure mode.
+        # path, then completes the Job. This keeps redelivery at-least-once rather
+        # than turning takeover into a permanent failure mode.
         current_job = worker_b._row_to_job(after_takeover)
         current_client = worker_b._handler_client(job_id)
         current_storage_key = f"jobs/{job_id}/current-attempt/characterization.json"
