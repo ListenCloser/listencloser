@@ -102,9 +102,7 @@ def handle_lyrics_alignment(job: Job, client) -> list[str]:
     report_bytes = report.model_dump_json(indent=2).encode("utf-8")
 
     _update_progress(client, job.id, 0.78, "storing supplied-text alignment")
-    storage_key = (
-        f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/supplied-text-alignment.json"
-    )
+    storage_key = f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/supplied-text-alignment.json"
     client.storage.from_(_STORAGE_BUCKET).upload(
         storage_key,
         report_bytes,
