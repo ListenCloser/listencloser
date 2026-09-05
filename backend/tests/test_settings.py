@@ -5,26 +5,11 @@ from pydantic import ValidationError
 
 from settings import EngineSettings, ObservabilitySettings, SupabaseSettings, WorkerSettings
 
-# Settings are constructed per use, so tests pin environment behavior without
-# resetting a process-global singleton between cases.
 _RUNTIME_ENV = (
-    "SUPABASE_URL",
-    "SUPABASE_PUBLIC_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "WORKER_CONCURRENCY",
-    "SENTRY_DSN_BACKEND",
-    "SENTRY_DSN",
-    "SENTRY_ENV",
-    "SENTRY_TRACES_SAMPLE_RATE",
-    "RELEASE",
-    "OTEL_SERVICE_NAME",
-    "OTEL_EXPORTER_OTLP_ENDPOINT",
-    "TRANSCRIPTION_ENGINE",
-    "BEAT_ENGINE",
-    "NOTATION_ENGINE",
-    "HARMONY_ENGINE",
-    "MELODY_ENGINE",
-    "THEORY_ENGINE",
+    "SUPABASE_URL", "SUPABASE_PUBLIC_URL", "SUPABASE_SERVICE_ROLE_KEY", "WORKER_CONCURRENCY",
+    "SENTRY_DSN_BACKEND", "SENTRY_DSN", "SENTRY_ENV", "SENTRY_TRACES_SAMPLE_RATE", "RELEASE",
+    "OTEL_SERVICE_NAME", "OTEL_EXPORTER_OTLP_ENDPOINT", "TRANSCRIPTION_ENGINE", "BEAT_ENGINE",
+    "NOTATION_ENGINE", "HARMONY_ENGINE", "MELODY_ENGINE", "THEORY_ENGINE",
 )
 
 
@@ -50,25 +35,8 @@ def test_worker_settings_reject_invalid_concurrency(monkeypatch, value: str):
         WorkerSettings()
 
 
-@pytest.mark.parametrize(
-    "environment",
-    [
-        {},
-        {"SUPABASE_URL": "https://project.supabase.invalid"},
-        {"SUPABASE_SERVICE_ROLE_KEY": "service-role-test-key"},
-        {
-            "SUPABASE_URL": "",
-            "SUPABASE_SERVICE_ROLE_KEY": "service-role-test-key",
-        },
-        {
-            "SUPABASE_URL": "https://project.supabase.invalid",
-            "SUPABASE_SERVICE_ROLE_KEY": "",
-        },
-    ],
-)
-def test_supabase_settings_preserve_unconfigured_credentials(
-    monkeypatch, environment: dict[str, str]
-):
+@pytest.mark.parametrize("environment", [{}, {"SUPABASE_URL": "https://project.supabase.invalid"}, {"SUPABASE_SERVICE_ROLE_KEY": "service-role-test-key"}, {"SUPABASE_URL": "", "SUPABASE_SERVICE_ROLE_KEY": "service-role-test-key"}, {"SUPABASE_URL": "https://project.supabase.invalid", "SUPABASE_SERVICE_ROLE_KEY": ""}])
+def test_supabase_settings_preserve_unconfigured_credentials(monkeypatch, environment: dict[str, str]):
     for name, value in environment.items():
         monkeypatch.setenv(name, value)
     assert SupabaseSettings().credentials is None
@@ -77,20 +45,14 @@ def test_supabase_settings_preserve_unconfigured_credentials(
 def test_supabase_settings_mask_service_role_key_in_repr(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://project.supabase.invalid")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-role-test-key")
-
     settings = SupabaseSettings()
-
-    assert settings.credentials == (
-        "https://project.supabase.invalid",
-        "service-role-test-key",
-    )
+    assert settings.credentials == ("https://project.supabase.invalid", "service-role-test-key")
     assert "service-role-test-key" not in repr(settings)
     assert "**********" in repr(settings)
 
 
 def test_observability_settings_keep_optional_providers_disabled_by_default():
     settings = ObservabilitySettings()
-
     assert settings.sentry_dsn is None
     assert settings.otlp_endpoint is None
     assert settings.environment == "production"
@@ -100,7 +62,6 @@ def test_observability_settings_keep_optional_providers_disabled_by_default():
 
 def test_process_specific_observability_defaults_remain_callsite_owned():
     settings = ObservabilitySettings()
-
     assert settings.service_name_or("listencloser-api") == "listencloser-api"
     assert settings.service_name_or("listencloser-worker") == "listencloser-worker"
     assert settings.release_or("backend@2.0.0") == "backend@2.0.0"
@@ -110,10 +71,8 @@ def test_process_specific_observability_defaults_remain_callsite_owned():
 def test_observability_settings_use_canonical_backend_sentry_alias(monkeypatch):
     monkeypatch.setenv("SENTRY_DSN", "https://legacy@example.invalid/1")
     assert ObservabilitySettings().sentry_dsn is None
-
     monkeypatch.setenv("SENTRY_DSN_BACKEND", "https://backend@example.invalid/2")
     settings = ObservabilitySettings()
-
     assert settings.sentry_dsn is not None
     assert settings.sentry_dsn.get_secret_value() == "https://backend@example.invalid/2"
     assert "https://backend@example.invalid/2" not in repr(settings)
@@ -128,12 +87,11 @@ def test_observability_settings_reject_invalid_trace_sample_rate(monkeypatch, va
 
 def test_engine_settings_preserve_current_defaults():
     settings = EngineSettings()
-
     assert settings.transcription == "basic_pitch"
     assert settings.beat == "beat_this"
     assert settings.notation == "musescore"
     assert settings.harmony == "music21"
-    assert settings.melody == "lstom"
+    assert settings.melody == "midibert"
     assert settings.theory == "theory_interpreter"
 
 
@@ -144,9 +102,7 @@ def test_engine_settings_read_deployment_overrides(monkeypatch):
     monkeypatch.setenv("HARMONY_ENGINE", "lv_chordia")
     monkeypatch.setenv("MELODY_ENGINE", "skyline")
     monkeypatch.setenv("THEORY_ENGINE", "custom_theory")
-
     settings = EngineSettings()
-
     assert settings.transcription == "transkun"
     assert settings.beat == "librosa"
     assert settings.notation == "pm2s"
