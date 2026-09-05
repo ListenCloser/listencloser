@@ -138,9 +138,13 @@ describe("grounded context finding card", () => {
     expect(screen.getByText("4.50 events/beat")).toBeVisible();
     expect(screen.getByText("2.00 events/beat")).toBeVisible();
     expect(screen.getByText("90.0th")).toBeVisible();
+    expect(screen.getByText("Reference windows")).toBeVisible();
+    expect(screen.getByText("5")).toBeVisible();
     expect(screen.getByText("00000000-0000-0000-0000-000000000010")).toBeVisible();
     expect(screen.getByText("density-insight:rhythm_density")).toBeVisible();
     expect(screen.getByText("rhythm_density_work_context")).toBeVisible();
-    expect(screen.queryByText(/windows/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/eligible_intervals_seconds/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/source_coverage_start_seconds/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/excluded_intersecting_window_count/i)).not.toBeInTheDocument();
   });
 });
