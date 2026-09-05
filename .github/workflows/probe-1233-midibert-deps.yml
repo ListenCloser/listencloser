@@ -17,7 +17,7 @@ jobs:
           fetch-depth: 0
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
         with:
-          version: 0.12.6
+          version: 0.12.9
       - name: Resolve Transformers against the real worker graph
         shell: bash
         run: |
