@@ -117,6 +117,13 @@ async function attachSourceScore(page: import("@playwright/test").Page) {
   await page.getByRole("menuitem", { name: "Attach MusicXML score", exact: true }).click();
   const chooser = await chooserPromise;
   await chooser.setFiles(SOURCE_SCORE);
+
+  // File selection only starts the async attach. Wait for the product's
+  // existing attachment lifecycle to finish before asserting the selected
+  // source elsewhere in the golden path.
+  const attachingScore = page.getByRole("status").filter({ hasText: "Attaching score" });
+  await expect(attachingScore).toBeVisible({ timeout: 10_000 });
+  await expect(attachingScore).toBeHidden({ timeout: 60_000 });
 }
 
 async function importWithRetry(
