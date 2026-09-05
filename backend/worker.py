@@ -16,15 +16,16 @@ from domain.worker_warmup import (
     prewarm_librosa_beat_tracking,
 )
 from observability import configure_logging, init_sentry, init_telemetry
-from settings import WorkerSettings
+from settings import ObservabilitySettings, WorkerSettings
 
 
 def main() -> None:
-    configure_logging("listencloser-worker")
+    worker_settings = WorkerSettings()
+    observability_settings = ObservabilitySettings()
+    configure_logging("listencloser-worker", observability_settings)
     logger = logging.getLogger("worker")
-    init_telemetry("listencloser-worker")
-    init_sentry(logger)
-    settings = WorkerSettings.from_environment()
+    init_telemetry("listencloser-worker", observability_settings)
+    init_sentry(logger, settings=observability_settings)
 
     # Pay expensive process-local cold paths before PgmqJobWorker.run() publishes
     # its first heartbeat or receives a user's job. Warmups are optimization-only:
@@ -46,7 +47,7 @@ def main() -> None:
     except Exception:
         logger.exception("librosa_beat_prewarm_failed")
 
-    worker = PgmqJobWorker(max_workers=settings.concurrency)
+    worker = PgmqJobWorker(max_workers=worker_settings.concurrency)
     install_understand_instrumentation(capability_module)
     capability_module.register_all_capabilities(worker)
     register_corrected_midi_entity_sync(worker)
