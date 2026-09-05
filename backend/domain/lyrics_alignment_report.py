@@ -95,10 +95,18 @@ class LyricsAlignmentReport(BaseModel):
     )
     limitations: list[str] = Field(
         default_factory=lambda: [
-            "Unmatched tokens remain failed; no timestamp interpolation or extrapolation is used.",
-            "Lower-similarity direct matches are marked ambiguous instead of confidence-styled away.",
-            "Melisma, backing vocals, ad-libs, repeated words, pronunciation changes, and dense mixtures "
-            "can weaken or defeat alignment.",
+            (
+                "Unmatched tokens remain failed; no timestamp interpolation or "
+                "extrapolation is used."
+            ),
+            (
+                "Lower-similarity direct matches are marked ambiguous instead of "
+                "confidence-styled away."
+            ),
+            (
+                "Melisma, backing vocals, ad-libs, repeated words, pronunciation changes, "
+                "and dense mixtures can weaken or defeat alignment."
+            ),
             "This report does not create beat, pulse, section, or transcript authority.",
         ]
     )
