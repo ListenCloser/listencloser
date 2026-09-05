@@ -1,0 +1,61 @@
+name: Temporary reintegrate PR 1217
+
+on:
+  push:
+    branches:
+      - feat/1176-layers-current-main
+
+permissions:
+  contents: write
+
+jobs:
+  reintegrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Reintegrate Layers on the current optional-analysis seam
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          target='origin/agent/1178-symbolic-detail'
+          git fetch origin agent/1178-symbolic-detail
+          if git merge-base --is-ancestor "$target" HEAD; then
+            echo 'Target already integrated.'
+            exit 0
+          fi
+          set +e
+          git merge --no-edit "$target"
+          merge_rc=$?
+          set -e
+          if [ "$merge_rc" -ne 0 ]; then
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+            allowed=(backend/Dockerfile backend/config/capabilities.json backend/domain/api/workflows_jobs.py backend/worker.py components/workspace/StructureMap.tsx components/workspace/WorkspaceSession.tsx docs/generated/frontend-dependencies.md)
+            for conflict in "${conflicts[@]}"; do
+              ok=false
+              for path in "${allowed[@]}"; do
+                if [ "$conflict" = "$path" ]; then ok=true; break; fi
+              done
+              if [ "$ok" != true ]; then
+                echo "Unexpected conflict: $conflict" >&2
+                exit 1
+              fi
+            done
+            for path in "${allowed[@]}"; do
+              if printf '%s\n' "${conflicts[@]}" | grep -Fxq "$path"; then
+                git checkout --theirs -- "$path"
+              fi
+            done
+            python3 .github/scripts/temp-reintegrate-pr-1217.py
+            git add backend/Dockerfile backend/config/capabilities.json backend/domain/api/workflows_jobs.py backend/worker.py components/workspace/StructureMap.tsx components/workspace/WorkspaceSession.tsx docs/generated/frontend-dependencies.md
+            if git diff --name-only --diff-filter=U | grep -q .; then
+              echo 'Unresolved merge conflicts remain.' >&2
+              git diff --name-only --diff-filter=U >&2
+              exit 1
+            fi
+            git commit --no-edit
+          fi
+          git push origin HEAD:${GITHUB_REF_NAME}
