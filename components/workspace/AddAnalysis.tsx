@@ -64,25 +64,34 @@ export default function AddAnalysis({
               </button>
             )}
           </div>
-          {options.map((option) => (
-            <div className={styles.choice} key={option.id}>
-              <div>
-                <div className={styles.titleLine}>
-                  <strong>{option.title}</strong>
-                  {!sharedMaturity && <span className={styles.experimental}>{option.maturity}</span>}
+          {options.map((option, index) => {
+            const hasEarlierDuplicateAction = options
+              .slice(0, index)
+              .some((candidate) => candidate.actionLabel === option.actionLabel);
+
+            return (
+              <div className={styles.choice} key={option.id}>
+                <div>
+                  <div className={styles.titleLine}>
+                    <strong>{option.title}</strong>
+                    {!sharedMaturity && <span className={styles.experimental}>{option.maturity}</span>}
+                  </div>
+                  <p>{option.description}</p>
                 </div>
-                <p>{option.description}</p>
+                <button
+                  type="button"
+                  className={styles.action}
+                  onClick={option.onAction}
+                  disabled={option.disabled || option.busy}
+                  aria-label={
+                    hasEarlierDuplicateAction ? `${option.actionLabel} ${option.title}` : undefined
+                  }
+                >
+                  {option.actionLabel}
+                </button>
               </div>
-              <button
-                type="button"
-                className={styles.action}
-                onClick={option.onAction}
-                disabled={option.disabled || option.busy}
-              >
-                {option.actionLabel}
-              </button>
-            </div>
-          ))}
+            );
+          })}
           {notice && (
             <p className={styles.notice} role={noticeRole}>
               {notice}
