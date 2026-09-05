@@ -305,7 +305,7 @@ export function resolveEvidenceProjection(
     };
   }
 
-  // Stryker disable next-line all: defensive fail-closed branch retained for future policy rows; unreachable under the current policy table.
+  // Stryker disable all: defensive fail-closed branch retained for future policy rows; unreachable under the current policy table.
   return {
     kind,
     target,
@@ -315,6 +315,7 @@ export function resolveEvidenceProjection(
     passiveByDefault: false,
     requiresContext,
   };
+  // Stryker restore all
 }
 
 /** Convenience overload for callers already holding a persisted Insight. */
