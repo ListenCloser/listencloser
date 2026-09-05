@@ -6,8 +6,8 @@ from uuid import UUID
 
 import pytest
 
-import domain.lyrics_alignment_capability as capability
 from domain.lyrics_alignment import ObservedWord, build_report_from_evidence
+from domain.lyrics_alignment_capability import handle_lyrics_alignment
 from domain.models import (
     Artifact,
     ArtifactKind,
@@ -21,14 +21,7 @@ from domain.models import (
     Workflow,
     WorkflowKind,
 )
-from domain.repositories import (
-    ArtifactRepo,
-    JobRepo,
-    ProjectRepo,
-    VersionRepo,
-    WorkRepo,
-    WorkflowRepo,
-)
+from domain.repositories import ArtifactRepo, JobRepo, ProjectRepo, VersionRepo, WorkflowRepo, WorkRepo
 
 OWNER_ID = "00000000-0000-4000-8000-000000000181"
 pytestmark = pytest.mark.real_stack
@@ -116,9 +109,9 @@ def test_supplied_text_alignment_persists_exact_lineage_and_qualified_states(sb,
             trusted_score=100.0,
         )
 
-    monkeypatch.setattr(capability, "align_supplied_text", _fake_alignment)
+    monkeypatch.setattr("domain.lyrics_alignment_capability.align_supplied_text", _fake_alignment)
 
-    output_ids = capability.handle_lyrics_alignment(job, sb)
+    output_ids = handle_lyrics_alignment(job, sb)
     assert len(output_ids) == 1
 
     output_version = VersionRepo(sb).get(UUID(output_ids[0]), OWNER_ID)
