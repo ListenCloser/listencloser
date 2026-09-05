@@ -1434,8 +1434,27 @@
             ],
             "title": "Heartbeat Source"
           },
-          "queued": {
-            "title": "Queued",
+          "oldest_age_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Age Seconds"
+          },
+          "queue_depth": {
+            "title": "Queue Depth",
+            "type": "integer"
+          },
+          "queue_ready": {
+            "title": "Queue Ready",
+            "type": "boolean"
+          },
+          "queue_visible_depth": {
+            "title": "Queue Visible Depth",
             "type": "integer"
           },
           "reason": {
@@ -1449,13 +1468,17 @@
             ],
             "title": "Reason"
           },
-          "running": {
-            "title": "Running",
-            "type": "integer"
-          },
-          "stale_leases": {
-            "title": "Stale Leases",
-            "type": "integer"
+          "sampled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampled At"
           },
           "status": {
             "enum": [
@@ -1465,6 +1488,10 @@
             "title": "Status",
             "type": "string"
           },
+          "total_messages": {
+            "title": "Total Messages",
+            "type": "integer"
+          },
           "workers": {
             "title": "Workers",
             "type": "integer"
@@ -1473,9 +1500,10 @@
         "required": [
           "status",
           "workers",
-          "queued",
-          "running",
-          "stale_leases"
+          "queue_ready",
+          "queue_depth",
+          "queue_visible_depth",
+          "total_messages"
         ],
         "title": "HealthQueueResponse",
         "type": "object"
