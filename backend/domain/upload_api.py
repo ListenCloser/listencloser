@@ -6,9 +6,11 @@ bytes directly to private Supabase Storage, and the API then finalizes the
 canonical Work/Artifact/Version metadata graph.
 """
 
+import hashlib
 import mimetypes
 import os
 import re
+import tempfile
 from contextlib import suppress
 from pathlib import Path, PurePosixPath
 from uuid import UUID, uuid4
@@ -26,6 +28,8 @@ router = APIRouter(prefix="/api/v1")
 _STORAGE_BUCKET = "artifacts"
 _PENDING_SEGMENT = "pending"
 _ALLOWED_AUDIO_EXTENSIONS = {"wav", "mp3", "m4a", "flac", "ogg", "aac"}
+_ALLOWED_SCORE_EXTENSIONS = {"musicxml", "xml"}
+_MUSICXML_MIME = "application/vnd.recordare.musicxml+xml"
 _PENDING_BASENAME = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]+$")
 _DEFAULT_MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
@@ -73,22 +77,57 @@ def _max_upload_bytes() -> int:
     return value
 
 
-def _audio_descriptor(filename: str, byte_size: int, content_type: str | None) -> tuple[str, str]:
+def _safe_upload_name(filename: str) -> str:
     safe_name = Path(filename).name
     if not safe_name or safe_name != filename:
         raise HTTPException(status_code=400, detail="Filename must not contain a path")
+    return safe_name
 
+
+def _require_upload_size(byte_size: int) -> None:
+    if byte_size > _max_upload_bytes():
+        raise HTTPException(status_code=413, detail="File exceeds upload size limit")
+
+
+def _audio_descriptor(filename: str, byte_size: int, content_type: str | None) -> tuple[str, str]:
+    safe_name = _safe_upload_name(filename)
     ext = Path(safe_name).suffix.lstrip(".").lower()
     if ext not in _ALLOWED_AUDIO_EXTENSIONS:
         raise HTTPException(status_code=415, detail="Unsupported audio format")
 
-    max_bytes = _max_upload_bytes()
-    if byte_size > max_bytes:
-        raise HTTPException(status_code=413, detail="File exceeds upload size limit")
-
+    _require_upload_size(byte_size)
     guessed = mimetypes.guess_type(safe_name)[0]
     mime_type = guessed or content_type or "application/octet-stream"
     return ext, mime_type
+
+
+def _score_descriptor(filename: str, byte_size: int, work_id: UUID | None) -> tuple[str, str]:
+    safe_name = _safe_upload_name(filename)
+    ext = Path(safe_name).suffix.lstrip(".").lower()
+    if ext not in _ALLOWED_SCORE_EXTENSIONS:
+        raise HTTPException(status_code=415, detail="Unsupported score format")
+    if work_id is None:
+        raise HTTPException(status_code=400, detail="MusicXML must be attached to an existing Work")
+
+    _require_upload_size(byte_size)
+    return ext, _MUSICXML_MIME
+
+
+def _upload_descriptor(
+    filename: str,
+    byte_size: int,
+    content_type: str | None,
+    work_id: UUID | None,
+) -> tuple[str, str, ArtifactKind]:
+    safe_name = _safe_upload_name(filename)
+    ext = Path(safe_name).suffix.lstrip(".").lower()
+    if ext in _ALLOWED_AUDIO_EXTENSIONS:
+        audio_ext, mime_type = _audio_descriptor(filename, byte_size, content_type)
+        return audio_ext, mime_type, ArtifactKind.audio_original
+    if ext in _ALLOWED_SCORE_EXTENSIONS:
+        score_ext, mime_type = _score_descriptor(filename, byte_size, work_id)
+        return score_ext, mime_type, ArtifactKind.musicxml_score
+    raise HTTPException(status_code=415, detail="Unsupported upload format")
 
 
 def _pending_storage_key(owner_id: str, project_id: UUID, ext: str) -> str:
@@ -169,6 +208,33 @@ def _require_matching_object_size(row: dict, expected_size: int) -> None:
         raise HTTPException(status_code=409, detail="Uploaded file size does not match intent")
 
 
+def _download_storage_bytes(sb, storage_key: str) -> bytes:
+    try:
+        payload = sb.storage.from_(_STORAGE_BUCKET).download(storage_key)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail="Could not verify uploaded file contents"
+        ) from exc
+    if not isinstance(payload, bytes | bytearray):
+        raise HTTPException(status_code=502, detail="Could not verify uploaded file contents")
+    return bytes(payload)
+
+
+def _validate_musicxml_bytes(content: bytes) -> None:
+    """Parse uploaded MusicXML with maintained Partitura's safe XML parser."""
+    import partitura
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".musicxml") as handle:
+            handle.write(content)
+            handle.flush()
+            parsed = partitura.load_musicxml(handle.name, validate=False)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="Invalid or unsupported MusicXML") from exc
+    if parsed is None:
+        raise HTTPException(status_code=422, detail="Invalid or unsupported MusicXML")
+
+
 def _existing_upload(sb, storage_key: str, owner_id: str) -> tuple[Artifact, Version] | None:
     rows = (
         sb.table("artifact_versions")
@@ -201,7 +267,7 @@ def create_upload_intent(
     sb = _sb()
     owner_id = _owner_id(auth)
     _require_project_and_work(sb, project_id, body.work_id, owner_id)
-    ext, _ = _audio_descriptor(body.filename, body.byte_size, body.content_type)
+    ext, _, _ = _upload_descriptor(body.filename, body.byte_size, body.content_type, body.work_id)
     storage_key = _pending_storage_key(owner_id, project_id, ext)
 
     try:
@@ -234,7 +300,12 @@ def finalize_upload(
     sb = _sb()
     owner_id = _owner_id(auth)
     work = _require_project_and_work(sb, project_id, body.work_id, owner_id)
-    ext, mime_type = _audio_descriptor(body.filename, body.byte_size, body.content_type)
+    ext, mime_type, artifact_kind = _upload_descriptor(
+        body.filename,
+        body.byte_size,
+        body.content_type,
+        body.work_id,
+    )
     _validate_pending_storage_key(body.storage_key, owner_id, project_id, ext)
 
     existing = _existing_upload(sb, body.storage_key, owner_id)
@@ -252,6 +323,18 @@ def finalize_upload(
         raise HTTPException(status_code=409, detail="Storage upload is not complete")
     _require_matching_object_size(stored, body.byte_size)
 
+    score_bytes: bytes | None = None
+    if artifact_kind == ArtifactKind.musicxml_score:
+        score_bytes = _download_storage_bytes(sb, body.storage_key)
+        if len(score_bytes) != body.byte_size:
+            raise HTTPException(status_code=409, detail="Uploaded file size does not match intent")
+        try:
+            _validate_musicxml_bytes(score_bytes)
+        except HTTPException:
+            with suppress(Exception):
+                sb.storage.from_(_STORAGE_BUCKET).remove([body.storage_key])
+            raise
+
     work_repo = WorkRepo(sb)
     art_repo = ArtifactRepo(sb)
     created_work = False
@@ -267,7 +350,7 @@ def finalize_upload(
         artifact = art_repo.create(
             Artifact(
                 work_id=work.id,
-                kind=ArtifactKind.audio_original,
+                kind=artifact_kind,
                 mime_type=mime_type,
             ),
             owner_id,
@@ -278,8 +361,18 @@ def finalize_upload(
                 storage_key=body.storage_key,
                 storage_bucket=_STORAGE_BUCKET,
                 byte_size=body.byte_size,
+                sha256=hashlib.sha256(score_bytes).hexdigest() if score_bytes is not None else None,
                 created_by=owner_id,
                 label=body.filename,
+                metadata=(
+                    {
+                        "representation": "score_source",
+                        "source": "user_upload",
+                        "original_filename": body.filename,
+                    }
+                    if artifact_kind == ArtifactKind.musicxml_score
+                    else {}
+                ),
             ),
             owner_id,
         )
