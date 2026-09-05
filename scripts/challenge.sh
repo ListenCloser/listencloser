@@ -123,7 +123,7 @@ run_lighthouse() {
 }
 
 run_mutation_js() {
-  require_command npx
+  require_command npm
   if [ ! -d node_modules/vitest ]; then
     echo "challenge: Vitest is not installed; run npm ci first" >&2
     exit 2
@@ -131,12 +131,20 @@ run_mutation_js() {
 
   echo ""
   echo "── Test-quality adversary (StrykerJS ${STRYKER_VERSION}) ──"
+  if ! npm install \
+    --silent \
+    --no-audit \
+    --no-fund \
+    --no-save \
+    --package-lock=false \
+    "@stryker-mutator/core@${STRYKER_VERSION}" \
+    "@stryker-mutator/vitest-runner@${STRYKER_VERSION}"; then
+    return 2
+  fi
+
   local status=0
   set +e
-  npx --yes \
-    --package="@stryker-mutator/core@${STRYKER_VERSION}" \
-    --package="@stryker-mutator/vitest-runner@${STRYKER_VERSION}" \
-    stryker run stryker.config.mjs 2>&1 | tee "$RESULTS_DIR/mutation-js.txt"
+  ./node_modules/.bin/stryker run stryker.config.mjs 2>&1 | tee "$RESULTS_DIR/mutation-js.txt"
   status=${PIPESTATUS[0]}
   set -e
   return "$status"
