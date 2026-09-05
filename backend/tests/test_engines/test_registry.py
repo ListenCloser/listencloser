@@ -22,39 +22,31 @@ class TestRegistryDefaults:
     @pytest.mark.worker
     def test_default_transcription_is_basic_pitch(self):
         from engines.transcription.basic_pitch import BasicPitchEngine
-
-        engine = get_transcription_engine()
-        assert isinstance(engine, BasicPitchEngine)
+        assert isinstance(get_transcription_engine(), BasicPitchEngine)
 
     @pytest.mark.integration
     @pytest.mark.worker
     def test_default_beat_is_beat_this(self, monkeypatch):
         from engines.beats.beat_this_engine import BeatThisEngine
-
         monkeypatch.delenv("BEAT_ENGINE", raising=False)
-        engine = get_beat_engine()
-        assert isinstance(engine, BeatThisEngine)
+        assert isinstance(get_beat_engine(), BeatThisEngine)
 
     def test_explicit_librosa_rollback(self):
-        engine = get_beat_engine(name="librosa")
-        assert isinstance(engine, LibrosaBeatEngine)
+        assert isinstance(get_beat_engine(name="librosa"), LibrosaBeatEngine)
 
     def test_default_notation_is_musescore(self, monkeypatch):
         monkeypatch.delenv("NOTATION_ENGINE", raising=False)
-        engine = get_notation_engine()
-        assert isinstance(engine, MuseScoreNotationEngine)
+        assert isinstance(get_notation_engine(), MuseScoreNotationEngine)
 
     def test_default_harmony_is_music21(self):
-        engine = get_harmony_engine()
-        assert isinstance(engine, Music21HarmonyEngine)
+        assert isinstance(get_harmony_engine(), Music21HarmonyEngine)
 
     @pytest.mark.integration
     @pytest.mark.worker
-    def test_default_melody_is_lstom(self):
-        from engines.melody.lstom_engine import LStoMMelodyEngine
-
-        engine = get_melody_engine()
-        assert isinstance(engine, LStoMMelodyEngine)
+    def test_default_melody_is_midibert(self, monkeypatch):
+        from engines.melody.midibert_engine import MidiBERTMelodyEngine
+        monkeypatch.delenv("MELODY_ENGINE", raising=False)
+        assert isinstance(get_melody_engine(), MidiBERTMelodyEngine)
 
 
 class TestRegistryExplicitSelection:
@@ -62,21 +54,16 @@ class TestRegistryExplicitSelection:
     @pytest.mark.worker
     def test_select_basic_pitch_explicitly(self):
         from engines.transcription.basic_pitch import BasicPitchEngine
-
-        engine = get_transcription_engine("basic_pitch")
-        assert isinstance(engine, BasicPitchEngine)
+        assert isinstance(get_transcription_engine("basic_pitch"), BasicPitchEngine)
 
     def test_select_librosa_explicitly(self):
-        engine = get_beat_engine("librosa")
-        assert isinstance(engine, LibrosaBeatEngine)
+        assert isinstance(get_beat_engine("librosa"), LibrosaBeatEngine)
 
     @pytest.mark.integration
     @pytest.mark.worker
     def test_select_beat_this_explicitly(self):
         from engines.beats.beat_this_engine import BeatThisEngine
-
-        engine = get_beat_engine("beat_this")
-        assert isinstance(engine, BeatThisEngine)
+        assert isinstance(get_beat_engine("beat_this"), BeatThisEngine)
 
     def test_music21_notation_is_rejected(self):
         with pytest.raises(ValueError, match="Unknown notation engine"):
@@ -95,21 +82,17 @@ class TestRegistryExplicitSelection:
             get_melody_engine("made_up")
 
     def test_select_harmony_explicitly(self):
-        engine = get_harmony_engine("music21")
-        assert isinstance(engine, Music21HarmonyEngine)
+        assert isinstance(get_harmony_engine("music21"), Music21HarmonyEngine)
 
     def test_select_melody_explicitly(self):
-        engine = get_melody_engine("skyline")
-        assert isinstance(engine, SkylineMelodyEngine)
+        assert isinstance(get_melody_engine("skyline"), SkylineMelodyEngine)
 
     @pytest.mark.integration
     @pytest.mark.worker
     def test_env_var_selection(self, monkeypatch):
         from engines.transcription.basic_pitch import BasicPitchEngine
-
         monkeypatch.setenv("TRANSCRIPTION_ENGINE", "basic_pitch")
-        engine = get_transcription_engine()
-        assert isinstance(engine, BasicPitchEngine)
+        assert isinstance(get_transcription_engine(), BasicPitchEngine)
 
 
 class TestProvenance:
@@ -117,7 +100,6 @@ class TestProvenance:
     @pytest.mark.worker
     def test_basic_pitch_provenance(self):
         from engines.transcription.basic_pitch import BasicPitchEngine
-
         engine = BasicPitchEngine(onset_threshold=0.5, frame_threshold=0.3)
         p = engine.provenance
         assert p.engine == "basic_pitch"
@@ -125,25 +107,18 @@ class TestProvenance:
         assert p.parameters["frame_threshold"] == 0.3
 
     def test_librosa_provenance(self):
-        engine = LibrosaBeatEngine()
-        p = engine.provenance
-        assert p.engine == "librosa"
-        # library_version may be "unknown" if librosa not installed locally
+        assert LibrosaBeatEngine().provenance.engine == "librosa"
 
     def test_musescore_provenance(self):
         engine = MuseScoreNotationEngine(executable="/test/musescore")
         engine._version = "MuseScore Studio 4 test"
-        p = engine.provenance
-        assert p.engine == "musescore"
-        assert p.library_version == "MuseScore Studio 4 test"
+        assert engine.provenance.library_version == "MuseScore Studio 4 test"
 
     @pytest.mark.integration
     @pytest.mark.worker
     def test_provenance_to_dict(self):
         from engines.transcription.basic_pitch import BasicPitchEngine
-
-        engine = BasicPitchEngine()
-        d = engine.provenance.to_dict()
+        d = BasicPitchEngine().provenance.to_dict()
         assert isinstance(d, dict)
         assert "engine" in d
         assert "library_version" in d
