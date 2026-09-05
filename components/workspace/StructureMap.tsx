@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import AddAnalysis, { type AddAnalysisOption } from "@/components/workspace/AddAnalysis";
+import PitchContourLane from "@/components/workspace/PitchContourLane";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import { formatTime } from "@/lib/format";
 import { JobObservationError, waitForJob } from "@/lib/job-tracking";
+import { startPitchContourWorkflow } from "@/lib/pitch-contour-client";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
 import {
@@ -16,6 +18,13 @@ import {
 import styles from "./StructureMap.module.css";
 
 const ACTIVE_JOB_STAGES = new Set(["queued", "claimed", "running"]);
+
+type AnalysisJob = Awaited<ReturnType<typeof getWorkBundle>>["jobs"][number];
+
+function terminalJobError(job: AnalysisJob | undefined, fallback: string): string | null {
+  if (job?.lifecycle.current !== "failed" && job?.lifecycle.current !== "cancelled") return null;
+  return job.error || job.lifecycle.message || fallback;
+}
 
 function sourceAndMapState(bundle: Awaited<ReturnType<typeof getWorkBundle>>) {
   const source = bundle.artifacts.find(
@@ -36,7 +45,22 @@ function sourceAndMapState(bundle: Awaited<ReturnType<typeof getWorkBundle>>) {
         && item.input_version_ids.includes(sourceVersionId)
       ))
     : undefined;
-  return { sourceVersionId, report, job };
+  const pitchReport = sourceVersionId
+    ? bundle.artifacts.find((item) => (
+        item.artifact.kind === "analysis_report"
+        && item.latest_version?.metadata?.representation_type === "pitch_contour"
+        && item.latest_version.metadata.source_audio_version_id === sourceVersionId
+        && item.latest_version.metadata.status === "experimental"
+        && item.signed_url
+      ))
+    : undefined;
+  const pitchJob = sourceVersionId
+    ? bundle.jobs.find((item) => (
+        item.capability.name === "pitch_contour"
+        && item.input_version_ids.includes(sourceVersionId)
+      ))
+    : undefined;
+  return { sourceVersionId, report, job, pitchReport, pitchJob };
 }
 
 export default function StructureMap() {
@@ -44,27 +68,51 @@ export default function StructureMap() {
   const { transport, seek, play, setActiveSource, audioRef } = useTransport();
   const [report, setReport] = useState<StructureMapReport | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
+  const [pitchReady, setPitchReady] = useState(false);
+  const [pitchOpen, setPitchOpen] = useState(false);
   const [sourceVersionId, setSourceVersionId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [activePitchJobId, setActivePitchJobId] = useState<string | null>(null);
   const [chooserOpen, setChooserOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "generating">("idle");
+  const [pitchStatus, setPitchStatus] = useState<"idle" | "loading" | "generating">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [pitchError, setPitchError] = useState<string | null>(null);
   const [observationLost, setObservationLost] = useState(false);
+  const [pitchObservationLost, setPitchObservationLost] = useState(false);
   const sequenceRef = useRef(0);
 
-  const load = useCallback(async (workId: string, fresh = false) => {
+  const load = useCallback(async (workId: string, fresh = false): Promise<boolean> => {
     const sequence = ++sequenceRef.current;
     setStatus("loading");
+    setPitchStatus("loading");
     setError(null);
+    setPitchError(null);
     setObservationLost(false);
+    setPitchObservationLost(false);
     try {
       if (fresh) clearWorkDataCache();
       const bundle = await getWorkBundle(workId);
-      if (sequence !== sequenceRef.current) return;
+      if (sequence !== sequenceRef.current) return false;
       setProjectId(bundle.work.project_id);
       const resolved = sourceAndMapState(bundle);
       setSourceVersionId(resolved.sourceVersionId);
+
+      const pitchActive = Boolean(
+        resolved.pitchJob && ACTIVE_JOB_STAGES.has(resolved.pitchJob.lifecycle.current),
+      );
+      const nextPitchError = terminalJobError(
+        resolved.pitchJob,
+        "Pitch contour processing did not complete",
+      );
+      const pitchAvailable = Boolean(resolved.pitchReport?.signed_url);
+      setActivePitchJobId(pitchActive ? resolved.pitchJob?.id ?? null : null);
+      setPitchReady(pitchAvailable);
+      setPitchStatus(pitchActive ? "generating" : "idle");
+      setPitchError(nextPitchError);
+      if (pitchActive || nextPitchError) setChooserOpen(true);
+
       if (!resolved.report?.signed_url) {
         setReport(null);
         setMapOpen(false);
@@ -72,40 +120,42 @@ export default function StructureMap() {
           setActiveJobId(resolved.job.id);
           setChooserOpen(true);
           setStatus("generating");
-          return;
+          return pitchAvailable;
         }
         setActiveJobId(null);
         setStatus("idle");
-        if (
-          resolved.job?.lifecycle.current === "failed"
-          || resolved.job?.lifecycle.current === "cancelled"
-        ) {
+        const nextError = terminalJobError(
+          resolved.job,
+          "Structure Map processing did not complete",
+        );
+        if (nextError) {
           setChooserOpen(true);
-          setError(
-            resolved.job.error
-            || resolved.job.lifecycle.message
-            || "Structure Map processing did not complete",
-          );
+          setError(nextError);
         }
-        return;
+        return pitchAvailable;
       }
       const nextReport = await fetchStructureMapReport(resolved.report.signed_url);
-      if (sequence !== sequenceRef.current) return;
+      if (sequence !== sequenceRef.current) return false;
       if (nextReport.source_version_id !== resolved.sourceVersionId) {
         throw new Error("Saved Structure Map does not match the current source Version");
       }
       setActiveJobId(null);
-      setChooserOpen(false);
+      if (!pitchActive && !nextPitchError) setChooserOpen(false);
       setReport(nextReport);
       setMapOpen(true);
       setStatus("idle");
+      return pitchAvailable;
     } catch (cause) {
-      if (sequence !== sequenceRef.current) return;
+      if (sequence !== sequenceRef.current) return false;
       setActiveJobId(null);
+      setActivePitchJobId(null);
       setReport(null);
       setMapOpen(false);
+      setPitchReady(false);
       setStatus("idle");
-      setError(cause instanceof Error ? cause.message : "Structure Map is unavailable");
+      setPitchStatus("idle");
+      setError(cause instanceof Error ? cause.message : "Experimental analyses are unavailable");
+      return false;
     }
   }, []);
 
@@ -113,13 +163,18 @@ export default function StructureMap() {
     const workId = workspace.activeWorkId;
     sequenceRef.current += 1;
     setActiveJobId(null);
+    setActivePitchJobId(null);
     setChooserOpen(false);
     setReport(null);
     setMapOpen(false);
+    setPitchReady(false);
+    setPitchOpen(false);
     setSourceVersionId(null);
     setProjectId(null);
     setError(null);
+    setPitchError(null);
     setObservationLost(false);
+    setPitchObservationLost(false);
     if (workId) void load(workId);
   }, [load, workspace.activeWorkId]);
 
@@ -156,6 +211,46 @@ export default function StructureMap() {
     return () => controller.abort();
   }, [activeJobId, load, workspace.activeWorkId]);
 
+  useEffect(() => {
+    const workId = workspace.activeWorkId;
+    const jobId = activePitchJobId;
+    if (!workId || !jobId) return;
+    const controller = new AbortController();
+
+    void waitForJob(jobId, () => undefined, { signal: controller.signal })
+      .then(async () => {
+        if (controller.signal.aborted) return;
+        // `load` is the durable authority and clears a terminal job id itself.
+        // Do not clear this effect dependency before the refresh: doing so runs
+        // this effect's cleanup, aborts the controller, and prevents the newly
+        // persisted lane from opening after a successful Add action.
+        const pitchAvailable = await load(workId, true);
+        if (pitchAvailable) {
+          setPitchOpen(true);
+          setChooserOpen(false);
+        }
+      })
+      .catch(async (cause) => {
+        if (controller.signal.aborted) return;
+        const pitchAvailable = await load(workId, true);
+        if (pitchAvailable) {
+          setPitchOpen(true);
+          setChooserOpen(false);
+          return;
+        }
+        if (controller.signal.aborted) return;
+        if (cause instanceof JobObservationError) {
+          setActivePitchJobId(null);
+          setPitchStatus("idle");
+          setChooserOpen(true);
+          setPitchObservationLost(true);
+          setPitchError(cause.message);
+        }
+      });
+
+    return () => controller.abort();
+  }, [activePitchJobId, load, workspace.activeWorkId]);
+
   const generate = useCallback(async () => {
     if (
       !workspace.activeWorkId
@@ -177,10 +272,36 @@ export default function StructureMap() {
     }
   }, [projectId, sourceVersionId, status, workspace.activeWorkId]);
 
+  const generatePitch = useCallback(async () => {
+    if (
+      !workspace.activeWorkId
+      || !sourceVersionId
+      || !projectId
+      || pitchStatus === "generating"
+      || pitchStatus === "loading"
+    ) return;
+    setPitchStatus("generating");
+    setPitchError(null);
+    setPitchObservationLost(false);
+    setChooserOpen(true);
+    try {
+      const jobId = await startPitchContourWorkflow(sourceVersionId, projectId);
+      setActivePitchJobId(jobId);
+    } catch (cause) {
+      setPitchStatus("idle");
+      setPitchError(cause instanceof Error ? cause.message : "Pitch contour processing failed");
+    }
+  }, [pitchStatus, projectId, sourceVersionId, workspace.activeWorkId]);
+
   const checkStatus = useCallback(() => {
     if (!workspace.activeWorkId || status !== "idle") return;
     void load(workspace.activeWorkId, true);
   }, [load, status, workspace.activeWorkId]);
+
+  const checkPitchStatus = useCallback(() => {
+    if (!workspace.activeWorkId || pitchStatus !== "idle") return;
+    void load(workspace.activeWorkId, true);
+  }, [load, pitchStatus, workspace.activeWorkId]);
 
   const openAnalysisInspector = useCallback(() => {
     setInspectorMode("analysis");
@@ -190,6 +311,11 @@ export default function StructureMap() {
 
   const openMap = useCallback(() => {
     setMapOpen(true);
+    setChooserOpen(false);
+  }, []);
+
+  const openPitch = useCallback(() => {
+    setPitchOpen(true);
     setChooserOpen(false);
   }, []);
 
@@ -225,6 +351,7 @@ export default function StructureMap() {
   if (!workspace.activeWorkId || !sourceVersionId) return null;
 
   const busy = status === "loading" || status === "generating";
+  const pitchBusy = pitchStatus === "loading" || pitchStatus === "generating";
   const selectedPassage = workspace.selection?.timeRange;
   const hasExactSelectedPassage = Boolean(
     selectedPassage
@@ -265,6 +392,30 @@ export default function StructureMap() {
       disabled: mapOpen,
     });
   }
+  analysisOptions.push({
+    id: "pitch-contour",
+    title: "Pitch Contour",
+    description: "Trace continuous monophonic pitch against the recording and seek through it.",
+    maturity: "Experimental",
+    actionLabel: pitchReady
+      ? pitchOpen ? "Shown" : "Open"
+      : pitchObservationLost
+        ? "Check status"
+        : pitchStatus === "generating"
+          ? "Finding pitch…"
+          : pitchStatus === "loading"
+            ? "Checking…"
+            : pitchError
+              ? "Retry"
+              : "Add",
+    onAction: pitchReady
+      ? openPitch
+      : pitchObservationLost
+        ? checkPitchStatus
+        : () => void generatePitch(),
+    disabled: pitchReady && pitchOpen,
+    busy: pitchBusy,
+  });
   if (hasExactSelectedPassage) {
     analysisOptions.push({
       id: "similar-moments",
@@ -286,19 +437,25 @@ export default function StructureMap() {
     });
   }
 
+  const notice = [error, pitchError].filter(Boolean).join(" · ") || null;
   const discovery = (
     <AddAnalysis
       open={chooserOpen}
       onOpenChange={setChooserOpen}
       options={analysisOptions}
-      notice={error}
-      noticeRole={busy || observationLost ? "status" : "alert"}
+      notice={notice}
+      noticeRole={busy || pitchBusy || observationLost || pitchObservationLost ? "status" : "alert"}
     />
   );
 
   if (!report) {
-    if (status === "loading" && !chooserOpen) return null;
-    return discovery;
+    if (status === "loading" && pitchStatus === "loading" && !chooserOpen && !pitchReady) return null;
+    return (
+      <>
+        {discovery}
+        {pitchReady && pitchOpen && <PitchContourLane onClose={() => setPitchOpen(false)} />}
+      </>
+    );
   }
 
   const hearingRequiresOriginal = transport.activeSource?.role === "score";
@@ -306,6 +463,7 @@ export default function StructureMap() {
   return (
     <>
       {discovery}
+      {pitchReady && pitchOpen && <PitchContourLane onClose={() => setPitchOpen(false)} />}
       {mapOpen && (
         <section className={styles.map} aria-label="Experimental Structure Map">
           <header className={styles.header}>
