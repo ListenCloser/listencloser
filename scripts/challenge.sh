@@ -22,9 +22,9 @@ Modes:
   a11y          Scan signed-out, authenticated desktop, and authenticated mobile UI.
   lighthouse    Collect a Lighthouse report for the running frontend.
   mutation-js   Mutation-test one bounded, high-value TypeScript policy module.
-  api            Fuzz a LOCAL FastAPI/OpenAPI service with Schemathesis.
-  all            Run browser + mutation-js; API also runs when CHALLENGE_API_URL is set.
-  help           Show this help.
+  api           Fuzz a LOCAL FastAPI/OpenAPI service with Schemathesis.
+  all           Run browser + mutation-js; API also runs when CHALLENGE_API_URL is set.
+  help          Show this help.
 
 Environment:
   CHALLENGE_FRONTEND_URL     Frontend base URL (default http://127.0.0.1:3000)
@@ -70,22 +70,31 @@ run_a11y() {
   temp_dir="$(mktemp -d)"
   trap 'rm -rf "${temp_dir:-}"' RETURN
 
-  npm install \
+  if ! npm install \
     --silent \
     --no-audit \
     --no-fund \
     --no-save \
     --package-lock=false \
     --prefix "$temp_dir" \
-    "axe-core@${AXE_VERSION}"
+    "axe-core@${AXE_VERSION}"; then
+    rm -rf "$temp_dir"
+    trap - RETURN
+    return 2
+  fi
 
+  local status=0
+  set +e
   NODE_PATH="$temp_dir/node_modules${NODE_PATH:+:$NODE_PATH}" \
     CHALLENGE_FRONTEND_URL="$(frontend_url)" \
     CHALLENGE_RESULTS_DIR="$RESULTS_DIR" \
     node scripts/challenge-accessibility.cjs
+  status=$?
+  set -e
 
   rm -rf "$temp_dir"
   trap - RETURN
+  return "$status"
 }
 
 run_lighthouse() {
@@ -98,14 +107,19 @@ run_lighthouse() {
   rm -rf .lighthouseci "$RESULTS_DIR/lighthouse"
   mkdir -p "$RESULTS_DIR/lighthouse"
 
+  local status=0
+  set +e
   npx --yes --package="@lhci/cli@${LHCI_VERSION}" \
     lhci collect \
       --url="$url/" \
       --numberOfRuns=1
+  status=$?
+  set -e
 
   if [ -d .lighthouseci ]; then
     cp -R .lighthouseci/. "$RESULTS_DIR/lighthouse/"
   fi
+  return "$status"
 }
 
 run_mutation_js() {
@@ -117,10 +131,15 @@ run_mutation_js() {
 
   echo ""
   echo "── Test-quality adversary (StrykerJS ${STRYKER_VERSION}) ──"
+  local status=0
+  set +e
   npx --yes \
     --package="@stryker-mutator/core@${STRYKER_VERSION}" \
     --package="@stryker-mutator/vitest-runner@${STRYKER_VERSION}" \
     stryker run stryker.config.mjs 2>&1 | tee "$RESULTS_DIR/mutation-js.txt"
+  status=${PIPESTATUS[0]}
+  set -e
+  return "$status"
 }
 
 assert_local_api_or_opted_in() {
@@ -156,17 +175,34 @@ run_api() {
   echo "Target: $api_url"
   echo "Schema: $schema"
 
+  local status=0
+  set +e
   uvx --from "schemathesis==${SCHEMATHESIS_VERSION}" \
     st run "$schema" \
       --url "$api_url" \
       --workers "${CHALLENGE_SCHEMATHESIS_WORKERS:-2}" \
       2>&1 | tee "$RESULTS_DIR/schemathesis.txt"
+  status=${PIPESTATUS[0]}
+  set -e
+  return "$status"
+}
+
+record_status() {
+  local current="$1"
+  local latest="$2"
+  if [ "$current" -eq 0 ]; then
+    printf '%s' "$latest"
+  else
+    printf '%s' "$current"
+  fi
 }
 
 case "$MODE" in
   browser)
-    run_a11y
-    run_lighthouse
+    status=0
+    run_a11y || status="$(record_status "$status" "$?")"
+    run_lighthouse || status="$(record_status "$status" "$?")"
+    exit "$status"
     ;;
   a11y)
     run_a11y
@@ -181,15 +217,17 @@ case "$MODE" in
     run_api
     ;;
   all)
-    run_a11y
-    run_lighthouse
-    run_mutation_js
+    status=0
+    run_a11y || status="$(record_status "$status" "$?")"
+    run_lighthouse || status="$(record_status "$status" "$?")"
+    run_mutation_js || status="$(record_status "$status" "$?")"
     if [ -n "${CHALLENGE_API_URL:-}" ]; then
-      run_api
+      run_api || status="$(record_status "$status" "$?")"
     else
       echo ""
       echo "ℹ️  CHALLENGE_API_URL not set — destructive-capable API fuzzing skipped"
     fi
+    exit "$status"
     ;;
   help|-h|--help)
     usage
