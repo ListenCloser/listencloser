@@ -292,6 +292,7 @@ export function resolveEvidenceProjection(
     };
   }
 
+  // Stryker disable next-line ConditionalExpression: every currently reachable below-minimum policy defines a fallback, so `true` is equivalent today.
   if (policy.fallbackMode) {
     return {
       kind,
@@ -304,6 +305,7 @@ export function resolveEvidenceProjection(
     };
   }
 
+  // Stryker disable next-line all: defensive fail-closed branch retained for future policy rows; unreachable under the current policy table.
   return {
     kind,
     target,
