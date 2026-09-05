@@ -19,7 +19,7 @@ export default function Dialog({
   compact?: boolean;
 }) {
   return (
-    <HeadlessDialog open={open} onClose={onClose}>
+    <HeadlessDialog className={styles.root} open={open} onClose={onClose}>
       <DialogBackdrop className={styles.backdrop} />
       <div className={styles.viewport}>
         <DialogPanel className={`${styles.panel}${compact ? ` ${styles.compact}` : ""}`}>
