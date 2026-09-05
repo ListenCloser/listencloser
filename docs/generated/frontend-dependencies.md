@@ -75,6 +75,7 @@ subgraph lib["lib"]
   lib_musicxml_cache_ts["musicxml-cache.ts"]
   lib_notes_ts["notes.ts"]
   lib_openapi_client_ts["openapi-client.ts"]
+  lib_perceptual_series_client_ts["perceptual-series-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
   lib_public_recordings_ts["public-recordings.ts"]
   lib_pulse_grid_ts["pulse-grid.ts"]
@@ -145,6 +146,7 @@ components_workspace_-->lib_inspector_
 components_workspace_-->lib_relation_api_client_ts
 components_workspace_-->lib_ask_
 components_workspace_-->lib_selection_ts
+components_workspace_-->lib_perceptual_series_client_ts
 components_workspace_-->lib_public_recordings_ts
 components_workspace_-->lib_supabase_ts
 components_workspace_-->lib_work_selection_ts
@@ -182,6 +184,8 @@ lib_melody_playback_client_ts-->lib_api_client_ts
 lib_melody_playback_client_ts-->lib_openapi_client_ts
 lib_musicxml_cache_ts-->lib_query_client_ts
 lib_openapi_client_ts-->lib_supabase_ts
+lib_perceptual_series_client_ts-->lib_api_client_ts
+lib_perceptual_series_client_ts-->lib_openapi_client_ts
 lib_relation_api_client_ts-->lib_openapi_client_ts
 lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts

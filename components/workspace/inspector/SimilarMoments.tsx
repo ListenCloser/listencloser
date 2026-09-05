@@ -2,8 +2,11 @@
 
 import { useRef, useState } from "react";
 
+import { getWorkBundle } from "@/lib/api-client";
 import { formatTime } from "@/lib/format";
 import { requestWorkspaceOrientation } from "@/lib/inspector/orientation";
+import { waitForJob } from "@/lib/job-tracking";
+import { startPerceptualSeriesWorkflow } from "@/lib/perceptual-series-client";
 import {
   getSimilarMoments,
   type SimilarMomentMatch,
@@ -13,7 +16,9 @@ import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace, type MusicalSelection } from "@/lib/stores/workspace";
 
 type PassageRange = { start: number; end: number };
-type RequestState = "idle" | "loading" | "error";
+type RequestState = "idle" | "searching" | "preparing" | "error";
+
+const RANGE_EQUALITY_EPSILON_SECONDS = 0.05;
 
 function performanceRange(selection: MusicalSelection | null): PassageRange | null {
   const range = selection?.timeRange;
@@ -29,10 +34,17 @@ function passageLabel(range: PassageRange): string {
   return `${formatTime(range.start)}–${formatTime(range.end)}`;
 }
 
+function rangesMatch(a: PassageRange, b: PassageRange): boolean {
+  return (
+    Math.abs(a.start - b.start) <= RANGE_EQUALITY_EPSILON_SECONDS
+    && Math.abs(a.end - b.end) <= RANGE_EQUALITY_EPSILON_SECONDS
+  );
+}
+
 function unavailableCopy(status: SimilarMomentsResponse["status"]): string | null {
   switch (status) {
     case "unavailable":
-      return "Measured perceptual evidence is not available for this recording yet.";
+      return "Similarity analysis is not available for this recording yet.";
     case "withheld":
       return "This selection does not have enough compatible measured evidence for this method.";
     case "failed":
@@ -40,6 +52,12 @@ function unavailableCopy(status: SimilarMomentsResponse["status"]): string | nul
     default:
       return null;
   }
+}
+
+function searchButtonLabel(state: RequestState): string {
+  if (state === "preparing") return "Preparing similarity analysis…";
+  if (state === "searching") return "Finding similar moments…";
+  return "Find similar moments";
 }
 
 export default function SimilarMoments() {
@@ -54,6 +72,7 @@ export default function SimilarMoments() {
   const [queryRange, setQueryRange] = useState<PassageRange | null>(null);
   const [result, setResult] = useState<SimilarMomentsResponse | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!workId || !sourceVersionId || (!selectedRange && !queryRange)) return null;
 
@@ -63,28 +82,61 @@ export default function SimilarMoments() {
   const originalSource = transport.sources.find((source) => source.role === "original");
   const hearingRequiresOriginal = transport.activeSource?.role === "score";
   const canHear = !hearingRequiresOriginal || Boolean(originalSource);
+  const busy = requestState === "searching" || requestState === "preparing";
+
+  const querySimilarMoments = (captured: PassageRange) => getSimilarMoments(workId, {
+    source_version_id: sourceVersionId,
+    query_start_seconds: captured.start,
+    query_end_seconds: captured.end,
+    max_matches: 3,
+  });
 
   const runSearch = async () => {
     const captured = queryRange ?? selectedRange;
     if (!captured) return;
     const requestGeneration = generation.current + 1;
     generation.current = requestGeneration;
+    const isCurrentRequest = () => generation.current === requestGeneration;
+    let preparingDependency = false;
     setQueryRange(captured);
     setResult(null);
-    setRequestState("loading");
+    setErrorMessage(null);
+    setRequestState("searching");
+
     try {
-      const response = await getSimilarMoments(workId, {
-        source_version_id: sourceVersionId,
-        query_start_seconds: captured.start,
-        query_end_seconds: captured.end,
-        max_matches: 3,
-      });
-      if (generation.current !== requestGeneration) return;
+      let response = await querySimilarMoments(captured);
+      if (!isCurrentRequest()) return;
+
+      // Similar moments consumes a measured audio report, but that report is an
+      // implementation dependency rather than a product concept. Prepare it on
+      // demand instead of asking the user to discover and run an internal job.
+      if (response.status === "unavailable") {
+        preparingDependency = true;
+        setRequestState("preparing");
+        const bundle = await getWorkBundle(workId);
+        if (!isCurrentRequest()) return;
+        const jobId = await startPerceptualSeriesWorkflow(
+          sourceVersionId,
+          bundle.work.project_id,
+        );
+        if (!isCurrentRequest()) return;
+        await waitForJob(jobId, () => undefined);
+        if (!isCurrentRequest()) return;
+        setRequestState("searching");
+        response = await querySimilarMoments(captured);
+        if (!isCurrentRequest()) return;
+      }
+
       setResult(response);
       setRequestState("idle");
     } catch {
-      if (generation.current !== requestGeneration) return;
+      if (!isCurrentRequest()) return;
       setRequestState("error");
+      setErrorMessage(
+        preparingDependency
+          ? "Similarity analysis could not be prepared. Try again."
+          : "Similar moments could not be loaded. Try again.",
+      );
     }
   };
 
@@ -92,6 +144,7 @@ export default function SimilarMoments() {
     generation.current += 1;
     setQueryRange(null);
     setResult(null);
+    setErrorMessage(null);
     setRequestState("idle");
   };
 
@@ -131,6 +184,9 @@ export default function SimilarMoments() {
 
   const observation = result?.status === "supported" ? result.observation : null;
   const statusCopy = result ? unavailableCopy(result.status) : null;
+  const currentSelectionDiffers = Boolean(
+    queryRange && selectedRange && !rangesMatch(queryRange, selectedRange),
+  );
 
   return (
     <section className="inspector-section" aria-label="Similar moments">
@@ -141,30 +197,25 @@ export default function SimilarMoments() {
 
       <div className="inspector-breakdown-sparse">
         <strong>Selected {passageLabel(activeQuery)}</strong>
-        <p>
-          Find passages with a similar measured descriptor shape in this recording. Results are
-          listening proposals under one method, not motif, chorus, melody, or section labels.
-        </p>
+        <p>Find other passages with a similar measured shape. These are listening proposals, not motif or section labels.</p>
         <div className="inspector-breakdown-actions">
           <button
             type="button"
             className="inspector-breakdown-action"
-            disabled={requestState === "loading"}
+            disabled={busy}
             onClick={runSearch}
           >
-            {requestState === "loading" ? "Finding similar moments…" : "Find similar moments"}
+            {searchButtonLabel(requestState)}
           </button>
-          {queryRange && (
-            <button
-              type="button"
-              className="inspector-breakdown-action"
-              disabled={!canHear}
-              onClick={() => hear(queryRange.start)}
-            >
-              {hearingRequiresOriginal ? "Hear selected · Original" : "Hear selected"}
-            </button>
-          )}
-          {queryRange && selectedRange && (
+          <button
+            type="button"
+            className="inspector-breakdown-action"
+            disabled={!canHear}
+            onClick={() => hear(activeQuery.start)}
+          >
+            {hearingRequiresOriginal ? "Hear selected · Original" : "Hear selected"}
+          </button>
+          {currentSelectionDiffers && (
             <button
               type="button"
               className="inspector-breakdown-action"
@@ -174,9 +225,10 @@ export default function SimilarMoments() {
             </button>
           )}
         </div>
-        {requestState === "error" && (
-          <p aria-live="polite">Similar moments could not be loaded.</p>
+        {requestState === "preparing" && (
+          <p aria-live="polite">Preparing the recording for similarity search…</p>
         )}
+        {errorMessage && <p aria-live="polite">{errorMessage}</p>}
         {statusCopy && <p aria-live="polite">{statusCopy}</p>}
       </div>
 

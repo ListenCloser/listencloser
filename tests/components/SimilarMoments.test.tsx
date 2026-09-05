@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,6 +23,9 @@ const mocks = vi.hoisted(() => ({
   setActiveSource: vi.fn(),
   requestWorkspaceOrientation: vi.fn(),
   getSimilarMoments: vi.fn(),
+  getWorkBundle: vi.fn(),
+  startPerceptualSeriesWorkflow: vi.fn(),
+  waitForJob: vi.fn(),
 }));
 
 vi.mock("@/lib/stores/workspace", () => ({
@@ -48,6 +51,18 @@ vi.mock("@/lib/inspector/orientation", () => ({
 
 vi.mock("@/lib/relation-api-client", () => ({
   getSimilarMoments: mocks.getSimilarMoments,
+}));
+
+vi.mock("@/lib/api-client", () => ({
+  getWorkBundle: mocks.getWorkBundle,
+}));
+
+vi.mock("@/lib/perceptual-series-client", () => ({
+  startPerceptualSeriesWorkflow: mocks.startPerceptualSeriesWorkflow,
+}));
+
+vi.mock("@/lib/job-tracking", () => ({
+  waitForJob: mocks.waitForJob,
 }));
 
 function selection(start: number, end: number, timeExact = true): MusicalSelection {
@@ -110,6 +125,15 @@ function supportedResponse() {
   };
 }
 
+function unavailableResponse() {
+  return {
+    status: "unavailable" as const,
+    evidence_report_version_id: null,
+    observation: null,
+    reasons: ["missing_perceptual_series"],
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.workspace.activeWorkId = "work-1";
@@ -118,6 +142,9 @@ beforeEach(() => {
   ];
   mocks.workspace.selection = selection(10, 14);
   mocks.transport.activeSource = { role: "original" };
+  mocks.getWorkBundle.mockResolvedValue({ work: { project_id: "project-1" } });
+  mocks.startPerceptualSeriesWorkflow.mockResolvedValue("job-1");
+  mocks.waitForJob.mockResolvedValue({ stage: "succeeded" });
 });
 
 describe("SimilarMoments", () => {
@@ -138,7 +165,40 @@ describe("SimilarMoments", () => {
       max_matches: 3,
     });
     expect(await screen.findByText("0:30–0:34")).toBeVisible();
-    expect(screen.getByText(/not motif, chorus, melody, or section labels/i)).toBeVisible();
+    expect(screen.getByText(/not motif or section labels/i)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Use current selection" })).not.toBeInTheDocument();
+    expect(mocks.startPerceptualSeriesWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("prepares missing measured evidence and retries the same search automatically", async () => {
+    const user = userEvent.setup();
+    let releaseJob!: () => void;
+    const pendingJob = new Promise((resolve) => {
+      releaseJob = () => resolve({ stage: "succeeded" });
+    });
+    mocks.getSimilarMoments
+      .mockResolvedValueOnce(unavailableResponse())
+      .mockResolvedValueOnce(supportedResponse());
+    mocks.waitForJob.mockReturnValue(pendingJob);
+    render(<SimilarMoments />);
+
+    await user.click(screen.getByRole("button", { name: "Find similar moments" }));
+
+    await waitFor(() => {
+      expect(mocks.startPerceptualSeriesWorkflow).toHaveBeenCalledWith(
+        "audio-version-1",
+        "project-1",
+      );
+    });
+    expect(screen.getByRole("button", { name: "Preparing similarity analysis…" })).toBeDisabled();
+    expect(screen.getByText("Preparing the recording for similarity search…")).toBeVisible();
+    expect(mocks.waitForJob).toHaveBeenCalledWith("job-1", expect.any(Function));
+
+    releaseJob();
+
+    expect(await screen.findByText("0:30–0:34")).toBeVisible();
+    expect(mocks.getSimilarMoments).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/Measured perceptual evidence/i)).not.toBeInTheDocument();
   });
 
   it("hears a candidate through shared transport without replacing the captured query", async () => {
@@ -194,6 +254,7 @@ describe("SimilarMoments", () => {
     mocks.workspace.selection = selection(30, 34);
     view.rerender(<SimilarMoments />);
     expect(screen.getByText("Selected 0:10–0:14")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Use current selection" })).toBeVisible();
   });
 
   it("renders distance as method evidence rather than confidence", async () => {

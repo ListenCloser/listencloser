@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any
 
 from opentelemetry import metrics, trace
@@ -18,6 +17,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Link
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
+from settings import ObservabilitySettings
 
 _JOB_TRACE_CONTEXT_KEY = "trace_context"
 _JOB_TRACE_CONTEXT_HEADERS = ("traceparent", "tracestate")
@@ -57,14 +58,24 @@ class JsonFormatter(logging.Formatter):
         "taskName",
     }
 
+    def __init__(
+        self,
+        *,
+        service_name: str = "listencloser",
+        release: str = "development",
+    ) -> None:
+        super().__init__()
+        self.service_name = service_name
+        self.release = release
+
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
             "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
             "level": record.levelname,
             "logger": record.name,
             "msg": record.getMessage(),
-            "service": os.environ.get("OTEL_SERVICE_NAME", "listencloser"),
-            "release": os.environ.get("RELEASE", "development"),
+            "service": self.service_name,
+            "release": self.release,
         }
 
         span = trace.get_current_span()
@@ -83,17 +94,26 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=False, default=str)
 
 
-def configure_logging(service_name: str) -> None:
+def configure_logging(
+    service_name: str,
+    settings: ObservabilitySettings | None = None,
+) -> None:
     """Configure structured stdout logging once for a process."""
 
-    os.environ.setdefault("OTEL_SERVICE_NAME", service_name)
+    settings = settings or ObservabilitySettings()
     handler = logging.StreamHandler()
-    handler.setFormatter(JsonFormatter())
+    handler.setFormatter(
+        JsonFormatter(
+            service_name=settings.service_name_or(service_name),
+            release=settings.release_or("development"),
+        )
+    )
     logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
 
 def init_sentry(
     logger: logging.Logger,
+    settings: ObservabilitySettings | None = None,
     *,
     default_release: str = "development",
 ) -> bool:
@@ -104,7 +124,10 @@ def init_sentry(
     the SDK avoids coupling process entrypoints to integration class names.
     """
 
-    dsn = os.environ.get("SENTRY_DSN_BACKEND")
+    settings = settings or ObservabilitySettings()
+    if settings.sentry_dsn is None:
+        return False
+    dsn = settings.sentry_dsn.get_secret_value()
     if not dsn:
         return False
 
@@ -116,41 +139,50 @@ def init_sentry(
 
     sentry_sdk.init(
         dsn=dsn,
-        environment=os.environ.get("SENTRY_ENV", "production"),
-        traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        environment=settings.environment,
+        traces_sample_rate=settings.traces_sample_rate,
         send_default_pii=False,
-        release=os.environ.get("RELEASE", default_release),
+        release=settings.release_or(default_release),
     )
     logger.info("sentry_initialized")
     return True
 
 
-def _telemetry_resource(service_name: str) -> Resource:
+def _telemetry_resource(
+    service_name: str,
+    settings: ObservabilitySettings | None = None,
+) -> Resource:
+    settings = settings or ObservabilitySettings()
     return Resource.create(
         {
-            "service.name": service_name,
-            "service.version": os.environ.get("RELEASE", "development"),
-            "deployment.environment.name": os.environ.get("SENTRY_ENV", "production"),
+            "service.name": settings.service_name_or(service_name),
+            "service.version": settings.release_or("development"),
+            "deployment.environment.name": settings.environment,
         }
     )
 
 
-def init_telemetry(service_name: str) -> bool:
+def init_telemetry(
+    service_name: str,
+    settings: ObservabilitySettings | None = None,
+) -> bool:
     """Initialize vendor-neutral OTLP traces and metrics when configured.
 
-    ``OTEL_EXPORTER_OTLP_ENDPOINT`` and ``OTEL_EXPORTER_OTLP_HEADERS`` are
-    standard OpenTelemetry environment variables. The same configured OTLP
-    backend receives traces and metrics. When the endpoint is absent telemetry
-    stays disabled, keeping local development and CI independent of Grafana.
+    ``OTEL_EXPORTER_OTLP_ENDPOINT`` and ``OTEL_EXPORTER_OTLP_HEADERS`` remain
+    standard OpenTelemetry deployment inputs. Settings owns the endpoint's
+    enable/disable decision and resource identity; the exporter keeps ownership
+    of standard OTLP endpoint/header interpretation. When the endpoint is absent
+    telemetry stays disabled, keeping local development and CI independent of
+    Grafana.
     """
 
-    os.environ.setdefault("OTEL_SERVICE_NAME", service_name)
-    endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    settings = settings or ObservabilitySettings()
+    endpoint = settings.otlp_endpoint
     if not endpoint:
         logging.getLogger("observability").info("otel_disabled_no_endpoint")
         return False
 
-    resource = _telemetry_resource(service_name)
+    resource = _telemetry_resource(service_name, settings)
 
     tracer_provider = TracerProvider(resource=resource)
     tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))

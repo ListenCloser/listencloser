@@ -43,6 +43,7 @@ export default function StructureMap() {
   const { workspace, setSelection, setInspectorMode, toggleInspector } = useWorkspace();
   const { transport, seek, play, setActiveSource, audioRef } = useTransport();
   const [report, setReport] = useState<StructureMapReport | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
   const [sourceVersionId, setSourceVersionId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export default function StructureMap() {
       setSourceVersionId(resolved.sourceVersionId);
       if (!resolved.report?.signed_url) {
         setReport(null);
+        setMapOpen(false);
         if (resolved.job && ACTIVE_JOB_STAGES.has(resolved.job.lifecycle.current)) {
           setActiveJobId(resolved.job.id);
           setChooserOpen(true);
@@ -95,11 +97,13 @@ export default function StructureMap() {
       setActiveJobId(null);
       setChooserOpen(false);
       setReport(nextReport);
+      setMapOpen(true);
       setStatus("idle");
     } catch (cause) {
       if (sequence !== sequenceRef.current) return;
       setActiveJobId(null);
       setReport(null);
+      setMapOpen(false);
       setStatus("idle");
       setError(cause instanceof Error ? cause.message : "Structure Map is unavailable");
     }
@@ -111,6 +115,7 @@ export default function StructureMap() {
     setActiveJobId(null);
     setChooserOpen(false);
     setReport(null);
+    setMapOpen(false);
     setSourceVersionId(null);
     setProjectId(null);
     setError(null);
@@ -183,6 +188,11 @@ export default function StructureMap() {
     setChooserOpen(false);
   }, [setInspectorMode, toggleInspector, workspace.inspectorCollapsed]);
 
+  const openMap = useCallback(() => {
+    setMapOpen(true);
+    setChooserOpen(false);
+  }, []);
+
   const focusSpan = useCallback((span: StructureMapSpan, shouldPlay: boolean) => {
     const focus = () => {
       seek(span.start_seconds);
@@ -244,6 +254,16 @@ export default function StructureMap() {
       onAction: observationLost ? checkStatus : () => void generate(),
       busy,
     });
+  } else {
+    analysisOptions.push({
+      id: "structure-map",
+      title: "Structure Map",
+      description: "Rough candidate spans are ready for navigation.",
+      maturity: "Experimental",
+      actionLabel: mapOpen ? "Shown" : "Open",
+      onAction: openMap,
+      disabled: mapOpen,
+    });
   }
   if (hasExactSelectedPassage) {
     analysisOptions.push({
@@ -266,7 +286,7 @@ export default function StructureMap() {
     });
   }
 
-  const discovery = analysisOptions.length > 0 ? (
+  const discovery = (
     <AddAnalysis
       open={chooserOpen}
       onOpenChange={setChooserOpen}
@@ -274,7 +294,7 @@ export default function StructureMap() {
       notice={error}
       noticeRole={busy || observationLost ? "status" : "alert"}
     />
-  ) : null;
+  );
 
   if (!report) {
     if (status === "loading" && !chooserOpen) return null;
@@ -286,46 +306,51 @@ export default function StructureMap() {
   return (
     <>
       {discovery}
-      <section className={styles.map} aria-label="Experimental Structure Map">
-        <header className={styles.header}>
-          <div>
-            <div className={styles.titleLine}>
-              <h2>Map</h2>
-              <span className={styles.experimental}>Experimental</span>
-            </div>
-            <p>Rough candidate spans for jumping through the recording.</p>
-          </div>
-        </header>
-
-        <div className={styles.rows}>
-          {report.candidate_spans.map((span, index) => {
-            const active = transport.position >= span.start_seconds && transport.position < span.end_seconds;
-            const hearLabel = hearingRequiresOriginal ? "Hear original" : "Hear";
-            return (
-              <div className={`${styles.row}${active ? ` ${styles.active}` : ""}`} key={`${span.start_seconds}-${index}`}>
-                <button type="button" className={styles.jump} onClick={() => focusSpan(span, false)} aria-current={active ? "true" : undefined}>
-                  <strong>{span.label}</strong>
-                  <span>{formatTime(span.start_seconds)}–{formatTime(span.end_seconds)}</span>
-                </button>
-                <button
-                  type="button"
-                  className={styles.hear}
-                  onClick={() => focusSpan(span, true)}
-                  aria-label={`${hearLabel} ${span.label} from ${formatTime(span.start_seconds)}`}
-                >
-                  {hearLabel}
-                </button>
+      {mapOpen && (
+        <section className={styles.map} aria-label="Experimental Structure Map">
+          <header className={styles.header}>
+            <div>
+              <div className={styles.titleLine}>
+                <h2>Map</h2>
+                <span className={styles.experimental}>Experimental</span>
               </div>
-            );
-          })}
-        </div>
-        <details className={styles.method}>
-          <summary>How this map was made</summary>
-          <p>{report.interpretation}</p>
-          <p><strong>Method:</strong> {report.method.label}</p>
-          <p><strong>Source Version:</strong> <span className={styles.versionId}>{report.source_version_id}</span></p>
-        </details>
-      </section>
+              <p>Rough candidate spans for jumping through the recording.</p>
+            </div>
+            <button type="button" className={styles.hide} onClick={() => setMapOpen(false)}>
+              Hide
+            </button>
+          </header>
+
+          <div className={styles.rows}>
+            {report.candidate_spans.map((span, index) => {
+              const active = transport.position >= span.start_seconds && transport.position < span.end_seconds;
+              const hearLabel = hearingRequiresOriginal ? "Hear original" : "Hear";
+              return (
+                <div className={`${styles.row}${active ? ` ${styles.active}` : ""}`} key={`${span.start_seconds}-${index}`}>
+                  <button type="button" className={styles.jump} onClick={() => focusSpan(span, false)} aria-current={active ? "true" : undefined}>
+                    <strong>{span.label}</strong>
+                    <span>{formatTime(span.start_seconds)}–{formatTime(span.end_seconds)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.hear}
+                    onClick={() => focusSpan(span, true)}
+                    aria-label={`${hearLabel} ${span.label} from ${formatTime(span.start_seconds)}`}
+                  >
+                    {hearLabel}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <details className={styles.method}>
+            <summary>How this map was made</summary>
+            <p>{report.interpretation}</p>
+            <p><strong>Method:</strong> {report.method.label}</p>
+            <p><strong>Source Version:</strong> <span className={styles.versionId}>{report.source_version_id}</span></p>
+          </details>
+        </section>
+      )}
     </>
   );
 }

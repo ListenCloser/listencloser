@@ -3114,6 +3114,56 @@
         "title": "Span",
         "type": "object"
       },
+      "SuppliedTextAlignmentBody": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "project_id": {
+            "format": "uuid",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "text_source_kind": {
+            "default": "user_supplied",
+            "enum": [
+              "user_supplied",
+              "licensed",
+              "public_domain",
+              "other_permitted"
+            ],
+            "title": "Text Source Kind",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "project_id",
+          "text"
+        ],
+        "title": "SuppliedTextAlignmentBody",
+        "type": "object"
+      },
       "UnderstandWorkflowBody": {
         "properties": {
           "project_id": {
@@ -4465,6 +4515,50 @@
           }
         ],
         "summary": "Create Score Workflow"
+      }
+    },
+    "/api/v1/workflows/supplied-text-alignments": {
+      "post": {
+        "description": "Queue permitted supplied text against one exact source audio Version.",
+        "operationId": "create_supplied_text_alignment_api_v1_workflows_supplied_text_alignments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuppliedTextAlignmentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Supplied Text Alignment"
       }
     },
     "/api/v1/workflows/understand": {

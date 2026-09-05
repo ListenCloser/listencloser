@@ -33,9 +33,17 @@ export default function AddAnalysis({
       : null;
 
   return (
-    <section className={styles.discovery} aria-label="Add analysis">
+    <section
+      className={`${styles.discovery}${open ? ` ${styles.open}` : ""}`}
+      aria-label="Add analysis"
+    >
       {!open ? (
-        <button type="button" className={styles.addAnalysis} onClick={() => onOpenChange(true)}>
+        <button
+          type="button"
+          className={styles.addAnalysis}
+          onClick={() => onOpenChange(true)}
+          aria-expanded="false"
+        >
           + Add analysis
         </button>
       ) : (
