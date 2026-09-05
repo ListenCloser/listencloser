@@ -291,7 +291,7 @@ def job_metric_attributes(capability: str, outcome: str) -> dict[str, str]:
 
 
 _http_metrics: tuple[Any, Any] | None = None
-_job_metrics: tuple[Any, Any, Any] | None = None
+_job_metrics: tuple[Any, Any] | None = None
 
 
 def _get_http_metrics() -> tuple[Any, Any]:
@@ -327,7 +327,7 @@ def record_http_request(
     duration.record(max(0.0, duration_ms), attributes)
 
 
-def _get_job_metrics() -> tuple[Any, Any, Any]:
+def _get_job_metrics() -> tuple[Any, Any]:
     global _job_metrics
     if _job_metrics is None:
         meter = metrics.get_meter("listencloser-worker")
@@ -342,11 +342,6 @@ def _get_job_metrics() -> tuple[Any, Any, Any]:
                 unit="s",
                 description="Worker job handler execution duration.",
             ),
-            meter.create_counter(
-                "hello_ai.worker.orphans_recovered",
-                unit="{job}",
-                description="Expired job leases recovered by workers.",
-            ),
         )
     return _job_metrics
 
@@ -354,16 +349,7 @@ def _get_job_metrics() -> tuple[Any, Any, Any]:
 def record_job_execution(capability: str, outcome: str, duration_seconds: float) -> None:
     """Record one completed handler attempt without user/job identifiers."""
 
-    counter, duration, _orphans = _get_job_metrics()
+    counter, duration = _get_job_metrics()
     attributes = job_metric_attributes(capability, outcome)
     counter.add(1, attributes)
     duration.record(max(0.0, duration_seconds), attributes)
-
-
-def record_orphans_recovered(count: int) -> None:
-    """Record orphaned leases recovered by a worker."""
-
-    if count <= 0:
-        return
-    _counter, _duration, orphans = _get_job_metrics()
-    orphans.add(count)
