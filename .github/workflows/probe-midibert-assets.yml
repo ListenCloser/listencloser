@@ -1,0 +1,32 @@
+name: Probe MidiBERT assets
+
+on:
+  push:
+    branches:
+      - agent/1233-midibert-runtime
+    paths:
+      - .github/workflows/probe-midibert-assets.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Enumerate official melody checkpoint folder
+        run: |
+          python -m pip install --quiet 'gdown>=5,<6'
+          python - <<'PY'
+          import gdown
+          url = "https://drive.google.com/drive/folders/1ceIfC1UugZQHPgpEEMkdAF0VhZ1EeLl3?usp=sharing"
+          files = gdown.download_folder(url=url, output="/tmp/midibert-assets", quiet=False, remaining_ok=True, skip_download=True)
+          print("MIDIBERT_ASSET_LIST_BEGIN")
+          for item in files or []:
+              print(item)
+          print("MIDIBERT_ASSET_LIST_END")
+          PY
