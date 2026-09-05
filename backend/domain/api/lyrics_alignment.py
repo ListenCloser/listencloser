@@ -1,7 +1,5 @@
 """HTTP entrypoint for experimental user-supplied text alignment."""
 
-from __future__ import annotations
-
 import hashlib
 from typing import Literal
 from uuid import NAMESPACE_URL, UUID, uuid5
