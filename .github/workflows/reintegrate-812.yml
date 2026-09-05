@@ -19,6 +19,8 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
+          git config user.name "812 reintegration probe"
+          git config user.email "actions@users.noreply.github.com"
           git fetch origin main
           set +e
           git merge --no-commit --no-ff origin/main
@@ -29,7 +31,5 @@ jobs:
           git diff --name-only --diff-filter=U
           echo "status:"
           git status --short
-          if [ "$status" -eq 0 ]; then
-            git merge --abort || true
-          fi
+          git merge --abort || true
           exit "$status"
