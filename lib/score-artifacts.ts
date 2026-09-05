@@ -25,7 +25,7 @@ function notationMidiVersionId(item: WorkArtifactBundle | undefined): string | n
   return item.latest_version.parent_version_id;
 }
 
-export function selectScoreArtifacts(
+function selectScoreArtifactsForEngine(
   bundle: WorkBundle,
   performanceMidiVersionId: string | null,
   scoreEngine: ScoreArtifactEngine,
@@ -94,23 +94,22 @@ export function selectScoreArtifacts(
 }
 
 /**
- * Choose a persisted Score for display without letting a mutable processing
- * preference hide durable Work evidence. Prefer the requested engine when it
- * exists; otherwise keep the other exact-lineage generated Score visible.
- *
- * This is deliberately separate from `hasReusableScoreArtifacts`: rebuilding
- * an explicitly requested engine must never silently reuse a different one.
+ * Select the best durable Score to display for this Work. The current engine
+ * setting is also used as the next-import processing preference, so it may not
+ * match the engine that produced an already-saved Score. Prefer it when present,
+ * but never let that mutable preference hide exact-lineage persisted evidence.
  */
-export function selectScoreArtifactsForDisplay(
+export function selectScoreArtifacts(
   bundle: WorkBundle,
   performanceMidiVersionId: string | null,
   preferredEngine: ScoreArtifactEngine,
 ): ScoreArtifacts {
-  const preferred = selectScoreArtifacts(bundle, performanceMidiVersionId, preferredEngine);
+  const preferred = selectScoreArtifactsForEngine(bundle, performanceMidiVersionId, preferredEngine);
   if (preferred.score) return preferred;
 
   const fallbackEngine: ScoreArtifactEngine = preferredEngine === "musescore" ? "pm2s" : "musescore";
-  return selectScoreArtifacts(bundle, performanceMidiVersionId, fallbackEngine);
+  const fallback = selectScoreArtifactsForEngine(bundle, performanceMidiVersionId, fallbackEngine);
+  return fallback.matchesPerformanceMidi ? fallback : preferred;
 }
 
 export function hasReusableScoreArtifacts(
@@ -118,5 +117,8 @@ export function hasReusableScoreArtifacts(
   performanceMidiVersionId: string | null,
   scoreEngine: ScoreArtifactEngine,
 ): boolean {
-  return selectScoreArtifacts(bundle, performanceMidiVersionId, scoreEngine).matchesPerformanceMidi;
+  // Reuse remains strict to the explicitly requested engine. Display fallback
+  // must never turn a MuseScore result into proof that PM2S already exists (or
+  // vice versa).
+  return selectScoreArtifactsForEngine(bundle, performanceMidiVersionId, scoreEngine).matchesPerformanceMidi;
 }
