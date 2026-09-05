@@ -60,17 +60,6 @@ class ChordMiniHarmonyEngine:
     def component_provenance(self) -> dict[str, EngineProvenance]:
         return {"chords": self.provenance}
 
-    def _require_checkpoint_path(self) -> Path:
-        if not self._checkpoint_path:
-            raise RuntimeError(
-                "ChordMini is selected but CHORDMINI_CHECKPOINT_PATH is not configured. "
-                f"Provide the pinned {_CHECKPOINT_NAME} checkpoint explicitly."
-            )
-        path = Path(self._checkpoint_path)
-        if not path.is_file():
-            raise RuntimeError(f"ChordMini checkpoint does not exist: {path}")
-        return path
-
     def analyze(
         self,
         midi_bytes: bytes,
@@ -82,15 +71,16 @@ class ChordMiniHarmonyEngine:
         if audio_bytes is None:
             raise RuntimeError("ChordMini requires audio input. No audio_bytes provided.")
 
-        checkpoint_path = self._require_checkpoint_path()
         try:
             from engines.harmony._chordmini_runtime import infer_chords
+            from engines.harmony.chordmini_assets import checkpoint_source_url, resolve_checkpoint
         except ImportError as exc:
             raise RuntimeError(
                 "ChordMini runtime dependencies are unavailable. "
                 "Install the backend worker dependency group."
             ) from exc
 
+        checkpoint_path = resolve_checkpoint(self._checkpoint_path)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as handle:
             handle.write(audio_bytes)
             audio_path = handle.name
@@ -123,6 +113,7 @@ class ChordMiniHarmonyEngine:
             parameters={
                 "checkpoint_git_blob_sha": _CHECKPOINT_GIT_BLOB_SHA,
                 "checkpoint_sha256": inference.checkpoint_sha256,
+                "checkpoint_source": checkpoint_source_url(),
                 "sample_rate": 22_050,
                 "hop_length": 2_048,
                 "n_bins": 144,
