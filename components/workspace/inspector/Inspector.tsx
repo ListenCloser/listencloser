@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
 import { useTimeline } from "@/lib/stores/timeline";
@@ -8,6 +8,11 @@ import { categorizeInsights, filterByCategory } from "@/lib/inspector/insights";
 import { isInspectorExposed, isExperimental } from "@/lib/inspector/capabilities";
 import { deriveFindings } from "@/lib/inspector/findings";
 import { rankBreakdownFindings, type BreakdownFinding } from "@/lib/inspector/breakdown";
+import { toRhythmDensityContextCandidate } from "@/lib/inspector/rhythm-density-context";
+import {
+  queryRhythmDensityContext,
+  type RhythmDensityContextResponse,
+} from "@/lib/relation-api-client";
 import { formatTime } from "@/lib/format";
 import TabStrip from "@/components/ui/TabStrip";
 import AskPanel from "./AskPanel";
@@ -16,6 +21,7 @@ import HarmonyEvidence, { harmonyEvidenceRowCount, harmonyEvidenceSummary } from
 import MeasuredChanges from "./MeasuredChanges";
 import ProductionSpatial from "./ProductionSpatial";
 import PassageCompare from "./PassageCompare";
+import SimilarMoments from "./SimilarMoments";
 import type { MusicalSelection } from "@/lib/stores/workspace";
 import type { Insight } from "@/lib/domain.types";
 import styles from "./Inspector.module.css";
@@ -334,6 +340,7 @@ function BreakdownContent({
   bpm: number;
   setSelection: (selection: MusicalSelection | null) => void;
 }) {
+  const [contextResponse, setContextResponse] = useState<RhythmDensityContextResponse | null>(null);
   const exposed = (insights: Insight[]) => insights
     .filter((item) => item.confidence == null || item.confidence >= 0.5)
     .filter((item) => isInspectorExposed(item.kind));
@@ -342,10 +349,47 @@ function BreakdownContent({
   const categorized = categorizeInsights(exposedAll, workspace.selection, bpm);
   const selectionInsights = filterByCategory(categorized, "selection");
   const wholeWorkInsights = filterByCategory(categorized, "whole-work");
+  const densityInsight = exposedAll.find((item) => item.kind === "rhythm_density");
+  const selectedRange = workspace.selection?.timeRange?.domain === "performance"
+    ? workspace.selection.timeRange
+    : null;
 
-  const rawFindings = workspace.selection && !workspace.selection.timeRange
+  useEffect(() => {
+    let active = true;
+    setContextResponse(null);
+    if (!workspace.activeWorkId || !densityInsight || !selectedRange) return () => { active = false; };
+
+    void queryRhythmDensityContext(workspace.activeWorkId, {
+      density_owner_version_id: densityInsight.version_id,
+      subject_start_seconds: selectedRange.start,
+      subject_end_seconds: selectedRange.end,
+      subject_origin: "user_selected",
+    }).then((response) => {
+      if (active) setContextResponse(response);
+    }).catch(() => {
+      // Context is additive. Transport/network failure must not erase the
+      // existing Breakdown or turn an abstention into a client-authored claim.
+      if (active) setContextResponse(null);
+    });
+
+    return () => { active = false; };
+  }, [
+    workspace.activeWorkId,
+    densityInsight?.id,
+    densityInsight?.version_id,
+    selectedRange?.start,
+    selectedRange?.end,
+  ]);
+
+  const derivedFindings = workspace.selection && !workspace.selection.timeRange
     ? deriveFindings(exposed(selectionInsights))
     : deriveFindings(exposedAll);
+  const contextCandidate = densityInsight
+    ? toRhythmDensityContextCandidate(contextResponse, densityInsight.version_id)
+    : null;
+  const rawFindings = contextCandidate
+    ? [...derivedFindings, contextCandidate]
+    : derivedFindings;
   const timeRange = workspace.selection?.timeRange
     ? { start: workspace.selection.timeRange.start, end: workspace.selection.timeRange.end }
     : null;
@@ -407,6 +451,7 @@ function BreakdownContent({
         <MeasuredChanges />
         <ProductionSpatial />
         <PassageCompare />
+        <SimilarMoments />
       </div>
     );
   }
@@ -422,6 +467,7 @@ function BreakdownContent({
       <MeasuredChanges />
         <ProductionSpatial />
       <PassageCompare />
+      <SimilarMoments />
 
       {overviewCount > 0 && <OverviewSection insights={overviewInsights} />}
 

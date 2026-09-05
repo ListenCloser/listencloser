@@ -12,11 +12,12 @@ import {
 } from "@headlessui/react";
 import { useMemo, useState } from "react";
 
+import ScoreSourceControl from "@/components/workspace/ScoreSourceControl";
 import {
   filterPublicRecordings,
   type PublicRecording,
 } from "@/lib/public-recordings";
-import type { ScoreEngine, TranscriptionProfile } from "@/lib/stores/workspace";
+import { useWorkspace, type ScoreEngine, type TranscriptionProfile } from "@/lib/stores/workspace";
 
 import styles from "./LibraryImportControl.module.css";
 
@@ -64,7 +65,14 @@ export default function LibraryImportControl({
   onUpload,
   onImport,
 }: LibraryImportControlProps) {
+  const {
+    workspace,
+    requestAttachScore,
+    requestScoreEngine,
+    selectScoreSource,
+  } = useWorkspace();
   const [publicOpen, setPublicOpen] = useState(false);
+  const [scoreSourcesOpen, setScoreSourcesOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [importIntent, setImportIntent] = useState<ImportIntent | null>(null);
   const [draftTranscriptionProfile, setDraftTranscriptionProfile] = useState(transcriptionProfile);
@@ -72,6 +80,7 @@ export default function LibraryImportControl({
   const [importingId, setImportingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const recordings = useMemo(() => filterPublicRecordings(query), [query]);
+  const canManageScoreSources = Boolean(workspace.activeWorkId) && !workspace.isLoadingWork;
 
   function openPublicLibrary() {
     setError(null);
@@ -149,6 +158,30 @@ export default function LibraryImportControl({
               Public recordings
             </button>
           </MenuItem>
+          {workspace.activeWorkId && (
+            <>
+              <MenuItem>
+                <button
+                  type="button"
+                  className={styles.menuItem}
+                  disabled={!canManageScoreSources || disabled}
+                  onClick={requestAttachScore}
+                >
+                  Attach MusicXML score
+                </button>
+              </MenuItem>
+              <MenuItem>
+                <button
+                  type="button"
+                  className={styles.menuItem}
+                  disabled={!canManageScoreSources}
+                  onClick={() => setScoreSourcesOpen(true)}
+                >
+                  Choose score source
+                </button>
+              </MenuItem>
+            </>
+          )}
         </MenuItems>
       </Menu>
 
@@ -311,6 +344,42 @@ export default function LibraryImportControl({
                     ? "Import recording"
                     : "Choose audio"}
               </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      <Dialog open={scoreSourcesOpen} onClose={setScoreSourcesOpen} className={styles.dialogWrap}>
+        <DialogBackdrop className={styles.backdrop} />
+        <div className={styles.dialogWrap}>
+          <DialogPanel className={`${styles.dialog} ${styles.processingDialog}`}>
+            <div className={styles.dialogHeader}>
+              <div>
+                <DialogTitle className={styles.dialogTitle}>Score source</DialogTitle>
+                <p className={styles.dialogDescription}>Choose the notation evidence shown for this recording.</p>
+              </div>
+              <button
+                type="button"
+                className={styles.closeButton}
+                onClick={() => setScoreSourcesOpen(false)}
+                aria-label="Close score source options"
+              >
+                ×
+              </button>
+            </div>
+            <div className={styles.processingBody}>
+              <ScoreSourceControl
+                selection={workspace.scoreDisplaySelection}
+                sources={workspace.scoreSources}
+                disabled={workspace.isLoadingWork}
+                attachDisabled={disabled || workspace.isLoadingWork}
+                onSelectEngine={requestScoreEngine}
+                onSelectSource={selectScoreSource}
+                onAttach={requestAttachScore}
+              />
+              <p className={styles.processingHint}>
+                Attached MusicXML is independent source evidence. It does not replace the performance transcription or imply score-to-audio timing.
+              </p>
             </div>
           </DialogPanel>
         </div>

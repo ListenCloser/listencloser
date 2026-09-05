@@ -1180,6 +1180,242 @@
         "title": "FinalizeUploadBody",
         "type": "object"
       },
+      "GroundedContextFinding": {
+        "description": "Context relation translated into literal product-facing evidence.",
+        "properties": {
+          "available_actions": {
+            "items": {
+              "enum": [
+                "focus",
+                "evidence"
+              ],
+              "type": "string"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
+          "evidence_summary": {
+            "title": "Evidence Summary",
+            "type": "string"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "rhythm_density_work_context",
+            "default": "rhythm_density_work_context",
+            "title": "Kind",
+            "type": "string"
+          },
+          "maturity": {
+            "const": "production",
+            "default": "production",
+            "title": "Maturity",
+            "type": "string"
+          },
+          "measurements": {
+            "items": {
+              "$ref": "#/components/schemas/GroundedContextFindingMeasurement"
+            },
+            "title": "Measurements",
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "title": "Provenance",
+            "type": "object"
+          },
+          "reference_population": {
+            "$ref": "#/components/schemas/RhythmDensityReferencePopulation"
+          },
+          "relation_kind": {
+            "const": "compare",
+            "default": "compare",
+            "title": "Relation Kind",
+            "type": "string"
+          },
+          "selection_conditioned_on_rhythm_density": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Conditioned On Rhythm Density"
+          },
+          "source_relation_id": {
+            "format": "uuid",
+            "title": "Source Relation Id",
+            "type": "string"
+          },
+          "subject_locator": {
+            "$ref": "#/components/schemas/SecondsSpanLocator"
+          },
+          "subject_origin": {
+            "enum": [
+              "user_selected",
+              "legacy_density_peak",
+              "legacy_density_valley",
+              "other_grounded_candidate"
+            ],
+            "title": "Subject Origin",
+            "type": "string"
+          },
+          "sufficiency": {
+            "$ref": "#/components/schemas/RelationSufficiency"
+          },
+          "support_refs": {
+            "items": {
+              "$ref": "#/components/schemas/RhythmDensityEvidenceRef"
+            },
+            "title": "Support Refs",
+            "type": "array"
+          },
+          "trust_class": {
+            "const": "deterministic_derived",
+            "default": "deterministic_derived",
+            "title": "Trust Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_relation_id",
+          "subject_locator",
+          "reference_population",
+          "support_refs",
+          "measurements",
+          "sufficiency",
+          "subject_origin",
+          "selection_conditioned_on_rhythm_density",
+          "headline",
+          "evidence_summary",
+          "available_actions"
+        ],
+        "title": "GroundedContextFinding",
+        "type": "object"
+      },
+      "GroundedContextFindingMeasurement": {
+        "description": "One literal density-context measurement tied to its exact evidence ref.",
+        "properties": {
+          "coordinate_unit": {
+            "const": "beats",
+            "default": "beats",
+            "title": "Coordinate Unit",
+            "type": "string"
+          },
+          "delta_from_reference_median": {
+            "title": "Delta From Reference Median",
+            "type": "number"
+          },
+          "direction": {
+            "enum": [
+              "higher",
+              "lower",
+              "unchanged"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "empirical_midrank_percentile": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Empirical Midrank Percentile",
+            "type": "number"
+          },
+          "feature": {
+            "const": "rhythm_density",
+            "default": "rhythm_density",
+            "title": "Feature",
+            "type": "string"
+          },
+          "normalization": {
+            "const": "events_per_beat",
+            "default": "events_per_beat",
+            "title": "Normalization",
+            "type": "string"
+          },
+          "reference_iqr": {
+            "minimum": 0.0,
+            "title": "Reference Iqr",
+            "type": "number"
+          },
+          "reference_median": {
+            "title": "Reference Median",
+            "type": "number"
+          },
+          "reference_q1": {
+            "title": "Reference Q1",
+            "type": "number"
+          },
+          "reference_q3": {
+            "title": "Reference Q3",
+            "type": "number"
+          },
+          "reference_window_count": {
+            "minimum": 1.0,
+            "title": "Reference Window Count",
+            "type": "integer"
+          },
+          "step_size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Step Size",
+            "type": "number"
+          },
+          "subject_value": {
+            "title": "Subject Value",
+            "type": "number"
+          },
+          "subject_window_count": {
+            "minimum": 1.0,
+            "title": "Subject Window Count",
+            "type": "integer"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "support_ref": {
+            "$ref": "#/components/schemas/RhythmDensityEvidenceRef"
+          },
+          "unit": {
+            "const": "events_per_beat",
+            "default": "events_per_beat",
+            "title": "Unit",
+            "type": "string"
+          },
+          "window_size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Window Size",
+            "type": "number"
+          }
+        },
+        "required": [
+          "support_ref",
+          "direction",
+          "summary",
+          "window_size",
+          "step_size",
+          "subject_value",
+          "reference_median",
+          "reference_q1",
+          "reference_q3",
+          "reference_iqr",
+          "delta_from_reference_median",
+          "empirical_midrank_percentile",
+          "subject_window_count",
+          "reference_window_count"
+        ],
+        "title": "GroundedContextFindingMeasurement",
+        "type": "object"
+      },
       "GroundedFindingMeasurement": {
         "description": "One user-facing literal clause tied to the exact evidence reference.",
         "properties": {
@@ -1434,8 +1670,27 @@
             ],
             "title": "Heartbeat Source"
           },
-          "queued": {
-            "title": "Queued",
+          "oldest_age_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Age Seconds"
+          },
+          "queue_depth": {
+            "title": "Queue Depth",
+            "type": "integer"
+          },
+          "queue_ready": {
+            "title": "Queue Ready",
+            "type": "boolean"
+          },
+          "queue_visible_depth": {
+            "title": "Queue Visible Depth",
             "type": "integer"
           },
           "reason": {
@@ -1449,13 +1704,17 @@
             ],
             "title": "Reason"
           },
-          "running": {
-            "title": "Running",
-            "type": "integer"
-          },
-          "stale_leases": {
-            "title": "Stale Leases",
-            "type": "integer"
+          "sampled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampled At"
           },
           "status": {
             "enum": [
@@ -1465,6 +1724,10 @@
             "title": "Status",
             "type": "string"
           },
+          "total_messages": {
+            "title": "Total Messages",
+            "type": "integer"
+          },
           "workers": {
             "title": "Workers",
             "type": "integer"
@@ -1473,9 +1736,10 @@
         "required": [
           "status",
           "workers",
-          "queued",
-          "running",
-          "stale_leases"
+          "queue_ready",
+          "queue_depth",
+          "queue_visible_depth",
+          "total_messages"
         ],
         "title": "HealthQueueResponse",
         "type": "object"
@@ -2294,6 +2558,183 @@
         "title": "RelationSufficiency",
         "type": "object"
       },
+      "RhythmDensityContextBody": {
+        "description": "Contextualize one explicit performance-time span using one exact density owner.",
+        "properties": {
+          "density_owner_version_id": {
+            "format": "uuid",
+            "title": "Density Owner Version Id",
+            "type": "string"
+          },
+          "subject_end_seconds": {
+            "title": "Subject End Seconds",
+            "type": "number"
+          },
+          "subject_origin": {
+            "enum": [
+              "user_selected",
+              "legacy_density_peak",
+              "legacy_density_valley",
+              "other_grounded_candidate"
+            ],
+            "title": "Subject Origin",
+            "type": "string"
+          },
+          "subject_start_seconds": {
+            "title": "Subject Start Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "density_owner_version_id",
+          "subject_start_seconds",
+          "subject_end_seconds",
+          "subject_origin"
+        ],
+        "title": "RhythmDensityContextBody",
+        "type": "object"
+      },
+      "RhythmDensityContextQueryResult": {
+        "description": "Truthful availability/result state for one persisted context query.",
+        "properties": {
+          "finding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroundedContextFinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "rhythm_density_insight_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rhythm Density Insight Id"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "unavailable",
+              "withheld",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RhythmDensityContextQueryResult",
+        "type": "object"
+      },
+      "RhythmDensityEvidenceRef": {
+        "description": "#371-compatible reference to one persisted rhythm-density Insight.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "namespace": {
+            "const": "rhythm_density_insight",
+            "default": "rhythm_density_insight",
+            "title": "Namespace",
+            "type": "string"
+          },
+          "type": {
+            "const": "external",
+            "default": "external",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "RhythmDensityEvidenceRef",
+        "type": "object"
+      },
+      "RhythmDensityReferencePopulation": {
+        "description": "Explicit discontinuous within-Work reference population.",
+        "properties": {
+          "eligible_coverage_seconds": {
+            "minimum": 0.0,
+            "title": "Eligible Coverage Seconds",
+            "type": "number"
+          },
+          "eligible_intervals_seconds": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Eligible Intervals Seconds",
+            "type": "array"
+          },
+          "eligible_window_count": {
+            "minimum": 0.0,
+            "title": "Eligible Window Count",
+            "type": "integer"
+          },
+          "excluded_intersecting_window_count": {
+            "minimum": 0.0,
+            "title": "Excluded Intersecting Window Count",
+            "type": "integer"
+          },
+          "exclusion_policy": {
+            "const": "exclude_intersecting_subject_windows_v1",
+            "default": "exclude_intersecting_subject_windows_v1",
+            "title": "Exclusion Policy",
+            "type": "string"
+          },
+          "kind": {
+            "const": "work_excluding_subject",
+            "default": "work_excluding_subject",
+            "title": "Kind",
+            "type": "string"
+          },
+          "source_coverage_end_seconds": {
+            "title": "Source Coverage End Seconds",
+            "type": "number"
+          },
+          "source_coverage_start_seconds": {
+            "title": "Source Coverage Start Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "eligible_window_count",
+          "excluded_intersecting_window_count",
+          "source_coverage_start_seconds",
+          "source_coverage_end_seconds",
+          "eligible_coverage_seconds"
+        ],
+        "title": "RhythmDensityReferencePopulation",
+        "type": "object"
+      },
       "ScoreWorkflowBody": {
         "properties": {
           "performance_midi_version_id": {
@@ -2360,6 +2801,273 @@
           "source_artifact_version_id"
         ],
         "title": "SecondsSpanLocator",
+        "type": "object"
+      },
+      "SimilarMomentMatch": {
+        "description": "One inspectable candidate under the declared descriptor-shape method.",
+        "properties": {
+          "component_distances": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Component Distances",
+            "type": "object"
+          },
+          "distance": {
+            "minimum": 0.0,
+            "title": "Distance",
+            "type": "number"
+          },
+          "end_seconds": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Seconds",
+            "type": "number"
+          },
+          "start_seconds": {
+            "minimum": 0.0,
+            "title": "Start Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "start_seconds",
+          "end_seconds",
+          "distance",
+          "component_distances"
+        ],
+        "title": "SimilarMomentMatch",
+        "type": "object"
+      },
+      "SimilarMomentsBody": {
+        "description": "Find bounded experimental neighbors for one exact selected passage.",
+        "properties": {
+          "max_matches": {
+            "default": 3,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Max Matches",
+            "type": "integer"
+          },
+          "query_end_seconds": {
+            "title": "Query End Seconds",
+            "type": "number"
+          },
+          "query_start_seconds": {
+            "title": "Query Start Seconds",
+            "type": "number"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "query_start_seconds",
+          "query_end_seconds"
+        ],
+        "title": "SimilarMomentsBody",
+        "type": "object"
+      },
+      "SimilarMomentsMethod": {
+        "description": "Stable declaration of what the experimental distance does and does not mean.",
+        "properties": {
+          "candidate_window": {
+            "const": "same_evidence_frame_count_as_query",
+            "default": "same_evidence_frame_count_as_query",
+            "title": "Candidate Window",
+            "type": "string"
+          },
+          "dimensions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dimensions",
+            "type": "array"
+          },
+          "distance": {
+            "const": "mean_length_normalized_z_euclidean",
+            "default": "mean_length_normalized_z_euclidean",
+            "title": "Distance",
+            "type": "string"
+          },
+          "id": {
+            "const": "perceptual_descriptor_shape",
+            "default": "perceptual_descriptor_shape",
+            "title": "Id",
+            "type": "string"
+          },
+          "overlap_exclusion": {
+            "const": "exclude_query_overlap_and_mutually_overlapping_returned_windows",
+            "default": "exclude_query_overlap_and_mutually_overlapping_returned_windows",
+            "title": "Overlap Exclusion",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Parameters",
+            "type": "object"
+          },
+          "score_semantics": {
+            "const": "lower_is_closer_under_this_method_not_confidence",
+            "default": "lower_is_closer_under_this_method_not_confidence",
+            "title": "Score Semantics",
+            "type": "string"
+          },
+          "semantic_claims": {
+            "const": "none",
+            "default": "none",
+            "title": "Semantic Claims",
+            "type": "string"
+          },
+          "version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dimensions"
+        ],
+        "title": "SimilarMomentsMethod",
+        "type": "object"
+      },
+      "SimilarMomentsObservation": {
+        "description": "Experimental result tied to one exact source/evidence Version pair.",
+        "properties": {
+          "evidence_report_type": {
+            "const": "perceptual_series",
+            "default": "perceptual_series",
+            "title": "Evidence Report Type",
+            "type": "string"
+          },
+          "evidence_report_version_id": {
+            "format": "uuid",
+            "title": "Evidence Report Version Id",
+            "type": "string"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarMomentMatch"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "max_matches": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Max Matches",
+            "type": "integer"
+          },
+          "method": {
+            "$ref": "#/components/schemas/SimilarMomentsMethod"
+          },
+          "no_match_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Match Reason"
+          },
+          "preprocessing_version": {
+            "title": "Preprocessing Version",
+            "type": "string"
+          },
+          "query_end_seconds": {
+            "exclusiveMinimum": 0.0,
+            "title": "Query End Seconds",
+            "type": "number"
+          },
+          "query_start_seconds": {
+            "minimum": 0.0,
+            "title": "Query Start Seconds",
+            "type": "number"
+          },
+          "sample_rate": {
+            "title": "Sample Rate",
+            "type": "integer"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "evidence_report_version_id",
+          "preprocessing_version",
+          "sample_rate",
+          "query_start_seconds",
+          "query_end_seconds",
+          "max_matches",
+          "method",
+          "matches"
+        ],
+        "title": "SimilarMomentsObservation",
+        "type": "object"
+      },
+      "SimilarMomentsResponse": {
+        "properties": {
+          "evidence_report_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Report Version Id"
+          },
+          "observation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SimilarMomentsObservation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "unavailable",
+              "withheld",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SimilarMomentsResponse",
         "type": "object"
       },
       "Span": {
@@ -2432,6 +3140,56 @@
           }
         },
         "title": "Span",
+        "type": "object"
+      },
+      "SuppliedTextAlignmentBody": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "project_id": {
+            "format": "uuid",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "text_source_kind": {
+            "default": "user_supplied",
+            "enum": [
+              "user_supplied",
+              "licensed",
+              "public_domain",
+              "other_permitted"
+            ],
+            "title": "Text Source Kind",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "project_id",
+          "text"
+        ],
+        "title": "SuppliedTextAlignmentBody",
         "type": "object"
       },
       "UnderstandWorkflowBody": {
@@ -3787,6 +4545,50 @@
         "summary": "Create Score Workflow"
       }
     },
+    "/api/v1/workflows/supplied-text-alignments": {
+      "post": {
+        "description": "Queue permitted supplied text against one exact source audio Version.",
+        "operationId": "create_supplied_text_alignment_api_v1_workflows_supplied_text_alignments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuppliedTextAlignmentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Supplied Text Alignment"
+      }
+    },
     "/api/v1/workflows/understand": {
       "post": {
         "operationId": "create_understand_workflow_api_v1_workflows_understand_post",
@@ -4074,6 +4876,118 @@
           }
         ],
         "summary": "Compare Perceptual Spans"
+      }
+    },
+    "/api/v1/works/{work_id}/relations/rhythm-density-context": {
+      "post": {
+        "description": "Return literal within-Work context for one exact density-owning Version.",
+        "operationId": "rhythm_density_context_api_v1_works__work_id__relations_rhythm_density_context_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RhythmDensityContextBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RhythmDensityContextQueryResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rhythm Density Context"
+      }
+    },
+    "/api/v1/works/{work_id}/relations/similar-moments": {
+      "post": {
+        "description": "Propose inspectable same-Work passages under one declared experimental method.",
+        "operationId": "similar_moments_api_v1_works__work_id__relations_similar_moments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimilarMomentsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimilarMomentsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Similar Moments"
       }
     },
     "/health": {

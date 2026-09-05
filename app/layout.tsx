@@ -8,8 +8,10 @@ import "./representation-visuals.css";
 import "./readiness.css";
 import "./breakdown.css";
 import "./landing-product-story.css";
-// Permanent interface normalization follows older product-polish layers while
-// those owners are consolidated. Structural phone/touch invariants load last.
+// Canonical UI tokens load after historical layers so their variables resolve
+// consistently while #523 retires those styles. Interface normalization follows
+// the token contract; structural phone/touch invariants load last.
+import "./tokens.css";
 import "./interface-foundation.css";
 import "./mobile-workspace.css";
 import { Geist } from "next/font/google";

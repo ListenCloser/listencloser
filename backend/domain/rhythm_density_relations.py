@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from statistics import median
 from typing import Any, Literal
 from uuid import UUID
 
-import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
 from domain.relation_observations import (
@@ -362,11 +362,11 @@ def _values_for_span(
     windows: Sequence[dict[str, float]],
     locator: SecondsSpanLocator,
     label: str,
-) -> tuple[np.ndarray | None, str | None]:
+) -> tuple[list[float] | None, str | None]:
     selected = _complete_windows_for_span(windows, locator)
     if not selected:
         return None, f"{label} span contains no complete rhythm density windows"
-    return np.asarray([window["density"] for window in selected], dtype=float), None
+    return [float(window["density"]) for window in selected], None
 
 
 def _relative_delta(delta: float, comparison: float) -> float | None:
@@ -438,8 +438,8 @@ def compare_rhythm_density_spans(
             contract,
         )
 
-    subject_aggregate = float(np.median(subject_values))
-    comparison_aggregate = float(np.median(comparison_values))
+    subject_aggregate = float(median(subject_values))
+    comparison_aggregate = float(median(comparison_values))
     delta = subject_aggregate - comparison_aggregate
     if not math.isfinite(delta):
         return _withheld(

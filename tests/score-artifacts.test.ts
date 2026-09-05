@@ -41,6 +41,24 @@ function bundle(): WorkBundle {
   } as unknown as WorkBundle;
 }
 
+function musescoreOnlyBundle(): WorkBundle {
+  return {
+    work: { id: "work" },
+    jobs: [],
+    artifacts: [
+      artifact("perf-artifact", "midi_performance", "perf-v1", null),
+      artifact("muse-notation", "midi_corrected", "muse-notation-v1", "perf-v1", { score_engine_requested: "musescore" }),
+      artifact("muse-score", "musicxml_score", "muse-score-v1", "muse-notation-v1", {
+        score_engine_requested: "musescore",
+        notation_midi_version_id: "muse-notation-v1",
+      }),
+      artifact("muse-audio", "rendered_score", "muse-audio-v1", "muse-notation-v1", {
+        notation_midi_version_id: "muse-notation-v1",
+      }),
+    ],
+  } as unknown as WorkBundle;
+}
+
 function preLineageBundle(): WorkBundle {
   return {
     work: { id: "work" },
@@ -83,6 +101,13 @@ describe("selectScoreArtifacts", () => {
     expect(selected.matchesPerformanceMidi).toBe(true);
   });
 
+  it("keeps an exact-lineage persisted score visible when another engine is the processing preference", () => {
+    const selected = selectScoreArtifacts(musescoreOnlyBundle(), "perf-v1", "pm2s");
+    expect(selected.score?.latest_version?.id).toBe("muse-score-v1");
+    expect(selected.renderedScore?.latest_version?.id).toBe("muse-audio-v1");
+    expect(selected.matchesPerformanceMidi).toBe(true);
+  });
+
   it("preserves pre-lineage MuseScore display artifacts without claiming reusable lineage", () => {
     const selected = selectScoreArtifacts(preLineageBundle(), "perf-v1", "musescore");
     expect(selected.score?.latest_version?.id).toBe("legacy-score-v1");
@@ -117,5 +142,9 @@ describe("hasReusableScoreArtifacts", () => {
     expect(hasReusableScoreArtifacts(bundle(), "perf-v1", "musescore")).toBe(true);
     expect(hasReusableScoreArtifacts(bundle(), "perf-v1", "pm2s")).toBe(true);
     expect(hasReusableScoreArtifacts(preLineageBundle(), "perf-v1", "musescore")).toBe(false);
+  });
+
+  it("does not reuse a fallback display score for a different requested engine", () => {
+    expect(hasReusableScoreArtifacts(musescoreOnlyBundle(), "perf-v1", "pm2s")).toBe(false);
   });
 });

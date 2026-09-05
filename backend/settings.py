@@ -1,34 +1,36 @@
 """Typed runtime configuration seams for backend process composition.
 
-Keep settings construction explicit and cheap to override in tests. Deployment still
-owns effective production values; these models own parsing and validation only.
+Deployment owns effective production values. These small settings groups own only
+application parsing, validation, defaults, and secret-safe representation.
 """
 
 from __future__ import annotations
 
-import os
-from collections.abc import Mapping
-
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class SupabaseSettings(BaseModel):
-    """Shared server-side Supabase credentials parsed from process environment."""
+class _RuntimeSettings(BaseSettings):
+    """Shared BaseSettings policy without creating a process-global singleton."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_file=None,
+        extra="ignore",
+        frozen=True,
+        populate_by_name=True,
+    )
 
-    url: str | None = None
-    public_url: str | None = None
-    service_role_key: SecretStr | None = None
 
-    @classmethod
-    def from_environment(cls, environ: Mapping[str, str] | None = None) -> SupabaseSettings:
-        source = os.environ if environ is None else environ
-        return cls(
-            url=source.get("SUPABASE_URL"),
-            public_url=source.get("SUPABASE_PUBLIC_URL"),
-            service_role_key=source.get("SUPABASE_SERVICE_ROLE_KEY"),
-        )
+class SupabaseSettings(_RuntimeSettings):
+    """Shared server-side Supabase credentials."""
+
+    url: str | None = Field(default=None, validation_alias="SUPABASE_URL")
+    public_url: str | None = Field(default=None, validation_alias="SUPABASE_PUBLIC_URL")
+    service_role_key: SecretStr | None = Field(
+        default=None,
+        validation_alias="SUPABASE_SERVICE_ROLE_KEY",
+    )
 
     @property
     def credentials(self) -> tuple[str, str] | None:
@@ -41,17 +43,46 @@ class SupabaseSettings(BaseModel):
         return self.url, key
 
 
-class WorkerSettings(BaseModel):
+class WorkerSettings(_RuntimeSettings):
     """Process-level worker settings with application-owned validation."""
 
-    model_config = ConfigDict(frozen=True)
+    concurrency: int = Field(default=1, ge=1, validation_alias="WORKER_CONCURRENCY")
 
-    concurrency: int = Field(default=1, ge=1)
 
-    @classmethod
-    def from_environment(cls, environ: Mapping[str, str] | None = None) -> WorkerSettings:
-        source = os.environ if environ is None else environ
-        raw_concurrency = source.get("WORKER_CONCURRENCY")
-        if raw_concurrency is None:
-            return cls()
-        return cls(concurrency=raw_concurrency)
+class ObservabilitySettings(_RuntimeSettings):
+    """Shared API/worker observability values; exporters remain optional."""
+
+    sentry_dsn: SecretStr | None = Field(default=None, validation_alias="SENTRY_DSN_BACKEND")
+    environment: str = Field(default="production", validation_alias="SENTRY_ENV")
+    traces_sample_rate: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        validation_alias="SENTRY_TRACES_SAMPLE_RATE",
+    )
+    release: str | None = Field(default=None, validation_alias="RELEASE")
+    otel_service_name: str | None = Field(default=None, validation_alias="OTEL_SERVICE_NAME")
+    otlp_endpoint: str | None = Field(
+        default=None,
+        validation_alias="OTEL_EXPORTER_OTLP_ENDPOINT",
+    )
+
+    def release_or(self, default: str) -> str:
+        return self.release or default
+
+    def service_name_or(self, default: str) -> str:
+        return self.otel_service_name or default
+
+
+class EngineSettings(_RuntimeSettings):
+    """Default engine selections; explicit per-request selections still win."""
+
+    transcription: str = Field(
+        default="basic_pitch",
+        validation_alias="TRANSCRIPTION_ENGINE",
+    )
+    beat: str = Field(default="beat_this", validation_alias="BEAT_ENGINE")
+    notation: str = Field(default="musescore", validation_alias="NOTATION_ENGINE")
+    harmony: str = Field(default="music21", validation_alias="HARMONY_ENGINE")
+    melody: str = Field(default="lstom", validation_alias="MELODY_ENGINE")
+    theory: str = Field(default="theory_interpreter", validation_alias="THEORY_ENGINE")

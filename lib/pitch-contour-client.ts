@@ -1,0 +1,21 @@
+import { clearWorkDataCache } from "./api-client";
+import { openapiClient, requireOpenApiData } from "./openapi-client";
+
+export async function startPitchContourWorkflow(
+  versionId: string,
+  projectId: string,
+): Promise<string> {
+  const result = await openapiClient.POST("/api/v1/workflows/create", {
+    body: {
+      version_id: versionId,
+      project_id: projectId,
+      action: "pitch_contour",
+      parameters: {},
+    },
+  });
+  const payload = requireOpenApiData(result);
+  const jobId = payload.job?.id;
+  if (!jobId) throw new Error("Pitch contour response did not include a job id");
+  clearWorkDataCache();
+  return jobId;
+}

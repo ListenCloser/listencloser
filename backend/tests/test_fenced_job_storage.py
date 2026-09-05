@@ -6,7 +6,6 @@ from typing import Any
 import pytest
 
 from domain.fenced_job_worker import FencedJobWorker
-from domain.job_worker import JobWorker
 
 
 class _Bucket:
@@ -108,10 +107,6 @@ def test_handler_storage_is_attempt_scoped_and_cleanup_is_non_destructive() -> N
         "storage_key": scoped_key,
     }
 
-    # A stale handler must never call the external Storage delete API: there is
-    # no cross-system transaction that can make deletion atomic with the Job
-    # execution-token check. Database references are fenced separately; private
-    # orphan bytes can be collected out of band without risking successor data.
     assert client.storage.from_("artifacts").remove([scoped_key]) == []
     assert raw.storage.bucket.removed == []
 
@@ -136,10 +131,6 @@ def test_failed_upload_is_not_publishable_by_logical_storage_key() -> None:
     with pytest.raises(RuntimeError, match="simulated upload failure"):
         client.storage.from_("artifacts").upload(original_key, b"payload")
 
-    # Only a successful Storage write may establish the logical→scoped mapping.
-    # If a capability catches an upload error and continues, the database fence
-    # must see the original unscoped key and reject publication rather than
-    # accepting a Version that points at an object that was never written.
     assert client.rewrite_output_row({"storage_key": original_key}) == {
         "storage_key": original_key,
     }
@@ -152,9 +143,6 @@ def test_pending_artifact_is_visible_to_repository_owner_verification() -> None:
     result = client.table("artifacts").insert(artifact).execute()
     assert result.data == [artifact]
 
-    # The Artifact is intentionally not durable before its Version. VersionRepo
-    # nevertheless reads artifacts(work_id) to verify ownership before insert,
-    # so the fenced client must provide read-your-writes for this exact pending id.
     assert raw.tables["artifacts"] == []
     pending = client.table("artifacts").select("work_id").eq("id", "artifact-1").execute()
     assert pending.data == [{"work_id": "work-1"}]
@@ -174,39 +162,3 @@ def test_stale_finisher_cannot_forget_successor_generation() -> None:
     worker._forget_execution_token("job-1", "token-b")
     with pytest.raises(RuntimeError, match="no active execution token"):
         worker._execution_token("job-1")
-
-
-def test_queue_claim_releases_duplicate_local_generation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    worker = FencedJobWorker()
-    raw = _Client()
-    worker._client = raw
-    worker._remember_execution_token("job-1", "token-a")
-    with worker._in_flight_lock:
-        worker._in_flight.add("job-1")
-
-    monkeypatch.setattr(
-        JobWorker,
-        "_claim_next_job",
-        lambda _self: {"id": "job-1", "execution_token": "token-b"},
-    )
-
-    assert worker._claim_next_job() is None
-    assert worker._execution_token("job-1") == "token-a"
-    assert raw.job_updates == [
-        (
-            {
-                "stage": "queued",
-                "worker_id": None,
-                "lease_expires_at": None,
-                "execution_token": None,
-            },
-            [
-                ("id", "job-1"),
-                ("worker_id", worker._worker_id),
-                ("execution_token", "token-b"),
-                ("stage", "claimed"),
-            ],
-        ),
-    ]

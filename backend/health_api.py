@@ -7,6 +7,7 @@ import logging
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter
 
@@ -66,6 +67,14 @@ def health_ready() -> HealthReadyResponse:
     )
 
 
+def _queue_metric_row(data: Any) -> dict[str, Any] | None:
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        return data[0]
+    return None
+
+
 @router.get("/health/queue", response_model=HealthQueueResponse, response_model_exclude_none=True)
 def health_queue() -> HealthQueueResponse:
     client = get_supabase()
@@ -74,31 +83,37 @@ def health_queue() -> HealthQueueResponse:
             status="degraded",
             reason="supabase not configured",
             workers=0,
-            queued=0,
-            running=0,
-            stale_leases=0,
+            queue_ready=False,
+            queue_depth=0,
+            queue_visible_depth=0,
+            total_messages=0,
         )
 
-    now = datetime.now(UTC)
     try:
-        active_jobs = (
-            client.table("jobs")
-            .select("stage,lease_expires_at")
-            .in_("stage", ["queued", "claimed", "running"])
-            .execute()
-        )
-        rows = active_jobs.data or []
+        metrics_result = client.rpc("job_queue_metrics", {}).execute()
+        metric_row = _queue_metric_row(metrics_result.data)
+        if metric_row is None:
+            raise RuntimeError("job_queue_metrics returned no row")
+        queue_ready = bool(metric_row.get("queue_ready"))
+        queue_depth = int(metric_row.get("queue_depth") or 0)
+        queue_visible_depth = int(metric_row.get("queue_visible_depth") or 0)
+        oldest_age = metric_row.get("oldest_age_seconds")
+        oldest_age_seconds = int(oldest_age) if oldest_age is not None else None
+        total_messages = int(metric_row.get("total_messages") or 0)
+        sampled_at = metric_row.get("sampled_at")
     except Exception:
-        logger.exception("queue_jobs_health_failed")
+        logger.exception("queue_metrics_health_failed")
         return HealthQueueResponse(
             status="degraded",
             reason="job queue unavailable",
             workers=0,
-            queued=0,
-            running=0,
-            stale_leases=0,
+            queue_ready=False,
+            queue_depth=0,
+            queue_visible_depth=0,
+            total_messages=0,
         )
 
+    now = datetime.now(UTC)
     workers: list[dict] = []
     source = "database"
     try:
@@ -134,21 +149,15 @@ def health_queue() -> HealthQueueResponse:
         except (OSError, ValueError, KeyError, json.JSONDecodeError):
             logger.warning("worker_runtime_heartbeat_unavailable")
 
-    queued = sum(row.get("stage") == "queued" for row in rows)
-    running = sum(row.get("stage") in {"claimed", "running"} for row in rows)
-    stale_leases = sum(
-        1
-        for row in rows
-        if row.get("stage") in {"claimed", "running"}
-        and row.get("lease_expires_at")
-        and datetime.fromisoformat(str(row["lease_expires_at"]).replace("Z", "+00:00")) < now
-    )
-    healthy = bool(workers) and stale_leases == 0
+    healthy = queue_ready and bool(workers)
     return HealthQueueResponse(
         status="ready" if healthy else "degraded",
         workers=len(workers),
-        queued=queued,
-        running=running,
-        stale_leases=stale_leases,
+        queue_ready=queue_ready,
+        queue_depth=queue_depth,
+        queue_visible_depth=queue_visible_depth,
+        oldest_age_seconds=oldest_age_seconds,
+        total_messages=total_messages,
+        sampled_at=sampled_at,
         heartbeat_source=source,
     )
