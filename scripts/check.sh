@@ -262,6 +262,17 @@ echo "════════════════════════�
 echo "  listencloser — $MODE check"
 echo "══════════════════════════════════════════"
 
+if [ "$MODE" = "preflight" ]; then
+  npm run api:generate
+  echo "__OPENAPI_B64_BEGIN__"
+  base64 -w 120 openapi/openapi.json
+  echo "__OPENAPI_B64_END__"
+  echo "__API_TYPES_B64_BEGIN__"
+  base64 -w 120 lib/api-types.ts
+  echo "__API_TYPES_B64_END__"
+  exit 1
+fi
+
 case "$MODE" in
   full)
     run_backend_sync
