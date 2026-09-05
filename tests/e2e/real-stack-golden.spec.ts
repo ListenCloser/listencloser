@@ -371,8 +371,9 @@ test("real audio golden path", async ({ page }, testInfo) => {
     const firstMeasure = page.locator(".sheet-music-container g.vf-measure").first();
     const box = await firstMeasure.boundingBox();
     expect(box).not.toBeNull();
+    const positionBeforeNotationClick = await transportPosition(page);
     await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
-    await expectPositionPreserved(page, positionBeforeSourceScore, 0.02);
+    await expectPositionPreserved(page, positionBeforeNotationClick, 0.02);
 
     await openSourceSelector(page);
     await expect(page.getByRole("option", { name: "Score", exact: true })).toHaveCount(0);
