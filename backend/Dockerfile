@@ -134,7 +134,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
-    mkdir -p /opt/musescore; \
     deb_arch="$(dpkg --print-architecture)"; \
     case "$deb_arch" in \
       amd64) \
