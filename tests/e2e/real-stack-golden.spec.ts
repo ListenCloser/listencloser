@@ -325,9 +325,10 @@ test("real audio golden path", async ({ page }, testInfo) => {
     const addAnalysis = page.getByRole("region", { name: "Add analysis" });
     await expect(addAnalysis.getByRole("button", { name: "+ Add analysis", exact: true })).toBeVisible();
     await addAnalysis.getByRole("button", { name: "+ Add analysis", exact: true }).click();
-    await expect(addAnalysis.getByText("Structure Map", { exact: true })).toBeVisible();
-    await expect(addAnalysis.getByText("Experimental", { exact: true })).toBeVisible();
-    await addAnalysis.getByRole("button", { name: "Add", exact: true }).click();
+    const structureMapOption = addAnalysis.getByText("Structure Map", { exact: true }).locator("../..");
+    await expect(structureMapOption.getByText("Structure Map", { exact: true })).toBeVisible();
+    await expect(structureMapOption.getByText("Experimental", { exact: true })).toBeVisible();
+    await structureMapOption.getByRole("button", { name: "Add", exact: true }).click();
 
     // The worker must persist a report before the result surface appears.
     const map = page.getByRole("region", { name: "Experimental Structure Map" });
