@@ -25,11 +25,11 @@ def test_chordmini_requires_audio_before_checkpoint() -> None:
         engine.analyze(b"midi", audio_bytes=None)
 
 
-def test_chordmini_requires_explicit_checkpoint(tmp_path: Path) -> None:
+def test_chordmini_requires_valid_explicit_checkpoint(tmp_path: Path) -> None:
     missing = tmp_path / "missing.pth"
     engine = ChordMiniHarmonyEngine(checkpoint_path=str(missing))
 
-    with pytest.raises(RuntimeError, match="checkpoint does not exist"):
+    with pytest.raises(RuntimeError, match="checkpoint is unavailable"):
         engine.analyze(b"", audio_bytes=b"wav")
 
 
@@ -62,7 +62,12 @@ def test_chordmini_adapts_inference_segments_and_provenance(
         )
 
     fake_runtime = SimpleNamespace(infer_chords=fake_infer)
+    fake_assets = SimpleNamespace(
+        resolve_checkpoint=lambda configured: Path(configured),
+        checkpoint_source_url=lambda: "https://example.test/chordmini.pth",
+    )
     monkeypatch.setitem(sys.modules, "engines.harmony._chordmini_runtime", fake_runtime)
+    monkeypatch.setitem(sys.modules, "engines.harmony.chordmini_assets", fake_assets)
 
     engine = ChordMiniHarmonyEngine(checkpoint_path=str(checkpoint))
     result = engine.analyze(b"unused midi", audio_bytes=audio_bytes)
@@ -80,4 +85,5 @@ def test_chordmini_adapts_inference_segments_and_provenance(
     assert result.provenance.engine == "chordmini"
     assert result.provenance.model == "2e1d_model_best.pth"
     assert result.provenance.parameters["checkpoint_sha256"] == "abc123"
+    assert result.provenance.parameters["checkpoint_source"].startswith("https://")
     assert result.component_provenance["chords"] == result.provenance
