@@ -16,6 +16,8 @@ Usage: scripts/challenge.sh <mode>
 
 Advisory adversarial probes. These search for weaknesses; they are intentionally
 separate from scripts/check.sh, which enforces already-understood invariants.
+Every executed probe also writes a deduplicated actionable queue to
+challenge-results/findings.json and challenge-results/findings.md.
 
 Modes:
   browser       Run accessibility + Lighthouse probes against a running frontend.
@@ -23,6 +25,7 @@ Modes:
   lighthouse    Collect a Lighthouse report for the running frontend.
   mutation-js   Mutation-test one bounded, high-value TypeScript policy module.
   api           Fuzz a LOCAL FastAPI/OpenAPI service with Schemathesis.
+  triage        Rebuild findings.json/findings.md from already-collected reports.
   all           Run browser + mutation-js; API also runs when CHALLENGE_API_URL is set.
   help          Show this help.
 
@@ -33,6 +36,7 @@ Environment:
   CHALLENGE_ALLOW_REMOTE_API=true
                              Explicit opt-in required before fuzzing a non-local API
   CHALLENGE_RESULTS_DIR      Output directory (default challenge-results)
+  CHALLENGE_OWNER_MAP        Finding routing map (default config/challenge-owner-map.json)
 
 Typical local use:
   # terminal 1: run the normal mock frontend
@@ -195,6 +199,13 @@ run_api() {
   return "$status"
 }
 
+run_triage() {
+  require_command node
+  echo ""
+  echo "── Actionable triage ──"
+  CHALLENGE_RESULTS_DIR="$RESULTS_DIR" node scripts/challenge-triage.mjs
+}
+
 record_status() {
   local current="$1"
   local latest="$2"
@@ -210,19 +221,35 @@ case "$MODE" in
     status=0
     run_a11y || status="$(record_status "$status" "$?")"
     run_lighthouse || status="$(record_status "$status" "$?")"
+    run_triage || status="$(record_status "$status" "$?")"
     exit "$status"
     ;;
   a11y)
-    run_a11y
+    status=0
+    run_a11y || status="$?"
+    run_triage || status="$(record_status "$status" "$?")"
+    exit "$status"
     ;;
   lighthouse)
-    run_lighthouse
+    status=0
+    run_lighthouse || status="$?"
+    run_triage || status="$(record_status "$status" "$?")"
+    exit "$status"
     ;;
   mutation-js)
-    run_mutation_js
+    status=0
+    run_mutation_js || status="$?"
+    run_triage || status="$(record_status "$status" "$?")"
+    exit "$status"
     ;;
   api)
-    run_api
+    status=0
+    run_api || status="$?"
+    run_triage || status="$(record_status "$status" "$?")"
+    exit "$status"
+    ;;
+  triage)
+    run_triage
     ;;
   all)
     status=0
@@ -235,6 +262,7 @@ case "$MODE" in
       echo ""
       echo "ℹ️  CHALLENGE_API_URL not set — destructive-capable API fuzzing skipped"
     fi
+    run_triage || status="$(record_status "$status" "$?")"
     exit "$status"
     ;;
   help|-h|--help)

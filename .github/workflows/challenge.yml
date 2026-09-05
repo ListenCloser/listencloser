@@ -4,8 +4,11 @@ on:
   pull_request:
     paths:
       - ".github/workflows/challenge.yml"
+      - "config/challenge-owner-map.json"
       - "scripts/challenge.sh"
       - "scripts/challenge-accessibility.cjs"
+      - "scripts/challenge-triage.mjs"
+      - "scripts/challenge-triage.test.mjs"
       - "stryker.config.mjs"
   workflow_dispatch:
     inputs:
@@ -78,6 +81,10 @@ jobs:
             echo "### Browser adversarial audit"
             echo "Outcome: **${{ steps.challenge.outcome }}**"
             echo "This workflow is advisory; promote only stable, demonstrated defect classes into protected Build."
+            if [ -f challenge-results/findings.md ]; then
+              echo ""
+              cat challenge-results/findings.md
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload challenge reports
         if: always()
@@ -110,6 +117,10 @@ jobs:
             echo "### TypeScript mutation audit"
             echo "Outcome: **${{ steps.challenge.outcome }}**"
             echo "Target: \`lib/evidence-projections.ts\`. Surviving mutants are review evidence, not an automatic merge failure."
+            if [ -f challenge-results/findings.md ]; then
+              echo ""
+              cat challenge-results/findings.md
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload challenge reports
         if: always()
