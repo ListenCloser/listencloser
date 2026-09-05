@@ -33,7 +33,7 @@ jobs:
           set -e
           if [ "$merge_rc" -ne 0 ]; then
             mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
-            allowed=(backend/config/capabilities.json backend/domain/api/workflows_jobs.py backend/worker.py components/workspace/WorkspaceSession.tsx docs/generated/frontend-dependencies.md)
+            allowed=(backend/config/capabilities.json backend/domain/api/workflows_jobs.py backend/worker.py components/workspace/WorkspaceSession.tsx docs/generated/frontend-dependencies.md lib/inspector/capabilities.ts)
             for conflict in "${conflicts[@]}"; do
               ok=false
               for path in "${allowed[@]}"; do
@@ -50,7 +50,7 @@ jobs:
               fi
             done
             python3 .github/scripts/temp-reintegrate-pr-1219.py
-            git add backend/config/capabilities.json backend/domain/api/workflows_jobs.py backend/worker.py components/workspace/WorkspaceSession.tsx docs/generated/frontend-dependencies.md
+            git add backend/config/capabilities.json backend/domain/api/workflows_jobs.py backend/worker.py components/workspace/WorkspaceSession.tsx docs/generated/frontend-dependencies.md lib/inspector/capabilities.ts
             if git diff --name-only --diff-filter=U | grep -q .; then
               echo 'Unresolved merge conflicts remain.' >&2
               git diff --name-only --diff-filter=U >&2
