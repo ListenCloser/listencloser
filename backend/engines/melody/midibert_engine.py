@@ -1,27 +1,30 @@
 """MidiBERT-Piano symbolic Melody adapter.
 
-The upstream model is intentionally executed through its pinned official source
-rather than reimplementing its CP tokenizer/model stack here.  The upstream
-output MIDI is used only to identify selected notes; ListenCloser republishes
-the exact source-MIDI note timing/velocity so quantized reconstruction never
-becomes a second coordinate authority.
+The pinned upstream CP tokenizer/model/inference code is used directly.  Its
+quantized reconstruction is deliberately not used as product timing: predicted
+classes are attached back to the exact source-MIDI note sequence before
+publication.
 
 Upstream: https://github.com/wazenmai/MIDI-BERT
-Pinned source revision: 0b935584f641d3d59a8e6aff2f334b425ce1542d
+Pinned revision: 0b935584f641d3d59a8e6aff2f334b425ce1542d
 Code license: MIT
 """
 
 from __future__ import annotations
 
-import io
+import hashlib
 import os
 from pathlib import Path
-import subprocess
+import pickle
 import sys
 import tempfile
+from types import SimpleNamespace
 from typing import Any
 
+import miditoolkit
+import numpy as np
 import pretty_midi
+import torch
 
 from engines.base import EngineProvenance, MelodyEngine, MelodyResult
 
@@ -31,44 +34,41 @@ _DEFAULT_CHECKPOINT = "/opt/midibert-models/melody_default/model_best.ckpt"
 _DEFAULT_DICT = "/opt/midibert/data_creation/prepare_data/dict/CP.pkl"
 
 
-def _source_notes(midi_bytes: bytes) -> list[pretty_midi.Note]:
-    pm = pretty_midi.PrettyMIDI(io.BytesIO(midi_bytes))
-    notes = [note for inst in pm.instruments if not inst.is_drum for note in inst.notes]
-    notes.sort(key=lambda note: (note.start, note.pitch, note.end, note.velocity))
-    return notes
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
-def _map_selected_notes(
-    source: list[pretty_midi.Note], predicted: list[pretty_midi.Note]
-) -> list[pretty_midi.Note]:
-    """Map upstream's quantized selected-note MIDI back to exact source notes.
+def _source_notes(path: Path) -> list[dict[str, Any]]:
+    """Return notes in the exact ordering used by upstream ``read_items``."""
+    midi = miditoolkit.MidiFile(str(path))
+    ordered = []
+    for instrument in midi.instruments:
+        if instrument.is_drum:
+            continue
+        notes = sorted(instrument.notes, key=lambda note: (note.start, note.pitch))
+        ordered.extend(notes)
+    ordered.sort(key=lambda note: note.start)  # stable: mirrors upstream
 
-    MidiBERT's postprocessor preserves note order while reconstructing timing on
-    a 4/4 CP grid.  Match the selected pitch sequence as a monotonic subsequence
-    of the exact source candidates.  Ambiguity that prevents a complete mapping
-    fails closed rather than publishing reconstructed/approximate time.
-    """
-    selected: list[pretty_midi.Note] = []
-    cursor = 0
-    for predicted_note in predicted:
-        match = None
-        for index in range(cursor, len(source)):
-            if source[index].pitch == predicted_note.pitch:
-                match = index
-                break
-        if match is None:
-            raise RuntimeError(
-                "MidiBERT selected-note mapping could not preserve exact source MIDI identity"
-            )
-        selected.append(source[match])
-        cursor = match + 1
-    return selected
+    performance = pretty_midi.PrettyMIDI(str(path))
+    return [
+        {
+            "pitch": note.pitch,
+            "start_seconds": float(performance.tick_to_time(note.start)),
+            "end_seconds": float(performance.tick_to_time(note.end)),
+            "velocity": note.velocity,
+        }
+        for note in ordered
+    ]
 
 
-def _summarize(selected: list[pretty_midi.Note], candidate_count: int) -> dict[str, Any] | None:
+def _summarize(selected: list[dict[str, Any]], candidate_count: int) -> dict[str, Any] | None:
     if len(selected) < 2:
         return None
-    pitches = [note.pitch for note in selected]
+    pitches = [int(note["pitch"]) for note in selected]
     intervals = [abs(b - a) for a, b in zip(pitches, pitches[1:])]
     nonzero = [interval for interval in intervals if interval > 0]
     low, high = min(pitches), max(pitches)
@@ -77,23 +77,24 @@ def _summarize(selected: list[pretty_midi.Note], candidate_count: int) -> dict[s
         "high_pitch": high,
         "range_semitones": high - low,
         "unique_pitch_classes": len({pitch % 12 for pitch in pitches}),
-        "stepwise_ratio": round(sum(interval <= 2 for interval in nonzero) / len(nonzero), 3)
+        "stepwise_ratio": round(sum(iv <= 2 for iv in nonzero) / len(nonzero), 3)
         if nonzero
         else 0.0,
-        "leap_ratio": round(sum(interval >= 5 for interval in nonzero) / len(nonzero), 3)
+        "leap_ratio": round(sum(iv >= 5 for iv in nonzero) / len(nonzero), 3)
         if nonzero
         else 0.0,
         "heuristic": "midibert_piano_cp",
         "candidate_note_count": candidate_count,
         "selected_note_count": len(selected),
-        "evaluated_start_seconds": round(min(note.start for note in selected), 4),
-        "evaluated_end_seconds": round(max(note.end for note in selected), 4),
+        "evaluated_start_seconds": round(min(float(n["start_seconds"]) for n in selected), 4),
+        "evaluated_end_seconds": round(max(float(n["end_seconds"]) for n in selected), 4),
         "notes": [
             {
-                "pitch": note.pitch,
-                "start_seconds": round(note.start, 4),
-                "end_seconds": round(note.end, 4),
-                "velocity": note.velocity,
+                "pitch": int(note["pitch"]),
+                "start_seconds": round(float(note["start_seconds"]), 4),
+                "end_seconds": round(float(note["end_seconds"]), 4),
+                "velocity": int(note["velocity"]),
+                "model_class": str(note["model_class"]),
             }
             for note in selected
         ],
@@ -101,7 +102,7 @@ def _summarize(selected: list[pretty_midi.Note], candidate_count: int) -> dict[s
 
 
 class MidiBERTMelodyEngine(MelodyEngine):
-    """Official MidiBERT-Piano CP melody inference behind MelodyEngine."""
+    """Official MidiBERT-Piano CP melody inference behind ``MelodyEngine``."""
 
     ENGINE = "midibert"
 
@@ -111,90 +112,110 @@ class MidiBERTMelodyEngine(MelodyEngine):
         root: str | None = None,
         checkpoint: str | None = None,
         dict_file: str | None = None,
+        checkpoint_sha256: str | None = None,
     ) -> None:
         self.root = Path(root or os.getenv("MIDIBERT_ROOT", _DEFAULT_ROOT))
-        self.checkpoint = Path(
-            checkpoint or os.getenv("MIDIBERT_CHECKPOINT", _DEFAULT_CHECKPOINT)
-        )
+        self.checkpoint = Path(checkpoint or os.getenv("MIDIBERT_CHECKPOINT", _DEFAULT_CHECKPOINT))
         self.dict_file = Path(dict_file or os.getenv("MIDIBERT_DICT", _DEFAULT_DICT))
+        self.expected_checkpoint_sha256 = checkpoint_sha256 or os.getenv("MIDIBERT_CHECKPOINT_SHA256")
 
     @property
     def provenance(self) -> EngineProvenance:
+        parameters: dict[str, Any] = {
+            "source_revision": _UPSTREAM_REVISION,
+            "representation": "CP",
+            "max_seq_len": 512,
+            "hidden_size": 768,
+            "bridge_as_melody": True,
+            "timing_publication": "exact_source_midi_notes",
+        }
+        if self.expected_checkpoint_sha256:
+            parameters["checkpoint_sha256"] = self.expected_checkpoint_sha256
         return EngineProvenance(
             engine=self.ENGINE,
             library_version=_UPSTREAM_REVISION,
             model="MidiBERT-Piano CP melody_default",
-            parameters={
-                "source_revision": _UPSTREAM_REVISION,
-                "representation": "CP",
-                "max_seq_len": 512,
-                "hidden_size": 768,
-                "bridge_as_melody": True,
-                "timing_publication": "exact_source_midi_notes",
-                "checkpoint_path": str(self.checkpoint),
-            },
+            parameters=parameters,
         )
 
-    def _validate_runtime(self) -> Path:
-        script = self.root / "melody_extraction/midibert/extract.py"
-        missing = [path for path in (script, self.checkpoint, self.dict_file) if not path.is_file()]
+    def _validate_runtime(self) -> None:
+        required = [
+            self.root / "melody_extraction/midibert/extract.py",
+            self.root / "melody_extraction/midibert/midi2CP.py",
+            self.root / "MidiBERT/model.py",
+            self.checkpoint,
+            self.dict_file,
+        ]
+        missing = [path for path in required if not path.is_file()]
         if missing:
             raise RuntimeError(
                 "MidiBERT runtime is incomplete; missing pinned source/model assets: "
                 + ", ".join(str(path) for path in missing)
             )
-        return script
+        if not self.expected_checkpoint_sha256:
+            raise RuntimeError("MidiBERT checkpoint SHA-256 is not pinned")
+        actual = _sha256(self.checkpoint)
+        if actual != self.expected_checkpoint_sha256:
+            raise RuntimeError(
+                f"MidiBERT checkpoint checksum mismatch: expected {self.expected_checkpoint_sha256}, got {actual}"
+            )
+
+    def _predict_classes(self, input_path: Path) -> list[int]:
+        """Run the pinned upstream CP preprocessing/model/inference implementation."""
+        if str(self.root) not in sys.path:
+            sys.path.insert(0, str(self.root))
+
+        # Upstream still references the removed NumPy alias. This compatibility
+        # shim changes no numerical behavior and lets the pinned source run on
+        # the worker's NumPy 1.26 runtime.
+        if not hasattr(np, "int"):
+            np.int = int  # type: ignore[attr-defined]
+
+        from melody_extraction.midibert.midi2CP import CP
+        from melody_extraction.midibert.extract import inference, load_model
+
+        with self.dict_file.open("rb") as handle:
+            e2w, w2e = pickle.load(handle)
+        compact = ["Bar", "Position", "Pitch", "Duration"]
+        pad_cp = [e2w[kind][f"{kind} <PAD>"] for kind in compact]
+        cp_model = CP(dict=str(self.dict_file))
+        events, tokens = cp_model.prepare_data(str(input_path), 512)
+
+        args = SimpleNamespace(max_seq_len=512, hs=768, ckpt=str(self.checkpoint))
+        model = load_model(args, e2w, w2e)
+        model.eval()
+        with torch.no_grad():
+            predictions = inference(model, tokens, pad_cp, torch.device("cpu"))
+
+        note_event_count = sum(1 for event in events if len(event) == 5)
+        flattened = predictions.reshape(-1).tolist()
+        if note_event_count > len(flattened):
+            raise RuntimeError("MidiBERT returned fewer note labels than input note events")
+        return [int(value) for value in flattened[:note_event_count]]
 
     def analyze(self, midi_bytes: bytes, **kwargs: Any) -> MelodyResult:
-        script = self._validate_runtime()
-        source_notes = _source_notes(midi_bytes)
-        if len(source_notes) < 2:
-            return MelodyResult(melody=None, provenance=self.provenance)
-
+        self._validate_runtime()
         with tempfile.TemporaryDirectory(prefix="listencloser-midibert-") as tempdir:
             input_path = Path(tempdir) / "input.mid"
-            output_path = Path(tempdir) / "melody.mid"
             input_path.write_bytes(midi_bytes)
-            command = [
-                sys.executable,
-                str(script),
-                "--input_path",
-                str(input_path),
-                "--output_path",
-                str(output_path),
-                "--dict_file",
-                str(self.dict_file),
-                "--ckpt",
-                str(self.checkpoint),
-                "--cpu",
-                "--bridge",
-                "True",
-            ]
-            completed = subprocess.run(
-                command,
-                cwd=self.root,
-                capture_output=True,
-                text=True,
-                timeout=300,
-                check=False,
+            source = _source_notes(input_path)
+            if len(source) < 2:
+                return MelodyResult(melody=None, provenance=self.provenance)
+            classes = self._predict_classes(input_path)
+
+        if len(classes) != len(source):
+            raise RuntimeError(
+                "MidiBERT note-label count does not match exact source note count: "
+                f"{len(classes)} labels for {len(source)} notes"
             )
-            if completed.returncode != 0:
-                detail = (completed.stderr or completed.stdout).strip()[-2000:]
-                raise RuntimeError(f"MidiBERT melody inference failed: {detail}")
-            if not output_path.is_file():
-                raise RuntimeError("MidiBERT completed without publishing a melody MIDI")
 
-            predicted_pm = pretty_midi.PrettyMIDI(str(output_path))
-            predicted_notes = [
-                note
-                for inst in predicted_pm.instruments
-                if not inst.is_drum
-                for note in inst.notes
-            ]
-            predicted_notes.sort(key=lambda note: (note.start, note.pitch, note.end, note.velocity))
+        selected: list[dict[str, Any]] = []
+        for note, label in zip(source, classes):
+            if label not in (1, 2):
+                continue
+            selected.append({**note, "model_class": "melody" if label == 1 else "bridge"})
 
-        selected = _map_selected_notes(source_notes, predicted_notes)
         return MelodyResult(
-            melody=_summarize(selected, len(source_notes)),
+            melody=_summarize(selected, len(source)),
             provenance=self.provenance,
         )
