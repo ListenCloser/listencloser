@@ -436,7 +436,9 @@ def _build_model(state_dict: dict[str, Any], checkpoint: dict[str, Any], torch: 
     try:
         model.load_state_dict(state_dict)
     except RuntimeError as exc:
-        raise RuntimeError(f"ChordMini checkpoint is incompatible with the pinned model: {exc}") from exc
+        raise RuntimeError(
+            f"ChordMini checkpoint is incompatible with the pinned model: {exc}"
+        ) from exc
     model.eval()
     return model
 
