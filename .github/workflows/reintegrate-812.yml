@@ -1,0 +1,35 @@
+name: reintegrate-812
+
+on:
+  push:
+    branches:
+      - feat/812-similar-moments
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Probe merge conflicts
+        shell: bash
+        run: |
+          set -uo pipefail
+          git fetch origin main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          status=$?
+          set -e
+          echo "merge_status=$status"
+          echo "conflicts:"
+          git diff --name-only --diff-filter=U
+          echo "status:"
+          git status --short
+          if [ "$status" -eq 0 ]; then
+            git merge --abort || true
+          fi
+          exit "$status"
