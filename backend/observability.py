@@ -26,12 +26,7 @@ _trace_context_propagator = TraceContextTextMapPropagator()
 
 
 class JsonFormatter(logging.Formatter):
-    """Emit one structured JSON object per log record.
-
-    Trace/span IDs are injected automatically when a span is active so stdout
-    logs can be correlated with Grafana/Sentry traces without every call site
-    having to know about OpenTelemetry.
-    """
+    """Emit one structured JSON object per log record."""
 
     _standard_fields = {
         "name",
@@ -85,7 +80,6 @@ class JsonFormatter(logging.Formatter):
 
 def configure_logging(service_name: str) -> None:
     """Configure structured stdout logging once for a process."""
-
     os.environ.setdefault("OTEL_SERVICE_NAME", service_name)
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter())
@@ -97,13 +91,7 @@ def init_sentry(
     *,
     default_release: str = "development",
 ) -> bool:
-    """Initialize Sentry from the shared backend environment contract.
-
-    The pinned Sentry SDK auto-enables installed framework integrations by
-    default, including FastAPI and Starlette. Keeping that responsibility in
-    the SDK avoids coupling process entrypoints to integration class names.
-    """
-
+    """Initialize Sentry from the shared backend environment contract."""
     dsn = os.environ.get("SENTRY_DSN_BACKEND")
     if not dsn:
         return False
@@ -136,14 +124,7 @@ def _telemetry_resource(service_name: str) -> Resource:
 
 
 def init_telemetry(service_name: str) -> bool:
-    """Initialize vendor-neutral OTLP traces and metrics when configured.
-
-    ``OTEL_EXPORTER_OTLP_ENDPOINT`` and ``OTEL_EXPORTER_OTLP_HEADERS`` are
-    standard OpenTelemetry environment variables. The same configured OTLP
-    backend receives traces and metrics. When the endpoint is absent telemetry
-    stays disabled, keeping local development and CI independent of Grafana.
-    """
-
+    """Initialize vendor-neutral OTLP traces and metrics when configured."""
     os.environ.setdefault("OTEL_SERVICE_NAME", service_name)
     endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
     if not endpoint:
@@ -151,17 +132,12 @@ def init_telemetry(service_name: str) -> bool:
         return False
 
     resource = _telemetry_resource(service_name)
-
     tracer_provider = TracerProvider(resource=resource)
     tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
     trace.set_tracer_provider(tracer_provider)
 
     metric_reader = PeriodicExportingMetricReader(OTLPMetricExporter())
     metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[metric_reader]))
-
-    # Instrument shared outbound HTTP calls (Supabase/httpx-based providers,
-    # Ask provider calls, etc.) while leaving application-specific spans and
-    # metrics to the domain code.
     HTTPXClientInstrumentor().instrument()
 
     logging.getLogger("observability").info(
@@ -173,19 +149,11 @@ def init_telemetry(service_name: str) -> bool:
 
 def get_tracer(name: str):
     """Return a tracer without exposing the SDK to callers."""
-
     return trace.get_tracer(name)
 
 
 def capture_job_trace_provenance(provenance: dict[str, Any]) -> dict[str, Any]:
-    """Persist the current W3C trace carrier in immutable Job provenance.
-
-    Only Trace Context headers are admitted. OpenTelemetry baggage is excluded
-    because it can contain arbitrary application/user values and must not become
-    durable Job metadata. Existing context wins so explicit retries preserve the
-    original producer trace instead of being rebound to the retrying HTTP call.
-    """
-
+    """Persist the current W3C trace carrier in immutable Job provenance."""
     result = dict(provenance)
     if _JOB_TRACE_CONTEXT_KEY in result:
         return result
@@ -214,7 +182,6 @@ def capture_job_trace_provenance(provenance: dict[str, Any]) -> dict[str, Any]:
 
 def job_trace_links(provenance: dict[str, Any]) -> list[Link]:
     """Return one valid producer link extracted from durable Job provenance."""
-
     raw = provenance.get(_JOB_TRACE_CONTEXT_KEY)
     if not isinstance(raw, dict):
         return []
@@ -235,12 +202,7 @@ def job_trace_links(provenance: dict[str, Any]) -> list[Link]:
 
 
 def http_metric_attributes(method: str, route_template: str, status_code: int) -> dict[str, str]:
-    """Return the bounded dimensions used for HTTP metrics.
-
-    Callers must pass the FastAPI route template rather than the raw request
-    path. That keeps work/version/job UUIDs out of metric dimensions.
-    """
-
+    """Return the bounded dimensions used for HTTP metrics."""
     status_class = f"{max(1, min(5, status_code // 100))}xx"
     return {
         "http.request.method": method.upper(),
@@ -251,7 +213,6 @@ def http_metric_attributes(method: str, route_template: str, status_code: int) -
 
 def job_metric_attributes(capability: str, outcome: str) -> dict[str, str]:
     """Return bounded worker metric dimensions; never include job IDs."""
-
     return {
         "job.capability": capability or "unknown",
         "job.outcome": outcome,
@@ -259,7 +220,7 @@ def job_metric_attributes(capability: str, outcome: str) -> dict[str, str]:
 
 
 _http_metrics: tuple[Any, Any] | None = None
-_job_metrics: tuple[Any, Any, Any] | None = None
+_job_metrics: tuple[Any, Any] | None = None
 
 
 def _get_http_metrics() -> tuple[Any, Any]:
@@ -288,14 +249,13 @@ def record_http_request(
     duration_ms: float,
 ) -> None:
     """Record one API request using low-cardinality route dimensions."""
-
     counter, duration = _get_http_metrics()
     attributes = http_metric_attributes(method, route_template, status_code)
     counter.add(1, attributes)
     duration.record(max(0.0, duration_ms), attributes)
 
 
-def _get_job_metrics() -> tuple[Any, Any, Any]:
+def _get_job_metrics() -> tuple[Any, Any]:
     global _job_metrics
     if _job_metrics is None:
         meter = metrics.get_meter("listencloser-worker")
@@ -310,28 +270,13 @@ def _get_job_metrics() -> tuple[Any, Any, Any]:
                 unit="s",
                 description="Worker job handler execution duration.",
             ),
-            meter.create_counter(
-                "hello_ai.worker.orphans_recovered",
-                unit="{job}",
-                description="Expired job leases recovered by workers.",
-            ),
         )
     return _job_metrics
 
 
 def record_job_execution(capability: str, outcome: str, duration_seconds: float) -> None:
     """Record one completed handler attempt without user/job identifiers."""
-
-    counter, duration, _orphans = _get_job_metrics()
+    counter, duration = _get_job_metrics()
     attributes = job_metric_attributes(capability, outcome)
     counter.add(1, attributes)
     duration.record(max(0.0, duration_seconds), attributes)
-
-
-def record_orphans_recovered(count: int) -> None:
-    """Record orphaned leases recovered by a worker."""
-
-    if count <= 0:
-        return
-    _counter, _duration, orphans = _get_job_metrics()
-    orphans.add(count)
