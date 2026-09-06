@@ -19,13 +19,13 @@ Oracle VM  ── docker compose ──► backend (FastAPI :8000)
               Grafana (dashboards)
 ```
 
-Backend deploys run via `deploy-backend.yml` (on push to `main` for `services/backend/**`) and
+Backend deploys run via `deploy-backend.yml` (on push to `main` for `backend/**`) and
 via `scripts/deploy.sh` on the VM. Changes are only live once the container is rebuilt on
 the VM (see Deploy) — rebuild before concluding a BE change "didn't show up".
 
 ## Environment
 
-GitHub Actions writes `services/backend/.env` on the VM from repository secrets:
+GitHub Actions writes `backend/.env` on the VM from repository secrets:
 
 | Var | Purpose |
 |---|---|

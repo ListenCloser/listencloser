@@ -92,7 +92,7 @@ eval "$(supabase status -o env | grep '^DB_URL=')"
 python scripts/queue_transport_bakeoff.py "$DB_URL" --messages 12 --workers 4
 ```
 
-Fresh-database CI also runs the semantic assertions in `services/backend/tests/integration/test_pgmq_queue_bakeoff.py`.
+Fresh-database CI also runs the semantic assertions in `backend/tests/integration/test_pgmq_queue_bakeoff.py`.
 
 ## Future `pgmq` adoption gate
 

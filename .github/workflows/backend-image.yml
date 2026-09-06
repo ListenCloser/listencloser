@@ -27,8 +27,8 @@ jobs:
           NUMBA_CACHE_DIR: /app/runtime/numba-cache/test-release
         run: |
           set -euo pipefail
-          docker compose -f services/backend/docker-compose.yml config > /tmp/listencloser-compose.yml
-          images="$(docker compose -f services/backend/docker-compose.yml config --images | sort -u)"
+          docker compose -f backend/docker-compose.yml config > /tmp/listencloser-compose.yml
+          images="$(docker compose -f backend/docker-compose.yml config --images | sort -u)"
           test "$(printf '%s\n' "$images" | sed '/^$/d' | wc -l)" -eq 1
           grep -Fq "$BACKEND_IMAGE" <<<"$images"
           grep -Fq "NUMBA_CACHE_DIR: $NUMBA_CACHE_DIR" /tmp/listencloser-compose.yml
@@ -65,7 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production backend image natively
-        run: docker build --tag listencloser-backend:${{ matrix.arch }} services/backend
+        run: docker build --tag listencloser-backend:${{ matrix.arch }} backend
       - name: Verify PM2S score conversion in production image
         env:
           ARCH: ${{ matrix.arch }}

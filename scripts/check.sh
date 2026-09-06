@@ -94,12 +94,9 @@ run_frontend_architecture() {
   local started=$SECONDS
   local output_dir
   output_dir="$(mktemp -d)"
-  local depcruise=(
-    npx --yes
-    --package=dependency-cruiser@18.2.0
-    --package=typescript@5.7.3
-    depcruise
-  )
+  # dependency-cruiser is a locked apps/web dev dependency. --offline makes
+# this required architecture gate fail rather than reaching the registry.
+local depcruise=(npm exec --offline -- depcruise)
 
   if (cd apps/web && "${depcruise[@]}" \
       --config .dependency-cruiser.cjs \
@@ -175,7 +172,7 @@ run_backend_sync() {
   echo ""
   echo "── Locked backend environment ──"
   local started=$SECONDS
-  if uv sync --project services/backend --locked; then
+  if uv sync --project backend --locked; then
     pass "uv sync --locked ($((SECONDS - started))s)"
   else
     fail "uv sync --locked ($((SECONDS - started))s)"
@@ -186,7 +183,7 @@ run_backend_static() {
   echo ""
   echo "── Backend static checks ──"
   local started=$SECONDS
-  if (cd services/backend && uv run --project . --locked ruff check . && \
+  if (cd backend && uv run --project . --locked ruff check . && \
       uv run --project . --locked ruff format . --check); then
     pass "ruff ($((SECONDS - started))s)"
   else
@@ -196,7 +193,7 @@ run_backend_static() {
   echo ""
   echo "── Backend import architecture ──"
   started=$SECONDS
-  if (cd services/backend && uvx --from import-linter==2.14 lint-imports --config .importlinter); then
+  if (cd backend && uvx --from import-linter==2.14 lint-imports --config .importlinter); then
     pass "backend architecture ($((SECONDS - started))s)"
   else
     fail "backend architecture ($((SECONDS - started))s)"
@@ -216,7 +213,7 @@ run_backend_tests() {
   echo ""
   echo "── Backend tests ──"
   local started=$SECONDS
-  if (cd services/backend && uv run --project . --locked python -m pytest tests/ -v \
+  if (cd backend && uv run --project . --locked python -m pytest tests/ -v \
       --durations=20 --durations-min=1.0); then
     pass "pytest ($((SECONDS - started))s)"
   else

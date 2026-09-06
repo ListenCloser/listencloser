@@ -17,7 +17,7 @@ reviews:
       instructions: |
         TypeScript types must be explicit. Avoid `any`.
         Prefer server actions over API routes when possible.
-    - path: "services/backend/**/*.py"
+    - path: "backend/**/*.py"
       instructions: |
         FastAPI best practices. No dead imports. Type hints required.
         Check for missing auth checks, SQL injection, insecure crypto.

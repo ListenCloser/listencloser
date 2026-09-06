@@ -28,7 +28,7 @@ npm run bootstrap
 npm run dev
 ```
 
-The web app runs through the `apps/web` workspace. The FastAPI API and durable worker are the independent uv project under `services/backend`.
+The web app runs through the `apps/web` workspace. The FastAPI API and durable worker are the independent uv project under `backend`.
 
 Common verification commands:
 
@@ -46,7 +46,7 @@ npm run check:realstack  # isolated full-stack golden path
 
 ```text
 apps/web/                  Next.js application, frontend source, browser tests, public assets
-services/backend/          FastAPI API, durable worker, music-engine adapters, Python tests
+backend/          FastAPI API, durable worker, music-engine adapters, Python tests
 docs/                      architecture, product, operations, ADRs, evaluation methodology
 supabase/                  database/storage migrations and local Supabase configuration
 openapi/                   checked generated API contract

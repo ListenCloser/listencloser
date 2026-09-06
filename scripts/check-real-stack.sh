@@ -192,7 +192,7 @@ echo "── Production harmony routing ──"
 HARMONY_ENGINE="$(python3 - <<'PY'
 import re
 from pathlib import Path
-compose = Path("services/backend/docker-compose.yml").read_text()
+compose = Path("backend/docker-compose.yml").read_text()
 values = re.findall(r"^\s+HARMONY_ENGINE:\s*([A-Za-z0-9_.-]+)\s*$", compose, flags=re.MULTILINE)
 if len(values) != 2 or len(set(values)) != 1:
     raise SystemExit(f"production Compose must declare one shared API/worker HARMONY_ENGINE, got {values}")
@@ -201,7 +201,7 @@ PY
 )"
 
 echo "── Production backend image ──"
-docker build --tag "$BACKEND_IMAGE" services/backend
+docker build --tag "$BACKEND_IMAGE" backend
 
 echo "── Production-image API + worker ──"
 docker run -d --rm --name "$API_CONTAINER" --network "$SUPABASE_NETWORK" \
@@ -258,7 +258,7 @@ if record.get("configured") != expected:
     raise SystemExit(f"worker HARMONY_ENGINE mismatch: expected {expected!r}, got {record.get('configured')!r}")
 if not record.get("selected_engine") or not record.get("selected_class"):
     raise SystemExit(f"worker harmony registry returned incomplete provenance: {record}")
-record["source"] = "services/backend/docker-compose.yml"
+record["source"] = "backend/docker-compose.yml"
 path = Path(sys.argv[3]); path.write_text(json.dumps(record, sort_keys=True) + "\n")
 print(path.read_text(), end="")
 PY

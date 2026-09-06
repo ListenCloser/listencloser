@@ -7,22 +7,22 @@ repos:
     hooks:
       - id: backend-ruff
         name: backend ruff
-        entry: uv run --project services/backend ruff check --fix --config services/backend/pyproject.toml
+        entry: uv run --project backend ruff check --fix --config backend/pyproject.toml
         language: system
         types: [python]
-        files: ^services/backend/
+        files: ^backend/
       - id: backend-ruff-format
         name: backend ruff format
-        entry: uv run --project services/backend ruff format --config services/backend/pyproject.toml
+        entry: uv run --project backend ruff format --config backend/pyproject.toml
         language: system
         types: [python]
-        files: ^services/backend/
+        files: ^backend/
       - id: backend-tests
         name: backend security + contract tests
-        entry: bash -c 'cd services/backend && uv run --project . python -m pytest tests/test_audio_processing_security.py tests/test_domain_contracts.py -q'
+        entry: bash -c 'cd backend && uv run --project . python -m pytest tests/test_audio_processing_security.py tests/test_domain_contracts.py -q'
         language: system
         pass_filenames: false
-        files: ^services/backend/
+        files: ^backend/
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0

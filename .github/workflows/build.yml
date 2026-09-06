@@ -52,9 +52,9 @@ jobs:
             dependencies:
               - 'package.json'
               - 'package-lock.json'
-              - 'services/backend/pyproject.toml'
-              - 'services/backend/uv.lock'
-              - 'services/backend/requirements*.txt'
+              - 'backend/pyproject.toml'
+              - 'backend/uv.lock'
+              - 'backend/requirements*.txt'
               - '.github/dependency-review.yml'
 
   preflight:
@@ -78,9 +78,9 @@ jobs:
         with:
           version: '0.12.9'
           enable-cache: true
-          cache-dependency-glob: 'services/backend/uv.lock'
+          cache-dependency-glob: 'backend/uv.lock'
       - name: Sync locked backend environment
-        run: uv sync --project services/backend --locked
+        run: uv sync --project backend --locked
       - name: Run fail-fast repository preflight
         run: npm run check:preflight
 
@@ -134,10 +134,10 @@ jobs:
         with:
           version: '0.12.9'
           enable-cache: true
-          cache-dependency-glob: 'services/backend/uv.lock'
+          cache-dependency-glob: 'backend/uv.lock'
       - name: Sync locked backend environment
         if: steps.token.outputs.ok == 'true'
-        run: uv sync --project services/backend --locked
+        run: uv sync --project backend --locked
       - name: Apply deterministic Python autofixes
         if: steps.token.outputs.ok == 'true'
         run: bash scripts/fix.sh python
@@ -195,7 +195,7 @@ jobs:
           trap 'rm -rf "$deploy_dir"' EXIT
           rsync -a --exclude-from=.vercelignore --exclude='.git/' --exclude='.next/' --exclude='apps/web/.next/' --exclude='node_modules/' ./ "$deploy_dir/"
           test ! -e "$deploy_dir/apps/web/tests"
-          test ! -e "$deploy_dir/services/backend"
+          test ! -e "$deploy_dir/backend"
           test -f "$deploy_dir/apps/web/src/app/_test-support/msw/fixtures/sample-wav.ts"
           ln -s "$GITHUB_WORKSPACE/node_modules" "$deploy_dir/node_modules"
           (cd "$deploy_dir" && npm run build)

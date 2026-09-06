@@ -98,7 +98,7 @@ TBLS_DSN="pg://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable"
 tbls diff "$TBLS_DSN" docs/generated/database --config supabase/tbls.yml
 
 echo "── Locked backend + worker environment ──"
-uv sync --project services/backend --locked --group worker
+uv sync --project backend --locked --group worker
 
 echo "── Backend integration tests ──"
 eval "$(supabase_in_check status -o env)"
@@ -109,6 +109,6 @@ export DB_URL
 export SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
 export SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
 export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
-(cd services/backend && uv run --project . python -m pytest tests/ -m real_stack -v)
+(cd backend && uv run --project . python -m pytest tests/ -m real_stack -v)
 
 echo "database check passed"

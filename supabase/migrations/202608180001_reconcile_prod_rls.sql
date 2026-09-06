@@ -1,5 +1,5 @@
 -- Forward repair: reconcile the production database with the canonical schema
--- encoded by the migration set and enforced by services/backend/tests/test_rls_domain.py.
+-- encoded by the migration set and enforced by backend/tests/test_rls_domain.py.
 --
 -- Two sources of drift existed on the production Supabase project:
 --
@@ -30,7 +30,7 @@ drop index if exists jobs_created_at_idx;
 
 -- ── models: vestigial LoRA-adapter table ────────────────────────────────────
 -- Dropped by the canonical cleanup (20260729_cleanup_vestigial.sql); not part
--- of the domain schema (no services/backend/domain model references it).
+-- of the domain schema (no backend/domain model references it).
 drop table if exists public.models cascade;
 
 -- ── storage: remove legacy permissive/anon policies ─────────────────────────

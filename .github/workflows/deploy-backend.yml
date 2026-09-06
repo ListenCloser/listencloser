@@ -13,11 +13,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'services/backend/**'
-      - '!services/backend/evaluation/**'
-      - '!services/backend/tests/**'
-      - 'services/backend/Dockerfile'
-      - 'services/backend/docker-compose.yml'
+      - 'backend/**'
+      - '!backend/evaluation/**'
+      - '!backend/tests/**'
+      - 'backend/Dockerfile'
+      - 'backend/docker-compose.yml'
       - '.github/workflows/deploy-backend.yml'
       - 'scripts/classify_production_scope.py'
       - 'scripts/deploy.sh'
@@ -123,7 +123,7 @@ jobs:
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             --tag "$image_ref" \
-            services/backend
+            backend
           docker push "$image_ref"
           echo "Published $image_ref"
 

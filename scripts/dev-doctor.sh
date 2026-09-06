@@ -134,7 +134,7 @@ else
   fail "package-lock.json missing"
 fi
 
-if [ -f services/backend/uv.lock ] && [ -f services/backend/pyproject.toml ]; then
+if [ -f backend/uv.lock ] && [ -f backend/pyproject.toml ]; then
   ok "backend pyproject.toml + uv.lock present"
 else
   fail "backend locked dependency authority is incomplete"

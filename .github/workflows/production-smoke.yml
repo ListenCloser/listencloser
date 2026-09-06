@@ -99,7 +99,7 @@ jobs:
             sleep 10
           done
 
-      - name: Wait for exact services/backend/database deploy workflow to finish
+      - name: Wait for exact backend/database deploy workflow to finish
         if: steps.scope.outputs.backend == 'true' || steps.scope.outputs.database == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}

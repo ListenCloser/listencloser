@@ -22,7 +22,7 @@ The repository is a small monorepo with one deployable web workspace and one
 independent Python service project. The root `package.json` owns the shared
 developer command contract and delegates frontend work to `apps/web`; the web
 workspace owns Next.js routes, React components, browser tests, and generated
-TypeScript API types. `services/backend` owns the FastAPI API, durable worker,
+TypeScript API types. `backend` owns the FastAPI API, durable worker,
 Python tests, and its locked `uv` environment. Supabase migrations, the checked
 OpenAPI document, deployment configuration, and cross-package verification stay
 at the repository root so they cannot be mistaken for runtime-owned code.
@@ -75,7 +75,7 @@ flowchart LR
 
 The browser never receives the worker-host credential and never talks to that host directly. The proxy forwards the user's bearer token. Output objects are exposed through short-lived signed URLs rather than public storage objects.
 
-Exact music engines and capability maturity must be read from current code and `services/backend/config/capabilities.json`; architecture docs should describe stable responsibilities rather than freeze implementation names that may be replaced.
+Exact music engines and capability maturity must be read from current code and `backend/config/capabilities.json`; architecture docs should describe stable responsibilities rather than freeze implementation names that may be replaced.
 
 ## Deployment topology
 
@@ -117,7 +117,7 @@ Deployment-specific hostnames, credentials, exact image contents, and release pr
 
 ## Durable `understand` workflow
 
-The API creates one workflow and one queued job. `services/backend/worker.py` claims the job and the composite understand capability runs ordered stages that currently include transcription, analysis, and notation/rendering work.
+The API creates one workflow and one queued job. `backend/worker.py` claims the job and the composite understand capability runs ordered stages that currently include transcription, analysis, and notation/rendering work.
 
 ```mermaid
 sequenceDiagram
@@ -241,7 +241,7 @@ There are two different kinds of architecture evidence and they should not be co
 | Surface | OSS source | Current contract |
 | --- | --- | --- |
 | TypeScript/JavaScript imports | dependency-cruiser | Required CI rejects cycles, unresolvable imports, production→test imports, and static production→mock imports; [`generated/frontend-dependencies.md`](generated/frontend-dependencies.md) is regenerated and checked. |
-| Python imports | Import Linter + Grimp | Required CI enforces the accepted production/evaluation package boundary from `services/backend/.importlinter`. |
+| Python imports | Import Linter + Grimp | Required CI enforces the accepted production/evaluation package boundary from `backend/.importlinter`. |
 | Python package declarations | deptry | Shipped-backend characterization is complete; promotion to a permanent gate waits for the canonical backend manifest/lock migration so dependency cleanup does not race it. |
 | PostgreSQL/Supabase schema | tbls | [`generated/database/README.md`](generated/database/README.md) is generated from fresh local Postgres and Database Integration fails when it drifts. |
 

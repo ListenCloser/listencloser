@@ -12,10 +12,10 @@ build
 .env
 
 # Python backend
-services/backend/.venv/
+backend/.venv/
 __pycache__/
 *.pyc
-services/backend/__pycache__/
+backend/__pycache__/
 
 *.tsbuildinfo
 
@@ -65,10 +65,10 @@ data/
 docs/FILE_AUDIT.md
 
 # Real-world music evaluation dataset cache (never commit audio/MIDI)
-services/backend/evaluation/.cache/
-services/backend/evaluation/reports/*.json
+backend/evaluation/.cache/
+backend/evaluation/reports/*.json
 
 # External research corpora are acquired locally, not vendored or gitlinked.
-services/backend/evaluation/corpora/bps-fh/
-services/backend/evaluation/corpora/mozart_piano_sonatas/
-services/backend/evaluation/corpora/romantic_piano_corpus/
+backend/evaluation/corpora/bps-fh/
+backend/evaluation/corpora/mozart_piano_sonatas/
+backend/evaluation/corpora/romantic_piano_corpus/

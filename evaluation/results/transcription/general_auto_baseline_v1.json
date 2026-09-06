@@ -22,7 +22,7 @@
     "real_audio_v1_legacy_strict": {
       "measurement_date": "2026-08-12",
       "measurement_sha": "7057c1c247fb2770fee5f5e418479cbf69bd4619",
-      "source_artifact": "services/backend/evaluation/reports/real_audio_v1.md",
+      "source_artifact": "backend/evaluation/reports/real_audio_v1.md",
       "source_artifact_blob_sha": "a81b4aa0953ec5e58ade0bd3359241a13e1057da",
       "corpus": {
         "name": "real_audio_v1",
@@ -108,7 +108,7 @@
     "source_separation_legacy_strict": {
       "measurement_date": "2026-08-12",
       "measurement_sha": "7057c1c247fb2770fee5f5e418479cbf69bd4619",
-      "source_artifact": "services/backend/evaluation/reports/source_separation_v1.md",
+      "source_artifact": "backend/evaluation/reports/source_separation_v1.md",
       "source_artifact_blob_sha": "c4aa7a7fd64f8f171b5d3e7ca4c0cdc984dab0e1",
       "pipeline": "Demucs htdemucs 4.0.1 plus Basic Pitch 0.5/0.3 on five 20-second BabySlakh mixtures.",
       "baseline": {

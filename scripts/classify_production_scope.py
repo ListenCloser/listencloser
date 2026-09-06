@@ -42,10 +42,10 @@ DATABASE_DEPLOY_PREFIXES = ("supabase/migrations/",)
 
 # Vercel skipping is deliberately stricter than generic production classification.
 # Only paths already excluded from the Vercel source context, obvious docs, or paths
-# owned exclusively by the services/backend/database deploy contract may skip a frontend build.
+# owned exclusively by the backend/database deploy contract may skip a frontend build.
 VERCEL_SAFE_NONFRONTEND_PREFIXES = (
     "apps/web/tests/",
-    "services/backend/",
+    "backend/",
     "docs/",
     "soundfonts/",
 )
@@ -53,9 +53,9 @@ VERCEL_SAFE_NONFRONTEND_PREFIXES = (
 
 def _is_backend_runtime(path: str) -> bool:
     return (
-        path.startswith("services/backend/")
-        and not path.startswith("services/backend/evaluation/")
-        and not path.startswith("services/backend/tests/")
+        path.startswith("backend/")
+        and not path.startswith("backend/evaluation/")
+        and not path.startswith("backend/tests/")
     )
 
 
@@ -124,12 +124,12 @@ def _vercel_changed_paths() -> list[str]:
 def _self_test() -> None:
     assert production_components(["README.md"]) == set()
     assert production_components(["docs/PLATFORM.md"]) == set()
-    assert production_components(["services/backend/evaluation/foo.py"]) == set()
-    assert production_components(["services/backend/tests/test_worker.py"]) == set()
+    assert production_components(["backend/evaluation/foo.py"]) == set()
+    assert production_components(["backend/tests/test_worker.py"]) == set()
     assert production_components(["apps/web/src/components/workspace/Inspector.tsx"]) == {"frontend"}
     assert production_components(["apps/web/src/app/api/health/live/route.ts"]) == {"frontend"}
     assert production_components(["vercel.json"]) == {"frontend"}
-    assert production_components(["services/backend/domain/job_worker.py"]) == {"backend"}
+    assert production_components(["backend/domain/job_worker.py"]) == {"backend"}
     assert production_components(["supabase/migrations/20260828.sql"]) == {"database"}
     assert production_components(["supabase/config.toml"]) == {"database"}
     assert production_components(["scripts/deploy.sh"]) == {"backend"}
@@ -143,16 +143,16 @@ def _self_test() -> None:
         "database",
     }
     assert production_components(
-        ["apps/web/src/components/workspace/Inspector.tsx", "services/backend/domain/job_worker.py"]
+        ["apps/web/src/components/workspace/Inspector.tsx", "backend/domain/job_worker.py"]
     ) == {"frontend", "backend"}
     assert production_components(
-        ["services/backend/domain/job_worker.py", "supabase/migrations/20260828.sql"]
+        ["backend/domain/job_worker.py", "supabase/migrations/20260828.sql"]
     ) == {"backend", "database"}
 
     assert should_ignore_vercel_build(["README.md"])
     assert should_ignore_vercel_build(["docs/PLATFORM.md"])
-    assert should_ignore_vercel_build(["services/backend/evaluation/foo.py"])
-    assert should_ignore_vercel_build(["services/backend/domain/job_worker.py"])
+    assert should_ignore_vercel_build(["backend/evaluation/foo.py"])
+    assert should_ignore_vercel_build(["backend/domain/job_worker.py"])
     assert should_ignore_vercel_build(["apps/web/tests/e2e/example.spec.ts"])
     assert should_ignore_vercel_build(["supabase/migrations/20260828.sql"])
     assert should_ignore_vercel_build(["supabase/config.toml"])
@@ -164,7 +164,7 @@ def _self_test() -> None:
     assert not should_ignore_vercel_build([".npmrc"])
     assert not should_ignore_vercel_build(["scripts/check.sh"])
     assert not should_ignore_vercel_build(
-        ["services/backend/domain/job_worker.py", "apps/web/next.config.mjs"]
+        ["backend/domain/job_worker.py", "apps/web/next.config.mjs"]
     )
 
 

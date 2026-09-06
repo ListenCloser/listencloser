@@ -5,13 +5,13 @@ This directory stores **durable evaluation evidence**, not production runtime co
 ## Ownership boundary
 
 ```text
-services/backend/evaluation/
+backend/evaluation/
   executable Python evaluators, metrics, dataset/corpus adapters, manifests and engine wrappers
 
 evaluation/
   checked-in result artifacts and focused non-runtime evaluation evidence
 
-docs/ + services/backend/config/capabilities.json
+docs/ + backend/config/capabilities.json
   synthesized decisions and product exposure policy
 ```
 

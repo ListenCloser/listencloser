@@ -8,7 +8,7 @@ import type { RepresentationId } from "@/lib/representations";
  * Derived — never a second source of truth — from the same existing
  * workspace/transport state that drives the rest of the app. Sent to the
  * POST /api/v1/ask endpoint alongside the question; the backend contracts
- * against the same shape (see services/backend/ask/contracts.py).
+ * against the same shape (see backend/ask/contracts.py).
  */
 export type AskContext = {
   workId: string;

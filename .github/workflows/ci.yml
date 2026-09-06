@@ -29,9 +29,9 @@ jobs:
         with:
           version: '0.12.9'
           enable-cache: true
-          cache-dependency-glob: 'services/backend/uv.lock'
+          cache-dependency-glob: 'backend/uv.lock'
       - name: Sync locked backend environment
-        run: uv sync --project services/backend --locked
+        run: uv sync --project backend --locked
       - name: Install system dependencies for backend unit tests
         run: |
           sudo apt-get update

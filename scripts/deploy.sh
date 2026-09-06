@@ -9,7 +9,7 @@ set -euo pipefail
 
 REPO_DIR="${DEPLOY_DIR:-$HOME/hello-ai}"
 REPO_URL="https://github.com/ListenCloser/listencloser.git"
-COMPOSE="${DOCKER_COMPOSE_FILE:-services/backend/docker-compose.yml}"
+COMPOSE="${DOCKER_COMPOSE_FILE:-backend/docker-compose.yml}"
 BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
 HEALTH_URL="${BACKEND_URL}/health/ready"
 QUEUE_HEALTH_URL="${BACKEND_URL}/health/queue"
@@ -127,7 +127,7 @@ resolve_prebuilt_image() {
 write_runtime_env() {
   if [ -n "${SUPABASE_URL:-}" ] || [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
     echo "[deploy] writing .env from environment"
-    local env_file="$REPO_DIR/services/backend/.env"
+    local env_file="$REPO_DIR/backend/.env"
     # Truncate any stale secret material, then restrict the file before writing
     # fresh credentials. Do not rely on the deployment host's ambient umask.
     : > "$env_file"
@@ -154,7 +154,7 @@ ENVEOF
 set_runtime_env_value() {
   local key="$1"
   local value="$2"
-  local env_file="$REPO_DIR/services/backend/.env"
+  local env_file="$REPO_DIR/backend/.env"
   [ -f "$env_file" ] || return 0
   if grep -q "^${key}=" "$env_file"; then
     sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
@@ -207,7 +207,7 @@ write_runtime_env
 use_numba_cache_for_release "$TARGET_HEAD"
 
 echo "[deploy] running pytest gate"
-cd "$REPO_DIR/services/backend"
+cd "$REPO_DIR/backend"
 if python3 -m pytest --version >/dev/null 2>&1; then
   python3 -m pytest tests/ -x -q 2>&1 || { echo "[deploy] pytest failed — aborting"; exit 1; }
 else
@@ -260,8 +260,8 @@ rollback() {
     docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans --no-build backend worker
   else
     git reset --hard "$PREV_HEAD"
-    if [ -f "$REPO_DIR/services/backend/.env" ]; then
-      sed -i "s/^RELEASE=.*/RELEASE=${PREV_HEAD}/" "$REPO_DIR/services/backend/.env"
+    if [ -f "$REPO_DIR/backend/.env" ]; then
+      sed -i "s/^RELEASE=.*/RELEASE=${PREV_HEAD}/" "$REPO_DIR/backend/.env"
     fi
     docker compose -f "$COMPOSE" build backend worker
     docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans backend worker

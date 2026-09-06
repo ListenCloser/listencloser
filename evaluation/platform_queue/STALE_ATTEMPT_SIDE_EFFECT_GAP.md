@@ -31,7 +31,7 @@ Storage writes alone are less dangerous than durable row publication: private bl
 
 ## Executable characterization
 
-`services/backend/tests/integration/test_stale_attempt_side_effects.py` uses the real disposable Supabase schema, real `JobWorker` lease/recovery methods, and the normal `_create_output_version()` production helper:
+`backend/tests/integration/test_stale_attempt_side_effects.py` uses the real disposable Supabase schema, real `JobWorker` lease/recovery methods, and the normal `_create_output_version()` production helper:
 
 1. worker A claims and starts a Job;
 2. A's lease is forced expired;

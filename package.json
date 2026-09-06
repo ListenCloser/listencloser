@@ -2,7 +2,7 @@
   "name": "listencloser-monorepo",
   "version": "2.0.0",
   "private": true,
-  "description": "Listen Closer monorepo: web workspace, Python services, and shared infrastructure.",
+  "description": "Listen Closer monorepo: web workspace, Python backend, and shared infrastructure.",
   "packageManager": "npm@10.9.9",
   "engines": {
     "node": "22.x"

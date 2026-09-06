@@ -4,7 +4,7 @@
 >
 > Use this page to discover relevant MIR fields, OSS projects, datasets, research communities, and product references. Before adopting anything, verify the current upstream project, code/weight/data licenses, runtime fit, and the repository's current evidence.
 >
-> **Current decisions live elsewhere:** `../EVALUATION_DECISIONS.md`, `../EVALUATION_METHODOLOGY.md`, `services/backend/config/capabilities.json`, focused GitHub issues, and production code/config. A candidate appearing here does not mean it should be evaluated or adopted next.
+> **Current decisions live elsewhere:** `../EVALUATION_DECISIONS.md`, `../EVALUATION_METHODOLOGY.md`, `backend/config/capabilities.json`, focused GitHub issues, and production code/config. A candidate appearing here does not mean it should be evaluated or adopted next.
 
 ## Why this exists
 

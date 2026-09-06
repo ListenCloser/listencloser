@@ -2,6 +2,6 @@
 * @gr-rr
 
 # Backend security-critical paths — require the security test to stay green.
-/services/backend/ @gr-rr
+/backend/ @gr-rr
 /.github/workflows/ @gr-rr
 /AGENTS.md @gr-rr
