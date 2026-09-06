@@ -162,6 +162,7 @@ describe("PassageCompare", () => {
     });
     expect(await screen.findByText("The selected passages differ in measured perceptual evidence.")).toBeVisible();
     expect(screen.getByText("One promoted measurement supports this comparison.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /Evidence/ }));
     expect(screen.getByText("Median RMS amplitude is 20.0% higher than in the comparison span.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Focus B" }));

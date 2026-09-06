@@ -1,26 +1,34 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+const APP = join(process.cwd(), "app");
+
 function rootCustomProperties(path: string): string[] {
   const css = readFileSync(path, "utf8");
-  const rootBlock = css.match(/:root\s*\{([\s\S]*?)\}/)?.[1];
-  if (!rootBlock) return [];
-
-  return [...rootBlock.matchAll(/(^|\n)\s*(--[\w-]+)\s*:/g)].map((match) => match[2]);
+  const names: string[] = [];
+  for (const match of css.matchAll(/:root\s*\{([\s\S]*?)\}/g)) {
+    if (match.index === undefined) continue;
+    const enclosingHeader =
+      css.slice(0, match.index).split(/[{};]/).map((part) => part.trim()).filter(Boolean).at(-1) ?? "";
+    if (enclosingHeader.startsWith("@media")) continue;
+    names.push(...[...match[1].matchAll(/(^|\n)\s*(--[\w-]+)\s*:/g)].map((item) => item[2]));
+  }
+  return names;
 }
 
 describe("global CSS ownership", () => {
-  it("keeps workspace and product root tokens single-owned", () => {
-    const workspaceTokens = new Set(
-      rootCustomProperties(join(process.cwd(), "app/workspace-v3.css")),
-    );
-    const productTokens = rootCustomProperties(
-      join(process.cwd(), "app/product-polish-v4.css"),
-    );
+  it("keeps ordinary chrome tokens single-owned by app/tokens.css", () => {
+    const canonical = new Set(rootCustomProperties(join(APP, "tokens.css")));
 
-    const duplicateTokens = productTokens.filter((token) => workspaceTokens.has(token));
+    const offenders = readdirSync(APP)
+      .filter((entry) => entry.endsWith(".css") && entry !== "tokens.css")
+      .flatMap((entry) =>
+        rootCustomProperties(join(APP, entry))
+          .filter((token) => canonical.has(token))
+          .map((token) => `${entry}:${token}`),
+      );
 
-    expect(duplicateTokens).toEqual([]);
+    expect(offenders).toEqual([]);
   });
 });

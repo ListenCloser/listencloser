@@ -27,7 +27,7 @@ vi.mock("@/components/workspace/representations/Spectrogram", () => ({
   ),
 }));
 
-vi.mock("@/components/SheetMusic", () => ({
+vi.mock("@/components/workspace/representations/SheetMusic", () => ({
   default: ({ annotations = [] }: { annotations?: unknown[] }) => (
     <output data-testid="score-annotation-count">{annotations.length}</output>
   ),

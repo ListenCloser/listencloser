@@ -17,22 +17,15 @@ subgraph app["app"]
   subgraph app_auth["auth"]
     app_auth_[" "]
   end
-  app_breakdown_css["breakdown.css"]
   app_global_error_tsx["global-error.tsx"]
   app_globals_css["globals.css"]
-  app_interface_foundation_css["interface-foundation.css"]
   app_landing_product_story_css["landing-product-story.css"]
   app_layout_tsx["layout.tsx"]
   app_mobile_workspace_css["mobile-workspace.css"]
   app_page_tsx["page.tsx"]
-  app_product_polish_v4_css["product-polish-v4.css"]
-  app_readiness_css["readiness.css"]
   app_representation_visuals_css["representation-visuals.css"]
   app_tokens_contrast_test_mjs["tokens-contrast.test.mjs"]
   app_tokens_css["tokens.css"]
-  app_visual_language_css["visual-language.css"]
-  app_workspace_interactions_css["workspace-interactions.css"]
-  app_workspace_v3_css["workspace-v3.css"]
 end
 subgraph components["components"]
   components_AuthProvider_tsx["AuthProvider.tsx"]
@@ -104,18 +97,11 @@ end
 app__test_support_-->lib_notes_ts
 app_api_-->lib_backend_ts
 app_auth_-->lib_supabase_ts
-app_layout_tsx-->app_breakdown_css
 app_layout_tsx-->app_globals_css
-app_layout_tsx-->app_interface_foundation_css
 app_layout_tsx-->app_landing_product_story_css
 app_layout_tsx-->app_mobile_workspace_css
-app_layout_tsx-->app_product_polish_v4_css
-app_layout_tsx-->app_readiness_css
 app_layout_tsx-->app_representation_visuals_css
 app_layout_tsx-->app_tokens_css
-app_layout_tsx-->app_visual_language_css
-app_layout_tsx-->app_workspace_interactions_css
-app_layout_tsx-->app_workspace_v3_css
 app_layout_tsx-->components_AuthProvider_tsx
 app_layout_tsx-->components_MSWInit_tsx
 app_layout_tsx-->components_QueryProvider_tsx

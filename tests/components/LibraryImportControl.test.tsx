@@ -51,11 +51,11 @@ describe("LibraryImportControl", () => {
 
     expect(onUpload).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "Process recording" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Auto" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "MuseScore" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("radio", { name: "Auto" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "MuseScore" })).toHaveAttribute("aria-checked", "true");
 
-    await user.click(screen.getByRole("button", { name: "Solo piano" }));
-    await user.click(screen.getByRole("button", { name: "PM2S" }));
+    await user.click(screen.getByRole("radio", { name: "Solo piano" }));
+    await user.click(screen.getByRole("radio", { name: "PM2S" }));
     await user.click(screen.getByRole("button", { name: "Choose audio" }));
 
     expect(onTranscriptionProfileChange).toHaveBeenCalledWith("solo_piano");

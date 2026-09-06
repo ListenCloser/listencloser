@@ -120,4 +120,37 @@ describe("frontend visual ownership", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it("does not reintroduce Tailwind as a styling dependency", () => {
+    const pkg = read("package.json");
+    expect(pkg).not.toMatch(/"tailwindcss"|"@tailwindcss\/postcss"|"postcss"/);
+    expect(existsSync(join(ROOT, "postcss.config.mjs"))).toBe(false);
+    expect(existsSync(join(ROOT, "postcss.config.js"))).toBe(false);
+    expect(existsSync(join(ROOT, "postcss.config.cjs"))).toBe(false);
+
+    const globals = read("app/globals.css");
+    expect(globals).not.toMatch(/@import\s+["']tailwindcss["']/i);
+    expect(globals).not.toMatch(/@(?:apply|config|plugin|tailwind|theme|utility|reference)\b/);
+  });
+
+  it("keeps Lucide behind the UI icon boundary", () => {
+    const iconBoundary = join(ROOT, "components", "ui", "Icons.tsx");
+    const sourceRoots = ["components", "app", "lib"].map((part) => join(ROOT, part));
+    const offenders = sourceRoots
+      .flatMap((root) => sourceFiles(root))
+      .filter((path) => path !== iconBoundary)
+      .filter((path) => /from\s+["']lucide-react["']|require\(["']lucide-react["']\)/.test(readFileSync(path, "utf8")))
+      .map((path) => relative(ROOT, path));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("routes workspace icon imports through components/ui", () => {
+    const workspaceRoot = join(ROOT, "components", "workspace");
+    const offenders = sourceFiles(workspaceRoot)
+      .filter((path) => /from\s+["']lucide-react["']/.test(readFileSync(path, "utf8")))
+      .map((path) => relative(ROOT, path));
+
+    expect(offenders).toEqual([]);
+  });
 });

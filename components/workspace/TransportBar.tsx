@@ -170,7 +170,7 @@ export default function TransportBar() {
     <footer className={styles.root} aria-label="Playback">
       <div className={styles.sourceZone}>
         <ListboxMenu
-          triggerLabel={activeSource ? activeSource.label : "Choose source"}
+          triggerLabel={activeSource ? `Listening · ${activeSource.label}` : "Choose source"}
           triggerAria={`Playback source: ${activeSource ? activeSource.label : "none"}`}
           options={sources.map((item) => ({ id: item.id, label: item.label }))}
           selectedId={activeSource?.id ?? null}

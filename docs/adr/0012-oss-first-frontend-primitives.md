@@ -32,7 +32,7 @@ For new generic application controls, the preferred stack is:
 
 - **shadcn/ui** as the local component/composition layer;
 - **Base UI** as the default underlying accessible primitive layer;
-- existing **Tailwind CSS v4 + CSS variables** for visual styling and design tokens.
+- existing **CSS-variable design tokens + CSS Modules** for visual styling and design tokens.
 
 Base UI is preferred for new migrations because it is unstyled, WAI-ARIA-oriented, handles keyboard/focus/pointer behavior, and is the current default base for new shadcn/ui projects. Radix or React Aria may be used when an existing component or concrete requirement makes them a materially better fit; do not mix bases casually.
 

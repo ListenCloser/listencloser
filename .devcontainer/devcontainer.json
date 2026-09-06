@@ -7,8 +7,7 @@
     "vscode": {
       "extensions": [
         "dbaeumer.vscode-eslint",
-        "ms-python.python",
-        "bradlc.vscode-tailwindcss"
+        "ms-python.python"
       ]
     }
   }

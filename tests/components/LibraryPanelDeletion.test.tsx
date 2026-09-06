@@ -92,11 +92,18 @@ beforeEach(() => {
 });
 
 describe("LibraryPanel deletion selection ownership", () => {
+  async function confirmDelete(user: ReturnType<typeof userEvent.setup>) {
+    const dialog = screen.getByRole("dialog", { name: "Delete recording?" });
+    expect(dialog).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete recording" }));
+  }
+
   it("preserves the active Work passage when deleting another recording", async () => {
     const user = userEvent.setup();
     render(<LibraryPanel />);
 
     await user.click(screen.getByRole("button", { name: "Delete Other recording" }));
+    await confirmDelete(user);
 
     await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalledWith("work-b"));
     expect(mocks.clearSelection).not.toHaveBeenCalled();
@@ -110,6 +117,7 @@ describe("LibraryPanel deletion selection ownership", () => {
     render(<LibraryPanel />);
 
     await user.click(screen.getByRole("button", { name: "Delete Active recording" }));
+    await confirmDelete(user);
 
     await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalledWith("work-a"));
     expect(mocks.clearSelection).toHaveBeenCalledTimes(1);

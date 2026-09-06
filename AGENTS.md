@@ -36,7 +36,7 @@ Do not copy, vendor, or reimplement unlicensed source code.
 
 Apply the same ownership discipline to commodity frontend behavior: **own the product; borrow the primitives.**
 
-- Prefer maintained accessible OSS primitives for generic controls and browser interaction mechanics. The default direction is shadcn/ui backed by Base UI, styled with the repository's existing Tailwind/CSS-variable design system.
+- Prefer maintained accessible OSS primitives for generic controls and browser interaction mechanics. The default direction is shadcn/ui backed by Base UI, styled with the repository's existing CSS-variable design tokens and CSS Modules.
 - Do not hand-roll dropdown/select/combobox, menu, dialog, tooltip, popover, tabs, switch, accordion, drawer/sheet, focus-trap, roving-tabindex, outside-click, or equivalent generic interaction machinery when the standard primitive satisfies the product contract.
 - ListenCloser owns product composition, visual language, and music-specific behavior. Score, Piano Roll, musical selection, evidence overlays, cross-representation synchronization, immutable source/version semantics, and music-specific transport/compare behavior may remain bespoke.
 - TanStack Query owns remote/server-state cache lifecycle. Do not build a second generic cache, retry, polling, or invalidation framework on top of it without measured justification.

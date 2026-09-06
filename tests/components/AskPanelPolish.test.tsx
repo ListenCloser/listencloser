@@ -37,10 +37,9 @@ describe("AskPanel polish", () => {
     const send = screen.getByRole("button", { name: "Send question" });
     expect(send).toBeDisabled();
     const icon = send.querySelector("svg");
-    expect(icon).toHaveAttribute("viewBox", "0 0 16 16");
     expect(icon).toHaveAttribute("aria-hidden", "true");
-    expect(icon).not.toHaveAttribute("width");
-    expect(icon).not.toHaveAttribute("height");
+    expect(icon).toHaveAttribute("viewBox", "0 0 24 24");
+    expect(icon?.classList.contains("lucide-arrow-right")).toBe(true);
   });
 
   it("consumes shared selection without duplicating its clear control", () => {

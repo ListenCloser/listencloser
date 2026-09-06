@@ -46,7 +46,11 @@ export function WorkRow({
 }) {
   const title = presentableTitle(work.title);
   const pointerPrefetchRef = useRef<number | null>(null);
-  const status = isDeleting ? "Deleting…" : isLoading ? "Opening…" : null;
+  // A library row describes durable availability, not whatever part of the
+  // selected work happens to have hydrated into the workspace store. The old
+  // Imported/Ready/Analyzed labels therefore changed as you clicked between
+  // rows even though nothing about the saved recording had changed.
+  const status = isDeleting ? "Deleting" : isLoading ? "Opening" : "Ready";
 
   const cancelPointerPrefetch = () => {
     if (pointerPrefetchRef.current === null) return;
