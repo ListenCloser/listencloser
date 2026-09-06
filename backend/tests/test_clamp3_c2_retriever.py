@@ -5,7 +5,10 @@ from types import SimpleNamespace
 import mido
 import pytest
 
-from engines.retrieval.clamp3_c2 import CLaMP3TextPerformanceRetriever
+from engines.retrieval.clamp3_c2 import (
+    CLAMP3_C2_WEIGHT_SHA256,
+    CLaMP3TextPerformanceRetriever,
+)
 from engines.retrieval.clamp3_c2_runtime import (
     _timed_events,
     _window_starts,
@@ -61,7 +64,7 @@ def test_c2_retriever_forces_offline_child_and_parses_bounded_result(monkeypatch
         runtime_python=str(runtime_python),
         checkout_path=str(checkout),
         weight_path=str(weights),
-        weight_sha256="a" * 64,
+        weight_sha256=CLAMP3_C2_WEIGHT_SHA256,
         text_model_path=str(text),
         text_dir_sha256="b" * 64,
     )
@@ -112,12 +115,18 @@ def test_c2_retriever_forces_offline_child_and_parses_bounded_result(monkeypatch
     assert result.candidates[0].start_seconds == 5.0
     assert result.embedding_dim == 768
     assert result.provenance["model"] == "CLaMP3-C2"
+    assert result.provenance["checkpoint_sha256"] == CLAMP3_C2_WEIGHT_SHA256
     assert result.provenance["rights_classification"] == "permissive"
     assert result.provenance["canonical_default"] is False
     assert result.provenance["music_modality"] == "performance_midi_mtf"
     assert child_env["HF_HUB_OFFLINE"] == "1"
     assert child_env["HF_DATASETS_OFFLINE"] == "1"
     assert child_env["TRANSFORMERS_OFFLINE"] == "1"
+
+
+def test_c2_retriever_rejects_checkpoint_digest_override():
+    with pytest.raises(ValueError, match="pinned release"):
+        CLaMP3TextPerformanceRetriever(weight_sha256="a" * 64)
 
 
 def test_c2_retriever_rejects_out_of_bounds_child_result(monkeypatch, tmp_path):
