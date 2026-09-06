@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { clearWorkDataCache, getInsights } from "@/lib/api-client";
 import type { Insight } from "@/lib/domain.types";
+import { waitForJob } from "@/lib/job-tracking";
 import {
   startChordMiniInterpretation,
   type HarmonyInterpretationEngine,
-} from "@/lib/harmony-interpretation-client";
-import { waitForJob } from "@/lib/job-tracking";
+} from "@/lib/relation-api-client";
 import { useWorkspace } from "@/lib/stores/workspace";
 
 const HARMONY_KINDS = new Set(["chord", "roman_numeral", "harmonic_function"]);
