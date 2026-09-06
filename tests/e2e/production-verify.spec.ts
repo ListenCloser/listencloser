@@ -306,7 +306,7 @@ test("D: real Pitch Contour job is accepted, executed, and completes", async ({
   ).toBe(200);
   const created = await createResponse.json();
   const jobId = created.job?.id as string;
-  expect(created.job?.capability).toBe("pitch_contour");
+  expect(created.job?.capability?.name).toBe("pitch_contour");
   expect(jobId).toBeTruthy();
 
   let stage = "";
