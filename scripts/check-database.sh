@@ -109,6 +109,6 @@ export DB_URL
 export SUPABASE_URL="${SUPABASE_URL:-${API_URL:-http://127.0.0.1:54321}}"
 export SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SERVICE_ROLE_KEY}}"
 export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-${ANON_KEY}}"
-uv run --project backend python -m pytest backend/tests/ -m real_stack -v
+(cd backend && uv run --project . python -m pytest tests/ -m real_stack -v)
 
 echo "database check passed"

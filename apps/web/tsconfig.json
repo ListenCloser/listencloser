@@ -17,7 +17,7 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "types": ["node", "vitest/globals"],
-    "paths": { "@/*": ["./*"] }
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": [
     "next-env.d.ts",

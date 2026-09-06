@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import PianoRollCorrectionPanel from "../components/workspace/PianoRollCorrectionPanel";
-import type { EditablePianoRollNote } from "../lib/piano-roll-correction";
-import { useWorkspace, WorkspaceProvider } from "../lib/stores/workspace";
+import PianoRollCorrectionPanel from "@/components/workspace/PianoRollCorrectionPanel";
+import type { EditablePianoRollNote } from "@/lib/piano-roll-correction";
+import { useWorkspace, WorkspaceProvider } from "@/lib/stores/workspace";
 
 const source: EditablePianoRollNote[] = [
   { id: "target", pitch: 60, start: 0.5, end: 1.0, velocity: 90 },

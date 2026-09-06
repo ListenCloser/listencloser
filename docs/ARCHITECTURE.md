@@ -16,6 +16,17 @@ The maintained views are intentionally small:
 
 Do not add a component/code diagram merely to show every module. Import/schema facts that can be derived mechanically should be generated from code/schema and enforced by tooling rather than copied into prose.
 
+## Repository boundaries
+
+The repository is a small monorepo with one deployable web workspace and one
+independent Python service project. The root `package.json` owns the shared
+developer command contract and delegates frontend work to `apps/web`; the web
+workspace owns Next.js routes, React components, browser tests, and generated
+TypeScript API types. `backend` owns the FastAPI API, durable worker,
+Python tests, and its locked `uv` environment. Supabase migrations, the checked
+OpenAPI document, deployment configuration, and cross-package verification stay
+at the repository root so they cannot be mistaken for runtime-owned code.
+
 ## User experience
 
 1. Sign in with Supabase Auth.

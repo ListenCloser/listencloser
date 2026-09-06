@@ -19,7 +19,7 @@ repos:
         files: ^backend/
       - id: backend-tests
         name: backend security + contract tests
-        entry: uv run --project backend python -m pytest backend/tests/test_security.py backend/tests/test_contract.py -q
+        entry: bash -c 'cd backend && uv run --project . python -m pytest tests/test_audio_processing_security.py tests/test_domain_contracts.py -q'
         language: system
         pass_filenames: false
         files: ^backend/

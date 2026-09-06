@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import capabilityRegistry from "@/backend/config/capabilities.json";
+import capabilityRegistry from "../../../../backend/config/capabilities.json";
 import {
   ASK_EXPOSED_KINDS,
   INSPECTOR_EXPOSED_KINDS,

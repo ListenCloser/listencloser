@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FIXTURE_M4A = REPO_ROOT / "tests" / "fixtures" / "real-piano.m4a"
+FIXTURE_M4A = REPO_ROOT / "apps" / "web" / "tests" / "fixtures" / "real-piano.m4a"
 MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
 
 

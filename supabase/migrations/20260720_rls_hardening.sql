@@ -7,7 +7,7 @@
 --
 -- This migration tightens writes to authenticated owners while preserving
 -- anonymous READ, because playback still relies on public bucket URLs
--- (lib/storage.ts getPublicUrl) and the public gallery. The backend uses the
+-- (apps/web/src/lib/storage.ts getPublicUrl) and the public gallery. The backend uses the
 -- service-role key, which bypasses RLS, so server-side uploads are unaffected.
 --
 -- Ownership model for storage: objects are namespaced by the caller's uid as

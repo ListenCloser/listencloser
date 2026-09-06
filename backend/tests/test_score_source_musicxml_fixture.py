@@ -1,11 +1,10 @@
-from pathlib import Path
-
 import pytest
 from fastapi import HTTPException
 
 from domain.upload_api import _validate_musicxml_bytes
+from tests.repository_paths import WEB_ROOT
 
-_FIXTURE = Path(__file__).parents[2] / "tests" / "fixtures" / "source-score.musicxml"
+_FIXTURE = WEB_ROOT / "tests" / "fixtures" / "source-score.musicxml"
 
 
 def test_known_valid_source_score_parses_with_production_validator():

@@ -18,7 +18,7 @@ section names, repetitions, hierarchy, key regions, or confidence.
   spacing, 0.2 peak threshold
 - Implementation: `evaluation/structure_librosa.py`
 
-## Runtime smoke: `tests/fixtures/real-piano.m4a`
+## Runtime smoke: `apps/web/tests/fixtures/real-piano.m4a`
 
 Executed locally on 2026-08-27 using `librosa.load(..., sr=None, mono=True)`:
 

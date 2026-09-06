@@ -13,10 +13,10 @@ function rootCustomProperties(path: string): string[] {
 describe("global CSS ownership", () => {
   it("keeps workspace and product root tokens single-owned", () => {
     const workspaceTokens = new Set(
-      rootCustomProperties(join(process.cwd(), "app/workspace-v3.css")),
+      rootCustomProperties(join(process.cwd(), "src/app/workspace-v3.css")),
     );
     const productTokens = rootCustomProperties(
-      join(process.cwd(), "app/product-polish-v4.css"),
+      join(process.cwd(), "src/app/product-polish-v4.css"),
     );
 
     const duplicateTokens = productTokens.filter((token) => workspaceTokens.has(token));

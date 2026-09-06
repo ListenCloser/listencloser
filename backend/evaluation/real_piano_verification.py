@@ -14,18 +14,18 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
+# Allow direct execution from the repository root while keeping `backend`
+# as the canonical Python import root.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pretty_midi
 
 from engines.melody.lstom_engine import LStoMMelodyEngine
 from engines.registry import get_transcription_engine
 
-AUDIO_PATH = Path(__file__).resolve().parent.parent.parent / "tests" / "fixtures" / "real-piano.m4a"
-
-# Also check backend/tests/fixtures
-if not AUDIO_PATH.exists():
-    AUDIO_PATH = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "real-piano.m4a"
+AUDIO_PATH = (
+    Path(__file__).resolve().parents[3] / "apps" / "web" / "tests" / "fixtures" / "real-piano.m4a"
+)
 
 
 def evaluate_melody(melody: dict | None, label: str) -> dict:

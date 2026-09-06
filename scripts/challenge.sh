@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
 MODE="${1:-help}"
 RESULTS_DIR="${CHALLENGE_RESULTS_DIR:-challenge-results}"
 SCHEMATHESIS_VERSION="4.24.2"
@@ -148,7 +151,8 @@ run_mutation_js() {
 
   local status=0
   set +e
-  ./node_modules/.bin/stryker run stryker.config.mjs 2>&1 | tee "$RESULTS_DIR/mutation-js.txt"
+  (cd "$ROOT/apps/web" && "$ROOT/node_modules/.bin/stryker" run stryker.config.mjs) \
+    2>&1 | tee "$RESULTS_DIR/mutation-js.txt"
   status=${PIPESTATUS[0]}
   set -e
   return "$status"

@@ -11,7 +11,6 @@ export default [
       "out/",
       "coverage/",
       "public/",
-      "backend/",
       ".opencode/",
       "**/__pycache__/",
     ],

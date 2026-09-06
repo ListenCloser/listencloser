@@ -15,14 +15,14 @@ module.exports = {
     {
       name: "production-does-not-import-tests",
       severity: "error",
-      from: { path: "^(app|components|lib)/" },
+      from: { path: "^src/(app|components|lib)/" },
       to: { path: "^tests/" },
     },
     {
       name: "production-does-not-statically-import-runtime-mocks",
       severity: "error",
-      from: { path: "^(app|components|lib)/", pathNot: "^app/_test-support/" },
-      to: { path: "^app/_test-support/", dynamic: false },
+      from: { path: "^src/(app|components|lib)/", pathNot: "^src/app/_test-support/" },
+      to: { path: "^src/app/_test-support/", dynamic: false },
     },
   ],
   options: {

@@ -1,7 +1,7 @@
 """FE/BE contract integration fixture — exactly what the frontend sends.
 
 The payload below mirrors the request shape produced by
-`lib/ask/client.ts` / `deriveAskContext` on the frontend (#226/#227). It must
+`apps/web/src/lib/ask/client.ts` / `deriveAskContext` on the frontend (#226/#227). It must
 validate against the backend contract and, with a FakeLLMProvider, produce a
 JSON response the frontend can consume as its `AskResponse` type.
 """
@@ -18,7 +18,7 @@ from main import app
 
 AUTH_HEADER = {"Authorization": "Bearer fake-token"}
 
-# The exact shape the frontend sends (see tests/lib/ask/client.test.ts).
+# The exact shape the frontend sends (see apps/web/tests/lib/ask/client.test.ts).
 FRONTEND_ASK_REQUEST = {
     "question": "What is happening harmonically here?",
     "context": {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { WorkBundle } from "../lib/domain.types";
-import { hasReusableScoreArtifacts, selectScoreArtifacts } from "../lib/score-artifacts";
+import type { WorkBundle } from "../src/lib/domain.types";
+import { hasReusableScoreArtifacts, selectScoreArtifacts } from "../src/lib/score-artifacts";
 
 function artifact(
   id: string,

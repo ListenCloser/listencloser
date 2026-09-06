@@ -17,7 +17,7 @@
     {
       "tool": "mutation-js",
       "rule": "surviving-mutants",
-      "target": "lib/evidence-projections.ts",
+      "target": "apps/web/src/lib/evidence-projections.ts",
       "ownerIssue": 807,
       "priority": "P2",
       "severity": "medium",

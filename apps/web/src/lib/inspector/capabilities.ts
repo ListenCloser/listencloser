@@ -12,7 +12,7 @@
  * The backend already filters withheld capabilities before sending
  * insights to the API. This frontend filter is a safety net, not
  * the source of truth. The parity test in
- * tests/lib/capability-exposure-parity.test.ts prevents these presentation
+ * apps/web/tests/lib/capability-exposure-parity.test.ts prevents these presentation
  * allowlists from drifting away from the backend registry.
  */
 

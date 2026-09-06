@@ -174,8 +174,6 @@ jobs:
       NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Verify live repository identity
-        run: python3 scripts/check_repo_identity.py
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: package.json
@@ -183,8 +181,8 @@ jobs:
       - name: Restore Next.js build cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .next/cache
-          key: ${{ runner.os }}-nextjs-prod-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**/*', 'components/**/*', 'lib/**/*', 'next.config.mjs', 'package.json', 'tsconfig.json') }}
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-nextjs-prod-${{ hashFiles('package-lock.json') }}-${{ hashFiles('apps/web/src/app/**/*', 'apps/web/src/components/**/*', 'apps/web/src/lib/**/*', 'apps/web/next.config.mjs', 'apps/web/package.json', 'apps/web/tsconfig.json') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-prod-${{ hashFiles('package-lock.json') }}-
       - run: npm ci
@@ -195,10 +193,10 @@ jobs:
           set -euo pipefail
           deploy_dir="$(mktemp -d)"
           trap 'rm -rf "$deploy_dir"' EXIT
-          rsync -a --exclude-from=.vercelignore --exclude='.git/' --exclude='.next/' --exclude='node_modules/' ./ "$deploy_dir/"
-          test ! -e "$deploy_dir/tests"
+          rsync -a --exclude-from=.vercelignore --exclude='.git/' --exclude='.next/' --exclude='apps/web/.next/' --exclude='node_modules/' ./ "$deploy_dir/"
+          test ! -e "$deploy_dir/apps/web/tests"
           test ! -e "$deploy_dir/backend"
-          test -f "$deploy_dir/app/_test-support/msw/fixtures/sample-wav.ts"
+          test -f "$deploy_dir/apps/web/src/app/_test-support/msw/fixtures/sample-wav.ts"
           ln -s "$GITHUB_WORKSPACE/node_modules" "$deploy_dir/node_modules"
           (cd "$deploy_dir" && npm run build)
       - name: Build main and upload Sentry source maps
@@ -236,7 +234,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: '0.12.6'
+          version: '0.12.9'
       - name: Check GitHub Actions correctness and security
         run: bash scripts/check-actions.sh
 

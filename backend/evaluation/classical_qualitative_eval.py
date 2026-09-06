@@ -24,8 +24,8 @@ import os
 import sys
 from pathlib import Path
 
-# Add backend to path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
+# Add the service root to the import path when this file is run directly.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pretty_midi
 

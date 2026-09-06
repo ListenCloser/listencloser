@@ -8,6 +8,7 @@ input using `Chord.quality` (always available) instead of
 from __future__ import annotations
 
 import io
+from pathlib import Path
 
 import pytest
 
@@ -70,10 +71,19 @@ class TestChordDetectionQuality:
 
     def test_chord_detection_on_real_piano_fixture(self):
         """Real-piano fixture should produce chords (regression test)."""
+        pytest.importorskip("basic_pitch", reason="basic-pitch worker dependency not installed")
         try:
             from music_features import transcribe_with_engine
 
-            with open("../tests/fixtures/real-piano.m4a", "rb") as f:
+            fixture = (
+                Path(__file__).resolve().parents[3]
+                / "apps"
+                / "web"
+                / "tests"
+                / "fixtures"
+                / "real-piano.m4a"
+            )
+            with fixture.open("rb") as f:
                 audio_bytes = f.read()
 
             transcribe_result = transcribe_with_engine(audio_bytes, fmt="m4a", profile="auto")

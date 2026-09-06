@@ -124,7 +124,7 @@ test("B: backend health endpoints return ready", async ({ request }) => {
   expect(readyBody.storage).toBe(true);
 
   // Deploy-backend passes DEPLOY_SHA so verification proves the exact intended
-  // revision is live. A stale Oracle backend (e.g. a silently skipped or failed
+  // revision is live. A stale backend (for example, a silently skipped or failed
   // deployment) fails here instead of passing a frontend-only check.
   const expectedRelease = process.env.DEPLOY_SHA;
   if (expectedRelease) {

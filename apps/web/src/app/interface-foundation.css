@@ -1,7 +1,7 @@
 /*
  * ListenCloser interface normalization.
  *
- * app/tokens.css owns ordinary application-chrome tokens. This temporary
+ * apps/web/src/app/tokens.css owns ordinary application-chrome tokens. This temporary
  * normalization layer keeps historical component owners visually coherent
  * while #1211 / #523 migrate and delete the older cascade strata.
  * Product-specific renderers remain responsible for measured musical data and

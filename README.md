@@ -1,131 +1,102 @@
 # Listen Closer
 
-Listen Closer is a music-understanding workspace for moving from **a recording** to **inspectable musical evidence** without losing your place in the music.
+Listen Closer is a music-understanding workspace for moving through a recording, its musical representations, and evidence-backed analysis without losing your place in the music.
 
-Import audio once. Listen Closer keeps it as a persistent **Work**, processes it asynchronously, and brings the resulting views and evidence back into one synchronized workspace. You can move between the recording, detected notes, notation, spectral detail, Breakdown findings, and Ask while keeping playback and musical context aligned.
-
-## From recording to understanding
-
-The core product pipeline is intentionally durable rather than request/response-only:
+Import a recording once, then listen and inspect the same persistent Work through synchronized Waveform, Piano Roll, Score, Spectrogram, Breakdown, and Ask surfaces. Derived results keep exact lineage back to their source rather than silently replacing it.
 
 ```text
-audio import
-    ↓
+recording
+  ↓
 persistent Work + immutable source Version
-    ↓
-durable queued processing
-    ↓
-derived artifact Versions + musical evidence
-    ↓
-synchronized workspace
-    ├─ Waveform
-    ├─ Piano Roll
-    ├─ Score
-    └─ Spectrogram
-    ↓
-evidence-backed Breakdown + Ask
+  ↓
+durable processing
+  ↓
+versioned musical evidence + derived artifacts
+  ↓
+synchronized listening / inspection / analysis
 ```
 
-A Work is the stable product object. Processing can continue after the browser request that started it, and derived outputs keep lineage back to their source instead of replacing it in place. The workspace renders persisted results as they become available.
+The product prefers an explicit unavailable/unknown state over fabricating musical facts or confidence.
 
-Evidence is treated similarly: measured or derived observations can support product explanations, while unknown or insufficient evidence remains an explicit state. Listen Closer does not need to invent a chord, confidence, section, or explanation simply to fill UI.
+## Quick start
 
-## What you can do today
-
-- **Import a recording** through a backend-authorized private upload flow and reopen it later as the same Work.
-- **Listen independently from the visible view**, switching among available playback sources without making the representation itself the transport authority.
-- **Inspect synchronized representations** including Waveform, Piano Roll, Score, and Spectrogram as their source artifacts become available.
-- **Select and revisit musical passages** across the shared workspace instead of treating every representation as an isolated viewer.
-- **Inspect supported findings in Breakdown** with provenance/evidence rather than a free-form generated summary.
-- **Ask questions about the recording or a selected passage** using the evidence available for that Work, with typed references/actions that the user explicitly triggers.
-
-Analysis capabilities are not all equally mature or universally exposed. `backend/config/capabilities.json` is the machine-readable authority for which analysis capabilities may appear in the product. [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md) owns durable product identity and principles; [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md) owns current product portfolio posture and sequencing. Neither should be read as a claim that every future capability already ships.
-
-## System shape
-
-```mermaid
-flowchart LR
-    Browser[Browser / Next.js workspace] --> API[FastAPI]
-    API --> Data[Supabase Postgres + private Storage]
-    Worker[Durable worker] --> Data
-    Worker --> Engines[MIR / notation engine adapters]
-    Engines --> Worker
-    Data --> Browser
-```
-
-The browser talks to authenticated application/API boundaries; it does not receive worker-service credentials or call the processing VM directly. The API owns durable workflow intent and persistence, while the worker claims queued work, runs replaceable music-analysis/notation engines, and publishes versioned artifacts and evidence.
-
-For the maintained runtime/deployment contract, read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
-## Local development
-
-From a fresh clone, first check prerequisites:
+Requirements are checked by the repository itself:
 
 ```bash
 npm run doctor
-```
-
-Install the locked frontend and backend environments:
-
-```bash
 npm run bootstrap
-```
-
-Start the normal local development path:
-
-```bash
 npm run dev
 ```
 
-Useful verification commands:
+The web app runs through the `apps/web` workspace. The FastAPI API and durable worker are the independent uv project under `backend`.
+
+Common verification commands:
 
 ```bash
-npm run check:fast
-npm run check:frontend
-npm run check:backend
-npm run check:database
-npm run check:e2e
-npm run check:realstack
+npm run check:fast       # normal inner-loop gate
+npm run check:frontend   # frontend only
+npm run check:backend    # backend only
+npm run check:e2e        # built web app + browser tests
+npm run check:realstack  # isolated full-stack golden path
 ```
 
-Browser E2E needs Playwright Chromium. Database verification additionally needs a running Docker daemon, Supabase CLI 2.113.0, tbls 1.95.0, and ffmpeg. `check:database` builds its disposable stack from tracked Supabase files under a temporary project ID, so stopped local database data is not reused or deleted; it also refuses to start while the normal local stack is active.
-
-Real-stack verification needs Docker, Supabase CLI 2.113.0, and enough resources to build the production backend image. `check:realstack` installs the locked frontend dependencies and Playwright Chromium, builds the production API/worker image, runs the real-audio browser golden path against a fresh isolated Supabase project, emits the same timing artifacts as CI, and cleans up only the containers/project identity it created. It refuses to run while the normal local Supabase stack is active, so existing stopped local database data is neither reused nor deleted. Use the verification ladder in [`AGENTS.md`](AGENTS.md) rather than running this heavyweight tier for every small change.
-
-Dependency versions and environment ownership live in `package.json`, `backend/pyproject.toml`, and their lockfiles rather than in this README.
+`check:realstack` and database verification require Docker and the pinned local tooling described by `npm run doctor`.
 
 ## Repository map
 
-The top-level tree follows **ownership and lifecycle**, not a requirement to put every artifact type in its own package:
-
 ```text
-app/                Next.js routes, application shell and route-owned frontend code
-components/         workspace UI plus genuinely shared React primitives/providers
-lib/                shared frontend contracts, state and cross-feature libraries
-backend/            API, durable worker, domain code and engine adapters
-supabase/           database/storage migrations and local Supabase configuration
-tests/              cross-product/browser/system verification
-evaluation/         durable evaluation evidence and result artifacts
-docs/               maintained architecture, operations, decisions and methodology
-scripts/            repository-owned development and verification automation
-openapi/            generated API contract artifacts
-observability/      repository-owned observability configuration
+apps/web/                  Next.js application, frontend source, browser tests, public assets
+backend/          FastAPI API, durable worker, music-engine adapters, Python tests
+docs/                      architecture, product, operations, ADRs, evaluation methodology
+supabase/                  database/storage migrations and local Supabase configuration
+openapi/                   checked generated API contract
+evaluation/                durable decision evidence and benchmark results
+observability/             repository-owned observability configuration
+scripts/                   repository development, verification, deployment and recovery commands
+.github/                   hosted execution and repository automation
+contract-dependencies.json minimal hard dependency graph between focused GitHub contracts
 ```
 
-Feature-private code should stay with its owner; global `components/` and `lib/` are for responsibilities that are actually shared. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the generated architecture views for current boundaries.
+The root intentionally owns only cross-project contracts and tool-required configuration. Feature-private code belongs with the feature that changes with it; shared code should be promoted only when it has a real second consumer.
 
-## Where to go next
+### Web
 
-Repository documentation has explicit authority rather than one giant source-of-truth document:
+```text
+apps/web/src/app/          Next.js routes and route composition
+apps/web/src/components/   product UI and genuinely shared React primitives
+apps/web/src/lib/          cross-feature frontend contracts and client infrastructure
+apps/web/tests/            frontend, browser and system verification
+```
 
-- [`AGENTS.md`](AGENTS.md) — engineering rules, verification expectations, and autonomous-agent workflow.
-- [`docs/README.md`](docs/README.md) — documentation map and precedence rules.
-- [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md) — durable product identity, user progress, strategic arena, mental model, and principles.
-- [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md) — current product portfolio posture, gates, and decision-relevant sequencing.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current shipped runtime architecture.
-- [`docs/EVALUATION_METHODOLOGY.md`](docs/EVALUATION_METHODOLOGY.md) — how production/evaluation decisions should be tested.
-- [`docs/EVALUATION_DECISIONS.md`](docs/EVALUATION_DECISIONS.md) — current cross-track evaluation conclusions.
-- [`docs/OPS.md`](docs/OPS.md) and [`docs/RECOVERY.md`](docs/RECOVERY.md) — production operation and recovery.
-- [`docs/adr/`](docs/adr/) — durable architectural decisions and revisit conditions.
+### Backend
 
-For statements about what is actually running, executable code/configuration, migrations, and the deployed release identity take precedence over stale prose.
+The backend is a modular monolith: one API/worker project with replaceable music-engine adapters, not a collection of per-model services. Product capability contracts and persisted provenance are stable even when an engine changes.
+
+For the current runtime boundaries and data flow, read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Engineering rules
+
+A few repository principles matter more than the exact folder names:
+
+- **Delete before abstracting.** Prefer framework/platform behavior over repository-owned commodity machinery.
+- **Colocate by responsibility.** Code that changes together should normally live together.
+- **Promote sharing deliberately.** Do not create generic `shared`, `common`, or `utils` layers preemptively.
+- **Keep product truth exact.** Work/Version lineage, playback authority, evidence provenance, and durable Job state must not be guessed from recency or UI state.
+- **Keep engines replaceable.** A new MIR engine should normally fit behind an existing semantic capability boundary instead of creating a new API, persistence model, UI architecture, or service.
+- **Use the same verification locally and in CI.** GitHub Actions should execute repository-owned checks rather than implement a second test algorithm.
+
+Autonomous contributors should read [`AGENTS.md`](AGENTS.md) before changing code.
+
+## Documentation
+
+Use the narrowest authority for the question you are answering:
+
+- [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md) — durable product identity and principles
+- [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md) — current product sequencing and portfolio posture
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — shipped runtime architecture
+- [`docs/EVALUATION_METHODOLOGY.md`](docs/EVALUATION_METHODOLOGY.md) — evaluation and benchmark method
+- [`docs/EVALUATION_DECISIONS.md`](docs/EVALUATION_DECISIONS.md) — current cross-track evaluation conclusions
+- [`docs/OPS.md`](docs/OPS.md) / [`docs/RECOVERY.md`](docs/RECOVERY.md) — production operation and recovery
+- [`docs/adr/`](docs/adr/) — durable architectural decisions and revisit conditions
+
+Executable code, migrations, generated contracts, and the deployed release identity take precedence when prose drifts from the running system.

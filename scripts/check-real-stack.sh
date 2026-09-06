@@ -112,8 +112,8 @@ supabase_version="$(supabase --version 2>/dev/null | semver_from || true)"
 if supabase status >/dev/null 2>&1; then
   die "a local Supabase stack is already running; stop it normally before this isolated check"
 fi
-[ -f tests/fixtures/real-piano.m4a ] || die "tests/fixtures/real-piano.m4a is required"
-[ -f playwright.realstack.config.ts ] || die "playwright.realstack.config.ts is required"
+[ -f apps/web/tests/fixtures/real-piano.m4a ] || die "apps/web/tests/fixtures/real-piano.m4a is required"
+[ -f apps/web/playwright.realstack.config.ts ] || die "apps/web/playwright.realstack.config.ts is required"
 
 rm -rf test-results/real-stack-diagnostics
 rm -f performance-results/understand-stage-timing.jsonl
@@ -264,7 +264,7 @@ print(path.read_text(), end="")
 PY
 
 echo "── Real-audio browser golden path ──"
-export REAL_AUDIO_FILE="$ROOT/tests/fixtures/real-piano.m4a"
+export REAL_AUDIO_FILE="$ROOT/apps/web/tests/fixtures/real-piano.m4a"
 export SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_JWT_SECRET
 export BACKEND_URL="http://127.0.0.1:8000"
 python3 - <<'PY' > "$OBSERVER_LOG" 2>&1 &
@@ -297,7 +297,7 @@ while time.monotonic() < deadline:
 raise SystemExit(f"MuseScore score artifacts/provenance were never observed: {last_error}")
 PY
 OBSERVER_PID=$!
-npx playwright test --config=playwright.realstack.config.ts
+npm --workspace @listencloser/web exec -- playwright test --config=playwright.realstack.config.ts
 wait "$OBSERVER_PID"
 OBSERVER_PID=""
 cat "$OBSERVER_LOG"

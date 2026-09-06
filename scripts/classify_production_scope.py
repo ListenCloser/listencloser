@@ -16,17 +16,23 @@ from collections.abc import Iterable
 
 FRONTEND_DEPLOY_FILES = {
     ".vercelignore",
-    "instrumentation-client.ts",
-    "instrumentation.ts",
-    "next.config.mjs",
+    "apps/web/instrumentation-client.ts",
+    "apps/web/instrumentation.ts",
+    "apps/web/next.config.mjs",
+    "apps/web/package.json",
+    "apps/web/postcss.config.mjs",
+    "apps/web/proxy.ts",
+    "apps/web/tsconfig.json",
     "package-lock.json",
     "package.json",
-    "postcss.config.mjs",
-    "proxy.ts",
-    "tsconfig.json",
     "vercel.json",
 }
-FRONTEND_DEPLOY_PREFIXES = ("app/", "components/", "lib/", "public/")
+FRONTEND_DEPLOY_PREFIXES = (
+    "apps/web/src/app/",
+    "apps/web/src/components/",
+    "apps/web/src/lib/",
+    "apps/web/public/",
+)
 BACKEND_DATABASE_DEPLOY_FILES = {
     ".github/workflows/deploy-backend.yml",
     "scripts/classify_production_scope.py",
@@ -37,7 +43,12 @@ DATABASE_DEPLOY_PREFIXES = ("supabase/migrations/",)
 # Vercel skipping is deliberately stricter than generic production classification.
 # Only paths already excluded from the Vercel source context, obvious docs, or paths
 # owned exclusively by the backend/database deploy contract may skip a frontend build.
-VERCEL_SAFE_NONFRONTEND_PREFIXES = ("backend/", "docs/", "soundfonts/", "tests/")
+VERCEL_SAFE_NONFRONTEND_PREFIXES = (
+    "apps/web/tests/",
+    "backend/",
+    "docs/",
+    "soundfonts/",
+)
 
 
 def _is_backend_runtime(path: str) -> bool:
@@ -115,8 +126,8 @@ def _self_test() -> None:
     assert production_components(["docs/PLATFORM.md"]) == set()
     assert production_components(["backend/evaluation/foo.py"]) == set()
     assert production_components(["backend/tests/test_worker.py"]) == set()
-    assert production_components(["components/workspace/Inspector.tsx"]) == {"frontend"}
-    assert production_components(["app/api/health/live/route.ts"]) == {"frontend"}
+    assert production_components(["apps/web/src/components/workspace/Inspector.tsx"]) == {"frontend"}
+    assert production_components(["apps/web/src/app/api/health/live/route.ts"]) == {"frontend"}
     assert production_components(["vercel.json"]) == {"frontend"}
     assert production_components(["backend/domain/job_worker.py"]) == {"backend"}
     assert production_components(["supabase/migrations/20260828.sql"]) == {"database"}
@@ -132,7 +143,7 @@ def _self_test() -> None:
         "database",
     }
     assert production_components(
-        ["components/workspace/Inspector.tsx", "backend/domain/job_worker.py"]
+        ["apps/web/src/components/workspace/Inspector.tsx", "backend/domain/job_worker.py"]
     ) == {"frontend", "backend"}
     assert production_components(
         ["backend/domain/job_worker.py", "supabase/migrations/20260828.sql"]
@@ -142,18 +153,18 @@ def _self_test() -> None:
     assert should_ignore_vercel_build(["docs/PLATFORM.md"])
     assert should_ignore_vercel_build(["backend/evaluation/foo.py"])
     assert should_ignore_vercel_build(["backend/domain/job_worker.py"])
-    assert should_ignore_vercel_build(["tests/e2e/example.spec.ts"])
+    assert should_ignore_vercel_build(["apps/web/tests/e2e/example.spec.ts"])
     assert should_ignore_vercel_build(["supabase/migrations/20260828.sql"])
     assert should_ignore_vercel_build(["supabase/config.toml"])
     assert should_ignore_vercel_build(["scripts/deploy.sh"])
     assert not should_ignore_vercel_build([])
-    assert not should_ignore_vercel_build(["components/workspace/Inspector.tsx"])
-    assert not should_ignore_vercel_build(["lib/api-types.ts"])
+    assert not should_ignore_vercel_build(["apps/web/src/components/workspace/Inspector.tsx"])
+    assert not should_ignore_vercel_build(["apps/web/src/lib/api-types.ts"])
     assert not should_ignore_vercel_build(["package.json"])
     assert not should_ignore_vercel_build([".npmrc"])
     assert not should_ignore_vercel_build(["scripts/check.sh"])
     assert not should_ignore_vercel_build(
-        ["backend/domain/job_worker.py", "next.config.mjs"]
+        ["backend/domain/job_worker.py", "apps/web/next.config.mjs"]
     )
 
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { WorkBundle } from "../lib/domain.types";
+import type { WorkBundle } from "../src/lib/domain.types";
 import {
   defaultScoreSourceVersionId,
   scoreSourceOptions,
   selectScoreSource,
-} from "../lib/score-sources";
+} from "../src/lib/score-sources";
 
 function artifact(
   id: string,

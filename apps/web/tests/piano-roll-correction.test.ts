@@ -5,7 +5,7 @@ import {
   removeDraftNotes,
   transposeDraftNotes,
   type EditablePianoRollNote,
-} from "../lib/piano-roll-correction";
+} from "@/lib/piano-roll-correction";
 
 const source: EditablePianoRollNote[] = [
   { id: "low", pitch: 48, start: 0.0, end: 2.0, velocity: 70 },

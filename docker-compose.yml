@@ -67,7 +67,7 @@ services:
     user: "501:501"
     command: >
       sh -c "uv sync --project /workspace/backend --locked &&
-             uv run --project /workspace/backend uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
+             uv run --project /workspace/backend uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
       - "8000:8000"
     volumes:
@@ -78,7 +78,7 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - MUSIC_BACKEND_URL=http://backend:8000
       - PYTHONPATH=/workspace/backend
-      - SOUNDFONT_PATH=/workspace/backend/soundfonts/FluidR3_GM.sf2
+      - SOUNDFONT_PATH=/usr/share/sounds/sf2/FluidR3_GM.sf2
       - SENTRY_DSN_BACKEND=${SENTRY_DSN_BACKEND:-${SENTRY_DSN:-}}
       - SENTRY_ENV=${SENTRY_ENV:-development}
       - RELEASE=${RELEASE:-backend@dev}
@@ -115,7 +115,7 @@ services:
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - PYTHONPATH=/workspace/backend
-      - SOUNDFONT_PATH=/workspace/backend/soundfonts/FluidR3_GM.sf2
+      - SOUNDFONT_PATH=/usr/share/sounds/sf2/FluidR3_GM.sf2
       - SENTRY_DSN_BACKEND=${SENTRY_DSN_BACKEND:-${SENTRY_DSN:-}}
       - SENTRY_ENV=${SENTRY_ENV:-development}
     depends_on:

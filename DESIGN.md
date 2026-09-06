@@ -5,13 +5,13 @@
 This file is the human-readable source of truth for Listen Closer's product UI.
 
 - `DESIGN.md` owns intent, semantic roles, interaction conventions, and design constraints.
-- `app/tokens.css` owns the executable values for ordinary application chrome.
+- `apps/web/src/app/tokens.css` owns the executable values for ordinary application chrome.
 - `docs/adr/0012-oss-first-frontend-primitives.md` owns the generic frontend primitive strategy.
 - Product-specific music renderers may use specialized palettes or geometry when the measured data requires it, but their surrounding controls and chrome follow this system.
 
 When implementation and this document disagree, update one deliberately. Do not resolve drift by adding another late override stylesheet.
 
-Temporary aliases in `app/tokens.css` (`--ui-*`, older `--bg` / `--panel` / `--accent`, abbreviated spacing/type tokens, etc.) are migration compatibility for #1211 / #523, not a second permanent vocabulary. New code should prefer the canonical semantic token names.
+Temporary aliases in `apps/web/src/app/tokens.css` (`--ui-*`, older `--bg` / `--panel` / `--accent`, abbreviated spacing/type tokens, etc.) are migration compatibility for #1211 / #523, not a second permanent vocabulary. New code should prefer the canonical semantic token names.
 
 ## Design intent
 
@@ -200,13 +200,13 @@ Follow accepted ADR 0012: **own the product; borrow the primitives**.
 
 For new generic application controls, the default is:
 
-- local shadcn-style component ownership in `components/ui`;
+- local shadcn-style component ownership in `apps/web/src/components/ui`;
 - Base UI as the default underlying accessible primitive layer;
 - existing Tailwind CSS v4 + CSS variables/tokens for styling.
 
 Existing Radix usage may remain where already appropriate; Radix or React Aria may be used for a concrete better-fit requirement. Do not mix primitive bases casually or migrate a working control solely for aesthetic consistency.
 
-Feature/product code should consume generic app-level controls from `components/ui` rather than importing vendor primitives directly unless a documented capability exception requires it.
+Feature/product code should consume generic app-level controls from `apps/web/src/components/ui` rather than importing vendor primitives directly unless a documented capability exception requires it.
 
 Generic primitive names/styles are feature-neutral. Avoid `piece-*`, `library-*`, `ask-*`, etc. inside reusable primitive anatomy.
 

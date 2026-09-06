@@ -81,7 +81,7 @@ detect_image_arch() {
 
 resolve_prebuilt_image() {
   local revision="$1"
-  local arch candidate resolved logged_in=0 repository
+  local arch candidate resolved logged_in=0
 
   if [ -z "$BACKEND_IMAGE_REPOSITORY" ]; then
     return 1
@@ -92,11 +92,11 @@ resolve_prebuilt_image() {
     return 1
   fi
 
-  # CI publishes the image under a lowercased repository path (registry
-  # reference names are case-insensitive and Docker rejects uppercase paths).
-  # github.repository can be mixed-case after a repo rename, so normalize here
-  # exactly like the publish step does; otherwise `docker pull` fails and every
-  # deploy silently degrades to the slow VM-build fallback.
+  # CI publishes the image under a lowercased repository path. GitHub's
+  # repository name can retain uppercase characters after a rename while Docker
+  # rejects uppercase repository paths, so normalize exactly like the publish
+  # step instead of silently falling back to an expensive VM rebuild.
+  local repository
   repository="$(printf '%s' "$BACKEND_IMAGE_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
   candidate="${repository}:${revision}-${arch}"
 

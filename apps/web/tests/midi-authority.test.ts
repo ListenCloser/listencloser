@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { WorkBundle } from "../lib/domain.types";
+import type { WorkBundle } from "../src/lib/domain.types";
 import {
   describeMidiRepresentation,
-  pianoRollSourceOptions,
   resolveExplicitPianoRollMidi,
   resolveMidiAuthority,
-} from "../lib/midi-authority";
+} from "../src/lib/midi-authority";
 
 function artifact(
   id: string,
@@ -118,27 +117,5 @@ describe("resolveExplicitPianoRollMidi", () => {
     expect(resolveExplicitPianoRollMidi(work, "pm2s-v1")).toBeNull();
     expect(resolveExplicitPianoRollMidi(work, "notation-v1")).toBeNull();
     expect(resolveExplicitPianoRollMidi(work, "ambiguous-v1")).toBeNull();
-  });
-});
-
-describe("pianoRollSourceOptions", () => {
-  it("exposes only musician-facing performance interpretations in stable order", () => {
-    expect(pianoRollSourceOptions(bundle())).toEqual([
-      {
-        versionId: "performance-v1",
-        role: "performance_transcription",
-        label: "Original transcription",
-      },
-      {
-        versionId: "edited-v1",
-        role: "edited_performance",
-        label: "Corrected transcription",
-      },
-      {
-        versionId: "creative-v1",
-        role: "creative_take",
-        label: "Creative take",
-      },
-    ]);
   });
 });

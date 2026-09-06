@@ -9,11 +9,11 @@ ListenCloser has intentionally bespoke music interfaces, but its generic fronten
 
 Current examples include:
 
-- `components/ui/ListboxMenu.tsx` implementing open/close state, outside-click detection, focus restoration, arrow/Home/End/Escape handling, disabled-option traversal, and listbox ARIA behavior;
-- `components/ui/TabStrip.tsx` implementing roving focus and keyboard navigation;
-- `components/ui/Tooltip.tsx` and associated CSS implementing tooltip behavior and layout;
-- `lib/api-client.ts` layering custom cache revision/epoch/version-owner bookkeeping on top of TanStack Query;
-- multiple global/versioned CSS layers loaded in `app/layout.tsx`, including `workspace-v3.css`, `product-polish-v4.css`, `visual-language.css`, and `readiness-polish-v6.css`;
+- `apps/web/src/components/ui/ListboxMenu.tsx` implementing open/close state, outside-click detection, focus restoration, arrow/Home/End/Escape handling, disabled-option traversal, and listbox ARIA behavior;
+- `apps/web/src/components/ui/TabStrip.tsx` implementing roving focus and keyboard navigation;
+- `apps/web/src/components/ui/Tooltip.tsx` and associated CSS implementing tooltip behavior and layout;
+- `apps/web/src/lib/api-client.ts` layering custom cache revision/epoch/version-owner bookkeeping on top of TanStack Query;
+- multiple global/versioned CSS layers loaded in `apps/web/src/app/layout.tsx`, including `workspace-v3.css`, `product-polish-v4.css`, `visual-language.css`, and `readiness-polish-v6.css`;
 - custom waveform, region/selection, timeline, audio decode/cache, spectrogram rendering, and FFT code even though mature audio-visualization OSS exists.
 
 This is not uniformly bad code. The problem is ownership: generic browser interaction, accessibility, cache lifecycle, and visualization mechanics create maintenance cost without differentiating the product. In a repository developed by many parallel agents, bespoke primitives also encourage slightly different implementations of the same control and make design cleanup additive instead of convergent.
@@ -44,7 +44,7 @@ ListenCloser owns the styling and composition. Adopting a primitive library does
 
 TanStack Query is the frontend owner of remote/server state: fetching, caching, invalidation, optimistic updates, polling, and mutation lifecycle.
 
-Do not build a second cache protocol on top of it. Existing custom revision/epoch invalidation in `lib/api-client.ts` should be simplified incrementally into stable query keys, query/mutation options, explicit invalidation, and optimistic cache updates where needed.
+Do not build a second cache protocol on top of it. Existing custom revision/epoch invalidation in `apps/web/src/lib/api-client.ts` should be simplified incrementally into stable query keys, query/mutation options, explicit invalidation, and optimistic cache updates where needed.
 
 Synchronous product state such as playback position, active representation, musical selection, panel state, and compare state remains client/domain state. Do not introduce another global-state dependency merely to replace small React contexts; evaluate one only when measured complexity justifies it.
 

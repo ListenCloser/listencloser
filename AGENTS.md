@@ -182,7 +182,7 @@ Parallel implementation and validation are the default. Unrelated autonomous age
 - Do not start new production work merely because an agent is idle. If review, merge integration, or a shared authority seam is saturated, help verify or drain existing WIP instead of spawning another competing implementation.
 - Do not impose a repository-wide numeric WIP limit without measured evidence; bounded ownership and explicit independence are the control.
 - Multiple production PRs may be non-draft and run CI concurrently when they own bounded, independent changes.
-- Prefer small PRs with clear ownership domains. Direct same-file edits are an obvious overlap; shared contracts such as `lib/`, API/state layers, backend runtime/database surfaces, dependency/config files, CI, and cross-cutting tests are broader integration surfaces and should be treated more conservatively.
+- Prefer small PRs with clear ownership domains. Direct same-file edits are an obvious overlap; shared contracts such as `apps/web/src/lib/`, API/state layers, `backend/` runtime/database surfaces, dependency/config files, CI, and cross-cutting tests are broader integration surfaces and should be treated more conservatively.
 - Do not reserve broad areas of the repository preemptively. Two leaf UI components, two independent evaluation experiments, or other demonstrably disjoint changes may proceed in parallel.
 - Do not rebase, replay, or restart work merely because `main` moved while development or PR CI is in progress. Finish the bounded branch and its relevant evidence first.
 - The protected `Build` context is the single merge-facing CI contract. Risk-relevant reusable jobs run inside that gate; agents must not recreate merge admissibility by polling independent workflows.

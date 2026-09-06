@@ -1,7 +1,7 @@
 """Pydantic contract for the grounded contextual Ask endpoint.
 
 These models mirror the TypeScript `AskContext` / `AskReference` /
-`AskAction` / `AskResponse` types defined in `lib/ask/types.ts` (merged via
+`AskAction` / `AskResponse` types defined in `apps/web/src/lib/ask/types.ts` (merged via
 #226/#227). The backend is the consumer side of that contract: it accepts the
 derived context the frontend sends and returns a schema-valid `AskResponse`.
 

@@ -15,7 +15,7 @@ _SERVER_ONLY_ENV_NAMES = (
     "SENTRY_DSN_BACKEND",
     "OTEL_EXPORTER_OTLP_HEADERS",
 )
-_FRONTEND_ROOTS = ("app", "components", "lib")
+_FRONTEND_ROOTS = ("apps/web/src/app", "apps/web/src/components", "apps/web/src/lib")
 _FRONTEND_SUFFIXES = {".js", ".jsx", ".ts", ".tsx"}
 
 
