@@ -10,11 +10,15 @@ performance rather than an ambiguous ``midi_corrected`` artifact.
 from __future__ import annotations
 
 import io
+import logging
 from uuid import UUID
 
+import music_features
 import domain.capabilities as capabilities
-from domain.models import Entity, EntityKind, Job, NoteEntity, Span
+from domain.models import ArtifactKind, Entity, EntityKind, Job, NoteEntity, Span
 from domain.repositories import EntityRepo
+
+logger = logging.getLogger("correction_entity_sync")
 
 
 def note_entities_from_midi_bytes(data: bytes, version_id: UUID) -> list[Entity]:
@@ -58,6 +62,57 @@ def _edited_performance_metadata(job: Job, existing: dict) -> dict:
     }
 
 
+def _publish_corrected_playback(
+    job: Job,
+    client,
+    *,
+    corrected_version_id: UUID,
+    corrected_midi: bytes,
+    owner_id: str,
+) -> UUID | None:
+    """Best-effort synthesize playback bound to the exact corrected MIDI Version.
+
+    MIDI correction remains the durable primary result. If the configured
+    FluidSynth/SoundFont runtime is unavailable, preserve the corrected Version
+    and fail closed by publishing no playback artifact rather than substituting
+    audio from a different performance interpretation.
+    """
+    try:
+        wav_bytes = music_features.midi_to_wav(corrected_midi)
+        work_id = capabilities._resolve_work_id(client, corrected_version_id)
+        storage_key = capabilities._job_storage_key(job, "corrected.wav")
+        capabilities._upload_bytes(
+            client,
+            capabilities._STORAGE_BUCKET,
+            storage_key,
+            wav_bytes,
+            "audio/wav",
+        )
+        return capabilities._create_output_version(
+            client,
+            work_id,
+            ArtifactKind.audio_rendered,
+            storage_key,
+            wav_bytes,
+            corrected_version_id,
+            job,
+            owner_id,
+            mime_type="audio/wav",
+            label="Corrected transcription playback",
+            metadata={
+                "representation": "transcription_playback",
+                "source_midi_version_id": str(corrected_version_id),
+                "source_representation": "edited_performance",
+            },
+        )
+    except Exception:
+        logger.exception(
+            "corrected_playback_render_failed",
+            extra={"corrected_version_id": str(corrected_version_id)},
+        )
+        return None
+
+
 def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
     """Run correction, qualify its Version, then publish its complete note world."""
     output_ids = capabilities.handle_correct(job, client)
@@ -90,6 +145,17 @@ def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
     )
     if full_note_world:
         EntityRepo(client).create_many(full_note_world, owner_id)
+
+    # Playback is an auxiliary derivative, not a second correction result. The
+    # correction coordinator can therefore keep its exact one-output contract
+    # while the Work bundle discovers this render by exact parent/provenance.
+    _publish_corrected_playback(
+        job,
+        client,
+        corrected_version_id=output_version_id,
+        corrected_midi=corrected_midi,
+        owner_id=owner_id,
+    )
 
     return output_ids
 
