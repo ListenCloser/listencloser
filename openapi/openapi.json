@@ -3192,6 +3192,182 @@
         "title": "SuppliedTextAlignmentBody",
         "type": "object"
       },
+      "TextPassageCandidate": {
+        "description": "One exact source-time candidate proposed by the retrieval method.",
+        "properties": {
+          "end_seconds": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Seconds",
+            "type": "number"
+          },
+          "rank": {
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "similarity": {
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Similarity",
+            "type": "number"
+          },
+          "start_seconds": {
+            "minimum": 0.0,
+            "title": "Start Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rank",
+          "start_seconds",
+          "end_seconds",
+          "similarity"
+        ],
+        "title": "TextPassageCandidate",
+        "type": "object"
+      },
+      "TextPassageFindBody": {
+        "description": "Find method-qualified passages for text using one exact performance Version.",
+        "properties": {
+          "max_matches": {
+            "default": 3,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Max Matches",
+            "type": "integer"
+          },
+          "performance_version_id": {
+            "format": "uuid",
+            "title": "Performance Version Id",
+            "type": "string"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "performance_version_id",
+          "text"
+        ],
+        "title": "TextPassageFindBody",
+        "type": "object"
+      },
+      "TextPassageFindObservation": {
+        "description": "Method-qualified text-to-passage proposals for one source Version.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/TextPassageCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "duration_seconds": {
+            "exclusiveMinimum": 0.0,
+            "title": "Duration Seconds",
+            "type": "number"
+          },
+          "embedding_dim": {
+            "exclusiveMinimum": 0.0,
+            "title": "Embedding Dim",
+            "type": "integer"
+          },
+          "method": {
+            "const": "clamp3_c2_text_performance_cosine",
+            "default": "clamp3_c2_text_performance_cosine",
+            "title": "Method",
+            "type": "string"
+          },
+          "performance_version_id": {
+            "format": "uuid",
+            "title": "Performance Version Id",
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "title": "Provenance",
+            "type": "object"
+          },
+          "query_text": {
+            "title": "Query Text",
+            "type": "string"
+          },
+          "runtime_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Seconds"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "performance_version_id",
+          "query_text",
+          "embedding_dim",
+          "duration_seconds",
+          "candidates",
+          "provenance"
+        ],
+        "title": "TextPassageFindObservation",
+        "type": "object"
+      },
+      "TextPassageFindResult": {
+        "description": "Truthful availability/result state for experimental text passage Find.",
+        "properties": {
+          "observation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TextPassageFindObservation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "supported",
+              "unavailable",
+              "withheld",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "TextPassageFindResult",
+        "type": "object"
+      },
       "UnderstandWorkflowBody": {
         "properties": {
           "project_id": {
@@ -4988,6 +5164,62 @@
           }
         ],
         "summary": "Similar Moments"
+      }
+    },
+    "/api/v1/works/{work_id}/relations/text-passages": {
+      "post": {
+        "description": "Find bounded text-qualified passages through exact performance-MIDI lineage.",
+        "operationId": "text_passages_api_v1_works__work_id__relations_text_passages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextPassageFindBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextPassageFindResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Text Passages"
       }
     },
     "/health": {

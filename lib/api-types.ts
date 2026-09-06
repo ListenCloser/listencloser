@@ -463,6 +463,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/works/{work_id}/relations/text-passages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Text Passages
+         * @description Find bounded text-qualified passages through exact performance-MIDI lineage.
+         */
+        post: operations["text_passages_api_v1_works__work_id__relations_text_passages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1856,6 +1876,93 @@ export interface components {
              */
             version_id: string;
         };
+        /**
+         * TextPassageCandidate
+         * @description One exact source-time candidate proposed by the retrieval method.
+         */
+        TextPassageCandidate: {
+            /** End Seconds */
+            end_seconds: number;
+            /** Rank */
+            rank: number;
+            /** Similarity */
+            similarity: number;
+            /** Start Seconds */
+            start_seconds: number;
+        };
+        /**
+         * TextPassageFindBody
+         * @description Find method-qualified passages for text using one exact performance Version.
+         */
+        TextPassageFindBody: {
+            /**
+             * Max Matches
+             * @default 3
+             */
+            max_matches: number;
+            /**
+             * Performance Version Id
+             * Format: uuid
+             */
+            performance_version_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * TextPassageFindObservation
+         * @description Method-qualified text-to-passage proposals for one source Version.
+         */
+        TextPassageFindObservation: {
+            /** Candidates */
+            candidates: components["schemas"]["TextPassageCandidate"][];
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** Embedding Dim */
+            embedding_dim: number;
+            /**
+             * Method
+             * @default clamp3_c2_text_performance_cosine
+             * @constant
+             */
+            method: "clamp3_c2_text_performance_cosine";
+            /**
+             * Performance Version Id
+             * Format: uuid
+             */
+            performance_version_id: string;
+            /** Provenance */
+            provenance: {
+                [key: string]: unknown;
+            };
+            /** Query Text */
+            query_text: string;
+            /** Runtime Seconds */
+            runtime_seconds?: number | null;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+        };
+        /**
+         * TextPassageFindResult
+         * @description Truthful availability/result state for experimental text passage Find.
+         */
+        TextPassageFindResult: {
+            observation?: components["schemas"]["TextPassageFindObservation"] | null;
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "supported" | "unavailable" | "withheld" | "failed";
+        };
         /** UnderstandWorkflowBody */
         UnderstandWorkflowBody: {
             /** Project Id */
@@ -2933,6 +3040,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimilarMomentsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    text_passages_api_v1_works__work_id__relations_text_passages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextPassageFindBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextPassageFindResult"];
                 };
             };
             /** @description Validation Error */
