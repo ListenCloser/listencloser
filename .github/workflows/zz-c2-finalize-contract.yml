@@ -55,6 +55,18 @@ jobs:
               path.write_text(text.replace(needle, entry + needle, 1))
       - name: Canonically format C2 slice
         run: |
+          uv run --project backend --locked ruff format \
+            backend/domain/api/text_passage_find.py \
+            backend/domain/text_passage_find.py \
+            backend/domain/text_passage_find_capability.py \
+            backend/engines/retrieval/clamp3_c2.py \
+            backend/engines/retrieval/clamp3_c2_runtime.py \
+            backend/tests/test_clamp3_c2_retriever.py \
+            backend/tests/test_text_passage_find.py \
+            backend/tests/test_text_passage_find_capability.py \
+            backend/tests/test_text_passage_find_workflow.py \
+            backend/worker.py \
+            backend/domain/api/router.py
           uv run --project backend --locked ruff check --fix \
             backend/domain/api/text_passage_find.py \
             backend/domain/text_passage_find.py \
