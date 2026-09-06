@@ -135,6 +135,24 @@ export function resolveExplicitPianoRollMidi(
 }
 
 /**
+ * Resolve the one corrected performance MIDI produced by a completed correction
+ * Job, independent of output array order or auxiliary outputs such as playback.
+ */
+export function resolveCorrectionOutputMidi(
+  bundle: WorkBundle,
+  producingJobId: string,
+  outputVersionIds: readonly string[],
+): MidiRepresentationDescriptor | null {
+  const outputIds = new Set(outputVersionIds);
+  const matches = resolveMidiAuthority(bundle).representations.filter((descriptor) => (
+    descriptor.role === "edited_performance"
+    && outputIds.has(descriptor.versionId)
+    && descriptor.artifact.latest_version?.produced_by_job_id === producingJobId
+  ));
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/**
  * Find synthesized playback proven to belong to one exact MIDI Version.
  *
  * New renders carry an explicit source_midi_version_id and parent the source
