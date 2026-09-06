@@ -1,0 +1,44 @@
+name: Queue Reconcile
+
+# Repo-owned PR queue drain. Runs the reconcile loop on a schedule and whenever
+# main advances, using a dedicated PAT (QUEUE_BOT_TOKEN) rather than the
+# repository GITHUB_TOKEN, so branch updates and auto-merge go through GitHub's
+# native endpoints and normal CI is triggered on the refreshed heads. Never
+# bypasses the merge queue.
+#
+# The reconciler itself (scripts/reconcile-pr-queue.sh) is also usable directly
+# by an agent/human as a queue-drain command: `scripts/reconcile-pr-queue.sh`.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.QUEUE_BOT_TOKEN }}
+      - name: Require the reconciler token
+        run: |
+          if [ -z "${{ secrets.QUEUE_BOT_TOKEN }}" ]; then
+            echo "QUEUE_BOT_TOKEN is not configured; queue reconciliation is skipped." >&2
+            exit 1
+          fi
+      - name: Drain the open-PR queue against main
+        env:
+          GH_TOKEN: ${{ secrets.QUEUE_BOT_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: bash scripts/reconcile-pr-queue.sh --once
