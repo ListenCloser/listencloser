@@ -70,8 +70,8 @@ def main() -> int:
         raise RuntimeError("CLaMP3 checkout is missing code/")
     sys.path.insert(0, str(code_dir))
 
-    import config as clamp_config  # type: ignore
-    from utils import CLaMP3Model  # type: ignore
+    import config as clamp_config  # type: ignore  # noqa: I001
+    from utils import CLaMP3Model  # type: ignore  # noqa: I001
 
     audio_config = BertConfig(
         vocab_size=1,
