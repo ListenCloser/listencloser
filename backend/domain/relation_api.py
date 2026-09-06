@@ -19,7 +19,13 @@ from domain.relation_query import (
     PerceptualSpanComparisonQuery,
     compare_persisted_perceptual_spans,
 )
-from domain.repositories import get_supabase
+from domain.repositories import InsightRepo, get_supabase
+from domain.rhythm_density_context_findings import SubjectOrigin
+from domain.rhythm_density_context_query import (
+    RhythmDensityContextQuery,
+    RhythmDensityContextQueryResult,
+    query_persisted_rhythm_density_context,
+)
 from domain.similar_moments_contract import MAX_MATCHES
 from domain.storage_locator_policy import classify_version_storage_locator
 from domain.work_bundle_repository import WorkBundleRepository, WorkBundleSnapshot
@@ -44,6 +50,15 @@ class SimilarMomentsBody(BaseModel):
     query_start_seconds: float
     query_end_seconds: float
     max_matches: int = Field(default=3, ge=1, le=MAX_MATCHES)
+
+
+class RhythmDensityContextBody(BaseModel):
+    """Contextualize one explicit performance-time span using one exact density owner."""
+
+    density_owner_version_id: UUID
+    subject_start_seconds: float
+    subject_end_seconds: float
+    subject_origin: SubjectOrigin
 
 
 def _owner_id(auth) -> str:
@@ -212,3 +227,29 @@ def similar_moments(
         load_report=_authorized_report_loader(snapshot, sb, owner_id),
     )
     return SimilarMomentsResponse.model_validate(result.model_dump())
+
+
+@router.post(
+    "/works/{work_id}/relations/rhythm-density-context",
+    response_model=RhythmDensityContextQueryResult,
+)
+def rhythm_density_context(
+    work_id: UUID,
+    body: RhythmDensityContextBody,
+    auth=Depends(verify_token),
+):
+    """Return literal within-Work context for one exact density-owning Version."""
+
+    sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
+    insight_repo = InsightRepo(sb)
+
+    return query_persisted_rhythm_density_context(
+        snapshot,
+        density_owner_version_id=body.density_owner_version_id,
+        query=RhythmDensityContextQuery(
+            subject_start_seconds=body.subject_start_seconds,
+            subject_end_seconds=body.subject_end_seconds,
+            subject_origin=body.subject_origin,
+        ),
+        load_insights=lambda version: insight_repo.list_by_version(version.id, owner_id),
+    )

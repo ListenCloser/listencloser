@@ -1,4 +1,6 @@
 export default {
+  // This probe is intentionally scoped to projection policy. Equivalent or
+  // table-unreachable mutants are suppressed in-source with explicit reasons.
   mutate: ["lib/evidence-projections.ts"],
   testRunner: "vitest",
   vitest: {

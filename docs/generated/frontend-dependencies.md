@@ -28,6 +28,7 @@ subgraph app["app"]
   app_product_polish_v4_css["product-polish-v4.css"]
   app_readiness_css["readiness.css"]
   app_representation_visuals_css["representation-visuals.css"]
+  app_tokens_contrast_test_mjs["tokens-contrast.test.mjs"]
   app_tokens_css["tokens.css"]
   app_visual_language_css["visual-language.css"]
   app_workspace_interactions_css["workspace-interactions.css"]
@@ -76,6 +77,7 @@ subgraph lib["lib"]
   lib_notes_ts["notes.ts"]
   lib_openapi_client_ts["openapi-client.ts"]
   lib_perceptual_series_client_ts["perceptual-series-client.ts"]
+  lib_pitch_contour_client_ts["pitch-contour-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
   lib_public_recordings_ts["public-recordings.ts"]
   lib_pulse_grid_ts["pulse-grid.ts"]
@@ -88,6 +90,7 @@ subgraph lib["lib"]
   lib_score_measure_geometry_ts["score-measure-geometry.ts"]
   lib_score_note_playback_ts["score-note-playback.ts"]
   lib_score_renderer_ts["score-renderer.ts"]
+  lib_score_sources_ts["score-sources.ts"]
   lib_selection_ts["selection.ts"]
   lib_server_state_ts["server-state.ts"]
   lib_spectrogram_data_ts["spectrogram-data.ts"]
@@ -140,14 +143,15 @@ components_workspace_-->lib_musicxml_cache_ts
 components_workspace_-->lib_playback_sources_ts
 components_workspace_-->lib_representation_continuity_ts
 components_workspace_-->lib_score_artifacts_ts
+components_workspace_-->lib_score_sources_ts
 components_workspace_-->lib_server_state_ts
 components_workspace_-->lib_stores_
 components_workspace_-->lib_transcription_qualification_ts
 components_workspace_-->components_ui_
 components_workspace_-->lib_inspector_
+components_workspace_-->lib_relation_api_client_ts
 components_workspace_-->lib_ask_
 components_workspace_-->lib_selection_ts
-components_workspace_-->lib_relation_api_client_ts
 components_workspace_-->lib_perceptual_series_client_ts
 components_workspace_-->lib_public_recordings_ts
 components_workspace_-->lib_supabase_ts
@@ -167,6 +171,7 @@ components_workspace_-->lib_spectrogram_data_ts
 components_workspace_-->lib_audio_buffer_cache_ts
 components_workspace_-->lib_melody_playback_client_ts
 components_workspace_-->lib_melody_reduction_ts
+components_workspace_-->lib_pitch_contour_client_ts
 components_workspace_-->lib_structure_map_client_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
 lib_analysis_annotations_ts-->lib_inspector_
@@ -188,6 +193,8 @@ lib_musicxml_cache_ts-->lib_query_client_ts
 lib_openapi_client_ts-->lib_supabase_ts
 lib_perceptual_series_client_ts-->lib_api_client_ts
 lib_perceptual_series_client_ts-->lib_openapi_client_ts
+lib_pitch_contour_client_ts-->lib_api_client_ts
+lib_pitch_contour_client_ts-->lib_openapi_client_ts
 lib_relation_api_client_ts-->lib_openapi_client_ts
 lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts

@@ -189,7 +189,9 @@ test.describe("workspace ergonomics (MSW)", () => {
     await expect(page.getByRole("button", { name: "Pause Original", exact: true })).toBeVisible();
     await expect(pianoRoll.locator('[data-playhead="true"]')).toBeVisible({ timeout: 10_000 });
 
-    const svg = pianoRoll.locator("svg");
+    const svg = pianoRoll.getByRole("button", {
+      name: "Select region or seek playback from piano roll",
+    });
     const box = await svg.boundingBox();
     if (!box) throw new Error("piano roll SVG not found");
     await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);

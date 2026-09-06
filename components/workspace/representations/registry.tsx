@@ -6,6 +6,7 @@ import Spectrogram from "./Spectrogram";
 import Waveform from "./Waveform";
 import SheetMusic from "@/components/SheetMusic";
 import MelodyReduction from "@/components/workspace/inspector/MelodyReduction";
+import { buildExactHarmonyProjection } from "@/components/workspace/inspector/HarmonyEvidence";
 import { extractAnnotations } from "@/lib/analysis-annotations";
 import {
   resolveEvidenceProjection,
@@ -121,6 +122,10 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
     () => extractObservedPulseGrid(workspace.insights, entry?.versionId),
     [workspace.insights, entry?.versionId],
   );
+  const harmonySpans = useMemo(
+    () => buildExactHarmonyProjection(workspace.insights, entry?.versionId, timeline.bpm),
+    [workspace.insights, entry?.versionId, timeline.bpm],
+  );
   const selection = workspace.selection;
   const annotations = useMemo(
     () => visibleAnnotations(workspace.insights, "piano_roll", workspace.inspectorCollapsed),
@@ -145,6 +150,7 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
         bpm={timeline.bpm}
         beatTimes={pulseGrid?.beatsSeconds}
         downbeatTimes={pulseGrid?.downbeatsSeconds}
+        harmonySpans={harmonySpans}
         playheadTime={active ? transport.position : 0}
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
@@ -158,6 +164,13 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
         onSelectNotes={(ids) => {
           const composed = composeNoteSelection(notes, ids);
           if (composed) setSelection(composed);
+        }}
+        onHarmonySpanSelect={(span) => {
+          seek(span.start);
+          setSelection({
+            timeRange: { start: span.start, end: span.end, domain: "performance" },
+            provenance: { origin: "piano_roll", timeExact: true, measureApproximate: false },
+          });
         }}
         onAnnotationClick={(annotation) => {
           setSelection({
