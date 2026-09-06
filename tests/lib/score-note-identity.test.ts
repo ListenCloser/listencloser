@@ -88,7 +88,7 @@ describe("matchRenderedScoreNoteEvent", () => {
 });
 
 describe("buildRenderedScoreNoteIdentities", () => {
-  it("derives identity from OSMD source objects and not playback time or pixels", () => {
+  it("uses untransposed MusicXML source pitch and exact OSMD source coordinates", () => {
     const notehead = document.createElementNS("http://www.w3.org/2000/svg", "path");
     const osmd = {
       GraphicSheet: {
@@ -97,7 +97,9 @@ describe("buildRenderedScoreNoteIdentities", () => {
             graphicalVoiceEntries: [{
               notes: [{
                 sourceNote: {
-                  halfTone: 64,
+                  // OSMD documents halfTone as transposed; it must not own identity.
+                  halfTone: 65,
+                  Pitch: { getHalfTone: () => 64 },
                   IsGraceNote: false,
                   ParentVoiceEntry: {
                     Timestamp: { Numerator: 1, Denominator: 8, WholeValue: 0 },
@@ -138,7 +140,7 @@ describe("buildRenderedScoreNoteIdentities", () => {
             graphicalVoiceEntries: [{
               notes: [{
                 sourceNote: {
-                  halfTone: 60,
+                  Pitch: { getHalfTone: () => 60 },
                   ParentVoiceEntry: {
                     Timestamp: { Numerator: 0, Denominator: 1 },
                     ParentVoice: {},
