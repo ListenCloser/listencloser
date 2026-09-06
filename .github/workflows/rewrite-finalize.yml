@@ -36,10 +36,6 @@ jobs:
           git config user.name "listencloser-ci[bot]"
           git config user.email "listencloser-ci[bot]@users.noreply.github.com"
           git fetch origin main
-
-          # Record current main as a parent while resolving the path-wide rewrite
-          # intentionally below. Main is one bounded correction slice beyond the
-          # rewrite's previous base, and its files are transplanted explicitly.
           git merge -s ours --no-commit origin/main
 
           test -d services/backend
@@ -47,13 +43,12 @@ jobs:
           git mv services/backend backend
           rmdir services
 
-          # Carry current-main #1264 backend truth into the flattened backend.
+          # Carry the one current-main slice (#1264) into the rewrite's paths.
           git show origin/main:backend/domain/correction_entity_sync.py > backend/domain/correction_entity_sync.py
           mkdir -p backend/tests/integration
           git show origin/main:backend/tests/integration/test_correction_lineage.py > backend/tests/integration/test_correction_lineage.py
           git show origin/main:backend/tests/test_correction_entity_sync.py > backend/tests/test_correction_entity_sync.py
 
-          # Carry current-main #1264 frontend truth into apps/web.
           mkdir -p apps/web/src/components/workspace apps/web/src/components/workspace/representations apps/web/src/lib/stores apps/web/tests
           git show origin/main:components/workspace/PianoRollCorrectionCoordinator.tsx > apps/web/src/components/workspace/PianoRollCorrectionCoordinator.tsx
           git show origin/main:components/workspace/PianoRollCorrectionPanel.tsx > apps/web/src/components/workspace/PianoRollCorrectionPanel.tsx
@@ -78,61 +73,54 @@ jobs:
           logic.write_text(logic.read_text().replace('../lib/piano-roll-correction', '@/lib/piano-roll-correction'))
           PY
 
-          # The backend is now canonically root-owned. Rewrite every maintained
-          # textual contract in the branch and fail if a compatibility path remains.
+          # Make root backend canonical everywhere; no compatibility path survives.
           while IFS= read -r -d '' file; do
             sed -i 's#services/backend#backend#g' "$file"
           done < <(git grep -Il -z 'services/backend' -- . || true)
 
-          # Undo the one extra ancestry level that was introduced solely by the
-          # temporary services/backend nesting for repository-root lookups.
+          # The temporary services/ namespace added one level to repo-root lookups.
           python3 - <<'PY'
           from pathlib import Path
           import re
 
+          markers = ("REPO_ROOT", "_REPO_ROOT", "ROOT = Path(__file__)", "MIGRATIONS = Path(__file__)", "_FIXTURE = Path(__file__)")
           for path in Path("backend").rglob("*.py"):
               text = path.read_text()
-              # Only rewrite expressions that resolve all the way to the repo root.
-              # The temporary services/ level added exactly one parent.
-              if "REPO_ROOT" in text or "_REPO_ROOT" in text or "ROOT = Path(__file__)" in text or "MIGRATIONS = Path(__file__)" in text or "_FIXTURE = Path(__file__)" in text:
-                  text = re.sub(r"Path\(__file__\)(\.resolve\(\))?\.parents\[(\d+)\]", lambda m: f"Path(__file__){m.group(1) or ''}.parents[{max(0, int(m.group(2)) - 1)}]", text)
+              if any(marker in text for marker in markers):
+                  text = re.sub(
+                      r"Path\(__file__\)(\.resolve\(\))?\.parents\[(\d+)\]",
+                      lambda m: f"Path(__file__){m.group(1) or ''}.parents[{max(0, int(m.group(2)) - 1)}]",
+                      text,
+                  )
                   path.write_text(text)
+
+          export = Path("backend/export_openapi.py")
+          export.write_text(export.read_text().replace(
+              'Path(__file__).resolve().parents[2] / "openapi"',
+              'Path(__file__).resolve().parents[1] / "openapi"',
+          ))
           PY
 
-          # export_openapi.py moved one level closer to repo root too.
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path("backend/export_openapi.py")
-          text = path.read_text().replace('Path(__file__).resolve().parents[2] / "openapi"', 'Path(__file__).resolve().parents[1] / "openapi"')
-          path.write_text(text)
-          PY
-
-          # Make the architecture checker a locked workspace dependency rather
-          # than a required gate that bootstraps arbitrary registry state via npx.
+          # Lock the architecture checker into the web workspace.
           npm install --workspace @listencloser/web --save-dev --save-exact dependency-cruiser@18.2.0 --ignore-scripts --no-audit --no-fund
 
           python3 - <<'PY'
           from pathlib import Path
+
           path = Path("scripts/check.sh")
           text = path.read_text()
-          old = '''  local depcruise=(
-            npx --yes
-            --package=dependency-cruiser@18.2.0
-            --package=typescript@5.7.3
-            depcruise
-          )'''
-          new = '''  # dependency-cruiser is a locked apps/web dev dependency. --offline makes
+          start = text.index("  local depcruise=(")
+          end = text.index("\n\n  if (cd apps/web", start)
+          replacement = '''  # dependency-cruiser is a locked apps/web dev dependency. --offline makes
           # this required architecture gate fail rather than reaching the registry.
           local depcruise=(npm exec --offline -- depcruise)'''
-          if old not in text:
-              raise SystemExit("expected dependency-cruiser bootstrap block not found")
-          path.write_text(text.replace(old, new))
+          path.write_text(text[:start] + replacement + text[end:])
 
           package = Path("package.json")
           package.write_text(package.read_text().replace("Python services", "Python backend"))
           PY
 
-          # Regenerate the checked frontend graph with the now-locked binary.
+          # Regenerate the checked dependency graph using the locked binary.
           tmp_graph="$(mktemp)"
           (
             cd apps/web
@@ -159,10 +147,7 @@ jobs:
           } > docs/generated/frontend-dependencies.md
           rm -f "$tmp_graph"
 
-          # The old backend inventory program was deliberately deleted by the rewrite.
           rm -f backend/tests/test_backend_dependency_inventory.py scripts/backend_dependency_inventory.py
-
-          # The one-shot workflow must not become permanent repository machinery.
           git rm .github/workflows/rewrite-finalize.yml
 
           if git grep -n 'services/backend' -- .; then
