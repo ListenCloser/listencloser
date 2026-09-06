@@ -13,6 +13,10 @@ analysis, notation, and test paths and must not itself require Torch/TensorFlow.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Literal, TypeAlias
+
 from engines.base import (
     BeatTrackingEngine,
     HarmonyEngine,
@@ -25,6 +29,91 @@ from engines.harmony.music21_engine import Music21HarmonyEngine
 from engines.melody.skyline_engine import SkylineMelodyEngine
 from engines.notation.musescore_engine import MuseScoreNotationEngine
 from settings import EngineSettings
+
+ProductReachability: TypeAlias = Literal[
+    "USER_REACHABLE",
+    "INTERNAL_PRIMITIVE",
+    "EVALUATION_ONLY",
+    "WITHHELD",
+    "ROLLBACK_ONLY",
+    "MISSING_UI",
+]
+
+_PRODUCT_REACHABILITY_VALUES = frozenset(
+    {
+        "USER_REACHABLE",
+        "INTERNAL_PRIMITIVE",
+        "EVALUATION_ONLY",
+        "WITHHELD",
+        "ROLLBACK_ONLY",
+        "MISSING_UI",
+    }
+)
+
+
+@dataclass(frozen=True)
+class HarmonyEngineRegistration:
+    """Runtime admission plus the product reachability declaration it requires.
+
+    This is deliberately Harmony-engine-local rather than a second capability
+    registry. ``backend/config/capabilities.json`` remains authority for the
+    chord capability's maturity/exposure. The resolver below is authority for
+    which alternate Harmony runtimes can actually execute, so admission here is
+    the narrow point where an alternate must declare whether a musician can
+    inspect it in the product.
+    """
+
+    factory: Callable[[], HarmonyEngine]
+    product_reachability: ProductReachability
+    follow_up_issue: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.product_reachability not in _PRODUCT_REACHABILITY_VALUES:
+            raise ValueError(f"Unknown product reachability: {self.product_reachability}")
+        if self.product_reachability == "MISSING_UI" and not self.follow_up_issue:
+            raise ValueError("MISSING_UI Harmony engines require a focused UI follow-up issue")
+        if self.follow_up_issue is not None and self.follow_up_issue <= 0:
+            raise ValueError("Harmony engine follow-up issue must be a positive issue number")
+
+
+def _music21_harmony_engine() -> HarmonyEngine:
+    return Music21HarmonyEngine()
+
+
+def _lv_chordia_harmony_engine() -> HarmonyEngine:
+    try:
+        from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
+    except ImportError as exc:
+        raise RuntimeError(
+            "lv-chordia is not installed. Install the backend worker dependency group."
+        ) from exc
+    return LvChordiaHarmonyEngine()
+
+
+def _chordmini_harmony_engine() -> HarmonyEngine:
+    from engines.harmony.chordmini_engine import ChordMiniHarmonyEngine
+
+    return ChordMiniHarmonyEngine()
+
+
+# Product-inspection parity is colocated with runtime admission. A new Harmony
+# engine cannot become resolvable without also declaring its product posture.
+# Engine/model names remain implementation detail in musician-facing surfaces.
+HARMONY_ENGINE_REGISTRY: dict[str, HarmonyEngineRegistration] = {
+    "music21": HarmonyEngineRegistration(
+        factory=_music21_harmony_engine,
+        product_reachability="USER_REACHABLE",
+    ),
+    "lv_chordia": HarmonyEngineRegistration(
+        factory=_lv_chordia_harmony_engine,
+        product_reachability="USER_REACHABLE",
+    ),
+    "chordmini": HarmonyEngineRegistration(
+        factory=_chordmini_harmony_engine,
+        product_reachability="MISSING_UI",
+        follow_up_issue=1194,
+    ),
+}
 
 
 def get_transcription_engine(
@@ -118,21 +207,10 @@ def get_notation_engine(name: str | None = None) -> NotationEngine:
 
 def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
     name = name or EngineSettings().harmony
-    if name == "music21":
-        return Music21HarmonyEngine()
-    if name == "lv_chordia":
-        try:
-            from engines.harmony.lv_chordia_engine import LvChordiaHarmonyEngine
-        except ImportError as exc:
-            raise RuntimeError(
-                "lv-chordia is not installed. Install the backend worker dependency group."
-            ) from exc
-        return LvChordiaHarmonyEngine()
-    if name == "chordmini":
-        from engines.harmony.chordmini_engine import ChordMiniHarmonyEngine
-
-        return ChordMiniHarmonyEngine()
-    raise ValueError(f"Unknown harmony engine: {name}")
+    registration = HARMONY_ENGINE_REGISTRY.get(name)
+    if registration is None:
+        raise ValueError(f"Unknown harmony engine: {name}")
+    return registration.factory()
 
 
 def get_melody_engine(
