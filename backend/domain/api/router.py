@@ -7,6 +7,7 @@ from domain.api.evidence import router as evidence_router
 from domain.api.harmony_interpretations import router as harmony_interpretations_router
 from domain.api.lyrics_alignment import router as lyrics_alignment_router
 from domain.api.projects_works import router as projects_works_router
+from domain.api.score_performance_alignment import router as score_performance_alignment_router
 from domain.api.text_passage_find import router as text_passage_find_router
 from domain.api.workflows_jobs import router as workflows_jobs_router
 
@@ -18,3 +19,4 @@ router.include_router(workflows_jobs_router)
 router.include_router(lyrics_alignment_router)
 router.include_router(harmony_interpretations_router)
 router.include_router(text_passage_find_router)
+router.include_router(score_performance_alignment_router)
