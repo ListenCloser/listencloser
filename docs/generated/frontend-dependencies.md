@@ -65,6 +65,7 @@ subgraph lib["lib"]
   lib_domain_types_ts["domain.types.ts"]
   lib_evidence_projections_ts["evidence-projections.ts"]
   lib_format_ts["format.ts"]
+  lib_harmony_interpretation_client_ts["harmony-interpretation-client.ts"]
   subgraph lib_inspector["inspector"]
     lib_inspector_[" "]
   end
@@ -188,6 +189,7 @@ lib_ask_-->lib_inspector_
 lib_ask_-->lib_format_ts
 lib_ask_-->lib_representations_ts
 lib_ask_-->lib_selection_ts
+lib_harmony_interpretation_client_ts-->lib_openapi_client_ts
 lib_inspector_-->lib_format_ts
 lib_job_tracking_ts-->lib_api_client_ts
 lib_job_tracking_ts-->lib_query_client_ts
