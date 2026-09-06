@@ -244,21 +244,51 @@ test("D: real Pitch Contour job is accepted, executed, and completes", async ({
   const projectId = (await projectResponse.json()).id as string;
   expect(projectId).toBeTruthy();
 
-  const uploadResponse = await request.post(
-    `${PROD_URL}/api/v1/projects/${projectId}/artifacts/upload`,
+  const audio = readFileSync(REAL_AUDIO);
+  const intentResponse = await request.post(
+    `${PROD_URL}/api/v1/projects/${projectId}/artifacts/upload-intent`,
     {
       headers: authHeaders,
-      multipart: {
-        file: {
-          name: "piano-simple.m4a",
-          mimeType: "audio/mp4",
-          buffer: readFileSync(REAL_AUDIO),
-        },
+      data: {
+        filename: "piano-simple.m4a",
+        byte_size: audio.byteLength,
+        content_type: "audio/mp4",
+        work_id: null,
       },
     },
   );
-  expect(uploadResponse.status()).toBe(200);
-  const versionId = (await uploadResponse.json()).version?.id as string;
+  expect(intentResponse.status()).toBe(200);
+  const intent = await intentResponse.json();
+
+  const storageClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  await storageClient.auth.setSession({
+    access_token: s.access_token,
+    refresh_token: s.refresh_token,
+  });
+  const { error: storageError } = await storageClient.storage
+    .from(intent.bucket)
+    .uploadToSignedUrl(
+      intent.storage_key,
+      intent.token,
+      new File([audio], "piano-simple.m4a", { type: "audio/mp4" }),
+    );
+  expect(storageError).toBeNull();
+
+  const finalizeResponse = await request.post(
+    `${PROD_URL}/api/v1/projects/${projectId}/artifacts/finalize-upload`,
+    {
+      headers: authHeaders,
+      data: {
+        filename: "piano-simple.m4a",
+        byte_size: audio.byteLength,
+        content_type: "audio/mp4",
+        work_id: null,
+        storage_key: intent.storage_key,
+      },
+    },
+  );
+  expect(finalizeResponse.status()).toBe(200);
+  const versionId = (await finalizeResponse.json()).version?.id as string;
   expect(versionId).toBeTruthy();
 
   const createResponse = await request.post(`${PROD_URL}/api/v1/workflows/create`, {
