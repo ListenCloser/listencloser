@@ -71,9 +71,7 @@ def run(score_path: Path, performance_path: Path) -> dict[str, Any]:
     actual_parangonar = importlib.metadata.version("parangonar")
     actual_partitura = importlib.metadata.version("partitura")
     if actual_parangonar != PARANGONAR_VERSION:
-        raise RuntimeError(
-            f"expected parangonar {PARANGONAR_VERSION}, found {actual_parangonar}"
-        )
+        raise RuntimeError(f"expected parangonar {PARANGONAR_VERSION}, found {actual_parangonar}")
     if actual_partitura != PARTITURA_VERSION:
         raise RuntimeError(f"expected partitura {PARTITURA_VERSION}, found {actual_partitura}")
 
