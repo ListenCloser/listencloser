@@ -13,6 +13,9 @@ from domain.performance_instrumentation import install_understand_instrumentatio
 from domain.pgmq_job_worker import PgmqJobWorker
 from domain.pitch_contour_capability import register_pitch_contour_capability
 from domain.production_spatial_capability import register_production_spatial_capability
+from domain.score_performance_alignment_capability import (
+    register_score_performance_alignment_capability,
+)
 from domain.structure_map_capability import register_structure_map_capability
 from domain.text_passage_find_capability import register_text_passage_find_capability
 from domain.worker_warmup import (
@@ -64,6 +67,7 @@ def main() -> None:
     register_pitch_contour_capability(worker)
     register_harmony_interpretation_capability(worker)
     register_text_passage_find_capability(worker)
+    register_score_performance_alignment_capability(worker)
 
     def stop(_signum, _frame) -> None:
         worker.stop()
