@@ -1,78 +1,138 @@
 .finding {
-  border: 0 !important;
-  border-top: 1px solid rgba(241, 239, 232, 0.07) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  border-top: 1px solid var(--line-subtle);
+  background: transparent;
 }
 
 .finding:first-child {
-  border-top: 0 !important;
+  border-top: 0;
 }
 
-.finding :global(.inspector-breakdown-focus) {
-  padding: 12px 0 8px;
+.focus {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-areas:
+    "time headline"
+    ". support"
+    ". maturity";
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  padding: var(--space-3) 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.finding :global(.inspector-breakdown-headline) {
-  color: #d7d2c8;
-  font-size: 13px;
+.focus:active {
+  transform: translateY(1px);
+}
+
+.focus:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.time {
+  grid-area: time;
+  padding-top: 1px;
+  color: var(--time);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.headline {
+  grid-area: headline;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--type-base);
   font-weight: 580;
   line-height: 1.42;
   letter-spacing: -0.006em;
 }
 
-.finding:first-child :global(.inspector-breakdown-headline) {
-  color: #eee9df;
-  font-size: 14px;
-  font-weight: 650;
+.finding:first-child .headline {
+  color: var(--text-primary);
+  font-size: var(--type-md);
+  font-weight: var(--weight-semibold);
 }
 
-.finding :global(.inspector-breakdown-support) {
-  color: #827c72;
-  line-height: 1.45;
+.support {
+  grid-area: support;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
+  line-height: var(--line-height-reading);
 }
 
-.finding :global(.inspector-breakdown-actions) {
-  gap: 14px;
-  padding: 0 0 12px;
+.maturity {
+  grid-area: maturity;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 2px 0;
+  color: var(--relation);
+  font-size: 10px;
+  font-weight: var(--weight-medium);
+  line-height: 1.35;
 }
 
-.finding :global(.inspector-breakdown-action) {
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: 0 0 var(--space-3);
+}
+
+.action {
   min-height: 28px;
-  padding: 2px 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  color: #aaa398;
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  cursor: pointer;
 }
 
-.finding :global(.inspector-breakdown-action:hover) {
-  color: var(--text);
-  background: transparent !important;
+.action:hover {
+  color: var(--text-primary);
+}
+
+.action:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .evidence {
-  padding: 0 0 12px;
-  color: #827c72;
-  font-size: var(--fs-xs);
+  padding: 0 0 var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
 }
 
 .evidence > summary {
   width: fit-content;
   cursor: pointer;
-  color: #999287;
-  font-weight: var(--fw-medium);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-medium);
   list-style-position: inside;
+}
+
+.evidence > summary:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .evidenceGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 14px;
-  margin: 10px 0 0;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-2) 0 0;
 }
 
 .evidenceGrid > div {
@@ -81,12 +141,12 @@
 
 .evidenceGrid dt {
   margin: 0 0 2px;
-  color: #6f695f;
+  color: var(--text-tertiary);
 }
 
 .evidenceGrid dd {
   margin: 0;
-  color: #aaa398;
+  color: var(--text-secondary);
 }
 
 .evidenceGrid code {
@@ -99,7 +159,23 @@
 }
 
 @media (max-width: 820px) {
-  .finding :global(.inspector-breakdown-focus) {
-    padding: 12px 0 8px;
+  .focus {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "time"
+      "headline"
+      "support"
+      "maturity";
+    min-height: 44px;
+  }
+
+  .action {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus {
+    transform: none;
   }
 }
