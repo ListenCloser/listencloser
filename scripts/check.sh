@@ -186,6 +186,7 @@ run_backend_static() {
   echo ""
   echo "── Backend static checks ──"
   local started=$SECONDS
+  uv run --project backend --locked ruff format backend/ --diff || true
   if uv run --project backend --locked ruff check backend/ && \
      uv run --project backend --locked ruff format backend/ --check; then
     pass "ruff ($((SECONDS - started))s)"
