@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from auth_utils import limiter, verify_token
 from domain.api.dependencies import owner_id, supabase_client
 from domain.api_schemas import WorkflowJobResponse
-from domain.models import Capability, Job, Workflow, WorkflowKind
+from domain.models import ArtifactKind, Capability, Job, Workflow, WorkflowKind
 from domain.repositories import ArtifactRepo, JobRepo, VersionRepo, WorkflowRepo, WorkRepo
 
 router = APIRouter()
@@ -43,7 +43,7 @@ def create_harmony_interpretation_workflow(
     request: Request,
     auth=Depends(verify_token),
 ):
-    """Queue ChordMini over one exact audio Version and publish onto one exact MIDI Version."""
+    """Queue ChordMini over exact audio and MIDI Versions."""
     sb = supabase_client()
     owner = owner_id(auth)
 
@@ -57,10 +57,19 @@ def create_harmony_interpretation_workflow(
         midi_version, midi_artifact = _version_for_work(sb, midi_id, work_id, owner)
         audio_version, audio_artifact = _version_for_work(sb, audio_id, work_id, owner)
 
-        if str(midi_artifact.kind) not in {"ArtifactKind.midi_performance", "ArtifactKind.midi_corrected", "midi_performance", "midi_corrected"}:
-            raise HTTPException(status_code=400, detail="Harmony interpretation requires a Piano Roll MIDI Version")
-        if str(audio_artifact.kind) not in {"ArtifactKind.audio_original", "audio_original"}:
-            raise HTTPException(status_code=400, detail="Harmony interpretation requires the original audio Version")
+        if midi_artifact.kind not in {
+            ArtifactKind.midi_performance,
+            ArtifactKind.midi_corrected,
+        }:
+            raise HTTPException(
+                status_code=400,
+                detail="Harmony interpretation requires a Piano Roll MIDI Version",
+            )
+        if audio_artifact.kind != ArtifactKind.audio_original:
+            raise HTTPException(
+                status_code=400,
+                detail="Harmony interpretation requires the original audio Version",
+            )
 
         engine = body.harmony_engine
         job_id = uuid5(
