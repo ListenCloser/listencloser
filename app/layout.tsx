@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import "./visual-language.css";
 import "./tokens.css";
 import "./representation-visuals.css";
-import "./inspector.css";
-import "./breakdown.css";
 import "./mobile-workspace.css";
 import "./landing-product-story.css";
 import { Geist } from "next/font/google";
