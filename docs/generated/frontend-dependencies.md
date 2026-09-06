@@ -164,6 +164,9 @@ components_workspace_-->lib_evidence_projections_ts
 components_workspace_-->lib_pulse_grid_ts
 components_workspace_-->lib_representations_ts
 components_workspace_-->lib_notes_ts
+components_workspace_-->lib_measure_ts
+components_workspace_-->lib_score_measure_geometry_ts
+components_workspace_-->lib_score_note_playback_ts
 components_workspace_-->lib_canvas_typography_ts
 components_workspace_-->lib_color_ts
 components_workspace_-->lib_spectrogram_ts
@@ -175,9 +178,6 @@ components_workspace_-->lib_correction_client_ts
 components_workspace_-->lib_piano_roll_correction_ts
 components_workspace_-->lib_pitch_contour_client_ts
 components_workspace_-->lib_structure_map_client_ts
-components_workspace_-->lib_measure_ts
-components_workspace_-->lib_score_measure_geometry_ts
-components_workspace_-->lib_score_note_playback_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
 lib_analysis_annotations_ts-->lib_inspector_
 lib_api_client_ts-->lib_openapi_client_ts
