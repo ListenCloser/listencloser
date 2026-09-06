@@ -56,10 +56,11 @@ def test_note_entities_from_midi_bytes_materializes_every_instrument() -> None:
     assert all(entity.version_id == version_id for entity in entities)
 
 
-def test_correction_sync_replaces_partial_entities_from_persisted_midi(
+def test_correction_sync_qualifies_version_and_replaces_partial_entities_from_persisted_midi(
     monkeypatch,
 ) -> None:
     output_version_id = uuid4()
+    source_version_id = uuid4()
     workflow_id = uuid4()
     artifact_id = uuid4()
     captured_entities: list[Entity] = []
@@ -69,10 +70,19 @@ def test_correction_sync_replaces_partial_entities_from_persisted_midi(
         artifact_id=artifact_id,
         storage_key="corrected.mid",
         storage_bucket="artifacts",
+        metadata={"existing": "preserved"},
     )
     job = Job(
         workflow_id=workflow_id,
         capability=Capability(name="correct", version="1.0"),
+        input_version_ids=[source_version_id],
+        parameters={
+            "selection_start": 1.0,
+            "selection_end": 1.5,
+            "corrected_notes": [
+                {"pitch": 73, "start": 1.1, "end": 1.45, "velocity": 90},
+            ],
+        },
     )
 
     monkeypatch.setattr(
@@ -94,6 +104,24 @@ def test_correction_sync_replaces_partial_entities_from_persisted_midi(
 
     monkeypatch.setattr(correction_sync, "EntityRepo", CapturingEntityRepo)
 
+    class VersionUpdateQuery:
+        def __init__(self):
+            self.payload: dict | None = None
+            self.filters: list[tuple[str, str]] = []
+            self.executed = False
+
+        def update(self, data: dict):
+            self.payload = data
+            return self
+
+        def eq(self, column: str, value: str):
+            self.filters.append((column, value))
+            return self
+
+        def execute(self):
+            self.executed = True
+            return SimpleNamespace(data=[])
+
     class DeleteQuery:
         def __init__(self):
             self.filters: list[tuple[str, str]] = []
@@ -112,19 +140,38 @@ def test_correction_sync_replaces_partial_entities_from_persisted_midi(
             self.executed = True
             return SimpleNamespace(data=[])
 
-    query = DeleteQuery()
+    version_query = VersionUpdateQuery()
+    entity_query = DeleteQuery()
 
     class Client:
         def table(self, name: str):
+            if name == "artifact_versions":
+                return version_query
             assert name == "entities"
-            return query
+            return entity_query
 
     result = correction_sync.handle_correct_with_entity_sync(job, Client())
 
     assert result == [str(output_version_id)]
-    assert query.deleted is True
-    assert query.executed is True
-    assert query.filters == [
+    assert version_query.executed is True
+    assert version_query.filters == [("id", str(output_version_id))]
+    assert version_query.payload == {
+        "metadata": {
+            "existing": "preserved",
+            "representation": "edited_performance",
+            "correction": {
+                "schema_version": 1,
+                "operation": "replace_notes_in_span",
+                "source_version_id": str(source_version_id),
+                "selection_start_seconds": 1.0,
+                "selection_end_seconds": 1.5,
+                "replacement_note_count": 1,
+            },
+        }
+    }
+    assert entity_query.deleted is True
+    assert entity_query.executed is True
+    assert entity_query.filters == [
         ("version_id", str(output_version_id)),
         ("kind", "note"),
     ]
