@@ -123,6 +123,15 @@ test("B: backend health endpoints return ready", async ({ request }) => {
   expect(readyBody.database).toBe(true);
   expect(readyBody.storage).toBe(true);
 
+  // Deploy-backend passes DEPLOY_SHA so verification proves the exact intended
+  // revision is live. A stale backend (for example, a silently skipped or failed
+  // deployment) fails here instead of passing a frontend-only check.
+  const expectedRelease = process.env.DEPLOY_SHA;
+  if (expectedRelease) {
+    expect(readyBody.release).toBe(expectedRelease);
+  }
+  expect(readyBody.release).toBeTruthy();
+
   const queue = await request.get(`${PROD_URL}/api/health/queue`);
   expect(queue.status()).toBe(200);
   const queueBody = await queue.json();
