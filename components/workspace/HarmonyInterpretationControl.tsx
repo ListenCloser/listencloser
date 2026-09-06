@@ -42,6 +42,7 @@ function initialEngine(insights: Insight[]): HarmonyInterpretationEngine {
 
 export default function HarmonyInterpretationControl() {
   const { workspace, setInsights } = useWorkspace();
+  const activeWorkId = workspace.activeWorkId;
   const midiVersionId = workspace.representations.find(
     (item) => item.kind === "piano_roll",
   )?.versionId;
@@ -74,7 +75,7 @@ export default function HarmonyInterpretationControl() {
   }, [engine, setInsights, workspace.insights]);
 
   if (
-    !workspace.activeWorkId
+    !activeWorkId
     || !midiVersionId
     || !audioVersionId
     || (!hasLvChordia && !hasChordMini)
@@ -98,11 +99,15 @@ export default function HarmonyInterpretationControl() {
     try {
       if (nextEngine === "chordmini" && !hasChordMini) {
         const result = await startChordMiniInterpretation(
-          workspace.activeWorkId!,
+          activeWorkId,
           midiVersionId,
           audioVersionId,
         );
-        await waitForJob(result.job.id, () => undefined);
+        const jobId = result.job.id;
+        if (!jobId) {
+          throw new Error("ChordMini interpretation did not return a job id");
+        }
+        await waitForJob(jobId, () => undefined);
       }
       await refreshFor(nextEngine);
     } catch (cause) {
