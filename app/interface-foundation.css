@@ -1,34 +1,27 @@
 /*
- * ListenCloser interface normalization.
+ * Remaining global-surface bridge.
  *
- * app/tokens.css owns ordinary application-chrome tokens. This temporary
- * normalization layer keeps historical component owners visually coherent
- * while #1211 / #523 migrate and delete the older cascade strata.
- * Product-specific renderers remain responsible for measured musical data and
- * shared time/selection semantics.
+ * Canonical tokens and component-local modules own ordinary application chrome.
+ * Keep this file limited to legacy surfaces that still do not have a narrower
+ * owner: shell/Inspector normalization, the processing shelf, and renderer-
+ * internal details. Do not add Library, Representation-shell, Transport, or
+ * generic-control styling here.
  */
 
 html,
 body,
 .studio-shell-v3,
-.studio-canvas-area-v3,
-.piece-desk-v3,
-.piece-loading-shell,
-.piece-empty-v3,
-.piece-active-view-v3 {
+.studio-canvas-area-v3 {
   background-color: var(--ui-canvas) !important;
   background-image: none !important;
 }
 
-.studio-header-v3,
-.representation-toolbar,
-.transport-bar-v3 {
+.studio-header-v3 {
   background: var(--ui-chrome) !important;
   border-color: var(--ui-line) !important;
   box-shadow: none !important;
 }
 
-.studio-library-v3,
 .studio-inspector-v3,
 .inspector,
 .inspector-v4,
@@ -41,125 +34,10 @@ body,
   border-color: var(--ui-line) !important;
 }
 
-/* Generic chrome ---------------------------------------------------------- */
-
-.library-heading-row h2,
-.library-work-title {
-  color: var(--ui-text-2) !important;
-}
-
-.library-count,
-.library-note-glyph {
-  display: none !important;
-}
-
-.library-work-btn:not(:has(.library-row-spinner)) {
-  grid-template-columns: minmax(0, 1fr) !important;
-  padding-left: 12px !important;
-}
-
-.library-work-btn:not(:has(.library-row-spinner)) .library-work-leading {
-  display: none !important;
-}
-
-.library-work-row.selected {
-  background: rgba(223, 244, 90, 0.045) !important;
-  box-shadow: inset 2px 0 0 rgba(223, 244, 90, 0.72) !important;
-}
-
-.library-work-row.selected .library-work-btn {
-  background: transparent !important;
-}
-
-.library-work-row.selected .library-work-title {
-  color: var(--ui-text) !important;
-}
-
-.library-work-status,
-.library-account-action,
-.library-import-settings summary,
-.library-import-status,
 .studio-service-state,
 .inspector-meta-item dt,
 .inspector-breakdown-sparse p {
   color: var(--ui-text-3) !important;
-}
-
-.library-import-btn {
-  border-color: rgba(223, 244, 90, 0.22) !important;
-  background: rgba(223, 244, 90, 0.045) !important;
-  color: #dfe99b !important;
-  border-radius: 4px !important;
-}
-
-.library-import-btn:hover:not(:disabled) {
-  border-color: rgba(223, 244, 90, 0.36) !important;
-  background: rgba(223, 244, 90, 0.075) !important;
-}
-
-.library-empty-v3 p {
-  display: none !important;
-}
-
-.piece-source-menu,
-.repr-more-menu,
-.library-row-menu-popover {
-  border-color: var(--ui-line-strong) !important;
-  background: var(--ui-raised) !important;
-}
-
-.piece-view-tabs-v3 > button,
-.ui-tab {
-  color: var(--ui-text-3) !important;
-}
-
-.piece-view-tabs-v3 > button.active,
-.ui-tab[data-state="active"],
-.ui-tab.active {
-  color: var(--ui-text) !important;
-}
-
-/* First run --------------------------------------------------------------- */
-
-.piece-empty-v3 {
-  display: grid !important;
-  place-items: center !important;
-  padding: clamp(24px, 6vw, 72px) !important;
-}
-
-.piece-empty-v3 .empty-desk-art,
-.piece-empty-v3 .empty-desk-copy > p,
-.piece-empty-v3 .empty-desk-copy > small {
-  display: none !important;
-}
-
-.piece-empty-v3 .empty-desk-copy {
-  width: min(320px, 100%);
-  max-width: 320px !important;
-  display: grid !important;
-  justify-items: center !important;
-  gap: 17px !important;
-  text-align: center !important;
-}
-
-.piece-empty-v3 .empty-desk-copy h1 {
-  margin: 0 !important;
-  color: var(--ui-text) !important;
-  font-family: var(--font-sans) !important;
-  font-size: 18px !important;
-  font-weight: 620 !important;
-  line-height: 1.25 !important;
-  letter-spacing: -0.025em !important;
-}
-
-.piece-empty-v3 .empty-import-primary {
-  min-height: 34px !important;
-  padding-inline: 14px !important;
-  border: 1px solid rgba(223, 244, 90, 0.34) !important;
-  border-radius: 4px !important;
-  background: var(--ui-action) !important;
-  color: #12150f !important;
-  box-shadow: none !important;
 }
 
 /* Upload / processing ----------------------------------------------------- */
@@ -205,9 +83,14 @@ body,
   accent-color: var(--ui-action) !important;
 }
 
-.piece-processing-card progress::-webkit-progress-bar { background: var(--ui-line) !important; }
+.piece-processing-card progress::-webkit-progress-bar {
+  background: var(--ui-line) !important;
+}
+
 .piece-processing-card progress::-webkit-progress-value,
-.piece-processing-card progress::-moz-progress-bar { background: var(--ui-action) !important; }
+.piece-processing-card progress::-moz-progress-bar {
+  background: var(--ui-action) !important;
+}
 
 .workspace-notice,
 .workspace-processing-notice {
@@ -217,23 +100,7 @@ body,
   box-shadow: none !important;
 }
 
-/* Musical surfaces -------------------------------------------------------- */
-
-.representation-body,
-.waveform-wrap,
-.spectrogram-wrap,
-.piano-roll-container,
-.piano-roll-scroll {
-  background: var(--surface-music) !important;
-}
-
-.waveform-wrap,
-.spectrogram-wrap,
-.piano-roll-container {
-  border-color: var(--ui-line) !important;
-  border-radius: 3px !important;
-  box-shadow: none !important;
-}
+/* Renderer internals ------------------------------------------------------ */
 
 .waveform-ruler {
   display: block;
@@ -256,18 +123,6 @@ body,
   font-family: var(--font-sans) !important;
 }
 
-.sheet-music-wrap,
-.score-viewer,
-.score-container {
-  background: var(--surface-music) !important;
-}
-
-.sheet-music-container {
-  border-color: rgba(15, 18, 16, 0.24) !important;
-  background: var(--surface-paper) !important;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18) !important;
-}
-
 /* Inspector normalization only; content hierarchy remains independently owned. */
 .inspector-header,
 .ask-header,
@@ -285,42 +140,7 @@ body,
   background-color: transparent !important;
 }
 
-/* Transport --------------------------------------------------------------- */
-
-.transport-bar-v3 {
-  border-top-color: var(--ui-line) !important;
-}
-
-.transport-play-btn {
-  border-color: rgba(223, 244, 90, 0.3) !important;
-  background: var(--ui-action) !important;
-  color: #12150f !important;
-  box-shadow: none !important;
-}
-
-.transport-time,
-.piece-source-trigger {
-  color: var(--ui-text-2) !important;
-}
-
-.transport-time-muted,
-.transport-ctrl,
-.transport-ctrl-labeled,
-.transport-compare-trigger {
-  color: var(--ui-text-3) !important;
-}
-
 @media (max-width: 600px) {
-  .piece-empty-v3 {
-    padding: 28px 20px calc(var(--transport-height) + 28px) !important;
-  }
-
-  .piece-empty-v3 .empty-import-primary {
-    width: 100%;
-    min-height: 44px !important;
-    justify-content: center;
-  }
-
   .piece-processing-card {
     right: 10px !important;
     left: 10px !important;
