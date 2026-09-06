@@ -77,8 +77,14 @@ class ProductionSpatialReport(BaseModel):
     )
     limitations: list[str] = Field(
         default_factory=lambda: [
-            "Relations are local adjacent-window comparisons and do not identify sections or causes.",
-            "Loudness is BS.1770 integrated loudness measured independently inside each fixed window.",
+            (
+                "Relations are local adjacent-window comparisons and do not identify "
+                "sections or causes."
+            ),
+            (
+                "Loudness is BS.1770 integrated loudness measured independently inside "
+                "each fixed window."
+            ),
             "Mid/side evidence is emitted only for exactly two-channel source audio.",
             "Spectral centroid and onset strength are method-specific librosa measurements.",
         ]
