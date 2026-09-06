@@ -47,9 +47,7 @@ def test_c2_midi_window_uses_performance_seconds_and_m3_compatible_mtf(tmp_path)
     assert "note_on" in mtf
 
 
-def test_c2_retriever_forces_offline_child_and_parses_bounded_result(
-    monkeypatch, tmp_path
-):
+def test_c2_retriever_forces_offline_child_and_parses_bounded_result(monkeypatch, tmp_path):
     runtime_python = tmp_path / "python"
     checkout = tmp_path / "clamp3"
     weights = tmp_path / "weights.pth"
