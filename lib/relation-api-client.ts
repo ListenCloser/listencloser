@@ -12,6 +12,7 @@ export type SimilarMomentsBody = components["schemas"]["SimilarMomentsBody"];
 export type SimilarMomentsResponse = components["schemas"]["SimilarMomentsResponse"];
 export type RhythmDensityContextBody =
   components["schemas"]["RhythmDensityContextBody"];
+export type HarmonyInterpretationEngine = "lv-chordia" | "chordmini";
 
 /**
  * Query a same-work A/B perceptual comparison without mutating Work state.
@@ -92,3 +93,23 @@ export async function getMeasuredChanges(
 
 export type MeasuredChangeQueryResponse = Awaited<ReturnType<typeof getMeasuredChanges>>;
 export type MeasuredChangeCandidate = NonNullable<MeasuredChangeQueryResponse["candidates"]>[number];
+
+/** Generate the experimental ChordMini interpretation for exact Work Versions. */
+export async function startChordMiniInterpretation(
+  workId: string,
+  performanceMidiVersionId: string,
+  sourceAudioVersionId: string,
+) {
+  const result = await openapiClient.POST(
+    "/api/v1/works/{work_id}/workflows/harmony-interpretation",
+    {
+      params: { path: { work_id: workId } },
+      body: {
+        performance_midi_version_id: performanceMidiVersionId,
+        source_audio_version_id: sourceAudioVersionId,
+        harmony_engine: "chordmini",
+      },
+    },
+  );
+  return requireOpenApiData(result);
+}

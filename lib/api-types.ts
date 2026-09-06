@@ -322,6 +322,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows/text-passage-find": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Text Passage Find Workflow
+         * @description Queue CLaMP3 C2 retrieval instead of blocking an API request on model inference.
+         */
+        post: operations["create_text_passage_find_workflow_api_v1_workflows_text_passage_find_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflows/understand": {
         parameters: {
             query?: never;
@@ -457,6 +477,26 @@ export interface paths {
          * @description Propose inspectable same-Work passages under one declared experimental method.
          */
         post: operations["similar_moments_api_v1_works__work_id__relations_similar_moments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/works/{work_id}/workflows/harmony-interpretation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Harmony Interpretation Workflow
+         * @description Queue ChordMini over exact audio and MIDI Versions.
+         */
+        post: operations["create_harmony_interpretation_workflow_api_v1_works__work_id__workflows_harmony_interpretation_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1181,6 +1221,19 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HarmonyInterpretationBody */
+        HarmonyInterpretationBody: {
+            /**
+             * Harmony Engine
+             * @default chordmini
+             * @constant
+             */
+            harmony_engine: "chordmini";
+            /** Performance Midi Version Id */
+            performance_midi_version_id: string;
+            /** Source Audio Version Id */
+            source_audio_version_id: string;
+        };
         /** HealthLiveResponse */
         HealthLiveResponse: {
             /** Release */
@@ -1855,6 +1908,34 @@ export interface components {
              * Format: uuid
              */
             version_id: string;
+        };
+        /**
+         * TextPassageFindWorkflowBody
+         * @description Queue one text query over one exact audio/performance Version pair.
+         */
+        TextPassageFindWorkflowBody: {
+            /**
+             * Max Matches
+             * @default 3
+             */
+            max_matches: number;
+            /**
+             * Performance Version Id
+             * Format: uuid
+             */
+            performance_version_id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Text */
+            text: string;
         };
         /** UnderstandWorkflowBody */
         UnderstandWorkflowBody: {
@@ -2680,6 +2761,39 @@ export interface operations {
             };
         };
     };
+    create_text_passage_find_workflow_api_v1_workflows_text_passage_find_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextPassageFindWorkflowBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_understand_workflow_api_v1_workflows_understand_post: {
         parameters: {
             query?: never;
@@ -2933,6 +3047,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimilarMomentsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_harmony_interpretation_workflow_api_v1_works__work_id__workflows_harmony_interpretation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HarmonyInterpretationBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowJobResponse"];
                 };
             };
             /** @description Validation Error */
