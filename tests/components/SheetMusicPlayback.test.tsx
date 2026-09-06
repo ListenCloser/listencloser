@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import SheetMusic, { insertHighlightRect } from "@/components/SheetMusic";
+import SheetMusic, { insertHighlightRect } from "@/components/workspace/representations/SheetMusic";
 import {
   SCORE_PLAYBACK_ACTIVE_ATTR,
   activeScoreNoteheadsAt,
