@@ -34,7 +34,7 @@ export default function PianoRollCorrectionPanel({
 }) {
   const { requestPianoRollCorrection, setPianoRollCorrectionOperation, workspace } = useWorkspace();
   const [addPitch, setAddPitch] = useState(60);
-  const operation = workspace.pianoRollCorrectionOperation;
+  const operation = workspace.pianoRollCorrectionOperation ?? { state: "idle" as const, label: "", message: "" };
   const editing = draftNotes !== null;
   const busy = operation.state === "running";
   const selected = useMemo(() => {
