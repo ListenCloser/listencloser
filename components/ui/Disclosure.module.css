@@ -7,29 +7,35 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: 0;
+  padding: 0 var(--space-1);
   border: 0;
+  border-radius: var(--radius-md);
   outline: none;
   background: transparent;
   color: var(--text-tertiary);
   font: inherit;
   font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
   cursor: pointer;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-standard),
+    color var(--motion-duration-fast) var(--motion-ease-standard);
 }
 
 .button:hover {
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
 .button:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: var(--radius-md);
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .chevron {
   width: var(--control-icon-sm);
   height: var(--control-icon-sm);
+  opacity: 0.7;
   transition: transform var(--motion-duration-fast) var(--motion-ease-standard);
 }
 
@@ -38,13 +44,14 @@
 }
 
 .panel {
-  padding-top: var(--space-1);
+  padding-top: var(--space-2);
   color: var(--text-secondary);
   font-size: var(--type-xs);
   line-height: var(--line-height-default);
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .button,
   .chevron {
     transition: none;
   }
