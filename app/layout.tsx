@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import "./workspace-v3.css";
 import "./product-polish-v4.css";
 import "./visual-language.css";
 import "./representation-visuals.css";
