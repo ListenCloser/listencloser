@@ -1,0 +1,126 @@
+name: Probe 1254 CLaMP3 C2 real smoke
+
+on:
+  push:
+    branches:
+      - probe/1254-clamp3-c2-real-smoke
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.10.16'
+      - name: Record runner resources
+        run: |
+          free -h
+          df -h /
+          nproc
+      - name: Provision pinned upstream checkout
+        run: |
+          git clone --quiet https://github.com/sanderwood/clamp3.git /tmp/clamp3
+          git -C /tmp/clamp3 checkout --quiet 9016d2b0c8d12d1aa79c2e0ab201e6822bdc83a8
+          test "$(git -C /tmp/clamp3 rev-parse HEAD)" = "9016d2b0c8d12d1aa79c2e0ab201e6822bdc83a8"
+      - name: Provision isolated CPU runtime
+        run: |
+          python -m venv /tmp/clamp3-venv
+          /tmp/clamp3-venv/bin/python -m pip install --upgrade pip
+          /tmp/clamp3-venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch==2.3.1
+          /tmp/clamp3-venv/bin/pip install \
+            transformers==4.40.0 \
+            mido==1.3.0 \
+            unidecode==1.3.6 \
+            sentencepiece==0.2.0 \
+            huggingface_hub==0.23.5
+      - name: Download public pinned model assets
+        shell: bash
+        run: |
+          mkdir -p /tmp/assets/c2 /tmp/assets/xlm
+          /tmp/clamp3-venv/bin/python - <<'PY'
+          from huggingface_hub import hf_hub_download, snapshot_download
+          from pathlib import Path
+
+          filename = (
+              "weights_clamp3_c2_h_size_768_t_model_FacebookAI_xlm-roberta-base_"
+              "t_length_128_a_size_768_a_layers_12_a_length_128_s_size_768_s_layers_12_"
+              "p_size_64_p_length_512.pth"
+          )
+          weight = hf_hub_download(
+              repo_id="sander-wood/clamp3",
+              filename=filename,
+              local_dir="/tmp/assets/c2",
+          )
+          text = snapshot_download(
+              repo_id="FacebookAI/xlm-roberta-base",
+              local_dir="/tmp/assets/xlm",
+              allow_patterns=[
+                  "config.json",
+                  "tokenizer.json",
+                  "tokenizer_config.json",
+                  "sentencepiece.bpe.model",
+                  "special_tokens_map.json",
+                  "model.safetensors",
+              ],
+          )
+          print(f"weight={weight} bytes={Path(weight).stat().st_size}")
+          print(f"text={text}")
+          PY
+          sha256sum /tmp/assets/c2/*.pth
+          du -sh /tmp/assets/c2 /tmp/assets/xlm
+      - name: Build deterministic smoke MIDI and asset hash
+        shell: bash
+        run: |
+          /tmp/clamp3-venv/bin/python - <<'PY'
+          import mido
+
+          midi = mido.MidiFile(ticks_per_beat=480)
+          track = mido.MidiTrack()
+          midi.tracks.append(track)
+          track.append(mido.MetaMessage("set_tempo", tempo=500000, time=0))
+          for pitch in (60, 64, 67, 72, 67, 64, 60, 55):
+              track.append(mido.Message("note_on", note=pitch, velocity=72, time=0))
+              track.append(mido.Message("note_off", note=pitch, velocity=0, time=960))
+          midi.save("/tmp/smoke.mid")
+          print("midi_seconds", midi.length)
+          PY
+          PYTHONPATH=backend /tmp/clamp3-venv/bin/python - <<'PY' > /tmp/text-sha.txt
+          from pathlib import Path
+          from engines.retrieval.clamp3 import _directory_sha256
+          print(_directory_sha256(Path("/tmp/assets/xlm")))
+          PY
+          cat /tmp/text-sha.txt
+      - name: Run real C2 text-to-MIDI inference
+        shell: bash
+        run: |
+          export CLAMP3_RUNTIME_PYTHON=/tmp/clamp3-venv/bin/python
+          export CLAMP3_CHECKOUT=/tmp/clamp3
+          export CLAMP3_C2_WEIGHT_PATH="$(find /tmp/assets/c2 -name 'weights_clamp3_c2_*.pth' -print -quit)"
+          export CLAMP3_TEXT_MODEL_PATH=/tmp/assets/xlm
+          export CLAMP3_TEXT_DIR_SHA256="$(cat /tmp/text-sha.txt)"
+          export PYTHONPATH=backend
+          /usr/bin/time -v /tmp/clamp3-venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          from engines.retrieval.clamp3_c2 import default_clamp3_c2_retriever
+
+          result = default_clamp3_c2_retriever().retrieve(
+              Path("/tmp/smoke.mid").read_bytes(),
+              "sparse piano",
+              max_matches=1,
+              window_seconds=10.0,
+              hop_seconds=5.0,
+          )
+          print(json.dumps({
+              "embedding_dim": result.embedding_dim,
+              "duration_seconds": result.duration_seconds,
+              "runtime_seconds": result.runtime_seconds,
+              "candidates": [candidate.__dict__ for candidate in result.candidates],
+              "provenance": result.provenance,
+          }, indent=2, sort_keys=True))
+          PY
