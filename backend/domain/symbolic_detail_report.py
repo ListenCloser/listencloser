@@ -129,11 +129,15 @@ class SymbolicDetailReport(BaseModel):
     )
     limitations: list[str] = Field(
         default_factory=lambda: [
-            "MIDI score import may infer voice/staff organization that was not "
-            "present in the source.",
+            (
+                "MIDI score import may infer voice/staff organization that was not "
+                "present in the source."
+            ),
             "Onset pitch centroid is a polyphonic contour proxy, not a detected melody line.",
             "Step/leap fractions summarize adjacent inferred-voice onset centroids, not motifs.",
-            "Density and texture are symbolic note-event measurements, not audio "
-            "loudness or timbre.",
+            (
+                "Density and texture are symbolic note-event measurements, not audio "
+                "loudness or timbre."
+            ),
         ],
     )
