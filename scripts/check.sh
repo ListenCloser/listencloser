@@ -203,6 +203,15 @@ run_backend_static() {
   fi
 
   echo ""
+  echo "── Backend declared-dependency contract ──"
+  started=$SECONDS
+  if python3 scripts/backend_dependency_inventory.py --check-undeclared-imports; then
+    pass "declared dependency imports ($((SECONDS - started))s)"
+  else
+    fail "declared dependency imports ($((SECONDS - started))s)"
+  fi
+
+  echo ""
   echo "── Generated API contract ──"
   started=$SECONDS
   if npm run api:check; then

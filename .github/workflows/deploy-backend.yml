@@ -119,12 +119,16 @@ jobs:
           set -euo pipefail
           image_name="$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
           image_ref="${image_name}:${GITHUB_SHA}-${ARCH}"
-          docker build \
+          docker buildx create --name backend-builder --driver docker-container --use >/dev/null 2>&1 \
+            || docker buildx use backend-builder
+          docker buildx build \
+            --cache-from=type=gha,scope=backend-image \
+            --cache-to=type=gha,scope=backend-image,mode=max \
+            --provenance=false \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             --tag "$image_ref" \
-            backend
-          docker push "$image_ref"
+            --push backend
           echo "Published $image_ref"
 
   migrate:
@@ -245,7 +249,7 @@ jobs:
             set -euo pipefail
             if [ ! -d ~/hello-ai/.git ]; then
               echo "[deploy] first boot — cloning repo"
-              git clone https://github.com/gr-rr/hello-ai.git ~/hello-ai
+              git clone https://github.com/ListenCloser/listencloser.git ~/hello-ai
               export DEPLOY_PREVIOUS_SHA=""
             else
               export DEPLOY_PREVIOUS_SHA="$(cd ~/hello-ai && git rev-parse HEAD)"
@@ -280,5 +284,7 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/production-verify.yml
+    with:
+      DEPLOY_SHA: ${{ github.sha }}
     secrets:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
