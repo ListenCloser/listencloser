@@ -62,7 +62,7 @@ export default function AnalysisDiscovery({
   onOpenChange: (open: boolean) => void;
   structure: AnalysisDiscoveryAction;
   pitch: AnalysisDiscoveryAction;
-  layers?: AnalysisDiscoveryAction | null;
+  layers?: AddAnalysisOption | null;
   notice?: string | null;
   noticeRole?: "alert" | "status";
 }) {
@@ -79,7 +79,9 @@ export default function AnalysisDiscovery({
     optionFor("pitch-contour", pitch),
   ];
 
-  if (layers) options.push(optionFor("layers", layers));
+  // #1217 currently owns Layers execution state and row construction. Consume
+  // that existing row here so this extraction does not change its job/reload behavior.
+  if (layers) options.push(layers);
   if (hasExactPerformanceSelection(workspace)) {
     options.push(optionFor("similar-moments", {
       actionLabel: "Open",
