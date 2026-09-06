@@ -5,7 +5,7 @@
     var(--active-workspace-header-height)
     minmax(0, 1fr)
     var(--active-workspace-status-height)
-    var(--transport-height);
+    var(--layout-transport-height);
 }
 
 .shell > :global(.studio-header-v3) {
@@ -18,7 +18,7 @@
   grid-row: 2;
 }
 
-.shell > :global(.transport-bar-v3) {
+.shell > footer {
   grid-row: 4;
 }
 
@@ -26,9 +26,8 @@
   display: contents;
 }
 
-/* The normal desktop header became an empty alignment band after the product
- * mark was removed. Only bring a compact status rail back when it contains a
- * real operational warning. */
+/* The normal desktop header is intentionally absent. Only restore a compact
+ * status rail when it contains an operational warning. */
 .shell:has(:global(.studio-service-unavailable)) {
   --active-workspace-header-height: 32px;
 }
@@ -37,8 +36,8 @@
   display: grid;
 }
 
-/* Processing is a workspace state, not a toast. Keep one quiet shelf directly
- * above transport so progress stays visible without reading as an alert. */
+/* Processing is workspace state, not a toast. Keep one quiet shelf directly
+ * above transport so progress stays visible without covering the music. */
 .shell:has(:global(.workspace-processing-notice)) {
   --active-workspace-status-height: 40px;
 }
@@ -52,16 +51,16 @@
   min-height: 0 !important;
   height: var(--active-workspace-status-height);
   margin: 0 !important;
-  padding: 0 calc(var(--shell-inspector) + 12px) 0 calc(var(--shell-sidebar) + 12px) !important;
+  padding: 0 calc(var(--layout-inspector) + var(--space-3)) 0 calc(var(--layout-sidebar) + var(--space-3)) !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   overflow: hidden;
   border: 0 !important;
-  border-top: 1px solid var(--border) !important;
+  border-top: 1px solid var(--line-subtle) !important;
   border-radius: 0 !important;
-  background: var(--panel) !important;
+  background: var(--surface-panel) !important;
   box-shadow: none !important;
   z-index: 35;
 }
@@ -71,14 +70,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted);
-  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
 }
 
 .shell :global(.workspace-processing-notice strong) {
-  margin-right: 5px;
-  color: var(--text);
-  font-weight: var(--fw-medium);
+  margin-right: var(--space-1);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
 }
 
 .shell :global(.workspace-processing-notice strong::before) {
@@ -86,9 +85,9 @@
   display: inline-block;
   width: 5px;
   height: 5px;
-  margin-right: 7px;
+  margin-right: var(--space-2);
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--action-primary);
   vertical-align: 1px;
   opacity: 0.8;
 }
@@ -99,25 +98,23 @@
 }
 
 .shell :global(.workspace-processing-notice .btn) {
-  min-height: 28px;
-  padding: 0 4px;
+  min-height: var(--control-height-compact);
+  padding: 0 var(--space-1);
   border-color: transparent;
   background: transparent;
   box-shadow: none;
-  color: var(--muted);
-  font-size: 10px;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
 }
 
 .shell :global(.workspace-processing-notice .btn:hover:not(:disabled)) {
   border-color: transparent;
   background: transparent;
-  color: var(--text);
+  color: var(--text-primary);
 }
 
-/* Non-processing warnings remain lightweight notices; without a permanent
- * desktop header they can use the reclaimed top edge. */
 .shell :global(.workspace-notice:not(.workspace-processing-notice)) {
-  top: 12px !important;
+  top: var(--space-3) !important;
 }
 
 @media (max-width: 820px) {
@@ -134,8 +131,8 @@
   }
 
   .shell :global(.workspace-processing-notice) {
-    padding: 0 10px !important;
-    gap: 8px;
+    padding: 0 var(--space-2) !important;
+    gap: var(--space-2);
   }
 
   .shell :global(.workspace-processing-notice > span) {
@@ -144,10 +141,10 @@
 
   .shell:has(:global(.workspace-processing-notice)) :global(.studio-library-v3),
   .shell:has(:global(.workspace-processing-notice)) :global(.studio-inspector-v3) {
-    bottom: calc(var(--transport-height) + var(--active-workspace-status-height));
+    bottom: calc(var(--layout-transport-height) + var(--active-workspace-status-height));
   }
 
   .shell:has(:global(.workspace-processing-notice)) :global(.studio-inspector-backdrop) {
-    inset: var(--workspace-header-height) 0 calc(var(--transport-height) + var(--active-workspace-status-height)) 0;
+    inset: var(--workspace-header-height) 0 calc(var(--layout-transport-height) + var(--active-workspace-status-height)) 0;
   }
 }
