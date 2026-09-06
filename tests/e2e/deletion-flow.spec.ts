@@ -16,7 +16,7 @@ async function openWorkspace(page: Page) {
 async function confirmDelete(page: Page) {
   const dialog = page.getByRole("dialog", { name: "Delete recording?" });
   await expect(dialog).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Test Work\b/ })).toBeVisible();
+  await expect(dialog.getByText(/This permanently deletes “Test Work”/)).toBeVisible();
   await dialog.getByRole("button", { name: "Delete recording", exact: true }).click();
   await expect(dialog).toBeHidden();
 }
@@ -53,8 +53,8 @@ test("deleting the active work clears it and leaves no stale transport state", a
   const processingDialog = page.getByRole("dialog", { name: "Process recording" });
   const closeProcessing = processingDialog.getByRole("button", { name: "Close processing options" });
   await expect(closeProcessing).toBeVisible();
-  await expect(processingDialog.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(processingDialog.getByRole("button", { name: "MuseScore", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(processingDialog.getByRole("radio", { name: "Auto", exact: true })).toBeChecked();
+  await expect(processingDialog.getByRole("radio", { name: "MuseScore", exact: true })).toBeChecked();
   await closeProcessing.click();
   await expect(closeProcessing).not.toBeVisible();
 
