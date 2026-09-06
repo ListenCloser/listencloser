@@ -40,12 +40,38 @@ DEFAULT_TASKS = (
     "degree2",
     "romanNumeral",
 )
+# Deliberately small first product-facing subset. These labels remain
+# AnalysisGNN-specific experimental proposals; normalization does not promote
+# them to current theory authority.
+PRODUCT_SCORE_TASKS = (
+    "cadence",
+    "localkey",
+    "romanNumeral",
+)
 _DEFAULT_TIMEOUT_SECONDS = 10 * 60
 
 
 @dataclass(frozen=True)
 class AnalysisGNNResult:
     predictions: list[dict[str, str]]
+    tasks: tuple[str, ...]
+    provenance: EngineProvenance
+
+
+@dataclass(frozen=True)
+class AnalysisGNNScoreObservation:
+    """One exact score-located row from the bounded AnalysisGNN product subset."""
+
+    onset_beat: float
+    measure_number: int
+    labels: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True)
+class AnalysisGNNScoreEvidence:
+    """Bounded normalized score evidence, still governed by engine provenance."""
+
+    observations: tuple[AnalysisGNNScoreObservation, ...]
     tasks: tuple[str, ...]
     provenance: EngineProvenance
 
@@ -206,11 +232,74 @@ class AnalysisGNNEngine:
         )
 
 
+def normalize_score_evidence(
+    result: AnalysisGNNResult,
+    *,
+    tasks: tuple[str, ...] = PRODUCT_SCORE_TASKS,
+) -> AnalysisGNNScoreEvidence:
+    """Normalize a small task subset without promoting it to theory truth.
+
+    AnalysisGNN exports note-level rows with score-beat and measure locators. This
+    function retains those exact upstream coordinates and task labels, rejects
+    malformed locators, and intentionally does not invent time spans, confidence,
+    cadence semantics, or cross-task conclusions.
+    """
+
+    requested = _normalize_tasks(tasks)
+    admitted_tasks = tuple(task for task in requested if task in result.tasks)
+    if not admitted_tasks:
+        raise ValueError("AnalysisGNN result does not contain any requested score tasks")
+
+    observations: list[AnalysisGNNScoreObservation] = []
+    for index, row in enumerate(result.predictions):
+        onset_beat = _parse_finite_float(row.get("onset"), field="onset", row=index)
+        measure_number = _parse_measure_number(row.get("s_measure"), row=index)
+        labels = tuple(
+            (task, value) for task in admitted_tasks if (value := str(row.get(task, "")).strip())
+        )
+        if not labels:
+            continue
+        observations.append(
+            AnalysisGNNScoreObservation(
+                onset_beat=onset_beat,
+                measure_number=measure_number,
+                labels=labels,
+            )
+        )
+
+    if not observations:
+        raise ValueError("AnalysisGNN result has no non-empty bounded score observations")
+
+    return AnalysisGNNScoreEvidence(
+        observations=tuple(observations),
+        tasks=admitted_tasks,
+        provenance=result.provenance,
+    )
+
+
 def _normalize_tasks(tasks: tuple[str, ...]) -> tuple[str, ...]:
     normalized = tuple(dict.fromkeys(task.strip() for task in tasks if task.strip()))
     if not normalized:
         raise ValueError("AnalysisGNN requires at least one task")
     return normalized
+
+
+def _parse_finite_float(value: str | None, *, field: str, row: int) -> float:
+    try:
+        parsed = float(value) if value is not None else float("nan")
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"AnalysisGNN row {row} has invalid {field}") from exc
+    if parsed != parsed or parsed in (float("inf"), float("-inf")):
+        raise ValueError(f"AnalysisGNN row {row} has invalid {field}")
+    return parsed
+
+
+def _parse_measure_number(value: str | None, *, row: int) -> int:
+    parsed = _parse_finite_float(value, field="s_measure", row=row)
+    measure = int(parsed)
+    if parsed != measure or measure < 0:
+        raise ValueError(f"AnalysisGNN row {row} has invalid s_measure")
+    return measure
 
 
 def _read_predictions(path: Path) -> list[dict[str, str]]:
