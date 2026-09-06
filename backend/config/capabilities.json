@@ -5,72 +5,143 @@
       "status": "production",
       "input": "midi",
       "engine": "music21",
-      "exposure": {"inspector": true, "annotations": false, "ask": true},
-      "evaluation": {"dataset": "GuitarSet", "metric": "key_accuracy", "value": 0.8},
+      "exposure": {
+        "inspector": true,
+        "annotations": false,
+        "ask": true
+      },
+      "evaluation": {
+        "dataset": "GuitarSet",
+        "metric": "key_accuracy",
+        "value": 0.8
+      },
       "notes": "Global key only. Do not reinterpret this as a local key region."
     },
     "chord": {
       "status": "production",
       "input": "audio",
       "engine": "lv_chordia",
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "evaluation": {"dataset": "GuitarSet-comp", "metric": "root_accuracy", "value": 0.787},
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
+      "evaluation": {
+        "dataset": "GuitarSet-comp",
+        "metric": "root_accuracy",
+        "value": 0.787
+      },
       "notes": "Production chord evidence must come from the trusted lv-chordia path; monophonic/no-chord spans may be withheld."
     },
     "roman_numeral": {
       "status": "production",
       "input": "derived",
       "engine": "theory_interpreter",
-      "requires": ["trusted_chord", "trusted_key"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "evaluation": {"dataset": "DCML-Mozart+BPS-FH", "metric": "oracle_full_match", "value": 0.998},
+      "requires": [
+        "trusted_chord",
+        "trusted_key"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
+      "evaluation": {
+        "dataset": "DCML-Mozart+BPS-FH",
+        "metric": "oracle_full_match",
+        "value": 0.998
+      },
       "notes": "Oracle score is not end-to-end accuracy. Withhold when either trusted chord or trusted key evidence is absent."
     },
     "harmonic_function": {
       "status": "production",
       "input": "derived",
       "engine": "theory_interpreter",
-      "requires": ["trusted_chord", "trusted_key"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "evaluation": {"dataset": "DCML-Mozart+BPS-FH", "metric": "oracle_function_accuracy", "value": 0.999},
+      "requires": [
+        "trusted_chord",
+        "trusted_key"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
+      "evaluation": {
+        "dataset": "DCML-Mozart+BPS-FH",
+        "metric": "oracle_function_accuracy",
+        "value": 0.999
+      },
       "notes": "Derived from Roman-numeral/key context; not an independent perception result."
     },
     "cadence": {
       "status": "withheld",
       "input": "derived",
       "engine": "theory_interpreter",
-      "requires": ["trusted_chord", "trusted_key"],
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
-      "evaluation": {"dataset": "DCML-Mozart", "metric": "f1", "value": 0.266},
+      "requires": [
+        "trusted_chord",
+        "trusted_key"
+      ],
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
+      "evaluation": {
+        "dataset": "DCML-Mozart",
+        "metric": "f1",
+        "value": 0.266
+      },
       "reason": "Low held-out quality; prior adjacent-pattern detector over-matches and is not product-safe."
     },
     "key_region": {
       "status": "withheld",
       "input": "derived",
       "engine": "theory_interpreter",
-      "requires": ["trusted_key"],
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
-      "evaluation": {"dataset": "DCML", "metric": "boundary_accuracy", "value": 0.188},
+      "requires": [
+        "trusted_key"
+      ],
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
+      "evaluation": {
+        "dataset": "DCML",
+        "metric": "boundary_accuracy",
+        "value": 0.188
+      },
       "reason": "Current implementation is a placeholder/global-key region, not validated local-key or modulation detection."
     },
     "tempo": {
       "status": "production",
       "input": "audio",
       "engine": "beat_engine",
-      "exposure": {"inspector": true, "annotations": false, "ask": true}
+      "exposure": {
+        "inspector": true,
+        "annotations": false,
+        "ask": true
+      }
     },
     "rhythm": {
       "status": "production",
       "input": "midi+beats",
       "engine": "analysis_v2",
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
       "notes": "Temporal density/rest features are deterministic measurements; richer musical interpretation remains incremental."
     },
     "melody": {
       "status": "experimental",
       "input": "midi",
       "engine": "lstom",
-      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "exposure": {
+        "inspector": true,
+        "annotations": false,
+        "ask": true
+      },
       "evaluation": {
         "dataset": "POP909",
         "metric": "f1",
@@ -88,99 +159,181 @@
       "validated_domain": "pop/arranged symbolic MIDI",
       "notes": "Historical POP909 evidence supports pop/arranged symbolic MIDI, but exact holdout membership and committed-checkpoint seed/epoch were not retained; #1026 records this reproducibility limit. Classical piano and general performance MIDI are not formally validated. Model is deterministic, CPU-only (~390ms/song), 9.66MB."
     },
+    "pitch_contour": {
+      "status": "experimental",
+      "input": "audio",
+      "engine": "librosa.pyin",
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
+      "validated_domain": "voice and expressive monophonic material; manual integration probes only",
+      "notes": "Opt-in continuous F0 representation added under #1087. Persist exact source Version, Hz/cents, pYIN voiced flag + voiced probability, frame coordinates, and preprocessing. Not MIDI and not a transcription replacement. Dense polyphony/noise/strong overtones may produce octave or subharmonic errors; current synthetic dyad+noise probe collapsed 220+329.63 Hz toward ~110 Hz. Experimental integration is not canonization."
+    },
     "melody_register_peak": {
       "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
       "notes": "Highest melody note with temporal span. Deterministic from LStoM output."
     },
     "melody_register_low": {
       "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
       "notes": "Lowest melody note with temporal span. Deterministic from LStoM output."
     },
     "melody_interval_summary": {
       "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": false,
+        "ask": true
+      },
       "notes": "Stepwise/leap/repeated-note ratio summary. Deterministic from LStoM output."
     },
     "melody_large_leap": {
       "status": "evaluation_only",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
-      "reason": "Threshold-based heuristic (≥8 semitones) without musical validation. Needs corpus evidence."
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
+      "reason": "Threshold-based heuristic (\u22658 semitones) without musical validation. Needs corpus evidence."
     },
     "melody_characteristic_interval": {
       "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "notes": "Most common interval. Pending jSymbolic consolidation."
     },
     "melody_contour_ascending": {
       "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "notes": "Ascending contour span with ≥6 notes and >75% directional ratio. Conservative temporal finding."
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
+      "notes": "Ascending contour span with \u22656 notes and >75% directional ratio. Conservative temporal finding."
     },
     "melody_contour_descending": {
       "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
-      "notes": "Descending contour span with ≥6 notes and >75% directional ratio. Conservative temporal finding."
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
+      "notes": "Descending contour span with \u22656 notes and >75% directional ratio. Conservative temporal finding."
     },
     "melody_contour_arch": {
       "status": "evaluation_only",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "reason": "Heuristic contour classifier with arbitrary thresholds. Needs validated contour representation."
     },
     "melody_motif": {
       "status": "evaluation_only",
       "input": "derived",
       "engine": "interval_sequence_matching",
-      "requires": ["melody"],
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "reason": "Custom interval-window matcher without benchmark validation. Needs motif-annotated dataset evaluation."
     },
     "melody_activity_dense": {
       "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
       "notes": "Dense melodic passage detected via sliding-window note density. Deterministic measurement."
     },
     "melody_activity_sparse": {
       "status": "experimental",
       "input": "derived",
       "engine": "lstom_interpretation",
-      "requires": ["melody"],
-      "exposure": {"inspector": true, "annotations": true, "ask": true},
+      "requires": [
+        "melody"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": true
+      },
       "notes": "Sparse melodic passage detected via sliding-window note density. Deterministic measurement."
     },
     "skyline_baseline": {
       "status": "evaluation_only",
       "input": "midi",
       "engine": "skyline",
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "evaluation": {
         "dataset": "POP909",
         "metric": "f1",
@@ -193,61 +346,97 @@
       "status": "production",
       "input": "midi",
       "engine": "music21",
-      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "exposure": {
+        "inspector": true,
+        "annotations": false,
+        "ask": true
+      },
       "notes": "Meter/time-signature detection from MIDI via music21."
     },
     "audio_tempo": {
       "status": "production",
       "input": "audio",
       "engine": "beat_engine",
-      "exposure": {"inspector": true, "annotations": false, "ask": true},
+      "exposure": {
+        "inspector": true,
+        "annotations": false,
+        "ask": true
+      },
       "notes": "Audio-derived tempo estimate from the beat engine."
     },
     "section": {
       "status": "withheld",
       "input": "historical",
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "reason": "Historical section evidence only; new production generation was retired by #1132."
     },
     "audio_structure": {
       "status": "withheld",
       "input": "historical",
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "reason": "Historical structure-summary evidence only; new production generation was retired by #1132."
     },
     "rhythm_density": {
       "status": "production",
       "input": "midi+beats",
       "engine": "analysis_v2",
-      "exposure": {"inspector": true, "annotations": true, "ask": false},
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": false
+      },
       "notes": "Note density profile over time; deterministic windowed measurement."
     },
     "rhythm_rests": {
       "status": "production",
       "input": "midi+beats",
       "engine": "analysis_v2",
-      "exposure": {"inspector": true, "annotations": true, "ask": false},
+      "exposure": {
+        "inspector": true,
+        "annotations": true,
+        "ask": false
+      },
       "notes": "Rest segment detection; deterministic measurement."
     },
     "harmonic_rhythm": {
       "status": "withheld",
       "input": "derived",
       "engine": "analysis_v2",
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "reason": "Depends on unreliable chord stream for change-point detection."
     },
     "voice_leading": {
       "status": "withheld",
       "input": "derived",
       "engine": "analysis_v2",
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "reason": "Depends on unreliable chord stream for voice tracking."
     },
     "perceptual_series": {
       "status": "production",
       "input": "audio",
       "engine": "librosa",
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "evaluation": {
         "dataset": "synthetic fixtures + repository piano + Candombe CC BY 4.0 probe",
         "metric": "canonical_preprocessing_stability",
@@ -260,8 +449,14 @@
       "status": "experimental",
       "input": "derived",
       "engine": "robust_top_peaks_v1",
-      "requires": ["perceptual_series"],
-      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "requires": [
+        "perceptual_series"
+      ],
+      "exposure": {
+        "inspector": true,
+        "annotations": false,
+        "ask": false
+      },
       "validated_domain": "within-work candidate navigation over exact promoted perceptual_series evidence",
       "notes": "A candidate means only that multiple declared measured feature groups changed around this time under robust_top_peaks_v1. Ranking is within-Work proposal ordering, not confidence, significance, importance, a section boundary, a chorus/drop/climax, transition importance, or emotion."
     },
@@ -269,7 +464,11 @@
       "status": "experimental",
       "input": "audio",
       "engine": "librosa_recurrence_novelty_v1",
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "evaluation": {
         "dataset": "synthetic A-B-A control + real-stack repository audio path",
         "metric": "experimental_product_integration",
@@ -278,11 +477,61 @@
       "validated_domain": "within-recording experimental navigation only",
       "notes": "Map/navigation surface only. Letter labels are descriptor-similarity hints, not verse/chorus/motif/canonical form. Inspector/annotation/Ask exposure remains false until separately earned."
     },
+    "supplied_text_alignment": {
+      "status": "experimental",
+      "input": "audio+user_supplied_text",
+      "engine": "syncalong_dp_whisper_v1",
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
+      "validated_domain": "user-supplied, licensed, public-domain, or otherwise permitted reference text aligned to one exact audio Version",
+      "notes": "Backend-only #1181 slice. Supplied text remains authoritative; Whisper provides timing evidence only. Direct matches are method-qualified, weak direct matches remain ambiguous, unmatched words remain failed, and no line interpolation/extrapolation, lyrics acquisition, beat/pulse authority, or frontend lane is introduced."
+    },
+    "production_spatial": {
+      "status": "experimental",
+      "input": "audio",
+      "engine": "pyloudnorm_librosa_mid_side_v1",
+      "exposure": {
+        "inspector": true,
+        "annotations": false,
+        "ask": false
+      },
+      "evaluation": {
+        "dataset": "synthetic stereo/mono fixtures",
+        "metric": "experimental_product_integration",
+        "details": "#1179: BS.1770 loudness, exact two-channel mid/side energy share, spectral centroid, and onset-strength changes are exposed only as method-qualified within-recording adjacent-window relations."
+      },
+      "validated_domain": "within-recording adjacent fixed-window measurement comparison",
+      "notes": "Experimental opt-in Inspector lens only. Literal measurements and relations; no semantic timbre, mix-quality, width-quality, section, cause, importance, or cross-recording claims. Mid/side relation is unavailable unless the source is exactly stereo."
+    },
+    "symbolic_detail": {
+      "status": "experimental",
+      "input": "midi",
+      "engine": "partitura_note_array_v1",
+      "exposure": {
+        "inspector": true,
+        "annotations": false,
+        "ask": false
+      },
+      "evaluation": {
+        "dataset": "deterministic synthetic MIDI fixtures + repository real-stack transcription path",
+        "metric": "experimental_product_integration",
+        "details": "#1178: register, onset-centroid contour, inferred-voice interval motion, onset density, symbolic texture, and qualified inter-voice motion are computed from the exact source MIDI Version."
+      },
+      "validated_domain": "within-Version symbolic note-event measurement for midi_performance and midi_corrected sources",
+      "notes": "Experimental Inspector detail only. Partitura may infer score voices during MIDI import; contour is an onset pitch-centroid proxy. Results are not canonical melody, counterpoint, voice-leading, form, audio texture, or theory truth, and are not admitted to Ask/annotations."
+    },
     "source_separation": {
       "status": "experimental",
       "input": "audio",
       "engine": "demucs_4.1.0_htdemucs_955717e8",
-      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "exposure": {
+        "inspector": false,
+        "annotations": false,
+        "ask": false
+      },
       "model": {
         "name": "htdemucs",
         "version": "955717e8",

@@ -12,12 +12,18 @@ export default function MSWInit({ children }: { children: ReactNode }) {
       return;
     }
     async function init() {
-      const [{ handlers }, { directUploadHandlers }] = await Promise.all([
-        import("@/app/_test-support/msw/handlers"),
-        import("@/app/_test-support/msw/direct-upload-handlers"),
-      ]);
+      const [{ handlers }, { directUploadHandlers }, { productionSpatialHandlers }] =
+        await Promise.all([
+          import("@/app/_test-support/msw/handlers"),
+          import("@/app/_test-support/msw/direct-upload-handlers"),
+          import("@/app/_test-support/msw/production-spatial"),
+        ]);
       const { setupWorker } = await import("msw/browser");
-      const worker = setupWorker(...directUploadHandlers, ...handlers);
+      const worker = setupWorker(
+        ...productionSpatialHandlers,
+        ...directUploadHandlers,
+        ...handlers,
+      );
       await worker.start({ onUnhandledRequest: "bypass" });
       setReady(true);
     }

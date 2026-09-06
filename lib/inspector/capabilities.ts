@@ -38,6 +38,8 @@ const INSPECTOR_ALLOWED = new Set([
   "melody_activity_dense",
   "melody_activity_sparse",
   "measured_change",
+  "production_spatial",
+  "symbolic_detail",
 ]);
 
 /** Kinds the backend capability registry allows Ask to consume. */
@@ -64,6 +66,8 @@ const ASK_ALLOWED = new Set([
 const EXPERIMENTAL = new Set([
   "melody",
   "measured_change",
+  "production_spatial",
+  "symbolic_detail",
 ]);
 
 /** Whether a capability kind is allowed in the Inspector. */

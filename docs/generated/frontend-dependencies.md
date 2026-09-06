@@ -28,6 +28,8 @@ subgraph app["app"]
   app_product_polish_v4_css["product-polish-v4.css"]
   app_readiness_css["readiness.css"]
   app_representation_visuals_css["representation-visuals.css"]
+  app_tokens_contrast_test_mjs["tokens-contrast.test.mjs"]
+  app_tokens_css["tokens.css"]
   app_visual_language_css["visual-language.css"]
   app_workspace_interactions_css["workspace-interactions.css"]
   app_workspace_v3_css["workspace-v3.css"]
@@ -69,12 +71,16 @@ subgraph lib["lib"]
   lib_job_tracking_ts["job-tracking.ts"]
   lib_layers_ts["layers.ts"]
   lib_measure_ts["measure.ts"]
+  lib_melody_playback_client_ts["melody-playback-client.ts"]
   lib_melody_reduction_ts["melody-reduction.ts"]
   lib_midi_ts["midi.ts"]
   lib_musicxml_cache_ts["musicxml-cache.ts"]
   lib_notes_ts["notes.ts"]
   lib_openapi_client_ts["openapi-client.ts"]
+  lib_perceptual_series_client_ts["perceptual-series-client.ts"]
+  lib_pitch_contour_client_ts["pitch-contour-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
+  lib_production_spatial_client_ts["production-spatial-client.ts"]
   lib_public_recordings_ts["public-recordings.ts"]
   lib_pulse_grid_ts["pulse-grid.ts"]
   lib_query_client_ts["query-client.ts"]
@@ -84,7 +90,9 @@ subgraph lib["lib"]
   lib_representations_ts["representations.ts"]
   lib_score_artifacts_ts["score-artifacts.ts"]
   lib_score_measure_geometry_ts["score-measure-geometry.ts"]
+  lib_score_note_playback_ts["score-note-playback.ts"]
   lib_score_renderer_ts["score-renderer.ts"]
+  lib_score_sources_ts["score-sources.ts"]
   lib_selection_ts["selection.ts"]
   lib_server_state_ts["server-state.ts"]
   lib_spectrogram_data_ts["spectrogram-data.ts"]
@@ -94,6 +102,7 @@ subgraph lib["lib"]
   end
   lib_structure_map_client_ts["structure-map-client.ts"]
   lib_supabase_ts["supabase.ts"]
+  lib_symbolic_detail_client_ts["symbolic-detail-client.ts"]
   lib_transcription_qualification_ts["transcription-qualification.ts"]
   lib_work_selection_ts["work-selection.ts"]
 end
@@ -108,6 +117,7 @@ app_layout_tsx-->app_mobile_workspace_css
 app_layout_tsx-->app_product_polish_v4_css
 app_layout_tsx-->app_readiness_css
 app_layout_tsx-->app_representation_visuals_css
+app_layout_tsx-->app_tokens_css
 app_layout_tsx-->app_visual_language_css
 app_layout_tsx-->app_workspace_interactions_css
 app_layout_tsx-->app_workspace_v3_css
@@ -127,6 +137,7 @@ components_QueryProvider_tsx-->lib_query_client_ts
 components_SheetMusic_tsx-->lib_analysis_annotations_ts
 components_SheetMusic_tsx-->lib_measure_ts
 components_SheetMusic_tsx-->lib_score_measure_geometry_ts
+components_SheetMusic_tsx-->lib_score_note_playback_ts
 components_workspace_-->components_AuthProvider_tsx
 components_workspace_-->lib_api_client_ts
 components_workspace_-->lib_format_ts
@@ -135,14 +146,18 @@ components_workspace_-->lib_musicxml_cache_ts
 components_workspace_-->lib_playback_sources_ts
 components_workspace_-->lib_representation_continuity_ts
 components_workspace_-->lib_score_artifacts_ts
+components_workspace_-->lib_score_sources_ts
 components_workspace_-->lib_server_state_ts
 components_workspace_-->lib_stores_
 components_workspace_-->lib_transcription_qualification_ts
 components_workspace_-->components_ui_
 components_workspace_-->lib_inspector_
+components_workspace_-->lib_relation_api_client_ts
 components_workspace_-->lib_ask_
 components_workspace_-->lib_selection_ts
-components_workspace_-->lib_relation_api_client_ts
+components_workspace_-->lib_symbolic_detail_client_ts
+components_workspace_-->lib_production_spatial_client_ts
+components_workspace_-->lib_perceptual_series_client_ts
 components_workspace_-->lib_public_recordings_ts
 components_workspace_-->lib_supabase_ts
 components_workspace_-->lib_work_selection_ts
@@ -159,7 +174,9 @@ components_workspace_-->lib_color_ts
 components_workspace_-->lib_spectrogram_ts
 components_workspace_-->lib_spectrogram_data_ts
 components_workspace_-->lib_audio_buffer_cache_ts
+components_workspace_-->lib_melody_playback_client_ts
 components_workspace_-->lib_melody_reduction_ts
+components_workspace_-->lib_pitch_contour_client_ts
 components_workspace_-->lib_structure_map_client_ts
 components_workspace_-->lib_layers_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
@@ -178,8 +195,16 @@ lib_job_tracking_ts-->lib_api_client_ts
 lib_job_tracking_ts-->lib_query_client_ts
 lib_layers_ts-->lib_api_client_ts
 lib_layers_ts-->lib_openapi_client_ts
+lib_melody_playback_client_ts-->lib_api_client_ts
+lib_melody_playback_client_ts-->lib_openapi_client_ts
 lib_musicxml_cache_ts-->lib_query_client_ts
 lib_openapi_client_ts-->lib_supabase_ts
+lib_perceptual_series_client_ts-->lib_api_client_ts
+lib_perceptual_series_client_ts-->lib_openapi_client_ts
+lib_pitch_contour_client_ts-->lib_api_client_ts
+lib_pitch_contour_client_ts-->lib_openapi_client_ts
+lib_production_spatial_client_ts-->lib_api_client_ts
+lib_production_spatial_client_ts-->lib_openapi_client_ts
 lib_relation_api_client_ts-->lib_openapi_client_ts
 lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts
@@ -187,4 +212,6 @@ lib_spectrogram_data_ts-->lib_query_client_ts
 lib_spectrogram_data_ts-->lib_spectrogram_ts
 lib_structure_map_client_ts-->lib_api_client_ts
 lib_structure_map_client_ts-->lib_openapi_client_ts
+lib_symbolic_detail_client_ts-->lib_api_client_ts
+lib_symbolic_detail_client_ts-->lib_openapi_client_ts
 ```

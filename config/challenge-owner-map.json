@@ -1,0 +1,58 @@
+{
+  "routes": [
+    {
+      "tool": "axe",
+      "rule": "color-contrast",
+      "ownerIssue": 1211,
+      "priority": "P1",
+      "severity": "high",
+      "confidence": "high",
+      "disposition": "READY_TASK",
+      "suggestedFix": "Use the canonical UI token/control owners to raise contrast for the reported selectors without introducing a new visual-language layer.",
+      "verification": [
+        "npm run challenge -- a11y",
+        "npm run test"
+      ]
+    },
+    {
+      "tool": "mutation-js",
+      "rule": "surviving-mutants",
+      "target": "lib/evidence-projections.ts",
+      "ownerIssue": 807,
+      "priority": "P2",
+      "severity": "medium",
+      "confidence": "high",
+      "disposition": "READY_TASK",
+      "suggestedFix": "Add focused assertions that distinguish requiresContext, unsupported/fail-closed, fallback, and unknown-kind projection semantics. Do not chase a repository-wide mutation-score target.",
+      "verification": [
+        "npm run challenge -- mutation-js"
+      ]
+    },
+    {
+      "tool": "lighthouse",
+      "rule": "performance-baseline",
+      "ownerIssue": null,
+      "priority": "WATCH",
+      "severity": "medium",
+      "confidence": "medium",
+      "disposition": "INVESTIGATE",
+      "suggestedFix": "Repeat the measurement before changing product code; only dispatch a fix once a concrete diagnostic is stable across runs.",
+      "verification": [
+        "npm run challenge -- lighthouse"
+      ]
+    },
+    {
+      "tool": "schemathesis",
+      "rule": "api-failure",
+      "ownerIssue": null,
+      "priority": "P1",
+      "severity": "high",
+      "confidence": "medium",
+      "disposition": "INVESTIGATE",
+      "suggestedFix": "Reproduce the failing generated case against an isolated local/test stack, identify the owning API/domain contract, then route the minimized counterexample to that existing issue.",
+      "verification": [
+        "npm run challenge -- api"
+      ]
+    }
+  ]
+}

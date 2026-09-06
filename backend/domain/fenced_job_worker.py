@@ -1,19 +1,9 @@
 """Execution-attempt fencing for durable capability handlers.
 
-The base :class:`JobWorker` remains the one queue/lease/retry implementation.
-This module adds the production persistence policy that queue ownership alone
-cannot express: every claim gets a fresh execution token, and every
-product-visible handler mutation must prove that token is still current in the
-same database transaction as the mutation.
-
-The handler-facing Supabase client is intentionally narrower than the service
-client. Reads remain ordinary PostgREST reads; Job progress is token-scoped;
-Artifact + Version publication is one atomic RPC; other admitted output inserts
-and the two existing cleanup delete shapes use fenced RPCs. Unknown mutations
-fail closed. Storage bytes are attempt-scoped so a stale attempt can leave, at
-worst, private unreferenced blob garbage rather than overwrite or delete a
-current attempt's object. Exact declared-input Storage reads also establish a
-missing Version SHA-256 through a dedicated monotonic fenced RPC.
+PGMQ owns delivery and redelivery. This module owns the separate product-safety
+boundary: every received attempt has an execution token, and product-visible
+handler mutations must prove that token is still current in the same database
+transaction as the mutation.
 """
 
 from __future__ import annotations
@@ -21,10 +11,8 @@ from __future__ import annotations
 import hashlib
 import threading
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
-from uuid import uuid4
 
 from observability import get_tracer, job_trace_links
 
@@ -32,10 +20,7 @@ from .job_worker import JobWorker
 from .models import Job
 
 _DIRECT_OUTPUT_TABLES = frozenset({"entities", "insights", "alignments"})
-_MUTABLE_OUTPUT_TABLES = frozenset(
-    {"artifacts", "artifact_versions", *_DIRECT_OUTPUT_TABLES},
-)
-
+_MUTABLE_OUTPUT_TABLES = frozenset({"artifacts", "artifact_versions", *_DIRECT_OUTPUT_TABLES})
 _tracer = get_tracer("listencloser-worker-execution-fence")
 
 
@@ -87,11 +72,6 @@ class _FencedInsert:
         source_rows = self._rows if isinstance(self._rows, list) else [self._rows]
         rows = [self._client.rewrite_output_row(dict(row)) for row in source_rows]
 
-        # ArtifactRepo immediately creates a Version for every new Artifact.
-        # Holding the Artifact row in memory until that Version arrives prevents
-        # takeover between two separate INSERTs from leaving a durable empty
-        # Artifact behind. The publish RPC inserts both rows under one Job-row
-        # ownership lock and one database transaction.
         if self._table_name == "artifacts":
             if len(rows) != 1:
                 raise RuntimeError("job handlers may publish one Artifact at a time")
@@ -129,7 +109,7 @@ class _FencedInsert:
 
 
 class _FencedDelete:
-    """Collect the supported immutable-output cleanup filters, then fence delete."""
+    """Collect supported immutable-output cleanup filters, then fence delete."""
 
     def __init__(self, client: _HandlerClient, table_name: str) -> None:
         self._client = client
@@ -168,13 +148,7 @@ class _FencedDelete:
 
 
 class _PendingArtifactSelect:
-    """Provide read-your-writes for an Artifact held until Version publication.
-
-    ``VersionRepo.create`` verifies the Artifact owner before issuing its insert.
-    A fenced Artifact is deliberately not durable yet, so that repository lookup
-    must see the in-memory row or atomic Artifact+Version publication can never
-    reach the database RPC.
-    """
+    """Provide read-your-writes for an Artifact held until Version publication."""
 
     def __init__(self, client: _HandlerClient, query: Any, columns: str) -> None:
         self._client = client
@@ -269,13 +243,6 @@ class _HandlerStorageBucket:
         return result
 
     def remove(self, _paths: list[str], *_args: Any, **_kwargs: Any) -> list[Any]:
-        """Leave cleanup bytes for GC instead of racing a successor attempt.
-
-        Supabase Storage deletion is an external API operation, so it cannot be
-        made atomic with the Job-row execution-token check. The database graph
-        cleanup remains fenced; retaining private unreferenced bytes is safer
-        than allowing a stale attempt to delete a successor's live object.
-        """
         return []
 
     def __getattr__(self, name: str) -> Any:
@@ -350,7 +317,6 @@ class _HandlerClient:
         return self._declared_input_locators
 
     def verify_downloaded_input(self, bucket: str, path: str, content: Any) -> None:
-        """Enrich SHA-256 only when this exact Storage locator is a root Job input."""
         version_ids = self._input_storage_locators().get((bucket, path), ())
         if not version_ids:
             return
@@ -416,7 +382,7 @@ class _HandlerClient:
 
 
 class FencedJobWorker(JobWorker):
-    """Production JobWorker with per-claim execution-generation fencing."""
+    """Job execution with per-delivery execution-generation fencing."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -447,7 +413,6 @@ class FencedJobWorker(JobWorker):
         return token
 
     def _forget_execution_token(self, job_id: str, expected_token: str) -> None:
-        """Forget only the generation owned by the finishing execution."""
         with self._execution_tokens_lock:
             if self._execution_tokens.get(job_id) == expected_token:
                 self._execution_tokens.pop(job_id, None)
@@ -457,93 +422,12 @@ class FencedJobWorker(JobWorker):
         job_id: str,
         input_version_ids: list[Any] | None = None,
     ) -> _HandlerClient:
-        """Return the exact-attempt persistence client for internal tests/adapters."""
         return _HandlerClient(
             self._raw_client(),
             job_id,
             self._execution_token(job_id),
             input_version_ids,
         )
-
-    def _claim_job(self, job_id: str) -> bool:
-        # A direct/specific-id path must not create a second local generation
-        # while this process still owns an execution of the same logical Job.
-        with self._execution_tokens_lock:
-            if job_id in self._execution_tokens:
-                return False
-
-        token = str(uuid4())
-        expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
-        result = (
-            self._raw_client()
-            .table("jobs")
-            .update(
-                {
-                    "stage": "claimed",
-                    "worker_id": self._worker_id,
-                    "lease_expires_at": expires,
-                    "execution_token": token,
-                }
-            )
-            .eq("id", job_id)
-            .eq("stage", "queued")
-            .execute()
-        )
-        claimed = bool(result.data) if result.data is not None else False
-        if claimed:
-            self._remember_execution_token(job_id, token)
-            self._thread_attempt.job_id = job_id
-            self._thread_attempt.execution_token = token
-        return claimed
-
-    def _claim_next_job(self) -> dict[str, Any] | None:
-        # Preserve the base worker's fail-soft polling behavior. The migrated RPC
-        # now returns execution_token as part of the claimed Job row.
-        row = super()._claim_next_job()
-        if row is None:
-            return None
-        job_id = str(row["id"])
-        token = row.get("execution_token")
-        if not token:
-            raise RuntimeError("claim_next_job returned no execution token")
-        token = str(token)
-
-        # A retry can become queued just before its old future's done callback
-        # removes the Job from _in_flight. Do not let the polling thread create a
-        # successor generation in that tiny window: the old heartbeat would
-        # otherwise look up the new token and could extend the successor lease.
-        with self._in_flight_lock:
-            duplicate_local = job_id in self._in_flight
-        if duplicate_local:
-            (
-                self._raw_client()
-                .table("jobs")
-                .update(
-                    {
-                        "stage": "queued",
-                        "worker_id": None,
-                        "lease_expires_at": None,
-                        "execution_token": None,
-                    }
-                )
-                .eq("id", job_id)
-                .eq("worker_id", self._worker_id)
-                .eq("execution_token", token)
-                .eq("stage", "claimed")
-                .execute()
-            )
-            return None
-
-        self._remember_execution_token(job_id, token)
-        return row
-
-    def _renew_lease(self, job_id: str) -> None:
-        """Extend only the exact execution generation that started this heartbeat."""
-        token = self._execution_token(job_id)
-        expires = (datetime.now(UTC) + timedelta(seconds=self._lease_duration)).isoformat()
-        self._raw_client().table("jobs").update({"lease_expires_at": expires}).eq("id", job_id).eq(
-            "worker_id", self._worker_id
-        ).eq("execution_token", token).eq("stage", "running").execute()
 
     def register(
         self,
@@ -568,23 +452,20 @@ class FencedJobWorker(JobWorker):
 
         super().register(name, version, fenced_handler)
 
-    def _execute_job(self, job_row: dict, *, already_claimed: bool = False) -> None:
+    def _execute_job(self, job_row: dict) -> None:
         job_id = str(job_row["id"])
-        if already_claimed:
-            token = self._execution_token(job_id)
-            self._thread_attempt.job_id = job_id
-            self._thread_attempt.execution_token = token
+        token = self._execution_token(job_id)
+        self._thread_attempt.job_id = job_id
+        self._thread_attempt.execution_token = token
         try:
-            super()._execute_job(job_row, already_claimed=already_claimed)
+            super()._execute_job(job_row)
         finally:
-            attempt_token = getattr(self._thread_attempt, "execution_token", None)
             self._thread_attempt.job_id = None
             self._thread_attempt.execution_token = None
-            if attempt_token:
-                self._forget_execution_token(job_id, str(attempt_token))
+            self._forget_execution_token(job_id, token)
 
     def update_progress(self, job_id: str, progress: float, message: str = "") -> None:
-        """Fence externally-invoked progress updates even outside the handler thread."""
+        """Fence externally-invoked progress updates outside the handler thread."""
         token = self._execution_token(job_id)
         clamped = max(0.0, min(1.0, float(progress)))
         self._raw_client().table("jobs").update(

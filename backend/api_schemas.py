@@ -1,5 +1,6 @@
 """Response DTOs for top-level API endpoints."""
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -26,8 +27,11 @@ class HealthReadyResponse(BaseModel):
 class HealthQueueResponse(BaseModel):
     status: Literal["ready", "degraded"]
     workers: int
-    queued: int
-    running: int
-    stale_leases: int
+    queue_ready: bool
+    queue_depth: int
+    queue_visible_depth: int
+    oldest_age_seconds: int | None = None
+    total_messages: int
+    sampled_at: datetime | None = None
     reason: str | None = None
     heartbeat_source: str | None = None

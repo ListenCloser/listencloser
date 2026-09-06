@@ -4,7 +4,8 @@ select plan(16);
 
 create temp table __execution_tokens (
   label text primary key,
-  token uuid not null
+  token uuid not null,
+  msg_id bigint not null
 );
 
 insert into public.projects (id, owner_id, name)
@@ -47,17 +48,22 @@ select col_type_is(
   'jobs',
   'execution_token',
   'uuid',
-  'Jobs carry a per-claim execution token'
+  'Jobs carry a per-delivery execution token'
 );
 
-insert into __execution_tokens (label, token)
-select 'attempt-a', execution_token
-from public.claim_next_job('pg-tap-worker-a', 30.0)
-where id = '00000000-0000-0000-0000-000000539004';
+with delivery as (
+  select public.receive_job_delivery('pg-tap-worker-a', 30) as payload
+)
+insert into __execution_tokens (label, token, msg_id)
+select
+  'attempt-a',
+  (payload ->> 'execution_token')::uuid,
+  (payload ->> '_queue_msg_id')::bigint
+from delivery;
 
 select ok(
   (select token is not null from __execution_tokens where label = 'attempt-a'),
-  'claim_next_job assigns a non-null execution token'
+  'receive_job_delivery assigns a non-null execution token'
 );
 
 update public.jobs
@@ -67,15 +73,29 @@ set
   lease_expires_at = null
 where id = '00000000-0000-0000-0000-000000539004';
 
-insert into __execution_tokens (label, token)
-select 'attempt-b', execution_token
-from public.claim_next_job('pg-tap-worker-b', 30.0)
-where id = '00000000-0000-0000-0000-000000539004';
+select public.finish_job_delivery(
+  '00000000-0000-0000-0000-000000539004',
+  token,
+  msg_id,
+  0
+)
+from __execution_tokens
+where label = 'attempt-a';
+
+with delivery as (
+  select public.receive_job_delivery('pg-tap-worker-b', 30) as payload
+)
+insert into __execution_tokens (label, token, msg_id)
+select
+  'attempt-b',
+  (payload ->> 'execution_token')::uuid,
+  (payload ->> '_queue_msg_id')::bigint
+from delivery;
 
 select isnt(
   (select token from __execution_tokens where label = 'attempt-a'),
   (select token from __execution_tokens where label = 'attempt-b'),
-  'every takeover claim receives a fresh execution token'
+  'every takeover delivery receives a fresh execution token'
 );
 
 update public.jobs

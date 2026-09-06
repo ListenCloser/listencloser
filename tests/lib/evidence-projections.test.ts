@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { Insight } from "@/lib/domain.types";
 import {
   presentationFamilyForKind,
   projectionPolicyForKind,
   resolveEvidenceProjection,
+  resolveInsightProjection,
 } from "@/lib/evidence-projections";
 
 describe("evidence projection policy", () => {
@@ -14,12 +16,15 @@ describe("evidence projection policy", () => {
     expect(adequate).toMatchObject({ mode: "score-symbol", native: true, precision: "adequate" });
   });
 
-  it("falls an approximately aligned score chord back to a locator region", () => {
-    expect(resolveEvidenceProjection("chord", "score", "approximate")).toMatchObject({
+  it("falls an approximately aligned score chord back to a non-passive locator region", () => {
+    expect(resolveEvidenceProjection("chord", "score", "approximate")).toEqual({
+      kind: "chord",
+      target: "score",
       mode: "score-region",
+      precision: "approximate",
       native: false,
       passiveByDefault: false,
-      precision: "approximate",
+      requiresContext: [],
     });
   });
 
@@ -44,6 +49,16 @@ describe("evidence projection policy", () => {
     expect(numeral.requiresContext).toEqual(["key"]);
     expect(harmonicFunction.passiveByDefault).toBe(false);
     expect(harmonicFunction.requiresContext).toEqual(["key"]);
+
+    expect(resolveEvidenceProjection("roman_numeral", "score", "adequate")).toEqual({
+      kind: "roman_numeral",
+      target: "score",
+      mode: "score-symbol",
+      precision: "adequate",
+      native: true,
+      passiveByDefault: false,
+      requiresContext: ["key"],
+    });
   });
 
   it("allows coarse score location for localized activity without pretending it is notation-native", () => {
@@ -59,10 +74,36 @@ describe("evidence projection policy", () => {
     });
   });
 
-  it("fails closed for unsupported or unknown evidence projections", () => {
+  it("fails closed with the complete unsupported contract for unknown evidence", () => {
+    expect(resolveEvidenceProjection("unknown_detector_output", "listen", "exact")).toEqual({
+      kind: "unknown_detector_output",
+      target: "listen",
+      mode: "none",
+      precision: "unsupported",
+      native: false,
+      passiveByDefault: false,
+      requiresContext: [],
+    });
+  });
+
+  it("fails closed with the complete unsupported contract when precision is unsupported", () => {
+    expect(resolveEvidenceProjection("chord", "score", "unsupported")).toEqual({
+      kind: "chord",
+      target: "score",
+      mode: "none",
+      precision: "unsupported",
+      native: false,
+      passiveByDefault: false,
+      requiresContext: [],
+    });
     expect(resolveEvidenceProjection("cadence", "score", "exact").mode).toBe("none");
-    expect(resolveEvidenceProjection("unknown_detector_output", "listen", "exact").mode).toBe("none");
-    expect(resolveEvidenceProjection("chord", "score", "unsupported").mode).toBe("none");
+  });
+
+  it("keeps the Insight convenience path behaviorally identical to kind-based resolution", () => {
+    const insight = { kind: "chord" } as Insight;
+    expect(resolveInsightProjection(insight, "score", "adequate")).toEqual(
+      resolveEvidenceProjection("chord", "score", "adequate"),
+    );
   });
 
   it("preserves the current presentation families without making them the projection ontology", () => {

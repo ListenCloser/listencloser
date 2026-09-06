@@ -12,7 +12,6 @@ from __future__ import annotations
 import math
 from typing import Any, Literal
 
-import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
 from domain.relation_observations import (
@@ -194,18 +193,37 @@ def _reference_population(
     )
 
 
+def _linear_percentile(values: list[float], percentile: float) -> float:
+    """Match NumPy's linear percentile convention without importing the DSP stack."""
+
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * (percentile / 100.0)
+    lower_index = math.floor(position)
+    upper_index = math.ceil(position)
+    if lower_index == upper_index:
+        return ordered[lower_index]
+    fraction = position - lower_index
+    return ordered[lower_index] + (ordered[upper_index] - ordered[lower_index]) * fraction
+
+
 def _empirical_midrank_percentile(
     subject_value: float,
-    reference_values: np.ndarray,
+    reference_values: list[float],
 ) -> float:
-    equal = np.isclose(
-        reference_values,
-        subject_value,
-        atol=_NUMERIC_ATOL,
-        rtol=_NUMERIC_RTOL,
-    )
-    lower = np.logical_and(reference_values < subject_value, np.logical_not(equal))
-    numerator = float(np.count_nonzero(lower)) + 0.5 * float(np.count_nonzero(equal))
+    equal_count = 0
+    lower_count = 0
+    for value in reference_values:
+        equal = math.isclose(
+            value,
+            subject_value,
+            abs_tol=_NUMERIC_ATOL,
+            rel_tol=_NUMERIC_RTOL,
+        )
+        if equal:
+            equal_count += 1
+        elif value < subject_value:
+            lower_count += 1
+    numerator = float(lower_count) + 0.5 * float(equal_count)
     return 100.0 * numerator / float(len(reference_values))
 
 
@@ -282,14 +300,10 @@ def contextualize_rhythm_density_within_work(
 
     subject_measurement = subject_relation.measurements[0]
     subject_value = float(subject_measurement.subject_value)
-    reference_values = np.asarray(
-        [window["density"] for window in reference_windows],
-        dtype=float,
-    )
-    reference_median = float(np.median(reference_values))
-    q1, q3 = np.percentile(reference_values, [25.0, 75.0], method=_QUARTILE_METHOD)
-    reference_q1 = float(q1)
-    reference_q3 = float(q3)
+    reference_values = [float(window["density"]) for window in reference_windows]
+    reference_median = _linear_percentile(reference_values, 50.0)
+    reference_q1 = _linear_percentile(reference_values, 25.0)
+    reference_q3 = _linear_percentile(reference_values, 75.0)
     reference_iqr = reference_q3 - reference_q1
     delta = subject_value - reference_median
     percentile = _empirical_midrank_percentile(subject_value, reference_values)

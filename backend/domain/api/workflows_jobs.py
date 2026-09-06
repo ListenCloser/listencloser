@@ -10,20 +10,21 @@ from pydantic import BaseModel, Field
 from auth_utils import limiter, verify_token
 from domain.api.dependencies import owner_id, supabase_client
 from domain.api_schemas import WorkflowJobResponse
-from domain.models import (
-    ArtifactKind,
-    Capability,
-    Job,
-    JobStage,
-    Version,
-    Workflow,
-    WorkflowKind,
-)
+from domain.models import ArtifactKind, Capability, Job, JobStage, Version, Workflow, WorkflowKind
 from domain.repositories import ArtifactRepo, JobRepo, VersionRepo, WorkflowRepo, WorkRepo
 
 router = APIRouter()
 _PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset(
-    {"perceptual_series", "separate", "structure_map", "transform"}
+    {
+        "melody_audition",
+        "perceptual_series",
+        "pitch_contour",
+        "production_spatial",
+        "separate",
+        "structure_map",
+        "symbolic_detail",
+        "transform",
+    }
 )
 _SEPARATION_MODEL_SIGNATURE = "955717e8"
 

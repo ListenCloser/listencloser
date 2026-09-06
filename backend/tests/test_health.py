@@ -25,16 +25,28 @@ def test_queue_health_degrades_without_supabase(client, monkeypatch):
     response = client.get("/health/queue")
 
     assert response.status_code == 200
-    assert response.json()["status"] == "degraded"
+    assert response.json() == {
+        "status": "degraded",
+        "workers": 0,
+        "queue_ready": False,
+        "queue_depth": 0,
+        "queue_visible_depth": 0,
+        "total_messages": 0,
+        "reason": "supabase not configured",
+    }
 
 
-def test_queue_health_reports_worker_and_active_jobs(client, monkeypatch):
-    jobs = MagicMock()
-    jobs.select.return_value.in_.return_value.execute.return_value = SimpleNamespace(
-        data=[
-            {"stage": "queued", "lease_expires_at": None},
-            {"stage": "running", "lease_expires_at": "2999-01-01T00:00:00+00:00"},
-        ]
+def test_queue_health_reports_pgmq_metrics_and_worker(client, monkeypatch):
+    supabase = MagicMock()
+    supabase.rpc.return_value.execute.return_value = SimpleNamespace(
+        data={
+            "queue_ready": True,
+            "queue_depth": 3,
+            "queue_visible_depth": 2,
+            "oldest_age_seconds": 17,
+            "total_messages": 41,
+            "sampled_at": "2026-09-05T00:27:06+00:00",
+        }
     )
     workers = MagicMock()
     workers.select.return_value.gte.return_value.execute.return_value = SimpleNamespace(
@@ -46,8 +58,7 @@ def test_queue_health_reports_worker_and_active_jobs(client, monkeypatch):
             }
         ]
     )
-    supabase = MagicMock()
-    supabase.table.side_effect = lambda name: jobs if name == "jobs" else workers
+    supabase.table.return_value = workers
     monkeypatch.setattr(health_api, "get_supabase", lambda: supabase)
 
     response = client.get("/health/queue")
@@ -56,8 +67,31 @@ def test_queue_health_reports_worker_and_active_jobs(client, monkeypatch):
     assert response.json() == {
         "status": "ready",
         "workers": 1,
-        "queued": 1,
-        "running": 1,
-        "stale_leases": 0,
+        "queue_ready": True,
+        "queue_depth": 3,
+        "queue_visible_depth": 2,
+        "oldest_age_seconds": 17,
+        "total_messages": 41,
+        "sampled_at": "2026-09-05T00:27:06Z",
         "heartbeat_source": "database",
+    }
+    supabase.rpc.assert_called_once_with("job_queue_metrics", {})
+
+
+def test_queue_health_degrades_when_pgmq_metrics_fail(client, monkeypatch):
+    supabase = MagicMock()
+    supabase.rpc.return_value.execute.side_effect = RuntimeError("pgmq unavailable")
+    monkeypatch.setattr(health_api, "get_supabase", lambda: supabase)
+
+    response = client.get("/health/queue")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "degraded",
+        "workers": 0,
+        "queue_ready": False,
+        "queue_depth": 0,
+        "queue_visible_depth": 0,
+        "total_messages": 0,
+        "reason": "job queue unavailable",
     }

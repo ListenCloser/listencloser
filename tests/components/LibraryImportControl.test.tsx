@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import LibraryImportControl from "@/components/workspace/LibraryImportControl";
+import { WorkspaceProvider } from "@/lib/stores/workspace";
 
 type ImportControlProps = ComponentProps<typeof LibraryImportControl>;
 type ImportControlOverrides = Partial<
@@ -30,7 +31,11 @@ function renderImportControl(overrides: ImportControlOverrides = {}) {
     ...overrides,
   };
 
-  render(<LibraryImportControl {...props} />);
+  render(
+    <WorkspaceProvider>
+      <LibraryImportControl {...props} />
+    </WorkspaceProvider>,
+  );
 }
 
 describe("LibraryImportControl", () => {

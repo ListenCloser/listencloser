@@ -6,10 +6,10 @@ from collections.abc import Callable
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from auth_utils import verify_token
-from domain.api_schemas import PerceptualSpanComparisonResponse
+from domain.api_schemas import PerceptualSpanComparisonResponse, SimilarMomentsResponse
 from domain.measured_change_query import (
     MeasuredChangeQueryResult,
     discover_persisted_measured_changes,
@@ -19,7 +19,14 @@ from domain.relation_query import (
     PerceptualSpanComparisonQuery,
     compare_persisted_perceptual_spans,
 )
-from domain.repositories import get_supabase
+from domain.repositories import InsightRepo, get_supabase
+from domain.rhythm_density_context_findings import SubjectOrigin
+from domain.rhythm_density_context_query import (
+    RhythmDensityContextQuery,
+    RhythmDensityContextQueryResult,
+    query_persisted_rhythm_density_context,
+)
+from domain.similar_moments_contract import MAX_MATCHES
 from domain.storage_locator_policy import classify_version_storage_locator
 from domain.work_bundle_repository import WorkBundleRepository, WorkBundleSnapshot
 
@@ -34,6 +41,24 @@ class PerceptualSpanComparisonBody(BaseModel):
     subject_end_seconds: float
     comparison_start_seconds: float
     comparison_end_seconds: float
+
+
+class SimilarMomentsBody(BaseModel):
+    """Find bounded experimental neighbors for one exact selected passage."""
+
+    source_version_id: UUID
+    query_start_seconds: float
+    query_end_seconds: float
+    max_matches: int = Field(default=3, ge=1, le=MAX_MATCHES)
+
+
+class RhythmDensityContextBody(BaseModel):
+    """Contextualize one explicit performance-time span using one exact density owner."""
+
+    density_owner_version_id: UUID
+    subject_start_seconds: float
+    subject_end_seconds: float
+    subject_origin: SubjectOrigin
 
 
 def _owner_id(auth) -> str:
@@ -103,6 +128,16 @@ def _authorized_work_snapshot(work_id: UUID, auth):
     return sb, owner_id, snapshot
 
 
+def find_persisted_similar_moments(*args, **kwargs):
+    """Lazy test seam that keeps worker/DSP dependencies out of API imports."""
+
+    from domain.similar_moments_query import (
+        find_persisted_similar_moments as implementation,
+    )
+
+    return implementation(*args, **kwargs)
+
+
 @router.get(
     "/works/{work_id}/relations/measured-changes",
     response_model=MeasuredChangeQueryResult,
@@ -159,3 +194,62 @@ def compare_perceptual_spans(
         load_report=_authorized_report_loader(snapshot, sb, owner_id),
     )
     return PerceptualSpanComparisonResponse.model_validate(result.model_dump())
+
+
+@router.post(
+    "/works/{work_id}/relations/similar-moments",
+    response_model=SimilarMomentsResponse,
+)
+def similar_moments(
+    work_id: UUID,
+    body: SimilarMomentsBody,
+    auth=Depends(verify_token),
+):
+    """Propose inspectable same-Work passages under one declared experimental method."""
+
+    # Keep NumPy/perceptual matcher imports behind the on-demand endpoint so
+    # importing the HTTP application does not require worker/DSP dependencies.
+    from domain.similar_moments_query import SimilarMomentsQuery
+
+    sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
+    source_version = _source_version(snapshot, body.source_version_id)
+    if source_version is None:
+        raise HTTPException(status_code=404, detail="Source version not found in work")
+
+    result = find_persisted_similar_moments(
+        snapshot,
+        source_version=source_version,
+        query=SimilarMomentsQuery(
+            query_start_seconds=body.query_start_seconds,
+            query_end_seconds=body.query_end_seconds,
+            max_matches=body.max_matches,
+        ),
+        load_report=_authorized_report_loader(snapshot, sb, owner_id),
+    )
+    return SimilarMomentsResponse.model_validate(result.model_dump())
+
+
+@router.post(
+    "/works/{work_id}/relations/rhythm-density-context",
+    response_model=RhythmDensityContextQueryResult,
+)
+def rhythm_density_context(
+    work_id: UUID,
+    body: RhythmDensityContextBody,
+    auth=Depends(verify_token),
+):
+    """Return literal within-Work context for one exact density-owning Version."""
+
+    sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
+    insight_repo = InsightRepo(sb)
+
+    return query_persisted_rhythm_density_context(
+        snapshot,
+        density_owner_version_id=body.density_owner_version_id,
+        query=RhythmDensityContextQuery(
+            subject_start_seconds=body.subject_start_seconds,
+            subject_end_seconds=body.subject_end_seconds,
+            subject_origin=body.subject_origin,
+        ),
+        load_insights=lambda version: insight_repo.list_by_version(version.id, owner_id),
+    )

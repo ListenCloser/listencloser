@@ -31,10 +31,10 @@
       "pos_in_bar",
       "in_scale"
     ],
-    "notes": "Simplified inference features; pitch_dist_below/above and pos_in_bar are zeroed (model is robust to these). Duration scaled by 4 (semiquavers)."
+    "notes": "Simplified production inference features; pitch_dist_below/above, pos_in_bar, and in_scale are zeroed. Duration scaled by 4 (semiquavers)."
   },
   "normalization": {
-    "method": "per-segment z-score",
+    "method": "per-input-sequence z-score",
     "mean_axis": 1,
     "std_axis": 1,
     "zero_std_replacement": 1.0
@@ -43,7 +43,7 @@
     "segment_size": 50,
     "threshold": 0.40,
     "min_notes": 2,
-    "padding": "truncate to multiple of segment_size"
+    "chunking": "50-note chunks with the final partial chunk evaluated at its natural sequence length"
   },
   "benchmark": {
     "test_f1": 0.768,
