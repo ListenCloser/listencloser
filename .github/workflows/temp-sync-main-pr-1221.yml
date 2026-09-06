@@ -1,0 +1,34 @@
+name: Temporary sync main PR 1221
+
+on:
+  push:
+    branches:
+      - agent/1179-production-spatial-lens
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Merge current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          set +e
+          git merge --no-edit origin/main
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo 'Conflicts:'
+            git diff --name-only --diff-filter=U
+            exit "$rc"
+          fi
+          git push origin HEAD:${GITHUB_REF_NAME}
