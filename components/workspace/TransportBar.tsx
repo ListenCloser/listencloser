@@ -7,6 +7,7 @@ import ListboxMenu from "@/components/ui/ListboxMenu";
 import Tooltip from "@/components/ui/Tooltip";
 import { useTransport, type PlaybackSource } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
+import styles from "./TransportBar.module.css";
 
 type PlaybackDomain = "performance" | "notation";
 
@@ -61,17 +62,21 @@ function CompareTransportControl() {
   }
 
   return (
-    <div className="transport-compare-active" role="group" aria-label="Compare playback sources">
+    <div className={styles.compareActive} role="group" aria-label="Compare playback sources">
       {(["A", "B"] as const).map((side) => {
         const source = side === "A" ? compareA : compareB;
         const other = side === "A" ? compareB : compareA;
+        const active = activeSide === side;
         return (
-          <div key={side} className={`transport-compare-side${activeSide === side ? " active" : ""}`}>
+          <div
+            key={side}
+            className={`${styles.compareSide}${active ? ` ${styles.compareSideActive}` : ""}`}
+          >
             <Tooltip content={`Listen to compare side ${side}`}>
               <Button
                 variant="ghost"
                 size="compact"
-                aria-pressed={activeSide === side}
+                aria-pressed={active}
                 onClick={() => setCompareSide(side)}
               >
                 {side}
@@ -132,10 +137,6 @@ export default function TransportBar() {
   const activeDomain = sourceDomain(activeSource);
   const domainMatches = selectionDomain !== null && activeDomain !== null && selectionDomain === activeDomain;
 
-  // A passage loop is only meaningful while the visible shared selection is
-  // its scope. If the selection changes while looping, follow it. If the
-  // selection disappears or becomes incompatible with the active source,
-  // disable the loop rather than leaving invisible stale loop bounds behind.
   useEffect(() => {
     if (!loopEnabled) return;
     if (!selectionTimeRange || !domainMatches) {
@@ -162,14 +163,14 @@ export default function TransportBar() {
         : "Loop selected passage";
 
   if (!hasSource && sources.length === 0) {
-    return <footer className="transport-bar transport-bar-v3 transport-bar-idle" aria-label="Playback" />;
+    return <footer className={`${styles.root} ${styles.idle}`} aria-label="Playback" />;
   }
 
   return (
-    <footer className="transport-bar transport-bar-v3" aria-label="Playback">
-      <div className="transport-source-zone">
+    <footer className={styles.root} aria-label="Playback">
+      <div className={styles.sourceZone}>
         <ListboxMenu
-          triggerLabel={activeSource ? `Listening · ${activeSource.label}` : "Choose source"}
+          triggerLabel={activeSource ? activeSource.label : "Choose source"}
           triggerAria={`Playback source: ${activeSource ? activeSource.label : "none"}`}
           options={sources.map((item) => ({ id: item.id, label: item.label }))}
           selectedId={activeSource?.id ?? null}
@@ -180,9 +181,10 @@ export default function TransportBar() {
         />
       </div>
 
-      <div className="transport-playback-zone">
+      <div className={styles.playbackZone}>
         <Tooltip content={playbackActionLabel}>
           <IconButton
+            className={styles.playButton}
             variant="secondary"
             onClick={toggle}
             aria-label={playbackActionLabel}
@@ -191,9 +193,9 @@ export default function TransportBar() {
             {isPlaying ? <PauseIcon /> : <PlayIcon />}
           </IconButton>
         </Tooltip>
-        <span className="transport-time">{formatTime(position)}</span>
+        <span className={styles.time}>{formatTime(position)}</span>
         <input
-          className="transport-seek"
+          className={styles.seek}
           type="range"
           aria-label="Playback position"
           min={0}
@@ -203,10 +205,11 @@ export default function TransportBar() {
           onChange={(event) => seek(Number(event.target.value))}
           disabled={!hasSource || duration <= 0}
         />
-        <span className="transport-time transport-time-muted">{formatTime(duration)}</span>
+        <span className={`${styles.time} ${styles.timeMuted}`}>{formatTime(duration)}</span>
         <Tooltip content={loopHelp}>
           <Button
             variant="ghost"
+            size="compact"
             onClick={() => {
               if (!selectionTimeRange || !domainMatches) return;
               if (loopEnabled) {
@@ -221,12 +224,12 @@ export default function TransportBar() {
             disabled={!hasSource || !selectionTimeRange || !domainMatches}
           >
             <LoopIcon />
-            <span className="transport-ctrl-text">Loop</span>
+            <span>Loop</span>
           </Button>
         </Tooltip>
       </div>
 
-      <div className="transport-compare-zone">
+      <div className={styles.compareZone}>
         <CompareTransportControl />
       </div>
     </footer>
