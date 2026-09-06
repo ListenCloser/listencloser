@@ -77,6 +77,7 @@ subgraph lib["lib"]
   lib_notes_ts["notes.ts"]
   lib_openapi_client_ts["openapi-client.ts"]
   lib_perceptual_series_client_ts["perceptual-series-client.ts"]
+  lib_pitch_contour_client_ts["pitch-contour-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
   lib_public_recordings_ts["public-recordings.ts"]
   lib_pulse_grid_ts["pulse-grid.ts"]
@@ -170,6 +171,7 @@ components_workspace_-->lib_score_measure_geometry_ts
 components_workspace_-->lib_score_note_playback_ts
 components_workspace_-->lib_melody_playback_client_ts
 components_workspace_-->lib_melody_reduction_ts
+components_workspace_-->lib_pitch_contour_client_ts
 components_workspace_-->lib_structure_map_client_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
 lib_analysis_annotations_ts-->lib_inspector_
@@ -191,6 +193,8 @@ lib_musicxml_cache_ts-->lib_query_client_ts
 lib_openapi_client_ts-->lib_supabase_ts
 lib_perceptual_series_client_ts-->lib_api_client_ts
 lib_perceptual_series_client_ts-->lib_openapi_client_ts
+lib_pitch_contour_client_ts-->lib_api_client_ts
+lib_pitch_contour_client_ts-->lib_openapi_client_ts
 lib_relation_api_client_ts-->lib_openapi_client_ts
 lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts
