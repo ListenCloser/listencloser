@@ -35,9 +35,7 @@ CLAMP3_C2_WEIGHT_FILENAME = (
     "t_length_128_a_size_768_a_layers_12_a_length_128_s_size_768_s_layers_12_"
     "p_size_64_p_length_512.pth"
 )
-CLAMP3_C2_WEIGHT_SHA256 = (
-    "e6fb0d139b24a1ec20836bb65bd652303d570ea9af2cddb20a1fc161421d64af"
-)
+CLAMP3_C2_WEIGHT_SHA256 = "e6fb0d139b24a1ec20836bb65bd652303d570ea9af2cddb20a1fc161421d64af"
 
 _DEFAULT_TIMEOUT_SECONDS = 30 * 60
 _DEFAULT_WINDOW_SECONDS = 10.0
@@ -62,10 +60,7 @@ class CLaMP3TextPerformanceRetriever:
         if timeout_seconds <= 0:
             raise ValueError("CLaMP3 C2 timeout must be positive")
         configured_weight_sha256 = weight_sha256 or os.getenv("CLAMP3_C2_WEIGHT_SHA256")
-        if (
-            configured_weight_sha256
-            and configured_weight_sha256.lower() != CLAMP3_C2_WEIGHT_SHA256
-        ):
+        if configured_weight_sha256 and configured_weight_sha256.lower() != CLAMP3_C2_WEIGHT_SHA256:
             raise ValueError("CLaMP3 C2 checkpoint digest does not match the pinned release")
         self._runtime_python = runtime_python or os.getenv("CLAMP3_RUNTIME_PYTHON")
         self._checkout_path = checkout_path or os.getenv("CLAMP3_CHECKOUT")
