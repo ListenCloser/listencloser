@@ -98,7 +98,6 @@
     border-color: var(--line-subtle);
   }
 
-  /* Supporting panels are staged around one primary musical canvas. */
   .studio-library.studio-library-v3 {
     width: min(360px, 94vw) !important;
     max-height: none !important;
@@ -132,17 +131,6 @@
   .studio-inspector-backdrop {
     inset: var(--workspace-header-height) 0 var(--transport-height) 0;
     background: rgba(5, 7, 6, 0.58);
-  }
-
-  .inspector-mode-tabs.ui-tab-strip,
-  .inspector-mode-tabs.ui-tab-strip > .ui-tab,
-  .ui-tab {
-    min-height: 44px;
-  }
-
-  .inspector-analysis-content {
-    padding-bottom: 32px;
-    overscroll-behavior: contain;
   }
 
   .piece-processing-card {
