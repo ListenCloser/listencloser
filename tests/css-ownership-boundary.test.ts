@@ -98,10 +98,11 @@ describe("frontend visual ownership", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("uses canonical token names in canvas renderer consumers", () => {
+  it("uses canonical token names in renderer consumers", () => {
     const renderers = [
       "components/workspace/representations/Waveform.tsx",
       "components/workspace/representations/Spectrogram.tsx",
+      "components/workspace/representations/PianoRoll.tsx",
     ];
 
     for (const path of renderers) {
