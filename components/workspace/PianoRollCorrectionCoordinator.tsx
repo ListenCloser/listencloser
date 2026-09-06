@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import { startCorrectWorkflow } from "@/lib/correction-client";
 import { JobObservationError, waitForJob } from "@/lib/job-tracking";
+import { resolveMidiAuthority } from "@/lib/midi-authority";
 import { useWorkspace } from "@/lib/stores/workspace";
 
 export default function PianoRollCorrectionCoordinator() {
@@ -55,14 +56,28 @@ export default function PianoRollCorrectionCoordinator() {
           });
         });
         if (cancelled) return;
-        if (completed.output_version_ids.length !== 1) {
-          throw new Error("Correction did not produce exactly one performance interpretation.");
+
+        // Correction may also publish exact-parent synthesized playback. Never
+        // infer which output is the performance interpretation by array order;
+        // refresh durable state and resolve the one edited-performance MIDI
+        // Version produced by this exact Job.
+        clearWorkDataCache();
+        const refreshed = await getWorkBundle(workId);
+        if (cancelled) return;
+        const outputIds = new Set(completed.output_version_ids);
+        const correctedOutputs = resolveMidiAuthority(refreshed).representations.filter(
+          (descriptor) => (
+            descriptor.role === "edited_performance"
+            && outputIds.has(descriptor.versionId)
+            && descriptor.artifact.latest_version?.produced_by_job_id === jobId
+          ),
+        );
+        if (correctedOutputs.length !== 1) {
+          throw new Error("Correction did not produce one exact performance interpretation.");
         }
 
-        const correctedVersionId = completed.output_version_ids[0];
-        clearWorkDataCache();
         clearSelection();
-        selectPianoRollSource(correctedVersionId);
+        selectPianoRollSource(correctedOutputs[0].versionId);
         setPianoRollCorrectionOperation({
           state: "success",
           label: "Correction saved",
