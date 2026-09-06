@@ -92,7 +92,13 @@ resolve_prebuilt_image() {
     return 1
   fi
 
-  candidate="${BACKEND_IMAGE_REPOSITORY}:${revision}-${arch}"
+  # CI publishes the image under a lowercased repository path. GitHub's
+  # repository name can retain uppercase characters after a rename while Docker
+  # rejects uppercase repository paths, so normalize exactly like the publish
+  # step instead of silently falling back to an expensive VM rebuild.
+  local repository
+  repository="$(printf '%s' "$BACKEND_IMAGE_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+  candidate="${repository}:${revision}-${arch}"
 
   if [ -n "$GHCR_USERNAME" ] && [ -n "$GHCR_TOKEN" ]; then
     if printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin >/dev/null; then
