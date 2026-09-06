@@ -1,10 +1,11 @@
-"""Publish corrected MIDI as a complete, provenance-exact performance Version.
+"""Publish corrected MIDI with a complete, provenance-exact note world.
 
 The legacy correction handler writes a complete MIDI file but only persists the
 replacement notes as Entities. Register this adapter for the correction
 capability so Piano Roll/comparison consumers see the complete persisted note
-world and the resulting immutable Version is explicitly qualified as an edited
-performance rather than an ambiguous ``midi_corrected`` artifact.
+world. The immutable Version's semantic role remains proven by its producing
+``correct`` Job and exact input Version; this adapter never mutates a published
+Version row after creation.
 """
 
 from __future__ import annotations
@@ -45,23 +46,6 @@ def note_entities_from_midi_bytes(data: bytes, version_id: UUID) -> list[Entity]
     return entities
 
 
-def _edited_performance_metadata(job: Job, existing: dict) -> dict:
-    """Describe only correction facts that are directly proven by the durable Job."""
-    corrected_notes = job.parameters.get("corrected_notes") or []
-    return {
-        **existing,
-        "representation": "edited_performance",
-        "correction": {
-            "schema_version": 1,
-            "operation": "replace_notes_in_span",
-            "source_version_id": str(job.input_version_ids[0]),
-            "selection_start_seconds": job.parameters.get("selection_start"),
-            "selection_end_seconds": job.parameters.get("selection_end"),
-            "replacement_note_count": len(corrected_notes),
-        },
-    }
-
-
 def _publish_corrected_playback(
     job: Job,
     client,
@@ -70,71 +54,64 @@ def _publish_corrected_playback(
     corrected_midi: bytes,
     owner_id: str,
 ) -> UUID | None:
-    """Best-effort synthesize playback bound to the exact corrected MIDI Version.
+    """Synthesize playback bound to the exact corrected MIDI Version.
 
-    MIDI correction remains the durable primary result. If the configured
-    FluidSynth/SoundFont runtime is unavailable, preserve the corrected Version
-    and fail closed by publishing no playback artifact rather than substituting
-    audio from a different performance interpretation.
+    A missing synth runtime is an honest optional-capability abstention: preserve
+    the corrected MIDI and publish no playback. Once synthesis succeeds,
+    persistence errors propagate through the normal fenced Job failure path
+    rather than being hidden as a successful partial publication.
     """
     try:
         wav_bytes = music_features.midi_to_wav(corrected_midi)
-        work_id = capabilities._resolve_work_id(client, corrected_version_id)
-        storage_key = capabilities._job_storage_key(job, "corrected.wav")
-        capabilities._upload_bytes(
-            client,
-            capabilities._STORAGE_BUCKET,
-            storage_key,
-            wav_bytes,
-            "audio/wav",
-        )
-        return capabilities._create_output_version(
-            client,
-            work_id,
-            ArtifactKind.audio_rendered,
-            storage_key,
-            wav_bytes,
-            corrected_version_id,
-            job,
-            owner_id,
-            mime_type="audio/wav",
-            label="Corrected transcription playback",
-            metadata={
-                "representation": "transcription_playback",
-                "source_midi_version_id": str(corrected_version_id),
-                "source_representation": "edited_performance",
-            },
-        )
     except Exception:
         logger.exception(
-            "corrected_playback_render_failed",
+            "corrected_playback_render_unavailable",
             extra={"corrected_version_id": str(corrected_version_id)},
         )
         return None
 
+    work_id = capabilities._resolve_work_id(client, corrected_version_id)
+    storage_key = capabilities._job_storage_key(job, "corrected.wav")
+    capabilities._upload_bytes(
+        client,
+        capabilities._STORAGE_BUCKET,
+        storage_key,
+        wav_bytes,
+        "audio/wav",
+    )
+    return capabilities._create_output_version(
+        client,
+        work_id,
+        ArtifactKind.audio_rendered,
+        storage_key,
+        wav_bytes,
+        corrected_version_id,
+        job,
+        owner_id,
+        mime_type="audio/wav",
+        label="Corrected transcription playback",
+        metadata={
+            "representation": "transcription_playback",
+            "source_midi_version_id": str(corrected_version_id),
+            "source_representation": "edited_performance",
+        },
+    )
+
 
 def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
-    """Run correction, qualify its Version, then publish its complete note world."""
+    """Run correction, republish complete notes, and optionally render playback."""
     output_ids = capabilities.handle_correct(job, client)
     if len(output_ids) != 1:
-        raise ValueError("correct must produce exactly one MIDI version")
+        raise ValueError("correct must produce exactly one corrected MIDI before playback")
 
     output_version_id = UUID(output_ids[0])
     output_version = capabilities._lookup_version(client, output_version_id)
     owner_id = capabilities._resolve_owner_id(client, job.workflow_id)
     corrected_midi = capabilities.download_version_bytes(output_version, client)
 
-    # Parse before publishing follow-on state so corrupt/unreadable output leaves
-    # the handler failed rather than advertising a complete corrected note world.
+    # Parse before replacing Entities so corrupt/unreadable output leaves the
+    # handler failed rather than advertising a partial corrected note world.
     full_note_world = note_entities_from_midi_bytes(corrected_midi, output_version_id)
-
-    metadata = _edited_performance_metadata(job, dict(output_version.metadata))
-    (
-        client.table("artifact_versions")
-        .update({"metadata": metadata})
-        .eq("id", str(output_version_id))
-        .execute()
-    )
 
     (
         client.table("entities")
@@ -146,20 +123,19 @@ def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
     if full_note_world:
         EntityRepo(client).create_many(full_note_world, owner_id)
 
-    # Playback is an auxiliary derivative, not a second correction result. The
-    # correction coordinator can therefore keep its exact one-output contract
-    # while the Work bundle discovers this render by exact parent/provenance.
-    _publish_corrected_playback(
+    playback_version_id = _publish_corrected_playback(
         job,
         client,
         corrected_version_id=output_version_id,
         corrected_midi=corrected_midi,
         owner_id=owner_id,
     )
+    if playback_version_id is not None:
+        output_ids.append(str(playback_version_id))
 
     return output_ids
 
 
 def register_corrected_midi_entity_sync(worker) -> None:
-    """Override correction registration with the consistency/provenance adapter."""
+    """Override correction registration with complete-entity/playback publication."""
     worker.register("correct", "1.0", handle_correct_with_entity_sync)
