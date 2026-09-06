@@ -7,7 +7,11 @@ import subprocess
 
 import pytest
 
-from engines.symbolic.analysisgnn import AnalysisGNNEngine, normalize_score_evidence
+from engines.symbolic.analysisgnn import (
+    AnalysisGNNEngine,
+    AnalysisGNNResult,
+    normalize_score_evidence,
+)
 
 
 def _runtime_files(tmp_path):
@@ -106,24 +110,20 @@ def test_analysisgnn_score_evidence_keeps_first_product_subset_only():
         checkpoint_path="/unused/checkpoint",
         checkpoint_sha256="1" * 64,
     )
-    result = type(
-        "Result",
-        (),
-        {
-            "predictions": [
-                {
-                    "cadence": "PAC",
-                    "localkey": "C",
-                    "romanNumeral": "V7",
-                    "quality": "major",
-                    "onset": "8.5",
-                    "s_measure": "4",
-                }
-            ],
-            "tasks": ("cadence", "localkey", "romanNumeral", "quality"),
-            "provenance": engine.provenance,
-        },
-    )()
+    result = AnalysisGNNResult(
+        predictions=[
+            {
+                "cadence": "PAC",
+                "localkey": "C",
+                "romanNumeral": "V7",
+                "quality": "major",
+                "onset": "8.5",
+                "s_measure": "4",
+            }
+        ],
+        tasks=("cadence", "localkey", "romanNumeral", "quality"),
+        provenance=engine.provenance,
+    )
 
     evidence = normalize_score_evidence(result)
 
@@ -142,23 +142,19 @@ def test_analysisgnn_score_evidence_rejects_malformed_score_locator():
         checkpoint_path="/unused/checkpoint",
         checkpoint_sha256="1" * 64,
     )
-    result = type(
-        "Result",
-        (),
-        {
-            "predictions": [
-                {
-                    "cadence": "PAC",
-                    "localkey": "C",
-                    "romanNumeral": "V",
-                    "onset": "not-a-number",
-                    "s_measure": "4",
-                }
-            ],
-            "tasks": ("cadence", "localkey", "romanNumeral"),
-            "provenance": engine.provenance,
-        },
-    )()
+    result = AnalysisGNNResult(
+        predictions=[
+            {
+                "cadence": "PAC",
+                "localkey": "C",
+                "romanNumeral": "V",
+                "onset": "not-a-number",
+                "s_measure": "4",
+            }
+        ],
+        tasks=("cadence", "localkey", "romanNumeral"),
+        provenance=engine.provenance,
+    )
 
     with pytest.raises(ValueError, match="invalid onset"):
         normalize_score_evidence(result)
