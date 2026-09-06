@@ -1,9 +1,9 @@
 """Experimental symbolic-detail measurements over an exact MIDI Version.
 
-Partitura supplies score-MIDI parsing and its explicitly inferred voice/staff
-organization. music21 is used only for deterministic pitch spelling in the
-register display. No harmony, melody, counterpoint, or form interpretation is
-promoted by this module.
+Partitura supplies performance-MIDI parsing while music21 is used only for
+deterministic pitch spelling in the register display. Track/channel identity is
+kept as a method-qualified MIDI stream boundary; no harmony, melody,
+counterpoint, or form interpretation is promoted by this module.
 """
 
 from __future__ import annotations
@@ -58,18 +58,6 @@ def _package_version(name: str) -> str:
         return "unknown"
 
 
-def _score_parts(score_like) -> list:
-    parts = getattr(score_like, "parts", None)
-    if parts is not None:
-        return list(parts)
-    if isinstance(score_like, list | tuple):
-        flattened: list = []
-        for item in score_like:
-            flattened.extend(_score_parts(item))
-        return flattened
-    return [score_like]
-
-
 def _note_rows_from_midi(midi_bytes: bytes) -> list[_NoteRow]:
     if not midi_bytes:
         raise ValueError("symbolic_detail requires non-empty MIDI bytes")
@@ -78,29 +66,25 @@ def _note_rows_from_midi(midi_bytes: bytes) -> list[_NoteRow]:
         handle.write(midi_bytes)
         midi_path = handle.name
     try:
-        score = partitura.load_score_midi(midi_path)
+        performance = partitura.load_performance_midi(midi_path, quiet=True)
     finally:
         os.unlink(midi_path)
 
     rows: list[_NoteRow] = []
-    for part_index, part in enumerate(_score_parts(score)):
-        if not hasattr(part, "note_array"):
-            continue
-        note_array = part.note_array(include_staff=True)
-        fields = set(note_array.dtype.names or ())
-        required = {"onset_quarter", "duration_quarter", "pitch"}
-        if not required.issubset(fields):
-            raise ValueError("Partitura MIDI note array lacks quarter-note coordinates")
-        for item in note_array:
-            duration = max(0.0, float(item["duration_quarter"]))
-            voice = int(item["voice"]) if "voice" in fields else 0
+    for part_index, performed_part in enumerate(performance):
+        ppq = getattr(performed_part, "ppq", None)
+        if not isinstance(ppq, int) or ppq <= 0:
+            raise ValueError("Partitura performance MIDI is missing a valid PPQ")
+        for note in performed_part.notes:
+            onset_tick = float(note["note_on_tick"])
+            offset_tick = float(note["note_off_tick"])
             rows.append(
                 _NoteRow(
-                    onset=max(0.0, float(item["onset_quarter"])),
-                    duration=duration,
-                    pitch=int(item["pitch"]),
+                    onset=max(0.0, onset_tick / ppq),
+                    duration=max(0.0, (offset_tick - onset_tick) / ppq),
+                    pitch=int(note["midi_pitch"]),
                     part=part_index,
-                    voice=voice,
+                    voice=int(note.get("channel", 0)),
                 )
             )
 
@@ -117,7 +101,7 @@ def _centroids(rows: list[_NoteRow]) -> dict[float, float]:
     return {onset: float(np.mean(values)) for onset, values in sorted(pitches.items())}
 
 
-def _voice_centroids(rows: list[_NoteRow]) -> dict[tuple[int, int], dict[float, float]]:
+def _stream_centroids(rows: list[_NoteRow]) -> dict[tuple[int, int], dict[float, float]]:
     grouped: dict[tuple[int, int], list[_NoteRow]] = defaultdict(list)
     for row in rows:
         grouped[(row.part, row.voice)].append(row)
@@ -154,7 +138,7 @@ def _contour(rows: list[_NoteRow]) -> ContourDetail:
 
 def _interval_motion(rows: list[_NoteRow]) -> IntervalMotionDetail:
     deltas: list[float] = []
-    for centroids in _voice_centroids(rows).values():
+    for centroids in _stream_centroids(rows).values():
         values = list(centroids.values())
         deltas.extend(float(right - left) for left, right in zip(values, values[1:], strict=False))
 
@@ -249,7 +233,7 @@ def _texture(rows: list[_NoteRow]) -> TextureDetail:
 
     identities = {(row.part, row.voice) for row in rows}
     return TextureDetail(
-        inferred_voice_count=len(identities),
+        midi_stream_count=len(identities),
         peak_simultaneous_notes=peak,
         mean_simultaneous_notes=round(weighted / duration, 4) if duration > 0 else 0.0,
         polyphonic_time_fraction=round(polyphonic / duration, 4) if duration > 0 else 0.0,
@@ -257,19 +241,19 @@ def _texture(rows: list[_NoteRow]) -> TextureDetail:
 
 
 def _voice_motion(rows: list[_NoteRow]) -> VoiceMotionDetail:
-    voices = _voice_centroids(rows)
-    if len(voices) < 2:
+    streams = _stream_centroids(rows)
+    if len(streams) < 2:
         return VoiceMotionDetail(
             status="unavailable",
-            reason="Fewer than two Partitura-inferred voices are present in this MIDI.",
+            reason="Fewer than two MIDI track/channel streams are present in this MIDI.",
         )
 
-    all_onsets = sorted({onset for values in voices.values() for onset in values})
+    all_onsets = sorted({onset for values in streams.values() for onset in values})
     similar = contrary = oblique = total = 0
     for left, right in zip(all_onsets, all_onsets[1:], strict=False):
         deltas = [
             values[right] - values[left]
-            for values in voices.values()
+            for values in streams.values()
             if left in values and right in values
         ]
         if len(deltas) < 2:
@@ -290,7 +274,7 @@ def _voice_motion(rows: list[_NoteRow]) -> VoiceMotionDetail:
         return VoiceMotionDetail(
             status="unavailable",
             reason=(
-                "Inferred voices do not share enough consecutive onset coordinates for "
+                "MIDI streams do not share enough consecutive onset coordinates for "
                 "motion comparison."
             ),
         )
@@ -319,10 +303,10 @@ def build_symbolic_detail(
             partitura_version=_package_version("partitura"),
             music21_version=_package_version("music21"),
             parameters={
-                "coordinate_unit": "quarter_note",
+                "coordinate_unit": "quarter_note_from_midi_ticks",
                 "density_window_quarters": DEFAULT_DENSITY_WINDOW_QUARTERS,
                 "max_density_windows": MAX_DENSITY_WINDOWS,
-                "voice_source": "partitura_load_score_midi_inference",
+                "stream_source": "partitura_load_performance_midi_track_channel",
                 "contour_basis": "onset_pitch_centroid",
             },
         ),
