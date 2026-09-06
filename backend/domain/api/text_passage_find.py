@@ -1,7 +1,5 @@
 """Durable workflow entrypoint for experimental text-to-passage Find."""
 
-from __future__ import annotations
-
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import APIRouter, Depends, HTTPException, Request
