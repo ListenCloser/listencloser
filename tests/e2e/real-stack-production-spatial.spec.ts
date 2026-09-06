@@ -41,7 +41,7 @@ test("production / space runs opt-in through the real worker and persists exact 
   const inspector = page.locator("aside.inspector");
   const lens = inspector.getByRole("region", { name: "Production and spatial analysis" });
   await expect(lens).toBeVisible({ timeout: 30_000 });
-  await lens.getByRole("button", { name: "Add analysis" }).click();
+  await lens.getByRole("button", { name: "+ Production / Space", exact: true }).click();
   await expect(lens.getByText("Production / Space", { exact: true })).toBeVisible();
   await expect(lens.getByText("Experimental", { exact: true })).toBeVisible();
   await lens.getByRole("button", { name: "Add", exact: true }).click();
