@@ -7,7 +7,11 @@ import subprocess
 
 import pytest
 
-from engines.symbolic.analysisgnn import AnalysisGNNEngine
+from engines.symbolic.analysisgnn import (
+    AnalysisGNNEngine,
+    AnalysisGNNResult,
+    normalize_score_evidence,
+)
 
 
 def _runtime_files(tmp_path):
@@ -87,6 +91,73 @@ def test_analysisgnn_runs_local_checkpoint_offline_and_parses_csv(tmp_path, monk
     assert result.provenance.parameters["runtime_classification"] == "INTERNAL_ONLY"
     assert result.provenance.parameters["model_license"] == "UNVERIFIED"
     assert result.provenance.parameters["checkpoint_sha256"] == checksum
+
+    evidence = normalize_score_evidence(result)
+    assert evidence.tasks == ("cadence", "localkey", "romanNumeral")
+    assert evidence.observations[0].onset_beat == 12.0
+    assert evidence.observations[0].measure_number == 5
+    assert evidence.observations[0].labels == (
+        ("cadence", "PAC"),
+        ("localkey", "C"),
+        ("romanNumeral", "Ger65"),
+    )
+    assert evidence.provenance.parameters["runtime_classification"] == "INTERNAL_ONLY"
+
+
+def test_analysisgnn_score_evidence_keeps_first_product_subset_only():
+    engine = AnalysisGNNEngine(
+        runtime_python="/unused/runtime",
+        checkpoint_path="/unused/checkpoint",
+        checkpoint_sha256="1" * 64,
+    )
+    result = AnalysisGNNResult(
+        predictions=[
+            {
+                "cadence": "PAC",
+                "localkey": "C",
+                "romanNumeral": "V7",
+                "quality": "major",
+                "onset": "8.5",
+                "s_measure": "4",
+            }
+        ],
+        tasks=("cadence", "localkey", "romanNumeral", "quality"),
+        provenance=engine.provenance,
+    )
+
+    evidence = normalize_score_evidence(result)
+
+    assert evidence.tasks == ("cadence", "localkey", "romanNumeral")
+    assert evidence.observations[0].labels == (
+        ("cadence", "PAC"),
+        ("localkey", "C"),
+        ("romanNumeral", "V7"),
+    )
+    assert all(task != "quality" for task, _ in evidence.observations[0].labels)
+
+
+def test_analysisgnn_score_evidence_rejects_malformed_score_locator():
+    engine = AnalysisGNNEngine(
+        runtime_python="/unused/runtime",
+        checkpoint_path="/unused/checkpoint",
+        checkpoint_sha256="1" * 64,
+    )
+    result = AnalysisGNNResult(
+        predictions=[
+            {
+                "cadence": "PAC",
+                "localkey": "C",
+                "romanNumeral": "V",
+                "onset": "not-a-number",
+                "s_measure": "4",
+            }
+        ],
+        tasks=("cadence", "localkey", "romanNumeral"),
+        provenance=engine.provenance,
+    )
+
+    with pytest.raises(ValueError, match="invalid onset"):
+        normalize_score_evidence(result)
 
 
 def test_analysisgnn_failure_is_explicit(tmp_path, monkeypatch):

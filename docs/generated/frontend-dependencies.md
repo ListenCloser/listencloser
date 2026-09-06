@@ -62,9 +62,11 @@ subgraph lib["lib"]
   lib_backend_ts["backend.ts"]
   lib_canvas_typography_ts["canvas-typography.ts"]
   lib_color_ts["color.ts"]
+  lib_correction_client_ts["correction-client.ts"]
   lib_domain_types_ts["domain.types.ts"]
   lib_evidence_projections_ts["evidence-projections.ts"]
   lib_format_ts["format.ts"]
+  lib_harmony_interpretation_client_ts["harmony-interpretation-client.ts"]
   subgraph lib_inspector["inspector"]
     lib_inspector_[" "]
   end
@@ -78,6 +80,7 @@ subgraph lib["lib"]
   lib_notes_ts["notes.ts"]
   lib_openapi_client_ts["openapi-client.ts"]
   lib_perceptual_series_client_ts["perceptual-series-client.ts"]
+  lib_piano_roll_correction_ts["piano-roll-correction.ts"]
   lib_pitch_contour_client_ts["pitch-contour-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
   lib_production_spatial_client_ts["production-spatial-client.ts"]
@@ -175,6 +178,8 @@ components_workspace_-->lib_spectrogram_data_ts
 components_workspace_-->lib_audio_buffer_cache_ts
 components_workspace_-->lib_melody_playback_client_ts
 components_workspace_-->lib_melody_reduction_ts
+components_workspace_-->lib_correction_client_ts
+components_workspace_-->lib_piano_roll_correction_ts
 components_workspace_-->lib_pitch_contour_client_ts
 components_workspace_-->lib_structure_map_client_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
@@ -188,6 +193,9 @@ lib_ask_-->lib_inspector_
 lib_ask_-->lib_format_ts
 lib_ask_-->lib_representations_ts
 lib_ask_-->lib_selection_ts
+lib_correction_client_ts-->lib_api_client_ts
+lib_correction_client_ts-->lib_openapi_client_ts
+lib_harmony_interpretation_client_ts-->lib_openapi_client_ts
 lib_inspector_-->lib_format_ts
 lib_job_tracking_ts-->lib_api_client_ts
 lib_job_tracking_ts-->lib_query_client_ts

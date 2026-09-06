@@ -1,9 +1,11 @@
-"""Keep corrected-MIDI note entities identical to the persisted MIDI Version.
+"""Publish corrected MIDI with a complete, provenance-exact note world.
 
 The legacy correction handler writes a complete MIDI file but only persists the
-replacement notes as Entities. Until representation roles are separated (see
-#613), register this adapter for the correction capability so entity-backed
-Piano Roll / comparison consumers cannot observe a partial note world.
+replacement notes as Entities. Register this adapter for the correction
+capability so Piano Roll/comparison consumers see the complete persisted note
+world. The immutable Version's semantic role remains proven by its producing
+``correct`` Job and exact input Version; this adapter never mutates a published
+Version row after creation.
 """
 
 from __future__ import annotations
@@ -41,7 +43,7 @@ def note_entities_from_midi_bytes(data: bytes, version_id: UUID) -> list[Entity]
 
 
 def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
-    """Run correction, then replace partial note Entities from its stored MIDI."""
+    """Run correction, then republish the complete persisted MIDI note world."""
     output_ids = capabilities.handle_correct(job, client)
     if len(output_ids) != 1:
         raise ValueError("correct must produce exactly one MIDI version")
@@ -51,8 +53,8 @@ def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
     owner_id = capabilities._resolve_owner_id(client, job.workflow_id)
     corrected_midi = capabilities.download_version_bytes(output_version, client)
 
-    # Parse before deleting anything so corrupt/unreadable output leaves the
-    # handler failed with its original records intact rather than an empty view.
+    # Parse before replacing Entities so corrupt/unreadable output leaves the
+    # handler failed rather than advertising a partial corrected note world.
     full_note_world = note_entities_from_midi_bytes(corrected_midi, output_version_id)
 
     (
@@ -69,5 +71,5 @@ def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
 
 
 def register_corrected_midi_entity_sync(worker) -> None:
-    """Override the legacy correction registration with the consistency adapter."""
+    """Override correction registration with the complete-entity adapter."""
     worker.register("correct", "1.0", handle_correct_with_entity_sync)
