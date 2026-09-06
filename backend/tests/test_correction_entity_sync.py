@@ -230,13 +230,16 @@ def test_missing_synth_runtime_keeps_correction_without_playback(monkeypatch) ->
 
     monkeypatch.setattr(correction_sync.music_features, "midi_to_wav", fail_render)
 
-    assert correction_sync._publish_corrected_playback(
-        job,
-        object(),
-        corrected_version_id=corrected_version_id,
-        corrected_midi=_midi_bytes(),
-        owner_id="owner",
-    ) is None
+    assert (
+        correction_sync._publish_corrected_playback(
+            job,
+            object(),
+            corrected_version_id=corrected_version_id,
+            corrected_midi=_midi_bytes(),
+            owner_id="owner",
+        )
+        is None
+    )
 
 
 def test_playback_persistence_failure_is_not_hidden_as_success(monkeypatch) -> None:
