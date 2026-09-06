@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import AddAnalysis, { type AddAnalysisOption } from "@/components/workspace/AddAnalysis";
+import { useLayerAnalysis } from "@/components/workspace/useLayerAnalysis";
 import PitchContourLane from "@/components/workspace/PitchContourLane";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import { formatTime } from "@/lib/format";
@@ -63,9 +64,10 @@ function sourceAndMapState(bundle: Awaited<ReturnType<typeof getWorkBundle>>) {
   return { sourceVersionId, report, job, pitchReport, pitchJob };
 }
 
-export default function StructureMap() {
+export default function StructureMap({ canProcess = false }: { canProcess?: boolean }) {
   const { workspace, setSelection, setInspectorMode, toggleInspector } = useWorkspace();
   const { transport, seek, play, setActiveSource, audioRef } = useTransport();
+  const layerAnalysis = useLayerAnalysis(canProcess);
   const [report, setReport] = useState<StructureMapReport | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [pitchReady, setPitchReady] = useState(false);
@@ -82,6 +84,11 @@ export default function StructureMap() {
   const [observationLost, setObservationLost] = useState(false);
   const [pitchObservationLost, setPitchObservationLost] = useState(false);
   const sequenceRef = useRef(0);
+
+  // Layers owns its durable job state but discovery remains in the shared chooser.
+  useEffect(() => {
+    if (layerAnalysis.option?.busy || layerAnalysis.notice) setChooserOpen(true);
+  }, [layerAnalysis.notice, layerAnalysis.option?.busy]);
 
   const load = useCallback(async (workId: string, fresh = false): Promise<boolean> => {
     const sequence = ++sequenceRef.current;
@@ -416,6 +423,9 @@ export default function StructureMap() {
     disabled: pitchReady && pitchOpen,
     busy: pitchBusy,
   });
+  if (layerAnalysis.option) {
+    analysisOptions.push(layerAnalysis.option);
+  }
   if (hasExactSelectedPassage) {
     analysisOptions.push({
       id: "similar-moments",
@@ -437,19 +447,26 @@ export default function StructureMap() {
     });
   }
 
-  const notice = [error, pitchError].filter(Boolean).join(" · ") || null;
+  const notice = [error, pitchError, layerAnalysis.notice].filter(Boolean).join(" · ") || null;
+  const noticeRole = (
+    busy
+    || pitchBusy
+    || observationLost
+    || pitchObservationLost
+    || (Boolean(layerAnalysis.notice) && layerAnalysis.noticeRole === "status")
+  ) ? "status" : "alert";
   const discovery = (
     <AddAnalysis
       open={chooserOpen}
       onOpenChange={setChooserOpen}
       options={analysisOptions}
       notice={notice}
-      noticeRole={busy || pitchBusy || observationLost || pitchObservationLost ? "status" : "alert"}
+      noticeRole={noticeRole}
     />
   );
 
   if (!report) {
-    if (status === "loading" && pitchStatus === "loading" && !chooserOpen && !pitchReady) return null;
+    if (status === "loading" && pitchStatus === "loading" && !chooserOpen && !pitchReady && !layerAnalysis.option) return null;
     return (
       <>
         {discovery}

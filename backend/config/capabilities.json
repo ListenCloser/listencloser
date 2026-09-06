@@ -294,6 +294,22 @@
       "validated_domain": "within-Work experimental text-to-passage retrieval over exact directly-parented performance MIDI",
       "notes": "#1254 backend/runtime slice. Candidates are source-time proposals ranked by CLaMP3 C2 text/symbolic cosine similarity, not factual detections or confidence. Exact source audio Version, direct-parent performance-MIDI Version, model/checkpoint/runtime provenance, and query are retained in the private report. No vector database or cross-Work index. UI reachability remains gated on the shared discovery seam owned by #1259."
     },
+    "source_separation": {
+      "status": "experimental",
+      "input": "audio",
+      "engine": "demucs_4.1.0_htdemucs_955717e8",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "model": {
+        "name": "htdemucs",
+        "version": "955717e8",
+        "checkpoint": "adefossez/HTDemucs/955717e8.safetensors",
+        "checkpoint_sha256": "d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd",
+        "code_license": "MIT",
+        "checkpoint_license": "MIT"
+      },
+      "validated_domain": "optional within-recording four-stem isolation and playback only",
+      "notes": "User-triggered only; never universal preprocessing. Produces exactly vocals/drums/bass/other with CPU shifts=0, preserves exact source Version + producing Job lineage, and exposes complete succeeded sets only through the existing playback-source selector. Partial, failed, cancelled, or mixed-job outputs remain hidden."
+    },
     "supplied_text_alignment": {
       "status": "experimental",
       "input": "audio+user_supplied_text",

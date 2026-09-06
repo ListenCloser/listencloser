@@ -13,6 +13,7 @@ from domain.performance_instrumentation import install_understand_instrumentatio
 from domain.pgmq_job_worker import PgmqJobWorker
 from domain.pitch_contour_capability import register_pitch_contour_capability
 from domain.production_spatial_capability import register_production_spatial_capability
+from domain.source_separation import register_source_separation
 from domain.structure_map_capability import register_structure_map_capability
 from domain.text_passage_find_capability import register_text_passage_find_capability
 from domain.worker_warmup import (
@@ -58,6 +59,7 @@ def main() -> None:
     register_corrected_midi_entity_sync(worker)
     register_perceptual_capability(worker)
     register_structure_map_capability(worker)
+    register_source_separation(worker)
     register_production_spatial_capability(worker)
     register_melody_audition_capability(worker)
     register_lyrics_alignment_capability(worker)

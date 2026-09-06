@@ -20,10 +20,12 @@ _PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset(
         "perceptual_series",
         "pitch_contour",
         "production_spatial",
+        "separate",
         "structure_map",
         "transform",
     }
 )
+_SEPARATION_MODEL_SIGNATURE = "955717e8"
 
 
 class UnderstandWorkflowBody(BaseModel):
@@ -568,7 +570,86 @@ def create_create_workflow(
 
     try:
         capability_name = _require_public_create_action(body.action)
-        _require_version_in_project(sb, version_id, project_id, owner)
+        version = _require_version_in_project(sb, version_id, project_id, owner)
+
+        if capability_name == "separate":
+            artifact = ArtifactRepo(sb).get(version.artifact_id, owner)
+            if not artifact:
+                raise HTTPException(status_code=404, detail="Artifact not found")
+            if artifact.kind != ArtifactKind.audio_original:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Layer separation requires an Original audio Version",
+                )
+
+            # Optional separation targets the exact Original so its durable Job
+            # is discoverable from the Work bundle on reload. Product isolation
+            # is enforced by the workspace's optional-capability state filter,
+            # not by hiding the Job from durable Work truth.
+            separation_identity = f"{owner}:{version_id}:{_SEPARATION_MODEL_SIGNATURE}"
+            job_id = uuid5(
+                NAMESPACE_URL,
+                f"listencloser:separate:1.0:{separation_identity}",
+            )
+            job_repo = JobRepo(sb)
+            existing_job = job_repo.get(job_id, owner)
+            if existing_job:
+                workflow = WorkflowRepo(sb).get(existing_job.workflow_id, owner)
+                if not workflow:
+                    raise RuntimeError("idempotent separation job references a missing workflow")
+                return {"workflow": workflow, "job": existing_job}
+
+            workflow = Workflow(
+                id=uuid5(
+                    NAMESPACE_URL,
+                    f"listencloser:separate-workflow:1.0:{separation_identity}",
+                ),
+                project_id=project_id,
+                kind=WorkflowKind.create,
+                target_version_id=version_id,
+                parameters={
+                    "action": "separate",
+                    "source_version_id": str(version_id),
+                    "model": "htdemucs",
+                    "model_signature": _SEPARATION_MODEL_SIGNATURE,
+                    "shifts": 0,
+                },
+            )
+            workflow_repo = WorkflowRepo(sb)
+            try:
+                workflow = workflow_repo.create(workflow, owner)
+            except Exception:
+                concurrent_job = job_repo.get(job_id, owner)
+                if concurrent_job:
+                    concurrent_workflow = workflow_repo.get(concurrent_job.workflow_id, owner)
+                    if concurrent_workflow:
+                        return {"workflow": concurrent_workflow, "job": concurrent_job}
+                workflow = workflow_repo.get(workflow.id, owner)
+                if not workflow:
+                    raise
+
+            parameters = {
+                "fmt": Path(version.label).suffix.lstrip(".").lower() or "wav",
+                "model": "htdemucs",
+                "model_signature": _SEPARATION_MODEL_SIGNATURE,
+                "shifts": 0,
+            }
+            job = Job(
+                id=job_id,
+                workflow_id=workflow.id,
+                capability=Capability(name="separate", version="1.0"),
+                input_version_ids=[version_id],
+                parameters=parameters,
+                cache_key=f"separate:1.0:{separation_identity}:shifts=0",
+                created_by=owner,
+            )
+            try:
+                job = job_repo.create(job, owner)
+            except Exception:
+                job = job_repo.get(job_id, owner)
+                if not job:
+                    raise
+            return {"workflow": workflow, "job": job}
 
         workflow = Workflow(
             project_id=project_id,
