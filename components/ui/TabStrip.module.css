@@ -29,13 +29,11 @@
   color: var(--text-secondary);
 }
 
-.strip > .tab[data-state="active"],
-.strip > .tab.active {
+.strip > .tab[data-state="active"] {
   color: var(--text-primary);
 }
 
-.strip > .tab[data-state="active"]::after,
-.strip > .tab.active::after {
+.strip > .tab[data-state="active"]::after {
   content: "";
   position: absolute;
   right: var(--space-1);
