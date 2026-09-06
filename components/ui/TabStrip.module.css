@@ -3,7 +3,7 @@
   min-height: 40px;
   display: flex;
   align-items: stretch;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .strip > .tab {
@@ -34,13 +34,22 @@
   color: var(--text-primary);
 }
 
-.strip > .tab[data-state="active"]::after,
-.strip > .tab.active::after {
+.strip > .tab::after {
   content: "";
   position: absolute;
   right: var(--space-1);
   bottom: -1px;
   left: var(--space-1);
+  height: 1px;
+  background: transparent;
+}
+
+.strip > .tab:hover:not(:disabled)::after {
+  background: var(--line-strong);
+}
+
+.strip > .tab[data-state="active"]::after,
+.strip > .tab.active::after {
   height: 2px;
   background: var(--action-primary);
 }
