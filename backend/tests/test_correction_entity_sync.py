@@ -8,7 +8,7 @@ import pretty_midi
 
 import domain.capabilities as capabilities
 import domain.correction_entity_sync as correction_sync
-from domain.models import Capability, Entity, Job, Version
+from domain.models import ArtifactKind, Capability, Entity, Job, Version
 
 
 def _midi_bytes() -> bytes:
@@ -56,14 +56,18 @@ def test_note_entities_from_midi_bytes_materializes_every_instrument() -> None:
     assert all(entity.version_id == version_id for entity in entities)
 
 
-def test_correction_sync_qualifies_version_and_replaces_partial_entities_from_persisted_midi(
+def test_correction_sync_qualifies_version_replaces_entities_and_publishes_exact_playback(
     monkeypatch,
 ) -> None:
     output_version_id = uuid4()
+    playback_version_id = uuid4()
     source_version_id = uuid4()
     workflow_id = uuid4()
     artifact_id = uuid4()
+    work_id = uuid4()
     captured_entities: list[Entity] = []
+    captured_upload: dict = {}
+    captured_playback: dict = {}
 
     output_version = Version(
         id=output_version_id,
@@ -92,7 +96,52 @@ def test_correction_sync_qualifies_version_and_replaces_partial_entities_from_pe
     )
     monkeypatch.setattr(capabilities, "_lookup_version", lambda *_: output_version)
     monkeypatch.setattr(capabilities, "_resolve_owner_id", lambda *_: "owner")
+    monkeypatch.setattr(capabilities, "_resolve_work_id", lambda *_: work_id)
     monkeypatch.setattr(capabilities, "download_version_bytes", lambda *_: _midi_bytes())
+    monkeypatch.setattr(
+        correction_sync.music_features,
+        "midi_to_wav",
+        lambda *_args, **_kwargs: b"RIFF-corrected",
+    )
+    monkeypatch.setattr(
+        capabilities,
+        "_job_storage_key",
+        lambda _job, filename: f"jobs/correction/{filename}",
+    )
+
+    def capture_upload(_client, bucket, key, data, content_type="application/octet-stream"):
+        captured_upload.update(
+            bucket=bucket,
+            key=key,
+            data=data,
+            content_type=content_type,
+        )
+
+    def capture_output_version(
+        _client,
+        actual_work_id,
+        kind,
+        storage_key,
+        content,
+        parent_version_id,
+        actual_job,
+        owner_id,
+        **kwargs,
+    ):
+        captured_playback.update(
+            work_id=actual_work_id,
+            kind=kind,
+            storage_key=storage_key,
+            content=content,
+            parent_version_id=parent_version_id,
+            job=actual_job,
+            owner_id=owner_id,
+            kwargs=kwargs,
+        )
+        return playback_version_id
+
+    monkeypatch.setattr(capabilities, "_upload_bytes", capture_upload)
+    monkeypatch.setattr(capabilities, "_create_output_version", capture_output_version)
 
     class CapturingEntityRepo:
         def __init__(self, _client):
@@ -152,6 +201,8 @@ def test_correction_sync_qualifies_version_and_replaces_partial_entities_from_pe
 
     result = correction_sync.handle_correct_with_entity_sync(job, Client())
 
+    # Playback is an auxiliary exact-parent artifact; the correction Job keeps
+    # one primary MIDI output so the save coordinator remains deterministic.
     assert result == [str(output_version_id)]
     assert version_query.executed is True
     assert version_query.filters == [("id", str(output_version_id))]
@@ -177,3 +228,48 @@ def test_correction_sync_qualifies_version_and_replaces_partial_entities_from_pe
     ]
     assert [note[0] for note in _note_world(captured_entities)] == [48, 60, 72]
     assert all(entity.version_id == output_version_id for entity in captured_entities)
+
+    assert captured_upload == {
+        "bucket": "artifacts",
+        "key": "jobs/correction/corrected.wav",
+        "data": b"RIFF-corrected",
+        "content_type": "audio/wav",
+    }
+    assert captured_playback["work_id"] == work_id
+    assert captured_playback["kind"] == ArtifactKind.audio_rendered
+    assert captured_playback["storage_key"] == "jobs/correction/corrected.wav"
+    assert captured_playback["content"] == b"RIFF-corrected"
+    assert captured_playback["parent_version_id"] == output_version_id
+    assert captured_playback["job"] == job
+    assert captured_playback["owner_id"] == "owner"
+    assert captured_playback["kwargs"] == {
+        "mime_type": "audio/wav",
+        "label": "Corrected transcription playback",
+        "metadata": {
+            "representation": "transcription_playback",
+            "source_midi_version_id": str(output_version_id),
+            "source_representation": "edited_performance",
+        },
+    }
+
+
+def test_corrected_playback_failure_publishes_no_wrong_source_fallback(monkeypatch) -> None:
+    corrected_version_id = uuid4()
+    job = Job(
+        workflow_id=uuid4(),
+        capability=Capability(name="correct", version="1.0"),
+        input_version_ids=[uuid4()],
+    )
+
+    def fail_render(*_args, **_kwargs):
+        raise RuntimeError("no synth runtime")
+
+    monkeypatch.setattr(correction_sync.music_features, "midi_to_wav", fail_render)
+
+    assert correction_sync._publish_corrected_playback(
+        job,
+        object(),
+        corrected_version_id=corrected_version_id,
+        corrected_midi=_midi_bytes(),
+        owner_id="owner",
+    ) is None
