@@ -21,6 +21,7 @@ from domain.score_performance_note_identity import (
     ScoreEventIdentity,
     build_alignment_report,
 )
+from engines.alignment._parangonar_runner import _measure_index
 from engines.alignment.parangonar import _event_identity
 
 
@@ -58,6 +59,7 @@ def _relation() -> ScorePerformanceAlignment:
 def _score_identity(event_id: str = "s1") -> ScoreEventIdentity:
     return ScoreEventIdentity(
         event_id=event_id,
+        measure_index=0,
         pitch=60,
         onset_beat=0.0,
         duration_beat=1.0,
@@ -101,18 +103,28 @@ def test_report_fails_closed_when_relation_identity_is_missing():
         build_alignment_report(_relation(), identity)
 
 
+def test_measure_identity_uses_full_parser_order_not_note_order():
+    intervals = [(0, 1920), (1920, 3840), (3840, 5760)]
+    assert _measure_index(0, intervals) == 0
+    assert _measure_index(2400, intervals) == 1
+    assert _measure_index(3840, intervals) == 2
+    with pytest.raises(RuntimeError, match="outside parsed measure bounds"):
+        _measure_index(6000, intervals)
+
+
 def test_runner_identity_parser_preserves_native_score_and_performance_fields():
     payload = {
         "score_events": [
             {
                 "id": "s1",
-                "onset": 0.0,
+                "onset": 4.0,
+                "measure_index": 3,
                 "pitch": 64,
-                "onset_beat": 0.0,
+                "onset_beat": 4.0,
                 "duration_beat": 0.5,
-                "onset_quarter": 0.0,
+                "onset_quarter": 4.0,
                 "duration_quarter": 0.5,
-                "onset_div": 0,
+                "onset_div": 1920,
                 "duration_div": 240,
                 "voice": 2,
                 "staff": 1,
@@ -138,6 +150,7 @@ def test_runner_identity_parser_preserves_native_score_and_performance_fields():
     identity = _event_identity(payload)
 
     assert identity.score_events[0].event_id == "s1"
+    assert identity.score_events[0].measure_index == 3
     assert identity.score_events[0].pitch == 64
     assert identity.score_events[0].duration_div == 240
     assert identity.score_events[0].voice == 2
