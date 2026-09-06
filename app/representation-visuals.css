@@ -47,7 +47,10 @@
   cursor: crosshair;
 }
 
+/* Existing renderer markup still uses a local "muted" hook. It is scoped to
+ * the waveform owner here; globals.css no longer gives that class meaning. */
 .waveform-status,
+.waveform-wrap > .muted,
 .spectrogram-status {
   position: absolute;
   left: var(--space-3);
