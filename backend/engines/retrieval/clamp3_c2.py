@@ -35,6 +35,9 @@ CLAMP3_C2_WEIGHT_FILENAME = (
     "t_length_128_a_size_768_a_layers_12_a_length_128_s_size_768_s_layers_12_"
     "p_size_64_p_length_512.pth"
 )
+CLAMP3_C2_WEIGHT_SHA256 = (
+    "e6fb0d139b24a1ec20836bb65bd652303d570ea9af2cddb20a1fc161421d64af"
+)
 
 _DEFAULT_TIMEOUT_SECONDS = 30 * 60
 _DEFAULT_WINDOW_SECONDS = 10.0
@@ -58,10 +61,16 @@ class CLaMP3TextPerformanceRetriever:
     ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("CLaMP3 C2 timeout must be positive")
+        configured_weight_sha256 = weight_sha256 or os.getenv("CLAMP3_C2_WEIGHT_SHA256")
+        if (
+            configured_weight_sha256
+            and configured_weight_sha256.lower() != CLAMP3_C2_WEIGHT_SHA256
+        ):
+            raise ValueError("CLaMP3 C2 checkpoint digest does not match the pinned release")
         self._runtime_python = runtime_python or os.getenv("CLAMP3_RUNTIME_PYTHON")
         self._checkout_path = checkout_path or os.getenv("CLAMP3_CHECKOUT")
         self._weight_path = weight_path or os.getenv("CLAMP3_C2_WEIGHT_PATH")
-        self._weight_sha256 = weight_sha256 or os.getenv("CLAMP3_C2_WEIGHT_SHA256")
+        self._weight_sha256 = CLAMP3_C2_WEIGHT_SHA256
         self._text_model_path = text_model_path or os.getenv("CLAMP3_TEXT_MODEL_PATH")
         self._text_dir_sha256 = text_dir_sha256 or os.getenv("CLAMP3_TEXT_DIR_SHA256")
         self._timeout_seconds = timeout_seconds
@@ -75,7 +84,7 @@ class CLaMP3TextPerformanceRetriever:
             "model_repo": CLAMP3_MODEL_REPO,
             "upstream_revision": CLAMP3_UPSTREAM_REVISION,
             "checkpoint_filename": CLAMP3_C2_WEIGHT_FILENAME,
-            "checkpoint_sha256": (self._weight_sha256 or "").lower() or None,
+            "checkpoint_sha256": self._weight_sha256,
             "code_license": CLAMP3_CODE_LICENSE,
             "checkpoint_license": CLAMP3_WEIGHT_LICENSE,
             "text_model": TEXT_MODEL,
@@ -92,7 +101,6 @@ class CLaMP3TextPerformanceRetriever:
                 ("CLAMP3_RUNTIME_PYTHON", self._runtime_python),
                 ("CLAMP3_CHECKOUT", self._checkout_path),
                 ("CLAMP3_C2_WEIGHT_PATH", self._weight_path),
-                ("CLAMP3_C2_WEIGHT_SHA256", self._weight_sha256),
                 ("CLAMP3_TEXT_MODEL_PATH", self._text_model_path),
                 ("CLAMP3_TEXT_DIR_SHA256", self._text_dir_sha256),
             )
@@ -131,7 +139,7 @@ class CLaMP3TextPerformanceRetriever:
             raise RuntimeError(
                 "CLaMP3 checkout revision mismatch; refusing an unpinned upstream runtime"
             )
-        _verify_file_sha256(weight_path, str(self._weight_sha256))
+        _verify_file_sha256(weight_path, self._weight_sha256)
         _verify_directory_sha256(text_path, str(self._text_dir_sha256))
         self._verified = True
 
@@ -275,6 +283,7 @@ def default_clamp3_c2_retriever() -> CLaMP3TextPerformanceRetriever:
 __all__ = [
     "CLAMP3_C2_MODEL",
     "CLAMP3_C2_WEIGHT_FILENAME",
+    "CLAMP3_C2_WEIGHT_SHA256",
     "CLaMP3TextPerformanceRetriever",
     "default_clamp3_c2_retriever",
 ]
