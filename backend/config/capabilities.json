@@ -301,6 +301,19 @@
       "exposure": {"inspector": false, "annotations": false, "ask": false},
       "validated_domain": "user-supplied, licensed, public-domain, or otherwise permitted reference text aligned to one exact audio Version",
       "notes": "Backend-only #1181 slice. Supplied text remains authoritative; Whisper provides timing evidence only. Direct matches are method-qualified, weak direct matches remain ambiguous, unmatched words remain failed, and no line interpolation/extrapolation, lyrics acquisition, beat/pulse authority, or frontend lane is introduced."
+    },
+    "production_spatial": {
+      "status": "experimental",
+      "input": "audio",
+      "engine": "pyloudnorm_librosa_mid_side_v1",
+      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "evaluation": {
+        "dataset": "synthetic stereo/mono fixtures",
+        "metric": "experimental_product_integration",
+        "details": "#1179: BS.1770 loudness, exact two-channel mid/side energy share, spectral centroid, and onset-strength changes are exposed only as method-qualified within-recording adjacent-window relations."
+      },
+      "validated_domain": "within-recording adjacent fixed-window measurement comparison",
+      "notes": "Experimental opt-in Inspector lens only. Literal measurements and relations; no semantic timbre, mix-quality, width-quality, section, cause, importance, or cross-recording claims. Mid/side relation is unavailable unless the source is exactly stereo."
     }
   }
 }

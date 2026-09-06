@@ -5,6 +5,7 @@ import PianoRoll from "./PianoRoll";
 import Spectrogram from "./Spectrogram";
 import Waveform from "./Waveform";
 import SheetMusic from "@/components/SheetMusic";
+import HarmonyInterpretationControl from "@/components/workspace/HarmonyInterpretationControl";
 import MelodyReduction from "@/components/workspace/inspector/MelodyReduction";
 import { buildExactHarmonyProjection } from "@/components/workspace/inspector/HarmonyEvidence";
 import { extractAnnotations } from "@/lib/analysis-annotations";
@@ -51,9 +52,6 @@ function visibleAnnotations(
   const annotations = extractAnnotations(insights);
   if (!inspectorCollapsed) return annotations;
 
-  // Legacy annotations are temporal locator projections. With the Inspector
-  // closed, keep only evidence whose approximate locator policy is passive by
-  // default; focused/secondary evidence remains available when inspecting.
   return annotations.filter((annotation) => (
     resolveEvidenceProjection(annotation.kind, target, "approximate").passiveByDefault
   ));
@@ -144,6 +142,7 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
     : [];
   return (
     <div className="representation-body">
+      <HarmonyInterpretationControl />
       {melody && <MelodyReduction insight={melody} />}
       <PianoRoll
         notes={notes}
@@ -306,7 +305,6 @@ const VIEW_COMPONENTS: Record<RepresentationId, ComponentType<RepresentationView
   spectrogram: SpectrogramView,
 };
 
-/** Workspace-owned renderer registry built from the shared pure catalog. */
 export const REPRESENTATIONS: readonly RepresentationDefinition[] = REPRESENTATION_CATALOG.map(
   (metadata) => ({ ...metadata, component: VIEW_COMPONENTS[metadata.id] }),
 );

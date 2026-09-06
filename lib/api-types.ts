@@ -483,6 +483,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/works/{work_id}/workflows/harmony-interpretation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Harmony Interpretation Workflow
+         * @description Queue ChordMini over exact audio and MIDI Versions.
+         */
+        post: operations["create_harmony_interpretation_workflow_api_v1_works__work_id__workflows_harmony_interpretation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1200,6 +1220,19 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HarmonyInterpretationBody */
+        HarmonyInterpretationBody: {
+            /**
+             * Harmony Engine
+             * @default chordmini
+             * @constant
+             */
+            harmony_engine: "chordmini";
+            /** Performance Midi Version Id */
+            performance_midi_version_id: string;
+            /** Source Audio Version Id */
+            source_audio_version_id: string;
         };
         /** HealthLiveResponse */
         HealthLiveResponse: {
@@ -3014,6 +3047,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimilarMomentsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_harmony_interpretation_workflow_api_v1_works__work_id__workflows_harmony_interpretation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HarmonyInterpretationBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowJobResponse"];
                 };
             };
             /** @description Validation Error */
