@@ -94,13 +94,6 @@
   z-index: 18;
 }
 
-.shell :global(.studio-inspector-v3 .inspector) {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
 .shell :global(.studio-inspector-backdrop) {
   display: none;
 }
