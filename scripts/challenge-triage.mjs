@@ -5,7 +5,7 @@ import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_RESULTS_DIR = "challenge-results";
-const DEFAULT_OWNER_MAP = "config/challenge-owner-map.json";
+const DEFAULT_OWNER_MAP = "scripts/challenge-owner-map.json";
 const PRIORITY_ORDER = { P0: 0, P1: 1, P2: 2, P3: 3, WATCH: 4 };
 
 function readJson(path) {
@@ -102,19 +102,15 @@ function mutationFindings(resultsDir, ownerMap) {
   const finding = applyRoute(ownerMap, {
     tool: "mutation-js",
     rule: "surviving-mutants",
-    surface: "test-policy",
+    surface: "evidence-projections",
     target,
-    title: `${survived} surviving and ${noCoverage} uncovered mutants in ${basename(target)}`,
+    title: `${survived} surviving and ${noCoverage} uncovered TypeScript mutant(s)`,
     severity: "medium",
     confidence: "high",
     evidence: {
       mutationScore: Number(summary[1]),
-      coveredScore: Number(summary[2]),
-      killed: Number(summary[3]),
-      timedOut: Number(summary[4]),
       survived,
       noCoverage,
-      errors: Number(summary[7]),
       survivors,
       uncovered,
     },
@@ -123,60 +119,56 @@ function mutationFindings(resultsDir, ownerMap) {
   return [finding];
 }
 
-function newestLighthouseJson(resultsDir) {
-  const dir = join(resultsDir, "lighthouse");
-  if (!existsSync(dir)) return null;
-  const files = readdirSync(dir).filter((name) => name.endsWith(".json")).sort();
-  return files.length ? join(dir, files.at(-1)) : null;
-}
-
 function lighthouseFindings(resultsDir, ownerMap) {
-  const path = newestLighthouseJson(resultsDir);
-  if (!path) return [];
-  const report = readJson(path);
-  const performance = report.categories?.performance?.score;
-  const lcp = report.audits?.["largest-contentful-paint"]?.numericValue;
-  const tbt = report.audits?.["total-blocking-time"]?.numericValue;
-  const cls = report.audits?.["cumulative-layout-shift"]?.numericValue;
-  const unusedJs = report.audits?.["unused-javascript"]?.details?.overallSavingsBytes;
+  const lighthouseDir = join(resultsDir, "lighthouse");
+  if (!existsSync(lighthouseDir)) return [];
+  const reports = readdirSync(lighthouseDir)
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => readJson(join(lighthouseDir, name)));
+  if (reports.length === 0) return [];
 
-  if (performance == null) return [];
-  const finding = applyRoute(ownerMap, {
-    tool: "lighthouse",
-    rule: "performance-baseline",
-    surface: "signed-out-landing",
-    target: report.finalUrl ?? report.requestedUrl ?? "/",
-    title: `Lighthouse performance baseline ${Math.round(performance * 100)}`,
-    severity: performance < 0.5 ? "high" : performance < 0.9 ? "medium" : "low",
-    confidence: "medium",
-    evidence: {
-      performance,
-      accessibility: report.categories?.accessibility?.score ?? null,
-      bestPractices: report.categories?.["best-practices"]?.score ?? null,
-      seo: report.categories?.seo?.score ?? null,
-      lcpMs: lcp ?? null,
-      tbtMs: tbt ?? null,
-      cls: cls ?? null,
-      unusedJavascriptBytes: unusedJs ?? null,
-      report: basename(path),
-    },
-  });
-  finding.fingerprint = stableFingerprint([finding.tool, finding.rule, finding.surface]);
-  return [finding];
+  const findings = [];
+  for (const report of reports) {
+    const performance = report.categories?.performance?.score;
+    const lcpMs = report.audits?.["largest-contentful-paint"]?.numericValue;
+    const tbtMs = report.audits?.["total-blocking-time"]?.numericValue;
+    const cls = report.audits?.["cumulative-layout-shift"]?.numericValue;
+    const unusedJavascriptBytes = report.audits?.["unused-javascript"]?.details?.overallSavingsBytes;
+    if (typeof performance !== "number") continue;
+    if (performance >= 0.8 && (lcpMs ?? 0) < 4000 && (tbtMs ?? 0) < 600) continue;
+    const finding = applyRoute(ownerMap, {
+      tool: "lighthouse",
+      rule: "performance-baseline",
+      surface: report.finalUrl ?? "unknown",
+      target: report.finalUrl ?? "unknown",
+      title: `Lighthouse performance ${(performance * 100).toFixed(0)}%`,
+      severity: performance < 0.5 ? "high" : "medium",
+      confidence: "medium",
+      evidence: {
+        performance,
+        lcpMs: lcpMs ?? null,
+        tbtMs: tbtMs ?? null,
+        cls: cls ?? null,
+        unusedJavascriptBytes: unusedJavascriptBytes ?? null,
+      },
+    });
+    finding.fingerprint = stableFingerprint([finding.tool, finding.rule, finding.surface]);
+    findings.push(finding);
+  }
+  return findings;
 }
 
 function schemathesisFindings(resultsDir, ownerMap) {
   const path = join(resultsDir, "schemathesis.txt");
   if (!existsSync(path)) return [];
-  const text = stripAnsi(readFileSync(path, "utf8"));
-  if (!/(FAILURES|ERRORS|FAILED|failure:|error:)/i.test(text)) return [];
-
+  const text = readFileSync(path, "utf8");
+  if (!/(FAIL|ERROR|counterexample)/i.test(text)) return [];
   const finding = applyRoute(ownerMap, {
     tool: "schemathesis",
     rule: "api-failure",
-    surface: "api",
-    target: "openapi",
-    title: "Schemathesis produced an API counterexample",
+    surface: "openapi",
+    target: "openapi/openapi.json",
+    title: "Schemathesis reported an API contract failure",
     severity: "high",
     confidence: "medium",
     evidence: {
