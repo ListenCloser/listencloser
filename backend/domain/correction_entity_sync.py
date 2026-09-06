@@ -1,9 +1,10 @@
-"""Keep corrected-MIDI note entities identical to the persisted MIDI Version.
+"""Publish corrected MIDI as a complete, provenance-exact performance Version.
 
 The legacy correction handler writes a complete MIDI file but only persists the
-replacement notes as Entities. Until representation roles are separated (see
-#613), register this adapter for the correction capability so entity-backed
-Piano Roll / comparison consumers cannot observe a partial note world.
+replacement notes as Entities. Register this adapter for the correction
+capability so Piano Roll/comparison consumers see the complete persisted note
+world and the resulting immutable Version is explicitly qualified as an edited
+performance rather than an ambiguous ``midi_corrected`` artifact.
 """
 
 from __future__ import annotations
@@ -40,8 +41,25 @@ def note_entities_from_midi_bytes(data: bytes, version_id: UUID) -> list[Entity]
     return entities
 
 
+def _edited_performance_metadata(job: Job, existing: dict) -> dict:
+    """Describe only correction facts that are directly proven by the durable Job."""
+    corrected_notes = job.parameters.get("corrected_notes") or []
+    return {
+        **existing,
+        "representation": "edited_performance",
+        "correction": {
+            "schema_version": 1,
+            "operation": "replace_notes_in_span",
+            "source_version_id": str(job.input_version_ids[0]),
+            "selection_start_seconds": job.parameters.get("selection_start"),
+            "selection_end_seconds": job.parameters.get("selection_end"),
+            "replacement_note_count": len(corrected_notes),
+        },
+    }
+
+
 def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
-    """Run correction, then replace partial note Entities from its stored MIDI."""
+    """Run correction, qualify its Version, then publish its complete note world."""
     output_ids = capabilities.handle_correct(job, client)
     if len(output_ids) != 1:
         raise ValueError("correct must produce exactly one MIDI version")
@@ -51,9 +69,17 @@ def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
     owner_id = capabilities._resolve_owner_id(client, job.workflow_id)
     corrected_midi = capabilities.download_version_bytes(output_version, client)
 
-    # Parse before deleting anything so corrupt/unreadable output leaves the
-    # handler failed with its original records intact rather than an empty view.
+    # Parse before publishing follow-on state so corrupt/unreadable output leaves
+    # the handler failed rather than advertising a complete corrected note world.
     full_note_world = note_entities_from_midi_bytes(corrected_midi, output_version_id)
+
+    metadata = _edited_performance_metadata(job, dict(output_version.metadata))
+    (
+        client.table("artifact_versions")
+        .update({"metadata": metadata})
+        .eq("id", str(output_version_id))
+        .execute()
+    )
 
     (
         client.table("entities")
@@ -69,5 +95,5 @@ def handle_correct_with_entity_sync(job: Job, client) -> list[str]:
 
 
 def register_corrected_midi_entity_sync(worker) -> None:
-    """Override the legacy correction registration with the consistency adapter."""
+    """Override correction registration with the consistency/provenance adapter."""
     worker.register("correct", "1.0", handle_correct_with_entity_sync)
