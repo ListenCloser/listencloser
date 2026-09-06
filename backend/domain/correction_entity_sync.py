@@ -13,8 +13,8 @@ import io
 import logging
 from uuid import UUID
 
-import music_features
 import domain.capabilities as capabilities
+import music_features
 from domain.models import ArtifactKind, Entity, EntityKind, Job, NoteEntity, Span
 from domain.repositories import EntityRepo
 
