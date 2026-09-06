@@ -60,7 +60,9 @@ def _normalized(vector):
     return vector / norm
 
 
-def _window_starts(duration_seconds: float, window_seconds: float, hop_seconds: float) -> list[float]:
+def _window_starts(
+    duration_seconds: float, window_seconds: float, hop_seconds: float
+) -> list[float]:
     if duration_seconds <= 0:
         return []
     if duration_seconds <= window_seconds:
@@ -236,9 +238,7 @@ def main() -> int:
         text_segment = torch.cat(
             [
                 text_segment,
-                torch.full(
-                    (text_pad,), tokenizer.pad_token_id, dtype=text_segment.dtype
-                ),
+                torch.full((text_pad,), tokenizer.pad_token_id, dtype=text_segment.dtype),
             ]
         )
         text_mask = torch.cat([text_mask, torch.zeros(text_pad)])
@@ -255,10 +255,8 @@ def main() -> int:
         raise RuntimeError("performance MIDI has zero duration")
 
     scored: list[dict[str, float]] = []
-    embedding_dim = 0
-    for start_seconds in _window_starts(
-        duration_seconds, args.window_seconds, args.hop_seconds
-    ):
+    embedding_dim = int(query_embedding.numel())
+    for start_seconds in _window_starts(duration_seconds, args.window_seconds, args.hop_seconds):
         end_seconds = min(duration_seconds, start_seconds + args.window_seconds)
         mtf = _window_to_mtf(
             ticks_per_beat,
@@ -269,12 +267,9 @@ def main() -> int:
         if mtf is None:
             continue
         with torch.no_grad():
-            symbolic_embedding = _global_symbolic_embedding(
-                model, patchilizer, mtf, clamp_config
-            )
+            symbolic_embedding = _global_symbolic_embedding(model, patchilizer, mtf, clamp_config)
         symbolic_embedding = _normalized(symbolic_embedding)
-        embedding_dim = int(symbolic_embedding.numel())
-        if embedding_dim != int(query_embedding.numel()):
+        if int(symbolic_embedding.numel()) != embedding_dim:
             raise RuntimeError("CLaMP3 C2 text/symbolic embedding dimensions do not match")
         similarity = float(torch.dot(query_embedding, symbolic_embedding))
         if not math.isfinite(similarity):
