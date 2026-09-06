@@ -127,7 +127,10 @@ class MuScriptorEngine(TranscriptionEngine):
         self._verified_model = cache_key
 
     def transcribe(
-        self, audio_bytes: bytes, fmt: str = "wav", **kwargs: Any
+        self,
+        audio_bytes: bytes,
+        fmt: str = "wav",
+        **kwargs: Any,
     ) -> TranscriptionResult:
         runtime_python, model_path = self._runtime_paths()
         source_format = _normalize_format(fmt, audio_bytes)
