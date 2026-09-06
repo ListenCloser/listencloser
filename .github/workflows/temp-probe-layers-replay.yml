@@ -51,105 +51,30 @@ jobs:
               continue
             fi
             if [ "$commit" = "694bb3687bf962a03f833a6dd0639cf88ec8c1ad" ] && [ "$conflicts" = "backend/domain/api/workflows_jobs.py" ]; then
+              git show "$commit:backend/domain/api/workflows_jobs.py" > /tmp/layers-workflows-jobs.py
               git checkout --ours backend/domain/api/workflows_jobs.py
               python - <<'PY'
           from pathlib import Path
           path = Path('backend/domain/api/workflows_jobs.py')
           text = path.read_text()
+          theirs = Path('/tmp/layers-workflows-jobs.py').read_text()
           if '        "separate",\n' not in text:
               anchor = '        "production_spatial",\n'
               text = text.replace(anchor, anchor + '        "separate",\n')
           if '_SEPARATION_MODEL_SIGNATURE = "955717e8"' not in text:
               anchor = ')\n\n\nclass UnderstandWorkflowBody'
               text = text.replace(anchor, ')\n_SEPARATION_MODEL_SIGNATURE = "955717e8"\n\n\nclass UnderstandWorkflowBody')
-          old = '        _require_version_in_project(sb, version_id, project_id, owner)\n\n        workflow = Workflow(\n'
-          separation = '''        version = _require_version_in_project(sb, version_id, project_id, owner)
-
-        if capability_name == "separate":
-            artifact = ArtifactRepo(sb).get(version.artifact_id, owner)
-            if not artifact:
-                raise HTTPException(status_code=404, detail="Artifact not found")
-            if artifact.kind != ArtifactKind.audio_original:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Layer separation requires an Original audio Version",
-                )
-
-            # Optional separation targets the exact Original so its durable Job
-            # is discoverable from the Work bundle on reload. Product isolation
-            # is enforced by the workspace's optional-capability state filter,
-            # not by hiding the Job from durable Work truth.
-            separation_identity = f"{owner}:{version_id}:{_SEPARATION_MODEL_SIGNATURE}"
-            job_id = uuid5(
-                NAMESPACE_URL,
-                f"listencloser:separate:1.0:{separation_identity}",
-            )
-            job_repo = JobRepo(sb)
-            existing_job = job_repo.get(job_id, owner)
-            if existing_job:
-                workflow = WorkflowRepo(sb).get(existing_job.workflow_id, owner)
-                if not workflow:
-                    raise RuntimeError("idempotent separation job references a missing workflow")
-                return {"workflow": workflow, "job": existing_job}
-
-            workflow = Workflow(
-                id=uuid5(
-                    NAMESPACE_URL,
-                    f"listencloser:separate-workflow:1.0:{separation_identity}",
-                ),
-                project_id=project_id,
-                kind=WorkflowKind.create,
-                target_version_id=version_id,
-                parameters={
-                    "action": "separate",
-                    "source_version_id": str(version_id),
-                    "model": "htdemucs",
-                    "model_signature": _SEPARATION_MODEL_SIGNATURE,
-                    "shifts": 0,
-                },
-            )
-            workflow_repo = WorkflowRepo(sb)
-            try:
-                workflow = workflow_repo.create(workflow, owner)
-            except Exception:
-                concurrent_job = job_repo.get(job_id, owner)
-                if concurrent_job:
-                    concurrent_workflow = workflow_repo.get(concurrent_job.workflow_id, owner)
-                    if concurrent_workflow:
-                        return {"workflow": concurrent_workflow, "job": concurrent_job}
-                workflow = workflow_repo.get(workflow.id, owner)
-                if not workflow:
-                    raise
-
-            parameters = {
-                "fmt": Path(version.label).suffix.lstrip(".").lower() or "wav",
-                "model": "htdemucs",
-                "model_signature": _SEPARATION_MODEL_SIGNATURE,
-                "shifts": 0,
-            }
-            job = Job(
-                id=job_id,
-                workflow_id=workflow.id,
-                capability=Capability(name="separate", version="1.0"),
-                input_version_ids=[version_id],
-                parameters=parameters,
-                cache_key=f"separate:1.0:{separation_identity}:shifts=0",
-                created_by=owner,
-            )
-            try:
-                job = job_repo.create(job, owner)
-            except Exception:
-                job = job_repo.get(job_id, owner)
-                if not job:
-                    raise
-            return {"workflow": workflow, "job": job}
-
-        workflow = Workflow(
-'''
-          if old not in text:
+          their_fn = theirs.split('def create_create_workflow(', 1)[1]
+          start = their_fn.index('        version = _require_version_in_project')
+          end_marker = '            return {"workflow": workflow, "job": job}\n'
+          end = their_fn.index(end_marker, start) + len(end_marker)
+          separation_block = their_fn[start:end]
+          fn_prefix, fn_body = text.split('def create_create_workflow(', 1)
+          old = '        _require_version_in_project(sb, version_id, project_id, owner)\n'
+          if old not in fn_body:
               raise SystemExit('create workflow anchor not found')
-          text = text.replace(old, separation, 1)
-          path.write_text(text)
+          fn_body = fn_body.replace(old, separation_block, 1)
+          path.write_text(fn_prefix + 'def create_create_workflow(' + fn_body)
           PY
               git add backend/domain/api/workflows_jobs.py
               GIT_EDITOR=true git cherry-pick --continue
