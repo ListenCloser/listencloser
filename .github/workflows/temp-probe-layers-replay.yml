@@ -20,6 +20,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git config user.name 'listencloser-replay-probe'
+          git config user.email 'replay-probe@users.noreply.github.com'
           git fetch origin main
           git checkout -B replay origin/main
           for commit in $(git rev-list --reverse ebc30d055934d20b5925012c47fa9a71968371c0..b67f74b98718f2147edbf8f39e34462da6116ed6); do
