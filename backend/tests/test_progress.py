@@ -1,3 +1,5 @@
+import pytest
+
 from domain.progress import ProgressReporter
 
 
@@ -20,11 +22,9 @@ def test_progress_span_maps_child_progress_into_parent_interval():
     child.report(0.5, "child")
     child.report(1.0, "child")
 
-    assert events == [
-        (0.2, "child"),
-        (0.4, "child"),
-        (0.6, "child"),
-    ]
+    values = [value for value, _message in events]
+    assert values == pytest.approx([0.2, 0.4, 0.6])
+    assert [message for _value, message in events] == ["child", "child", "child"]
 
 
 def test_progress_spans_compose_without_knowing_persistence():
@@ -36,17 +36,15 @@ def test_progress_spans_compose_without_knowing_persistence():
     nested.report(0.5)
     nested.report(1.0)
 
-    assert values == [0.35, 0.5, 0.65]
+    assert values == pytest.approx([0.35, 0.5, 0.65])
 
 
-def test_progress_span_rejects_invalid_intervals():
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [(-0.1, 0.5), (0.6, 0.5), (0.5, 1.1)],
+)
+def test_progress_span_rejects_invalid_intervals(start: float, end: float):
     reporter = ProgressReporter(lambda _value, _message: None)
 
-    invalid = [(-0.1, 0.5), (0.6, 0.5), (0.5, 1.1)]
-    for start, end in invalid:
-        try:
-            reporter.span(start, end)
-        except ValueError:
-            pass
-        else:
-            raise AssertionError(f"expected invalid progress span: {(start, end)}")
+    with pytest.raises(ValueError, match="progress span"):
+        reporter.span(start, end)
