@@ -56,7 +56,7 @@ def test_note_entities_from_midi_bytes_materializes_every_instrument() -> None:
     assert all(entity.version_id == version_id for entity in entities)
 
 
-def test_correction_sync_qualifies_version_and_replaces_partial_entities_from_persisted_midi(
+def test_correction_sync_replaces_partial_entities_without_mutating_published_version(
     monkeypatch,
 ) -> None:
     output_version_id = uuid4()
@@ -104,24 +104,6 @@ def test_correction_sync_qualifies_version_and_replaces_partial_entities_from_pe
 
     monkeypatch.setattr(correction_sync, "EntityRepo", CapturingEntityRepo)
 
-    class VersionUpdateQuery:
-        def __init__(self):
-            self.payload: dict | None = None
-            self.filters: list[tuple[str, str]] = []
-            self.executed = False
-
-        def update(self, data: dict):
-            self.payload = data
-            return self
-
-        def eq(self, column: str, value: str):
-            self.filters.append((column, value))
-            return self
-
-        def execute(self):
-            self.executed = True
-            return SimpleNamespace(data=[])
-
     class DeleteQuery:
         def __init__(self):
             self.filters: list[tuple[str, str]] = []
@@ -140,35 +122,19 @@ def test_correction_sync_qualifies_version_and_replaces_partial_entities_from_pe
             self.executed = True
             return SimpleNamespace(data=[])
 
-    version_query = VersionUpdateQuery()
     entity_query = DeleteQuery()
 
     class Client:
         def table(self, name: str):
-            if name == "artifact_versions":
-                return version_query
+            # Published Versions are immutable at the fenced worker boundary.
+            # This adapter may replace derived Entities only.
             assert name == "entities"
             return entity_query
 
     result = correction_sync.handle_correct_with_entity_sync(job, Client())
 
     assert result == [str(output_version_id)]
-    assert version_query.executed is True
-    assert version_query.filters == [("id", str(output_version_id))]
-    assert version_query.payload == {
-        "metadata": {
-            "existing": "preserved",
-            "representation": "edited_performance",
-            "correction": {
-                "schema_version": 1,
-                "operation": "replace_notes_in_span",
-                "source_version_id": str(source_version_id),
-                "selection_start_seconds": 1.0,
-                "selection_end_seconds": 1.5,
-                "replacement_note_count": 1,
-            },
-        }
-    }
+    assert output_version.metadata == {"existing": "preserved"}
     assert entity_query.deleted is True
     assert entity_query.executed is True
     assert entity_query.filters == [
