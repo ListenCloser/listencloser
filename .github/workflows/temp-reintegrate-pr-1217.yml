@@ -49,6 +49,19 @@ jobs:
                 git checkout --theirs -- "$path"
               fi
             done
+            python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/scripts/temp-reintegrate-pr-1217.py')
+          text = path.read_text()
+          old = '''run("ruff", "check", "--fix", "backend/domain/api/workflows_jobs.py", "backend/worker.py")
+          run("ruff", "format", "backend/domain/api/workflows_jobs.py", "backend/worker.py")'''
+          new = '''run("ruff", "format", "backend/domain/api/workflows_jobs.py", "backend/worker.py")
+          run("ruff", "check", "--fix", "backend/domain/api/workflows_jobs.py", "backend/worker.py")'''
+          if old not in text:
+              raise SystemExit('expected Ruff sequencing not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
             python3 .github/scripts/temp-reintegrate-pr-1217.py
             git add backend/Dockerfile backend/config/capabilities.json backend/domain/api/workflows_jobs.py backend/worker.py components/workspace/StructureMap.tsx components/workspace/WorkspaceSession.tsx docs/generated/frontend-dependencies.md
             if git diff --name-only --diff-filter=U | grep -q .; then
