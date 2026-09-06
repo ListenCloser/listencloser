@@ -247,6 +247,7 @@ def _event_identity(payload: dict[str, object]) -> AlignmentEventIdentity:
         score_events = tuple(
             ScoreEventIdentity(
                 event_id=str(raw["id"]),
+                measure_index=int(raw["measure_index"]),
                 pitch=int(raw["pitch"]),
                 onset_beat=float(raw["onset_beat"]),
                 duration_beat=float(raw["duration_beat"]),
