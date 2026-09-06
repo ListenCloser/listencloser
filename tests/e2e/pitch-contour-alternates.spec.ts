@@ -212,7 +212,7 @@ test("Pitch Contour generates an alternate once and reselects existing interpret
   );
   await page.reload();
 
-  await page.getByRole("button", { name: "+ Add analysis" }).click();
+  await page.getByRole("button", { name: "+ Add analysis" }).first().click();
   const chooser = page.getByRole("region", { name: "Add analysis" });
   const pitchChoice = chooser.getByText("Pitch Contour", { exact: true }).locator("xpath=../../..");
   await pitchChoice.getByRole("button", { name: "Add" }).click();
