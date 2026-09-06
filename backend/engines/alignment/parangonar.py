@@ -132,30 +132,13 @@ class ParangonarAlignmentEngine:
             score_version_id=score_version_id,
             performance_version_id=performance_version_id,
         )
-        score_onsets = _event_map(payload, "score_events")
-        performance_onsets = _event_map(payload, "performance_events")
-        relation = normalize_parangonar_alignment(
-            score_input=AlignmentInputVersion(
-                version_id=score_version_id,
-                role=AlignmentInputRole.written_score,
-            ),
-            performance_input=AlignmentInputVersion(
-                version_id=performance_version_id,
-                role=AlignmentInputRole.performed_midi,
-            ),
-            raw_alignment=payload.get("alignment"),
-            package_version=PARANGONAR_VERSION,
-            matcher=MATCHER,
-            parameters=dict(payload.get("parameters") or {}),
-            score_event_ids=set(score_onsets),
-            performance_event_ids=set(performance_onsets),
-            score_onset_beat_by_id=score_onsets,
-            performance_onset_seconds_by_id=performance_onsets,
-            sufficiency_policy=sufficiency_policy,
-            matcher_failure=_optional_string(payload.get("failure")),
-        )
         return ParangonarAlignmentExecution(
-            relation=relation,
+            relation=_normalize_relation(
+                payload,
+                score_version_id=score_version_id,
+                performance_version_id=performance_version_id,
+                sufficiency_policy=sufficiency_policy,
+            ),
             event_identity=_event_identity(payload),
         )
 
@@ -168,15 +151,51 @@ class ParangonarAlignmentEngine:
         performance_version_id: UUID,
         sufficiency_policy: AlignmentSufficiencyPolicy,
     ) -> ScorePerformanceAlignment:
-        """Compatibility relation-only API over the richer exact execution result."""
+        """Relation-only API; new identity fields are not required by legacy consumers."""
 
-        return self.align_with_identity(
+        payload = self._run_payload(
             score_musicxml=score_musicxml,
             performance_midi=performance_midi,
             score_version_id=score_version_id,
             performance_version_id=performance_version_id,
+        )
+        return _normalize_relation(
+            payload,
+            score_version_id=score_version_id,
+            performance_version_id=performance_version_id,
             sufficiency_policy=sufficiency_policy,
-        ).relation
+        )
+
+
+def _normalize_relation(
+    payload: dict[str, object],
+    *,
+    score_version_id: UUID,
+    performance_version_id: UUID,
+    sufficiency_policy: AlignmentSufficiencyPolicy,
+) -> ScorePerformanceAlignment:
+    score_onsets = _event_map(payload, "score_events")
+    performance_onsets = _event_map(payload, "performance_events")
+    return normalize_parangonar_alignment(
+        score_input=AlignmentInputVersion(
+            version_id=score_version_id,
+            role=AlignmentInputRole.written_score,
+        ),
+        performance_input=AlignmentInputVersion(
+            version_id=performance_version_id,
+            role=AlignmentInputRole.performed_midi,
+        ),
+        raw_alignment=payload.get("alignment"),
+        package_version=PARANGONAR_VERSION,
+        matcher=MATCHER,
+        parameters=dict(payload.get("parameters") or {}),
+        score_event_ids=set(score_onsets),
+        performance_event_ids=set(performance_onsets),
+        score_onset_beat_by_id=score_onsets,
+        performance_onset_seconds_by_id=performance_onsets,
+        sufficiency_policy=sufficiency_policy,
+        matcher_failure=_optional_string(payload.get("failure")),
+    )
 
 
 def _parse_runner_output(stdout: str) -> dict[str, object]:
