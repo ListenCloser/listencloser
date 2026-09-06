@@ -53,9 +53,7 @@ class TextPassageFindObservation(BaseModel):
     source_version_id: UUID
     performance_version_id: UUID
     query_text: str
-    method: Literal["clamp3_c2_text_performance_cosine"] = (
-        "clamp3_c2_text_performance_cosine"
-    )
+    method: Literal["clamp3_c2_text_performance_cosine"] = "clamp3_c2_text_performance_cosine"
     embedding_dim: int = Field(gt=0)
     duration_seconds: float = Field(gt=0)
     runtime_seconds: float | None = Field(default=None, ge=0)
@@ -109,13 +107,9 @@ def _validate_performance(
 ) -> tuple[TextPassageFindStatus | None, list[str]]:
     artifact = _artifact_for_version(snapshot, performance_version)
     if artifact is None:
-        return "failed", [
-            "performance Version is not part of the authorized Work snapshot"
-        ]
+        return "failed", ["performance Version is not part of the authorized Work snapshot"]
     if artifact.kind != ArtifactKind.midi_performance:
-        return "withheld", [
-            "CLaMP3 C2 Find requires an exact performance-MIDI Version"
-        ]
+        return "withheld", ["CLaMP3 C2 Find requires an exact performance-MIDI Version"]
     if performance_version.parent_version_id != source_version.id:
         return "withheld", [
             "performance MIDI is not directly parented to the exact source audio Version"
