@@ -1,0 +1,24 @@
+name: Temporary exact Ruff diff for PR 1267
+
+on:
+  push:
+    branches:
+      - feat/1233-midibert-default
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: 0.12.9
+      - run: uvx --from ruff==0.5.7 ruff format backend/engines/melody/midibert_engine.py
+      - run: git diff --check
+      - run: git diff -- backend/engines/melody/midibert_engine.py
