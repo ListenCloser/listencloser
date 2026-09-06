@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+from tests.repository_paths import BACKEND_ROOT
 
 EXPECTED_PM2S_CHECKPOINTS = {
     "RNNJointBeatModel.pth": "939e0181f119a473200aece6307906e3dee69d4e2c44abcc878755bf6a18beb6",
@@ -14,7 +13,7 @@ EXPECTED_PM2S_CHECKPOINTS = {
 
 
 def test_pm2s_checkpoints_are_content_verified_when_downloaded() -> None:
-    dockerfile = (REPO_ROOT / "services" / "backend" / "Dockerfile").read_text()
+    dockerfile = (BACKEND_ROOT / "Dockerfile").read_text()
     pm2s_stage = dockerfile.split("FROM python:3.11-slim AS pm2s", 1)[1].split(
         "FROM python:3.11-slim AS musescore", 1
     )[0]
