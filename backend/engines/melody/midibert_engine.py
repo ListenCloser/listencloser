@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import hashlib
 import os
-from pathlib import Path
 import pickle
 import sys
 import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -69,7 +69,7 @@ def _summarize(selected: list[dict[str, Any]], candidate_count: int) -> dict[str
     if len(selected) < 2:
         return None
     pitches = [int(note["pitch"]) for note in selected]
-    intervals = [abs(b - a) for a, b in zip(pitches, pitches[1:])]
+    intervals = [abs(b - a) for a, b in zip(pitches, pitches[1:], strict=False)]
     nonzero = [interval for interval in intervals if interval > 0]
     low, high = min(pitches), max(pitches)
     return {
@@ -77,8 +77,12 @@ def _summarize(selected: list[dict[str, Any]], candidate_count: int) -> dict[str
         "high_pitch": high,
         "range_semitones": high - low,
         "unique_pitch_classes": len({pitch % 12 for pitch in pitches}),
-        "stepwise_ratio": round(sum(iv <= 2 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0,
-        "leap_ratio": round(sum(iv >= 5 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0,
+        "stepwise_ratio": (
+            round(sum(iv <= 2 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0
+        ),
+        "leap_ratio": (
+            round(sum(iv >= 5 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0
+        ),
         "heuristic": "midibert_piano_cp",
         "candidate_note_count": candidate_count,
         "selected_note_count": len(selected),
@@ -111,9 +115,13 @@ class MidiBERTMelodyEngine(MelodyEngine):
         checkpoint_sha256: str | None = None,
     ) -> None:
         self.root = Path(root or os.getenv("MIDIBERT_ROOT", _DEFAULT_ROOT))
-        self.checkpoint = Path(checkpoint or os.getenv("MIDIBERT_CHECKPOINT", _DEFAULT_CHECKPOINT))
+        self.checkpoint = Path(
+            checkpoint or os.getenv("MIDIBERT_CHECKPOINT", _DEFAULT_CHECKPOINT)
+        )
         self.dict_file = Path(dict_file or os.getenv("MIDIBERT_DICT", _DEFAULT_DICT))
-        self.expected_checkpoint_sha256 = checkpoint_sha256 or os.getenv("MIDIBERT_CHECKPOINT_SHA256")
+        self.expected_checkpoint_sha256 = checkpoint_sha256 or os.getenv(
+            "MIDIBERT_CHECKPOINT_SHA256"
+        )
 
     @property
     def provenance(self) -> EngineProvenance:
@@ -154,7 +162,8 @@ class MidiBERTMelodyEngine(MelodyEngine):
         actual = _sha256(self.checkpoint)
         if actual != self.expected_checkpoint_sha256:
             raise RuntimeError(
-                f"MidiBERT checkpoint checksum mismatch: expected {self.expected_checkpoint_sha256}, got {actual}"
+                "MidiBERT checkpoint checksum mismatch: expected "
+                f"{self.expected_checkpoint_sha256}, got {actual}"
             )
 
     def _predict_classes(self, input_path: Path) -> list[int]:
@@ -203,7 +212,7 @@ class MidiBERTMelodyEngine(MelodyEngine):
             )
 
         selected: list[dict[str, Any]] = []
-        for note, label in zip(source, classes):
+        for note, label in zip(source, classes, strict=True):
             if label not in (1, 2):
                 continue
             selected.append({**note, "model_class": "melody" if label == 1 else "bridge"})
