@@ -99,9 +99,7 @@ def create_text_passage_find_workflow(
     )
     _validate_exact_pair(sb, source, performance, owner)
 
-    identity = (
-        f"{owner}:{source.id}:{performance.id}:{normalized_text}:{body.max_matches}"
-    )
+    identity = f"{owner}:{source.id}:{performance.id}:{normalized_text}:{body.max_matches}"
     job_id = uuid5(NAMESPACE_URL, f"listencloser:text-passage-find:1.0:{identity}")
     workflow_id = uuid5(
         NAMESPACE_URL,

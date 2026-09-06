@@ -43,11 +43,7 @@ class TestTextPassageFindWorkflow:
         )
         performance_artifact = SimpleNamespace(
             id=self.PERFORMANCE_ARTIFACT_ID,
-            work_id=(
-                self.WORK_ID
-                if same_work
-                else UUID("00000000-0000-0000-0000-000000000198")
-            ),
+            work_id=(self.WORK_ID if same_work else UUID("00000000-0000-0000-0000-000000000198")),
             kind=ArtifactKind.midi_performance,
         )
         work = SimpleNamespace(id=self.WORK_ID, project_id=self.PROJECT_ID)

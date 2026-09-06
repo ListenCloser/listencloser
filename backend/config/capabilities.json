@@ -286,6 +286,14 @@
       "validated_domain": "within-recording experimental navigation only",
       "notes": "Map/navigation surface only. Letter labels are descriptor-similarity hints, not verse/chorus/motif/canonical form. Inspector/annotation/Ask exposure remains false until separately earned."
     },
+    "text_passage_find": {
+      "status": "experimental",
+      "input": "audio+midi_performance",
+      "engine": "clamp3_c2",
+      "exposure": {"inspector": false, "annotations": false, "ask": false},
+      "validated_domain": "within-Work experimental text-to-passage retrieval over exact directly-parented performance MIDI",
+      "notes": "#1254 backend/runtime slice. Candidates are source-time proposals ranked by CLaMP3 C2 text/symbolic cosine similarity, not factual detections or confidence. Exact source audio Version, direct-parent performance-MIDI Version, model/checkpoint/runtime provenance, and query are retained in the private report. No vector database or cross-Work index. UI reachability remains gated on the shared discovery seam owned by #1259."
+    },
     "supplied_text_alignment": {
       "status": "experimental",
       "input": "audio+user_supplied_text",
