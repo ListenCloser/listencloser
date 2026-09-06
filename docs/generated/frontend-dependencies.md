@@ -202,7 +202,6 @@ lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts
 lib_spectrogram_data_ts-->lib_query_client_ts
 lib_spectrogram_data_ts-->lib_spectrogram_ts
-lib_stores_-->lib_midi_authority_ts
 lib_structure_map_client_ts-->lib_api_client_ts
 lib_structure_map_client_ts-->lib_openapi_client_ts
 ```
