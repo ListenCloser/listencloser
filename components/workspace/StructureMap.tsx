@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import AddAnalysis, { type AddAnalysisOption } from "@/components/workspace/AddAnalysis";
+import AnalysisDiscovery from "@/components/workspace/AnalysisDiscovery";
 import { useLayerAnalysis } from "@/components/workspace/useLayerAnalysis";
 import PitchContourLane from "@/components/workspace/PitchContourLane";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
@@ -65,7 +65,7 @@ function sourceAndMapState(bundle: Awaited<ReturnType<typeof getWorkBundle>>) {
 }
 
 export default function StructureMap({ canProcess = false }: { canProcess?: boolean }) {
-  const { workspace, setSelection, setInspectorMode, toggleInspector } = useWorkspace();
+  const { workspace, setSelection } = useWorkspace();
   const { transport, seek, play, setActiveSource, audioRef } = useTransport();
   const layerAnalysis = useLayerAnalysis(canProcess);
   const [report, setReport] = useState<StructureMapReport | null>(null);
@@ -310,12 +310,6 @@ export default function StructureMap({ canProcess = false }: { canProcess?: bool
     void load(workspace.activeWorkId, true);
   }, [load, pitchStatus, workspace.activeWorkId]);
 
-  const openAnalysisInspector = useCallback(() => {
-    setInspectorMode("analysis");
-    if (workspace.inspectorCollapsed) toggleInspector();
-    setChooserOpen(false);
-  }, [setInspectorMode, toggleInspector, workspace.inspectorCollapsed]);
-
   const openMap = useCallback(() => {
     setMapOpen(true);
     setChooserOpen(false);
@@ -359,94 +353,6 @@ export default function StructureMap({ canProcess = false }: { canProcess?: bool
 
   const busy = status === "loading" || status === "generating";
   const pitchBusy = pitchStatus === "loading" || pitchStatus === "generating";
-  const selectedPassage = workspace.selection?.timeRange;
-  const hasExactSelectedPassage = Boolean(
-    selectedPassage
-    && selectedPassage.domain === "performance"
-    && workspace.selection?.provenance.timeExact === true
-    && Number.isFinite(selectedPassage.start)
-    && Number.isFinite(selectedPassage.end)
-    && selectedPassage.start >= 0
-    && selectedPassage.end > selectedPassage.start,
-  );
-  const analysisOptions: AddAnalysisOption[] = [];
-  if (!report) {
-    analysisOptions.push({
-      id: "structure-map",
-      title: "Structure Map",
-      description: "Find rough candidate spans so you can jump through the recording's shape.",
-      maturity: "Experimental",
-      actionLabel: observationLost
-        ? "Check status"
-        : status === "generating"
-          ? "Finding shape…"
-          : status === "loading"
-            ? "Checking…"
-            : error
-              ? "Retry"
-              : "Add",
-      onAction: observationLost ? checkStatus : () => void generate(),
-      busy,
-    });
-  } else {
-    analysisOptions.push({
-      id: "structure-map",
-      title: "Structure Map",
-      description: "Rough candidate spans are ready for navigation.",
-      maturity: "Experimental",
-      actionLabel: mapOpen ? "Shown" : "Open",
-      onAction: openMap,
-      disabled: mapOpen,
-    });
-  }
-  analysisOptions.push({
-    id: "pitch-contour",
-    title: "Pitch Contour",
-    description: "Trace continuous monophonic pitch against the recording and seek through it.",
-    maturity: "Experimental",
-    actionLabel: pitchReady
-      ? pitchOpen ? "Shown" : "Open"
-      : pitchObservationLost
-        ? "Check status"
-        : pitchStatus === "generating"
-          ? "Finding pitch…"
-          : pitchStatus === "loading"
-            ? "Checking…"
-            : pitchError
-              ? "Retry"
-              : "Add",
-    onAction: pitchReady
-      ? openPitch
-      : pitchObservationLost
-        ? checkPitchStatus
-        : () => void generatePitch(),
-    disabled: pitchReady && pitchOpen,
-    busy: pitchBusy,
-  });
-  if (layerAnalysis.option) {
-    analysisOptions.push(layerAnalysis.option);
-  }
-  if (hasExactSelectedPassage) {
-    analysisOptions.push({
-      id: "similar-moments",
-      title: "Similar moments",
-      description: "Find method-qualified candidate passages like this exact selection.",
-      maturity: "Experimental",
-      actionLabel: "Open",
-      onAction: openAnalysisInspector,
-    });
-  }
-  if (workspace.analysisState !== "idle") {
-    analysisOptions.push({
-      id: "measured-changes",
-      title: "Changes",
-      description: "Open measured change moments in Breakdown without starting another job.",
-      maturity: "Experimental",
-      actionLabel: "Open",
-      onAction: openAnalysisInspector,
-    });
-  }
-
   const notice = [error, pitchError, layerAnalysis.notice].filter(Boolean).join(" · ") || null;
   const noticeRole = (
     busy
@@ -456,10 +362,52 @@ export default function StructureMap({ canProcess = false }: { canProcess?: bool
     || (Boolean(layerAnalysis.notice) && layerAnalysis.noticeRole === "status")
   ) ? "status" : "alert";
   const discovery = (
-    <AddAnalysis
+    <AnalysisDiscovery
       open={chooserOpen}
       onOpenChange={setChooserOpen}
-      options={analysisOptions}
+      structure={{
+        actionLabel: report
+          ? mapOpen ? "Shown" : "Open"
+          : observationLost
+            ? "Check status"
+            : status === "generating"
+              ? "Finding shape…"
+              : status === "loading"
+                ? "Checking…"
+                : error
+                  ? "Retry"
+                  : "Add",
+        onAction: report
+          ? openMap
+          : observationLost
+            ? checkStatus
+            : () => void generate(),
+        busy: !report && busy,
+        disabled: Boolean(report && mapOpen),
+        ready: Boolean(report),
+      }}
+      pitch={{
+        actionLabel: pitchReady
+          ? pitchOpen ? "Shown" : "Open"
+          : pitchObservationLost
+            ? "Check status"
+            : pitchStatus === "generating"
+              ? "Finding pitch…"
+              : pitchStatus === "loading"
+                ? "Checking…"
+                : pitchError
+                  ? "Retry"
+                  : "Add",
+        onAction: pitchReady
+          ? openPitch
+          : pitchObservationLost
+            ? checkPitchStatus
+            : () => void generatePitch(),
+        disabled: pitchReady && pitchOpen,
+        busy: pitchBusy,
+        ready: pitchReady,
+      }}
+      layers={layerAnalysis.option}
       notice={notice}
       noticeRole={noticeRole}
     />
