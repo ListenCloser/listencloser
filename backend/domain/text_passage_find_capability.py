@@ -44,7 +44,11 @@ def _update_progress(client, job_id: UUID, progress: float, message: str) -> Non
         raise RuntimeError("job is no longer running")
 
 
-def _load_exact_pair(job: Job, client, owner_id: str) -> tuple[Version, Artifact, Version, Artifact]:
+def _load_exact_pair(
+    job: Job,
+    client,
+    owner_id: str,
+) -> tuple[Version, Artifact, Version, Artifact]:
     if len(job.input_version_ids) != 2:
         raise ValueError("text_passage_find requires source audio and performance MIDI inputs")
 
