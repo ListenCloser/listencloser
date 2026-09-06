@@ -21,7 +21,7 @@ test("symbolic detail is an opt-in experimental Inspector analysis", async ({ pa
 
   const inspector = page.locator("aside.inspector");
   await expect(inspector).toBeVisible();
-  const addAnalysis = inspector.getByRole("button", { name: "+ Add analysis" });
+  const addAnalysis = inspector.getByRole("button", { name: "+ Add analysis" }).first();
   await expect(addAnalysis).toBeVisible();
   await addAnalysis.click();
 
