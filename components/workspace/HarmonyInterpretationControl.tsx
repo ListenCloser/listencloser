@@ -91,7 +91,7 @@ export default function HarmonyInterpretationControl() {
           midiVersionId,
           audioVersionId,
         );
-        await waitForJob(result.job.id);
+        await waitForJob(result.job.id, () => undefined);
       }
       await refreshFor(nextEngine);
     } catch (cause) {
