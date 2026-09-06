@@ -184,6 +184,9 @@ test.describe("representation render timing contract (MSW)", () => {
     const scoreTab = page.getByRole("tab", { name: "Score" });
     const spectrogramTab = page.getByRole("tab", { name: "Spectrogram" });
     const pianoRoll = page.getByTestId("piano-roll");
+    const pianoRollSurface = pianoRoll.getByRole("button", {
+      name: "Select region or seek playback from piano roll",
+    });
     const firstScoreMeasure = page.locator(".sheet-music-container g.vf-measure").first();
     const spectrogramCanvas = page.getByTestId("spectrogram-canvas");
 
@@ -193,8 +196,8 @@ test.describe("representation render timing contract (MSW)", () => {
       action: () => pianoTab.click(),
       useful: () => waitForVisible(pianoRoll),
       ready: async () => {
-        await waitForVisible(pianoRoll.locator("svg"));
-        await expect(pianoRoll.locator("svg")).toHaveAttribute("role", "button");
+        await waitForVisible(pianoRollSurface);
+        await expect(pianoRollSurface).toHaveAttribute("role", "button");
       },
     });
 
@@ -260,7 +263,7 @@ test.describe("representation render timing contract (MSW)", () => {
       label: "piano:mounted",
       action: () => pianoTab.click(),
       useful: () => waitForVisible(pianoRoll),
-      ready: () => waitForVisible(pianoRoll.locator("svg")),
+      ready: () => waitForVisible(pianoRollSurface),
     });
 
     const timings = {
