@@ -2,25 +2,25 @@
 .blockedReference {
   opacity: 0.45;
   cursor: default;
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 
 .blockedAction[aria-disabled="true"]:hover:not(:disabled),
 .blockedAction[aria-disabled="true"]:active:not(:disabled) {
-  border-color: var(--border);
+  border-color: var(--line-subtle);
   background: transparent;
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 
 .blockedReference {
-  border-color: var(--border);
+  border-color: var(--line-subtle);
 }
 
 .blockedReference[aria-disabled="true"]:hover:not(:disabled),
 .blockedReference[aria-disabled="true"]:active:not(:disabled) {
-  border-color: var(--border);
-  background: var(--panel);
-  color: var(--muted);
+  border-color: var(--line-subtle);
+  background: var(--surface-panel);
+  color: var(--text-tertiary);
 }
 
 .blockedAction:focus-visible,
@@ -30,24 +30,27 @@
 
 .turnScope {
   display: block;
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: var(--fs-xs);
+  margin-top: var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
   line-height: 1.2;
 }
 
 .prompt::after {
   flex: none;
   margin-left: auto;
-  padding-left: 12px;
-  padding-right: 10px;
+  padding-left: var(--space-3);
+  padding-right: var(--space-2);
 }
 
 .compactError {
-  min-height: 34px;
+  min-height: var(--control-height-default);
   max-height: 56px;
   flex: none;
   align-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   overflow: hidden;
 }
 
@@ -57,19 +60,22 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted);
+  color: var(--text-tertiary);
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--type-xs);
 }
 
-/* Keep this selector module-pure by anchoring the global composer to its local
- * send child. That widens only AskPanel's own composer action track. */
+/* Ask owns only composer composition; control geometry comes from IconButton. */
 :global(.ask-composer):has(> .send) {
-  grid-template-columns: minmax(0, 1fr) 42px;
+  grid-template-columns: minmax(0, 1fr) var(--control-height-default);
 }
 
 .send {
-  width: 42px !important;
-  height: 32px !important;
-  border-radius: 7px !important;
+  align-self: center;
+}
+
+@media (max-width: 600px) {
+  :global(.ask-composer):has(> .send) {
+    grid-template-columns: minmax(0, 1fr) var(--control-height-touch);
+  }
 }

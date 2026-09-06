@@ -1,6 +1,7 @@
 "use client";
 
 import * as Tabs from "@radix-ui/react-tabs";
+import styles from "./TabStrip.module.css";
 
 export type TabIntentSource = "pointer" | "focus";
 
@@ -35,7 +36,7 @@ export default function TabStrip<T extends string>({
       style={{ display: "contents" }}
     >
       <Tabs.List
-        className={`ui-tab-strip ${className}`.trim()}
+        className={`${styles.strip} ui-tab-strip ${className}`.trim()}
         aria-label={label}
         loop
       >
@@ -47,7 +48,7 @@ export default function TabStrip<T extends string>({
               value={item.id}
               disabled={item.disabled}
               aria-controls={undefined}
-              className={`ui-tab${selected ? " active" : ""}`}
+              className={`${styles.tab} ui-tab${selected ? " active" : ""}`}
               onPointerEnter={() => onIntentStart?.(item.id, "pointer")}
               onPointerLeave={() => onIntentEnd?.(item.id, "pointer")}
               onFocus={() => onIntentStart?.(item.id, "focus")}

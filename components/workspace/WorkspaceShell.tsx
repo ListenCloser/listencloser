@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef } from "react";
+import Button from "@/components/ui/Button";
 import { TransportProvider } from "@/lib/stores/transport";
 import { TimelineProvider } from "@/lib/stores/timeline";
 import { WorkspaceProvider, useWorkspace } from "@/lib/stores/workspace";
@@ -89,25 +90,27 @@ function WorkspaceContent({
               <span className="studio-service-label">Processing offline</span>
             </span>
           )}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="compact"
             className="studio-mobile-action studio-library-btn"
             onClick={toggleLibrary}
             aria-label={workspace.libraryCollapsed ? "Show library" : "Hide library"}
             aria-pressed={!workspace.libraryCollapsed}
           >
             Library
-          </button>
+          </Button>
           {inspectorAvailable && (
-            <button
-              type="button"
-              className={`studio-mobile-action studio-inspector-btn${inspectorOpen ? " active" : ""}`}
+            <Button
+              variant="ghost"
+              size="compact"
+              className="studio-mobile-action studio-inspector-btn"
               aria-label={inspectorOpen ? "Hide breakdown" : "Show breakdown"}
               aria-pressed={inspectorOpen}
               onClick={toggleInspector}
             >
               Breakdown
-            </button>
+            </Button>
           )}
         </div>
       </header>

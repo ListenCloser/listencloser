@@ -1,0 +1,51 @@
+.root {
+  min-width: 0;
+}
+
+.button {
+  min-height: var(--control-height-compact);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: var(--type-xs);
+  cursor: pointer;
+}
+
+.button:hover {
+  color: var(--text-primary);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+.chevron {
+  width: var(--control-icon-sm);
+  height: var(--control-icon-sm);
+  transition: transform var(--motion-duration-fast) var(--motion-ease-standard);
+}
+
+.open .chevron {
+  transform: rotate(180deg);
+}
+
+.panel {
+  padding-top: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--type-xs);
+  line-height: var(--line-height-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

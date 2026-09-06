@@ -13,6 +13,14 @@ async function openWorkspace(page: Page) {
   await expect(page.getByRole("slider", { name: "Playback position" })).toBeEnabled({ timeout: 20_000 });
 }
 
+async function confirmDelete(page: Page) {
+  const dialog = page.getByRole("dialog", { name: "Delete recording?" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(/This permanently deletes “Test Work”/)).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete recording", exact: true }).click();
+  await expect(dialog).toBeHidden();
+}
+
 test("deleting the active work clears it and leaves no stale transport state", async ({ page }) => {
   await openWorkspace(page);
 
@@ -21,6 +29,7 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await deleteButton.hover();
   await expect(page.getByRole("tooltip", { name: "Delete recording" })).toBeVisible();
   await deleteButton.click();
+  await confirmDelete(page);
 
   await expect(page.getByRole("button", { name: /^Test Work\b/ })).toHaveCount(0);
   await expect(page.getByText("No recordings yet", { exact: true })).toBeVisible();
@@ -28,10 +37,9 @@ test("deleting the active work clears it and leaves no stale transport state", a
   await expect(emptyWorkspace.getByRole("heading", { name: "Import a recording" })).toBeVisible();
   await expect(emptyWorkspace.getByRole("button", { name: "Import audio" })).toBeVisible();
 
-  // The old bespoke first-run illustration remains in legacy markup only until
-  // #523 deletes that owner; the accepted interface foundation keeps it inert.
-  await expect(page.getByTestId("empty-workspace-signal")).toBeHidden();
-  await expect(page.getByText("Move through waveform, notes, notation, and evidence without losing your place.", { exact: true })).toBeHidden();
+  // Retired first-run decoration stays deleted rather than merely hidden.
+  await expect(page.getByTestId("empty-workspace-signal")).toHaveCount(0);
+  await expect(page.getByText("Move through waveform, notes, notation, and evidence without losing your place.", { exact: true })).toHaveCount(0);
 
   // Processing policy stays out of the persistent Library surface. The choices
   // are progressively disclosed only when a new import actually begins.
@@ -45,8 +53,8 @@ test("deleting the active work clears it and leaves no stale transport state", a
   const processingDialog = page.getByRole("dialog", { name: "Process recording" });
   const closeProcessing = processingDialog.getByRole("button", { name: "Close processing options" });
   await expect(closeProcessing).toBeVisible();
-  await expect(processingDialog.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(processingDialog.getByRole("button", { name: "MuseScore", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(processingDialog.getByRole("radio", { name: "Auto", exact: true })).toBeChecked();
+  await expect(processingDialog.getByRole("radio", { name: "MuseScore", exact: true })).toBeChecked();
   await closeProcessing.click();
   await expect(closeProcessing).not.toBeVisible();
 
@@ -72,8 +80,9 @@ test("failed active-work deletion restores the selected workspace and playback",
 
   await openWorkspace(page);
   await page.getByRole("button", { name: "Delete Test Work" }).click();
+  await confirmDelete(page);
 
-  await expect(page.locator(".library-error")).toHaveText("Delete failed. The recording was restored.");
+  await expect(page.getByRole("alert")).toHaveText("Delete failed. The recording was restored.");
   const restoredWork = page.getByRole("button", { name: /^Test Work\b/ });
   await expect(restoredWork).toBeVisible();
   await expect(restoredWork).toHaveAttribute("aria-current", "true");

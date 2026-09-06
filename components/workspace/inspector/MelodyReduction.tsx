@@ -1,7 +1,11 @@
 "use client";
 
-import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Button from "@/components/ui/Button";
+import Disclosure from "@/components/ui/Disclosure";
+import { PlayIcon } from "@/components/ui/Icons";
+import InlineNotice from "@/components/ui/InlineNotice";
+import Qualifier from "@/components/ui/Qualifier";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import type { Insight } from "@/lib/domain.types";
 import { JobObservationError, waitForJob } from "@/lib/job-tracking";
@@ -100,7 +104,7 @@ export function MelodyReductionObject({
           <strong>Melody</strong>
           <span className={styles.count}>{projection.notes.length} notes</span>
         </div>
-        <span className={styles.qualifier}>Experimental</span>
+        <Qualifier>Experimental</Qualifier>
       </div>
 
       <div className={styles.object}>
@@ -109,19 +113,9 @@ export function MelodyReductionObject({
           role="group"
           aria-label={`Proposed melody reduction across the full Piano Roll timeline with ${projection.notes.length} exact source notes`}
         >
-          <line
-            x1={10}
-            x2={470}
-            y1={75}
-            y2={75}
-            stroke="var(--border)"
-            strokeWidth={0.7}
-            strokeOpacity={0.5}
-          />
+          <line x1={10} x2={470} y1={75} y2={75} stroke="var(--line-subtle)" strokeWidth={0.7} strokeOpacity={0.5} />
           <text x={10} y={84} className={styles.timeLabel}>0:00</text>
-          <text x={470} y={84} textAnchor="end" className={styles.timeLabel}>
-            {formatClock(timelineEnd)}
-          </text>
+          <text x={470} y={84} textAnchor="end" className={styles.timeLabel}>{formatClock(timelineEnd)}</text>
           {activePlayhead !== null && (
             <line
               className={styles.playhead}
@@ -171,48 +165,32 @@ export function MelodyReductionObject({
       </div>
 
       <div className={styles.footer}>
-        <button
-          type="button"
-          className={styles.playAction}
+        <Button
+          variant="ghost"
+          size="compact"
           onClick={onPlayMelody}
           disabled={preparing}
           aria-busy={preparing}
         >
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M5.25 3.75 12 8l-6.75 4.25z" fill="currentColor" />
-          </svg>
+          <PlayIcon />
           <span>{preparing ? "Preparing melody…" : "Play melody"}</span>
-        </button>
+        </Button>
 
-        <Disclosure>
-          {({ open }) => (
-            <div className={styles.about}>
-              <DisclosureButton className={styles.aboutButton}>
-                <span>About</span>
-                <svg
-                  viewBox="0 0 16 16"
-                  aria-hidden="true"
-                  className={open ? styles.chevronOpen : styles.chevron}
-                >
-                  <path d="m5 6 3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </DisclosureButton>
-              <DisclosurePanel className={styles.detailsPanel}>
-                <dl>
-                  <dt>Source</dt><dd>Version {projection.sourceVersionId}</dd>
-                  <dt>Engine</dt><dd>{engine}</dd>
-                  <dt>Method</dt><dd>{method}</dd>
-                  {model && <><dt>Model</dt><dd>{model}</dd></>}
-                  <dt>Mapping</dt><dd>{projection.notes.length}/{projection.notes.length} exact Piano Roll notes</dd>
-                  <dt>Playback</dt><dd>Synthesized from these proposed notes, not isolated from the recording.</dd>
-                  <dt>Limit</dt><dd>Experimental interpretation, not a verified melody label or top-voice rule. LStoM is established on arranged pop MIDI; general piano and dense polyphony remain ambiguous.</dd>
-                </dl>
-              </DisclosurePanel>
-            </div>
-          )}
+        <Disclosure label="About" className={styles.about}>
+          <div className={styles.detailsPanel}>
+            <dl>
+              <dt>Source</dt><dd>Version {projection.sourceVersionId}</dd>
+              <dt>Engine</dt><dd>{engine}</dd>
+              <dt>Method</dt><dd>{method}</dd>
+              {model && <><dt>Model</dt><dd>{model}</dd></>}
+              <dt>Mapping</dt><dd>{projection.notes.length}/{projection.notes.length} exact Piano Roll notes</dd>
+              <dt>Playback</dt><dd>Synthesized from these proposed notes, not isolated from the recording.</dd>
+              <dt>Limit</dt><dd>Experimental interpretation, not a verified melody label or top-voice rule. LStoM is established on arranged pop MIDI; general piano and dense polyphony remain ambiguous.</dd>
+            </dl>
+          </div>
         </Disclosure>
       </div>
-      {auditionError && <p className={styles.auditionError} role="alert">{auditionError}</p>}
+      {auditionError && <InlineNotice tone="danger" role="alert">{auditionError}</InlineNotice>}
     </section>
   );
 }
@@ -265,9 +243,7 @@ export default function MelodyReduction({ insight }: { insight: Insight }) {
         await waitForJob(resolved.job.id, () => undefined, { signal: controller.signal });
         if (disposed) return;
         const completed = await resolveDurableSource(true);
-        if (disposed || !completed?.source) {
-          throw new Error("Melody playback finished without a playable source");
-        }
+        if (disposed || !completed?.source) throw new Error("Melody playback finished without a playable source");
         setMelodySource(completed.source);
         setAuditionState("idle");
       } catch (cause) {
@@ -290,13 +266,8 @@ export default function MelodyReduction({ insight }: { insight: Insight }) {
 
   if (!pianoRoll || !projection || projection.status !== "supported") return null;
 
-  const pieceEndSeconds = Math.max(
-    projection.endSeconds,
-    ...(pianoRoll.notes ?? []).map((note) => note.end),
-  );
-  const selectedNoteId = workspace.selection?.noteIds?.length === 1
-    ? workspace.selection.noteIds[0]
-    : null;
+  const pieceEndSeconds = Math.max(projection.endSeconds, ...(pianoRoll.notes ?? []).map((note) => note.end));
+  const selectedNoteId = workspace.selection?.noteIds?.length === 1 ? workspace.selection.noteIds[0] : null;
 
   const selectSingleNote = (note: MelodyReductionNote) => {
     setSelection({
@@ -304,9 +275,7 @@ export default function MelodyReduction({ insight }: { insight: Insight }) {
       provenance: { origin: null, timeExact: true, measureApproximate: false },
     });
     setActiveRepresentation("piano_roll");
-    if (transport.activeSource?.role !== "score") {
-      seek(note.startSeconds);
-    }
+    if (transport.activeSource?.role !== "score") seek(note.startSeconds);
   };
 
   const startPlayback = (sourceRef: MelodyPlaybackSourceRef) => {

@@ -36,12 +36,10 @@ subgraph app["app"]
 end
 subgraph components["components"]
   components_AuthProvider_tsx["AuthProvider.tsx"]
-  components_BrandMark_tsx["BrandMark.tsx"]
   components_MSWInit_tsx["MSWInit.tsx"]
   components_QueryProvider_tsx["QueryProvider.tsx"]
-  components_SheetMusic_tsx["SheetMusic.tsx"]
-  subgraph components_design["design"]
-    components_design_[" "]
+  subgraph components_brand["brand"]
+    components_brand_[" "]
   end
   subgraph components_ui["ui"]
     components_ui_[" "]
@@ -127,7 +125,7 @@ app_layout_tsx-->components_AuthProvider_tsx
 app_layout_tsx-->components_MSWInit_tsx
 app_layout_tsx-->components_QueryProvider_tsx
 app_page_tsx-->components_AuthProvider_tsx
-app_page_tsx-->components_design_
+app_page_tsx-->components_brand_
 app_page_tsx-->components_workspace_
 app_page_tsx-->lib_server_state_ts
 app_page_tsx-->lib_supabase_ts
@@ -136,10 +134,6 @@ components_AuthProvider_tsx-->lib_musicxml_cache_ts
 components_AuthProvider_tsx-->lib_supabase_ts
 components_MSWInit_tsx-->app__test_support_
 components_QueryProvider_tsx-->lib_query_client_ts
-components_SheetMusic_tsx-->lib_analysis_annotations_ts
-components_SheetMusic_tsx-->lib_measure_ts
-components_SheetMusic_tsx-->lib_score_measure_geometry_ts
-components_SheetMusic_tsx-->lib_score_note_playback_ts
 components_workspace_-->components_AuthProvider_tsx
 components_workspace_-->lib_api_client_ts
 components_workspace_-->lib_format_ts
@@ -165,12 +159,14 @@ components_workspace_-->lib_supabase_ts
 components_workspace_-->lib_work_selection_ts
 components_workspace_-->lib_representation_availability_ts
 components_workspace_-->lib_score_renderer_ts
-components_workspace_-->components_SheetMusic_tsx
 components_workspace_-->lib_analysis_annotations_ts
 components_workspace_-->lib_evidence_projections_ts
 components_workspace_-->lib_pulse_grid_ts
 components_workspace_-->lib_representations_ts
 components_workspace_-->lib_notes_ts
+components_workspace_-->lib_measure_ts
+components_workspace_-->lib_score_measure_geometry_ts
+components_workspace_-->lib_score_note_playback_ts
 components_workspace_-->lib_canvas_typography_ts
 components_workspace_-->lib_color_ts
 components_workspace_-->lib_spectrogram_ts

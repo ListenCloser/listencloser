@@ -144,13 +144,13 @@ test.describe("workspace ergonomics (MSW)", () => {
 
     const processing = page.getByRole("dialog", { name: "Process recording" });
     await expect(processing).toBeVisible();
-    await expect(processing.getByRole("button", { name: "Auto", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(processing.getByRole("button", { name: "MuseScore", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(processing.getByRole("radio", { name: "Auto", exact: true })).toBeChecked();
+    await expect(processing.getByRole("radio", { name: "MuseScore", exact: true })).toBeChecked();
 
-    await processing.getByRole("button", { name: "Solo piano", exact: true }).click();
-    await processing.getByRole("button", { name: "PM2S", exact: true }).click();
-    await expect(processing.getByRole("button", { name: "Solo piano", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(processing.getByRole("button", { name: "PM2S", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await processing.getByRole("radio", { name: "Solo piano", exact: true }).click();
+    await processing.getByRole("radio", { name: "PM2S", exact: true }).click();
+    await expect(processing.getByRole("radio", { name: "Solo piano", exact: true })).toBeChecked();
+    await expect(processing.getByRole("radio", { name: "PM2S", exact: true })).toBeChecked();
 
     await processing.getByRole("button", { name: "Close processing options" }).click();
     await expect(processing).not.toBeVisible();

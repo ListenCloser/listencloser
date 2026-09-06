@@ -1,0 +1,80 @@
+.root {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--line-subtle);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.heading {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.titleLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.description,
+.status,
+.caveat {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
+  line-height: var(--line-height-default);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.plotLayout {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
+  text-align: right;
+}
+
+.plot {
+  width: 100%;
+  height: 180px;
+  overflow: visible;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-lg);
+  cursor: crosshair;
+}
+
+.meta {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
+}
+
+.details {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
+  line-height: var(--line-height-default);
+}
