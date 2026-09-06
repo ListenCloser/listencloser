@@ -1,17 +1,20 @@
 "use client";
 
-import { useMemo, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import PianoRoll from "./PianoRoll";
 import Spectrogram from "./Spectrogram";
 import Waveform from "./Waveform";
 import SheetMusic from "@/components/SheetMusic";
 import MelodyReduction from "@/components/workspace/inspector/MelodyReduction";
+import PianoRollCorrectionCoordinator from "@/components/workspace/PianoRollCorrectionCoordinator";
+import PianoRollCorrectionPanel from "@/components/workspace/PianoRollCorrectionPanel";
 import { buildExactHarmonyProjection } from "@/components/workspace/inspector/HarmonyEvidence";
 import { extractAnnotations } from "@/lib/analysis-annotations";
 import {
   resolveEvidenceProjection,
   type EvidenceProjectionTarget,
 } from "@/lib/evidence-projections";
+import type { EditablePianoRollNote } from "@/lib/piano-roll-correction";
 import {
   REPRESENTATION_CATALOG,
   type RepresentationId,
@@ -116,8 +119,10 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
   const { transport, seek } = useTransport();
   const { timeline } = useTimeline();
   const entry = workspace.representations.find((item) => item.kind === "piano_roll");
+  const sourceNotes = entry?.notes ?? [];
+  const [draftNotes, setDraftNotes] = useState<EditablePianoRollNote[] | null>(null);
+  const notes = draftNotes ?? sourceNotes;
   const melody = workspace.insights.find((item) => item.kind === "melody");
-  const notes = entry?.notes ?? [];
   const pulseGrid = useMemo(
     () => extractObservedPulseGrid(workspace.insights, entry?.versionId),
     [workspace.insights, entry?.versionId],
@@ -139,12 +144,35 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
     );
     return match?.id ?? null;
   }, [selection, annotations]);
-  const selectedNoteIds = selection?.timeRange
-    ? noteIdsInRange(notes, selection.timeRange.start, selection.timeRange.end)
-    : [];
+  const selectedNoteIds = selection?.noteIds?.length
+    ? selection.noteIds
+    : selection?.timeRange
+      ? noteIdsInRange(notes, selection.timeRange.start, selection.timeRange.end)
+      : [];
+
+  useEffect(() => {
+    // A source switch (including a freshly saved correction) is a new immutable
+    // note world. Never carry an unsaved draft across that authority boundary.
+    setDraftNotes(null);
+  }, [entry?.versionId]);
+
   return (
     <div className="representation-body">
+      <PianoRollCorrectionCoordinator />
       {melody && <MelodyReduction insight={melody} />}
+      <PianoRollCorrectionPanel
+        sourceNotes={sourceNotes}
+        sourceVersionId={entry?.versionId ?? null}
+        draftNotes={draftNotes}
+        selectedNoteIds={selectedNoteIds}
+        selectionTimeRange={selection?.timeRange ?? null}
+        onDraftChange={setDraftNotes}
+        onCancel={() => setDraftNotes(null)}
+        onSelectNote={(id) => {
+          const composed = composeNoteSelection(notes, [id]);
+          if (composed) setSelection(composed);
+        }}
+      />
       <PianoRoll
         notes={notes}
         bpm={timeline.bpm}
@@ -156,7 +184,7 @@ function PianoRollView({ active, orientationCue = false }: RepresentationViewPro
         focusedAnnotationId={focusedAnnotationId}
         onSeek={seek}
         selectionTimeRange={selection?.timeRange}
-        selectedNoteIds={selection?.noteIds ?? selectedNoteIds}
+        selectedNoteIds={selectedNoteIds}
         emphasizeSelection={active && orientationCue}
         onSelectRange={(start, end) =>
           setSelection(composeTimeSelection(start, end, notes, "piano_roll"))
