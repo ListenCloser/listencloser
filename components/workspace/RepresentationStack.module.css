@@ -160,6 +160,20 @@
   }
 }
 
+@media (max-width: 600px) {
+  .root {
+    grid-template-rows: 44px minmax(0, 1fr);
+  }
+
+  .emptyRoot {
+    grid-template-rows: 1fr;
+  }
+
+  .toolbar {
+    height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .loadingVisual span {
     animation: none;
