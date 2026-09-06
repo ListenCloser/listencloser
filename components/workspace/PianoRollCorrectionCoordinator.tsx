@@ -1,17 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useAuth } from "@/components/AuthProvider";
-import { clearWorkDataCache } from "@/lib/api-client";
+import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import { startCorrectWorkflow } from "@/lib/correction-client";
 import { JobObservationError, waitForJob } from "@/lib/job-tracking";
-import { useLibraryProject } from "@/lib/server-state";
 import { useWorkspace } from "@/lib/stores/workspace";
 
 export default function PianoRollCorrectionCoordinator() {
-  const { user } = useAuth();
-  const projectQuery = useLibraryProject(user?.id ?? "");
-  const projectId = projectQuery.data?.id ?? "";
   const {
     clearSelection,
     selectPianoRollSource,
@@ -30,7 +25,7 @@ export default function PianoRollCorrectionCoordinator() {
       handledAction.current = 0;
       return;
     }
-    if (action.id === handledAction.current || !projectId || !workId) return;
+    if (action.id === handledAction.current || !workId) return;
     handledAction.current = action.id;
     let cancelled = false;
 
@@ -41,9 +36,14 @@ export default function PianoRollCorrectionCoordinator() {
         message: "Queued",
       });
       try {
+        // Resolve the project from the exact active Work at mutation time. This
+        // avoids ambient Library-project state and keeps passive representation
+        // rendering free of a React Query dependency.
+        const bundle = await getWorkBundle(workId);
+        if (cancelled) return;
         const { jobId } = await startCorrectWorkflow(
           action.sourceVersionId,
-          projectId,
+          bundle.work.project_id,
           action.replacement,
         );
         const completed = await waitForJob(jobId, (current) => {
@@ -84,7 +84,6 @@ export default function PianoRollCorrectionCoordinator() {
     };
   }, [
     clearSelection,
-    projectId,
     selectPianoRollSource,
     setPianoRollCorrectionOperation,
     workspace.activeWorkId,
