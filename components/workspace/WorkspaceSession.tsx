@@ -51,6 +51,7 @@ const SCORE_ACCEPT = ".musicxml,.xml,application/vnd.recordare.musicxml+xml,appl
 const SCORE_EXTENSIONS = new Set(["musicxml", "xml"]);
 const ALLOWED_EXTENSIONS = new Set(["wav", "mp3", "m4a", "flac", "ogg", "aac"]);
 const ACTIVE_JOB_STATES = new Set(["queued", "claimed", "running"]);
+const OPTIONAL_ANALYSIS_CAPABILITIES = new Set(["melody_audition", "structure_map", "symbolic_detail"]);
 const PROCESSING_REFRESH_MS = 1200;
 type UploadStage = "idle" | "uploading" | "processing" | "disconnected" | "success" | "error";
 
@@ -146,10 +147,9 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       // Optional analyses own their own execution/failure UI. Do not let one
       // replace Work-level Understand/Score state just because it is the newest
       // job in the immutable Work history.
-      const latestJob = bundle.jobs.find((job) => (
-        job.capability.name !== "structure_map"
-        && job.capability.name !== "melody_audition"
-      ));
+      const latestJob = bundle.jobs.find(
+        (job) => !OPTIONAL_ANALYSIS_CAPABILITIES.has(job.capability.name),
+      );
       const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
       const failedJob = latestJob?.lifecycle.current === "failed" ? latestJob : undefined;
       const cancelledJob = latestJob?.lifecycle.current === "cancelled" ? latestJob : undefined;

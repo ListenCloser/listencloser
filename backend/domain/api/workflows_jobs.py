@@ -21,6 +21,7 @@ _PUBLIC_CREATE_WORKFLOW_ACTIONS = frozenset(
         "pitch_contour",
         "production_spatial",
         "structure_map",
+        "symbolic_detail",
         "transform",
     }
 )
