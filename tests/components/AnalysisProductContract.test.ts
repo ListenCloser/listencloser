@@ -29,10 +29,14 @@ describe("analysis product contract", () => {
     }
   });
 
-  it("keeps current task-language fixtures mapped to real discovery rows", () => {
+  it("keeps current task-language fixtures mapped to discoverable user terms", () => {
     for (const taskCase of DISCOVERABILITY_TASK_CASES) {
-      expect(taskCase.task.trim().length).toBeGreaterThan(0);
-      expect(ANALYSIS_DISCOVERY_DEFINITIONS[taskCase.expected]).toBeDefined();
+      const definition = ANALYSIS_DISCOVERY_DEFINITIONS[taskCase.expected];
+      const task = taskCase.task.toLowerCase();
+
+      expect(task.trim().length).toBeGreaterThan(0);
+      expect(definition).toBeDefined();
+      expect(definition.searchAliases.some((alias) => task.includes(alias))).toBe(true);
     }
   });
 
