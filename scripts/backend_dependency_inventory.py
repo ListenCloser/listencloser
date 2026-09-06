@@ -44,6 +44,33 @@ IMPORT_PREFIX_OVERRIDES: dict[str, tuple[str, ...]] = {
     "pyfluidsynth": ("fluidsynth",),
     "beat-this": ("beat_this",),
     "lv-chordia": ("lv_chordia",),
+    "pesto-pitch": ("pesto",),
+    "setuptools": ("setuptools", "pkg_resources"),
+}
+
+# Imports that intentionally have no matching declared dependency. Every entry
+# must carry provenance. Most are installed inside the production image by the
+# Dockerfile outside uv.lock; moving them into the locked dependency graph is
+# the preferred follow-up, but a hard gate would otherwise fail the deploy path
+# that today legitimately depends on them.
+ALLOWED_UNDECLARED: dict[str, str] = {
+    "syncalong": (
+        "Installed in the production image via uv pip --no-deps "
+        "(backend/Dockerfile syncalong stage); MIT; pinned syncalong==2.0.1 "
+        "plus rapidfuzz/tiktoken/more-itertools/regex/requests. Not yet "
+        "declared in pyproject.toml/uv.lock; preferred follow-up is to move it "
+        "into the locked worker dependency group."
+    ),
+    "pm2s": (
+        "Vendored from the PM2S source archive in backend/Dockerfile (pm2s "
+        "stage); MIT; pinned commit 9586f91. Deliberately not a pip dependency; "
+        "the compatibility patch is recorded in /opt/pm2s/LISTENCLOSER_PROVENANCE.txt."
+    ),
+    "starlette": (
+        "Transitive of fastapi; imported directly for concurrency helpers "
+        "(backend/ask/api.py). Declared dependency would pin a fastapi-"
+        "compatible starlette; kept transitive intentionally."
+    ),
 }
 
 # These are intentionally direct dependencies even though ListenCloser does not
@@ -344,6 +371,56 @@ def inventory(repo_root: Path) -> dict[str, object]:
     }
 
 
+def check_undeclared_imports(repo_root: Path) -> int:
+    """Fail when production (api/worker) code imports a package that is neither
+    a declared dependency nor on the ALLOWED_UNDECLARED provenance allowlist.
+
+    This is the shift-left gate for the class of deploy-blocking bugs where a
+    new engine imports a package that was never declared (e.g. miditoolkit):
+    today those only surface in the merge queue's expensive integration run.
+    """
+    repo_root = repo_root.resolve()
+    backend_root = repo_root / "backend"
+    pyproject_path = backend_root / "pyproject.toml"
+
+    files = discover_python_files(backend_root)
+    graph, external_imports = build_import_graph(files, backend_root)
+    groups = entrypoint_groups(files, backend_root)
+    reachable = {group: reachable_files(roots, graph) for group, roots in groups.items()}
+
+    declared = load_declared_dependencies(pyproject_path)
+    prefix_map = {item["name"]: import_prefixes(item["name"]) for item in declared}
+
+    violations: dict[str, dict[str, list[str]]] = {}
+    for group in ("api", "worker"):
+        for path in sorted(reachable.get(group, set())):
+            for module in sorted(external_imports[path]):
+                if matched_dependency(module, prefix_map) is not None:
+                    continue
+                root = module.split(".", 1)[0]
+                if root in ALLOWED_UNDECLARED:
+                    continue
+                violations.setdefault(module, {}).setdefault(
+                    root, []
+                ).append(path.relative_to(repo_root).as_posix())
+
+    if not violations:
+        return 0
+
+    print("Undeclared production imports (missing dependency declarations):")
+    for module in sorted(violations):
+        root = module.split(".", 1)[0]
+        print(f"  {module}")
+        print(f"    root import: {root}")
+        for file in violations[module][root]:
+            print(f"    {file}")
+        print(
+            "    fix: declare the distribution in backend/pyproject.toml "
+            "(and uv lock), or document it in ALLOWED_UNDECLARED with provenance."
+        )
+    return 1
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -357,11 +434,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Emit compact JSON instead of indented JSON.",
     )
+    parser.add_argument(
+        "--check-undeclared-imports",
+        action="store_true",
+        help="Gate on production imports that resolve to no declared dependency.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.check_undeclared_imports:
+        return check_undeclared_imports(args.repo_root)
     payload = inventory(args.repo_root)
     if args.compact:
         print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
