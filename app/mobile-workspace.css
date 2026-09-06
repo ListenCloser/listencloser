@@ -4,6 +4,10 @@
  */
 
 @media (max-width: 820px) {
+  :root {
+    --workspace-header-height: 48px;
+  }
+
   .studio-shell.studio-shell-v3 {
     height: 100dvh !important;
     min-height: 480px;
@@ -20,17 +24,54 @@
   }
 
   .studio-library.studio-library-v3 {
+    position: fixed;
+    top: var(--workspace-header-height);
+    bottom: var(--transport-height);
+    left: 0;
     width: min(286px, 86vw) !important;
     max-height: none !important;
     border-right: 1px solid var(--line-subtle) !important;
     border-bottom: 0;
+    transform: translateX(0);
+    transition: transform var(--motion-duration-fast) var(--motion-ease-standard);
+    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.38);
+    z-index: 70;
+  }
+
+  .studio-library.studio-library-v3.is-collapsed {
+    transform: translateX(-102%);
+    box-shadow: none;
+    pointer-events: none;
   }
 
   .studio-inspector.studio-inspector-v3 {
+    position: fixed;
+    top: var(--workspace-header-height);
+    right: 0;
+    bottom: var(--transport-height);
     width: min(340px, 92vw) !important;
+    min-width: 0 !important;
     max-height: none !important;
     border-left: 1px solid var(--line-subtle) !important;
     border-bottom: 0;
+    transform: translateX(102%);
+    transition: transform var(--motion-duration-fast) var(--motion-ease-standard);
+    box-shadow: -20px 0 50px rgba(0, 0, 0, 0.38);
+    z-index: 72;
+  }
+
+  .studio-inspector.studio-inspector-v3.is-open {
+    transform: translateX(0);
+  }
+
+  .studio-inspector-backdrop {
+    position: fixed;
+    inset: var(--workspace-header-height) 0 var(--transport-height) 0;
+    z-index: 68;
+    display: block;
+    border: 0;
+    background: rgba(5, 7, 6, 0.54);
+    backdrop-filter: blur(1px);
   }
 }
 
@@ -42,11 +83,6 @@
 
   .studio-header-v3 {
     padding-inline: 7px;
-  }
-
-  .studio-brand-mark {
-    width: 34px;
-    height: 34px;
   }
 
   .studio-mobile-action {
@@ -115,20 +151,13 @@
 }
 
 @media (max-width: 390px) {
-  .studio-document-title {
-    padding-inline: 6px;
-  }
-
-  .studio-document-name {
-    max-width: 31vw;
-  }
-
   .studio-mobile-action {
     padding-inline: 8px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .studio-library-v3,
   .studio-inspector-v3 {
     transition: none;
   }
