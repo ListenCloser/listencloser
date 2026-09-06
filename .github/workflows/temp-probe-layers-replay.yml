@@ -127,8 +127,74 @@ jobs:
             fi
             if [ "$commit" = "1c7aecede661d365b06fed8b25b8870c9c0e3ccf" ] && [ "$conflicts" = "components/workspace/StructureMap.tsx" ]; then
               git checkout --ours components/workspace/StructureMap.tsx
-              git diff "$commit^" "$commit" -- components/workspace/StructureMap.tsx > /tmp/layers-structure-map.patch
-              git apply --whitespace=nowarn /tmp/layers-structure-map.patch
+              python - <<'PY'
+          from pathlib import Path
+          path = Path('components/workspace/StructureMap.tsx')
+          text = path.read_text()
+          def replace_once(old: str, new: str, label: str) -> None:
+              global text
+              if old not in text:
+                  raise SystemExit(f'StructureMap anchor not found: {label}')
+              text = text.replace(old, new, 1)
+
+          import_line = 'import { useLayerAnalysis } from "@/components/workspace/useLayerAnalysis";\n'
+          if import_line not in text:
+              anchor = 'import AddAnalysis, { type AddAnalysisOption } from "@/components/workspace/AddAnalysis";\n'
+              replace_once(anchor, anchor + import_line, 'layer import')
+
+          replace_once(
+              'export default function StructureMap() {\n',
+              'export default function StructureMap({ canProcess = false }: { canProcess?: boolean }) {\n',
+              'component signature',
+          )
+          transport = '  const { transport, seek, play, setActiveSource, audioRef } = useTransport();\n'
+          if '  const layerAnalysis = useLayerAnalysis(canProcess);\n' not in text:
+              replace_once(transport, transport + '  const layerAnalysis = useLayerAnalysis(canProcess);\n', 'layer hook')
+
+          effect_anchor = '''  useEffect(() => {
+            const workId = workspace.activeWorkId;
+            const jobId = activeJobId;
+          '''
+          layer_effect = '''  // Layers owns its durable job state but discovery remains in the shared chooser.
+            useEffect(() => {
+              if (layerAnalysis.option?.busy || layerAnalysis.notice) setChooserOpen(true);
+            }, [layerAnalysis.notice, layerAnalysis.option?.busy]);
+
+          '''
+          if 'Layers owns its durable job state' not in text:
+              replace_once(effect_anchor, layer_effect + effect_anchor, 'layer lifecycle effect')
+
+          if '    analysisOptions.push(layerAnalysis.option);\n' not in text:
+              replace_once(
+                  '  if (hasExactSelectedPassage) {\n',
+                  '  if (layerAnalysis.option) {\n    analysisOptions.push(layerAnalysis.option);\n  }\n  if (hasExactSelectedPassage) {\n',
+                  'chooser option',
+              )
+
+          replace_once(
+              '  const notice = [error, pitchError].filter(Boolean).join(" · ") || null;\n',
+              '  const notice = [error, pitchError, layerAnalysis.notice].filter(Boolean).join(" · ") || null;\n'
+              '  const noticeRole = (\n'
+              '    busy\n'
+              '    || pitchBusy\n'
+              '    || observationLost\n'
+              '    || pitchObservationLost\n'
+              '    || (Boolean(layerAnalysis.notice) && layerAnalysis.noticeRole === "status")\n'
+              '  ) ? "status" : "alert";\n',
+              'notice composition',
+          )
+          replace_once(
+              '      noticeRole={busy || pitchBusy || observationLost || pitchObservationLost ? "status" : "alert"}\n',
+              '      noticeRole={noticeRole}\n',
+              'notice role',
+          )
+          replace_once(
+              '    if (status === "loading" && pitchStatus === "loading" && !chooserOpen && !pitchReady) return null;\n',
+              '    if (status === "loading" && pitchStatus === "loading" && !chooserOpen && !pitchReady && !layerAnalysis.option) return null;\n',
+              'loading visibility',
+          )
+          path.write_text(text)
+          PY
               git add components/workspace/StructureMap.tsx
               GIT_EDITOR=true git cherry-pick --continue
               continue
