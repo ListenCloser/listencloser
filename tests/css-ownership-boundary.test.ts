@@ -27,6 +27,7 @@ function cssFiles(root: string): string[] {
 
 const RAW_COLOR = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i;
 const LEGACY_TOKEN = /var\(--(?:bg|bg-subtle|panel(?:-[234])?|text|muted|accent(?:-strong|-soft|-2|-soft-2)?|border(?:-strong)?|danger(?:-soft)?|success(?:-soft)?|r-(?:sm|md|lg|xl|full)|s-[1-8]|fs-(?:xs|sm|base|md|lg|xl|2xl)|fw-(?:normal|medium|semibold|bold)|ease|dur|shell-(?:sidebar|chat))\)/;
+const LEGACY_RENDERER_TOKEN_NAME = /["']--(?:bg|bg-subtle|panel(?:-[234])?|text|muted|accent(?:-strong|-soft|-2|-soft-2)?|border(?:-strong)?)["']/;
 
 describe("frontend visual ownership", () => {
   it("does not restore retired historical styling layers", () => {
@@ -95,6 +96,19 @@ describe("frontend visual ownership", () => {
       .map((path) => relative(ROOT, path));
 
     expect(offenders).toEqual([]);
+  });
+
+  it("uses canonical token names in canvas renderer consumers", () => {
+    const renderers = [
+      "components/workspace/representations/Waveform.tsx",
+      "components/workspace/representations/Spectrogram.tsx",
+    ];
+
+    for (const path of renderers) {
+      const source = read(path);
+      expect(source, path).not.toMatch(LEGACY_RENDERER_TOKEN_NAME);
+      expect(source, path).not.toContain('className="muted');
+    }
   });
 
   it("keeps headless-vendor imports behind components/ui", () => {

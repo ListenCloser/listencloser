@@ -137,13 +137,13 @@ export default function Spectrogram({
     const context = canvas.getContext("2d");
     if (!context) return;
     const styles = getComputedStyle(document.documentElement);
-    const panel = styles.getPropertyValue("--panel").trim() || "#0b0d0c";
-    const muted = styles.getPropertyValue("--muted").trim() || "#737a72";
-    const accent = styles.getPropertyValue("--accent").trim() || "#dff45a";
-    const playhead = styles.getPropertyValue("--score-playback").trim() || "#ff745d";
-    const rhythm = styles.getPropertyValue("--color-rhythm").trim() || "#929b96";
-    const harmony = styles.getPropertyValue("--color-harmony").trim() || "#819b9b";
-    const theory = styles.getPropertyValue("--color-theory").trim() || "#819b9b";
+    const panel = styles.getPropertyValue("--surface-music-deep").trim();
+    const muted = styles.getPropertyValue("--text-tertiary").trim();
+    const accent = styles.getPropertyValue("--action-primary").trim();
+    const playhead = styles.getPropertyValue("--representation-playback-on-dark").trim();
+    const rhythm = styles.getPropertyValue("--color-rhythm").trim();
+    const harmony = styles.getPropertyValue("--color-harmony").trim();
+    const theory = styles.getPropertyValue("--color-theory").trim();
     const width = canvasWidth;
     const height = SPECTROGRAM_HEIGHT;
 
@@ -306,8 +306,8 @@ export default function Spectrogram({
         onPointerUp={handlePointerUp}
         onPointerLeave={() => { if (draggingRef.current?.moved) setPreview(null); draggingRef.current = null; }}
       />
-      {status === "loading" && <p className="muted spectrogram-status">Rendering spectrogram{progress > 0 ? ` ${Math.round(progress * 100)}%` : ""}&hellip;</p>}
-      {status === "error" && <p className="muted spectrogram-status">Spectrogram unavailable.</p>}
+      {status === "loading" && <p className="spectrogram-status">Rendering spectrogram{progress > 0 ? ` ${Math.round(progress * 100)}%` : ""}&hellip;</p>}
+      {status === "error" && <p className="spectrogram-status">Spectrogram unavailable.</p>}
     </div>
   );
 }
