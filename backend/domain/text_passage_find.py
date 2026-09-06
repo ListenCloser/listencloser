@@ -1,9 +1,9 @@
 """Bounded natural-language passage retrieval within one exact Work.
 
 This is an experimental relation, not a factual detector. A candidate means only
-that its CLaMP3 representation is close to the supplied text under the declared
-model/runtime. Results are ephemeral and exact-source scoped; no generic vector
-index or embedding authority is introduced here.
+that one directly-related performance-MIDI passage is close to the supplied text
+under the declared CLaMP3 C2 method. Results are ephemeral and exact-source
+scoped; no generic vector index or embedding authority is introduced here.
 """
 
 from __future__ import annotations
@@ -51,8 +51,11 @@ class TextPassageFindObservation(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     source_version_id: UUID
+    performance_version_id: UUID
     query_text: str
-    method: Literal["clamp3_text_audio_cosine"] = "clamp3_text_audio_cosine"
+    method: Literal["clamp3_c2_text_performance_cosine"] = (
+        "clamp3_c2_text_performance_cosine"
+    )
     embedding_dim: int = Field(gt=0)
     duration_seconds: float = Field(gt=0)
     runtime_seconds: float | None = Field(default=None, ge=0)
@@ -70,54 +73,102 @@ class TextPassageFindResult(BaseModel):
     reasons: list[str] = Field(default_factory=list)
 
 
-def _source_artifact(
+def _artifact_for_version(
     snapshot: WorkBundleSnapshot,
-    source_version: Version,
-) -> tuple[Artifact | None, list[str]]:
+    version: Version,
+) -> Artifact | None:
     artifact = next(
-        (item for item in snapshot.artifacts if item.id == source_version.artifact_id),
+        (item for item in snapshot.artifacts if item.id == version.artifact_id),
         None,
     )
-    if artifact is None or source_version.id not in {
-        version.id for version in snapshot.versions_by_artifact.get(source_version.artifact_id, [])
-    }:
-        return None, ["source Version is not part of the authorized Work snapshot"]
+    if artifact is None:
+        return None
+    authorized_ids = {
+        item.id for item in snapshot.versions_by_artifact.get(version.artifact_id, [])
+    }
+    return artifact if version.id in authorized_ids else None
+
+
+def _validate_source(
+    snapshot: WorkBundleSnapshot,
+    source_version: Version,
+) -> list[str]:
+    artifact = _artifact_for_version(snapshot, source_version)
+    if artifact is None:
+        return ["source Version is not part of the authorized Work snapshot"]
     if artifact.kind not in _ALLOWED_SOURCE_KINDS:
-        return None, ["text passage Find requires an audio source Version"]
-    return artifact, []
+        return ["text passage Find requires an audio source Version"]
+    return []
+
+
+def _validate_performance(
+    snapshot: WorkBundleSnapshot,
+    *,
+    source_version: Version,
+    performance_version: Version,
+) -> tuple[TextPassageFindStatus | None, list[str]]:
+    artifact = _artifact_for_version(snapshot, performance_version)
+    if artifact is None:
+        return "failed", [
+            "performance Version is not part of the authorized Work snapshot"
+        ]
+    if artifact.kind != ArtifactKind.midi_performance:
+        return "withheld", [
+            "CLaMP3 C2 Find requires an exact performance-MIDI Version"
+        ]
+    if performance_version.parent_version_id != source_version.id:
+        return "withheld", [
+            "performance MIDI is not directly parented to the exact source audio Version"
+        ]
+    return None, []
 
 
 def find_text_passages(
     snapshot: WorkBundleSnapshot,
     *,
     source_version: Version,
+    performance_version: Version,
     query: TextPassageFindQuery,
-    load_source: Callable[[Version], bytes],
+    load_performance: Callable[[Version], bytes],
     retrieve: Callable[..., Any],
 ) -> TextPassageFindResult:
-    """Load one exact authorized source and run one bounded retrieval request."""
+    """Run bounded C2 retrieval over one exact source/performance Version pair."""
 
-    _, source_reasons = _source_artifact(snapshot, source_version)
+    source_reasons = _validate_source(snapshot, source_version)
     if source_reasons:
         return TextPassageFindResult(status="failed", reasons=source_reasons)
+
+    performance_status, performance_reasons = _validate_performance(
+        snapshot,
+        source_version=source_version,
+        performance_version=performance_version,
+    )
+    if performance_status is not None:
+        return TextPassageFindResult(
+            status=performance_status,
+            reasons=performance_reasons,
+        )
 
     normalized_text = query.text.strip()
     if not normalized_text:
         return TextPassageFindResult(status="withheld", reasons=["text query is empty"])
 
     try:
-        source_bytes = load_source(source_version)
+        performance_bytes = load_performance(performance_version)
     except Exception:
         return TextPassageFindResult(
             status="failed",
-            reasons=["source audio could not be loaded"],
+            reasons=["performance MIDI could not be loaded"],
         )
-    if not source_bytes:
-        return TextPassageFindResult(status="failed", reasons=["source audio is empty"])
+    if not performance_bytes:
+        return TextPassageFindResult(
+            status="failed",
+            reasons=["performance MIDI is empty"],
+        )
 
     try:
         retrieval = retrieve(
-            source_bytes,
+            performance_bytes,
             normalized_text,
             max_matches=query.max_matches,
         )
@@ -126,16 +177,16 @@ def find_text_passages(
         if "not fully pinned" in message or "not found" in message:
             return TextPassageFindResult(
                 status="unavailable",
-                reasons=["CLaMP3 internal runtime is not provisioned"],
+                reasons=["CLaMP3 C2 runtime is not provisioned"],
             )
         return TextPassageFindResult(
             status="failed",
-            reasons=["CLaMP3 passage retrieval failed"],
+            reasons=["CLaMP3 C2 passage retrieval failed"],
         )
     except (TypeError, ValueError):
         return TextPassageFindResult(
             status="withheld",
-            reasons=["text passage query is not valid for the retrieval method"],
+            reasons=["text passage query is not valid for the CLaMP3 C2 method"],
         )
 
     candidates = [
@@ -149,6 +200,7 @@ def find_text_passages(
     ]
     observation = TextPassageFindObservation(
         source_version_id=source_version.id,
+        performance_version_id=performance_version.id,
         query_text=normalized_text,
         embedding_dim=int(retrieval.embedding_dim),
         duration_seconds=float(retrieval.duration_seconds),
