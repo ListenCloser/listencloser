@@ -149,6 +149,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       const latestJob = bundle.jobs.find((job) => (
         job.capability.name !== "structure_map"
         && job.capability.name !== "melody_audition"
+        && job.capability.name !== "separate"
       ));
       const activeJob = latestJob && ACTIVE_JOB_STATES.has(latestJob.lifecycle.current) ? latestJob : undefined;
       const failedJob = latestJob?.lifecycle.current === "failed" ? latestJob : undefined;

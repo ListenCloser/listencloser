@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     TORCH_HOME=/app/.cache/torch \
+    HF_HOME=/app/.cache/huggingface \
+    HF_HUB_OFFLINE=1 \
     XDG_CACHE_HOME=/app/.cache
 
 # The production image hosts both the API and durable music worker today, so it
@@ -41,6 +43,26 @@ RUN if [ "$(uname -m)" = "aarch64" ]; then \
 RUN /app/.venv/bin/python -c "from beat_this.inference import load_checkpoint; load_checkpoint('final0')" \
     && sha256sum /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt \
     && echo "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331  /app/.cache/torch/hub/checkpoints/beat_this-final0.ckpt" | sha256sum --check -
+
+# Experimental Layers keeps the already-characterized HTDemucs candidate from
+# #1191. Demucs stays worker-image-only; acquire the exact checkpoint at build
+# time, verify its digest, and refuse any runtime model download.
+RUN uv pip install --python /app/.venv/bin/python 'cmake==3.31.10' \
+    && CMAKE=/app/.venv/bin/cmake uv pip install --python /app/.venv/bin/python 'demucs==4.1.0' \
+    && uv pip uninstall --python /app/.venv/bin/python cmake
+
+RUN HF_HOME=/app/.cache/huggingface /app/.venv/bin/python -c "import hashlib, importlib.metadata as md; from pathlib import Path; import numpy, torch; from demucs.pretrained import get_model; assert md.version('demucs') == '4.1.0'; assert numpy.__version__ == '1.26.4'; assert torch.__version__.split('+')[0] == '2.6.0'; model=get_model('htdemucs'); assert tuple(model.sources) == ('drums','bass','other','vocals'); matches=list(Path('/app/.cache/huggingface').rglob('955717e8.safetensors')); assert matches, 'verified HTDemucs checkpoint not found'; assert hashlib.sha256(matches[0].read_bytes()).hexdigest() == 'd9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd'"
+
+RUN printf '%s\n' \
+      "Demucs package 4.1.0" \
+      "Wrapper code license: MIT" \
+      "Wrapper source: https://github.com/adefossez/demucs" \
+      "Model: htdemucs / signature 955717e8" \
+      "Checkpoint: adefossez/HTDemucs/955717e8.safetensors" \
+      "Checkpoint SHA256: d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd" \
+      "Checkpoint license: MIT (author-hosted adefossez/HTDemucs repository)" \
+      "Inference parameters: CPU, shifts=0" \
+      > /app/.cache/HTDEMUCS_LISTENCLOSER_PROVENANCE.txt
 
 # #1181 uses syncalong's monotonic DP matcher over OpenAI Whisper word timestamps.
 # Keep this experimental runtime outside the base/dev set, pin the two engine
