@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pretty_midi
+import pytest
 
 import domain.capabilities as capabilities
 import domain.correction_entity_sync as correction_sync
@@ -56,7 +57,7 @@ def test_note_entities_from_midi_bytes_materializes_every_instrument() -> None:
     assert all(entity.version_id == version_id for entity in entities)
 
 
-def test_correction_sync_qualifies_version_replaces_entities_and_publishes_exact_playback(
+def test_correction_sync_replaces_entities_and_publishes_exact_playback_output(
     monkeypatch,
 ) -> None:
     output_version_id = uuid4()
@@ -153,24 +154,6 @@ def test_correction_sync_qualifies_version_replaces_entities_and_publishes_exact
 
     monkeypatch.setattr(correction_sync, "EntityRepo", CapturingEntityRepo)
 
-    class VersionUpdateQuery:
-        def __init__(self):
-            self.payload: dict | None = None
-            self.filters: list[tuple[str, str]] = []
-            self.executed = False
-
-        def update(self, data: dict):
-            self.payload = data
-            return self
-
-        def eq(self, column: str, value: str):
-            self.filters.append((column, value))
-            return self
-
-        def execute(self):
-            self.executed = True
-            return SimpleNamespace(data=[])
-
     class DeleteQuery:
         def __init__(self):
             self.filters: list[tuple[str, str]] = []
@@ -189,37 +172,18 @@ def test_correction_sync_qualifies_version_replaces_entities_and_publishes_exact
             self.executed = True
             return SimpleNamespace(data=[])
 
-    version_query = VersionUpdateQuery()
     entity_query = DeleteQuery()
 
     class Client:
         def table(self, name: str):
-            if name == "artifact_versions":
-                return version_query
+            # Published Versions are immutable at the fenced worker boundary.
             assert name == "entities"
             return entity_query
 
     result = correction_sync.handle_correct_with_entity_sync(job, Client())
 
-    # Playback is an auxiliary exact-parent artifact; the correction Job keeps
-    # one primary MIDI output so the save coordinator remains deterministic.
-    assert result == [str(output_version_id)]
-    assert version_query.executed is True
-    assert version_query.filters == [("id", str(output_version_id))]
-    assert version_query.payload == {
-        "metadata": {
-            "existing": "preserved",
-            "representation": "edited_performance",
-            "correction": {
-                "schema_version": 1,
-                "operation": "replace_notes_in_span",
-                "source_version_id": str(source_version_id),
-                "selection_start_seconds": 1.0,
-                "selection_end_seconds": 1.5,
-                "replacement_note_count": 1,
-            },
-        }
-    }
+    assert result == [str(output_version_id), str(playback_version_id)]
+    assert output_version.metadata == {"existing": "preserved"}
     assert entity_query.deleted is True
     assert entity_query.executed is True
     assert entity_query.filters == [
@@ -253,7 +217,7 @@ def test_correction_sync_qualifies_version_replaces_entities_and_publishes_exact
     }
 
 
-def test_corrected_playback_failure_publishes_no_wrong_source_fallback(monkeypatch) -> None:
+def test_missing_synth_runtime_keeps_correction_without_playback(monkeypatch) -> None:
     corrected_version_id = uuid4()
     job = Job(
         workflow_id=uuid4(),
@@ -273,3 +237,33 @@ def test_corrected_playback_failure_publishes_no_wrong_source_fallback(monkeypat
         corrected_midi=_midi_bytes(),
         owner_id="owner",
     ) is None
+
+
+def test_playback_persistence_failure_is_not_hidden_as_success(monkeypatch) -> None:
+    corrected_version_id = uuid4()
+    job = Job(
+        workflow_id=uuid4(),
+        capability=Capability(name="correct", version="1.0"),
+        input_version_ids=[uuid4()],
+    )
+    monkeypatch.setattr(
+        correction_sync.music_features,
+        "midi_to_wav",
+        lambda *_args, **_kwargs: b"RIFF-corrected",
+    )
+    monkeypatch.setattr(capabilities, "_resolve_work_id", lambda *_: uuid4())
+    monkeypatch.setattr(capabilities, "_job_storage_key", lambda *_: "jobs/corrected.wav")
+
+    def fail_upload(*_args, **_kwargs):
+        raise RuntimeError("storage unavailable")
+
+    monkeypatch.setattr(capabilities, "_upload_bytes", fail_upload)
+
+    with pytest.raises(RuntimeError, match="storage unavailable"):
+        correction_sync._publish_corrected_playback(
+            job,
+            object(),
+            corrected_version_id=corrected_version_id,
+            corrected_midi=_midi_bytes(),
+            owner_id="owner",
+        )
