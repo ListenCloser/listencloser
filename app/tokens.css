@@ -31,6 +31,7 @@
   --text-inverse: #12150f;
   --line-subtle: rgba(239, 241, 233, 0.075);
   --line-strong: rgba(239, 241, 233, 0.14);
+  --line-emphasis: rgba(239, 241, 233, 0.22);
 
   /* Interaction and semantic roles */
   --action-primary: #dff45a;
@@ -45,7 +46,7 @@
   --intent-success: #28745b;
   --intent-success-soft: rgba(40, 116, 91, 0.1);
   --focus-ring: var(--action-primary);
-  --overlay-backdrop: rgba(5, 7, 6, 0.72);
+  --overlay-backdrop: rgba(5, 7, 6, 0.76);
 
   /* Music / measured representation roles */
   --waveform-trace: #d6dad2;
@@ -108,12 +109,18 @@
   --measurement-font-weight: 500;
 
   /* Motion */
-  --motion-duration-fast: 150ms;
+  --motion-duration-fast: 140ms;
   --motion-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Elevation / layers. Named values keep z-index and shadow policy centralized. */
-  --shadow-popover: 0 18px 48px rgba(0, 0, 0, 0.34), 0 2px 8px rgba(0, 0, 0, 0.18);
-  --shadow-dialog: 0 24px 70px rgba(0, 0, 0, 0.5);
+  /* Elevation. Keep depth subtle and application-like, not card-heavy. */
+  --shadow-control: inset 0 1px rgba(255, 255, 255, 0.035), 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-control-pressed: inset 0 1px 2px rgba(0, 0, 0, 0.26);
+  --shadow-raised-edge: inset 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-popover: 0 18px 48px rgba(0, 0, 0, 0.34), 0 2px 8px rgba(0, 0, 0, 0.18), var(--shadow-raised-edge);
+  --shadow-dialog: 0 24px 70px rgba(0, 0, 0, 0.5), var(--shadow-raised-edge);
+  --shadow-focus: 0 0 0 2px var(--surface-canvas), 0 0 0 4px color-mix(in srgb, var(--focus-ring) 70%, transparent);
+
+  /* Named layers */
   --layer-popover: 80;
   --layer-backdrop: 100;
   --layer-dialog: 101;
