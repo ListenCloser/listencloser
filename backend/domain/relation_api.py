@@ -28,11 +28,6 @@ from domain.rhythm_density_context_query import (
 )
 from domain.similar_moments_contract import MAX_MATCHES
 from domain.storage_locator_policy import classify_version_storage_locator
-from domain.text_passage_find import (
-    TextPassageFindQuery,
-    TextPassageFindResult,
-    find_text_passages,
-)
 from domain.work_bundle_repository import WorkBundleRepository, WorkBundleSnapshot
 
 router = APIRouter(prefix="/api/v1")
@@ -55,15 +50,6 @@ class SimilarMomentsBody(BaseModel):
     query_start_seconds: float
     query_end_seconds: float
     max_matches: int = Field(default=3, ge=1, le=MAX_MATCHES)
-
-
-class TextPassageFindBody(BaseModel):
-    """Find method-qualified passages for text using one exact performance Version."""
-
-    source_version_id: UUID
-    performance_version_id: UUID
-    text: str = Field(min_length=1, max_length=500)
-    max_matches: int = Field(default=3, ge=1, le=5)
 
 
 class RhythmDensityContextBody(BaseModel):
@@ -130,39 +116,6 @@ def _authorized_report_loader(
     return load_report
 
 
-def _authorized_version_loader(
-    snapshot: WorkBundleSnapshot,
-    sb,
-    owner_id: str,
-) -> Callable[[Version], bytes]:
-    """Load exact Version bytes only after snapshot and storage-locator authorization."""
-
-    artifact_ids = {artifact.id for artifact in snapshot.artifacts}
-    version_ids_by_artifact = {
-        artifact_id: {version.id for version in versions}
-        for artifact_id, versions in snapshot.versions_by_artifact.items()
-    }
-    allowed_job_ids = {job.id for job in snapshot.jobs}
-
-    def load_version(version: Version) -> bytes:
-        authorized_version_ids = version_ids_by_artifact.get(version.artifact_id, set())
-        if version.artifact_id not in artifact_ids or version.id not in authorized_version_ids:
-            raise PermissionError("Version is not in the authorized Work snapshot")
-
-        decision = classify_version_storage_locator(
-            version,
-            owner_id=owner_id,
-            project_id=snapshot.work.project_id,
-            artifact_id=version.artifact_id,
-            allowed_job_ids=allowed_job_ids,
-        )
-        if not decision.trusted:
-            raise PermissionError("Version storage locator is not authorized")
-        return sb.storage.from_(version.storage_bucket).download(version.storage_key)
-
-    return load_version
-
-
 def _authorized_work_snapshot(work_id: UUID, auth):
     sb = get_supabase()
     if not sb:
@@ -183,14 +136,6 @@ def find_persisted_similar_moments(*args, **kwargs):
     )
 
     return implementation(*args, **kwargs)
-
-
-def retrieve_clamp3_c2(*args, **kwargs):
-    """Lazy engine seam so the normal API import never loads model dependencies."""
-
-    from engines.retrieval.clamp3_c2 import default_clamp3_c2_retriever
-
-    return default_clamp3_c2_retriever().retrieve(*args, **kwargs)
 
 
 @router.get(
@@ -282,35 +227,6 @@ def similar_moments(
         load_report=_authorized_report_loader(snapshot, sb, owner_id),
     )
     return SimilarMomentsResponse.model_validate(result.model_dump())
-
-
-@router.post(
-    "/works/{work_id}/relations/text-passages",
-    response_model=TextPassageFindResult,
-)
-def text_passages(
-    work_id: UUID,
-    body: TextPassageFindBody,
-    auth=Depends(verify_token),
-):
-    """Find bounded text-qualified passages through exact performance-MIDI lineage."""
-
-    sb, owner_id, snapshot = _authorized_work_snapshot(work_id, auth)
-    source_version = _source_version(snapshot, body.source_version_id)
-    if source_version is None:
-        raise HTTPException(status_code=404, detail="Source version not found in work")
-    performance_version = _source_version(snapshot, body.performance_version_id)
-    if performance_version is None:
-        raise HTTPException(status_code=404, detail="Performance version not found in work")
-
-    return find_text_passages(
-        snapshot,
-        source_version=source_version,
-        performance_version=performance_version,
-        query=TextPassageFindQuery(text=body.text, max_matches=body.max_matches),
-        load_performance=_authorized_version_loader(snapshot, sb, owner_id),
-        retrieve=retrieve_clamp3_c2,
-    )
 
 
 @router.post(
