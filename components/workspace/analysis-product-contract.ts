@@ -47,43 +47,6 @@ export const ANALYSIS_DISCOVERY_DEFINITIONS: Record<AnalysisDiscoveryId, Analysi
   },
 };
 
-export type ProductReachability =
-  | "USER_REACHABLE"
-  | "INTERNAL_PRIMITIVE"
-  | "EVALUATION_ONLY"
-  | "WITHHELD"
-  | "ROLLBACK_ONLY"
-  | "MISSING_UI";
-
-export type ProductInspectionRuntime = {
-  runtimeId: string;
-  capability: string;
-  reachability: ProductReachability;
-  followUpIssue?: number;
-};
-
-// This is intentionally not another capability registry. backend/config/capabilities.json
-// remains authority for capability maturity/exposure. This list only records known
-// runtime/product-inspection exceptions that a product owner could otherwise close over.
-export const PRODUCT_INSPECTION_RUNTIME_EXCEPTIONS: readonly ProductInspectionRuntime[] = [
-  {
-    runtimeId: "chordmini",
-    capability: "chord",
-    reachability: "MISSING_UI",
-    followUpIssue: 1194,
-  },
-];
-
-export function validateProductInspectionReachability(
-  entries: readonly ProductInspectionRuntime[],
-): void {
-  for (const entry of entries) {
-    if (entry.reachability === "MISSING_UI" && !entry.followUpIssue) {
-      throw new Error(`${entry.runtimeId} is MISSING_UI without a focused UI follow-up`);
-    }
-  }
-}
-
 export const DISCOVERABILITY_TASK_CASES = [
   { task: "show me the shape or parts of this recording", expected: "structure-map" },
   { task: "trace the pitch or vocal line", expected: "pitch-contour" },
