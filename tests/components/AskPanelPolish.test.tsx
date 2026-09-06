@@ -28,7 +28,7 @@ function AskPanelWithSelection() {
 }
 
 describe("AskPanel polish", () => {
-  it("explains useful question scope and keeps the send affordance compact", () => {
+  it("explains useful question scope and delegates send geometry to the shared control", () => {
     render(<AskPanel />, { wrapper });
 
     expect(screen.getByText(/Ask about harmony, rhythm, structure, or a selected passage/)).toBeVisible();
@@ -36,8 +36,11 @@ describe("AskPanel polish", () => {
 
     const send = screen.getByRole("button", { name: "Send question" });
     expect(send).toBeDisabled();
-    expect(send.querySelector("svg")).toHaveAttribute("width", "14");
-    expect(send.querySelector("svg")).toHaveAttribute("height", "14");
+    const icon = send.querySelector("svg");
+    expect(icon).toHaveAttribute("viewBox", "0 0 16 16");
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+    expect(icon).not.toHaveAttribute("width");
+    expect(icon).not.toHaveAttribute("height");
   });
 
   it("consumes shared selection without duplicating its clear control", () => {
