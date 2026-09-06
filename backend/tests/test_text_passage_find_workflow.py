@@ -15,6 +15,7 @@ class TestTextPassageFindWorkflow:
     SOURCE_ARTIFACT_ID = UUID("00000000-0000-0000-0000-000000000123")
     PERFORMANCE_VERSION_ID = UUID("00000000-0000-0000-0000-000000000124")
     PERFORMANCE_ARTIFACT_ID = UUID("00000000-0000-0000-0000-000000000125")
+    SECONDARY_WORK_ID = UUID("00000000-0000-0000-0000-000000000198")
 
     def _client(self, monkeypatch, *, parent_matches: bool = True, same_work: bool = True):
         from auth_utils import verify_token
@@ -43,10 +44,14 @@ class TestTextPassageFindWorkflow:
         )
         performance_artifact = SimpleNamespace(
             id=self.PERFORMANCE_ARTIFACT_ID,
-            work_id=(self.WORK_ID if same_work else UUID("00000000-0000-0000-0000-000000000198")),
+            work_id=self.WORK_ID if same_work else self.SECONDARY_WORK_ID,
             kind=ArtifactKind.midi_performance,
         )
-        work = SimpleNamespace(id=self.WORK_ID, project_id=self.PROJECT_ID)
+        source_work = SimpleNamespace(id=self.WORK_ID, project_id=self.PROJECT_ID)
+        secondary_work = SimpleNamespace(
+            id=self.SECONDARY_WORK_ID,
+            project_id=self.PROJECT_ID,
+        )
 
         class FakeVersionRepo:
             def __init__(self, _sb):
@@ -73,7 +78,10 @@ class TestTextPassageFindWorkflow:
                 pass
 
             def get(self, work_id, _owner_id):
-                return work if work_id == self_ref.WORK_ID else None
+                return {
+                    self_ref.WORK_ID: source_work,
+                    self_ref.SECONDARY_WORK_ID: secondary_work,
+                }.get(work_id)
 
         class FakeJobRepo:
             def __init__(self):
