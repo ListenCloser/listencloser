@@ -121,8 +121,7 @@ class MuScriptorEngine(TranscriptionEngine):
         expected = str(self._model_sha256).lower()
         if actual != expected:
             raise RuntimeError(
-                "MuScriptor checkpoint SHA-256 mismatch; refusing to run an "
-                "unpinned model asset"
+                "MuScriptor checkpoint SHA-256 mismatch; refusing to run an " "unpinned model asset"
             )
         self._verified_model = cache_key
 
