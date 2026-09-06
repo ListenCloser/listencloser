@@ -21,7 +21,9 @@ def test_runtime_window_policy_includes_exact_tail_without_duplicate():
     assert _overlap(0, 10, 9.9, 20) is True
 
 
-def test_retriever_forces_offline_child_and_parses_bounded_result(monkeypatch, tmp_path):
+def test_retriever_forces_offline_child_and_parses_bounded_result(
+    monkeypatch, tmp_path
+):
     runtime_python = tmp_path / "python"
     checkout = tmp_path / "clamp3"
     weights = tmp_path / "weights.pth"
@@ -62,8 +64,16 @@ def test_retriever_forces_offline_child_and_parses_bounded_result(monkeypatch, t
             json.dumps(
                 {
                     "candidates": [
-                        {"start_seconds": 5.0, "end_seconds": 15.0, "similarity": 0.71},
-                        {"start_seconds": 25.0, "end_seconds": 35.0, "similarity": 0.62},
+                        {
+                            "start_seconds": 5.0,
+                            "end_seconds": 15.0,
+                            "similarity": 0.71,
+                        },
+                        {
+                            "start_seconds": 25.0,
+                            "end_seconds": 35.0,
+                            "similarity": 0.62,
+                        },
                     ],
                     "embedding_dim": 768,
                     "duration_seconds": 60.0,
@@ -89,7 +99,9 @@ def test_retriever_forces_offline_child_and_parses_bounded_result(monkeypatch, t
     assert child_env["TRANSFORMERS_OFFLINE"] == "1"
 
 
-def test_retriever_rejects_malformed_or_out_of_bounds_child_result(monkeypatch, tmp_path):
+def test_retriever_rejects_malformed_or_out_of_bounds_child_result(
+    monkeypatch, tmp_path
+):
     runtime_python = tmp_path / "python"
     checkout = tmp_path / "clamp3"
     weights = tmp_path / "weights.pth"
@@ -117,7 +129,11 @@ def test_retriever_rejects_malformed_or_out_of_bounds_child_result(monkeypatch, 
             json.dumps(
                 {
                     "candidates": [
-                        {"start_seconds": 50.0, "end_seconds": 70.0, "similarity": 0.4}
+                        {
+                            "start_seconds": 50.0,
+                            "end_seconds": 70.0,
+                            "similarity": 0.4,
+                        }
                     ],
                     "embedding_dim": 768,
                     "duration_seconds": 60.0,
