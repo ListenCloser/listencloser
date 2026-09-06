@@ -9,13 +9,11 @@ the ask/ package.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import yaml
 
-BACKEND_ROOT = Path(__file__).resolve().parents[0]
+from tests.repository_paths import BACKEND_ROOT, REPOSITORY_ROOT
+
 COMPOSE_PATH = BACKEND_ROOT / "docker-compose.yml"
-REPOSITORY_ROOT = BACKEND_ROOT.parents[1]
 DEPLOY_SCRIPT = REPOSITORY_ROOT / "scripts" / "deploy.sh"
 
 
