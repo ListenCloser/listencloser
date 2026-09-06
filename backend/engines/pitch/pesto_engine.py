@@ -72,9 +72,7 @@ def estimate_pitch_contour(wav_bytes: bytes) -> dict[str, Any]:
     hop_seconds = float(model.hop_size) / 1000.0
 
     frames: list[dict[str, Any]] = []
-    for index, (pitch_hz, score) in enumerate(
-        zip(pitch_values, confidence_values, strict=True)
-    ):
+    for index, (pitch_hz, score) in enumerate(zip(pitch_values, confidence_values, strict=True)):
         hz = float(pitch_hz)
         confidence_score = float(score)
         finite_pitch = math.isfinite(hz) and FMIN_HZ <= hz <= FMAX_HZ
