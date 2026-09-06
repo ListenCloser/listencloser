@@ -44,21 +44,32 @@ def test_frames_preserve_coordinates_voicing_probability_and_unvoiced_nulls():
 def test_pitch_job_defaults_to_pyin_and_accepts_explicit_alternates():
     capability = Capability(name="pitch_contour", version="1.0")
 
-    assert _requested_engine(Job(workflow_id="00000000-0000-0000-0000-000000000001", capability=capability)) == "pyin"
-    assert _requested_engine(
-        Job(
-            workflow_id="00000000-0000-0000-0000-000000000001",
-            capability=capability,
-            parameters={"pitch_engine": "torchcrepe"},
+    assert (
+        _requested_engine(
+            Job(workflow_id="00000000-0000-0000-0000-000000000001", capability=capability)
         )
-    ) == "torchcrepe"
-    assert _requested_engine(
-        Job(
-            workflow_id="00000000-0000-0000-0000-000000000001",
-            capability=capability,
-            parameters={"pitch_engine": "pesto"},
+        == "pyin"
+    )
+    assert (
+        _requested_engine(
+            Job(
+                workflow_id="00000000-0000-0000-0000-000000000001",
+                capability=capability,
+                parameters={"pitch_engine": "torchcrepe"},
+            )
         )
-    ) == "pesto"
+        == "torchcrepe"
+    )
+    assert (
+        _requested_engine(
+            Job(
+                workflow_id="00000000-0000-0000-0000-000000000001",
+                capability=capability,
+                parameters={"pitch_engine": "pesto"},
+            )
+        )
+        == "pesto"
+    )
 
 
 def test_pitch_job_rejects_unknown_engine():
