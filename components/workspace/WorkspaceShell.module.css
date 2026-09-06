@@ -5,7 +5,7 @@
     var(--active-workspace-header-height)
     minmax(0, 1fr)
     var(--active-workspace-status-height)
-    var(--layout-transport-height);
+    var(--transport-height);
 }
 
 .shell > :global(.studio-header-v3) {
@@ -141,10 +141,10 @@
 
   .shell:has(:global(.workspace-processing-notice)) :global(.studio-library-v3),
   .shell:has(:global(.workspace-processing-notice)) :global(.studio-inspector-v3) {
-    bottom: calc(var(--layout-transport-height) + var(--active-workspace-status-height));
+    bottom: calc(var(--transport-height) + var(--active-workspace-status-height));
   }
 
   .shell:has(:global(.workspace-processing-notice)) :global(.studio-inspector-backdrop) {
-    inset: var(--workspace-header-height) 0 calc(var(--layout-transport-height) + var(--active-workspace-status-height)) 0;
+    inset: var(--workspace-header-height) 0 calc(var(--transport-height) + var(--active-workspace-status-height)) 0;
   }
 }
