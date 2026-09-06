@@ -1,0 +1,25 @@
+name: Temporary exact Ruff diff for PR 1219
+
+on:
+  push:
+    branches:
+      - agent/1178-symbolic-detail
+
+permissions:
+  contents: read
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: 0.12.9
+      - name: Print canonical formatting diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          uvx --from ruff==0.5.7 ruff format backend/domain/symbolic_detail_report.py
+          git diff --check
+          git diff -- backend/domain/symbolic_detail_report.py
