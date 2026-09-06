@@ -99,6 +99,13 @@
   background: var(--surface-music-deep);
 }
 
+.piano-roll-empty {
+  margin: var(--space-5) auto;
+  color: var(--text-tertiary);
+  font-size: var(--type-sm);
+  text-align: center;
+}
+
 .piano-roll-footer {
   min-height: 30px;
   display: flex;
@@ -109,13 +116,13 @@
   background: var(--surface-music-deep);
 }
 
-.piano-roll-footer .muted {
+.piano-roll-meta {
   color: var(--text-tertiary);
   font-family: var(--font-sans);
   font-size: var(--measurement-font-size);
 }
 
-.piano-roll-footer .muted + .muted {
+.piano-roll-meta + .piano-roll-meta {
   display: none;
 }
 
