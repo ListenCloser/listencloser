@@ -98,8 +98,19 @@ def test_correct_adapter_persists_exact_parent_job_work_and_full_note_world(
         sb.table("artifact_versions").select("*").eq("id", str(source.id)).single().execute().data
     )
 
-    monkeypatch.setattr(capabilities, "download_version_bytes", lambda *_args: _fixture_midi())
-    monkeypatch.setattr(capabilities, "_upload_bytes", lambda *_args, **_kwargs: None)
+    source_midi = _fixture_midi()
+    uploaded_midi: dict[str, bytes] = {}
+
+    def fake_download(version, _client):
+        if version.id == source.id:
+            return source_midi
+        return uploaded_midi[version.storage_key]
+
+    def fake_upload(_client, _bucket, storage_key, data, *_args, **_kwargs):
+        uploaded_midi[storage_key] = data
+
+    monkeypatch.setattr(capabilities, "download_version_bytes", fake_download)
+    monkeypatch.setattr(capabilities, "_upload_bytes", fake_upload)
 
     outputs = correction_sync.handle_correct_with_entity_sync(job, sb)
 
