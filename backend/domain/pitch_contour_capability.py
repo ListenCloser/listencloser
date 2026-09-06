@@ -21,6 +21,7 @@ from domain.models import ArtifactKind, Job
 from engines.pitch.registry import estimate_pitch_contour
 
 _ALLOWED_AUDIO_KINDS = {ArtifactKind.audio_original, ArtifactKind.audio_enhanced}
+# Engine selection is explicit: unknown names fail closed instead of falling back to pYIN.
 _ALLOWED_ENGINES = {"pyin", "torchcrepe", "pesto"}
 
 
