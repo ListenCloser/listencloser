@@ -88,6 +88,7 @@ def handle_text_passage_find(job: Job, client) -> list[str]:
         text=str(job.parameters.get("text") or ""),
         max_matches=job.parameters.get("max_matches", 3),
     )
+    # Reload durable Work truth at execution time; dispatch-time lookup is not authority.
     snapshot = WorkBundleRepository(client).load(source_artifact.work_id, owner_id)
     if not snapshot:
         raise ValueError("text_passage_find Work not found")
