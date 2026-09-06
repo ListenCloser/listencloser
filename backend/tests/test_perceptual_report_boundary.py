@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from pathlib import Path
 
 from domain.perceptual_report import (
     PerceptualEvidenceReport as LightweightPerceptualEvidenceReport,
 )
 from perceptual_evidence import PerceptualEvidenceReport as WorkerPerceptualEvidenceReport
-
-BACKEND_ROOT = Path(__file__).resolve().parents[0]
+from tests.repository_paths import BACKEND_ROOT
 
 
 def test_worker_module_reexports_canonical_report_contract() -> None:
