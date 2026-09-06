@@ -26,6 +26,7 @@ import {
 import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
 import { understandStageLabel, presentableTitle } from "@/lib/format";
+import { resolveMidiAuthority } from "@/lib/midi-authority";
 import { buildPlaybackSources } from "@/lib/playback-sources";
 import { retainRepresentationsConfirmedByVersion } from "@/lib/representation-continuity";
 import { hasReusableScoreArtifacts, selectScoreArtifacts } from "@/lib/score-artifacts";
@@ -166,10 +167,11 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       }
 
       const original = latestByKind.get("audio_original");
-      const baseMidi = latestByKind.get("midi_performance");
-      const performanceMidiVersionId = baseMidi?.latest_version?.id ?? null;
+      const midiAuthority = resolveMidiAuthority(bundle);
+      const baseMidi = midiAuthority.canonicalPerformance?.artifact;
+      const performanceMidiVersionId = midiAuthority.canonicalPerformance?.versionId ?? null;
       performanceMidiVersionRef.current = { workId, versionId: performanceMidiVersionId };
-      const midi = baseMidi ?? latestByKind.get("midi_corrected");
+      const midi = midiAuthority.defaultPianoRoll?.artifact;
 
       const scoreSources = scoreSourceOptions(bundle);
       setScoreSources(scoreSources);

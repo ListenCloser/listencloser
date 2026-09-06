@@ -72,6 +72,7 @@ subgraph lib["lib"]
   lib_measure_ts["measure.ts"]
   lib_melody_playback_client_ts["melody-playback-client.ts"]
   lib_melody_reduction_ts["melody-reduction.ts"]
+  lib_midi_authority_ts["midi-authority.ts"]
   lib_midi_ts["midi.ts"]
   lib_musicxml_cache_ts["musicxml-cache.ts"]
   lib_notes_ts["notes.ts"]
@@ -79,6 +80,7 @@ subgraph lib["lib"]
   lib_perceptual_series_client_ts["perceptual-series-client.ts"]
   lib_pitch_contour_client_ts["pitch-contour-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
+  lib_production_spatial_client_ts["production-spatial-client.ts"]
   lib_public_recordings_ts["public-recordings.ts"]
   lib_pulse_grid_ts["pulse-grid.ts"]
   lib_query_client_ts["query-client.ts"]
@@ -139,6 +141,7 @@ components_workspace_-->components_AuthProvider_tsx
 components_workspace_-->lib_api_client_ts
 components_workspace_-->lib_format_ts
 components_workspace_-->lib_job_tracking_ts
+components_workspace_-->lib_midi_authority_ts
 components_workspace_-->lib_musicxml_cache_ts
 components_workspace_-->lib_playback_sources_ts
 components_workspace_-->lib_representation_continuity_ts
@@ -152,6 +155,7 @@ components_workspace_-->lib_inspector_
 components_workspace_-->lib_relation_api_client_ts
 components_workspace_-->lib_ask_
 components_workspace_-->lib_selection_ts
+components_workspace_-->lib_production_spatial_client_ts
 components_workspace_-->lib_perceptual_series_client_ts
 components_workspace_-->lib_public_recordings_ts
 components_workspace_-->lib_supabase_ts
@@ -195,6 +199,8 @@ lib_perceptual_series_client_ts-->lib_api_client_ts
 lib_perceptual_series_client_ts-->lib_openapi_client_ts
 lib_pitch_contour_client_ts-->lib_api_client_ts
 lib_pitch_contour_client_ts-->lib_openapi_client_ts
+lib_production_spatial_client_ts-->lib_api_client_ts
+lib_production_spatial_client_ts-->lib_openapi_client_ts
 lib_relation_api_client_ts-->lib_openapi_client_ts
 lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts
