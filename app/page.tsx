@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import LiveSignalField from "@/components/design/LiveSignalField";
+import LiveSignalField from "@/components/brand/LiveSignalField";
 import WorkspaceSession from "@/components/workspace/WorkspaceSession";
 import WorkspaceShell, { type ServiceStatus } from "@/components/workspace/WorkspaceShell";
 import { supabase } from "@/lib/supabase";
