@@ -80,9 +80,7 @@ def _summarize(selected: list[dict[str, Any]], candidate_count: int) -> dict[str
         "stepwise_ratio": (
             round(sum(iv <= 2 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0
         ),
-        "leap_ratio": (
-            round(sum(iv >= 5 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0
-        ),
+        "leap_ratio": (round(sum(iv >= 5 for iv in nonzero) / len(nonzero), 3) if nonzero else 0.0),
         "heuristic": "midibert_piano_cp",
         "candidate_note_count": candidate_count,
         "selected_note_count": len(selected),
@@ -115,9 +113,7 @@ class MidiBERTMelodyEngine(MelodyEngine):
         checkpoint_sha256: str | None = None,
     ) -> None:
         self.root = Path(root or os.getenv("MIDIBERT_ROOT", _DEFAULT_ROOT))
-        self.checkpoint = Path(
-            checkpoint or os.getenv("MIDIBERT_CHECKPOINT", _DEFAULT_CHECKPOINT)
-        )
+        self.checkpoint = Path(checkpoint or os.getenv("MIDIBERT_CHECKPOINT", _DEFAULT_CHECKPOINT))
         self.dict_file = Path(dict_file or os.getenv("MIDIBERT_DICT", _DEFAULT_DICT))
         self.expected_checkpoint_sha256 = checkpoint_sha256 or os.getenv(
             "MIDIBERT_CHECKPOINT_SHA256"
