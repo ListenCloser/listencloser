@@ -39,7 +39,13 @@ export default function AddAnalysis({
   return (
     <section className={`${styles.discovery}${open ? ` ${styles.open}` : ""}`} aria-label="Add analysis">
       {!open ? (
-        <Button variant="ghost" size="compact" onClick={() => onOpenChange(true)} aria-expanded="false">
+        <Button
+          variant="ghost"
+          size="compact"
+          onClick={() => onOpenChange(true)}
+          aria-expanded="false"
+          aria-label="+ Add analysis"
+        >
           <PlusIcon />
           <span>Add analysis</span>
         </Button>
