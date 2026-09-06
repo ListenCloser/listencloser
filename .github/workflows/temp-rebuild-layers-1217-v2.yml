@@ -1,0 +1,66 @@
+name: Temporary rebuild Layers 1217 v2
+
+on:
+  push:
+    branches:
+      - feat/1176-layers-current-main
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Patch replay resolver and execute it
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/temp-rebuild-layers-1217.yml')
+          text = path.read_text()
+          marker = '''            echo "CONFLICT_COMMIT=$commit"
+          '''
+          handler = '''            if [ "$commit" = "a6d7b70edb410f971d6f2713219eb72c7741f9fb" ] && [ "$conflicts" = "components/workspace/WorkspaceSession.tsx" ]; then
+              git checkout --ours components/workspace/WorkspaceSession.tsx
+              python - <<'PY2'
+          from pathlib import Path
+          path = Path('components/workspace/WorkspaceSession.tsx')
+          text = path.read_text()
+          anchor = '        job.capability.name !== "structure_map"\\n        && job.capability.name !== "melody_audition"\\n'
+          replacement = anchor + '        && job.capability.name !== "separate"\\n'
+          if 'job.capability.name !== "separate"' not in text:
+              if anchor not in text:
+                  raise SystemExit('optional-job filter anchor not found')
+              text = text.replace(anchor, replacement, 1)
+          path.write_text(text)
+          PY2
+              git add components/workspace/WorkspaceSession.tsx
+              GIT_EDITOR=true git cherry-pick --continue
+              continue
+            fi
+
+          '''
+          if handler.strip() not in text:
+              if marker not in text:
+                  raise SystemExit('replay conflict marker not found')
+              text = text.replace(marker, handler + marker, 1)
+          path.write_text(text)
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('.github/workflows/temp-rebuild-layers-1217.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(text) if line == '        run: |') + 1
+          script = []
+          for line in text[start:]:
+              script.append(line[10:] if line.startswith('          ') else line)
+          Path('/tmp/rebuild-layers.sh').write_text('\n'.join(script) + '\n')
+          PY
+          bash /tmp/rebuild-layers.sh
