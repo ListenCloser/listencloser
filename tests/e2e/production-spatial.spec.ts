@@ -18,7 +18,7 @@ test("Production / Space stays opt-in and exposes only method-qualified measured
 
   const lens = page.getByRole("region", { name: "Production and spatial analysis" });
   await expect(lens).toBeVisible();
-  await lens.getByRole("button", { name: "Add analysis" }).click();
+  await lens.getByRole("button", { name: "+ Production / Space", exact: true }).click();
 
   await expect(lens.getByText("Production / Space", { exact: true })).toBeVisible();
   await expect(lens.getByText("Experimental", { exact: true })).toBeVisible();
