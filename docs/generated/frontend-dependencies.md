@@ -36,7 +36,6 @@ subgraph app["app"]
 end
 subgraph components["components"]
   components_AuthProvider_tsx["AuthProvider.tsx"]
-  components_BrandMark_tsx["BrandMark.tsx"]
   components_MSWInit_tsx["MSWInit.tsx"]
   components_QueryProvider_tsx["QueryProvider.tsx"]
   subgraph components_brand["brand"]
