@@ -125,6 +125,14 @@ jobs:
               GIT_EDITOR=true git cherry-pick --continue
               continue
             fi
+            if [ "$commit" = "1c7aecede661d365b06fed8b25b8870c9c0e3ccf" ] && [ "$conflicts" = "components/workspace/StructureMap.tsx" ]; then
+              git checkout --ours components/workspace/StructureMap.tsx
+              git diff "$commit^" "$commit" -- components/workspace/StructureMap.tsx > /tmp/layers-structure-map.patch
+              git apply --whitespace=nowarn /tmp/layers-structure-map.patch
+              git add components/workspace/StructureMap.tsx
+              GIT_EDITOR=true git cherry-pick --continue
+              continue
+            fi
             echo "CONFLICT_COMMIT=$commit"
             printf '%s\n' "$conflicts"
             git status --short
