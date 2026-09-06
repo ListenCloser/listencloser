@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Button, { IconButton } from "@/components/ui/Button";
+import { ArrowRightIcon } from "@/components/ui/Icons";
+import InlineNotice from "@/components/ui/InlineNotice";
 import Tooltip from "@/components/ui/Tooltip";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { useTransport } from "@/lib/stores/transport";
@@ -244,15 +247,15 @@ export default function AskPanel() {
       </div>
 
       {error && (
-        <div className={`ask-error ${styles.compactError}`} role="alert">
+        <InlineNotice tone="danger" className={styles.compactError} role="alert">
           <span>{error.message}</span>
-          {lastAsked && <button type="button" onClick={retry}>Retry</button>}
+          {lastAsked && <Button size="compact" variant="ghost" onClick={retry}>Retry</Button>}
           {error.requestId && (
             <span className={styles.errorReference} aria-label={`Ask request reference ${error.requestId}`}>
               Reference: {error.requestId}
             </span>
           )}
-        </div>
+        </InlineNotice>
       )}
 
       <form className="ask-composer" onSubmit={(event) => { event.preventDefault(); void handleAsk(draft); }}>
@@ -267,16 +270,15 @@ export default function AskPanel() {
           disabled={!activeWorkId}
           aria-label="Ask about the music"
         />
-        <button
+        <IconButton
           type="submit"
-          className={`ask-send ${styles.send}`}
+          variant="secondary"
+          className={styles.send}
           disabled={pending || !draft.trim()}
           aria-label="Send question"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ display: "block" }} aria-hidden="true">
-            <path d="M3 8h9M8.5 3.5 13 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+          <ArrowRightIcon />
+        </IconButton>
       </form>
     </div>
   );
