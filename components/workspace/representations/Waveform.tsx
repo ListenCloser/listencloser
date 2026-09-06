@@ -139,7 +139,7 @@ export default function Waveform({
     ctx.scale(devicePixelRatio, devicePixelRatio);
 
     const styles = getComputedStyle(document.documentElement);
-    const muted = styles.getPropertyValue("--muted").trim() || "#575a5e";
+    const muted = styles.getPropertyValue("--text-tertiary").trim();
 
     ctx.fillStyle = muted;
     ctx.font = canvasMeasurementFont(styles);
@@ -171,18 +171,14 @@ export default function Waveform({
     if (!canvasCtx) return;
 
     const styles = getComputedStyle(document.documentElement);
-    const accent = styles.getPropertyValue("--accent").trim() || "#dff45a";
-    const playhead = styles.getPropertyValue("--score-playback").trim() || "#ff745d";
-    const trace = styles.getPropertyValue("--waveform-trace").trim()
-      || styles.getPropertyValue("--text").trim()
-      || "#dce0d8";
-    const axis = styles.getPropertyValue("--waveform-axis").trim()
-      || styles.getPropertyValue("--border").trim()
-      || "#cbc6bc";
-    const bg = styles.getPropertyValue("--panel").trim() || "#0b0d0c";
-    const rhythmColor = styles.getPropertyValue("--color-rhythm").trim() || "#929b96";
-    const harmonyColor = styles.getPropertyValue("--color-harmony").trim() || "#819b9b";
-    const theoryColor = styles.getPropertyValue("--color-theory").trim() || "#819b9b";
+    const accent = styles.getPropertyValue("--action-primary").trim();
+    const playhead = styles.getPropertyValue("--representation-playback-on-dark").trim();
+    const trace = styles.getPropertyValue("--waveform-trace").trim();
+    const axis = styles.getPropertyValue("--waveform-axis").trim();
+    const bg = styles.getPropertyValue("--surface-music-deep").trim();
+    const rhythmColor = styles.getPropertyValue("--color-rhythm").trim();
+    const harmonyColor = styles.getPropertyValue("--color-harmony").trim();
+    const theoryColor = styles.getPropertyValue("--color-theory").trim();
 
     const w = canvasWidth;
     const h = WAVEFORM_HEIGHT;
@@ -391,14 +387,10 @@ export default function Waveform({
         }}
       />
       {status === "loading" && (
-        <p className="muted" style={{ fontSize: "var(--fs-xs)", marginTop: 4 }}>
-          Decoding recording&hellip;
-        </p>
+        <p className="waveform-status">Decoding recording&hellip;</p>
       )}
       {status === "error" && (
-        <p className="muted" style={{ fontSize: "var(--fs-xs)", marginTop: 4 }}>
-          Waveform unavailable.
-        </p>
+        <p className="waveform-status">Waveform unavailable.</p>
       )}
     </div>
   );
