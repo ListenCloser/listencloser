@@ -56,20 +56,33 @@ export default function AddAnalysis({
               </IconButton>
             )}
           </div>
-          {options.map((option) => (
-            <div className={styles.choice} key={option.id}>
-              <div>
-                <div className={styles.titleLine}>
-                  <strong>{option.title}</strong>
-                  {!sharedMaturity && <Qualifier>{option.maturity}</Qualifier>}
+          {options.map((option, index) => {
+            const hasEarlierDuplicateAction = options
+              .slice(0, index)
+              .some((candidate) => candidate.actionLabel === option.actionLabel);
+
+            return (
+              <div className={styles.choice} key={option.id}>
+                <div>
+                  <div className={styles.titleLine}>
+                    <strong>{option.title}</strong>
+                    {!sharedMaturity && <Qualifier>{option.maturity}</Qualifier>}
+                  </div>
+                  <p>{option.description}</p>
                 </div>
-                <p>{option.description}</p>
+                <Button
+                  size="compact"
+                  onClick={option.onAction}
+                  disabled={option.disabled || option.busy}
+                  aria-label={
+                    hasEarlierDuplicateAction ? `${option.actionLabel} ${option.title}` : undefined
+                  }
+                >
+                  {option.actionLabel}
+                </Button>
               </div>
-              <Button size="compact" onClick={option.onAction} disabled={option.disabled || option.busy}>
-                {option.actionLabel}
-              </Button>
-            </div>
-          ))}
+            );
+          })}
           {notice && (
             <div className={styles.notice}>
               <InlineNotice tone={noticeRole === "alert" ? "danger" : "quiet"} role={noticeRole}>
