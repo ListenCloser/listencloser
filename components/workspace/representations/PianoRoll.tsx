@@ -88,7 +88,7 @@ const StaticNoteLayer = memo(function StaticNoteLayer({
             key={`label-${row.pitch}`}
             x={4}
             y={y + Math.min(rowH - 3, 12)}
-            fill="var(--muted)"
+            fill="var(--text-tertiary)"
             fontSize={Math.min(10, Math.max(8, rowH - 4))}
             fontFamily="var(--font-mono)"
             fontWeight={isOctaveAnchor ? 650 : 400}
@@ -107,9 +107,9 @@ const StaticNoteLayer = memo(function StaticNoteLayer({
           width={width}
           height={height}
           rx={rx}
-          fill="var(--text)"
+          fill="var(--text-primary)"
           fillOpacity={velocityOpacity}
-          stroke="var(--border)"
+          stroke="var(--line-subtle)"
           strokeWidth={0.45}
           strokeOpacity={0.42}
         >
@@ -150,9 +150,9 @@ function DynamicNoteOverlay({
             width={width}
             height={height}
             rx={rx}
-            fill={active ? "var(--score-playback)" : "var(--accent)"}
+            fill={active ? "var(--representation-playback-on-dark)" : "var(--action-primary)"}
             fillOpacity={active ? 0.94 : 0.82}
-            stroke={active ? "var(--score-playback)" : "var(--accent)"}
+            stroke={active ? "var(--representation-playback-on-dark)" : "var(--action-primary)"}
             strokeWidth={active ? 1.3 : 1.05}
             strokeOpacity={active ? 0.96 : 0.78}
           />
@@ -360,7 +360,7 @@ export default function PianoRoll({
     onSeek?.(clickTime);
   }
 
-  if (!notes.length) return <p className="muted">No notes to display.</p>;
+  if (!notes.length) return <p className="piano-roll-empty">No notes to display.</p>;
 
   return (
     <div className="piano-roll-container" data-testid="piano-roll">
@@ -377,11 +377,11 @@ export default function PianoRoll({
             role="group"
             aria-label="Harmony timeline"
           >
-            <rect x={0} y={0} width={LABEL_W} height={HARMONY_LANE_H} fill="var(--panel)" />
+            <rect x={0} y={0} width={LABEL_W} height={HARMONY_LANE_H} fill="var(--surface-music-deep)" />
             <text
               x={4}
               y={22}
-              fill="var(--muted)"
+              fill="var(--text-tertiary)"
               fontSize={8.5}
               fontFamily="var(--font-mono)"
               opacity={0.72}
@@ -393,7 +393,7 @@ export default function PianoRoll({
               y1={HARMONY_LANE_H - 0.5}
               x2={W}
               y2={HARMONY_LANE_H - 0.5}
-              stroke="var(--border)"
+              stroke="var(--line-subtle)"
               strokeWidth={0.75}
             />
             <defs>
@@ -452,7 +452,7 @@ export default function PianoRoll({
                     <text
                       x={x1 + 5}
                       y={16}
-                      fill="var(--text)"
+                      fill="var(--text-primary)"
                       fontSize={10}
                       fontWeight={600}
                     >
@@ -462,7 +462,7 @@ export default function PianoRoll({
                       <text
                         x={x1 + 5}
                         y={29}
-                        fill="var(--muted)"
+                        fill="var(--text-tertiary)"
                         fontSize={8.5}
                         fontFamily="var(--font-mono)"
                         opacity={0.82}
@@ -482,7 +482,7 @@ export default function PianoRoll({
                 y1={0}
                 x2={playheadX}
                 y2={HARMONY_LANE_H}
-                stroke="var(--score-playback)"
+                stroke="var(--representation-playback-on-dark)"
                 strokeWidth={1.25}
                 strokeOpacity={0.92}
                 pointerEvents="none"
@@ -507,7 +507,7 @@ export default function PianoRoll({
               : "Seek playback from piano roll"
           }
         >
-          <rect x={0} y={0} width={LABEL_W} height={h} fill="var(--panel)" />
+          <rect x={0} y={0} width={LABEL_W} height={h} fill="var(--surface-music-deep)" />
 
           {rows.map((row, rowIndex) => {
             const isBlack = [1, 3, 6, 8, 10].includes(row.pitch % 12);
@@ -520,7 +520,7 @@ export default function PianoRoll({
                 y={rowIndex * rowH + TOP_PAD}
                 width={totalPx}
                 height={rowH}
-                fill={isOctaveAnchor ? "var(--text)" : isBlack ? "var(--panel-2)" : "transparent"}
+                fill={isOctaveAnchor ? "var(--text-primary)" : isBlack ? "var(--surface-raised)" : "transparent"}
                 fillOpacity={isOctaveAnchor ? 0.035 : isBlack ? 0.72 : 1}
               />
             );
@@ -535,7 +535,7 @@ export default function PianoRoll({
                 y1={rowIndex * rowH + TOP_PAD + rowH}
                 x2={W}
                 y2={rowIndex * rowH + TOP_PAD + rowH}
-                stroke="var(--border)"
+                stroke="var(--line-subtle)"
                 strokeWidth={isOctaveAnchor ? 0.65 : 0.3}
                 strokeOpacity={isOctaveAnchor ? 0.36 : 0.17}
               />
@@ -555,7 +555,7 @@ export default function PianoRoll({
                     y1={TOP_PAD}
                     x2={x}
                     y2={h}
-                    stroke="var(--border)"
+                    stroke="var(--line-subtle)"
                     strokeWidth={0.5}
                     strokeOpacity={0.38}
                   />
@@ -572,7 +572,7 @@ export default function PianoRoll({
                     y1={TOP_PAD}
                     x2={x}
                     y2={h}
-                    stroke="var(--text)"
+                    stroke="var(--text-primary)"
                     strokeWidth={0.75}
                     strokeOpacity={0.34}
                   />
@@ -590,14 +590,14 @@ export default function PianoRoll({
                   y1={TOP_PAD - 5}
                   x2={x}
                   y2={TOP_PAD}
-                  stroke="var(--muted)"
+                  stroke="var(--text-tertiary)"
                   strokeWidth={0.6}
                   strokeOpacity={0.45}
                 />
                 <text
                   x={x + 3}
                   y={9}
-                  fill="var(--muted)"
+                  fill="var(--text-tertiary)"
                   fontSize={8.5}
                   fontFamily="var(--font-mono)"
                   opacity={0.55}
@@ -615,7 +615,7 @@ export default function PianoRoll({
             const colorVar = annotation.category === "rhythm"
               ? "var(--color-rhythm)"
               : annotation.category === "theory"
-                ? "var(--color-theory, #8b5cf6)"
+                ? "var(--color-theory)"
                 : "var(--color-harmony)";
             return (
               <g key={annotation.id}>
@@ -651,9 +651,9 @@ export default function PianoRoll({
               y={TOP_PAD}
               width={Math.max(timeToX(visibleTimeRange.end) - timeToX(visibleTimeRange.start), 2)}
               height={h - TOP_PAD}
-              fill="var(--accent)"
+              fill="var(--action-primary)"
               fillOpacity={emphasizeSelection ? 0.18 : 0.085}
-              stroke="var(--accent)"
+              stroke="var(--action-primary)"
               strokeWidth={emphasizeSelection ? 1.4 : 0.75}
               strokeOpacity={emphasizeSelection ? 0.82 : 0.38}
             />
@@ -673,7 +673,7 @@ export default function PianoRoll({
                 y1={TOP_PAD - 1}
                 x2={playheadX}
                 y2={h}
-                stroke="var(--score-playback)"
+                stroke="var(--representation-playback-on-dark)"
                 strokeWidth={1.25}
                 strokeOpacity={0.92}
               />
@@ -683,15 +683,15 @@ export default function PianoRoll({
                 width={6}
                 height={3}
                 rx={1.5}
-                fill="var(--score-playback)"
+                fill="var(--representation-playback-on-dark)"
               />
             </g>
           )}
         </svg>
       </div>
       <div className="piano-roll-footer">
-        <span className="muted">{notes.length} notes &middot; {endTime.toFixed(1)}s</span>
-        {playheadTime > 0 && <span className="muted">{playheadTime.toFixed(1)}s</span>}
+        <span className="piano-roll-meta">{notes.length} notes &middot; {endTime.toFixed(1)}s</span>
+        {playheadTime > 0 && <span className="piano-roll-meta">{playheadTime.toFixed(1)}s</span>}
       </div>
     </div>
   );
