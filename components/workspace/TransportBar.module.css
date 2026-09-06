@@ -151,7 +151,7 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 600px) {
   .root {
     height: var(--transport-height);
     min-height: var(--transport-height);
