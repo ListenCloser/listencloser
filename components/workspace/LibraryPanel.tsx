@@ -23,6 +23,7 @@ import {
 import { downloadPublicRecording, type PublicRecording } from "@/lib/public-recordings";
 import { presentableTitle } from "@/lib/format";
 import { successorAfterDelete } from "@/lib/work-selection";
+import styles from "./LibraryPanel.module.css";
 
 const POINTER_PREFETCH_DELAY_MS = 120;
 
@@ -45,7 +46,7 @@ export function WorkRow({
 }) {
   const title = presentableTitle(work.title);
   const pointerPrefetchRef = useRef<number | null>(null);
-  const status = isDeleting ? "Deleting" : isLoading ? "Opening" : "Ready";
+  const status = isDeleting ? "Deleting…" : isLoading ? "Opening…" : null;
 
   const cancelPointerPrefetch = () => {
     if (pointerPrefetchRef.current === null) return;
@@ -69,10 +70,10 @@ export function WorkRow({
   useEffect(() => cancelPointerPrefetch, []);
 
   return (
-    <div className={`library-work-row${selected ? " selected" : ""}`}>
+    <div className={`${styles.row}${selected ? ` ${styles.selected}` : ""}`}>
       <button
         type="button"
-        className="library-work-btn"
+        className={styles.rowButton}
         onClick={onOpen}
         onPointerEnter={schedulePointerPrefetch}
         onPointerLeave={cancelPointerPrefetch}
@@ -80,17 +81,16 @@ export function WorkRow({
         aria-current={selected ? "true" : undefined}
         disabled={isDeleting}
       >
-        <span className="library-work-leading" aria-hidden="true">
-          {isLoading || isDeleting ? <span className="library-row-spinner" /> : <span className="library-note-glyph">♪</span>}
-        </span>
-        <span className="library-work-copy">
-          <span className="library-work-title">{title}</span>
-          <span className="library-work-status">{status}</span>
+        {(isLoading || isDeleting) && <span className={styles.spinner} aria-hidden="true" />}
+        <span className={styles.copy}>
+          <span className={styles.title}>{title}</span>
+          {status && <span className={styles.status}>{status}</span>}
         </span>
       </button>
 
       <Tooltip content="Delete recording" placement="left">
         <IconButton
+          className={styles.rowAction}
           compact
           variant="ghost"
           aria-label={`Delete ${title}`}
@@ -191,14 +191,14 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
   return (
     <>
       <aside
-        className={`studio-library studio-library-v3${workspace.libraryCollapsed ? " is-collapsed" : ""}`}
+        className={`studio-library studio-library-v3 ${styles.panel}${workspace.libraryCollapsed ? " is-collapsed" : ""}`}
         aria-hidden={workspace.libraryCollapsed}
         inert={workspace.libraryCollapsed}
       >
-        <div className="library-header library-header-v3">
-          <div className="library-heading-row">
+        <div className={styles.header}>
+          <div className={styles.headingRow}>
             <h2>Library</h2>
-            {works.length > 0 && <span className="library-count">{works.length}</span>}
+            {works.length > 0 && <span className={styles.count}>{works.length}</span>}
           </div>
           {signedIn && (
             <>
@@ -213,19 +213,19 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
                 onUpload={requestImport}
                 onImport={handlePublicImport}
               />
-              {importStatus && <span id="library-import-status" className="library-import-status" role="status">{importStatus}</span>}
+              {importStatus && <span id="library-import-status" className={styles.importStatus} role="status">{importStatus}</span>}
             </>
           )}
         </div>
 
-        <div className="library-list library-list-v3">
+        <div className={styles.list}>
           {deleteError && <InlineNotice tone="danger" role="alert">{deleteError}</InlineNotice>}
           {works.length === 0 && libraryLoading ? (
-            <div className="library-loading-list" aria-hidden="true"><span /><span /><span /></div>
+            <div className={styles.loadingList} aria-hidden="true"><span /><span /><span /></div>
           ) : works.length === 0 ? (
-            <div className="library-empty library-empty-v3">
+            <div className={styles.empty}>
               <strong>No recordings yet</strong>
-              <p>Upload or choose a public recording to begin.</p>
+              <p>Import a recording to begin.</p>
             </div>
           ) : works.map((work) => {
             const selected = workspace.activeWorkId === work.id;
@@ -248,7 +248,7 @@ export default function LibraryPanel({ signedIn = false, canImport = false }: { 
           })}
         </div>
 
-        <div className="library-footer library-footer-v3">
+        <div className={styles.footer}>
           {signedIn && <Button variant="ghost" fullWidth onClick={signOut}>Sign out</Button>}
         </div>
       </aside>

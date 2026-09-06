@@ -36,28 +36,25 @@ export default function TabStrip<T extends string>({
       style={{ display: "contents" }}
     >
       <Tabs.List
-        className={`${styles.strip} ui-tab-strip ${className}`.trim()}
+        className={`${styles.strip} ${className}`.trim()}
         aria-label={label}
         loop
       >
-        {items.map((item) => {
-          const selected = item.id === value;
-          return (
-            <Tabs.Trigger
-              key={item.id}
-              value={item.id}
-              disabled={item.disabled}
-              aria-controls={undefined}
-              className={`${styles.tab} ui-tab${selected ? " active" : ""}`}
-              onPointerEnter={() => onIntentStart?.(item.id, "pointer")}
-              onPointerLeave={() => onIntentEnd?.(item.id, "pointer")}
-              onFocus={() => onIntentStart?.(item.id, "focus")}
-              onBlur={() => onIntentEnd?.(item.id, "focus")}
-            >
-              {item.label}
-            </Tabs.Trigger>
-          );
-        })}
+        {items.map((item) => (
+          <Tabs.Trigger
+            key={item.id}
+            value={item.id}
+            disabled={item.disabled}
+            aria-controls={undefined}
+            className={styles.tab}
+            onPointerEnter={() => onIntentStart?.(item.id, "pointer")}
+            onPointerLeave={() => onIntentEnd?.(item.id, "pointer")}
+            onFocus={() => onIntentStart?.(item.id, "focus")}
+            onBlur={() => onIntentEnd?.(item.id, "focus")}
+          >
+            {item.label}
+          </Tabs.Trigger>
+        ))}
       </Tabs.List>
     </Tabs.Root>
   );

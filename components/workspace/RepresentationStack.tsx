@@ -12,31 +12,29 @@ import { preloadScoreRenderer } from "@/lib/score-renderer";
 import { useWorkspace } from "@/lib/stores/workspace";
 import { deriveAvailability } from "@/lib/representation-availability";
 import { WORKSPACE_ORIENTATION_EVENT } from "@/lib/inspector/orientation";
+import styles from "./RepresentationStack.module.css";
 
 const ORIENTATION_CUE_MS = 560;
 const SCORE_POINTER_INTENT_MS = 120;
 
 function WorkspaceLoadingSkeleton() {
   return (
-    <main className="piece-desk piece-loading-shell" aria-busy="true" aria-label="Opening recording">
-      <div className="representation-toolbar">
-        <div className="piece-view-tabs piece-view-tabs-v3" aria-hidden="true">
-          {REPRESENTATIONS.map((definition) => (
-            <button key={definition.id} type="button" disabled tabIndex={-1}>
-              {definition.title}
-            </button>
-          ))}
-        </div>
-        <span
-          className="muted"
-          style={{ alignSelf: "center", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
-          aria-hidden="true"
-        >
-          Opening…
-        </span>
+    <main className={styles.root} aria-busy="true" aria-label="Opening recording">
+      <div className={styles.toolbar}>
+        <TabStrip
+          label="Music representation"
+          items={REPRESENTATIONS.map((definition) => ({
+            id: definition.id,
+            label: definition.title,
+            disabled: true,
+          }))}
+          value={null}
+          onChange={() => undefined}
+        />
+        <span className={styles.opening} aria-hidden="true">Opening…</span>
       </div>
-      <div className="piece-loading-canvas" role="status">
-        <div className="piece-loading-visual" aria-hidden="true">
+      <div className={styles.loadingCanvas} role="status">
+        <div className={styles.loadingVisual} aria-hidden="true">
           {Array.from({ length: 7 }).map((_, row) => (
             <span key={row} style={{ "--loading-row": row } as React.CSSProperties} />
           ))}
@@ -71,8 +69,6 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     : activeView === "score"
       ? workspace.representations.find((item) => item.kind === "score")?.sourceLabel
       : null;
-  const preparingRepresentations =
-    workspace.analysisState === "analyzing" && available.length < REPRESENTATIONS.length;
 
   function cancelScoreIntentWarmup() {
     if (scoreIntentTimeout.current === null) return;
@@ -186,10 +182,9 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   const renderedViews = available.filter((definition) => definition.id === activeView || mountedViews.has(definition.id));
 
   return (
-    <main className="piece-desk piece-desk-v3">
-      <div className="representation-toolbar" aria-busy={preparingRepresentations || undefined}>
+    <main className={styles.root}>
+      <div className={styles.toolbar}>
         <TabStrip
-          className="piece-view-tabs piece-view-tabs-v3"
           label="Music representation"
           items={REPRESENTATIONS.map((definition) => {
             const isAvailable = availableIds.has(definition.id);
@@ -209,18 +204,12 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
           onIntentStart={handleRepresentationIntentStart}
           onIntentEnd={handleRepresentationIntentEnd}
         />
+        {activeSymbolicSourceLabel && (
+          <span className={styles.sourceNote} role="note" aria-label="Symbolic representation source">
+            {activeSymbolicSourceLabel}
+          </span>
+        )}
       </div>
-
-      {activeSymbolicSourceLabel && (
-        <div
-          className="muted"
-          role="note"
-          aria-label="Symbolic representation source"
-          style={{ padding: "8px 12px", fontSize: "var(--fs-xs)" }}
-        >
-          {activeSymbolicSourceLabel}
-        </div>
-      )}
 
       {renderedViews.map((definition) => {
         const ViewComponent = definition.component;
@@ -228,7 +217,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         return (
           <section
             key={definition.id}
-            className="piece-active-view piece-active-view-v3"
+            className={styles.view}
             aria-label={definition.title}
             aria-hidden={!active}
             hidden={!active}
@@ -243,14 +232,14 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 
 function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canImport: boolean; onImport: () => void }) {
   return (
-    <main className="piece-desk piece-empty piece-empty-v3">
-      <div className="empty-desk-copy">
+    <main className={`${styles.root} ${styles.emptyRoot}`}>
+      <div className={styles.emptyCopy}>
         <h1>Import a recording</h1>
+        <p>Open audio to explore synchronized representations and analysis.</p>
         <Button variant="primary" onClick={onImport} disabled={!signedIn || !canImport}>
           Import audio
         </Button>
-        <small>Configure processing in the Library before import.</small>
-        <small>WAV, MP3, M4A, FLAC, OGG, AAC</small>
+        <span className={styles.formats}>WAV · MP3 · M4A · FLAC · OGG · AAC</span>
       </div>
     </main>
   );

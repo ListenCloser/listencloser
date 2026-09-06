@@ -140,12 +140,6 @@ export function chordLabel(insight: Insight): string {
   return normalizeMusicText(insight.claim);
 }
 
-/**
- * Build the Piano Roll harmony projection from exactly one Version's admitted
- * evidence. The Inspector may use beat-relative timing for navigation, but the
- * synchronized lane intentionally requires persisted seconds on the literal
- * chord span. Missing or malformed exact timing fails closed.
- */
 export function buildExactHarmonyProjection(
   insights: Insight[],
   versionId: string | null | undefined,
@@ -206,7 +200,7 @@ export default function HarmonyEvidence({
   };
 
   return (
-    <div className={`inspector-evidence-body ${styles.timeline}`} role="table" aria-label="Harmonic analysis timeline">
+    <div className={styles.timeline} role="table" aria-label="Harmonic analysis timeline">
       <div className={`${styles.row} ${styles.header}`} role="row">
         <span role="columnheader">Time</span>
         <span role="columnheader">Harmony</span>

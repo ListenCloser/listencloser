@@ -83,11 +83,11 @@ function OverviewSection({ insights }: { insights: Insight[] }) {
   if (items.length === 0) return null;
 
   return (
-    <section className="inspector-section inspector-breakdown-context">
-      <div className="inspector-section-heading"><h3>Overview</h3></div>
-      <dl className="inspector-meta-line" aria-label="Musical overview">
+    <section className={`${styles.section} ${styles.breakdownContext}`}>
+      <div className={styles.sectionHeading}><h3>Overview</h3></div>
+      <dl className={styles.metaLine} aria-label="Musical overview">
         {items.map((item) => (
-          <div className="inspector-meta-item" key={item.label}>
+          <div className={styles.metaItem} key={item.label}>
             <dt>{item.label}</dt>
             <dd>{item.value}</dd>
           </div>
@@ -138,11 +138,11 @@ function RhythmEvidence({ insights, onSeek }: { insights: Insight[]; onSeek: (se
   if (observations.length === 0) return null;
 
   return (
-    <div className="inspector-evidence-body inspector-rhythm-observations">
+    <div className={styles.evidenceBody}>
       {observations.map((observation, index) => observation.time == null ? (
-        <p className="inspector-evidence-copy" key={`${observation.label}-${index}`}>{observation.label}</p>
+        <p className={styles.evidenceCopy} key={`${observation.label}-${index}`}>{observation.label}</p>
       ) : (
-        <button className="inspector-evidence-jump" type="button" key={`${observation.label}-${index}`} onClick={() => onSeek(observation.time!)}>
+        <button className={styles.evidenceJump} type="button" key={`${observation.label}-${index}`} onClick={() => onSeek(observation.time!)}>
           <span>{formatTime(observation.time)}</span>
           <span>{observation.label}</span>
         </button>
@@ -165,15 +165,15 @@ function MelodyEvidence({ insights, onSeek, setSelection }: {
   if (summaries.length === 0 && !intervalSummary && temporal.length === 0) return null;
 
   return (
-    <div className="inspector-evidence-body">
+    <div className={styles.evidenceBody}>
       {[...summaries.slice(0, 2), ...(intervalSummary ? [intervalSummary] : [])].map((item) => (
-        <p className="inspector-evidence-copy" key={item.id}>{normalizeMusicText(item.claim)}</p>
+        <p className={styles.evidenceCopy} key={item.id}>{normalizeMusicText(item.claim)}</p>
       ))}
       {temporal.map((item) => (
         <button
           key={item.id}
           type="button"
-          className="inspector-evidence-jump"
+          className={styles.evidenceJump}
           onClick={() => {
             const start = item.span.start_seconds;
             if (start == null) return;
@@ -260,19 +260,19 @@ function BreakdownSection({
   const moreFindings = findings.slice(3);
 
   return (
-    <section className="inspector-section inspector-breakdown-section">
-      <div className="inspector-section-heading">
+    <section className={`${styles.section} ${styles.breakdownSection}`}>
+      <div className={styles.sectionHeading}>
         <h3>{selection ? "About this selection" : "What stands out"}</h3>
       </div>
 
       {findings.length === 0 ? (
-        <div className="inspector-breakdown-sparse">
+        <div className={styles.breakdownSparse}>
           <strong>{emptyCopy.title}</strong>
           <p>{emptyCopy.body}</p>
         </div>
       ) : (
         <>
-          <div className="inspector-breakdown-findings">
+          <div className={styles.breakdownFindings}>
             {primaryFindings.map((finding) => (
               <BreakdownFindingCard key={finding.id} finding={finding} />
             ))}
@@ -300,10 +300,10 @@ export default function InspectorPanel() {
   const mode = workspace.inspectorMode;
 
   return (
-    <aside className="inspector inspector-v4">
-      <header className="inspector-header">
+    <aside className={styles.root}>
+      <header className={styles.header}>
         <TabStrip
-          className="inspector-mode-tabs"
+          className={styles.modeTabs}
           label="Inspector mode"
           items={[
             { id: "analysis", label: "Breakdown" },
@@ -313,17 +313,17 @@ export default function InspectorPanel() {
           onChange={setInspectorMode}
         />
         {workspace.selection && (
-          <div className="inspector-scope">
-            <span className="inspector-scope-label">Selected</span>
-            <span className="inspector-scope-value">{describeSelection(workspace.selection)}</span>
-            <button type="button" className="inspector-scope-clear" onClick={clearSelection} aria-label="Clear selection">×</button>
+          <div className={styles.scope}>
+            <span className={styles.scopeLabel}>Selected</span>
+            <span className={styles.scopeValue}>{describeSelection(workspace.selection)}</span>
+            <button type="button" className={styles.scopeClear} onClick={clearSelection} aria-label="Clear selection">×</button>
           </div>
         )}
       </header>
 
       {mode === "analysis"
         ? <BreakdownContent workspace={workspace} seek={seek} bpm={timeline.bpm} setSelection={setSelection} />
-        : <div className="inspector-content ask-content"><AskPanel /></div>}
+        : <div className={`${styles.content} ${styles.askContent}`}><AskPanel /></div>}
     </aside>
   );
 }
@@ -366,8 +366,6 @@ function BreakdownContent({
     }).then((response) => {
       if (active) setContextResponse(response);
     }).catch(() => {
-      // Context is additive. Transport/network failure must not erase the
-      // existing Breakdown or turn an abstention into a client-authored claim.
       if (active) setContextResponse(null);
     });
 
@@ -442,8 +440,8 @@ function BreakdownContent({
           };
 
     return (
-      <div className="inspector-content inspector-analysis-content inspector-breakdown-content">
-        <div className="inspector-empty-state" aria-live="polite">
+      <div className={`${styles.content} ${styles.analysisContent} ${styles.breakdownContent}`}>
+        <div className={styles.emptyState} aria-live="polite">
           <strong>{emptyState.title}</strong>
           <p>{emptyState.body}</p>
         </div>
@@ -455,7 +453,7 @@ function BreakdownContent({
   }
 
   return (
-    <div className="inspector-content inspector-analysis-content inspector-breakdown-content">
+    <div className={`${styles.content} ${styles.analysisContent} ${styles.breakdownContent}`}>
       <BreakdownSection
         findings={rankedFindings}
         selection={workspace.selection}
@@ -469,7 +467,7 @@ function BreakdownContent({
       {overviewCount > 0 && <OverviewSection insights={overviewInsights} />}
 
       {totalAnalysisCount > 0 && (
-        <section className="inspector-section inspector-evidence-section inspector-breakdown-evidence-section">
+        <section className={`${styles.section} ${styles.evidenceSection} ${styles.breakdownEvidenceSection}`}>
           <details className={styles.analysisDisclosure}>
             <summary className={styles.analysisRootSummary}>
               <span>Analysis</span>

@@ -1,0 +1,201 @@
+.root {
+  box-sizing: border-box;
+  height: var(--transport-height);
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, var(--layout-sidebar)) minmax(320px, 1fr) minmax(220px, var(--layout-inspector));
+  align-items: center;
+  border-top: 1px solid var(--line-subtle);
+  background: var(--surface-chrome);
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.12);
+  position: relative;
+  z-index: 40;
+}
+
+.idle {
+  background: var(--surface-chrome);
+}
+
+.sourceZone,
+.compareZone {
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+}
+
+.sourceZone {
+  border-right: 1px solid var(--line-subtle);
+}
+
+.compareZone {
+  justify-content: flex-end;
+  border-left: 1px solid var(--line-subtle);
+}
+
+.playbackZone {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 38px minmax(96px, 1fr) 38px auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 clamp(var(--space-3), 2vw, var(--space-6));
+}
+
+.playButton {
+  color: var(--action-primary);
+}
+
+.time {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  text-align: right;
+}
+
+.timeMuted {
+  color: var(--text-tertiary);
+  text-align: left;
+}
+
+.seek {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.seek::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-strong);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+.seek::-moz-range-track {
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-strong);
+}
+
+.seek::-webkit-slider-thumb {
+  width: 11px;
+  height: 11px;
+  margin-top: -4px;
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--action-primary) 72%, black);
+  border-radius: 50%;
+  background: var(--action-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.32);
+}
+
+.seek::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 1px solid color-mix(in srgb, var(--action-primary) 72%, black);
+  border-radius: 50%;
+  background: var(--action-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.32);
+}
+
+.seek:focus-visible {
+  outline: none;
+}
+
+.seek:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--shadow-focus);
+}
+
+.seek:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.compareActive {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.compareSide {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+}
+
+.compareSideActive {
+  border-color: var(--line-strong);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-control);
+}
+
+@media (max-width: 980px) {
+  .root {
+    grid-template-columns: minmax(150px, 0.75fr) minmax(300px, 1.5fr) minmax(160px, 0.75fr);
+  }
+
+  .playbackZone {
+    padding-inline: var(--space-3);
+  }
+}
+
+@media (max-width: 600px) {
+  .root {
+    height: var(--transport-height);
+    min-height: var(--transport-height);
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 48px minmax(60px, 1fr);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .sourceZone {
+    border-right: 0;
+  }
+
+  .compareZone {
+    border-left: 0;
+  }
+
+  .playbackZone {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    border-top: 1px solid var(--line-subtle);
+  }
+}
+
+@media (max-width: 520px) {
+  .playbackZone {
+    grid-template-columns: auto 34px minmax(70px, 1fr) 34px auto;
+    gap: var(--space-1);
+    padding-inline: var(--space-2);
+  }
+
+  .compareZone {
+    padding-left: 0;
+    padding-right: var(--space-2);
+  }
+
+  .sourceZone {
+    padding-left: var(--space-2);
+    padding-right: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seek::-webkit-slider-thumb,
+  .seek::-moz-range-thumb {
+    transition: none;
+  }
+}

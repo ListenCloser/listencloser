@@ -7,7 +7,7 @@
   top: calc(100% + var(--space-1));
   left: 0;
   z-index: var(--layer-popover);
-  min-width: 190px;
+  min-width: 196px;
   padding: var(--space-1);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
@@ -40,9 +40,14 @@
   color: var(--text-primary);
 }
 
+.item[data-disabled],
 .item:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.42;
+}
+
+.item + .item {
+  margin-top: 1px;
 }
 
 @media (max-width: 600px) {

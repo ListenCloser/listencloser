@@ -1,12 +1,12 @@
 .select {
   width: 100%;
   min-height: var(--control-height-default);
-  padding: 0 calc(var(--space-5) + var(--space-1)) 0 var(--space-2);
+  padding: 0 calc(var(--space-5) + var(--space-1)) 0 var(--space-3);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
   outline: none;
   appearance: none;
-  background-color: var(--surface-canvas);
+  background-color: var(--surface-raised);
   background-image:
     linear-gradient(45deg, transparent 50%, var(--text-tertiary) 50%),
     linear-gradient(135deg, var(--text-tertiary) 50%, transparent 50%);
@@ -15,23 +15,39 @@
     calc(100% - 8px) 50%;
   background-size: 4px 4px, 4px 4px;
   background-repeat: no-repeat;
+  box-shadow: var(--shadow-control);
   color: var(--text-primary);
   font: inherit;
   font-size: var(--type-sm);
+  transition:
+    background-color var(--motion-duration-fast) var(--motion-ease-standard),
+    border-color var(--motion-duration-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-standard);
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--line-emphasis);
+  background-color: var(--surface-hover);
 }
 
 .select:focus-visible {
-  border-color: var(--focus-ring);
-  box-shadow: 0 0 0 2px var(--action-primary-soft);
+  border-color: var(--line-emphasis);
+  box-shadow: var(--shadow-focus);
 }
 
 .select:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.42;
 }
 
 @media (max-width: 600px) {
   .select {
     min-height: var(--control-height-touch);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .select {
+    transition: none;
   }
 }

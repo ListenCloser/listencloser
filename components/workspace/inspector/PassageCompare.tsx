@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Button from "@/components/ui/Button";
+import Disclosure from "@/components/ui/Disclosure";
 import { formatTime } from "@/lib/format";
 import { isInspectorExposed } from "@/lib/inspector/capabilities";
 import { requestWorkspaceOrientation } from "@/lib/inspector/orientation";
@@ -10,6 +12,7 @@ import {
 } from "@/lib/relation-api-client";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace, type MusicalSelection } from "@/lib/stores/workspace";
+import styles from "./InspectorFinding.module.css";
 
 type PassageRange = { start: number; end: number };
 type RequestState = "idle" | "loading" | "error";
@@ -208,25 +211,25 @@ function PassageCompareForSource({
   };
 
   return (
-    <section className="inspector-section" aria-label="Compare passages">
-      <div className="inspector-section-heading">
+    <section className={styles.section} aria-label="Compare passages">
+      <div className={styles.heading}>
         <h3>Compare passages</h3>
       </div>
 
       {!referenceRange ? (
-        <div className="inspector-breakdown-sparse">
+        <div className={styles.sparse}>
           <strong>Use this selection as a reference passage</strong>
           <p>Then select a second passage. The comparison only runs after you explicitly choose both spans.</p>
-          <div className="inspector-breakdown-actions">
-            <button type="button" className="inspector-breakdown-action" onClick={captureReference}>
+          <div className={styles.actions}>
+            <Button size="compact" variant="ghost" onClick={captureReference}>
               Use selection as reference
-            </button>
+            </Button>
           </div>
         </div>
       ) : groundedFinding ? (
-        <article className="inspector-breakdown-finding" aria-live="polite">
-          <div className="inspector-breakdown-focus">
-            <span className="inspector-breakdown-time">
+        <article className={styles.finding} aria-live="polite">
+          <div className={styles.focus}>
+            <span className={styles.time}>
               {passageLabel({
                 start: groundedFinding.subject_locator.start_seconds,
                 end: groundedFinding.subject_locator.end_seconds,
@@ -237,52 +240,56 @@ function PassageCompareForSource({
                 end: groundedFinding.comparison_locator.end_seconds,
               })}
             </span>
-            <span className="inspector-breakdown-headline">{groundedFinding.headline}</span>
-            <span className="inspector-breakdown-support">{groundedFinding.evidence_summary}</span>
+            <span className={styles.headline}>{groundedFinding.headline}</span>
+            <span className={styles.support}>{groundedFinding.evidence_summary}</span>
           </div>
 
           {groundedFinding.available_actions.includes("evidence") && groundedFinding.measurements.length > 0 && (
-            <details className="inspector-evidence-group">
-              <summary>
-                <span>Evidence</span>
-                <span className="inspector-evidence-count">{groundedFinding.support_refs.length}</span>
-              </summary>
-              <div className="inspector-evidence-body">
+            <Disclosure
+              className={styles.evidence}
+              label={(
+                <>
+                  <span>Evidence</span>
+                  <span className={styles.count}>{groundedFinding.support_refs.length}</span>
+                </>
+              )}
+            >
+              <div className={styles.evidenceBody}>
                 {groundedFinding.measurements.map((measurement) => (
                   <p key={`${measurement.support_ref.id}:${measurement.feature}`}>{measurement.summary}</p>
                 ))}
               </div>
-            </details>
+            </Disclosure>
           )}
 
-          <div className="inspector-breakdown-actions" aria-label="Comparison actions">
-            <button
-              type="button"
-              className="inspector-breakdown-action"
+          <div className={styles.actions} aria-label="Comparison actions">
+            <Button
+              size="compact"
+              variant="ghost"
               onClick={() => focusRange({
                 start: groundedFinding.subject_locator.start_seconds,
                 end: groundedFinding.subject_locator.end_seconds,
               })}
             >
               Focus A
-            </button>
-            <button
-              type="button"
-              className="inspector-breakdown-action"
+            </Button>
+            <Button
+              size="compact"
+              variant="ghost"
               onClick={() => focusRange({
                 start: groundedFinding.comparison_locator.start_seconds,
                 end: groundedFinding.comparison_locator.end_seconds,
               })}
             >
               Focus B
-            </button>
-            <button type="button" className="inspector-breakdown-action" onClick={resetComparison}>
+            </Button>
+            <Button size="compact" variant="ghost" onClick={resetComparison}>
               New comparison
-            </button>
+            </Button>
           </div>
         </article>
       ) : (
-        <div className="inspector-breakdown-sparse" aria-live="polite">
+        <div className={styles.sparse} aria-live="polite">
           <strong>Reference {passageLabel(referenceRange)}</strong>
           <p>
             {comparisonRange
@@ -292,25 +299,25 @@ function PassageCompareForSource({
           {unavailableMessage && <p>{unavailableMessage}</p>}
           {protocolError && <p>{protocolError}</p>}
           {requestError && <p>{requestError}</p>}
-          <div className="inspector-breakdown-actions">
+          <div className={styles.actions}>
             {comparisonRange && (
-              <button
-                type="button"
-                className="inspector-breakdown-action"
+              <Button
+                size="compact"
+                variant="ghost"
                 disabled={requestIsLoading}
                 onClick={runComparison}
               >
                 {requestIsLoading ? "Checking evidence…" : "Check against selected passage"}
-              </button>
+              </Button>
             )}
             {selectedRange && (
-              <button type="button" className="inspector-breakdown-action" onClick={captureReference}>
+              <Button size="compact" variant="ghost" onClick={captureReference}>
                 Replace reference
-              </button>
+              </Button>
             )}
-            <button type="button" className="inspector-breakdown-action" onClick={resetComparison}>
+            <Button size="compact" variant="ghost" onClick={resetComparison}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}

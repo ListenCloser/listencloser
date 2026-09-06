@@ -16,11 +16,14 @@
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
+  user-select: none;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-standard),
     border-color var(--motion-duration-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-standard),
     color var(--motion-duration-fast) var(--motion-ease-standard),
-    opacity var(--motion-duration-fast) var(--motion-ease-standard);
+    opacity var(--motion-duration-fast) var(--motion-ease-standard),
+    transform var(--motion-duration-fast) var(--motion-ease-standard);
 }
 
 .button > svg {
@@ -30,8 +33,9 @@
 }
 
 .primary {
-  border-color: var(--action-primary);
+  border-color: color-mix(in srgb, var(--action-primary) 84%, black);
   background: var(--action-primary);
+  box-shadow: var(--shadow-control);
   color: var(--text-inverse);
 }
 
@@ -42,17 +46,20 @@
 
 .secondary {
   border-color: var(--line-strong);
-  background: var(--surface-chrome);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-control);
   color: var(--text-secondary);
 }
 
 .secondary:hover:not(:disabled),
 .secondary[data-open] {
+  border-color: var(--line-emphasis);
   background: var(--surface-hover);
   color: var(--text-primary);
 }
 
 .ghost {
+  border-color: transparent;
   color: var(--text-tertiary);
 }
 
@@ -64,30 +71,42 @@
 
 .secondary[aria-pressed="true"],
 .ghost[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--time) 24%, transparent);
   background: var(--time-soft);
   color: var(--time);
 }
 
 .danger {
-  border-color: var(--intent-danger);
+  border-color: color-mix(in srgb, var(--intent-danger) 42%, transparent);
   background: var(--intent-danger-soft);
+  box-shadow: var(--shadow-control);
   color: var(--intent-danger);
 }
 
 .danger:hover:not(:disabled) {
-  background: var(--surface-hover);
-  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--intent-danger) 62%, transparent);
+  background: color-mix(in srgb, var(--intent-danger) 14%, var(--surface-raised));
+  color: color-mix(in srgb, var(--intent-danger) 82%, white);
+}
+
+.button:active:not(:disabled) {
+  box-shadow: var(--shadow-control-pressed);
+  transform: translateY(1px);
+}
+
+.ghost:active:not(:disabled) {
+  box-shadow: none;
 }
 
 .button:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .button:disabled,
 .button[aria-disabled="true"] {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.42;
 }
 
 .compact {

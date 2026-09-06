@@ -6,6 +6,7 @@ import {
   ListboxOption,
   ListboxOptions,
 } from "@headlessui/react";
+import { ChevronDownIcon } from "./Icons";
 import styles from "./ListboxMenu.module.css";
 
 type MenuOption = { id: string; label: string; disabled?: boolean };
@@ -35,16 +36,7 @@ export default function ListboxMenu({
       <div className={`${styles.root}${compact ? ` ${styles.compact}` : ""}`}>
         <ListboxButton className={styles.trigger} aria-label={triggerAria}>
           <span className={styles.triggerLabel}>{triggerLabel}</span>
-          <svg
-            className={styles.chevron}
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            aria-hidden="true"
-          >
-            <path d="m3 4.25 3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ChevronDownIcon className={styles.chevron} />
         </ListboxButton>
         <ListboxOptions
           className={styles.menu}
