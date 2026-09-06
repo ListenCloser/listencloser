@@ -186,9 +186,6 @@ run_backend_static() {
   echo ""
   echo "── Backend static checks ──"
   local started=$SECONDS
-  uv run --project backend --locked ruff format --diff \
-    backend/engines/retrieval/clamp3.py \
-    backend/tests/test_clamp3_text_audio_retriever.py || true
   if uv run --project backend --locked ruff check backend/ && \
      uv run --project backend --locked ruff format backend/ --check; then
     pass "ruff ($((SECONDS - started))s)"
