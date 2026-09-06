@@ -20,11 +20,23 @@ export type MidiAuthority = {
   representations: MidiRepresentationDescriptor[];
 };
 
+export type PianoRollSourceOption = {
+  versionId: string;
+  role: "performance_transcription" | "edited_performance" | "creative_take";
+  label: string;
+};
+
 const EXPLICIT_PIANO_ROLL_ROLES = new Set<MidiSemanticRole>([
   "performance_transcription",
   "edited_performance",
   "creative_take",
 ]);
+
+const PIANO_ROLL_ROLE_ORDER: Record<PianoRollSourceOption["role"], number> = {
+  performance_transcription: 0,
+  edited_performance: 1,
+  creative_take: 2,
+};
 
 function metadataString(metadata: Record<string, unknown>, key: string): string | null {
   const value = metadata[key];
@@ -120,4 +132,24 @@ export function resolveExplicitPianoRollMidi(
   );
   if (!descriptor || !EXPLICIT_PIANO_ROLL_ROLES.has(descriptor.role)) return null;
   return descriptor;
+}
+
+/**
+ * Product-facing interpretations that may intentionally drive the Piano Roll.
+ * Score reconstruction / notation MIDI and ambiguous legacy rows stay hidden;
+ * users choose musical interpretations, never internal Artifact/Version kinds.
+ */
+export function pianoRollSourceOptions(bundle: WorkBundle): PianoRollSourceOption[] {
+  return resolveMidiAuthority(bundle).representations
+    .flatMap((descriptor): PianoRollSourceOption[] => {
+      if (!EXPLICIT_PIANO_ROLL_ROLES.has(descriptor.role)) return [];
+      const role = descriptor.role as PianoRollSourceOption["role"];
+      const label = role === "performance_transcription"
+        ? "Original transcription"
+        : role === "edited_performance"
+          ? "Corrected transcription"
+          : "Creative take";
+      return [{ versionId: descriptor.versionId, role, label }];
+    })
+    .sort((a, b) => PIANO_ROLL_ROLE_ORDER[a.role] - PIANO_ROLL_ROLE_ORDER[b.role]);
 }
