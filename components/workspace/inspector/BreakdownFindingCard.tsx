@@ -81,9 +81,6 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
     activeWorkId: workspace.activeWorkId,
     supportInsightKinds,
   });
-  // Ask already consumes the shared workspace selection. Repeating Ask on every
-  // finding turns a concise musical observation into a toolbar. Select/focus the
-  // passage here; the stable Inspector Ask tab is the single path into Ask.
   const visibleActions = actions.filter(
     (action): action is VisibleFindingAction => action.type !== "ask",
   );
@@ -118,25 +115,25 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
   };
 
   return (
-    <article className={`inspector-breakdown-finding ${styles.finding}`}>
+    <article className={styles.finding}>
       <button
         type="button"
-        className="inspector-breakdown-focus"
+        className={styles.focus}
         onClick={focusFinding}
         aria-label={`Focus ${formatTime(finding.startSeconds)} to ${formatTime(finding.endSeconds)}: ${finding.headline}`}
       >
-        <span className="inspector-breakdown-time">{formatTime(finding.startSeconds)}–{formatTime(finding.endSeconds)}</span>
-        <span className="inspector-breakdown-headline">{finding.headline}</span>
+        <span className={styles.time}>{formatTime(finding.startSeconds)}–{formatTime(finding.endSeconds)}</span>
+        <span className={styles.headline}>{finding.headline}</span>
         {finding.evidenceSummary && (
-          <span className="inspector-breakdown-support">{finding.evidenceSummary}</span>
+          <span className={styles.support}>{finding.evidenceSummary}</span>
         )}
         {finding.maturity === "experimental" && (
-          <span className="inspector-breakdown-maturity">Experimental melody evidence</span>
+          <span className={styles.maturity}>Experimental melody evidence</span>
         )}
       </button>
 
       {visibleActions.length > 0 && (
-        <div className="inspector-breakdown-actions" aria-label="Finding actions">
+        <div className={styles.actions} aria-label="Finding actions">
           {visibleActions.map((action) => {
             const label = action.type === "loop" ? "Hear" : "Inspect";
             const ariaLabel = action.type === "loop"
@@ -145,7 +142,7 @@ export default function BreakdownFindingCard({ finding }: { finding: BreakdownFi
             return (
               <button
                 type="button"
-                className="inspector-breakdown-action"
+                className={styles.action}
                 key={action.type}
                 onClick={() => handleAction(action)}
                 aria-label={ariaLabel}
