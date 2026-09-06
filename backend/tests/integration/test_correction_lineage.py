@@ -8,6 +8,7 @@ import pytest
 
 import domain.api.workflows_jobs as workflows_jobs
 import domain.capabilities as capabilities
+import domain.correction_entity_sync as correction_sync
 from domain.models import (
     Artifact,
     ArtifactKind,
@@ -89,7 +90,9 @@ def _seed_correction(sb):
     return work, source, job
 
 
-def test_correct_handler_persists_exact_parent_job_and_work_lineage(sb, monkeypatch) -> None:
+def test_correct_adapter_persists_exact_parent_job_work_and_edit_provenance(
+    sb, monkeypatch
+) -> None:
     work, source, job = _seed_correction(sb)
     source_before = (
         sb.table("artifact_versions").select("*").eq("id", str(source.id)).single().execute().data
@@ -98,7 +101,7 @@ def test_correct_handler_persists_exact_parent_job_and_work_lineage(sb, monkeypa
     monkeypatch.setattr(capabilities, "download_version_bytes", lambda *_args: _fixture_midi())
     monkeypatch.setattr(capabilities, "_upload_bytes", lambda *_args, **_kwargs: None)
 
-    outputs = capabilities.handle_correct(job, sb)
+    outputs = correction_sync.handle_correct_with_entity_sync(job, sb)
 
     assert len(outputs) == 1
     corrected_id = outputs[0]
@@ -123,7 +126,28 @@ def test_correct_handler_persists_exact_parent_job_and_work_lineage(sb, monkeypa
     assert corrected["lineage"] == [str(source.id)]
     assert corrected["produced_by_job_id"] == str(job.id)
     assert corrected_artifact == {"work_id": str(work.id), "kind": "midi_corrected"}
+    assert corrected["metadata"] == {
+        "representation": "edited_performance",
+        "correction": {
+            "schema_version": 1,
+            "operation": "replace_notes_in_span",
+            "source_version_id": str(source.id),
+            "selection_start_seconds": 0.0,
+            "selection_end_seconds": 0.4,
+            "replacement_note_count": 1,
+        },
+    }
     assert source_after == source_before, "correction must never mutate the source Version"
+
+    notes = (
+        sb.table("entities")
+        .select("note_pitch,note_start_seconds,note_end_seconds")
+        .eq("version_id", corrected_id)
+        .eq("kind", "note")
+        .execute()
+        .data
+    )
+    assert sorted(row["note_pitch"] for row in notes) == [61, 64]
 
 
 def test_correct_api_queues_the_exact_requested_source_version(monkeypatch) -> None:
