@@ -26,11 +26,33 @@ jobs:
           git checkout -B replay origin/main
           for commit in $(git rev-list --reverse ebc30d055934d20b5925012c47fa9a71968371c0..b67f74b98718f2147edbf8f39e34462da6116ed6); do
             echo "=== cherry-pick $commit ==="
-            if ! git cherry-pick "$commit"; then
-              echo "CONFLICT_COMMIT=$commit"
-              git diff --name-only --diff-filter=U
-              git status --short
-              exit 1
+            if git cherry-pick "$commit"; then
+              continue
             fi
+            conflicts=$(git diff --name-only --diff-filter=U)
+            if [ "$commit" = "aadfc3e74aae7bcaa1e88f56468ac1e8cb756c65" ] && [ "$conflicts" = "backend/worker.py" ]; then
+              git checkout --ours backend/worker.py
+              python - <<'PY'
+          from pathlib import Path
+          path = Path('backend/worker.py')
+          text = path.read_text()
+          import_line = 'from domain.source_separation import register_source_separation\n'
+          if import_line not in text:
+              anchor = 'from domain.production_spatial_capability import register_production_spatial_capability\n'
+              text = text.replace(anchor, anchor + import_line)
+          register_line = '    register_source_separation(worker)\n'
+          if register_line not in text:
+              anchor = '    register_structure_map_capability(worker)\n'
+              text = text.replace(anchor, anchor + register_line)
+          path.write_text(text)
+          PY
+              git add backend/worker.py
+              GIT_EDITOR=true git cherry-pick --continue
+              continue
+            fi
+            echo "CONFLICT_COMMIT=$commit"
+            printf '%s\n' "$conflicts"
+            git status --short
+            exit 1
           done
           echo "REPLAY_OK"
