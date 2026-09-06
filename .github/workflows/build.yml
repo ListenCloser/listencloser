@@ -29,6 +29,8 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       actions_hygiene: ${{ steps.filter.outputs.actions_hygiene }}
       dependencies: ${{ steps.filter.outputs.dependencies }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Classify changed surface once
@@ -56,6 +58,24 @@ jobs:
               - 'backend/uv.lock'
               - 'backend/requirements*.txt'
               - '.github/dependency-review.yml'
+            backend:
+              - 'backend/**'
+              - '!backend/evaluation/**'
+              - 'backend/Dockerfile'
+              - 'backend/docker-compose.yml'
+              - '.github/workflows/backend-image.yml'
+              - '.github/workflows/database-integration.yml'
+            frontend:
+              - 'app/**'
+              - 'components/**'
+              - 'lib/**'
+              - 'public/**'
+              - 'tests/e2e/**'
+              - 'playwright*.ts'
+              - 'next.config.mjs'
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'package-lock.json'
 
   preflight:
     name: preflight
@@ -241,7 +261,7 @@ jobs:
         run: bash scripts/check-actions.sh
 
   e2e:
-    if: github.event_name == 'merge_group'
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.classify.outputs.frontend == 'true' }}
     needs:
       - classify
       - preflight
@@ -251,21 +271,21 @@ jobs:
       ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
 
   real-stack:
-    if: github.event_name == 'merge_group'
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (needs.classify.outputs.frontend == 'true' || needs.classify.outputs.backend == 'true') }}
     needs:
       - classify
       - preflight
     uses: ./.github/workflows/real-stack-e2e.yml
 
   database:
-    if: github.event_name == 'merge_group'
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.classify.outputs.backend == 'true' }}
     needs:
       - classify
       - preflight
     uses: ./.github/workflows/database-integration.yml
 
   backend-image:
-    if: github.event_name == 'merge_group'
+    if: ${{ github.event_name == 'merge_group' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.classify.outputs.backend == 'true') }}
     needs:
       - classify
       - preflight
@@ -320,73 +340,25 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
-      - name: Require the complete risk-relevant gate
+      - name: Require every gate job to pass or be skipped
         env:
-          EVENT: ${{ github.event_name }}
-          CLASSIFY: ${{ needs.classify.result }}
-          PREFLIGHT: ${{ needs.preflight.result }}
-          AUTOFIX: ${{ needs.autofix.result }}
-          COMPILE: ${{ needs.compile.result }}
-          CI: ${{ needs.ci.result }}
-          DOCS: ${{ needs.docs.result }}
-          ACTIONS_HYGIENE: ${{ needs.actions_hygiene.result }}
-          E2E: ${{ needs.e2e.result }}
-          REAL_STACK: ${{ needs.real-stack.result }}
-          DATABASE: ${{ needs.database.result }}
-          BACKEND_IMAGE: ${{ needs.backend-image.result }}
-          CODEQL: ${{ needs.codeql.result }}
-          GITLEAKS: ${{ needs.gitleaks.result }}
-          DEPENDENCY_REVIEW: ${{ needs.dependency-review.result }}
+          GATES: ${{ toJSON(needs) }}
         shell: bash
         run: |
           set -euo pipefail
-          require_success_or_skip() {
-            case "$2" in
-              success|skipped) ;;
-              *) echo "$1 did not pass: $2" >&2; exit 1 ;;
-            esac
+          python3 - "$GATES" <<'PY'
+          import json
+          import sys
+
+          gates = json.loads(sys.argv[1])
+          failing = {
+              name: info.get("result")
+              for name, info in gates.items()
+              if info.get("result") not in ("success", "skipped")
           }
-          require_skipped() {
-            test "$2" = skipped || { echo "$1 must be skipped in this event ($2)" >&2; exit 1; }
-          }
-          case "$EVENT" in
-            push)
-              test "$COMPILE" = success
-              ;;
-            pull_request)
-              test "$CLASSIFY" = success
-              require_success_or_skip PREFLIGHT "$PREFLIGHT"
-              require_success_or_skip AUTOFIX "$AUTOFIX"
-              require_success_or_skip CI "$CI"
-              require_success_or_skip DOCS "$DOCS"
-              require_success_or_skip ACTIONS_HYGIENE "$ACTIONS_HYGIENE"
-              require_success_or_skip CODEQL "$CODEQL"
-              require_success_or_skip GITLEAKS "$GITLEAKS"
-              require_success_or_skip DEPENDENCY_REVIEW "$DEPENDENCY_REVIEW"
-              require_skipped COMPILE "$COMPILE"
-              require_skipped E2E "$E2E"
-              require_skipped REAL_STACK "$REAL_STACK"
-              require_skipped DATABASE "$DATABASE"
-              require_skipped BACKEND_IMAGE "$BACKEND_IMAGE"
-              ;;
-            merge_group)
-              test "$CLASSIFY" = success
-              test "$PREFLIGHT" = success
-              test "$COMPILE" = success
-              test "$CI" = success
-              require_success_or_skip DOCS "$DOCS"
-              require_success_or_skip ACTIONS_HYGIENE "$ACTIONS_HYGIENE"
-              test "$E2E" = success
-              test "$REAL_STACK" = success
-              test "$DATABASE" = success
-              test "$BACKEND_IMAGE" = success
-              test "$CODEQL" = success
-              test "$GITLEAKS" = success
-              require_success_or_skip AUTOFIX "$AUTOFIX"
-              require_skipped DEPENDENCY_REVIEW "$DEPENDENCY_REVIEW"
-              ;;
-            *)
-              echo "unexpected event: $EVENT" >&2
-              exit 1
-              ;;
-          esac
+          if failing:
+              for name, result in sorted(failing.items()):
+                  print(f"  {name}: {result}")
+              sys.exit("build gate failed: one or more required jobs did not pass")
+          print("build gate passed:", ", ".join(sorted(gates)))
+          PY
