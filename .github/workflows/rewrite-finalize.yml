@@ -148,7 +148,7 @@ jobs:
           rm -f "$tmp_graph"
 
           rm -f backend/tests/test_backend_dependency_inventory.py scripts/backend_dependency_inventory.py
-          git rm .github/workflows/rewrite-finalize.yml
+          git rm -f .github/workflows/rewrite-finalize.yml
 
           if git grep -n 'services/backend' -- .; then
             echo "stale services/backend references remain" >&2
