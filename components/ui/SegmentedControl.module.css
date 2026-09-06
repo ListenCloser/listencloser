@@ -5,7 +5,8 @@
   padding: 2px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
-  background: var(--surface-canvas);
+  background: var(--surface-chrome);
+  box-shadow: var(--shadow-control-pressed);
 }
 
 .option {
@@ -13,7 +14,7 @@
   min-width: 0;
   min-height: var(--control-height-compact);
   padding: 0 var(--space-2);
-  border: 0;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   outline: none;
   background: transparent;
@@ -25,6 +26,7 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-standard),
+    border-color var(--motion-duration-fast) var(--motion-ease-standard),
     box-shadow var(--motion-duration-fast) var(--motion-ease-standard),
     color var(--motion-duration-fast) var(--motion-ease-standard);
 }
@@ -34,19 +36,20 @@
 }
 
 .option[data-checked] {
-  background: var(--action-primary-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--action-primary) 36%, transparent);
+  border-color: var(--line-strong);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-control);
   color: var(--text-primary);
 }
 
 .option:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .option:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.42;
 }
 
 @media (max-width: 600px) {
