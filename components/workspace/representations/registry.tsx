@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import PianoRoll from "./PianoRoll";
+import SheetMusic from "./SheetMusic";
 import Spectrogram from "./Spectrogram";
 import Waveform from "./Waveform";
-import SheetMusic from "@/components/SheetMusic";
 import HarmonyInterpretationControl from "@/components/workspace/HarmonyInterpretationControl";
 import MelodyReduction from "@/components/workspace/inspector/MelodyReduction";
 import PianoRollCorrectionCoordinator from "@/components/workspace/PianoRollCorrectionCoordinator";
