@@ -43,7 +43,7 @@ function ActionChip({ action, blocked, reason, onClick }: { action: AskAction; b
   const chip = (
     <button
       type="button"
-      className={`ask-action-chip${blocked ? ` ${styles.blockedAction}` : ""}`}
+      className={`${styles.actionChip}${blocked ? ` ${styles.blockedAction}` : ""}`}
       aria-disabled={blocked || undefined}
       onClick={() => {
         if (!blocked) onClick(action);
@@ -208,16 +208,16 @@ export default function AskPanel() {
   };
 
   return (
-    <div className="ask-panel ask-panel-v4">
-      <div className="ask-conversation" aria-live="polite">
+    <div className={styles.root}>
+      <div className={styles.conversation} aria-live="polite">
         {conversation.length === 0 && (
-          <div className="ask-empty">
+          <div className={styles.empty}>
             <strong>Ask about the current music</strong>
             <p>Ask about harmony, rhythm, structure, or a selected passage. Answers use the evidence currently available for this recording.</p>
             {starterPrompts.length > 0 && (
-              <div className="ask-prompts">
+              <div className={styles.prompts}>
                 {starterPrompts.map((prompt) => (
-                  <button type="button" className={`ask-prompt ${styles.prompt}`} key={prompt} onClick={() => void handleAsk(prompt)}>
+                  <button type="button" className={styles.prompt} key={prompt} onClick={() => void handleAsk(prompt)}>
                     {prompt}
                   </button>
                 ))}
@@ -239,8 +239,8 @@ export default function AskPanel() {
         ))}
 
         {pending && (
-          <div className="ask-turn ask-thinking" role="status">
-            <span className="ask-thinking-dot" />
+          <div className={`${styles.turn} ${styles.thinking}`} role="status">
+            <span className={styles.thinkingDot} />
             <span>Thinking</span>
           </div>
         )}
@@ -258,10 +258,10 @@ export default function AskPanel() {
         </InlineNotice>
       )}
 
-      <form className="ask-composer" onSubmit={(event) => { event.preventDefault(); void handleAsk(draft); }}>
+      <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); void handleAsk(draft); }}>
         <textarea
           ref={inputRef}
-          className="ask-input"
+          className={styles.input}
           placeholder={hasSelectedScope ? "Ask a question about this selection…" : "Ask a question about this recording…"}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -301,7 +301,7 @@ function AskMessageView({
 }) {
   if (message.role === "user") {
     return (
-      <div className="ask-turn ask-turn-user">
+      <div className={`${styles.turn} ${styles.userTurn}`}>
         <p>{message.text}</p>
         {message.contextLabel && <span className={styles.turnScope}>{message.contextLabel}</span>}
       </div>
@@ -310,19 +310,19 @@ function AskMessageView({
 
   const response: AskResponse = message.response;
   return (
-    <div className="ask-turn ask-turn-assistant">
+    <div className={`${styles.turn} ${styles.assistantTurn}`}>
       <p>{response.answer}</p>
       {response.references.length > 0 && (
-        <div className="ask-references">
-          <span className="ask-ref-label">Evidence</span>
-          <div className="ask-ref-chips">
+        <div>
+          <span className={styles.referenceLabel}>Evidence</span>
+          <div className={styles.referenceChips}>
             {response.references.map((ref, index) => {
               const resolution = resolveReference(ref, referenceContext);
               const blocked = resolution.kind === "blocked";
               const chip = (
                 <button
                   type="button"
-                  className={`ask-ref-chip${blocked ? ` ${styles.blockedReference}` : ""}`}
+                  className={`${styles.referenceChip}${blocked ? ` ${styles.blockedReference}` : ""}`}
                   key={`${ref.type}-${index}`}
                   aria-disabled={blocked || undefined}
                   onClick={() => {
@@ -341,7 +341,7 @@ function AskMessageView({
         </div>
       )}
       {response.suggestedActions && response.suggestedActions.length > 0 && (
-        <div className="ask-actions">
+        <div className={styles.actions}>
           {response.suggestedActions.map((action, index) => {
             const { allowed, reason } = validateAction(action, activeSource);
             return <ActionChip key={`${action.type}-${index}`} action={action} blocked={!allowed} reason={reason} onClick={onAction} />;
