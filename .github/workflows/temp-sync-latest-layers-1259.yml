@@ -1,0 +1,28 @@
+name: Temporary sync latest Layers into PR 1259
+
+on:
+  push:
+    branches:
+      - feat/1258-analysis-discovery-parity
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: feat/1258-analysis-discovery-parity
+          fetch-depth: 0
+      - name: Merge latest Layers parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch origin feat/1176-layers-current-main
+          git merge --no-edit origin/feat/1176-layers-current-main
+          git push origin HEAD:feat/1258-analysis-discovery-parity
