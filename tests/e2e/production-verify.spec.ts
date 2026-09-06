@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const PROD_URL = "https://listen-closer.vercel.app";
 const SUPABASE_PROJECT_REF = "cijhpddqvvzyzfzmkdnn";
@@ -176,7 +176,7 @@ test("C: import real audio, wait for durable understand, verify representations 
     }
   }
 
-  const fileInput = page.locator('input[type="file"]');
+  const fileInput = page.locator("#audio-import-input");
   if (existsSync(REAL_AUDIO)) {
     await fileInput.setInputFiles(REAL_AUDIO);
   } else {
@@ -221,4 +221,83 @@ test("C: import real audio, wait for durable understand, verify representations 
   // Assert the actual ListenCloser Ask error surface is absent rather than
   // banning all ARIA alerts or matching one specific error message.
   await expect(page.locator(".ask-error")).toHaveCount(0);
+});
+
+test("D: real Pitch Contour job is accepted, executed, and completes", async ({
+  request,
+}) => {
+  test.setTimeout(240_000);
+  if (!existsSync(REAL_AUDIO)) {
+    throw new Error(`Audio fixture not found: ${REAL_AUDIO}`);
+  }
+  const s = await createSession();
+  const authHeaders = { Authorization: `Bearer ${s.access_token}` };
+
+  const projectResponse = await request.post(`${PROD_URL}/api/v1/projects`, {
+    headers: authHeaders,
+    data: {
+      name: `pitch-contour-prod-verify-${Date.now()}`,
+      description: "production verify pitch contour",
+    },
+  });
+  expect(projectResponse.status()).toBe(200);
+  const projectId = (await projectResponse.json()).id as string;
+  expect(projectId).toBeTruthy();
+
+  const uploadResponse = await request.post(
+    `${PROD_URL}/api/v1/projects/${projectId}/artifacts/upload`,
+    {
+      headers: authHeaders,
+      multipart: {
+        file: {
+          name: "piano-simple.m4a",
+          mimeType: "audio/mp4",
+          buffer: readFileSync(REAL_AUDIO),
+        },
+      },
+    },
+  );
+  expect(uploadResponse.status()).toBe(200);
+  const versionId = (await uploadResponse.json()).version?.id as string;
+  expect(versionId).toBeTruthy();
+
+  const createResponse = await request.post(`${PROD_URL}/api/v1/workflows/create`, {
+    headers: authHeaders,
+    data: {
+      version_id: versionId,
+      project_id: projectId,
+      action: "pitch_contour",
+      parameters: { pitch_engine: "pyin" },
+    },
+  });
+  expect(
+    createResponse.status(),
+    `pitch_contour rejected by /api/v1/workflows/create: ${await createResponse.text()}`,
+  ).toBe(200);
+  const created = await createResponse.json();
+  const jobId = created.job?.id as string;
+  expect(created.job?.capability).toBe("pitch_contour");
+  expect(jobId).toBeTruthy();
+
+  let stage = "";
+  let message = "";
+  const deadline = Date.now() + 180_000;
+  while (Date.now() < deadline) {
+    const jobResponse = await request.get(`${PROD_URL}/api/v1/jobs/${jobId}`, {
+      headers: authHeaders,
+    });
+    expect(jobResponse.status()).toBe(200);
+    const job = await jobResponse.json();
+    stage = job.stage as string;
+    message = job.message as string;
+    if (stage === "succeeded") break;
+    expect(stage, `pitch_contour job ${jobId} entered ${stage}: ${message}`).not.toBe(
+      "failed",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+  }
+  expect(
+    stage,
+    `pitch_contour job ${jobId} did not complete within 180s; last stage=${stage} message=${message}`,
+  ).toBe("succeeded");
 });
