@@ -1,7 +1,7 @@
 """Exact parser-native note identities for Score ↔ performance alignment reports.
 
 Parangonar's relation IDs are meaningful only inside the exact Partitura parse that
-produced them.  This sidecar preserves the parser-native coordinates needed to bridge
+produced them. This sidecar preserves the parser-native coordinates needed to bridge
 those IDs to another representation without inventing a nearest-time fallback.
 """
 
@@ -23,6 +23,7 @@ class ScoreEventIdentity(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     event_id: str
+    measure_index: int = Field(ge=0)
     pitch: int = Field(ge=0, le=127)
     onset_beat: float
     duration_beat: float = Field(ge=0.0)
