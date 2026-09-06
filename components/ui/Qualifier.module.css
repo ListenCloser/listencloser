@@ -1,15 +1,16 @@
 .qualifier {
   display: inline-flex;
   align-items: center;
-  min-height: 20px;
-  padding: 0 var(--space-1);
+  min-height: 18px;
+  padding: 0 5px;
   border: 1px solid var(--line-subtle);
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  background: var(--surface-chrome);
   color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: var(--weight-medium);
+  font-size: 9px;
+  font-weight: var(--weight-semibold);
   line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
