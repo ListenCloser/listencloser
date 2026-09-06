@@ -30,6 +30,7 @@ import {
   pianoRollSourceOptions,
   resolveExplicitPianoRollMidi,
   resolveMidiAuthority,
+  resolveRenderedPlaybackForMidi,
 } from "@/lib/midi-authority";
 import { buildPlaybackSources } from "@/lib/playback-sources";
 import { retainRepresentationsConfirmedByVersion } from "@/lib/representation-continuity";
@@ -235,14 +236,22 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       const ordinaryRendered = renderedArtifacts.filter((item) => (
         item.latest_version?.metadata?.representation !== "melody_playback"
       ));
-      const primaryRendered = ordinaryRendered.find(
-        (item) => item.latest_version?.parent_version_id === midi?.latest_version?.id,
-      ) ?? ordinaryRendered.find(
-        (item) => item.latest_version?.parent_version_id === baseMidi?.latest_version?.id,
-      ) ?? ordinaryRendered[0];
-      const extraRendered = ordinaryRendered.filter(
-        (item) => item.latest_version && item.signed_url && item.latest_version.id !== primaryRendered?.latest_version?.id,
-      );
+      // "Transcription" is an exact performance-interpretation source, never a
+      // broad latest/first audio_rendered fallback. New corrected renders point
+      // directly at their MIDI Version; canonical legacy renders are resolved by
+      // the bounded same-producing-Job compatibility rule in midi-authority.
+      const primaryRendered = midi?.latest_version
+        ? resolveRenderedPlaybackForMidi(bundle, midi.latest_version.id)
+        : null;
+      const canonicalRendered = baseMidi?.latest_version
+        ? resolveRenderedPlaybackForMidi(bundle, baseMidi.latest_version.id)
+        : null;
+      const extraRendered = ordinaryRendered.filter((item) => (
+        item.latest_version
+        && item.signed_url
+        && item.latest_version.id !== primaryRendered?.latest_version?.id
+        && item.latest_version.id !== canonicalRendered?.latest_version?.id
+      ));
       const { sources, activeId } = buildPlaybackSources({
         original: original?.latest_version && original.signed_url ? { id: original.latest_version.id, url: original.signed_url } : null,
         transcription: primaryRendered?.latest_version && primaryRendered.signed_url ? { id: primaryRendered.latest_version.id, url: primaryRendered.signed_url } : null,
