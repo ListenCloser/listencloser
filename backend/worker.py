@@ -4,6 +4,7 @@ import logging
 import signal
 
 import domain.capabilities as capability_module
+from domain.analysisgnn_score_capability import register_analysisgnn_score_capability
 from domain.correction_entity_sync import register_corrected_midi_entity_sync
 from domain.harmony_interpretation_capability import register_harmony_interpretation_capability
 from domain.lyrics_alignment_capability import register_lyrics_alignment_capability
@@ -64,6 +65,9 @@ def main() -> None:
     register_pitch_contour_capability(worker)
     register_harmony_interpretation_capability(worker)
     register_text_passage_find_capability(worker)
+    # Dormant until #1248 verifies the exact pretrained artifact terms/runtime.
+    # There is deliberately no public workflow dispatch for this capability yet.
+    register_analysisgnn_score_capability(worker)
 
     def stop(_signum, _frame) -> None:
         worker.stop()
