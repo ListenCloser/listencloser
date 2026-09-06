@@ -45,15 +45,16 @@ npm run check:realstack  # isolated full-stack golden path
 ## Repository map
 
 ```text
-apps/web/           Next.js application, frontend source, browser tests, public assets
-services/backend/   FastAPI API, durable worker, music-engine adapters, Python tests
-docs/               architecture, product, operations, ADRs, evaluation methodology
-supabase/           database/storage migrations and local Supabase configuration
-openapi/            checked generated API contract
-evaluation/         durable decision evidence and benchmark results
-observability/      repository-owned observability configuration
-scripts/            repository development, verification, deployment and recovery commands
-.github/            hosted execution and repository automation
+apps/web/                  Next.js application, frontend source, browser tests, public assets
+services/backend/          FastAPI API, durable worker, music-engine adapters, Python tests
+docs/                      architecture, product, operations, ADRs, evaluation methodology
+supabase/                  database/storage migrations and local Supabase configuration
+openapi/                   checked generated API contract
+evaluation/                durable decision evidence and benchmark results
+observability/             repository-owned observability configuration
+scripts/                   repository development, verification, deployment and recovery commands
+.github/                   hosted execution and repository automation
+contract-dependencies.json minimal hard dependency graph between focused GitHub contracts
 ```
 
 The root intentionally owns only cross-project contracts and tool-required configuration. Feature-private code belongs with the feature that changes with it; shared code should be promoted only when it has a real second consumer.
