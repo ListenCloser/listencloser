@@ -51,7 +51,7 @@ describe("AnalysisDiscovery", () => {
           timeRange: { start: 12, end: 18, domain: "performance" },
           provenance: { timeExact: true },
         },
-        analysisState: "ready",
+        analysisState: "completed",
         inspectorCollapsed: false,
       },
       setInspectorMode: vi.fn(),
