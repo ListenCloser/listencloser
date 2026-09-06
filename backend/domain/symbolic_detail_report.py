@@ -14,14 +14,14 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 REPORT_SCHEMA_VERSION = 1
-METHOD_ID = "partitura_note_array_v1"
+METHOD_ID = "partitura_performance_midi_v1"
 
 
 class SymbolicDetailMethod(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    id: Literal["partitura_note_array_v1"] = METHOD_ID
-    label: str = "Partitura score-MIDI note-array measurements"
+    id: Literal["partitura_performance_midi_v1"] = METHOD_ID
+    label: str = "Partitura performance-MIDI event measurements"
     partitura_version: str
     music21_version: str
     parameters: dict[str, float | int | str | bool]
@@ -52,7 +52,7 @@ class ContourDetail(BaseModel):
 class IntervalMotionDetail(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    basis: Literal["within_inferred_voice_onset_centroid"] = "within_inferred_voice_onset_centroid"
+    basis: Literal["within_midi_stream_onset_centroid"] = "within_midi_stream_onset_centroid"
     interval_count: int
     mean_absolute_semitones: float
     median_absolute_semitones: float
@@ -85,7 +85,7 @@ class DensityDetail(BaseModel):
 class TextureDetail(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    inferred_voice_count: int
+    midi_stream_count: int
     peak_simultaneous_notes: int
     mean_simultaneous_notes: float
     polyphonic_time_fraction: float
@@ -94,9 +94,7 @@ class TextureDetail(BaseModel):
 class VoiceMotionDetail(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    basis: Literal["partitura_inferred_voice_shared_onsets"] = (
-        "partitura_inferred_voice_shared_onsets"
-    )
+    basis: Literal["midi_stream_shared_onsets"] = "midi_stream_shared_onsets"
     status: Literal["supported", "unavailable"]
     analyzable_transition_count: int = 0
     similar_direction_fraction: float | None = None
@@ -122,18 +120,15 @@ class SymbolicDetailReport(BaseModel):
     voice_motion: VoiceMotionDetail
     interpretation: str = (
         "Literal source-MIDI note measurements plus method-specific summaries. "
-        "Contour uses onset pitch centroids; voice motion uses Partitura-inferred "
-        "voices and is not canonical melody, counterpoint, or voice-leading truth."
+        "Contour uses onset pitch centroids; motion groups notes by MIDI track/channel "
+        "stream and is not canonical melody, counterpoint, or voice-leading truth."
     )
     # Limitations describe method boundaries, not correctness-confidence scores.
     limitations: list[str] = Field(
         default_factory=lambda: [
-            (
-                "MIDI score import may infer voice/staff organization that was not "
-                "present in the source."
-            ),
+            "MIDI track/channel streams are recording structure, not inferred musical voices.",
             "Onset pitch centroid is a polyphonic contour proxy, not a detected melody line.",
-            "Step/leap fractions summarize adjacent inferred-voice onset centroids, not motifs.",
+            "Step/leap fractions summarize adjacent stream onset centroids, not motifs.",
             (
                 "Density and texture are symbolic note-event measurements, not audio "
                 "loudness or timbre."
