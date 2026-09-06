@@ -61,9 +61,7 @@ def estimate_pitch_contour(wav_bytes: bytes) -> dict[str, Any]:
     periodicity_values = periodicity.squeeze(0).detach().cpu().numpy()
 
     frames: list[dict[str, Any]] = []
-    for index, (pitch_hz, score) in enumerate(
-        zip(pitch_values, periodicity_values, strict=True)
-    ):
+    for index, (pitch_hz, score) in enumerate(zip(pitch_values, periodicity_values, strict=True)):
         hz = float(pitch_hz)
         periodicity_score = float(score)
         finite_pitch = math.isfinite(hz) and hz > 0
