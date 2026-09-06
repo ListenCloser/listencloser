@@ -190,6 +190,68 @@
   gap: var(--space-2);
 }
 
+/* WorkspaceSession still emits these historical class hooks. Contain their
+ * presentation here until #1278 replaces the raw controls with components/ui. */
+.shell :global(.operation-card .btn),
+.shell :global(.workspace-processing-notice .btn) {
+  min-height: var(--control-height-compact);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.shell :global(.operation-card .btn:hover:not(:disabled)),
+.shell :global(.workspace-processing-notice .btn:hover:not(:disabled)) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.shell :global(.operation-card .btn:focus-visible),
+.shell :global(.workspace-processing-notice .btn:focus-visible),
+.shell :global(.workspace-notice .icon-btn:focus-visible) {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.shell :global(.operation-card .btn-primary) {
+  border-color: color-mix(in srgb, var(--action-primary) 84%, black);
+  background: var(--action-primary);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-control);
+}
+
+.shell :global(.operation-card .btn-primary:hover:not(:disabled)) {
+  background: var(--action-primary-hover);
+  color: var(--text-inverse);
+}
+
+.shell :global(.workspace-notice .icon-btn) {
+  width: var(--control-height-compact);
+  height: var(--control-height-compact);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.shell :global(.workspace-notice .icon-btn:hover:not(:disabled)) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
 /* The normal desktop header is intentionally absent. Only restore a compact
  * status rail when it contains an operational warning. */
 .shell:has(:global(.studio-service-unavailable)) {
@@ -261,22 +323,6 @@
 .shell :global(.workspace-processing-notice .operation-card-actions) {
   flex: none;
   flex-wrap: nowrap;
-}
-
-.shell :global(.workspace-processing-notice .btn) {
-  min-height: var(--control-height-compact);
-  padding: 0 var(--space-1);
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-tertiary);
-  font-size: var(--type-xs);
-}
-
-.shell :global(.workspace-processing-notice .btn:hover:not(:disabled)) {
-  border-color: transparent;
-  background: transparent;
-  color: var(--text-primary);
 }
 
 .shell :global(.workspace-notice:not(.workspace-processing-notice)) {
