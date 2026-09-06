@@ -127,6 +127,7 @@ class SymbolicDetailReport(BaseModel):
         "Contour uses onset pitch centroids; voice motion uses Partitura-inferred "
         "voices and is not canonical melody, counterpoint, or voice-leading truth."
     )
+    # These are method boundaries, not correctness-confidence scores.
     limitations: list[str] = Field(
         default_factory=lambda: [
             (
