@@ -255,9 +255,7 @@ def normalize_score_evidence(
         onset_beat = _parse_finite_float(row.get("onset"), field="onset", row=index)
         measure_number = _parse_measure_number(row.get("s_measure"), row=index)
         labels = tuple(
-            (task, value)
-            for task in admitted_tasks
-            if (value := str(row.get(task, "")).strip())
+            (task, value) for task in admitted_tasks if (value := str(row.get(task, "")).strip())
         )
         if not labels:
             continue
