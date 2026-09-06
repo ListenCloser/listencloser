@@ -11,6 +11,23 @@
   width: min(520px, calc(100% - 26px));
 }
 
+/* Capability-local discovery inside the Inspector must participate in normal
+   document flow. Absolute positioning is reserved for the workspace-level
+   discovery surface; otherwise independent experimental controls stack on top
+   of one another and intercept pointer input. */
+:global(.inspector) .discovery {
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: 1;
+  margin: 0 0 8px;
+}
+
+:global(.inspector) .discovery.open {
+  top: auto;
+  width: 100%;
+}
+
 .addAnalysis {
   min-height: 30px;
   padding: 5px 10px;
