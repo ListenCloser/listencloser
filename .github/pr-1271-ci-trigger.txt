@@ -1,0 +1,1 @@
+Trigger protected CI after the conflict-resolution merge commit.
