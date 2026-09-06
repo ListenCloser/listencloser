@@ -147,6 +147,7 @@ def test_score_performance_alignment_persists_exact_two_version_lineage(sb, monk
         score_events=(
             ScoreEventIdentity(
                 event_id="s1",
+                measure_index=1,
                 pitch=64,
                 onset_beat=4.0,
                 duration_beat=1.0,
@@ -218,6 +219,7 @@ def test_score_performance_alignment_persists_exact_two_version_lineage(sb, monk
         "duration_quarter": 1.0,
         "event_id": "s1",
         "is_grace": False,
+        "measure_index": 1,
         "onset_beat": 4.0,
         "onset_div": 1920,
         "onset_quarter": 4.0,
