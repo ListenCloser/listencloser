@@ -4,15 +4,16 @@
 }
 
 .trigger {
-  max-width: 150px;
-  min-height: 30px;
+  max-width: 180px;
+  min-height: var(--control-height-default);
   padding: 0 var(--space-2);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid var(--line-subtle);
+  gap: var(--space-2);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
-  background: var(--surface-chrome);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-control);
   color: var(--text-secondary);
   font: inherit;
   font-size: var(--type-sm);
@@ -20,6 +21,7 @@
   transition:
     background var(--motion-duration-fast) var(--motion-ease-standard),
     border-color var(--motion-duration-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-standard),
     color var(--motion-duration-fast) var(--motion-ease-standard);
 }
 
@@ -32,9 +34,9 @@
 
 .chevron {
   flex: none;
-  width: 12px;
-  height: 12px;
-  opacity: 0.72;
+  width: var(--control-icon-sm);
+  height: var(--control-icon-sm);
+  opacity: 0.64;
   transition:
     transform var(--motion-duration-fast) var(--motion-ease-standard),
     opacity var(--motion-duration-fast) var(--motion-ease-standard);
@@ -42,7 +44,7 @@
 
 .trigger:hover:not(:disabled),
 .trigger[aria-expanded="true"] {
-  border-color: var(--line-strong);
+  border-color: var(--line-emphasis);
   background: var(--surface-hover);
   color: var(--text-primary);
 }
@@ -57,27 +59,29 @@
 }
 
 .trigger:focus-visible {
-  outline: 1px solid var(--action-primary);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .menu {
   position: absolute;
   left: 0;
   bottom: calc(100% + var(--space-2));
-  z-index: 1;
-  min-width: 180px;
+  z-index: var(--layer-popover);
+  min-width: max(190px, 100%);
   padding: var(--space-1);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
+  box-shadow: var(--shadow-popover);
+  outline: none;
 }
 
 .option {
   position: relative;
   width: 100%;
-  min-height: 32px;
-  padding: 0 28px 0 10px;
+  min-height: var(--control-height-default);
+  padding: 0 30px 0 var(--space-2);
   display: flex;
   align-items: center;
   border: 0;
@@ -107,7 +111,7 @@
 .option[aria-selected="true"]::after {
   content: "";
   position: absolute;
-  right: 11px;
+  right: 12px;
   top: 50%;
   width: 4px;
   height: 7px;
@@ -121,13 +125,21 @@
 .option:disabled {
   color: var(--text-tertiary);
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.48;
 }
 
 .compact .trigger {
-  max-width: 94px;
+  max-width: 112px;
+  min-height: var(--control-height-compact);
   border-color: transparent;
   background: transparent;
+  box-shadow: none;
+}
+
+.compact .trigger:hover,
+.compact .trigger[aria-expanded="true"] {
+  border-color: transparent;
+  background: var(--surface-hover);
 }
 
 .compact .menu {
@@ -136,14 +148,15 @@
 }
 
 @media (max-width: 600px) {
-  .trigger {
-    min-height: 44px;
-    max-width: 148px;
-    padding-inline: 10px;
+  .trigger,
+  .compact .trigger {
+    min-height: var(--control-height-touch);
+    max-width: 168px;
+    padding-inline: var(--space-3);
   }
 
   .option {
-    min-height: 44px;
+    min-height: var(--control-height-touch);
   }
 }
 
