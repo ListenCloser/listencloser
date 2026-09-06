@@ -65,7 +65,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production backend image natively
-        run: docker build --tag listencloser-backend:${{ matrix.arch }} backend
+        run: |
+          docker buildx create --name backend-builder --driver docker-container --use >/dev/null 2>&1 \
+            || docker buildx use backend-builder
+          docker buildx build \
+            --load \
+            --cache-from=type=gha,scope=backend-image \
+            --cache-to=type=gha,scope=backend-image,mode=max \
+            --tag listencloser-backend:${{ matrix.arch }} \
+            backend
       - name: Verify PM2S score conversion in production image
         env:
           ARCH: ${{ matrix.arch }}
