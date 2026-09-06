@@ -3,6 +3,7 @@ import type { WorkBundle } from "../lib/domain.types";
 import {
   describeMidiRepresentation,
   pianoRollSourceOptions,
+  resolveCorrectionOutputMidi,
   resolveExplicitPianoRollMidi,
   resolveMidiAuthority,
   resolveRenderedPlaybackForMidi,
@@ -135,6 +136,33 @@ describe("resolveExplicitPianoRollMidi", () => {
     expect(resolveExplicitPianoRollMidi(work, "pm2s-v1")).toBeNull();
     expect(resolveExplicitPianoRollMidi(work, "notation-v1")).toBeNull();
     expect(resolveExplicitPianoRollMidi(work, "ambiguous-v1")).toBeNull();
+  });
+});
+
+describe("resolveCorrectionOutputMidi", () => {
+  it("selects the corrected MIDI from a Job that also returns playback", () => {
+    const corrected = resolveCorrectionOutputMidi(
+      bundle(),
+      "correct-job",
+      ["edited-v1", "corrected-playback-v1"],
+    );
+    expect(corrected?.versionId).toBe("edited-v1");
+    expect(corrected?.role).toBe("edited_performance");
+  });
+
+  it("fails closed on wrong Job identity or ambiguous corrected MIDI outputs", () => {
+    expect(resolveCorrectionOutputMidi(bundle(), "other-job", ["edited-v1"])).toBeNull();
+
+    const work = bundle();
+    work.artifacts.push(artifact("edited-two", "midi_corrected", "edited-v2", {
+      parentVersionId: "performance-v1",
+      producedByJobId: "correct-job",
+    }) as never);
+    expect(resolveCorrectionOutputMidi(
+      work,
+      "correct-job",
+      ["edited-v1", "edited-v2", "corrected-playback-v1"],
+    )).toBeNull();
   });
 });
 
