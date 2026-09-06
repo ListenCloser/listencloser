@@ -84,5 +84,5 @@ class EngineSettings(_RuntimeSettings):
     beat: str = Field(default="beat_this", validation_alias="BEAT_ENGINE")
     notation: str = Field(default="musescore", validation_alias="NOTATION_ENGINE")
     harmony: str = Field(default="music21", validation_alias="HARMONY_ENGINE")
-    melody: str = Field(default="lstom", validation_alias="MELODY_ENGINE")
+    melody: str = Field(default="midibert", validation_alias="MELODY_ENGINE")
     theory: str = Field(default="theory_interpreter", validation_alias="THEORY_ENGINE")

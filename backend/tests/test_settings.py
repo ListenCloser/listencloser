@@ -133,7 +133,7 @@ def test_engine_settings_preserve_current_defaults():
     assert settings.beat == "beat_this"
     assert settings.notation == "musescore"
     assert settings.harmony == "music21"
-    assert settings.melody == "lstom"
+    assert settings.melody == "midibert"
     assert settings.theory == "theory_interpreter"
 
 
