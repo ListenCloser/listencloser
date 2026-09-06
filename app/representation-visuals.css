@@ -1,4 +1,4 @@
-/* Shared visual-state grammar for musical representations. */
+/* Shared visual-state grammar and renderer-internal presentation for musical representations. */
 
 :root {
   --representation-playback-on-dark: #a8afa7;
@@ -16,7 +16,93 @@
   --score-playback-soft: var(--representation-playback-soft-on-paper);
 }
 
+/* Waveform / spectrogram internals --------------------------------------- */
+
+.waveform-ruler {
+  display: block;
+  width: 100%;
+  background: var(--surface-music-deep);
+  border-bottom: 1px solid var(--line-subtle);
+  opacity: 1;
+}
+
+.waveform {
+  display: block;
+  width: 100%;
+  height: 270px !important;
+  min-height: 270px;
+  border-color: var(--line-subtle) !important;
+  background: var(--surface-music-deep) !important;
+  cursor: crosshair;
+}
+
+.waveform-wrap > .muted,
+.spectrogram-status {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-2);
+  z-index: 4;
+  margin: 0 !important;
+  padding: 4px 7px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  color: var(--text-tertiary) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 10px !important;
+  pointer-events: none;
+}
+
+.spectrogram-canvas {
+  display: block;
+  width: 100%;
+  min-height: 420px;
+  border-color: var(--line-subtle) !important;
+  background: var(--surface-music-deep) !important;
+  cursor: crosshair;
+}
+
 /* Piano roll: notes and downbeats carry hierarchy; graph paper recedes. */
+.piano-roll-container {
+  width: 100%;
+  min-height: 0;
+}
+
+.piano-roll-scroll {
+  width: 100%;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  background: var(--surface-music-deep);
+  scrollbar-color: var(--surface-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.piano-roll-scroll svg {
+  display: block;
+  background: var(--surface-music-deep);
+}
+
+.piano-roll-footer {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-3);
+  border-top: 1px solid var(--line-subtle);
+  background: var(--surface-music-deep);
+}
+
+.piano-roll-footer .muted {
+  color: var(--text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 10px;
+}
+
+.piano-roll-footer .muted + .muted {
+  display: none;
+}
+
 .piano-roll-container [data-piano-roll-layer="static-notes"] rect {
   fill: var(--piano-note) !important;
   stroke: var(--piano-note-stroke) !important;
@@ -37,9 +123,9 @@
 .piano-roll-container [data-ruler-kind="elapsed-time"] text { opacity: 0.72 !important; }
 
 .piano-roll-container [data-note-state="selected"] {
-  fill: var(--accent) !important;
+  fill: var(--action-primary) !important;
   fill-opacity: 0.82 !important;
-  stroke: var(--accent) !important;
+  stroke: var(--action-primary) !important;
   stroke-opacity: 0.76 !important;
 }
 
@@ -89,9 +175,9 @@
 }
 
 .piano-roll-container [data-selection-range="true"] {
-  fill: var(--accent) !important;
+  fill: var(--action-primary) !important;
   fill-opacity: 0.045 !important;
-  stroke: var(--accent) !important;
+  stroke: var(--action-primary) !important;
   stroke-opacity: 0.42 !important;
   stroke-width: 0.7px !important;
 }
@@ -121,7 +207,9 @@
 
 /* Keep OSMD output on a calm paper stage without changing notation semantics. */
 .sheet-music-wrap {
+  width: 100%;
   min-height: 100%;
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -131,18 +219,58 @@
 
 .sheet-music-container {
   width: min(100%, 980px) !important;
+  max-height: calc(100dvh - 186px);
+  overflow: auto;
   margin: 0 auto;
   padding: 12px 16px 22px;
   border-radius: 2px !important;
+  background: var(--surface-paper);
+  scrollbar-color: color-mix(in srgb, var(--text-inverse) 20%, transparent) transparent;
 }
 
 .sheet-music-container svg {
   display: block;
+  width: 100% !important;
   max-width: 100% !important;
   height: auto !important;
 }
 
+.sheet-music-container [data-score-cursor] {
+  filter: drop-shadow(0 0 1px var(--score-playback-soft));
+}
+
+.sheet-music-status {
+  position: absolute;
+  z-index: 5;
+  top: var(--space-2);
+  right: var(--space-3);
+  padding: 4px 6px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-paper) 92%, transparent);
+  color: #6f746d;
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.score-render-error {
+  margin: var(--space-7) auto;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
+  text-align: center;
+}
+
 @media (max-width: 820px) {
-  .sheet-music-wrap { padding: 10px 10px 24px; }
-  .sheet-music-container { padding: 8px 9px 18px; }
+  .waveform,
+  .spectrogram-canvas {
+    min-height: 290px;
+  }
+
+  .sheet-music-wrap {
+    padding: 10px 10px 24px;
+  }
+
+  .sheet-music-container {
+    max-height: calc(100dvh - 210px);
+    padding: 8px 9px 18px;
+  }
 }
