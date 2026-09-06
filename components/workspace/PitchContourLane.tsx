@@ -1,9 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Button from "@/components/ui/Button";
+import Disclosure from "@/components/ui/Disclosure";
+import InlineNotice from "@/components/ui/InlineNotice";
+import Qualifier from "@/components/ui/Qualifier";
 import { getWorkBundle } from "@/lib/api-client";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
+import styles from "./PitchContourLane.module.css";
 
 type PitchFrame = {
   frame: number;
@@ -146,46 +151,39 @@ export default function PitchContourLane({ onClose }: { onClose: () => void }) {
     : 0;
 
   return (
-    <section
-      data-testid="pitch-contour-lane"
-      aria-label="Pitch contour"
-      style={{
-        borderBottom: "1px solid var(--border-subtle)",
-        padding: "var(--s-3)",
-        display: "grid",
-        gap: "var(--s-3)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--s-3)", flexWrap: "wrap" }}>
-        <div style={{ display: "grid", gap: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <section data-testid="pitch-contour-lane" aria-label="Pitch contour" className={styles.root}>
+      <div className={styles.header}>
+        <div className={styles.heading}>
+          <div className={styles.titleLine}>
             <strong>Pitch contour</strong>
-            <span style={{ border: "1px solid currentColor", borderRadius: 999, padding: "2px 7px", fontSize: "var(--fs-xs)" }}>
-              Experimental
-            </span>
+            <Qualifier>Experimental</Qualifier>
           </div>
-          <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>
+          <span className={styles.description}>
             Continuous monophonic F0 aligned to the recording.
           </span>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" className="btn btn-sm" onClick={play} disabled={transport.isPlaying || loading || Boolean(error)}>
+        <div className={styles.actions}>
+          <Button
+            size="compact"
+            onClick={play}
+            disabled={transport.isPlaying || loading || Boolean(error)}
+          >
             {transport.isPlaying ? "Playing" : "Hear"}
-          </button>
-          <button type="button" className="btn btn-sm" onClick={onClose}>Hide</button>
+          </Button>
+          <Button size="compact" variant="ghost" onClick={onClose}>Hide</Button>
         </div>
       </div>
 
-      {loading && <p className="muted" role="status" style={{ margin: 0 }}>Loading pitch contour…</p>}
-      {error && <p role="alert" style={{ margin: 0 }}>{error}</p>}
+      {loading && <InlineNotice tone="quiet" role="status">Loading pitch contour…</InlineNotice>}
+      {error && <InlineNotice tone="danger" role="alert">{error}</InlineNotice>}
       {!loading && !error && data && !plot && (
-        <p className="muted" style={{ margin: 0 }}>No voiced pitch frames were returned for this recording.</p>
+        <p className={styles.status}>No voiced pitch frames were returned for this recording.</p>
       )}
 
       {data && plot && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "42px minmax(0, 1fr)", gap: 8, alignItems: "stretch" }}>
-            <div className="muted" aria-hidden="true" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 10, textAlign: "right" }}>
+          <div className={styles.plotLayout}>
+            <div className={styles.axis} aria-hidden="true">
               <span>{noteLabel(plot.maxCents)}</span>
               <span>{noteLabel(plot.minCents)}</span>
             </div>
@@ -195,7 +193,7 @@ export default function PitchContourLane({ onClose }: { onClose: () => void }) {
               preserveAspectRatio="none"
               role="img"
               aria-label="Continuous pitch over performance time. Click to seek."
-              style={{ width: "100%", height: plot.height, border: "1px solid var(--border-subtle)", borderRadius: 8, cursor: "crosshair", overflow: "visible" }}
+              className={styles.plot}
               onClick={(event) => {
                 const rect = event.currentTarget.getBoundingClientRect();
                 const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(rect.width, 1)));
@@ -207,18 +205,17 @@ export default function PitchContourLane({ onClose }: { onClose: () => void }) {
             </svg>
           </div>
 
-          <div className="muted" style={{ display: "flex", gap: "var(--s-3)", flexWrap: "wrap", fontSize: "var(--fs-xs)" }}>
+          <div className={styles.meta}>
             <span>{voicedShare}% frames marked voiced by pYIN</span>
             <span>{data.preprocessing.pitch_cents_reference}</span>
           </div>
 
-          <p className="muted" style={{ margin: 0, fontSize: "var(--fs-xs)", lineHeight: 1.45 }}>
+          <p className={styles.caveat}>
             Intended for voice and expressive monophonic material. Polyphony, noisy mixtures, and strong overtones can produce octave or subharmonic errors.
           </p>
 
-          <details>
-            <summary style={{ cursor: "pointer", fontSize: "var(--fs-xs)" }}>Details</summary>
-            <div className="muted" style={{ display: "grid", gap: 4, paddingTop: 6, fontSize: "var(--fs-xs)", lineHeight: 1.45 }}>
+          <Disclosure label="Details">
+            <div className={styles.details}>
               <span>Method: {data.engine.name} {data.engine.version} · {data.engine.method}</span>
               <span>Model/checkpoint: {data.engine.model ?? "none"}</span>
               <span>License: {data.engine.license}</span>
@@ -226,7 +223,7 @@ export default function PitchContourLane({ onClose }: { onClose: () => void }) {
               <span>Preprocessing: {data.preprocessing.sample_rate_hz} Hz · {Math.round(data.preprocessing.hop_seconds * 1000)} ms hop · {data.preprocessing.fmin_hz}–{data.preprocessing.fmax_hz} Hz</span>
               <span>Voiced probability is pYIN-specific evidence, not generic correctness confidence.</span>
             </div>
-          </details>
+          </Disclosure>
         </>
       )}
     </section>
