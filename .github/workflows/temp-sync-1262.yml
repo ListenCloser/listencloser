@@ -1,0 +1,29 @@
+name: Temporary sync PR 1262
+
+on:
+  push:
+    branches:
+      - feat/pr-queue-automation
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: feat/pr-queue-automation
+          fetch-depth: 0
+      - name: Merge current main
+        env:
+          FEATURE_HEAD: 71c4b204d8c1e542bd7938147591c4d39f9623fb
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main feat/pr-queue-automation
+          test "$(git rev-parse HEAD^)" = "$FEATURE_HEAD"
+          git merge --no-edit origin/main
+          git push origin HEAD:feat/pr-queue-automation
