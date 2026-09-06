@@ -90,7 +90,7 @@ def _seed_correction(sb):
     return work, source, job
 
 
-def test_correct_adapter_persists_exact_parent_job_work_and_edit_provenance(
+def test_correct_adapter_persists_exact_parent_job_work_and_full_note_world(
     sb, monkeypatch
 ) -> None:
     work, source, job = _seed_correction(sb)
@@ -121,23 +121,27 @@ def test_correct_adapter_persists_exact_parent_job_work_and_edit_provenance(
     source_after = (
         sb.table("artifact_versions").select("*").eq("id", str(source.id)).single().execute().data
     )
+    persisted_job = JobRepo(sb).get(job.id, OWNER_ID)
 
     assert corrected["parent_version_id"] == str(source.id)
     assert corrected["lineage"] == [str(source.id)]
     assert corrected["produced_by_job_id"] == str(job.id)
     assert corrected_artifact == {"work_id": str(work.id), "kind": "midi_corrected"}
-    assert corrected["metadata"] == {
-        "representation": "edited_performance",
-        "correction": {
-            "schema_version": 1,
-            "operation": "replace_notes_in_span",
-            "source_version_id": str(source.id),
-            "selection_start_seconds": 0.0,
-            "selection_end_seconds": 0.4,
-            "replacement_note_count": 1,
-        },
-    }
     assert source_after == source_before, "correction must never mutate the source Version"
+
+    # Edit provenance is already immutable durable Job evidence. Do not copy it
+    # onto the published Version via a post-publication update that the fenced
+    # worker correctly forbids.
+    assert persisted_job is not None
+    assert persisted_job.capability.name == "correct"
+    assert persisted_job.input_version_ids == [source.id]
+    assert persisted_job.parameters == {
+        "selection_start": 0.0,
+        "selection_end": 0.4,
+        "corrected_notes": [
+            {"pitch": 61, "start": 0.0, "end": 0.4, "velocity": 80},
+        ],
+    }
 
     notes = (
         sb.table("entities")
