@@ -11,10 +11,9 @@
  *
  * The backend already filters withheld capabilities before sending
  * insights to the API. This frontend filter is a safety net, not
- * the source of truth.
- *
- * To update: change backend/config/capabilities.json first,
- * then mirror the exposure flags here.
+ * the source of truth. The parity test in
+ * tests/lib/capability-exposure-parity.test.ts prevents these presentation
+ * allowlists from drifting away from the backend registry.
  */
 
 /** Kinds the Inspector may display. Backend withholds all others. */
@@ -87,3 +86,6 @@ export function isExperimental(kind: string): boolean {
 
 /** Kinds that may appear in the Inspector. */
 export const INSPECTOR_EXPOSED_KINDS = [...INSPECTOR_ALLOWED];
+
+/** Kinds that may be sent to Ask. */
+export const ASK_EXPOSED_KINDS = [...ASK_ALLOWED];

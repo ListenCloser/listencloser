@@ -28,10 +28,7 @@ jobs:
       ci: ${{ steps.filter.outputs.ci }}
       docs: ${{ steps.filter.outputs.docs }}
       actions_hygiene: ${{ steps.filter.outputs.actions_hygiene }}
-      e2e: ${{ steps.filter.outputs.e2e }}
-      real_stack: ${{ steps.filter.outputs.real_stack }}
-      database: ${{ steps.filter.outputs.database }}
-      backend_image: ${{ steps.filter.outputs.backend_image }}
+      dependencies: ${{ steps.filter.outputs.dependencies }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Classify changed surface once
@@ -52,55 +49,17 @@ jobs:
             actions_hygiene:
               - '.github/workflows/**'
               - 'scripts/check-actions.sh'
-            e2e:
-              - '**'
-              - '!*.md'
-              - '!docs/**'
-              - '!backend/**'
-              - '!supabase/**'
-            real_stack:
-              - 'backend/**'
-              - '!backend/evaluation/**'
-              - '!backend/tests/**'
-              - 'app/**'
-              - 'components/**'
-              - 'lib/**'
+            dependencies:
               - 'package.json'
               - 'package-lock.json'
-              - 'next.config.mjs'
-              - 'tsconfig.json'
-              - 'tests/e2e/import-performance.ts'
-              - 'tests/e2e/real-stack-golden.spec.ts'
-              - 'playwright.realstack.config.ts'
-              - 'scripts/check-real-stack.sh'
-              - '.github/workflows/real-stack-e2e.yml'
-              - '.github/workflows/build.yml'
-            database:
-              - 'supabase/migrations/**'
-              - 'supabase/tests/**'
-              - 'supabase/config.toml'
-              - 'supabase/tbls.yml'
-              - 'docs/generated/database/**'
-              - 'backend/domain/**'
-              - 'backend/music_features.py'
-              - 'backend/tests/integration/**'
               - 'backend/pyproject.toml'
               - 'backend/uv.lock'
-              - 'scripts/check-database.sh'
-              - '.github/workflows/database-integration.yml'
-              - '.github/workflows/build.yml'
-            backend_image:
-              - 'backend/**'
-              - '!backend/evaluation/**'
-              - '!backend/tests/**'
-              - '.github/workflows/backend-image.yml'
-              - '.github/workflows/deploy-backend.yml'
-              - 'scripts/deploy.sh'
-              - '.github/workflows/build.yml'
+              - 'backend/requirements*.txt'
+              - '.github/dependency-review.yml'
 
   preflight:
     name: preflight
-    if: github.event_name != 'push' && needs.classify.outputs.ci == 'true'
+    if: ${{ github.event_name != 'push' && (github.event_name == 'merge_group' || needs.classify.outputs.ci == 'true') }}
     needs: classify
     timeout-minutes: 10
     runs-on: ubuntu-latest
@@ -125,9 +84,85 @@ jobs:
       - name: Run fail-fast repository preflight
         run: npm run check:preflight
 
+  autofix:
+    name: autofix
+    if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && needs.preflight.result == 'failure' }}
+    needs: preflight
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.QUEUE_BOT_TOKEN }}
+          fetch-depth: 1
+      - name: Resolve reconciler token availability
+        id: token
+        run: |
+          if [ -n "${{ secrets.QUEUE_BOT_TOKEN }}" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "QUEUE_BOT_TOKEN is not configured; deterministic autofix is skipped."
+          fi
+      - name: Bail out when the head is already an autofix commit
+        if: steps.token.outputs.ok == 'true'
+        run: |
+          if [ "$(git log -1 --format=%s)" = "ci: apply deterministic autofixes" ]; then
+            echo "Head already contains an autofix commit; not looping."
+            exit 0
+          fi
+      - name: Install frontend toolchain
+        if: steps.token.outputs.ok == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Install locked frontend dependencies
+        if: steps.token.outputs.ok == 'true'
+        run: npm ci
+      - name: Install Python toolchain
+        if: steps.token.outputs.ok == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: '.python-version'
+      - name: Install uv
+        if: steps.token.outputs.ok == 'true'
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.9'
+          enable-cache: true
+          cache-dependency-glob: 'backend/uv.lock'
+      - name: Sync locked backend environment
+        if: steps.token.outputs.ok == 'true'
+        run: uv sync --project backend --locked
+      - name: Apply deterministic Python autofixes
+        if: steps.token.outputs.ok == 'true'
+        run: bash scripts/fix.sh python
+      - name: Apply deterministic frontend autofixes
+        if: steps.token.outputs.ok == 'true'
+        run: bash scripts/fix.sh frontend
+      - name: Regenerate generated API contract
+        if: steps.token.outputs.ok == 'true'
+        run: npm run api:generate
+      - name: Commit and push autofixes
+        if: steps.token.outputs.ok == 'true'
+        run: |
+          if git diff --quiet --exit-code; then
+            echo "No deterministic fixes to apply."
+            exit 0
+          fi
+          git config user.name "listencloser-ci[bot]"
+          git config user.email "listencloser-ci[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: apply deterministic autofixes"
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
+
   compile:
     name: compile
-    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'push' || (needs.classify.result == 'success' && (needs.preflight.result == 'success' || needs.preflight.result == 'skipped'))) }}
+    if: ${{ always() && (github.event_name == 'push' || (github.event_name == 'merge_group' && needs.classify.result == 'success' && needs.preflight.result == 'success')) }}
     needs:
       - classify
       - preflight
@@ -175,20 +210,20 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
   ci:
-    if: github.event_name != 'push' && needs.classify.outputs.ci == 'true'
+    if: ${{ github.event_name != 'push' && (github.event_name == 'merge_group' || needs.classify.outputs.ci == 'true') }}
     needs:
       - classify
       - preflight
     uses: ./.github/workflows/ci.yml
 
   docs:
-    if: github.event_name != 'push' && needs.classify.outputs.docs == 'true'
+    if: ${{ github.event_name != 'push' && needs.classify.outputs.docs == 'true' }}
     needs: classify
     uses: ./.github/workflows/docs.yml
 
   actions_hygiene:
     name: actions-hygiene
-    if: github.event_name != 'push' && needs.classify.outputs.actions_hygiene == 'true'
+    if: ${{ github.event_name != 'push' && needs.classify.outputs.actions_hygiene == 'true' }}
     needs: classify
     timeout-minutes: 10
     runs-on: ubuntu-latest
@@ -206,7 +241,7 @@ jobs:
         run: bash scripts/check-actions.sh
 
   e2e:
-    if: github.event_name != 'push' && needs.classify.outputs.e2e == 'true'
+    if: github.event_name == 'merge_group'
     needs:
       - classify
       - preflight
@@ -216,29 +251,31 @@ jobs:
       ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
 
   real-stack:
-    if: github.event_name != 'push' && needs.classify.outputs.real_stack == 'true'
+    if: github.event_name == 'merge_group'
     needs:
       - classify
       - preflight
     uses: ./.github/workflows/real-stack-e2e.yml
 
   database:
-    if: github.event_name != 'push' && needs.classify.outputs.database == 'true'
+    if: github.event_name == 'merge_group'
     needs:
       - classify
       - preflight
     uses: ./.github/workflows/database-integration.yml
 
   backend-image:
-    if: github.event_name != 'push' && needs.classify.outputs.backend_image == 'true'
+    if: github.event_name == 'merge_group'
     needs:
       - classify
       - preflight
     uses: ./.github/workflows/backend-image.yml
 
   codeql:
-    if: github.event_name != 'push'
-    needs: classify
+    if: ${{ github.event_name != 'push' && needs.preflight.result == 'success' }}
+    needs:
+      - classify
+      - preflight
     permissions:
       actions: read
       contents: read
@@ -246,13 +283,17 @@ jobs:
     uses: ./.github/workflows/codeql.yml
 
   gitleaks:
-    if: github.event_name != 'push'
-    needs: classify
+    if: ${{ github.event_name != 'push' && needs.preflight.result == 'success' }}
+    needs:
+      - classify
+      - preflight
     uses: ./.github/workflows/gitleaks.yml
 
   dependency-review:
-    if: github.event_name == 'pull_request'
-    needs: classify
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false && needs.preflight.result == 'success' && needs.classify.outputs.dependencies == 'true' }}
+    needs:
+      - classify
+      - preflight
     permissions:
       contents: read
       pull-requests: write
@@ -264,6 +305,7 @@ jobs:
     needs:
       - classify
       - preflight
+      - autofix
       - compile
       - ci
       - docs
@@ -280,8 +322,10 @@ jobs:
     steps:
       - name: Require the complete risk-relevant gate
         env:
+          EVENT: ${{ github.event_name }}
           CLASSIFY: ${{ needs.classify.result }}
           PREFLIGHT: ${{ needs.preflight.result }}
+          AUTOFIX: ${{ needs.autofix.result }}
           COMPILE: ${{ needs.compile.result }}
           CI: ${{ needs.ci.result }}
           DOCS: ${{ needs.docs.result }}
@@ -302,20 +346,47 @@ jobs:
               *) echo "$1 did not pass: $2" >&2; exit 1 ;;
             esac
           }
-          require_success_or_skip PREFLIGHT "$PREFLIGHT"
-          test "$COMPILE" = success
-          if [ "${{ github.event_name }}" != push ]; then
-            test "$CLASSIFY" = success
-            test "$CODEQL" = success
-            test "$GITLEAKS" = success
-            require_success_or_skip CI "$CI"
-            require_success_or_skip DOCS "$DOCS"
-            require_success_or_skip ACTIONS_HYGIENE "$ACTIONS_HYGIENE"
-            require_success_or_skip E2E "$E2E"
-            require_success_or_skip REAL_STACK "$REAL_STACK"
-            require_success_or_skip DATABASE "$DATABASE"
-            require_success_or_skip BACKEND_IMAGE "$BACKEND_IMAGE"
-          fi
-          if [ "${{ github.event_name }}" = pull_request ]; then
-            test "$DEPENDENCY_REVIEW" = success
-          fi
+          require_skipped() {
+            test "$2" = skipped || { echo "$1 must be skipped in this event ($2)" >&2; exit 1; }
+          }
+          case "$EVENT" in
+            push)
+              test "$COMPILE" = success
+              ;;
+            pull_request)
+              test "$CLASSIFY" = success
+              require_success_or_skip PREFLIGHT "$PREFLIGHT"
+              require_success_or_skip AUTOFIX "$AUTOFIX"
+              require_success_or_skip CI "$CI"
+              require_success_or_skip DOCS "$DOCS"
+              require_success_or_skip ACTIONS_HYGIENE "$ACTIONS_HYGIENE"
+              require_success_or_skip CODEQL "$CODEQL"
+              require_success_or_skip GITLEAKS "$GITLEAKS"
+              require_success_or_skip DEPENDENCY_REVIEW "$DEPENDENCY_REVIEW"
+              require_skipped COMPILE "$COMPILE"
+              require_skipped E2E "$E2E"
+              require_skipped REAL_STACK "$REAL_STACK"
+              require_skipped DATABASE "$DATABASE"
+              require_skipped BACKEND_IMAGE "$BACKEND_IMAGE"
+              ;;
+            merge_group)
+              test "$CLASSIFY" = success
+              test "$PREFLIGHT" = success
+              test "$COMPILE" = success
+              test "$CI" = success
+              require_success_or_skip DOCS "$DOCS"
+              require_success_or_skip ACTIONS_HYGIENE "$ACTIONS_HYGIENE"
+              test "$E2E" = success
+              test "$REAL_STACK" = success
+              test "$DATABASE" = success
+              test "$BACKEND_IMAGE" = success
+              test "$CODEQL" = success
+              test "$GITLEAKS" = success
+              require_success_or_skip AUTOFIX "$AUTOFIX"
+              require_skipped DEPENDENCY_REVIEW "$DEPENDENCY_REVIEW"
+              ;;
+            *)
+              echo "unexpected event: $EVENT" >&2
+              exit 1
+              ;;
+          esac
