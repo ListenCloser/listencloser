@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clearWorkDataCache, getInsights } from "@/lib/api-client";
 import type { Insight } from "@/lib/domain.types";
 import {
@@ -17,6 +17,12 @@ function insightEngine(insight: Insight): string | null {
   return typeof engine === "string" ? engine : null;
 }
 
+function hasChordEngine(insights: Insight[], engine: HarmonyInterpretationEngine): boolean {
+  return insights.some(
+    (insight) => insight.kind === "chord" && insightEngine(insight) === engine,
+  );
+}
+
 export function selectHarmonyInterpretation(
   insights: Insight[],
   engine: HarmonyInterpretationEngine,
@@ -29,53 +35,58 @@ export function selectHarmonyInterpretation(
 }
 
 function initialEngine(insights: Insight[]): HarmonyInterpretationEngine {
-  const chordEngines = new Set(
-    insights.filter((insight) => insight.kind === "chord").map(insightEngine).filter(Boolean),
-  );
-  return chordEngines.has("chordmini") && !chordEngines.has("lv-chordia")
+  return hasChordEngine(insights, "chordmini") && !hasChordEngine(insights, "lv-chordia")
     ? "chordmini"
     : "lv-chordia";
 }
 
 export default function HarmonyInterpretationControl() {
   const { workspace, setInsights } = useWorkspace();
-  const midiVersionId = workspace.representations.find((item) => item.kind === "piano_roll")?.versionId;
-  const audioVersionId = workspace.representations.find((item) => item.kind === "waveform")?.versionId;
-  const [engine, setEngine] = useState<HarmonyInterpretationEngine>(() => initialEngine(workspace.insights));
+  const midiVersionId = workspace.representations.find(
+    (item) => item.kind === "piano_roll",
+  )?.versionId;
+  const audioVersionId = workspace.representations.find(
+    (item) => item.kind === "waveform",
+  )?.versionId;
+  const [engine, setEngine] = useState<HarmonyInterpretationEngine>(() =>
+    initialEngine(workspace.insights),
+  );
+  const [hasLvChordia, setHasLvChordia] = useState(() =>
+    hasChordEngine(workspace.insights, "lv-chordia"),
+  );
   const [hasChordMini, setHasChordMini] = useState(() =>
-    workspace.insights.some((insight) => insight.kind === "chord" && insightEngine(insight) === "chordmini"),
+    hasChordEngine(workspace.insights, "chordmini"),
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const filteredOnce = useRef(false);
 
-  const hasLvChordia = useMemo(() =>
-    workspace.insights.some((insight) => insight.kind === "chord" && insightEngine(insight) === "lv-chordia"),
-  [workspace.insights]);
-
   useEffect(() => {
     if (filteredOnce.current) return;
-    const hasMultiple = workspace.insights.some(
-      (insight) => insight.kind === "chord" && insightEngine(insight) === "chordmini",
-    ) && workspace.insights.some(
-      (insight) => insight.kind === "chord" && insightEngine(insight) === "lv-chordia",
-    );
-    if (!hasMultiple) return;
+    const lvAvailable = hasChordEngine(workspace.insights, "lv-chordia");
+    const chordMiniAvailable = hasChordEngine(workspace.insights, "chordmini");
+    setHasLvChordia(lvAvailable);
+    setHasChordMini(chordMiniAvailable);
+    if (!lvAvailable || !chordMiniAvailable) return;
+
     filteredOnce.current = true;
-    setHasChordMini(true);
     setInsights(selectHarmonyInterpretation(workspace.insights, engine));
   }, [engine, setInsights, workspace.insights]);
 
-  if (!workspace.activeWorkId || !midiVersionId || !audioVersionId || (!hasLvChordia && !hasChordMini)) {
+  if (
+    !workspace.activeWorkId
+    || !midiVersionId
+    || !audioVersionId
+    || (!hasLvChordia && !hasChordMini)
+  ) {
     return null;
   }
 
   const refreshFor = async (nextEngine: HarmonyInterpretationEngine) => {
     clearWorkDataCache();
     const allInsights = await getInsights(midiVersionId);
-    setHasChordMini(
-      allInsights.some((insight) => insight.kind === "chord" && insightEngine(insight) === "chordmini"),
-    );
+    setHasLvChordia(hasChordEngine(allInsights, "lv-chordia"));
+    setHasChordMini(hasChordEngine(allInsights, "chordmini"));
     setInsights(selectHarmonyInterpretation(allInsights, nextEngine));
     setEngine(nextEngine);
   };
@@ -111,10 +122,20 @@ export default function HarmonyInterpretationControl() {
         paddingBottom: "var(--s-2)",
       }}
     >
-      <summary style={{ cursor: "pointer", fontSize: "var(--fs-xs)", color: "var(--text-muted)" }}>
+      <summary
+        style={{ cursor: "pointer", fontSize: "var(--fs-xs)", color: "var(--text-muted)" }}
+      >
         Harmony · {currentLabel}
       </summary>
-      <div style={{ display: "flex", gap: "var(--s-2)", alignItems: "center", flexWrap: "wrap", paddingTop: "var(--s-2)" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "var(--s-2)",
+          alignItems: "center",
+          flexWrap: "wrap",
+          paddingTop: "var(--s-2)",
+        }}
+      >
         <span className="muted" style={{ fontSize: "var(--fs-xs)" }}>
           Try another interpretation
         </span>
