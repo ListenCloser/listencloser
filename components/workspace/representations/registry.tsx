@@ -2,9 +2,9 @@
 
 import { useMemo, type ComponentType } from "react";
 import PianoRoll from "./PianoRoll";
+import SheetMusic from "./SheetMusic";
 import Spectrogram from "./Spectrogram";
 import Waveform from "./Waveform";
-import SheetMusic from "@/components/SheetMusic";
 import MelodyReduction from "@/components/workspace/inspector/MelodyReduction";
 import { buildExactHarmonyProjection } from "@/components/workspace/inspector/HarmonyEvidence";
 import { extractAnnotations } from "@/lib/analysis-annotations";
