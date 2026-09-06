@@ -73,9 +73,7 @@ def handle_production_spatial(job: Job, client) -> list[str]:
     report_bytes = report.model_dump_json(indent=2).encode("utf-8")
 
     _update_progress(client, job.id, 0.78, "storing production/spatial lens")
-    storage_key = (
-        f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/production-spatial.json"
-    )
+    storage_key = f"jobs/{job.id}/attempt-{job.lifecycle.retry_count}/production-spatial.json"
     client.storage.from_(_STORAGE_BUCKET).upload(
         storage_key,
         report_bytes,
