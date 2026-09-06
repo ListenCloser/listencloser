@@ -1,16 +1,17 @@
 .timeline {
   display: grid;
   gap: 0;
+  color: var(--text-secondary);
 }
 
 .row {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--space-2);
   align-items: start;
   min-height: 34px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--line-soft, rgba(242, 238, 229, 0.06));
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line-subtle);
 }
 
 .row:last-child {
@@ -20,16 +21,16 @@
 .header {
   min-height: 24px;
   padding-top: 0;
-  color: var(--muted);
-  font-size: 9.5px;
-  font-weight: 620;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.045em;
   text-transform: uppercase;
 }
 
 .time {
   padding-top: 2px;
-  color: var(--muted);
+  color: var(--time);
   font-family: var(--font-mono);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
@@ -38,7 +39,7 @@
 .harmony {
   min-width: 0;
   display: grid;
-  gap: 5px;
+  gap: var(--space-1);
 }
 
 .primary,
@@ -53,37 +54,43 @@
 }
 
 .primary {
-  color: var(--text);
-  font-size: 12px;
+  color: var(--text-primary);
+  font-size: var(--type-sm);
   font-weight: 580;
 }
 
 .primary:hover,
 .secondaryButton:hover {
-  color: var(--accent-strong, var(--accent));
+  color: var(--relation);
+}
+
+.primary:focus-visible,
+.secondaryButton:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .secondary {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
-  color: var(--muted);
-  font-size: 10.5px;
+  gap: var(--space-1) var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
 }
 
 .secondaryItem {
   display: inline-flex;
   align-items: baseline;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
 .secondaryLabel {
-  color: var(--muted);
+  color: var(--text-tertiary);
   opacity: 0.72;
 }
 
 .secondaryButton {
-  color: var(--ink-secondary, #b9b4a9);
+  color: var(--text-secondary);
   font-size: inherit;
 }
