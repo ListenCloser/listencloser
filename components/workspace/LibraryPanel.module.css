@@ -1,0 +1,230 @@
+.panel {
+  background: var(--surface-panel);
+  color: var(--text-secondary);
+}
+
+.header {
+  padding: var(--space-4) var(--space-3) var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--line-subtle);
+}
+
+.headingRow {
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.headingRow h2 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.count {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.importStatus {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: var(--line-height-default);
+}
+
+.list {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-2);
+}
+
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 42px;
+  margin: 1px 0;
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-standard),
+    color var(--motion-duration-fast) var(--motion-ease-standard);
+}
+
+.row:hover,
+.row:focus-within {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.selected {
+  background: var(--action-primary-soft);
+  color: var(--text-primary);
+}
+
+.selected::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 2px;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: var(--action-primary);
+}
+
+.rowButton {
+  min-width: 0;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowButton:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.rowButton:focus-visible {
+  outline: none;
+}
+
+.copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-medium);
+}
+
+.status {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.spinner {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--line-strong);
+  border-top-color: var(--action-primary);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+.rowAction {
+  margin-right: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-standard);
+}
+
+.row:hover .rowAction,
+.row:focus-within .rowAction,
+.selected .rowAction {
+  opacity: 1;
+}
+
+.empty {
+  min-height: 150px;
+  padding: var(--space-6) var(--space-4);
+  display: grid;
+  place-content: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+
+.empty strong {
+  color: var(--text-secondary);
+  font-size: var(--type-sm);
+  font-weight: var(--weight-medium);
+}
+
+.empty p {
+  max-width: 22ch;
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
+  line-height: var(--line-height-default);
+}
+
+.loadingList {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.loadingList span {
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  opacity: 0.72;
+  animation: loading-pulse 1.5s ease-in-out infinite;
+}
+
+.loadingList span:nth-child(2) {
+  opacity: 0.5;
+}
+
+.loadingList span:nth-child(3) {
+  opacity: 0.34;
+}
+
+.footer {
+  padding: var(--space-2);
+  border-top: 1px solid var(--line-subtle);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes loading-pulse {
+  50% { opacity: 0.4; }
+}
+
+@media (max-width: 600px) {
+  .row {
+    min-height: var(--control-height-touch);
+  }
+
+  .rowButton {
+    min-height: var(--control-height-touch);
+  }
+
+  .rowAction {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .rowAction,
+  .spinner,
+  .loadingList span {
+    transition: none;
+    animation: none;
+  }
+}
