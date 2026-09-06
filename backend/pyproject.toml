@@ -56,6 +56,8 @@ worker = [
   "moduleconf==0.1.4",
   "soxr==0.5.0.post1",
   "lv-chordia>=1.1.0",
+  "torchcrepe==0.0.24",
+  "pesto-pitch==2.0.1",
 ]
 
 [tool.uv]
