@@ -14,6 +14,7 @@ import {
 } from "@/lib/relation-api-client";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace } from "@/lib/stores/workspace";
+import styles from "./InspectorFinding.module.css";
 
 type MeasuredChangesResultsProps = {
   workId: string;
@@ -58,13 +59,13 @@ function MeasuredChangesResults({ workId, sourceVersionId }: MeasuredChangesResu
   };
 
   return (
-    <section className="inspector-section" aria-label="Measured changes">
-      <div className="inspector-section-heading">
+    <section className={styles.section} aria-label="Measured changes">
+      <div className={styles.heading}>
         <h3>Changes</h3>
         <Qualifier>Experimental</Qualifier>
       </div>
 
-      <div className="inspector-breakdown-sparse">
+      <div className={styles.sparse}>
         <p>
           Multiple measured features changed around these times. These are listening candidates,
           not section boundaries or claims about musical importance.
@@ -75,31 +76,31 @@ function MeasuredChangesResults({ workId, sourceVersionId }: MeasuredChangesResu
         {candidates.map((candidate) => (
           <article
             key={`${sourceVersionId}:${candidate.boundary_seconds}`}
-            className="inspector-breakdown-finding"
+            className={styles.finding}
           >
-            <div className="inspector-breakdown-focus">
-              <span className="inspector-breakdown-time">
+            <div className={styles.focus}>
+              <span className={styles.time}>
                 {formatTime(candidate.boundary_seconds)}
               </span>
-              <span className="inspector-breakdown-headline">Measured change</span>
-              <span className="inspector-breakdown-support">
+              <span className={styles.headline}>Measured change</span>
+              <span className={styles.support}>
                 {candidate.changed_feature_count} measured feature groups changed under this method.
               </span>
             </div>
 
             {candidate.finding.measurements.length > 0 && (
               <Disclosure
-                className="inspector-evidence-group"
+                className={styles.evidence}
                 label={(
                   <>
                     <span>Evidence</span>
-                    <span className="inspector-evidence-count">
+                    <span className={styles.count}>
                       {candidate.finding.support_refs.length}
                     </span>
                   </>
                 )}
               >
-                <div className="inspector-evidence-body">
+                <div className={styles.evidenceBody}>
                   {candidate.finding.measurements.map((measurement) => (
                     <p key={`${measurement.support_ref.id}:${measurement.feature}`}>
                       {measurement.summary}
@@ -113,7 +114,7 @@ function MeasuredChangesResults({ workId, sourceVersionId }: MeasuredChangesResu
               </Disclosure>
             )}
 
-            <div className="inspector-breakdown-actions" aria-label="Measured change actions">
+            <div className={styles.actions} aria-label="Measured change actions">
               <Button size="compact" variant="ghost" onClick={() => hear(candidate)}>
                 Hear
               </Button>
