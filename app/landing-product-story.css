@@ -5,21 +5,21 @@
   display: grid;
   grid-template-rows: 64px minmax(0, 1fr);
   overflow: hidden;
-  background: #111311;
-  color: var(--ui-text, #eceee6);
+  background: var(--surface-chrome);
+  color: var(--text-primary);
 }
 
 .aesthetic-landing-header {
   display: flex;
   align-items: center;
   padding: 0 clamp(22px, 3.4vw, 52px);
-  border-bottom: 1px solid rgba(239, 241, 233, 0.09);
+  border-bottom: 1px solid var(--line-subtle);
 }
 
 .aesthetic-wordmark {
-  color: #8b9188;
-  font-size: 11px;
-  font-weight: 520;
+  color: var(--text-tertiary);
+  font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
   letter-spacing: -0.015em;
 }
 
@@ -41,7 +41,7 @@
 
 .aesthetic-hero-copy h1 {
   margin: 0;
-  color: #f1f1ea;
+  color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: clamp(76px, 8vw, 132px);
   font-weight: 720;
@@ -50,7 +50,7 @@
 }
 
 .aesthetic-hero-copy h1 em {
-  color: var(--ui-action, #dff45a);
+  color: var(--action-primary);
   font-style: normal;
 }
 
@@ -64,19 +64,21 @@
   gap: 20px;
   padding: 0 14px;
   border: 0;
-  border-radius: 3px;
-  background: var(--ui-action, #dff45a);
-  color: #12150f;
+  border-radius: var(--radius-md);
+  background: var(--action-primary);
+  color: var(--text-inverse);
   font: inherit;
-  font-size: 12px;
-  font-weight: 680;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
-  transition: transform 120ms ease, background 120ms ease;
+  transition:
+    transform var(--motion-duration-fast) var(--motion-ease-standard),
+    background var(--motion-duration-fast) var(--motion-ease-standard);
 }
 
 .aesthetic-enter:hover {
   transform: translateY(-1px);
-  background: #e9ff6f;
+  background: var(--action-primary-hover);
 }
 
 .aesthetic-signal-object-solo {
@@ -99,7 +101,7 @@
   right: 5%;
   top: 50%;
   height: 1px;
-  background: rgba(232, 234, 226, 0.07);
+  background: var(--line-subtle);
 }
 
 .live-signal-field {
@@ -115,6 +117,7 @@
   color: currentColor;
 }
 
+/* Brand artwork may own a local presentation value; this is not app chrome. */
 .aesthetic-live-signal {
   color: #d9ddd4;
   opacity: 0.94;
