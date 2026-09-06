@@ -19,6 +19,7 @@
   transition:
     background var(--motion-duration-fast) var(--motion-ease-standard),
     border-color var(--motion-duration-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-standard),
     color var(--motion-duration-fast) var(--motion-ease-standard),
     opacity var(--motion-duration-fast) var(--motion-ease-standard);
 }
@@ -32,6 +33,7 @@
 .primary {
   border-color: var(--action-primary);
   background: var(--action-primary);
+  box-shadow: var(--shadow-control-primary);
   color: var(--text-inverse);
 }
 
@@ -42,12 +44,14 @@
 
 .secondary {
   border-color: var(--line-strong);
-  background: var(--surface-chrome);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-control), var(--shadow-raised-edge);
   color: var(--text-secondary);
 }
 
 .secondary:hover:not(:disabled),
 .secondary[data-open] {
+  border-color: var(--line-strong);
   background: var(--surface-hover);
   color: var(--text-primary);
 }
@@ -64,6 +68,7 @@
 
 .secondary[aria-pressed="true"],
 .ghost[aria-pressed="true"] {
+  border-color: var(--line-strong);
   background: var(--time-soft);
   color: var(--time);
 }
@@ -71,6 +76,7 @@
 .danger {
   border-color: var(--intent-danger);
   background: var(--intent-danger-soft);
+  box-shadow: var(--shadow-control);
   color: var(--intent-danger);
 }
 
