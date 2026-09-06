@@ -82,6 +82,7 @@ subgraph lib["lib"]
   lib_piano_roll_correction_ts["piano-roll-correction.ts"]
   lib_pitch_contour_client_ts["pitch-contour-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
+  lib_production_spatial_client_ts["production-spatial-client.ts"]
   lib_public_recordings_ts["public-recordings.ts"]
   lib_pulse_grid_ts["pulse-grid.ts"]
   lib_query_client_ts["query-client.ts"]
@@ -140,12 +141,10 @@ components_SheetMusic_tsx-->lib_score_measure_geometry_ts
 components_SheetMusic_tsx-->lib_score_note_playback_ts
 components_workspace_-->components_AuthProvider_tsx
 components_workspace_-->lib_api_client_ts
-components_workspace_-->lib_correction_client_ts
 components_workspace_-->lib_format_ts
 components_workspace_-->lib_job_tracking_ts
 components_workspace_-->lib_midi_authority_ts
 components_workspace_-->lib_musicxml_cache_ts
-components_workspace_-->lib_piano_roll_correction_ts
 components_workspace_-->lib_playback_sources_ts
 components_workspace_-->lib_representation_continuity_ts
 components_workspace_-->lib_score_artifacts_ts
@@ -158,6 +157,7 @@ components_workspace_-->lib_inspector_
 components_workspace_-->lib_relation_api_client_ts
 components_workspace_-->lib_ask_
 components_workspace_-->lib_selection_ts
+components_workspace_-->lib_production_spatial_client_ts
 components_workspace_-->lib_perceptual_series_client_ts
 components_workspace_-->lib_public_recordings_ts
 components_workspace_-->lib_supabase_ts
@@ -177,6 +177,8 @@ components_workspace_-->lib_spectrogram_data_ts
 components_workspace_-->lib_audio_buffer_cache_ts
 components_workspace_-->lib_melody_playback_client_ts
 components_workspace_-->lib_melody_reduction_ts
+components_workspace_-->lib_correction_client_ts
+components_workspace_-->lib_piano_roll_correction_ts
 components_workspace_-->lib_pitch_contour_client_ts
 components_workspace_-->lib_structure_map_client_ts
 lib_analysis_annotations_ts-->lib_evidence_projections_ts
@@ -203,6 +205,8 @@ lib_perceptual_series_client_ts-->lib_api_client_ts
 lib_perceptual_series_client_ts-->lib_openapi_client_ts
 lib_pitch_contour_client_ts-->lib_api_client_ts
 lib_pitch_contour_client_ts-->lib_openapi_client_ts
+lib_production_spatial_client_ts-->lib_api_client_ts
+lib_production_spatial_client_ts-->lib_openapi_client_ts
 lib_relation_api_client_ts-->lib_openapi_client_ts
 lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts
