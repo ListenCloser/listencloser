@@ -135,6 +135,48 @@ export function resolveExplicitPianoRollMidi(
 }
 
 /**
+ * Find synthesized playback proven to belong to one exact MIDI Version.
+ *
+ * New renders carry an explicit source_midi_version_id and parent the source
+ * MIDI directly. Older canonical transcription renders predate that contract,
+ * so same producing-Job identity is accepted as their bounded compatibility
+ * proof. An explicit source id, when present, is authoritative and cannot be
+ * overridden by Job coincidence.
+ */
+export function resolveRenderedPlaybackForMidi(
+  bundle: WorkBundle,
+  midiVersionId: string,
+): WorkArtifactBundle | null {
+  const midiDescriptor = resolveMidiAuthority(bundle).representations.find(
+    (candidate) => candidate.versionId === midiVersionId,
+  );
+  const midiVersion = midiDescriptor?.artifact.latest_version;
+  if (!midiDescriptor || !midiVersion) return null;
+
+  return bundle.artifacts.find((artifact) => {
+    const version = artifact.latest_version;
+    if (
+      artifact.artifact.kind !== "audio_rendered"
+      || !artifact.signed_url
+      || !version
+      || version.metadata?.representation === "melody_playback"
+    ) {
+      return false;
+    }
+
+    const metadata = (version.metadata ?? {}) as Record<string, unknown>;
+    const explicitSource = metadataString(metadata, "source_midi_version_id");
+    if (explicitSource !== null) return explicitSource === midiVersionId;
+    if (version.parent_version_id === midiVersionId) return true;
+
+    return Boolean(
+      midiVersion.produced_by_job_id
+      && version.produced_by_job_id === midiVersion.produced_by_job_id,
+    );
+  }) ?? null;
+}
+
+/**
  * Product-facing interpretations that may intentionally drive the Piano Roll.
  * Score reconstruction / notation MIDI and ambiguous legacy rows stay hidden;
  * users choose musical interpretations, never internal Artifact/Version kinds.
