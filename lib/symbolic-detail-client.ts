@@ -8,7 +8,7 @@ export type SymbolicDetailReport = {
   source_version_id: string;
   source_artifact_kind: "midi_performance" | "midi_corrected";
   method: {
-    id: "partitura_note_array_v1";
+    id: "partitura_performance_midi_v1";
     label: string;
     partitura_version: string;
     music21_version: string;
@@ -31,7 +31,7 @@ export type SymbolicDetailReport = {
     slope_semitones_per_quarter: number;
   };
   interval_motion: {
-    basis: "within_inferred_voice_onset_centroid";
+    basis: "within_midi_stream_onset_centroid";
     interval_count: number;
     mean_absolute_semitones: number;
     median_absolute_semitones: number;
@@ -54,13 +54,13 @@ export type SymbolicDetailReport = {
     }>;
   };
   texture: {
-    inferred_voice_count: number;
+    midi_stream_count: number;
     peak_simultaneous_notes: number;
     mean_simultaneous_notes: number;
     polyphonic_time_fraction: number;
   };
   voice_motion: {
-    basis: "partitura_inferred_voice_shared_onsets";
+    basis: "midi_stream_shared_onsets";
     status: "supported" | "unavailable";
     analyzable_transition_count: number;
     similar_direction_fraction: number | null;
