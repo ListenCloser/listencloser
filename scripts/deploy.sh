@@ -81,7 +81,7 @@ detect_image_arch() {
 
 resolve_prebuilt_image() {
   local revision="$1"
-  local arch candidate resolved logged_in=0
+  local arch candidate resolved logged_in=0 repository
 
   if [ -z "$BACKEND_IMAGE_REPOSITORY" ]; then
     return 1
@@ -92,7 +92,13 @@ resolve_prebuilt_image() {
     return 1
   fi
 
-  candidate="${BACKEND_IMAGE_REPOSITORY}:${revision}-${arch}"
+  # CI publishes the image under a lowercased repository path (registry
+  # reference names are case-insensitive and Docker rejects uppercase paths).
+  # github.repository can be mixed-case after a repo rename, so normalize here
+  # exactly like the publish step does; otherwise `docker pull` fails and every
+  # deploy silently degrades to the slow VM-build fallback.
+  repository="$(printf '%s' "$BACKEND_IMAGE_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+  candidate="${repository}:${revision}-${arch}"
 
   if [ -n "$GHCR_USERNAME" ] && [ -n "$GHCR_TOKEN" ]; then
     if printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin >/dev/null; then

@@ -4,6 +4,8 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import type { Insight } from "@/lib/domain.types";
 import type { RepresentationId } from "@/lib/representations";
 import type { AskMessage } from "@/lib/ask/types";
+import type { PianoRollSourceOption } from "@/lib/midi-authority";
+import type { CorrectionReplacement } from "@/lib/piano-roll-correction";
 import type { ScoreDisplaySelection, ScoreSourceOption } from "@/lib/score-sources";
 
 export type RepresentationKind =
@@ -55,6 +57,12 @@ export type MusicalSelection = {
 export type TranscriptionProfile = "auto" | "solo_piano";
 export type ScoreEngine = "musescore" | "pm2s";
 
+type PianoRollCorrectionAction = {
+  id: number;
+  sourceVersionId: string;
+  replacement: CorrectionReplacement;
+};
+
 type WorkspaceState = {
   activeWorkId: string | null;
   isLoadingWork: boolean;
@@ -71,6 +79,10 @@ type WorkspaceState = {
   activeRepresentation: RepresentationId | null;
   selection: MusicalSelection | null;
   transcriptionProfile: TranscriptionProfile;
+  pianoRollSourceVersionId: string | null;
+  pianoRollSources: PianoRollSourceOption[];
+  pianoRollCorrectionAction: PianoRollCorrectionAction | null;
+  pianoRollCorrectionOperation: StudioOperation;
   scoreEngine: ScoreEngine;
   scoreEngineAction: { id: number; engine: ScoreEngine } | null;
   scoreDisplaySelection: ScoreDisplaySelection;
@@ -98,6 +110,10 @@ type WorkspaceContextValue = {
   setSelection: (selection: MusicalSelection | null) => void;
   clearSelection: () => void;
   setTranscriptionProfile: (profile: TranscriptionProfile) => void;
+  selectPianoRollSource: (versionId: string | null) => void;
+  setPianoRollSources: (sources: PianoRollSourceOption[]) => void;
+  requestPianoRollCorrection: (sourceVersionId: string, replacement: CorrectionReplacement) => void;
+  setPianoRollCorrectionOperation: (operation: StudioOperation) => void;
   setScoreEngine: (engine: ScoreEngine) => void;
   requestScoreEngine: (engine: ScoreEngine) => void;
   setScoreDisplaySelection: (selection: ScoreDisplaySelection) => void;
@@ -157,6 +173,10 @@ export function WorkspaceProvider({
     activeRepresentation: null,
     selection: null,
     transcriptionProfile: "auto",
+    pianoRollSourceVersionId: null,
+    pianoRollSources: [],
+    pianoRollCorrectionAction: null,
+    pianoRollCorrectionOperation: { state: "idle", label: "" },
     scoreEngine: "musescore",
     scoreEngineAction: null,
     scoreDisplaySelection: null,
@@ -177,6 +197,10 @@ export function WorkspaceProvider({
         studioOperation: { state: "idle", label: "" },
         activeRepresentation: null,
         selection: null,
+        pianoRollSourceVersionId: null,
+        pianoRollSources: [],
+        pianoRollCorrectionAction: null,
+        pianoRollCorrectionOperation: { state: "idle", label: "" },
         scoreDisplaySelection: null,
         scoreSources: [],
         askConversation: [],
@@ -207,6 +231,24 @@ export function WorkspaceProvider({
   const setSelection = useCallback((selection: MusicalSelection | null) => setWorkspace((prev) => ({ ...prev, selection })), []);
   const clearSelection = useCallback(() => setWorkspace((prev) => ({ ...prev, selection: null })), []);
   const setTranscriptionProfile = useCallback((transcriptionProfile: TranscriptionProfile) => setWorkspace((prev) => prev.transcriptionProfile === transcriptionProfile ? prev : { ...prev, transcriptionProfile }), []);
+  const selectPianoRollSource = useCallback((pianoRollSourceVersionId: string | null) => setWorkspace((prev) => (
+    prev.pianoRollSourceVersionId === pianoRollSourceVersionId
+      ? prev
+      : { ...prev, pianoRollSourceVersionId }
+  )), []);
+  const setPianoRollSources = useCallback((pianoRollSources: PianoRollSourceOption[]) => setWorkspace((prev) => ({ ...prev, pianoRollSources })), []);
+  const requestPianoRollCorrection = useCallback((sourceVersionId: string, replacement: CorrectionReplacement) => setWorkspace((prev) => ({
+    ...prev,
+    pianoRollCorrectionAction: {
+      id: (prev.pianoRollCorrectionAction?.id ?? 0) + 1,
+      sourceVersionId,
+      replacement,
+    },
+  })), []);
+  const setPianoRollCorrectionOperation = useCallback((pianoRollCorrectionOperation: StudioOperation) => setWorkspace((prev) => ({
+    ...prev,
+    pianoRollCorrectionOperation,
+  })), []);
   const setScoreEngine = useCallback((scoreEngine: ScoreEngine) => setWorkspace((prev) => prev.scoreEngine === scoreEngine ? prev : { ...prev, scoreEngine }), []);
   const setScoreDisplaySelection = useCallback((scoreDisplaySelection: ScoreDisplaySelection) => setWorkspace((prev) => ({ ...prev, scoreDisplaySelection })), []);
   const setScoreSources = useCallback((scoreSources: ScoreSourceOption[]) => setWorkspace((prev) => ({ ...prev, scoreSources })), []);
@@ -246,6 +288,10 @@ export function WorkspaceProvider({
       setSelection,
       clearSelection,
       setTranscriptionProfile,
+      selectPianoRollSource,
+      setPianoRollSources,
+      requestPianoRollCorrection,
+      setPianoRollCorrectionOperation,
       setScoreEngine,
       requestScoreEngine,
       setScoreDisplaySelection,

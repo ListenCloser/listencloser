@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Button from "@/components/ui/Button";
+import ListboxMenu from "@/components/ui/ListboxMenu";
 import TabStrip, { type TabIntentSource } from "@/components/ui/TabStrip";
+import EmptyWorkspaceSignal from "@/components/workspace/EmptyWorkspaceSignal";
 import {
   REPRESENTATIONS,
   availableRepresentations,
@@ -48,7 +49,13 @@ function WorkspaceLoadingSkeleton() {
 }
 
 export default function RepresentationStack({ signedIn = false, canImport = false }: { signedIn?: boolean; canImport?: boolean }) {
-  const { workspace, requestImport, setActiveRepresentation, clearSelection } = useWorkspace();
+  const {
+    workspace,
+    requestImport,
+    selectPianoRollSource,
+    setActiveRepresentation,
+    clearSelection,
+  } = useWorkspace();
   const [mountedViews, setMountedViews] = useState<Set<RepresentationId>>(() => new Set());
   const [orientationCue, setOrientationCue] = useState(false);
   const orientationFrame = useRef<number | null>(null);
@@ -66,8 +73,15 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   const activeView = available.some((view) => view.id === workspace.activeRepresentation)
     ? workspace.activeRepresentation
     : available[0]?.id ?? null;
+  const pianoRollRepresentation = workspace.representations.find((item) => item.kind === "piano_roll");
+  const activePianoRollSource = workspace.pianoRollSources.find(
+    (source) => source.versionId === pianoRollRepresentation?.versionId,
+  );
+  const showPianoRollSourceChoice = activeView === "piano_roll"
+    && workspace.pianoRollSources.length > 1
+    && Boolean(activePianoRollSource);
   const activeSymbolicSourceLabel = activeView === "piano_roll"
-    ? workspace.representations.find((item) => item.kind === "piano_roll")?.sourceLabel
+    ? pianoRollRepresentation?.sourceLabel
     : activeView === "score"
       ? workspace.representations.find((item) => item.kind === "score")?.sourceLabel
       : null;
@@ -98,6 +112,11 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
   }
 
   useEffect(() => {
+    // Initialize selection when a Work first exposes representations, but do
+    // not erase an explicit user choice just because one progressive refresh
+    // temporarily omits that representation. `activeView` may fall back for
+    // the transient frame; the shared preference should return when evidence
+    // becomes available again.
     if (workspace.activeRepresentation !== null) return;
     setActiveRepresentation(available[0]?.id ?? null);
   }, [available, setActiveRepresentation, workspace.activeRepresentation]);
@@ -121,6 +140,8 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [clearSelection]);
 
+  // The shared selection is authoritative. This local cue only strengthens the
+  // actual selected destination after Focus/Show and then returns it to quiet.
   useEffect(() => {
     const cancelPendingCue = () => {
       if (orientationFrame.current !== null) {
@@ -158,6 +179,10 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
     };
   }, []);
 
+  // Representation canvases are expensive client-side objects: OSMD builds a
+  // full score SVG, WaveSurfer owns waveform state, and the spectrogram decodes
+  // audio. Preserve views after their first visit within a work session so a
+  // tab switch is a visibility change rather than a destroy/rebuild cycle.
   useEffect(() => {
     if (scoreIntentTimeout.current !== null) {
       window.clearTimeout(scoreIntentTimeout.current);
@@ -179,6 +204,9 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 
   if (workspace.isLoadingWork) return <WorkspaceLoadingSkeleton />;
   if (!available.length || !activeView) {
+    // A durable selection whose representations are still hydrating is an
+    // existing recording opening, not a first-run workspace. Keep the empty
+    // import CTA reserved for a settled library with no active Work.
     if (signedIn && workspace.activeWorkId) return <WorkspaceLoadingSkeleton />;
     return <EmptyDesk signedIn={signedIn} canImport={canImport} onImport={requestImport} />;
   }
@@ -211,7 +239,31 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         />
       </div>
 
-      {activeSymbolicSourceLabel && (
+      {showPianoRollSourceChoice && activePianoRollSource ? (
+        <div
+          className="muted"
+          role="group"
+          aria-label="Piano Roll interpretation"
+          style={{ padding: "6px 12px", display: "flex", alignItems: "center", gap: "8px", fontSize: "var(--fs-xs)" }}
+        >
+          <span>Interpretation</span>
+          <ListboxMenu
+            compact
+            triggerLabel={activePianoRollSource.label}
+            triggerAria="Choose Piano Roll interpretation"
+            options={workspace.pianoRollSources.map((source) => ({
+              id: source.versionId,
+              label: source.label,
+            }))}
+            selectedId={pianoRollRepresentation?.versionId ?? null}
+            onSelect={(versionId) => {
+              if (versionId === pianoRollRepresentation?.versionId) return;
+              clearSelection();
+              selectPianoRollSource(versionId);
+            }}
+          />
+        </div>
+      ) : activeSymbolicSourceLabel ? (
         <div
           className="muted"
           role="note"
@@ -220,7 +272,7 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
         >
           {activeSymbolicSourceLabel}
         </div>
-      )}
+      ) : null}
 
       {renderedViews.map((definition) => {
         const ViewComponent = definition.component;
@@ -244,11 +296,15 @@ export default function RepresentationStack({ signedIn = false, canImport = fals
 function EmptyDesk({ signedIn, canImport, onImport }: { signedIn: boolean; canImport: boolean; onImport: () => void }) {
   return (
     <main className="piece-desk piece-empty piece-empty-v3">
+      <div className="empty-desk-art">
+        <EmptyWorkspaceSignal />
+      </div>
       <div className="empty-desk-copy">
         <h1>Import a recording</h1>
-        <Button variant="primary" onClick={onImport} disabled={!signedIn || !canImport}>
+        <p>Move through waveform, notes, notation, and evidence without losing your place.</p>
+        <button className="btn btn-primary empty-import-primary" onClick={onImport} disabled={!signedIn || !canImport}>
           Import audio
-        </Button>
+        </button>
         <small>Configure processing in the Library before import.</small>
         <small>WAV, MP3, M4A, FLAC, OGG, AAC</small>
       </div>

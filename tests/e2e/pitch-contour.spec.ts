@@ -181,7 +181,8 @@ test("Add analysis opens an experimental synchronized pitch lane without adding 
 
   const representationTabs = page.getByRole("tablist", { name: "Music representation" });
   await expect(representationTabs.getByRole("tab")).toHaveCount(4, { timeout: 20_000 });
-  await page.getByRole("button", { name: "Add analysis", exact: true }).click();
+  const addAnalysisButton = page.getByRole("button", { name: "+ Add analysis" }).first();
+  await addAnalysisButton.click();
 
   const chooser = page.getByRole("region", { name: "Add analysis" });
   await expect(chooser.getByText("Structure Map", { exact: true })).toBeVisible();
@@ -204,7 +205,7 @@ test("Add analysis opens an experimental synchronized pitch lane without adding 
 
   await lane.getByRole("button", { name: "Hide" }).click();
   await expect(lane).not.toBeVisible();
-  await page.getByRole("button", { name: "Add analysis", exact: true }).click();
+  await addAnalysisButton.click();
   await pitchChoice.getByRole("button", { name: "Open" }).click();
   await expect(page.getByTestId("pitch-contour-lane")).toBeVisible();
   await expect(representationTabs.getByRole("tab")).toHaveCount(4);

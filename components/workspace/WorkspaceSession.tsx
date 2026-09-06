@@ -26,6 +26,11 @@ import {
 import { useTimeline } from "@/lib/stores/timeline";
 import { useTransport } from "@/lib/stores/transport";
 import { understandStageLabel, presentableTitle } from "@/lib/format";
+import {
+  pianoRollSourceOptions,
+  resolveExplicitPianoRollMidi,
+  resolveMidiAuthority,
+} from "@/lib/midi-authority";
 import { buildPlaybackSources } from "@/lib/playback-sources";
 import { retainRepresentationsConfirmedByVersion } from "@/lib/representation-continuity";
 import { hasReusableScoreArtifacts, selectScoreArtifacts } from "@/lib/score-artifacts";
@@ -53,10 +58,12 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
   const { user } = useAuth();
   const {
     replaceRepresentations,
+    selectPianoRollSource,
     setActiveWorkId,
     setAnalysisState,
     setInsights,
     setLoadingWork,
+    setPianoRollSources,
     setScoreDisplaySelection,
     setScoreSources,
     setStudioOperation,
@@ -166,10 +173,19 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
       }
 
       const original = latestByKind.get("audio_original");
-      const baseMidi = latestByKind.get("midi_performance");
-      const performanceMidiVersionId = baseMidi?.latest_version?.id ?? null;
+      const midiAuthority = resolveMidiAuthority(bundle);
+      const pianoRollSources = pianoRollSourceOptions(bundle);
+      setPianoRollSources(pianoRollSources);
+      const explicitlySelectedMidi = workspace.pianoRollSourceVersionId
+        ? resolveExplicitPianoRollMidi(bundle, workspace.pianoRollSourceVersionId)
+        : null;
+      if (workspace.pianoRollSourceVersionId && !explicitlySelectedMidi) {
+        selectPianoRollSource(null);
+      }
+      const baseMidi = midiAuthority.canonicalPerformance?.artifact;
+      const performanceMidiVersionId = midiAuthority.canonicalPerformance?.versionId ?? null;
       performanceMidiVersionRef.current = { workId, versionId: performanceMidiVersionId };
-      const midi = baseMidi ?? latestByKind.get("midi_corrected");
+      const midi = (explicitlySelectedMidi ?? midiAuthority.defaultPianoRoll)?.artifact;
 
       const scoreSources = scoreSourceOptions(bundle);
       setScoreSources(scoreSources);
@@ -206,7 +222,8 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         : undefined;
       const score = sourceScore ?? generatedScore.score;
       const renderedScore = sourceScore ? undefined : generatedScore.renderedScore;
-      const transcriptionMetadata = baseMidi?.latest_version?.metadata ?? midi?.latest_version?.metadata;
+      const pianoTranscriptionMetadata = midi?.latest_version?.metadata ?? baseMidi?.latest_version?.metadata;
+      const scoreTranscriptionMetadata = baseMidi?.latest_version?.metadata;
 
       const renderedArtifacts = bundle.artifacts.filter((item) =>
         item.latest_version && item.signed_url && item.artifact.kind === "audio_rendered",
@@ -219,9 +236,9 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
         item.latest_version?.metadata?.representation !== "melody_playback"
       ));
       const primaryRendered = ordinaryRendered.find(
-        (item) => item.latest_version?.parent_version_id === baseMidi?.latest_version?.id,
-      ) ?? ordinaryRendered.find(
         (item) => item.latest_version?.parent_version_id === midi?.latest_version?.id,
+      ) ?? ordinaryRendered.find(
+        (item) => item.latest_version?.parent_version_id === baseMidi?.latest_version?.id,
       ) ?? ordinaryRendered[0];
       const extraRendered = ordinaryRendered.filter(
         (item) => item.latest_version && item.signed_url && item.latest_version.id !== primaryRendered?.latest_version?.id,
@@ -300,7 +317,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
           kind: "piano_roll",
           label: "Piano Roll",
           sourceUrl: midi?.signed_url ?? "",
-          sourceLabel: qualifySymbolicSourceLabel(`${notes.length} detected notes`, transcriptionMetadata),
+          sourceLabel: qualifySymbolicSourceLabel(`${notes.length} detected notes`, pianoTranscriptionMetadata),
           confidence: null,
           provenance: "transcription",
           notes,
@@ -331,7 +348,7 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
           sourceUrl: score.signed_url,
           sourceLabel: sourceScoreSelected
             ? attachedLabel
-            : qualifySymbolicSourceLabel("Notation draft", transcriptionMetadata),
+            : qualifySymbolicSourceLabel("Notation draft", scoreTranscriptionMetadata),
           confidence: null,
           provenance: scoreProvenance,
           musicxml,
@@ -475,13 +492,16 @@ export default function WorkspaceSession({ serviceStatus }: { serviceStatus: Ser
     replaceSources,
     resetTimeline,
     scoreEngine,
+    selectPianoRollSource,
     setAnalysisState,
     setBpm,
     setInsights,
     setLoadingWork,
+    setPianoRollSources,
     setScoreDisplaySelection,
     setScoreSources,
     setTimeSignature,
+    workspace.pianoRollSourceVersionId,
     workspace.scoreDisplaySelection,
   ]);
 
