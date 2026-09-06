@@ -2,6 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import Button from "@/components/ui/Button";
+import Disclosure from "@/components/ui/Disclosure";
+import Qualifier from "@/components/ui/Qualifier";
 import { formatTime } from "@/lib/format";
 import { isInspectorExposed } from "@/lib/inspector/capabilities";
 import { requestWorkspaceOrientation } from "@/lib/inspector/orientation";
@@ -58,7 +61,7 @@ function MeasuredChangesResults({ workId, sourceVersionId }: MeasuredChangesResu
     <section className="inspector-section" aria-label="Measured changes">
       <div className="inspector-section-heading">
         <h3>Changes</h3>
-        <span className="inspector-breakdown-time">Experimental</span>
+        <Qualifier>Experimental</Qualifier>
       </div>
 
       <div className="inspector-breakdown-sparse">
@@ -85,13 +88,17 @@ function MeasuredChangesResults({ workId, sourceVersionId }: MeasuredChangesResu
             </div>
 
             {candidate.finding.measurements.length > 0 && (
-              <details className="inspector-evidence-group">
-                <summary>
-                  <span>Evidence</span>
-                  <span className="inspector-evidence-count">
-                    {candidate.finding.support_refs.length}
-                  </span>
-                </summary>
+              <Disclosure
+                className="inspector-evidence-group"
+                label={(
+                  <>
+                    <span>Evidence</span>
+                    <span className="inspector-evidence-count">
+                      {candidate.finding.support_refs.length}
+                    </span>
+                  </>
+                )}
+              >
                 <div className="inspector-evidence-body">
                   {candidate.finding.measurements.map((measurement) => (
                     <p key={`${measurement.support_ref.id}:${measurement.feature}`}>
@@ -103,24 +110,16 @@ function MeasuredChangesResults({ workId, sourceVersionId }: MeasuredChangesResu
                     recording and is not confidence or importance.
                   </p>
                 </div>
-              </details>
+              </Disclosure>
             )}
 
             <div className="inspector-breakdown-actions" aria-label="Measured change actions">
-              <button
-                type="button"
-                className="inspector-breakdown-action"
-                onClick={() => hear(candidate)}
-              >
+              <Button size="compact" variant="ghost" onClick={() => hear(candidate)}>
                 Hear
-              </button>
-              <button
-                type="button"
-                className="inspector-breakdown-action"
-                onClick={() => inspect(candidate)}
-              >
+              </Button>
+              <Button size="compact" variant="ghost" onClick={() => inspect(candidate)}>
                 Inspect
-              </button>
+              </Button>
             </div>
           </article>
         ))}
