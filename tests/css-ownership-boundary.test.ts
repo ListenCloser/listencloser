@@ -10,28 +10,36 @@ function read(path: string): string {
 }
 
 describe("global CSS ownership", () => {
-  it("does not restore retired global compatibility layers", () => {
-    for (const filename of ["workspace-interactions.css", "readiness.css"]) {
+  it("does not restore retired historical styling layers", () => {
+    const layout = read("app/layout.tsx");
+    const retired = [
+      "workspace-v3.css",
+      "product-polish-v4.css",
+      "workspace-interactions.css",
+      "readiness.css",
+      "interface-foundation.css",
+    ];
+
+    for (const filename of retired) {
       expect(existsSync(join(APP, filename))).toBe(false);
-      expect(read("app/layout.tsx")).not.toContain(filename);
+      expect(layout).not.toContain(filename);
     }
   });
 
-  it("keeps migrated component chrome out of the remaining interface bridge", () => {
-    const foundation = read("app/interface-foundation.css");
-    const retiredFamilies = [
-      /\.library-/,
-      /\.operation-/,
-      /\.piece-(?:desk|loading|empty|active-view|view-tabs|source|processing)-?/,
-      /\.representation-toolbar\b/,
-      /\.repr-more-/,
-      /\.transport-/,
-      /\.workspace-(?:notice|processing-notice)\b/,
-      /\.ui-tab\b/,
-    ];
+  it("keeps root stylesheet imports responsibility-named instead of versioned", () => {
+    const layout = read("app/layout.tsx");
+    expect(layout).not.toMatch(/import\s+["']\.\/[^"']*-v\d+\.css["']/i);
 
-    for (const pattern of retiredFamilies) {
-      expect(foundation).not.toMatch(pattern);
+    for (const filename of [
+      "tokens.css",
+      "representation-visuals.css",
+      "inspector.css",
+      "breakdown.css",
+      "mobile-workspace.css",
+      "landing-product-story.css",
+    ]) {
+      expect(existsSync(join(APP, filename))).toBe(true);
+      expect(layout).toContain(`./${filename}`);
     }
   });
 });
