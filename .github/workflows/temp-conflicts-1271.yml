@@ -1,0 +1,33 @@
+name: Temporary conflict probe 1271
+
+on:
+  push:
+    branches: [feat/1193-corrected-playback]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Probe merge conflicts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if git merge --no-commit --no-ff origin/main; then
+            echo "MERGE_CLEAN"
+            git status --short
+            exit 0
+          fi
+          echo "CONFLICTS"
+          git diff --name-only --diff-filter=U
+          echo "STATUS"
+          git status --short
+          exit 1
