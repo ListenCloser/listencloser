@@ -5,6 +5,7 @@ import signal
 
 import domain.capabilities as capability_module
 from domain.correction_entity_sync import register_corrected_midi_entity_sync
+from domain.harmony_interpretation_capability import register_harmony_interpretation_capability
 from domain.lyrics_alignment_capability import register_lyrics_alignment_capability
 from domain.melody_audition_capability import register_melody_audition_capability
 from domain.perceptual_capability import register_perceptual_capability
@@ -60,6 +61,7 @@ def main() -> None:
     register_melody_audition_capability(worker)
     register_lyrics_alignment_capability(worker)
     register_pitch_contour_capability(worker)
+    register_harmony_interpretation_capability(worker)
 
     def stop(_signum, _frame) -> None:
         worker.stop()
