@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 
 from engines.registry import HARMONY_ENGINE_REGISTRY, HarmonyEngineRegistration
@@ -10,6 +13,14 @@ def test_harmony_runtime_admission_declares_product_reachability() -> None:
     chordmini = HARMONY_ENGINE_REGISTRY["chordmini"]
     assert chordmini.product_reachability == "MISSING_UI"
     assert chordmini.follow_up_issue == 1194
+
+
+def test_canonical_chord_capability_uses_user_reachable_runtime() -> None:
+    capability_path = Path(__file__).parents[1] / "config" / "capabilities.json"
+    capabilities = json.loads(capability_path.read_text())
+    canonical_engine = capabilities["capabilities"]["chord"]["engine"]
+
+    assert HARMONY_ENGINE_REGISTRY[canonical_engine].product_reachability == "USER_REACHABLE"
 
 
 def test_missing_ui_harmony_runtime_requires_focused_follow_up() -> None:
