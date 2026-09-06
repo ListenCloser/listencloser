@@ -102,6 +102,7 @@ subgraph lib["lib"]
   end
   lib_structure_map_client_ts["structure-map-client.ts"]
   lib_supabase_ts["supabase.ts"]
+  lib_symbolic_detail_client_ts["symbolic-detail-client.ts"]
   lib_transcription_qualification_ts["transcription-qualification.ts"]
   lib_work_selection_ts["work-selection.ts"]
 end
@@ -155,6 +156,7 @@ components_workspace_-->lib_inspector_
 components_workspace_-->lib_relation_api_client_ts
 components_workspace_-->lib_ask_
 components_workspace_-->lib_selection_ts
+components_workspace_-->lib_symbolic_detail_client_ts
 components_workspace_-->lib_production_spatial_client_ts
 components_workspace_-->lib_perceptual_series_client_ts
 components_workspace_-->lib_public_recordings_ts
@@ -208,4 +210,6 @@ lib_spectrogram_data_ts-->lib_query_client_ts
 lib_spectrogram_data_ts-->lib_spectrogram_ts
 lib_structure_map_client_ts-->lib_api_client_ts
 lib_structure_map_client_ts-->lib_openapi_client_ts
+lib_symbolic_detail_client_ts-->lib_api_client_ts
+lib_symbolic_detail_client_ts-->lib_openapi_client_ts
 ```

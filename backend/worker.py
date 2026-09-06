@@ -13,6 +13,7 @@ from domain.pgmq_job_worker import PgmqJobWorker
 from domain.pitch_contour_capability import register_pitch_contour_capability
 from domain.production_spatial_capability import register_production_spatial_capability
 from domain.structure_map_capability import register_structure_map_capability
+from domain.symbolic_detail_capability import register_symbolic_detail_capability
 from domain.worker_warmup import (
     prewarm_basic_pitch_inference,
     prewarm_beat_this_inference,
@@ -56,6 +57,7 @@ def main() -> None:
     register_corrected_midi_entity_sync(worker)
     register_perceptual_capability(worker)
     register_structure_map_capability(worker)
+    register_symbolic_detail_capability(worker)
     register_production_spatial_capability(worker)
     register_melody_audition_capability(worker)
     register_lyrics_alignment_capability(worker)
