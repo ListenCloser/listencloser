@@ -1,0 +1,31 @@
+name: Temporary format diff PR 1239
+
+on:
+  push:
+    branches:
+      - agent/1236-pitch-alternates
+
+permissions:
+  contents: read
+
+jobs:
+  format-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: 0.12.9
+      - name: Show canonical Ruff formatting diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          uvx --from ruff==0.5.7 ruff format \
+            backend/engines/pitch/pesto_engine.py \
+            backend/engines/pitch/torchcrepe_engine.py \
+            backend/tests/test_pitch_contour.py
+          git diff --check
+          git diff -- \
+            backend/engines/pitch/pesto_engine.py \
+            backend/engines/pitch/torchcrepe_engine.py \
+            backend/tests/test_pitch_contour.py
