@@ -1,16 +1,13 @@
-import fs from "node:fs";
-import path from "node:path";
-import test from "node:test";
-import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 
-const repoRoot = path.resolve(import.meta.dirname, "..");
+const ROOT = process.cwd();
 
-function read(relativePath: string): string {
-  return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
-}
+describe("CSS ownership", () => {
+  it("does not restore the retired custom source-picker selectors", () => {
+    const interactions = readFileSync(join(ROOT, "app/workspace-interactions.css"), "utf8");
 
-test("retired source-picker selectors do not return to global workspace CSS", () => {
-  const interactions = read("app/workspace-interactions.css");
-
-  assert.doesNotMatch(interactions, /\.piece-source-(?:select|trigger|menu)\b/);
+    expect(interactions).not.toMatch(/\.piece-source-(?:select|trigger|menu)\b/);
+  });
 });
