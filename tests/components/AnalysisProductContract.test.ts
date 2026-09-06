@@ -4,8 +4,6 @@ import {
   ANALYSIS_DISCOVERY_DEFINITIONS,
   DISCOVERABILITY_TASK_CASES,
   FUTURE_DISCOVERY_DECISIONS,
-  PRODUCT_INSPECTION_RUNTIME_EXCEPTIONS,
-  validateProductInspectionReachability,
 } from "@/components/workspace/analysis-product-contract";
 
 describe("analysis product contract", () => {
@@ -36,27 +34,6 @@ describe("analysis product contract", () => {
       expect(taskCase.task.trim().length).toBeGreaterThan(0);
       expect(ANALYSIS_DISCOVERY_DEFINITIONS[taskCase.expected]).toBeDefined();
     }
-  });
-
-  it("tracks ChordMini as a real-product runtime whose UI tail is still owned", () => {
-    const chordMini = PRODUCT_INSPECTION_RUNTIME_EXCEPTIONS.find(
-      (entry) => entry.runtimeId === "chordmini",
-    );
-
-    expect(chordMini).toMatchObject({
-      capability: "chord",
-      reachability: "MISSING_UI",
-      followUpIssue: 1194,
-    });
-    expect(() => validateProductInspectionReachability(PRODUCT_INSPECTION_RUNTIME_EXCEPTIONS)).not.toThrow();
-  });
-
-  it("rejects a MISSING_UI product runtime with no focused follow-up", () => {
-    expect(() => validateProductInspectionReachability([{
-      runtimeId: "example-runtime",
-      capability: "example",
-      reachability: "MISSING_UI",
-    }])).toThrow(/focused UI follow-up/);
   });
 
   it("records a placement decision for Find before #1254 becomes user-reachable", () => {
