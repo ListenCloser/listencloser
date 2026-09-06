@@ -4,7 +4,6 @@ import "./workspace-v3.css";
 import "./product-polish-v4.css";
 import "./visual-language.css";
 import "./representation-visuals.css";
-import "./readiness.css";
 import "./breakdown.css";
 import "./landing-product-story.css";
 // Canonical UI tokens load after historical layers so their variables resolve
