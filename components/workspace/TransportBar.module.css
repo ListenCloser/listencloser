@@ -1,5 +1,6 @@
 .root {
-  height: var(--layout-transport-height);
+  box-sizing: border-box;
+  height: var(--transport-height);
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(180px, var(--layout-sidebar)) minmax(320px, 1fr) minmax(220px, var(--layout-inspector));
@@ -152,10 +153,11 @@
 
 @media (max-width: 720px) {
   .root {
-    height: auto;
-    min-height: 108px;
+    height: var(--transport-height);
+    min-height: var(--transport-height);
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: 48px 60px;
+    grid-template-rows: 48px minmax(60px, 1fr);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .sourceZone {
