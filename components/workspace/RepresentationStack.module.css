@@ -103,7 +103,8 @@
   animation: loading-pulse 1.5s ease-in-out infinite;
 }
 
-.empty {
+.emptyRoot {
+  grid-template-rows: 1fr;
   place-items: center;
   text-align: center;
 }
@@ -113,6 +114,7 @@
   display: grid;
   justify-items: center;
   gap: var(--space-3);
+  padding: var(--space-6);
 }
 
 .emptyCopy h1 {
