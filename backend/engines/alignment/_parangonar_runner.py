@@ -18,13 +18,73 @@ PARTITURA_VERSION = "1.9.0"
 OUTPUT_PREFIX = "LISTENCLOSER_PARANGONAR_JSON="
 
 
-def _events(note_array: Any, *, onset_field: str) -> list[dict[str, Any]]:
+def _measure_intervals(score_part: Any) -> list[tuple[int, int]]:
+    """Return every score measure in parser order, including rest-only measures."""
+
+    intervals: list[tuple[int, int]] = []
+    for measure in list(getattr(score_part, "measures", [])):
+        start = getattr(getattr(measure, "start", None), "t", None)
+        end = getattr(getattr(measure, "end", None), "t", None)
+        if start is None or end is None:
+            raise RuntimeError("Partitura score measure is missing timeline bounds")
+        intervals.append((int(start), int(end)))
+    if not intervals:
+        raise RuntimeError("Partitura score contains no measures")
+    return intervals
+
+
+def _measure_index(onset_div: int, intervals: list[tuple[int, int]]) -> int:
+    for index, (start, end) in enumerate(intervals):
+        if start <= onset_div < end:
+            return index
+    raise RuntimeError(f"score note onset {onset_div} is outside parsed measure bounds")
+
+
+def _score_events(note_array: Any, measure_intervals: list[tuple[int, int]]) -> list[dict[str, Any]]:
+    """Preserve literal Partitura score-note fields needed for cross-view identity."""
+
+    events: list[dict[str, Any]] = []
+    for row in note_array:
+        onset_div = int(row["onset_div"])
+        events.append(
+            {
+                "id": str(row["id"]),
+                # Keep the historical generic onset for the normalization seam.
+                "onset": float(row["onset_beat"]),
+                # Zero-based parser-order measure ordinal matches OSMD measureListIndex.
+                "measure_index": _measure_index(onset_div, measure_intervals),
+                "pitch": int(row["pitch"]),
+                "onset_beat": float(row["onset_beat"]),
+                "duration_beat": float(row["duration_beat"]),
+                "onset_quarter": float(row["onset_quarter"]),
+                "duration_quarter": float(row["duration_quarter"]),
+                "onset_div": onset_div,
+                "duration_div": int(row["duration_div"]),
+                "voice": int(row["voice"]),
+                "staff": int(row["staff"]),
+                "is_grace": bool(row["is_grace"]),
+                "rel_onset_div": int(row["rel_onset_div"]),
+                "total_measure_divs": int(row["tot_measure_div"]),
+            }
+        )
+    return events
+
+
+def _performance_events(note_array: Any) -> list[dict[str, Any]]:
+    """Preserve literal Partitura performed-note fields from the exact MIDI parse."""
+
     events: list[dict[str, Any]] = []
     for row in note_array:
         events.append(
             {
                 "id": str(row["id"]),
-                "onset": float(row[onset_field]),
+                "onset": float(row["onset_sec"]),
+                "pitch": int(row["pitch"]),
+                "onset_seconds": float(row["onset_sec"]),
+                "duration_seconds": float(row["duration_sec"]),
+                "velocity": int(row["velocity"]),
+                "track": int(row["track"]),
+                "channel": int(row["channel"]),
             }
         )
     return events
@@ -82,8 +142,13 @@ def run(score_path: Path, performance_path: Path) -> dict[str, Any]:
     score_part = _single_score_part(score)
     performance = pt.load_performance_midi(str(performance_path))
     performance_part = _first_performed_part(performance)
-    score_notes = score_part.note_array(include_grace_notes=True)
+    score_notes = score_part.note_array(
+        include_grace_notes=True,
+        include_staff=True,
+        include_metrical_position=True,
+    )
     performance_notes = performance_part.note_array()
+    measure_intervals = _measure_intervals(score_part)
 
     payload: dict[str, Any] = {
         "parangonar_version": actual_parangonar,
@@ -93,9 +158,10 @@ def run(score_path: Path, performance_path: Path) -> dict[str, Any]:
             "process_ornaments": False,
             "force_note_ids": True,
             "musicxml_validation": True,
+            "identity_fields": "partitura_native_v1",
         },
-        "score_events": _events(score_notes, onset_field="onset_beat"),
-        "performance_events": _events(performance_notes, onset_field="onset_sec"),
+        "score_events": _score_events(score_notes, measure_intervals),
+        "performance_events": _performance_events(performance_notes),
         "alignment": None,
         "failure": None,
     }

@@ -13,11 +13,12 @@ from uuid import UUID
 from domain.models import Artifact, ArtifactKind, Job, Version
 from domain.repositories import ArtifactRepo, VersionRepo
 from domain.score_performance_alignment import AlignmentSufficiencyPolicy
+from domain.score_performance_note_identity import canonical_alignment_report_json
 from engines.alignment.parangonar import ParangonarAlignmentEngine
 
 _STORAGE_BUCKET = "artifacts"
 _REPORT_TYPE = "score_performance_alignment"
-_REPORT_SCHEMA_VERSION = 1
+_REPORT_SCHEMA_VERSION = 2
 _DEFAULT_POLICY = AlignmentSufficiencyPolicy(
     minimum_score_fraction=0.8,
     minimum_performance_fraction=0.8,
@@ -83,14 +84,18 @@ def handle_score_performance_alignment(job: Job, client) -> list[str]:
     )
 
     _update_progress(client, job.id, 0.45, "aligning Score to performed notes")
-    relation = ParangonarAlignmentEngine().align(
+    execution = ParangonarAlignmentEngine().align_with_identity(
         score_musicxml=score_bytes,
         performance_midi=performance_bytes,
         score_version_id=score_version.id,
         performance_version_id=performance_version.id,
         sufficiency_policy=_DEFAULT_POLICY,
     )
-    report_bytes = relation.canonical_json().encode("utf-8")
+    relation = execution.relation
+    report_bytes = canonical_alignment_report_json(
+        relation,
+        execution.event_identity,
+    ).encode("utf-8")
 
     _update_progress(client, job.id, 0.78, "storing exact Score-performance relation")
     storage_key = (
@@ -123,6 +128,7 @@ def handle_score_performance_alignment(job: Job, client) -> list[str]:
             metadata={
                 "report_type": _REPORT_TYPE,
                 "schema_version": _REPORT_SCHEMA_VERSION,
+                "identity_schema_version": execution.event_identity.schema_version,
                 "score_version_id": str(score_version.id),
                 "performance_version_id": str(performance_version.id),
                 "package": relation.method.package,
