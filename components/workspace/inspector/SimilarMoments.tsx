@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 
+import Button from "@/components/ui/Button";
+import Disclosure from "@/components/ui/Disclosure";
 import { getWorkBundle } from "@/lib/api-client";
 import { formatTime } from "@/lib/format";
 import { requestWorkspaceOrientation } from "@/lib/inspector/orientation";
@@ -14,6 +16,7 @@ import {
 } from "@/lib/relation-api-client";
 import { useTransport } from "@/lib/stores/transport";
 import { useWorkspace, type MusicalSelection } from "@/lib/stores/workspace";
+import styles from "./InspectorFinding.module.css";
 
 type PassageRange = { start: number; end: number };
 type RequestState = "idle" | "searching" | "preparing" | "error";
@@ -107,9 +110,6 @@ export default function SimilarMoments() {
       let response = await querySimilarMoments(captured);
       if (!isCurrentRequest()) return;
 
-      // Similar moments consumes a measured audio report, but that report is an
-      // implementation dependency rather than a product concept. Prepare it on
-      // demand instead of asking the user to discover and run an internal job.
       if (response.status === "unavailable") {
         preparingDependency = true;
         setRequestState("preparing");
@@ -189,40 +189,31 @@ export default function SimilarMoments() {
   );
 
   return (
-    <section className="inspector-section" aria-label="Similar moments">
-      <div className="inspector-section-heading">
+    <section className={styles.section} aria-label="Similar moments">
+      <div className={styles.heading}>
         <h3>Similar moments</h3>
-        <span className="inspector-breakdown-time">Experimental</span>
+        <span className={styles.experimental}>Experimental</span>
       </div>
 
-      <div className="inspector-breakdown-sparse">
+      <div className={styles.sparse}>
         <strong>Selected {passageLabel(activeQuery)}</strong>
         <p>Find other passages with a similar measured shape. These are listening proposals, not motif or section labels.</p>
-        <div className="inspector-breakdown-actions">
-          <button
-            type="button"
-            className="inspector-breakdown-action"
-            disabled={busy}
-            onClick={runSearch}
-          >
+        <div className={styles.actions}>
+          <Button size="compact" variant="ghost" disabled={busy} onClick={runSearch}>
             {searchButtonLabel(requestState)}
-          </button>
-          <button
-            type="button"
-            className="inspector-breakdown-action"
+          </Button>
+          <Button
+            size="compact"
+            variant="ghost"
             disabled={!canHear}
             onClick={() => hear(activeQuery.start)}
           >
             {hearingRequiresOriginal ? "Hear selected · Original" : "Hear selected"}
-          </button>
+          </Button>
           {currentSelectionDiffers && (
-            <button
-              type="button"
-              className="inspector-breakdown-action"
-              onClick={resetToCurrentSelection}
-            >
+            <Button size="compact" variant="ghost" onClick={resetToCurrentSelection}>
               Use current selection
-            </button>
+            </Button>
           )}
         </div>
         {requestState === "preparing" && (
@@ -233,7 +224,7 @@ export default function SimilarMoments() {
       </div>
 
       {observation?.matches.length === 0 ? (
-        <div className="inspector-breakdown-sparse" aria-live="polite">
+        <div className={styles.sparse} aria-live="polite">
           <p>No valid non-overlapping candidate window fits this selection.</p>
           <p>This experimental method does not yet use a semantic no-match threshold.</p>
         </div>
@@ -241,28 +232,32 @@ export default function SimilarMoments() {
         <div aria-live="polite">
           {observation.matches.map((match, index) => (
             <article
-              className="inspector-breakdown-finding"
+              className={styles.finding}
               key={`${observation.evidence_report_version_id}:${match.start_seconds}`}
             >
-              <div className="inspector-breakdown-focus">
-                <span className="inspector-breakdown-time">
+              <div className={styles.focus}>
+                <span className={styles.time}>
                   {passageLabel({ start: match.start_seconds, end: match.end_seconds })}
                 </span>
-                <span className="inspector-breakdown-headline">
+                <span className={styles.headline}>
                   Similar proposal {index + 1}
                 </span>
-                <span className="inspector-breakdown-support">
+                <span className={styles.support}>
                   Similar under the declared descriptor-shape method; lower distance means closer
                   only under this method.
                 </span>
               </div>
 
-              <details className="inspector-evidence-group">
-                <summary>
-                  <span>Method & evidence</span>
-                  <span className="inspector-evidence-count">{observation.method.dimensions.length}</span>
-                </summary>
-                <div className="inspector-evidence-body">
+              <Disclosure
+                className={styles.evidence}
+                label={(
+                  <>
+                    <span>Method & evidence</span>
+                    <span className={styles.count}>{observation.method.dimensions.length}</span>
+                  </>
+                )}
+              >
+                <div className={styles.evidenceBody}>
                   <p>
                     Aggregate distance: {match.distance.toFixed(3)}. This value is not confidence.
                   </p>
@@ -276,24 +271,20 @@ export default function SimilarMoments() {
                   <p>Evidence Version: {observation.evidence_report_version_id}</p>
                   <p>Source Version: {observation.source_version_id}</p>
                 </div>
-              </details>
+              </Disclosure>
 
-              <div className="inspector-breakdown-actions" aria-label={`Similar proposal ${index + 1} actions`}>
-                <button
-                  type="button"
-                  className="inspector-breakdown-action"
+              <div className={styles.actions} aria-label={`Similar proposal ${index + 1} actions`}>
+                <Button
+                  size="compact"
+                  variant="ghost"
                   disabled={!canHear}
                   onClick={() => hear(match.start_seconds)}
                 >
                   {hearingRequiresOriginal ? "Hear original" : "Hear"}
-                </button>
-                <button
-                  type="button"
-                  className="inspector-breakdown-action"
-                  onClick={() => focus(match)}
-                >
+                </Button>
+                <Button size="compact" variant="ghost" onClick={() => focus(match)}>
                   Focus
-                </button>
+                </Button>
               </div>
             </article>
           ))}
