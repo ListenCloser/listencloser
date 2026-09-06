@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { clearWorkDataCache, getWorkBundle } from "@/lib/api-client";
 import { startCorrectWorkflow } from "@/lib/correction-client";
 import { JobObservationError, waitForJob } from "@/lib/job-tracking";
-import { resolveMidiAuthority } from "@/lib/midi-authority";
+import { resolveCorrectionOutputMidi } from "@/lib/midi-authority";
 import { useWorkspace } from "@/lib/stores/workspace";
 
 export default function PianoRollCorrectionCoordinator() {
@@ -64,20 +64,17 @@ export default function PianoRollCorrectionCoordinator() {
         clearWorkDataCache();
         const refreshed = await getWorkBundle(workId);
         if (cancelled) return;
-        const outputIds = new Set(completed.output_version_ids);
-        const correctedOutputs = resolveMidiAuthority(refreshed).representations.filter(
-          (descriptor) => (
-            descriptor.role === "edited_performance"
-            && outputIds.has(descriptor.versionId)
-            && descriptor.artifact.latest_version?.produced_by_job_id === jobId
-          ),
+        const correctedOutput = resolveCorrectionOutputMidi(
+          refreshed,
+          jobId,
+          completed.output_version_ids,
         );
-        if (correctedOutputs.length !== 1) {
+        if (!correctedOutput) {
           throw new Error("Correction did not produce one exact performance interpretation.");
         }
 
         clearSelection();
-        selectPianoRollSource(correctedOutputs[0].versionId);
+        selectPianoRollSource(correctedOutput.versionId);
         setPianoRollCorrectionOperation({
           state: "success",
           label: "Correction saved",
