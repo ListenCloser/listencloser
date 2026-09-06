@@ -72,6 +72,7 @@ subgraph lib["lib"]
   lib_measure_ts["measure.ts"]
   lib_melody_playback_client_ts["melody-playback-client.ts"]
   lib_melody_reduction_ts["melody-reduction.ts"]
+  lib_midi_authority_ts["midi-authority.ts"]
   lib_midi_ts["midi.ts"]
   lib_musicxml_cache_ts["musicxml-cache.ts"]
   lib_notes_ts["notes.ts"]
@@ -139,6 +140,7 @@ components_workspace_-->components_AuthProvider_tsx
 components_workspace_-->lib_api_client_ts
 components_workspace_-->lib_format_ts
 components_workspace_-->lib_job_tracking_ts
+components_workspace_-->lib_midi_authority_ts
 components_workspace_-->lib_musicxml_cache_ts
 components_workspace_-->lib_playback_sources_ts
 components_workspace_-->lib_representation_continuity_ts
