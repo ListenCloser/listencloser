@@ -80,6 +80,7 @@ subgraph lib["lib"]
   lib_perceptual_series_client_ts["perceptual-series-client.ts"]
   lib_pitch_contour_client_ts["pitch-contour-client.ts"]
   lib_playback_sources_ts["playback-sources.ts"]
+  lib_production_spatial_client_ts["production-spatial-client.ts"]
   lib_public_recordings_ts["public-recordings.ts"]
   lib_pulse_grid_ts["pulse-grid.ts"]
   lib_query_client_ts["query-client.ts"]
@@ -154,6 +155,7 @@ components_workspace_-->lib_inspector_
 components_workspace_-->lib_relation_api_client_ts
 components_workspace_-->lib_ask_
 components_workspace_-->lib_selection_ts
+components_workspace_-->lib_production_spatial_client_ts
 components_workspace_-->lib_perceptual_series_client_ts
 components_workspace_-->lib_public_recordings_ts
 components_workspace_-->lib_supabase_ts
@@ -197,6 +199,8 @@ lib_perceptual_series_client_ts-->lib_api_client_ts
 lib_perceptual_series_client_ts-->lib_openapi_client_ts
 lib_pitch_contour_client_ts-->lib_api_client_ts
 lib_pitch_contour_client_ts-->lib_openapi_client_ts
+lib_production_spatial_client_ts-->lib_api_client_ts
+lib_production_spatial_client_ts-->lib_openapi_client_ts
 lib_relation_api_client_ts-->lib_openapi_client_ts
 lib_server_state_ts-->lib_api_client_ts
 lib_spectrogram_data_ts-->lib_audio_buffer_cache_ts

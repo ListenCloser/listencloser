@@ -6,13 +6,15 @@ import { defineConfig } from "@playwright/test";
  * no `webServer` is started here — the job owns the server lifecycle.
  *
  * Architecture:
- *   - One golden-path test imports real-piano.m4a exactly ONCE and exercises
+ *   - The golden-path test imports real-piano.m4a exactly ONCE and exercises
  *     the full user journey: import → transcription → analysis → persistence → deletion.
+ *   - Focused real-stack specs may import their own source when they need to prove
+ *     an opt-in capability against the actual worker/storage path.
  *   - No cross-test auth/session dependency required.
  */
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["real-stack-golden.spec.ts"],
+  testMatch: ["real-stack-golden.spec.ts", "real-stack-production-spatial.spec.ts"],
   timeout: 600_000,
   fullyParallel: false,
   workers: 1,
