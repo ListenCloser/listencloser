@@ -432,8 +432,9 @@ test("real audio golden path", async ({ page }, testInfo) => {
   await test.step("experimental structure map", async () => {
     // Discovery stays under the shared musician-facing concept from #1173.
     const addAnalysis = page.getByRole("region", { name: "Add analysis" });
-    await expect(addAnalysis.getByRole("button", { name: "+ Add analysis", exact: true })).toBeVisible();
-    await addAnalysis.getByRole("button", { name: "+ Add analysis", exact: true }).click();
+    const sharedAddAnalysisButton = addAnalysis.getByRole("button", { name: "+ Add analysis", exact: true }).first();
+    await expect(sharedAddAnalysisButton).toBeVisible();
+    await sharedAddAnalysisButton.click();
     const structureMapOption = addAnalysis.getByText("Structure Map", { exact: true }).locator("../..");
     await expect(structureMapOption.getByText("Structure Map", { exact: true })).toBeVisible();
     await expect(structureMapOption.getByText("Experimental", { exact: true })).toBeVisible();

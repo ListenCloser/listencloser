@@ -52,9 +52,7 @@ class ContourDetail(BaseModel):
 class IntervalMotionDetail(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    basis: Literal["within_inferred_voice_onset_centroid"] = (
-        "within_inferred_voice_onset_centroid"
-    )
+    basis: Literal["within_inferred_voice_onset_centroid"] = "within_inferred_voice_onset_centroid"
     interval_count: int
     mean_absolute_semitones: float
     median_absolute_semitones: float
