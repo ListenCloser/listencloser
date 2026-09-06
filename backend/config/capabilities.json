@@ -314,6 +314,19 @@
       },
       "validated_domain": "within-recording adjacent fixed-window measurement comparison",
       "notes": "Experimental opt-in Inspector lens only. Literal measurements and relations; no semantic timbre, mix-quality, width-quality, section, cause, importance, or cross-recording claims. Mid/side relation is unavailable unless the source is exactly stereo."
+    },
+    "symbolic_detail": {
+      "status": "experimental",
+      "input": "midi",
+      "engine": "partitura_note_array_v1",
+      "exposure": {"inspector": true, "annotations": false, "ask": false},
+      "evaluation": {
+        "dataset": "deterministic synthetic MIDI fixtures + repository real-stack transcription path",
+        "metric": "experimental_product_integration",
+        "details": "#1178: register, onset-centroid contour, inferred-voice interval motion, onset density, symbolic texture, and qualified inter-voice motion are computed from the exact source MIDI Version."
+      },
+      "validated_domain": "within-Version symbolic note-event measurement for midi_performance and midi_corrected sources",
+      "notes": "Experimental Inspector detail only. Partitura may infer score voices during MIDI import; contour is an onset pitch-centroid proxy. Results are not canonical melody, counterpoint, voice-leading, form, audio texture, or theory truth, and are not admitted to Ask/annotations."
     }
   }
 }
