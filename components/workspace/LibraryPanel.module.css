@@ -1,4 +1,13 @@
 .panel {
+  width: var(--layout-sidebar);
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: visible;
+  position: relative;
+  z-index: 20;
+  border-right: 1px solid var(--line-subtle);
   background: var(--surface-panel);
   color: var(--text-secondary);
 }
