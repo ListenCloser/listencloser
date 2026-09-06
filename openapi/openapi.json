@@ -3216,6 +3216,47 @@
         "title": "SuppliedTextAlignmentBody",
         "type": "object"
       },
+      "TextPassageFindWorkflowBody": {
+        "description": "Queue one text query over one exact audio/performance Version pair.",
+        "properties": {
+          "max_matches": {
+            "default": 3,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Max Matches",
+            "type": "integer"
+          },
+          "performance_version_id": {
+            "format": "uuid",
+            "title": "Performance Version Id",
+            "type": "string"
+          },
+          "project_id": {
+            "format": "uuid",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "performance_version_id",
+          "project_id",
+          "text"
+        ],
+        "title": "TextPassageFindWorkflowBody",
+        "type": "object"
+      },
       "UnderstandWorkflowBody": {
         "properties": {
           "project_id": {
@@ -4611,6 +4652,50 @@
           }
         ],
         "summary": "Create Supplied Text Alignment"
+      }
+    },
+    "/api/v1/workflows/text-passage-find": {
+      "post": {
+        "description": "Queue CLaMP3 C2 retrieval instead of blocking an API request on model inference.",
+        "operationId": "create_text_passage_find_workflow_api_v1_workflows_text_passage_find_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextPassageFindWorkflowBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Text Passage Find Workflow"
       }
     },
     "/api/v1/workflows/understand": {

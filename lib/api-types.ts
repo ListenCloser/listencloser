@@ -322,6 +322,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows/text-passage-find": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Text Passage Find Workflow
+         * @description Queue CLaMP3 C2 retrieval instead of blocking an API request on model inference.
+         */
+        post: operations["create_text_passage_find_workflow_api_v1_workflows_text_passage_find_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflows/understand": {
         parameters: {
             query?: never;
@@ -1889,6 +1909,34 @@ export interface components {
              */
             version_id: string;
         };
+        /**
+         * TextPassageFindWorkflowBody
+         * @description Queue one text query over one exact audio/performance Version pair.
+         */
+        TextPassageFindWorkflowBody: {
+            /**
+             * Max Matches
+             * @default 3
+             */
+            max_matches: number;
+            /**
+             * Performance Version Id
+             * Format: uuid
+             */
+            performance_version_id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Text */
+            text: string;
+        };
         /** UnderstandWorkflowBody */
         UnderstandWorkflowBody: {
             /** Project Id */
@@ -2690,6 +2738,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SuppliedTextAlignmentBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_text_passage_find_workflow_api_v1_workflows_text_passage_find_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextPassageFindWorkflowBody"];
             };
         };
         responses: {
