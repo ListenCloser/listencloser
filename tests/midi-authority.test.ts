@@ -5,6 +5,7 @@ import {
   pianoRollSourceOptions,
   resolveExplicitPianoRollMidi,
   resolveMidiAuthority,
+  resolveRenderedPlaybackForMidi,
 } from "../lib/midi-authority";
 
 function artifact(
@@ -38,11 +39,24 @@ function bundle(): WorkBundle {
   return {
     work: { id: "work" },
     jobs: [
+      { id: "transcribe-job", capability: { name: "transcribe" } },
       { id: "correct-job", capability: { name: "correct" } },
       { id: "variation-job", capability: { name: "variation" } },
       { id: "score-job", capability: { name: "score" } },
     ],
     artifacts: [
+      artifact("corrected-playback", "audio_rendered", "corrected-playback-v1", {
+        parentVersionId: "edited-v1",
+        producedByJobId: "correct-job",
+        metadata: {
+          representation: "transcription_playback",
+          source_midi_version_id: "edited-v1",
+        },
+      }),
+      artifact("canonical-playback", "audio_rendered", "canonical-playback-v1", {
+        parentVersionId: "audio-v1",
+        producedByJobId: "transcribe-job",
+      }),
       artifact("creative", "midi_corrected", "creative-v1", {
         parentVersionId: "performance-v1",
         producedByJobId: "variation-job",
@@ -64,7 +78,10 @@ function bundle(): WorkBundle {
       artifact("ambiguous", "midi_corrected", "ambiguous-v1", {
         parentVersionId: "performance-v1",
       }),
-      artifact("performance", "midi_performance", "performance-v1"),
+      artifact("performance", "midi_performance", "performance-v1", {
+        parentVersionId: "audio-v1",
+        producedByJobId: "transcribe-job",
+      }),
     ],
   } as unknown as WorkBundle;
 }
@@ -118,6 +135,34 @@ describe("resolveExplicitPianoRollMidi", () => {
     expect(resolveExplicitPianoRollMidi(work, "pm2s-v1")).toBeNull();
     expect(resolveExplicitPianoRollMidi(work, "notation-v1")).toBeNull();
     expect(resolveExplicitPianoRollMidi(work, "ambiguous-v1")).toBeNull();
+  });
+});
+
+describe("resolveRenderedPlaybackForMidi", () => {
+  it("binds corrected playback by explicit exact MIDI source", () => {
+    const playback = resolveRenderedPlaybackForMidi(bundle(), "edited-v1");
+    expect(playback?.latest_version?.id).toBe("corrected-playback-v1");
+  });
+
+  it("keeps bounded compatibility for canonical transcription renders from the same producing Job", () => {
+    const playback = resolveRenderedPlaybackForMidi(bundle(), "performance-v1");
+    expect(playback?.latest_version?.id).toBe("canonical-playback-v1");
+  });
+
+  it("does not override an explicit mismatched source with producing-Job coincidence", () => {
+    const work = bundle();
+    const playback = work.artifacts.find((item) => item.artifact.id === "corrected-playback");
+    if (!playback?.latest_version) throw new Error("missing playback fixture");
+    playback.latest_version.metadata = {
+      ...playback.latest_version.metadata,
+      source_midi_version_id: "creative-v1",
+    };
+
+    expect(resolveRenderedPlaybackForMidi(work, "edited-v1")).toBeNull();
+  });
+
+  it("fails closed when no render is proven for the requested MIDI Version", () => {
+    expect(resolveRenderedPlaybackForMidi(bundle(), "creative-v1")).toBeNull();
   });
 });
 
