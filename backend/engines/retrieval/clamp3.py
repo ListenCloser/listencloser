@@ -102,8 +102,7 @@ class CLaMP3TextAudioRetriever:
             "code_license": CLAMP3_CODE_LICENSE,
             "checkpoint_license": CLAMP3_WEIGHT_LICENSE,
             "audio_feature_model": MERT_MODEL,
-            "audio_feature_model_asset_sha256": (self._mert_dir_sha256 or "").lower()
-            or None,
+            "audio_feature_model_asset_sha256": (self._mert_dir_sha256 or "").lower() or None,
             "audio_feature_model_license": MERT_WEIGHT_LICENSE,
             "text_model": TEXT_MODEL,
             "text_model_asset_sha256": (self._text_dir_sha256 or "").lower() or None,
@@ -127,9 +126,7 @@ class CLaMP3TextAudioRetriever:
             if not value
         ]
         if missing:
-            raise RuntimeError(
-                "CLaMP3 isolated runtime is not fully pinned: " + ", ".join(missing)
-            )
+            raise RuntimeError("CLaMP3 isolated runtime is not fully pinned: " + ", ".join(missing))
 
         runtime_python = Path(str(self._runtime_python))
         checkout = Path(str(self._checkout_path))
@@ -143,9 +140,7 @@ class CLaMP3TextAudioRetriever:
         if not weight_path.is_file():
             raise RuntimeError(f"CLaMP3 checkpoint not found: {weight_path}")
         if weight_path.name != CLAMP3_WEIGHT_FILENAME:
-            raise RuntimeError(
-                "CLaMP3 checkpoint filename does not match the pinned SAAS asset"
-            )
+            raise RuntimeError("CLaMP3 checkpoint filename does not match the pinned SAAS asset")
         if not mert_path.is_dir():
             raise RuntimeError(f"CLaMP3 MERT model directory not found: {mert_path}")
         if not text_path.is_dir():
@@ -168,10 +163,7 @@ class CLaMP3TextAudioRetriever:
             check=False,
             timeout=10,
         )
-        if (
-            completed.returncode != 0
-            or completed.stdout.strip() != CLAMP3_UPSTREAM_REVISION
-        ):
+        if completed.returncode != 0 or completed.stdout.strip() != CLAMP3_UPSTREAM_REVISION:
             raise RuntimeError(
                 "CLaMP3 checkout revision mismatch; refusing an unpinned upstream runtime"
             )
@@ -203,9 +195,7 @@ class CLaMP3TextAudioRetriever:
         if not audio_bytes:
             raise ValueError("source audio is empty")
 
-        runtime_python, checkout, weight_path, mert_path, text_path = (
-            self._required_paths()
-        )
+        runtime_python, checkout, weight_path, mert_path, text_path = self._required_paths()
         self._verify_assets(checkout, weight_path, mert_path, text_path)
         runtime_script = Path(__file__).with_name("clamp3_runtime.py")
 
@@ -239,9 +229,7 @@ class CLaMP3TextAudioRetriever:
                 timeout=min(self._timeout_seconds, 120),
             )
             if ffmpeg.returncode != 0 or not normalized_path.is_file():
-                raise RuntimeError(
-                    "CLaMP3 source audio could not be normalized with ffmpeg"
-                )
+                raise RuntimeError("CLaMP3 source audio could not be normalized with ffmpeg")
 
             command = [
                 str(runtime_python),
@@ -289,8 +277,7 @@ class CLaMP3TextAudioRetriever:
             if completed.returncode != 0:
                 stderr_tail = (completed.stderr or "")[-1500:]
                 raise RuntimeError(
-                    "CLaMP3 isolated runtime failed"
-                    + (f": {stderr_tail}" if stderr_tail else "")
+                    "CLaMP3 isolated runtime failed" + (f": {stderr_tail}" if stderr_tail else "")
                 )
             if not result_path.is_file():
                 raise RuntimeError("CLaMP3 runtime completed without a result payload")
@@ -311,18 +298,13 @@ class CLaMP3TextAudioRetriever:
                     float(runtime_seconds_raw) if runtime_seconds_raw is not None else None
                 )
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-                raise RuntimeError(
-                    "CLaMP3 runtime returned a malformed result payload"
-                ) from exc
+                raise RuntimeError("CLaMP3 runtime returned a malformed result payload") from exc
 
         if embedding_dim <= 0 or duration_seconds <= 0:
             raise RuntimeError("CLaMP3 runtime returned invalid result metadata")
         for candidate in candidates:
             if not (
-                0
-                <= candidate.start_seconds
-                < candidate.end_seconds
-                <= duration_seconds + 1e-3
+                0 <= candidate.start_seconds < candidate.end_seconds <= duration_seconds + 1e-3
             ):
                 raise RuntimeError("CLaMP3 runtime returned an invalid passage locator")
             if not -1.000001 <= candidate.similarity <= 1.000001:
