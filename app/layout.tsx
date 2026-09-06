@@ -2,15 +2,14 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./workspace-v3.css";
 import "./product-polish-v4.css";
-import "./workspace-interactions.css";
 import "./visual-language.css";
 import "./representation-visuals.css";
 import "./readiness.css";
 import "./breakdown.css";
 import "./landing-product-story.css";
 // Canonical UI tokens load after historical layers so their variables resolve
-// consistently while #523 retires those styles. Interface normalization follows
-// the token contract; structural phone/touch invariants load last.
+// consistently while #523 retires those styles. The remaining narrow bridge
+// follows the token contract; structural phone/touch invariants load last.
 import "./tokens.css";
 import "./interface-foundation.css";
 import "./mobile-workspace.css";
