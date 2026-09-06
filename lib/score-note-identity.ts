@@ -43,9 +43,12 @@ type VoiceEntryLike = {
 } | null | undefined;
 type StaffLike = { Id?: number } | null | undefined;
 type StaffEntryLike = { ParentStaff?: StaffLike } | null | undefined;
+type PitchLike = { getHalfTone?: () => number } | null | undefined;
 
 type SourceNoteLike = {
-  halfTone?: number;
+  // OSMD's note.halfTone is explicitly transposed. Partitura parses the source
+  // MusicXML pitch, so use Note.Pitch.getHalfTone() instead.
+  Pitch?: PitchLike;
   IsGraceNote?: boolean;
   ParentVoiceEntry?: VoiceEntryLike;
   ParentStaffEntry?: StaffEntryLike;
@@ -133,7 +136,13 @@ export function buildRenderedScoreNoteIdentities(
             const sourceMeasure = note.SourceMeasure;
             const sourceVoiceEntry = note.ParentVoiceEntry;
             const measureIndex = sourceMeasure?.measureListIndex;
-            const pitch = note.halfTone;
+            let pitch: number | null = null;
+            try {
+              const sourcePitch = note.Pitch?.getHalfTone?.();
+              if (finiteInteger(sourcePitch)) pitch = sourcePitch;
+            } catch {
+              pitch = null;
+            }
             const voice = sourceVoiceEntry?.ParentVoice?.VoiceId;
             const staff = note.ParentStaffEntry?.ParentStaff?.Id;
             const relativeOnset = relativeMeasurePosition(
@@ -143,7 +152,7 @@ export function buildRenderedScoreNoteIdentities(
             if (
               !finiteInteger(measureIndex)
               || measureIndex < 0
-              || !finiteInteger(pitch)
+              || pitch == null
               || pitch < 0
               || pitch > 127
               || !finiteInteger(voice)
