@@ -9,13 +9,24 @@ function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf8");
 }
 
-function sourceFiles(root: string): string[] {
+function filesMatching(root: string, pattern: RegExp): string[] {
   return readdirSync(root).flatMap((entry) => {
     const path = join(root, entry);
-    if (statSync(path).isDirectory()) return sourceFiles(path);
-    return /\.(?:ts|tsx)$/.test(entry) ? [path] : [];
+    if (statSync(path).isDirectory()) return filesMatching(path, pattern);
+    return pattern.test(entry) ? [path] : [];
   });
 }
+
+function sourceFiles(root: string): string[] {
+  return filesMatching(root, /\.(?:ts|tsx)$/);
+}
+
+function cssFiles(root: string): string[] {
+  return filesMatching(root, /\.css$/);
+}
+
+const RAW_COLOR = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i;
+const LEGACY_TOKEN = /var\(--(?:bg|bg-subtle|panel(?:-[234])?|text|muted|accent(?:-strong|-soft|-2|-soft-2)?|border(?:-strong)?|danger(?:-soft)?|success(?:-soft)?|r-(?:sm|md|lg|xl|full)|s-[1-8]|fs-(?:xs|sm|base|md|lg|xl|2xl)|fw-(?:normal|medium|semibold|bold)|ease|dur|shell-(?:sidebar|chat))\)/;
 
 describe("frontend visual ownership", () => {
   it("does not restore retired historical styling layers", () => {
@@ -56,6 +67,34 @@ describe("frontend visual ownership", () => {
 
     const rootCssImports = [...layout.matchAll(/import\s+["']\.\/([^"']+\.css)["']/g)].map((match) => match[1]);
     expect(rootCssImports).toEqual(expected);
+  });
+
+  it("keeps globals.css document-only instead of growing a second component system", () => {
+    const globals = read("app/globals.css");
+
+    expect(globals).not.toMatch(/(^|\n)\s*\.[A-Za-z_-][\w-]*/m);
+    expect(globals).not.toMatch(RAW_COLOR);
+    expect(globals).not.toMatch(/(^|\n)\s*:root\s*\{/m);
+    expect(globals).not.toMatch(/--(?:bg|panel|accent|muted|border|radius|space|type|shadow)-?[\w-]*\s*:/);
+    expect(globals).not.toMatch(/\.(?:btn|button|card|chip|panel|dialog|menu|tooltip|transport|studio|piece|ask|library|inspector)[\w-]*/i);
+  });
+
+  it("keeps ordinary primitive color decisions on canonical tokens", () => {
+    const uiRoot = join(ROOT, "components", "ui");
+    const offenders = cssFiles(uiRoot)
+      .filter((path) => RAW_COLOR.test(readFileSync(path, "utf8")))
+      .map((path) => relative(ROOT, path));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("does not use migration-era token aliases in shared primitives", () => {
+    const uiRoot = join(ROOT, "components", "ui");
+    const offenders = cssFiles(uiRoot)
+      .filter((path) => LEGACY_TOKEN.test(readFileSync(path, "utf8")))
+      .map((path) => relative(ROOT, path));
+
+    expect(offenders).toEqual([]);
   });
 
   it("keeps headless-vendor imports behind components/ui", () => {
