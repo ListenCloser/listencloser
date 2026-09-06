@@ -21,7 +21,7 @@ updates:
           - "*"
 
   - package-ecosystem: uv
-    directory: /backend
+    directory: /services/backend
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
@@ -31,7 +31,7 @@ updates:
           - "*"
 
   - package-ecosystem: docker
-    directory: /backend
+    directory: /services/backend
     schedule:
       interval: weekly
     open-pull-requests-limit: 2

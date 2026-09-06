@@ -2,7 +2,7 @@
 
 > **Status:** Maintained derived orientation for issue #1186.
 >
-> **Authority:** This document explains how existing authorities compose; it does not replace them. [`../ARCHITECTURE.md`](../ARCHITECTURE.md) owns shipped runtime boundaries, [`../product/ROADMAP.md`](../product/ROADMAP.md) owns product portfolio posture/sequencing, [`../../backend/config/capabilities.json`](../../backend/config/capabilities.json) owns runtime capability maturity/exposure, accepted [`../adr/`](../adr/) records own durable architecture decisions, and focused GitHub issues/PRs own unresolved/live work.
+> **Authority:** This document explains how existing authorities compose; it does not replace them. [`../ARCHITECTURE.md`](../ARCHITECTURE.md) owns shipped runtime boundaries, [`../product/ROADMAP.md`](../product/ROADMAP.md) owns product portfolio posture/sequencing, [`../../services/backend/config/capabilities.json`](../../services/backend/config/capabilities.json) owns runtime capability maturity/exposure, accepted [`../adr/`](../adr/) records own durable architecture decisions, and focused GitHub issues/PRs own unresolved/live work.
 >
 > **Goal:** Make it possible to answer, at a glance: **what musical capability is running, what implementation produced it, what source evidence it used, where its result lives, and how another promising capability should plug in.**
 
@@ -107,7 +107,7 @@ sequenceDiagram
     API-->>UI: versions, evidence, signed artifact access
 ```
 
-`backend/worker.py` creates the durable job worker and registers capability handlers. `backend/domain/capabilities.py` currently contains the composite `understand` orchestration plus several production capability adapters. This works, but the large mixed-responsibility capability module is already a known decomposition seam under technical rearchitecture owner #801/#634; future breadth should not make it a larger capability god-module.
+`services/backend/worker.py` creates the durable job worker and registers capability handlers. `services/backend/domain/capabilities.py` currently contains the composite `understand` orchestration plus several production capability adapters. This works, but the large mixed-responsibility capability module is already a known decomposition seam under technical rearchitecture owner #801/#634; future breadth should not make it a larger capability god-module.
 
 ### What the base path means
 
@@ -296,7 +296,7 @@ experiment visibly
 
 ### Runtime maturity
 
-`backend/config/capabilities.json` is the machine-readable authority for whether a named analysis capability is `production`, `experimental`, `evaluation_only`, or `withheld`, plus product exposure such as Inspector/annotations/Ask.
+`services/backend/config/capabilities.json` is the machine-readable authority for whether a named analysis capability is `production`, `experimental`, `evaluation_only`, or `withheld`, plus product exposure such as Inspector/annotations/Ask.
 
 It is **not** a generic plugin manifest. Do not grow it into dependency injection, UI layout, model installation, job orchestration, or engine marketplace configuration.
 

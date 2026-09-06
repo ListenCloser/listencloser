@@ -39,7 +39,7 @@ Evidence is treated similarly: measured or derived observations can support prod
 - **Inspect supported findings in Breakdown** with provenance/evidence rather than a free-form generated summary.
 - **Ask questions about the recording or a selected passage** using the evidence available for that Work, with typed references/actions that the user explicitly triggers.
 
-Analysis capabilities are not all equally mature or universally exposed. `backend/config/capabilities.json` is the machine-readable authority for which analysis capabilities may appear in the product. [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md) owns durable product identity and principles; [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md) owns current product portfolio posture and sequencing. Neither should be read as a claim that every future capability already ships.
+Analysis capabilities are not all equally mature or universally exposed. `services/backend/config/capabilities.json` is the machine-readable authority for which analysis capabilities may appear in the product. [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md) owns durable product identity and principles; [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md) owns current product portfolio posture and sequencing. Neither should be read as a claim that every future capability already ships.
 
 ## System shape
 
@@ -92,19 +92,19 @@ Browser E2E needs Playwright Chromium. Database verification additionally needs 
 
 Real-stack verification needs Docker, Supabase CLI 2.113.0, and enough resources to build the production backend image. `check:realstack` installs the locked frontend dependencies and Playwright Chromium, builds the production API/worker image, runs the real-audio browser golden path against a fresh isolated Supabase project, emits the same timing artifacts as CI, and cleans up only the containers/project identity it created. It refuses to run while the normal local Supabase stack is active, so existing stopped local database data is neither reused nor deleted. Use the verification ladder in [`AGENTS.md`](AGENTS.md) rather than running this heavyweight tier for every small change.
 
-Dependency versions and environment ownership live in `package.json`, `backend/pyproject.toml`, and their lockfiles rather than in this README.
+Dependency versions and environment ownership live in the root `package.json`, `apps/web/package.json`, `services/backend/pyproject.toml`, and their lockfiles rather than in this README.
 
 ## Repository map
 
 The top-level tree follows **ownership and lifecycle**, not a requirement to put every artifact type in its own package:
 
 ```text
-app/                Next.js routes, application shell and route-owned frontend code
-components/         workspace UI plus genuinely shared React primitives/providers
-lib/                shared frontend contracts, state and cross-feature libraries
-backend/            API, durable worker, domain code and engine adapters
+apps/web/src/app/       Next.js routes, application shell and route-owned frontend code
+apps/web/src/components/ workspace UI plus genuinely shared React primitives/providers
+apps/web/src/lib/       shared frontend contracts, state and cross-feature libraries
+services/backend/   API, durable worker, domain code and engine adapters
 supabase/           database/storage migrations and local Supabase configuration
-tests/              cross-product/browser/system verification
+apps/web/tests/     browser, component, and frontend system verification
 evaluation/         durable evaluation evidence and result artifacts
 docs/               maintained architecture, operations, decisions and methodology
 scripts/            repository-owned development and verification automation
@@ -112,7 +112,7 @@ openapi/            generated API contract artifacts
 observability/      repository-owned observability configuration
 ```
 
-Feature-private code should stay with its owner; global `components/` and `lib/` are for responsibilities that are actually shared. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the generated architecture views for current boundaries.
+Feature-private code should stay with its owner; `apps/web/src/components/` and `apps/web/src/lib/` are for responsibilities that are actually shared. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the generated architecture views for current boundaries.
 
 ## Where to go next
 

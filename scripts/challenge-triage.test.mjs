@@ -41,7 +41,7 @@ describe("challenge triage", () => {
     );
     writeFileSync(
       join(dir, "mutation-js.txt"),
-      `[Survived] BooleanLiteral\nlib/evidence-projections.ts:277:15\n[NoCoverage] ObjectLiteral\nlib/evidence-projections.ts:307:10\nAll files | 73.58 | 82.98 | 39 | 0 | 8 | 6 | 0 |\n`,
+      `[Survived] BooleanLiteral\napps/web/src/lib/evidence-projections.ts:277:15\n[NoCoverage] ObjectLiteral\napps/web/src/lib/evidence-projections.ts:307:10\nAll files | 73.58 | 82.98 | 39 | 0 | 8 | 6 | 0 |\n`,
     );
     mkdirSync(join(dir, "lighthouse"));
     writeFileSync(
@@ -85,7 +85,7 @@ describe("challenge triage", () => {
       ownerIssue: 807,
       priority: "P2",
       disposition: "READY_TASK",
-      target: "lib/evidence-projections.ts",
+      target: "apps/web/src/lib/evidence-projections.ts",
     });
     expect(mutation.evidence).toMatchObject({ survived: 8, noCoverage: 6, mutationScore: 73.58 });
 

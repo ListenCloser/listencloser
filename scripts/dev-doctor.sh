@@ -38,7 +38,7 @@ else
   fail "node missing (frontend runtime); with nvm, run 'nvm install && nvm use' from the repository root to install/select the .nvmrc runtime"
 fi
 require_command npm "frontend package manager; repository requires npm 10.x"
-require_command uv "locked Python environment; backend requires uv 0.12.6"
+require_command uv "locked Python environment; backend requires uv 0.12.9"
 
 if command -v node >/dev/null 2>&1; then
   NODE_ENGINE_RANGE="$(node -p "require('./package.json').engines.node")"
@@ -71,10 +71,10 @@ fi
 
 if command -v uv >/dev/null 2>&1; then
   UV_VERSION="$(uv --version | awk '{print $2}')"
-  if [ "$UV_VERSION" = "0.12.6" ]; then
+  if [ "$UV_VERSION" = "0.12.9" ]; then
     ok "uv $UV_VERSION matches backend toolchain"
   else
-    fail "uv $UV_VERSION does not match required 0.12.6"
+    fail "uv $UV_VERSION does not match required 0.12.9"
   fi
 fi
 
@@ -134,7 +134,7 @@ else
   fail "package-lock.json missing"
 fi
 
-if [ -f backend/uv.lock ] && [ -f backend/pyproject.toml ]; then
+if [ -f services/backend/uv.lock ] && [ -f services/backend/pyproject.toml ]; then
   ok "backend pyproject.toml + uv.lock present"
 else
   fail "backend locked dependency authority is incomplete"

@@ -10,7 +10,7 @@ There is intentionally no universal specification. Each durable fact has one aut
 | --- | --- |
 | What engineering rules must an agent follow? | root [`AGENTS.md`](../AGENTS.md) |
 | What code/config is shipped on `main`? | runtime code, migrations, dependency manifests, deployment config |
-| What analysis capability may the product expose? | `backend/config/capabilities.json` + its policy/tests |
+| What analysis capability may the product expose? | `services/backend/config/capabilities.json` + its policy/tests |
 | How do music capabilities, engines, persisted outputs, and product result surfaces fit together? | [`analysis/capability-architecture.md`](analysis/capability-architecture.md) as a derived orientation; its linked runtime/product authorities remain canonical |
 | What architecture is currently shipped? | [`ARCHITECTURE.md`](ARCHITECTURE.md), verified against code |
 | What accepted architecture decision constrains future changes? | relevant accepted ADR in [`adr/`](adr/) |
@@ -34,7 +34,7 @@ Run `python3 scripts/project_cockpit.py` (or add `--format json`) for a read-onl
 
 `product/PRODUCT.md` owns durable product constitution; `product/ROADMAP.md` owns current product portfolio/posture/sequencing; #634 owns technical simplification/rearchitecture sequencing; #1139 owns the bounded agent/work-control authority migration. Historical #458 preserves product-strategy rationale but no longer authorizes current work or defines portfolio posture. Live focused issues, pull requests, checks, and merge state own active execution.
 
-Root `contract-dependencies.json` is intentionally narrower than those authorities. It is canonical only for the mechanical existence and mode scope of durable dependencies between focused issue contracts. The focused issue owns the human explanation; ROADMAP owns product sequencing; `backend/config/capabilities.json` owns runtime capability prerequisites; live GitHub owns current execution. Offline repository validation checks graph structure and invariants without calling GitHub. Focused-issue existence is verified when an edge is introduced and may be revalidated by later read-only live tooling; it is not copied into a second contract catalog.
+Root `contract-dependencies.json` is intentionally narrower than those authorities. It is canonical only for the mechanical existence and mode scope of durable dependencies between focused issue contracts. The focused issue owns the human explanation; ROADMAP owns product sequencing; `services/backend/config/capabilities.json` owns runtime capability prerequisites; live GitHub owns current execution. Offline repository validation checks graph structure and invariants without calling GitHub. Focused-issue existence is verified when an edge is introduced and may be revalidated by later read-only live tooling; it is not copied into a second contract catalog.
 
 ## Minimal read paths
 
@@ -45,7 +45,7 @@ Root `contract-dependencies.json` is intentionally narrower than those authoriti
 3. [`ARCHITECTURE.md`](ARCHITECTURE.md) for current boundaries;
 4. the focused issue plus relevant ADR/code;
 5. root [`contract-dependencies.json`](../contract-dependencies.json) when work-mode eligibility may depend on another focused contract;
-6. `backend/config/capabilities.json` when analysis/product exposure changes.
+6. `services/backend/config/capabilities.json` when analysis/product exposure changes.
 
 For music-capability integration, [`analysis/capability-architecture.md`](analysis/capability-architecture.md) is the short derived field guide for choosing the execution/persistence/result seam; it does not replace the focused issue, roadmap, capability registry, or shipped architecture.
 

@@ -11,7 +11,7 @@ Read [`README.md`](README.md) for the documentation authority map.
 3. `docs/ARCHITECTURE.md` — current shipped runtime boundaries;
 4. relevant GitHub issue and ADR;
 5. relevant code/tests;
-6. `backend/config/capabilities.json` for analysis maturity/exposure changes.
+6. `services/backend/config/capabilities.json` for analysis maturity/exposure changes.
 
 Add `MASTER_SPEC.md` for product or target-architecture direction, research/evaluation docs for music-engine work, and `OPS.md` for deployment/production operations.
 

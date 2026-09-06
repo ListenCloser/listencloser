@@ -9,7 +9,7 @@ The workspace can feel slow when switching among Waveform, Piano Roll, Score, an
 
 That is not the current bottleneck. A work is loaded into the browser workspace once; representation tab changes only change `activeRepresentation`. Before this decision, `RepresentationStack` rendered one component type at a time, so changing tabs destroyed the previous representation and rebuilt the next one. This is especially expensive for Score because OpenSheetMusicDisplay imports, loads MusicXML, lays out the score, and renders a full SVG when `SheetMusic` mounts.
 
-The application also has a separate server-state concern: `app/page.tsx` manually fetches and refreshes projects, works, work bundles, entities, insights, and job state. Those reads may benefit from an explicit browser query cache, but they do not currently justify another network service.
+The application also has a separate server-state concern: `apps/web/src/app/page.tsx` manually fetches and refreshes projects, works, work bundles, entities, insights, and job state. Those reads may benefit from an explicit browser query cache, but they do not currently justify another network service.
 
 Redis cache-aside is designed for repeated shared reads where many stateless application instances would otherwise hit the primary database. The current deployment has one API/worker host and relatively low traffic, while most workspace data is user-specific and work-bundle responses contain expiring signed URLs.
 
@@ -32,7 +32,7 @@ References:
 ## Evidence
 
 Current repository behavior:
-- `app/page.tsx` loads a work bundle and hydrates representations into the workspace store; tab switches do not invoke `loadWork`.
+- `apps/web/src/app/page.tsx` loads a work bundle and hydrates representations into the workspace store; tab switches do not invoke `loadWork`.
 - `RepresentationStack` previously selected exactly one `ViewComponent`, so every tab switch unmounted the previous representation.
 - `SheetMusic` constructs OpenSheetMusicDisplay and renders MusicXML in a mount effect, making repeated Score visits a real client-side rebuild cost.
 - durable jobs are already persisted in Postgres and observed through the API; Redis is not required for durability.

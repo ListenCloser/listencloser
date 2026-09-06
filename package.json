@@ -1,8 +1,9 @@
 {
-  "name": "listencloser",
+  "name": "listencloser-monorepo",
   "version": "2.0.0",
   "private": true,
-  "description": "Listen Closer — move through recordings, musical representations, and evidence-backed analysis.",
+  "description": "Listen Closer monorepo: web workspace, Python services, and shared infrastructure.",
+  "packageManager": "npm@10.9.9",
   "engines": {
     "node": "22.x"
   },
@@ -18,15 +19,21 @@
       "onFail": "error"
     }
   },
+  "workspaces": [
+    "apps/web"
+  ],
   "scripts": {
-    "dev": "next dev --webpack",
-    "build": "next build --webpack",
-    "start": "next start",
-    "lint": "eslint . --max-warnings 0",
-    "lint:fix": "eslint . --fix --max-warnings 0",
-    "typecheck": "tsc --noEmit",
-    "commit": "aicommits",
-    "ci": "npm run build && npm run lint",
+    "dev": "npm run dev --workspace @listencloser/web",
+    "build": "npm run build --workspace @listencloser/web",
+    "start": "npm run start --workspace @listencloser/web",
+    "lint": "npm run lint --workspace @listencloser/web",
+    "lint:fix": "npm run lint:fix --workspace @listencloser/web",
+    "typecheck": "npm run typecheck --workspace @listencloser/web",
+    "test": "npm run test --workspace @listencloser/web",
+    "test:watch": "npm run test:watch --workspace @listencloser/web",
+    "api:schema": "npm run api:schema --workspace @listencloser/web",
+    "api:generate": "npm run api:generate --workspace @listencloser/web",
+    "api:check": "npm run api:check --workspace @listencloser/web",
     "doctor": "bash scripts/dev-doctor.sh",
     "bootstrap": "bash scripts/bootstrap.sh",
     "check": "bash scripts/check.sh",
@@ -39,56 +46,6 @@
     "check:e2e": "bash scripts/check.sh e2e",
     "check:realstack": "bash scripts/check-real-stack.sh",
     "challenge": "bash scripts/challenge.sh",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "db:types": "supabase gen types typescript --linked > lib/database.types.ts",
-    "api:schema": "uv run --project backend python backend/export_openapi.py",
-    "api:generate": "npm run api:schema && openapi-typescript openapi/openapi.json -o lib/api-types.ts",
-    "api:check": "npm run api:schema && git ls-files --error-unmatch openapi/openapi.json >/dev/null && git diff --exit-code -- openapi/openapi.json && openapi-typescript openapi/openapi.json -o lib/api-types.ts --check",
     "precommit": "pre-commit run --all-files"
-  },
-  "dependencies": {
-    "@headlessui/react": "^2.2.10",
-    "@radix-ui/react-tabs": "^1.1.21",
-    "@radix-ui/react-tooltip": "^1.2.16",
-    "@sentry/nextjs": "^10.66.0",
-    "@supabase/supabase-js": "^2.45.0",
-    "@tanstack/react-query": "5.101.4",
-    "next": "16.3.3",
-    "openapi-fetch": "^0.17.0",
-    "opensheetmusicdisplay": "^2.1.0",
-    "react": "19.0.0",
-    "react-dom": "19.0.0"
-  },
-  "devDependencies": {
-    "@argos-ci/playwright": "^7.3.6",
-    "@eslint/js": "^9.39.5",
-    "@next/eslint-plugin-next": "16.3.3",
-    "@playwright/test": "^1.61.1",
-    "@tailwindcss/postcss": "^4.3.3",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^22.10.7",
-    "@types/react": "^19.0.7",
-    "@types/react-dom": "^19.0.3",
-    "@vitejs/plugin-react": "^6.0.3",
-    "aicommits": "^3.4.0",
-    "eslint": "^9.39.5",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.7.0",
-    "jsdom": "^29.1.1",
-    "msw": "^2.15.0",
-    "openapi-typescript": "^7.13.0",
-    "postcss": "^8.5.19",
-    "tailwindcss": "^4.3.3",
-    "typescript": "^5.7.3",
-    "vitest": "^4.1.10"
-  },
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
   }
 }

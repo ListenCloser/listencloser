@@ -1,5 +1,5 @@
 -- Library, MIDI, transcription, enhanced, and analysis storage buckets.
--- These are referenced by lib/music.ts / lib/storage.ts but were missing
+-- These are referenced by apps/web/src/lib/music.ts / apps/web/src/lib/storage.ts but were missing
 -- their bucket rows + RLS policies, causing "new row violates row-level
 -- security policy" on upload.
 

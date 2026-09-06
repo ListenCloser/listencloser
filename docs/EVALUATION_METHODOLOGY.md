@@ -167,7 +167,7 @@ Avoid:
 
 ```mermaid
 flowchart LR
-    Manifest["Candidate / corpus manifests"] --> Harness["backend/evaluation"]
+    Manifest["Candidate / corpus manifests"] --> Harness["services/backend/evaluation"]
     Dataset["Datasets / annotations"] --> Harness
     Production["Production adapters / profiles"] --> Harness
     Harness --> Metrics["Canonical metric libraries"]

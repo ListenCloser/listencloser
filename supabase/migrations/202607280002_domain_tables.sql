@@ -1,6 +1,6 @@
 -- Migration: Domain model tables
 -- Phase 2 — Normalized project/work/artifact/version/job persistence
--- Matches backend/domain/models.py contracts
+-- Matches services/backend/domain/models.py contracts
 
 begin;
 

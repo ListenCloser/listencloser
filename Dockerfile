@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     ffmpeg \
     fluidsynth \
+    fluid-soundfont-gm \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
@@ -36,7 +37,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 RUN npm install -g \
     "opencode-ai@${OPENCODE_VERSION}" \
     "supabase@${SUPABASE_CLI_VERSION}"
-RUN pip3 install --no-cache-dir uv==0.12.6
+RUN pip3 install --no-cache-dir uv==0.12.9
 
 RUN npx playwright install --with-deps chromium
 

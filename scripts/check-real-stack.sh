@@ -112,8 +112,8 @@ supabase_version="$(supabase --version 2>/dev/null | semver_from || true)"
 if supabase status >/dev/null 2>&1; then
   die "a local Supabase stack is already running; stop it normally before this isolated check"
 fi
-[ -f tests/fixtures/real-piano.m4a ] || die "tests/fixtures/real-piano.m4a is required"
-[ -f playwright.realstack.config.ts ] || die "playwright.realstack.config.ts is required"
+[ -f apps/web/tests/fixtures/real-piano.m4a ] || die "apps/web/tests/fixtures/real-piano.m4a is required"
+[ -f apps/web/playwright.realstack.config.ts ] || die "apps/web/playwright.realstack.config.ts is required"
 
 rm -rf test-results/real-stack-diagnostics
 rm -f performance-results/understand-stage-timing.jsonl
@@ -192,7 +192,7 @@ echo "── Production harmony routing ──"
 HARMONY_ENGINE="$(python3 - <<'PY'
 import re
 from pathlib import Path
-compose = Path("backend/docker-compose.yml").read_text()
+compose = Path("services/backend/docker-compose.yml").read_text()
 values = re.findall(r"^\s+HARMONY_ENGINE:\s*([A-Za-z0-9_.-]+)\s*$", compose, flags=re.MULTILINE)
 if len(values) != 2 or len(set(values)) != 1:
     raise SystemExit(f"production Compose must declare one shared API/worker HARMONY_ENGINE, got {values}")
@@ -201,7 +201,7 @@ PY
 )"
 
 echo "── Production backend image ──"
-docker build --tag "$BACKEND_IMAGE" backend
+docker build --tag "$BACKEND_IMAGE" services/backend
 
 echo "── Production-image API + worker ──"
 docker run -d --rm --name "$API_CONTAINER" --network "$SUPABASE_NETWORK" \
@@ -258,13 +258,13 @@ if record.get("configured") != expected:
     raise SystemExit(f"worker HARMONY_ENGINE mismatch: expected {expected!r}, got {record.get('configured')!r}")
 if not record.get("selected_engine") or not record.get("selected_class"):
     raise SystemExit(f"worker harmony registry returned incomplete provenance: {record}")
-record["source"] = "backend/docker-compose.yml"
+record["source"] = "services/backend/docker-compose.yml"
 path = Path(sys.argv[3]); path.write_text(json.dumps(record, sort_keys=True) + "\n")
 print(path.read_text(), end="")
 PY
 
 echo "── Real-audio browser golden path ──"
-export REAL_AUDIO_FILE="$ROOT/tests/fixtures/real-piano.m4a"
+export REAL_AUDIO_FILE="$ROOT/apps/web/tests/fixtures/real-piano.m4a"
 export SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_JWT_SECRET
 export BACKEND_URL="http://127.0.0.1:8000"
 python3 - <<'PY' > "$OBSERVER_LOG" 2>&1 &
@@ -297,7 +297,7 @@ while time.monotonic() < deadline:
 raise SystemExit(f"MuseScore score artifacts/provenance were never observed: {last_error}")
 PY
 OBSERVER_PID=$!
-npx playwright test --config=playwright.realstack.config.ts
+npm --workspace @listencloser/web exec -- playwright test --config=playwright.realstack.config.ts
 wait "$OBSERVER_PID"
 OBSERVER_PID=""
 cat "$OBSERVER_LOG"

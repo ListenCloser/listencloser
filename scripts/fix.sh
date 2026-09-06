@@ -37,8 +37,8 @@ fix_python() {
   fi
 
   echo "── Python autofix ──"
-  uv run --project backend --locked ruff check backend/ --fix
-  uv run --project backend --locked ruff format backend/
+  uv run --project services/backend --locked ruff check services/backend/ --fix
+  uv run --project services/backend --locked ruff format services/backend/
 }
 
 fix_frontend() {

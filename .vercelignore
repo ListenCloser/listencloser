@@ -1,5 +1,5 @@
 soundfonts/
-backend/
-tests/
+services/backend/
+apps/web/tests/
 .vercel/
 .env.local

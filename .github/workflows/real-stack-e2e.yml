@@ -26,8 +26,8 @@ jobs:
       - name: Restore Next.js build cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .next/cache
-          key: ${{ runner.os }}-nextjs-realstack-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**/*', 'components/**/*', 'lib/**/*', 'next.config.mjs', 'package.json', 'tsconfig.json') }}
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-nextjs-realstack-${{ hashFiles('package-lock.json') }}-${{ hashFiles('apps/web/src/app/**/*', 'apps/web/src/components/**/*', 'apps/web/src/lib/**/*', 'apps/web/next.config.mjs', 'apps/web/package.json', 'apps/web/tsconfig.json') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-realstack-${{ hashFiles('package-lock.json') }}-
       - name: Run canonical real-stack verification

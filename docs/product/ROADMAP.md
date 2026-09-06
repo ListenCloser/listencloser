@@ -4,7 +4,7 @@ This document is the canonical authority for **current product portfolio state a
 
 > What product work is authorized or worth considering next, and why?
 
-[`PRODUCT.md`](PRODUCT.md) owns durable product identity, JTBD, strategic arena, mental model, and product principles. Focused GitHub issues own bounded discovery/evaluation/delivery scope. Live issues and pull requests own execution state. [`backend/config/capabilities.json`](../../backend/config/capabilities.json) owns runtime analysis maturity/exposure, and the evaluation docs own evaluation method and accepted technical results.
+[`PRODUCT.md`](PRODUCT.md) owns durable product identity, JTBD, strategic arena, mental model, and product principles. Focused GitHub issues own bounded discovery/evaluation/delivery scope. Live issues and pull requests own execution state. [`backend/config/capabilities.json`](../../services/backend/config/capabilities.json) owns runtime analysis maturity/exposure, and the evaluation docs own evaluation method and accepted technical results.
 
 Roadmap posture is deliberately small:
 

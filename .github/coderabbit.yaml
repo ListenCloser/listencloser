@@ -8,22 +8,22 @@ reviews:
   review_status: true
   collapse_walkthrough: false
   path_instructions:
-    - path: "components/**/*.tsx"
+    - path: "apps/web/src/components/**/*.tsx"
       instructions: |
         Check for proper use of design tokens (CSS variables from globals.css).
         No hardcoded colors, font sizes, or spacing.
         Components must use "use client" only when needed.
-    - path: "lib/**/*.ts"
+    - path: "apps/web/src/lib/**/*.ts"
       instructions: |
         TypeScript types must be explicit. Avoid `any`.
         Prefer server actions over API routes when possible.
-    - path: "backend/**/*.py"
+    - path: "services/backend/**/*.py"
       instructions: |
         FastAPI best practices. No dead imports. Type hints required.
         Check for missing auth checks, SQL injection, insecure crypto.
         Rate limits should be applied to all ML endpoints.
         File upload routes must validate size and content-type.
-    - path: "tests/**/*.spec.ts"
+    - path: "apps/web/tests/**/*.spec.ts"
       instructions: |
         Playwright tests must be deterministic. Mock external APIs.
         No network calls to real backends.

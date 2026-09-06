@@ -30,7 +30,7 @@ jobs:
         with:
           version: '0.12.9'
           enable-cache: true
-          cache-dependency-glob: 'backend/uv.lock'
+          cache-dependency-glob: 'services/backend/uv.lock'
       - name: Install system dependencies for backend integration tests
         run: |
           sudo apt-get update

@@ -9,7 +9,7 @@ on:
       - "scripts/challenge-accessibility.cjs"
       - "scripts/challenge-triage.mjs"
       - "scripts/challenge-triage.test.mjs"
-      - "stryker.config.mjs"
+      - "apps/web/stryker.config.mjs"
   workflow_dispatch:
     inputs:
       probe:
@@ -116,7 +116,7 @@ jobs:
           {
             echo "### TypeScript mutation audit"
             echo "Outcome: **${{ steps.challenge.outcome }}**"
-            echo "Target: \`lib/evidence-projections.ts\`. Surviving mutants are review evidence, not an automatic merge failure."
+            echo "Target: \`apps/web/src/lib/evidence-projections.ts\`. Surviving mutants are review evidence, not an automatic merge failure."
             if [ -f challenge-results/findings.md ]; then
               echo ""
               cat challenge-results/findings.md

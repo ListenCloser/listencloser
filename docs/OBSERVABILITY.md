@@ -6,7 +6,7 @@ This document is the maintained contract for turning Listen Closer's shipped tra
 
 ## Shipped signal model
 
-The API and worker share the OpenTelemetry bootstrap in `backend/observability.py`. When `OTEL_EXPORTER_OTLP_ENDPOINT` is absent, telemetry stays disabled so local development and ordinary CI do not require a remote observability service.
+The API and worker share the OpenTelemetry bootstrap in `services/backend/observability.py`. When `OTEL_EXPORTER_OTLP_ENDPOINT` is absent, telemetry stays disabled so local development and ordinary CI do not require a remote observability service.
 
 Structured JSON logs always include service and release identity. When a valid span is active, the formatter also includes `trace_id` and `span_id`.
 

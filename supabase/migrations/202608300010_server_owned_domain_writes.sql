@@ -1,4 +1,4 @@
--- Make backend/worker-produced domain state server-write-only.
+-- Make services/backend/worker-produced domain state server-write-only.
 --
 -- The current product routes domain mutations through FastAPI / the worker using
 -- the service-role client. Browser roles only need owner-scoped reads for these

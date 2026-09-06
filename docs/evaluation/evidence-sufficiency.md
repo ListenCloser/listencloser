@@ -10,7 +10,7 @@ Evidence quality is meaningful only relative to a downstream claim. A global tem
 
 The checked-in source of truth is:
 
-`backend/evaluation/analysis_v3/claim_sufficiency.json`
+`services/backend/evaluation/analysis_v3/claim_sufficiency.json`
 
 `claim_sufficiency.py` validates that contract against the capability maturity registry and fails closed when a readiness label overstates the maturity of its required evidence.
 
