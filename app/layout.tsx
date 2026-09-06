@@ -1,16 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import "./product-polish-v4.css";
 import "./visual-language.css";
-import "./representation-visuals.css";
-import "./breakdown.css";
-import "./landing-product-story.css";
-// Canonical UI tokens load after historical layers so their variables resolve
-// consistently while #523 retires those styles. The remaining narrow bridge
-// follows the token contract; structural phone/touch invariants load last.
 import "./tokens.css";
-import "./interface-foundation.css";
+import "./representation-visuals.css";
+import "./inspector.css";
+import "./breakdown.css";
 import "./mobile-workspace.css";
+import "./landing-product-story.css";
 import { Geist } from "next/font/google";
 import MSWInit from "@/components/MSWInit";
 import AuthProvider from "@/components/AuthProvider";
