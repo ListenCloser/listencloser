@@ -105,8 +105,7 @@ class ParangonarAlignmentEngine:
         if completed.returncode != 0:
             stderr_tail = (completed.stderr or "")[-1500:]
             raise RuntimeError(
-                "Parangonar isolated runtime failed"
-                + (f": {stderr_tail}" if stderr_tail else "")
+                "Parangonar isolated runtime failed" + (f": {stderr_tail}" if stderr_tail else "")
             )
         payload = _parse_runner_output(completed.stdout)
         _validate_runtime_identity(payload)
