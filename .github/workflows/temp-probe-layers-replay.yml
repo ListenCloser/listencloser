@@ -1,0 +1,34 @@
+name: Temporary probe Layers replay
+
+on:
+  push:
+    branches:
+      - reconstruct/1176-layers-source
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Probe bounded Layers replay on current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B replay origin/main
+          for commit in $(git rev-list --reverse ebc30d055934d20b5925012c47fa9a71968371c0..b67f74b98718f2147edbf8f39e34462da6116ed6); do
+            echo "=== cherry-pick $commit ==="
+            if ! git cherry-pick "$commit"; then
+              echo "CONFLICT_COMMIT=$commit"
+              git diff --name-only --diff-filter=U
+              git status --short
+              exit 1
+            fi
+          done
+          echo "REPLAY_OK"
