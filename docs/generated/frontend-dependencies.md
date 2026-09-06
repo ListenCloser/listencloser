@@ -157,14 +157,14 @@ components_workspace_-->lib_evidence_projections_ts
 components_workspace_-->lib_pulse_grid_ts
 components_workspace_-->lib_representations_ts
 components_workspace_-->lib_notes_ts
+components_workspace_-->lib_measure_ts
+components_workspace_-->lib_score_measure_geometry_ts
+components_workspace_-->lib_score_note_playback_ts
 components_workspace_-->lib_canvas_typography_ts
 components_workspace_-->lib_color_ts
 components_workspace_-->lib_spectrogram_ts
 components_workspace_-->lib_spectrogram_data_ts
 components_workspace_-->lib_audio_buffer_cache_ts
-components_workspace_-->lib_measure_ts
-components_workspace_-->lib_score_measure_geometry_ts
-components_workspace_-->lib_score_note_playback_ts
 components_workspace_-->lib_melody_playback_client_ts
 components_workspace_-->lib_melody_reduction_ts
 components_workspace_-->lib_pitch_contour_client_ts
