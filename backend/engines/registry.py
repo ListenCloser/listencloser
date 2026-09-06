@@ -13,8 +13,9 @@ analysis, notation, and test paths and must not itself require Torch/TensorFlow.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Literal, TypeAlias
+from typing import Literal, TypeAlias
 
 from engines.base import (
     BeatTrackingEngine,
