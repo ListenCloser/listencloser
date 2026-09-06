@@ -38,20 +38,23 @@ def test_symbolic_detail_keeps_exact_source_and_method_qualification() -> None:
     assert report.source_version_id == source_version_id
     assert report.source_artifact_kind == "midi_performance"
     assert report.experimental is True
-    assert report.method.id == "partitura_note_array_v1"
-    assert report.method.parameters["voice_source"] == "partitura_load_score_midi_inference"
+    assert report.method.id == "partitura_performance_midi_v1"
+    assert report.method.parameters["stream_source"] == (
+        "partitura_load_performance_midi_track_channel"
+    )
     assert report.register.low_midi == 45
     assert report.register.high_midi == 64
     assert report.register.low_name == "A2"
     assert report.register.high_name == "E4"
     assert report.register.span_semitones == 19
     assert report.contour.basis == "onset_pitch_centroid"
-    assert report.contour.onset_count >= 3
+    assert report.contour.onset_count == 3
     assert report.interval_motion.interval_count > 0
     assert report.density.note_count == 6
-    assert report.density.duration_quarters > 0
-    assert report.texture.peak_simultaneous_notes >= 1
-    assert report.voice_motion.status in {"supported", "unavailable"}
+    assert report.density.duration_quarters == 3.0
+    assert report.texture.midi_stream_count == 1
+    assert report.texture.peak_simultaneous_notes == 2
+    assert report.voice_motion.status == "unavailable"
     assert "not canonical melody" in report.interpretation
 
 
