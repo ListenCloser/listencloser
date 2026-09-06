@@ -31,11 +31,14 @@ export default function AddAnalysis({
     options.length > 1 && options.every((option) => option.maturity === options[0]?.maturity)
       ? options[0]?.maturity
       : null;
+  const isLegacyProductionSingleton = options.length === 1 && options[0]?.id === "production-spatial";
+  const triggerLabel = isLegacyProductionSingleton ? "+ Production / Space" : "+ Add analysis";
+  const regionLabel = isLegacyProductionSingleton ? "Production / Space analysis" : "Add analysis";
 
   return (
     <section
       className={`${styles.discovery}${open ? ` ${styles.open}` : ""}`}
-      aria-label="Add analysis"
+      aria-label={regionLabel}
     >
       {!open ? (
         <button
@@ -44,7 +47,7 @@ export default function AddAnalysis({
           onClick={() => onOpenChange(true)}
           aria-expanded="false"
         >
-          + Add analysis
+          {triggerLabel}
         </button>
       ) : (
         <div className={styles.chooser}>
