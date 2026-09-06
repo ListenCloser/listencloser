@@ -60,6 +60,7 @@ def get_transcription_engine(
         return TranskunEngine(onset_threshold=onset_threshold, frame_threshold=frame_threshold)
     if name == "muscriptor":
         from engines.transcription.muscriptor import MuScriptorEngine
+
         return MuScriptorEngine()
     raise ValueError(f"Unknown transcription engine: {name}")
 
@@ -85,6 +86,7 @@ def get_notation_engine(name: str | None = None) -> NotationEngine:
         return MuseScoreNotationEngine()
     if name == "pm2s":
         from engines.notation.pm2s_engine import PM2SNotationEngine
+
         return PM2SNotationEngine()
     raise ValueError(f"Unknown notation engine: {name}")
 
@@ -103,6 +105,7 @@ def get_harmony_engine(name: str | None = None) -> HarmonyEngine:
         return LvChordiaHarmonyEngine()
     if name == "chordmini":
         from engines.harmony.chordmini_engine import ChordMiniHarmonyEngine
+
         return ChordMiniHarmonyEngine()
     raise ValueError(f"Unknown harmony engine: {name}")
 
@@ -117,9 +120,7 @@ def get_melody_engine(
     rollback/evaluation interpretation; no engine silently substitutes another.
     """
     if name is None:
-        if profile == "pop":
-            name = "midibert"
-        elif profile == "classical":
+        if profile in ("pop", "classical"):
             name = "midibert"
         elif profile in ("auto", None):
             name = EngineSettings().melody
@@ -128,13 +129,15 @@ def get_melody_engine(
 
     if name == "midibert":
         from engines.melody.midibert_engine import MidiBERTMelodyEngine
+
         return MidiBERTMelodyEngine()
     if name == "lstom":
         try:
             from engines.melody.lstom_engine import LStoMMelodyEngine
         except ImportError as exc:
             raise RuntimeError(
-                "LStoM's Torch runtime is not installed. Install the backend worker dependency group."
+                "LStoM's Torch runtime is not installed. Install the backend "
+                "worker dependency group."
             ) from exc
         return LStoMMelodyEngine()
     if name == "skyline":
@@ -147,5 +150,6 @@ def get_theory_engine(name: str | None = None):
     name = name or EngineSettings().theory
     if name == "theory_interpreter":
         from engines.theory.theory_engine import TheoryEngine
+
         return TheoryEngine()
     raise ValueError(f"Unknown theory engine: {name}")
